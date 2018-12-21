@@ -1,10 +1,10 @@
-/*---------------------------------------------------------------------------*\
+/* -------------------------------------------------------------------------
  *
  *  bitpit
  *
  *  Copyright (C) 2015-2017 OPTIMAD engineering Srl
  *
- *  -------------------------------------------------------------------------
+ *  ------------------------------------------------------------------------
  *  License
  *  This file is part of bitpit.
  *
@@ -20,24 +20,24 @@
  *  You should have received a copy of the GNU Lesser General Public License
  *  along with bitpit. If not, see <http://www.gnu.org/licenses/>.
  *
-\*---------------------------------------------------------------------------*/
+ * -------------------------------------------------------------------------*/
 
 #ifndef __BITPIT_PABLO_MAP_HPP__
 #define __BITPIT_PABLO_MAP_HPP__
 
-// =================================================================================== //
-// INCLUDES                                                                            //
-// =================================================================================== //
+// ======================================================================== //
+// INCLUDES
+// ======================================================================== //
 #include <vector>
 #include <iostream>
 #include <array>
 
 namespace bitpit {
 
-// =================================================================================== //
+// ======================================================================== //
 // TYPEDEFS
-// =================================================================================== //
-typedef std::vector<double>			dvector;
+// ======================================================================== //
+typedef std::vector<double>		dvector;
 typedef std::vector<dvector>		dvector2D;
 typedef std::vector<uint32_t>		u32vector;
 typedef std::vector<u32vector>		u32vector2D;
@@ -49,9 +49,9 @@ typedef std::array<uint32_t, 3>		u32array3;
 typedef std::vector<u32array3>		u32arr3vector;
 typedef std::vector<darray3>		darr3vector;
 
-// =================================================================================== //
-// CLASS DEFINITION                                                                    //
-// =================================================================================== //
+// ======================================================================== //
+// CLASS DEFINITION
+// ======================================================================== //
 /*!
  *	\ingroup		PABLO
  *	\date			17/dec/2015
@@ -68,63 +68,63 @@ typedef std::vector<darray3>		darr3vector;
  *	class of ParaTree (see PabloUniform for a basic example).
  */
 class Map{
+  
+  // ====================================================================== //
+  // FRIENDSHIPS
+  // ====================================================================== //
 
-	// =================================================================================== //
-	// FRIENDSHIPS
-	// =================================================================================== //
+  friend class ParaTree;
 
-	friend class ParaTree;
-
-	// =================================================================================== //
-	// MEMBERS
-	// =================================================================================== //
+  // ====================================================================== //
+  // MEMBERS
+  // ====================================================================== //
 private:
-	darray3 	m_origin;				/**<Coordinate X,Y,Z of the origin of the octree in the physical domain*/
-	double 		m_L;					/**<Side length of octree in the physical domain*/
-	uint8_t		m_dim;					/**<Space Dimension*/
-	uint8_t		m_nnodes;				/**<Number of nodes*/
-	uint8_t		m_nnodesPerFace;		/**<Number of nodes for each face*/
-	uint32_t	m_maxLength;			/**< Length of the logical domain */
-	double		m_maxLength_1;          /**< 1/Length of the logical domain */
-	uint64_t	m_maxArea;              /**< Area of the logical domain */
-	double		m_maxArea_1;            /**< 1/Area of the logical domain */
-	uint64_t	m_maxVolume;            /**< Volume of the logical domain */
-	double		m_maxVolume_1;          /**< 1/Volume of the logical domain */
+  darray3 	m_origin;   /**<Coordinate X,Y,Z of the origin of the octree in the physical domain*/
+  double 	m_L;	    /**<Side length of octree in the physical domain*/
+  uint8_t	m_dim;		/**<Space Dimension*/
+  uint8_t	m_nnodes;	/**<Number of nodes*/
+  uint8_t	m_nnodesPerFace;/**<Number of nodes for each face*/
+  uint32_t	m_maxLength;	/**< Length of the logical domain */
+  double	m_maxLength_1;  /**< 1/Length of the logical domain */
+  uint64_t	m_maxArea;      /**< Area of the logical domain */
+  double	m_maxArea_1;    /**< 1/Area of the logical domain */
+  uint64_t	m_maxVolume;    /**< Volume of the logical domain */
+  double	m_maxVolume_1;  /**< 1/Volume of the logical domain */
 
 
-	// =================================================================================== //
-	// CONSTRUCTORS AND OPERATORS
-	// =================================================================================== //
-	Map();
-	Map(uint8_t dim);
-//	Map(double & X, double & Y, double & Z, double & LL, uint8_t dim);
+  // ====================================================================== //
+  // CONSTRUCTORS AND OPERATORS
+  // ====================================================================== //
+  Map();
+  Map(uint8_t dim);
+  //	Map(double & X, double & Y, double & Z, double & LL, uint8_t dim);
 
-	// =================================================================================== //
-	// METHODS
-	// =================================================================================== //
+  // ====================================================================== //
+  // METHODS
+  // ====================================================================== //
 
-	void initialize();
-	void initialize(uint8_t dim);
+  void initialize();
+  void initialize(uint8_t dim);
 
-	darray3 mapCoordinates(u32array3 const & X) const;
-	double mapX(uint32_t const & X) const;
-	double mapY(uint32_t const & Y) const;
-	double mapZ(uint32_t const & Z) const;
-	u32array3 mapCoordinates(darray3 const & X) const;
-	uint32_t mapX(double const & X) const;
-	uint32_t mapY(double const & Y) const;
-	uint32_t mapZ(double const & Z) const;
-	double mapSize(uint32_t const & size) const;
-	double mapArea(uint64_t const & area) const;
-	double mapVolume(uint64_t const & volume) const;
-	void mapCenter(double* & center, darray3 & mapcenter) const;
-	void mapCenter(darray3 & center, darray3 & mapcenter) const;
-	void mapNodes(uint32_t (*nodes)[3], darr3vector & mapnodes) const;
-	void mapNodes(u32arr3vector nodes, darr3vector & mapnodes) const;
-	void mapNode(u32array3 & node, darray3 & mapnode) const;
-	void mapNodesIntersection(uint32_t (*nodes)[3], darr3vector & mapnodes) const;
-	void mapNodesIntersection(u32arr3vector nodes, darr3vector & mapnodes) const;
-	void mapNormals(i8array3 normal, darray3 & mapnormal) const;
+  darray3 mapCoordinates(u32array3 const & X) const;
+  double mapX(uint32_t const & X) const;
+  double mapY(uint32_t const & Y) const;
+  double mapZ(uint32_t const & Z) const;
+  u32array3 mapCoordinates(darray3 const & X) const;
+  uint32_t mapX(double const & X) const;
+  uint32_t mapY(double const & Y) const;
+  uint32_t mapZ(double const & Z) const;
+  double mapSize(uint32_t const & size) const;
+  double mapArea(uint64_t const & area) const;
+  double mapVolume(uint64_t const & volume) const;
+  void mapCenter(double* & center, darray3 & mapcenter) const;
+  void mapCenter(darray3 & center, darray3 & mapcenter) const;
+  void mapNodes(uint32_t (*nodes)[3], darr3vector & mapnodes) const;
+  void mapNodes(u32arr3vector nodes, darr3vector & mapnodes) const;
+  void mapNode(u32array3 & node, darray3 & mapnode) const;
+  void mapNodesIntersection(uint32_t (*nodes)[3], darr3vector & mapnodes) const;
+  void mapNodesIntersection(u32arr3vector nodes, darr3vector & mapnodes) const;
+  void mapNormals(i8array3 normal, darray3 & mapnormal) const;
 
 };
 
