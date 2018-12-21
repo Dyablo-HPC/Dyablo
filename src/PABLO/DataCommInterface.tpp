@@ -36,7 +36,8 @@ size_t DataCommInterface<Impl>::size(const uint32_t e) const {
 	return getImpl().size(e);
 };
 
-/*! Its user specification computes the same data size for every element in the grid.
+/*! Its user specification computes the same data size for every element
+ *  in the grid.
  * \return the size of the data for every element
  */
 template <class Impl>
@@ -67,8 +68,8 @@ void DataCommInterface<Impl>::gather(Buffer& buff, const uint32_t e) {
 	return getImpl().gather(buff,e);
 }
 
-/*! Its user specification reads the e element data from the communication buffer
- * and store them in the user data container.
+/*! Its user specification reads the e element data from the communication
+ *  buffer and store them in the user data container.
  *
  * The user has to use the buffer buff as an input binary stream.
  * A stream operator (>>) is provided to read any single element datum from
@@ -76,7 +77,8 @@ void DataCommInterface<Impl>::gather(Buffer& buff, const uint32_t e) {
  * ~~~~~~~~~~~~~~~~~~~{.c}
  * buff >> userdatum
  * ~~~~~~~~~~~~~~~~~~~
- * where userdatum can be any MPI compatible POD variable associated to the e element.
+ * where userdatum can be any MPI compatible POD variable associated to
+ * the e element.
  * In case of a vector of double, called userdata, to store data,
  * ~~~~~~~~~~~~~~~~~~~{.c}
  * buff >> userdata[e]
@@ -101,4 +103,4 @@ const Impl& DataCommInterface<Impl>::getImpl() const{
 	return static_cast<const Impl &>(*this);
 }
 
-}
+} // namespace bitpit

@@ -20,7 +20,7 @@
  *  You should have received a copy of the GNU Lesser General Public License
  *  along with bitpit. If not, see <http://www.gnu.org/licenses/>.
  *
-\*---------------------------------------------------------------------------*/
+ \*---------------------------------------------------------------------------*/
 
 // Communications Class for Ghosts Update
 
@@ -29,57 +29,62 @@
 
 namespace bitpit {
 
-  /*!
-    \ingroup		PABLO
-    \date			09/sep/2015
-    \authors		Edoardo Lombardi
-    \authors		Marco Cisternino
-    \copyright		Copyright 2014 Optimad engineering srl. All rights reserved.
+/*!
+  \ingroup		PABLO
+  \date			09/sep/2015
+  \authors		Edoardo Lombardi
+  \authors		Marco Cisternino
+  \copyright		Copyright 2014 Optimad engineering srl. All rights reserved.
     
-    \brief Base class for data communications
+  \brief Base class for data communications
     
-    This class is the base class used to implement the user interface to data communications.
+  This class is the base class used to implement the user interface to data
+  communications.
     
-    The Curiously Recurrent Template Pattern is exploited to achieve the interface.
-    By this way the interface is based on static polymorphism with no extra cost at runtime.
+  The Curiously Recurrent Template Pattern is exploited to achieve the 
+  interface. By this way the interface is based on static polymorphism with 
+  no extra cost at runtime.
     
-    The user has to implement his communication classes by deriving them from this class.
-    The mechanism implies that the derived class derives from a template
-    base class and that the template parameter is the derived class itself, as follow
-    @code
-    class Derived : public Base<Derived>{...}
-    @endcode
-    The user has to implement all the methods of the base class in his derived class.
-    These user's methods will really do the job.
+  The user has to implement his communication classes by deriving them from
+  this class. The mechanism implies that the derived class derives from a
+  template base class and that the template parameter is the derived class 
+  itself, as follow
+  @code
+  class Derived : public Base<Derived>{...}
+  @endcode
+  The user has to implement all the methods of the base class in his derived 
+  class.
+  These user's methods will really do the job.
     
-    Easily speaking, only the user knows his data and through the interface
-    specialization he states the size of element data, how to write/read them
-    in a communication buffer.
-    Any MPI compatible POD datum can be written and read in the communication buffer.
-  */
+  Easily speaking, only the user knows his data and through the interface
+  specialization he states the size of element data, how to write/read them
+  in a communication buffer.
+  Any MPI compatible POD datum can be written and read in the communication
+  buffer.
+*/
 
 template <class Impl>
 class DataCommInterface {
 public:
-	size_t size(const uint32_t e) const;
-	size_t fixedSize() const;
+  size_t size(const uint32_t e) const;
+  size_t fixedSize() const;
 
-	template<class Buffer>
-	void gather(Buffer & buff,const uint32_t e);
+  template<class Buffer>
+  void gather(Buffer & buff,const uint32_t e);
 
-	template<class Buffer>
-	void scatter(Buffer & buff,const uint32_t e);
+  template<class Buffer>
+  void scatter(Buffer & buff,const uint32_t e);
 
 protected:
-	DataCommInterface();
+  DataCommInterface();
 
 private:
-	//BartonHackman trick
-	Impl& getImpl();
-	const Impl& getImpl() const;
+  //BartonHackman trick
+  Impl& getImpl();
+  const Impl& getImpl() const;
 };
 
-}
+} // namespace bitpit
 
 #include "DataCommInterface.tpp"
 
