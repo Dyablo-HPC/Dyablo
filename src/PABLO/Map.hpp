@@ -53,21 +53,23 @@ typedef std::vector<darray3>		darr3vector;
 // CLASS DEFINITION
 // ======================================================================== //
 /*!
- *	\ingroup		PABLO
- *	\date			17/dec/2015
- *	\authors		Edoardo Lombardi
- *	\authors		Marco Cisternino
- *	\copyright		Copyright 2014 Optimad engineering srl. All rights reserved.
+ * \ingroup	PABLO
+ * \date	17/dec/2015
+ * \authors	Edoardo Lombardi
+ * \authors	Marco Cisternino
+ * \copyright	Copyright 2014 Optimad engineering srl. All rights reserved.
  *
- *	\brief Transformation Mapper
+ * \brief Transformation Mapper
  *
- *	Definition of the transformation from the logical domain to the physical reference domain.
- *	It contains a default implementation of a scaling and translation mapper
- *	of logical octree in the reference domain with origin in (0,0,0) and size 1.
- *	Map has to be implemented and customized by the user for different applications as a derived
- *	class of ParaTree (see PabloUniform for a basic example).
+ * Definition of the transformation from the logical domain to the physical
+ * reference domain.
+ * It contains a default implementation of a scaling and translation mapper
+ * of logical octree in the reference domain with origin in (0,0,0) and size 1.
+ * Map has to be implemented and customized by the user for different 
+ * applications as a derived class of ParaTree (see PabloUniform for a 
+ * basic example).
  */
-class Map{
+class Map {
   
   // ====================================================================== //
   // FRIENDSHIPS
@@ -97,7 +99,7 @@ private:
   // ====================================================================== //
   Map();
   Map(uint8_t dim);
-  //	Map(double & X, double & Y, double & Z, double & LL, uint8_t dim);
+  // Map(double & X, double & Y, double & Z, double & LL, uint8_t dim);
 
   // ====================================================================== //
   // METHODS
@@ -126,8 +128,8 @@ private:
   void mapNodesIntersection(u32arr3vector nodes, darr3vector & mapnodes) const;
   void mapNormals(i8array3 normal, darray3 & mapnormal) const;
 
-};
+}; // class Map
 
-}
+} // namespace bitpit
 
 #endif /* __BITPIT_PABLO_MAP_HPP__ */

@@ -36,7 +36,9 @@ inline size_t DataLBInterface<Impl>::size(const uint32_t e) const {
 	return getImpl().size(e);
 }
 
-/*! Its user specification computes the same data size for every element in the grid.
+/*! Its user specification computes the same data size for every element
+ *  in the grid.
+ *
  * \return The size of the data for every element
  */
 template<class Impl>
@@ -44,13 +46,15 @@ inline size_t DataLBInterface<Impl>::fixedSize() const {
 	return getImpl().fixedSize();
 }
 
-/*! Its user specification moves the data from the "from" element to the "to" element
+/*! Its user specification moves the data from the "from" element to the
+ *  "to" element
+ *
  * \param[in] from Element local index from.
  * \param[in] to Element local index to.
  */
 template<class Impl>
 inline void DataLBInterface<Impl>::move(const uint32_t from, const uint32_t to) {
-	return getImpl().move(from,to);
+       	return getImpl().move(from,to);
 }
 
 /*! Its user specification writes the e element data to be communicated
@@ -144,4 +148,4 @@ inline const Impl& DataLBInterface<Impl>::getImpl() const {
 	return static_cast<const Impl &>(*this);
 }
 
-}
+} // namespace bitpit
