@@ -36,11 +36,12 @@
 using namespace std;
 using namespace bitpit;
 
-// =================================================================================== //
+// ======================================================================== //
 /*!
   \example PABLO_example_00010.cpp
 
-  \brief Parallel 3D dynamic adaptive mesh refinement (AMR) with data using PABLO
+  \brief Parallel 3D dynamic adaptive mesh refinement (AMR) with data
+  using PABLO
 
   In this example an Adaptive Mesh Refinement (AMR) around a moving
   sphere is performed.
@@ -50,7 +51,7 @@ using namespace bitpit;
   <b>To see the result visit</b>: <a href="http://optimad.github.io/PABLO/">PABLO website</a> \n
 
 */
-// =================================================================================== //
+// ======================================================================== //
 
 /**
  * Run the example.
