@@ -62,25 +62,26 @@ typedef ptroctvector::iterator			octantIterator;
 // ======================================================================= //
 
 /*!
- *	\ingroup		PABLO
- *	\date			17/dec/2015
- *	\authors		Marco Cisternino
- *	\authors		Edoardo Lombardi
+ * \ingroup		PABLO
+ * \date			17/dec/2015
+ * \authors		Marco Cisternino
+ * \authors		Edoardo Lombardi
  *
- *	\brief Para Tree is the user interface class
+ * \brief Para Tree is the user interface class
  *
- *	The user should (read can...) work only with this class and its methods.
- *	The sizes are intended in reference physical domain with limits [0,1]. The transformation from the logical
- *	domain to the physical domain is defined by an internal mapping.
+ * The user should (read can...) work only with this class and its methods.
+ * The sizes are intended in reference physical domain with limits
+ * [0,1]. The transformation from the logical domain to the physical
+ * domain is defined by an internal mapping.
  *
- *	The partition of the octree is performed by following the Z-curve defined by the Morton
- *	index of the octants. By default it is a balanced partition over the number of octants for each
- *	process.
+ * The partition of the octree is performed by following the Z-curve
+ * defined by the Morton index of the octants. By default it is a
+ * balanced partition over the number of octants for each process.
  *
- *	Class ParaTree has a dimensional parameter int dim and it accepts only two
- *	 values: dim=2 and dim=3, for 2D and 3D respectively.
+ * Class ParaTree has a dimensional parameter int dim and it accepts only two
+ * values: dim=2 and dim=3, for 2D and 3D respectively.
  */
-class ParaTree{
+class ParaTree {
   
   // ===================================================================== //
   // MEMBERS
@@ -99,7 +100,7 @@ public:
     OP_ADAPT_UNMAPPED,
     OP_LOADBALANCE_FIRST,
     OP_LOADBALANCE
-  };
+  }; // enum Operation
 
   struct LoadBalanceRanges {
     enum ExchangeAction {
@@ -120,7 +121,7 @@ public:
     LoadBalanceRanges(bool serial, const ExchangeRanges &_sendRanges, const ExchangeRanges &_recvRanges);
 
     void clear();
-  };
+  }; // struct LoadBalanceRanges
 
 private:
   typedef std::unordered_map<int, std::array<uint64_t, 2>> PartitionIntersections;
@@ -132,56 +133,66 @@ private:
   };
 
   //undistributed members
-  std::vector<uint64_t>	m_partitionFirstDesc; 			/**<Global array containing position of the first possible octant in each processor*/
-  std::vector<uint64_t>	m_partitionLastDesc; 			/**<Global array containing position of the last possible octant in each processor*/
-  std::vector<uint64_t>	m_partitionRangeGlobalIdx;	 	/**<Global array containing global index of the last existing octant in each processor*/
-  std::vector<uint64_t>	m_partitionRangeGlobalIdx0;	 	/**<Global array containing global index of the last existing octant in each processor before the last loadBalance (after an adapt is set equal to the actual.)*/
-  uint64_t 				m_globalNumOctants;   			/**<Global number of octants in the parallel octree*/
-  int 					m_nproc;						/**<Number of processes of the job*/
-  uint8_t 				m_maxDepth;						/**<Global max existing level in the parallel octree*/
-  Global					m_global;						/**<Global variables*/
-  std::size_t 			m_nofGhostLayers;				/**<Global number of ghost layers from the process boundary expressing the depth of the ghost halo*/
+  std::vector<uint64_t>	m_partitionFirstDesc; /**<Global array containing position of the first possible octant in each processor*/
+  std::vector<uint64_t>	m_partitionLastDesc; /**<Global array containing position of the last possible octant in each processor*/
+  std::vector<uint64_t>	m_partitionRangeGlobalIdx; /**<Global array containing global index of the last existing octant in each processor*/
+  std::vector<uint64_t>	m_partitionRangeGlobalIdx0; /**<Global array containing global index of the last existing octant in each processor before the last loadBalance (after an adapt is set equal to the actual.)*/
+  uint64_t 		m_globalNumOctants;   	/**<Global number of octants in the parallel octree*/
+  int 			m_nproc; /**<Number of processes of the job*/
+  uint8_t 		m_maxDepth; /**<Global max existing level in the parallel octree*/
+  Global		m_global; /**<Global variables*/
+  std::size_t 		m_nofGhostLayers; /**<Global number of ghost
+					     layers from the process
+					     boundary expressing the
+					     depth of the ghost halo */
 
   //distributed members
-  int 					m_rank;							/**<Local m_rank of process*/
-  LocalTree 				m_octree;						/**<Local tree in each processor*/
-  std::map<int,u32vector> m_bordersPerProc;				/**<Local indices of border octants per process*/
-  ptroctvector 			m_internals;					/**<Local pointers to internal octants*/
-  ptroctvector 			m_pborders;						/**<Local pointers to border of process octants*/
+  int 			m_rank;   /**<Local m_rank of process*/
+  LocalTree 		m_octree; /**<Local tree in each processor*/
+  std::map<int,u32vector> m_bordersPerProc;	/**<Local indices of border octants per process*/
+  ptroctvector 		m_internals;	/**<Local pointers to internal octants*/
+  ptroctvector 		m_pborders;	/**<Local pointers to border of process octants*/
 
-  //distributed adpapting memebrs
-  u32vector 				m_mapIdx;						/**<Local mapper for adapting. Mapper from new octants to old octants.
+  //distributed adpapting members
+  u32vector 		m_mapIdx; /**<Local mapper for adapting. Mapper from new octants to old octants. 
 												   m_mapIdx[i] = j -> the i-th octant after adapt was in the j-th position before adapt;
 												   if the i-th octant is new after refinement the j-th old octant was the father of the new octant;
 												   if the i-th octant is new after coarsening the j-th old octant was the first child of the new octant.
 												*/
+  
   //elements sent during last loadbalance operation
-  LoadBalanceRanges         m_loadBalanceRanges;											  /**<Local mapper for sent elements. Each element refers to the receiver rank and collect the */
+  LoadBalanceRanges     m_loadBalanceRanges; /**<Local mapper for sent
+						elements. Each element
+						refers to the receiver
+						rank and collect the  */ 
 
   //auxiliary members
-  int 					m_errorFlag;					/**<MPI error flag*/
-  bool 					m_serial;						/**<True if the octree is the same on each processor, False if the octree is distributed*/
-  double					m_tol;							/**<Tolerance for geometric operations.*/
+  int 		m_errorFlag; /**<MPI error flag*/
+  bool 		m_serial; /**<True if the octree is the same on each processor, False if the octree is distributed*/
+  double	m_tol; /**<Tolerance for geometric operations.*/
 
   //map members
-  Map 					m_trans;						/**<Transformation map from m_logical to physical domain*/
-  uint8_t					m_dim;							/**<Space dimension of the octree object (2D/3D).*/
+  Map 		m_trans; /**<Transformation map from m_logical to physical domain*/
+  uint8_t	m_dim; /**<Space dimension of the octree object (2D/3D).*/
 
   //boundary conditions members
-  bvector 				m_periodic;						/**<Boolvector: i-th element is true if the i-th boundary face is a periodic interface.*/
+  bvector 	m_periodic; /**<Boolvector: i-th element is true if the i-th boundary face is a periodic interface.*/
 
   //info member
-  uint64_t				m_status;						/**<Label of actual m_status of octree (incremental after an adpat
+  uint64_t	m_status; /**<Label of actual m_status of octree (incremental after an adpat
 												   with at least one modifyed element).*/
-  Operation				m_lastOp;						/**<Last operation perforfmed by the octree (initialization, adapt (mapped or unmapped), loadbalance (first or not).*/
-
+  Operation	m_lastOp;	/**<Last operation perforfmed by the
+				   octree (initialization, adapt
+				   (mapped or unmapped), loadbalance
+				   (first or not). */
+  
   //log member
-  Logger* 				m_log;							/**<Log object pointer*/
+  Logger* 	m_log;	/**<Log object pointer*/
 
   //communicator
 #if BITPIT_ENABLE_MPI==1
   //TODO Duplicate communicator
-  MPI_Comm 				m_comm;							/**<MPI communicator*/
+  MPI_Comm 	m_comm; /**<MPI communicator*/
 #endif
 
   // ====================================================================== //
@@ -611,12 +622,15 @@ public:
     communicator.waitAllSends();
   };
 
-  /** Distribute Load-Balancing the octants (with user defined weights) of the whole tree and data provided by the user
+  /** Distribute Load-Balancing the octants (with user defined
+   * weights) of the whole tree and data provided by the user 
    * over the processes of the job following the Morton order.
    * Until loadBalance is not called for the first time the mesh is serial.
    * Even distribute data provided by the user between the processes.
-   * \param[in] userData User interface to distribute the data during loadBalance.
-   * \param[in] weight Pointer to a vector of weights of the local octants (weight=NULL is uniform distribution).
+   * \param[in] userData User interface to distribute the data during
+   *            loadBalance. 
+   * \param[in] weight Pointer to a vector of weights of the local
+   *            octants (weight=NULL is uniform distribution). 
    */
   template<class Impl>
   void
@@ -664,13 +678,20 @@ public:
 
   }
 
-  /** Distribute Load-Balanced the octants (with user defined weights) of the whole tree and data provided by the user
-   * over the processes of the job. Until loadBalance is not called for the first time the mesh is serial.
-   * The families of octants of a desired level are retained compact on the same process.
+  /** Distribute Load-Balanced the octants (with user defined weights)
+   * of the whole tree and data provided by the user 
+   * over the processes of the job. Until loadBalance is not called
+   * for the first time the mesh is serial. 
+   * The families of octants of a desired level are retained compact
+   * on the same process. 
    * Even distribute data provided by the user between the processes.
-   * \param[in] userData User interface to distribute the data during loadBalance.
-   * \param[in] level Number of level over the max depth reached in the tree at which families of octants are fixed compact on the same process (level=0 is classic LoadBalance).
-   * \param[in] weight Pointer to a vector of weights of the local octants (weight=NULL is uniform distribution).
+   * \param[in] userData User interface to distribute the data during
+   *            loadBalance. 
+   * \param[in] level Number of level over the max depth reached in
+   *            the tree at which families of octants are fixed compact on the
+   *            same process (level=0 is classic LoadBalance).
+   * \param[in] weight Pointer to a vector of weights of the local
+   *            octants (weight=NULL is uniform distribution). 
    */
   template<class Impl>
   void
@@ -1063,10 +1084,10 @@ public:
   };
 #endif
 
-  // =============================================================================== //
+  // ====================================================================== //
 
-};
+}; // class ParaTree
 
-}
+} // namespace bitpit
 
 #endif /* __BITPIT_PARA_TREE_HPP__ */
