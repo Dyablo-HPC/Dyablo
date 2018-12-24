@@ -46,14 +46,14 @@ using namespace std;
 // CONSTRUCTORS AND OPERATORS
 // ========================================================================= //
 
-/*! Defaut constructor.
+/** Defaut constructor.
  */
 LocalTree::LocalTree() {
   initialize();
   reset(false);
 };
 
-/*! Dimensional and default constructor.
+/** Dimensional and default constructor.
  * \param[in] dim Space dimension of octree.
  */
 LocalTree::LocalTree(uint8_t dim){
@@ -69,7 +69,7 @@ LocalTree::LocalTree(uint8_t dim){
 // BASIC GET/SET METHODS
 // ========================================================================= //
 
-/*! Get the Morton number of first descentant octant of the octree.
+/** Get the Morton number of first descentant octant of the octree.
  * \return Constant reference to the first descendant of the octree.
  */
 uint64_t
@@ -77,7 +77,7 @@ LocalTree::getFirstDescMorton() const{
   return m_firstDescMorton;
 };
 
-/*! Get the Morton number of last descentant octant of the octree.
+/** Get the Morton number of last descentant octant of the octree.
  * \return Constant reference to the last descendant of the octree.
  */
 uint64_t
@@ -85,7 +85,7 @@ LocalTree::getLastDescMorton() const{
   return m_lastDescMorton;
 };
 
-/*! Get the number of the ghosts for the local partition of the tree.
+/** Get the number of the ghosts for the local partition of the tree.
  * \return Number of ghosts.
  */
 uint32_t
@@ -93,7 +93,7 @@ LocalTree::getNumGhosts() const{
   return m_sizeGhosts;
 };
 
-/*! Get the number of the octants in the local tree.
+/** Get the number of the octants in the local tree.
  * \return Number of local octants.
  */
 uint32_t
@@ -101,7 +101,7 @@ LocalTree::getNumOctants() const{
   return m_sizeOctants;
 };
 
-/*! Get max depth reached in local tree
+/** Get max depth reached in local tree
  * \return Max depth in local partition of the octree.
  */
 uint8_t
@@ -185,7 +185,7 @@ LocalTree::getBalance(int32_t idx) const{
   return m_octants[idx].getBalance();
 };
 
-/*! Get the codimension for 2:1 balancing
+/** Get the codimension for 2:1 balancing
  * \return Maximum codimension of the entity through which the 2:1 balance is performed.
  */
 uint8_t
@@ -211,7 +211,7 @@ LocalTree::setBalance(int32_t idx, bool balance){
   m_octants[idx].setBalance(balance);
 };
 
-/*! Set the codimension for 2:1 balancing
+/** Set the codimension for 2:1 balancing
  * \param[in] b21codim codimension of the entity through which the 2:1 balance is performed.
  */
 void
@@ -219,7 +219,7 @@ LocalTree::setBalanceCodim(uint8_t b21codim){
   m_balanceCodim = b21codim;
 };
 
-/*! Set the Morton number of first descentant octant of the octree.
+/** Set the Morton number of first descentant octant of the octree.
  */
 void
 LocalTree::setFirstDescMorton(){
@@ -229,7 +229,7 @@ LocalTree::setFirstDescMorton(){
   }
 };
 
-/*! Set the Morton number of last descentant octant of the octree.
+/** Set the Morton number of last descentant octant of the octree.
  */
 void
 LocalTree::setLastDescMorton(){
@@ -245,7 +245,7 @@ LocalTree::setLastDescMorton(){
   }
 };
 
-/*! Set the periodic condition of the boundaries.
+/** Set the periodic condition of the boundaries.
  * \param[in] periodic Vector with the periodic conditions (true/false) of each boundary.
  */
 void
@@ -261,14 +261,14 @@ LocalTree::setPeriodic(bvector & periodic){
 // OTHER METHODS
 // ========================================================================= //
 
-/*! Initialize a dummy octree.
+/** Initialize a dummy octree.
  */
 void
 LocalTree::initialize() {
   initialize(0);
 }
 
-/*! Initialize the octree.
+/** Initialize the octree.
  * \param[in] maxlevel Maximum refinement level of the octree.
  * \param[in] dim Space dimension of octree.
  */
@@ -283,7 +283,7 @@ LocalTree::initialize(uint8_t dim) {
   }
 }
 
-/*! Reset the octree.
+/** Reset the octree.
  */
 void
 LocalTree::reset(bool createRoot){
@@ -319,7 +319,7 @@ LocalTree::reset(bool createRoot){
   m_sizeOctants = m_octants.size();
 };
 
-/*! Extract an octant of the octree.
+/** Extract an octant of the octree.
  * \param[in] idx Local index of the target octant.
  * \return Reference to the idx-th octant of the octree.
  */
@@ -328,7 +328,7 @@ LocalTree::extractOctant(uint32_t idx){
   return m_octants[idx];
 };
 
-/*! Extract an octant of the octree.
+/** Extract an octant of the octree.
  * \param[in] idx Local index of the target octant.
  * \return Constant reference to the idx-th octant of the octree.
  */
@@ -337,7 +337,7 @@ LocalTree::extractOctant(uint32_t idx) const{
   return m_octants[idx];
 };
 
-/*! Extract a ghost octant of the octree.
+/** Extract a ghost octant of the octree.
  * \param[in] idx Local index of the target ghost octant.
  * \return Reference to the idx-th ghost octant of the octree.
  */
@@ -346,7 +346,7 @@ LocalTree::extractGhostOctant(uint32_t idx) {
   return m_ghosts[idx];
 };
 
-/*! Extract a ghost octant of the octree.
+/** Extract a ghost octant of the octree.
  * \param[in] idx Local index of the target ghost octant.
  * \return Constant reference to the idx-th ghost octant of the octree.
  */
@@ -357,7 +357,7 @@ LocalTree::extractGhostOctant(uint32_t idx) const{
 
 // ========================================================================= //
 
-/*! Refine local tree: refine one time octants with marker >0
+/** Refine local tree: refine one time octants with marker >0
  * \param[out] mapidx mapidx[i] = index in old octants vector of the new i-th octant (index of father if octant is new after refinement)
  * \return	true if refinement done
  */
@@ -434,7 +434,7 @@ LocalTree::refine(u32vector & mapidx){
 };
 
 // ========================================================================= //
-/*! Coarse local tree: coarse one time family of octants with marker <0
+/** Coarse local tree: coarse one time family of octants with marker <0
  * (if at least one octant of family has marker>=0 set marker=0 for the entire family)
  * \param[out] mapidx mpaidx[i] = index in old octants vector of the new i-th octant (index of first child if octant is new after coarsening)
  * \return true coarsening can continue (impossible for now forced one refinement for call)
@@ -753,7 +753,7 @@ LocalTree::coarse(u32vector & mapidx){
 
 // ========================================================================= //
 
-/*! Refine local tree: refine one time all the octants
+/** Refine local tree: refine one time all the octants
  * \param[out] mapidx mpaidx[i] = index in old octants vector of the new i-th octant (index of father if octant is new after refinement)
  * \return	true if refinement done
  */
@@ -775,7 +775,7 @@ LocalTree::globalRefine(u32vector & mapidx){
 
 // ========================================================================= //
 
-/*! Refine local tree: corse one time all the octants
+/** Refine local tree: corse one time all the octants
  * \param[out] mapidx mpaidx[i] = index in old octants vector of the new i-th octant (index of first child if octant is new after coarsening)
  * \return	true if coarsening can continue (impossible in this version)
  */
@@ -798,7 +798,7 @@ LocalTree::globalCoarse(u32vector & mapidx){
 
 };
 
-/*! Delete overlapping octants after coarse local tree. Check if first octants of the partition
+/** Delete overlapping octants after coarse local tree. Check if first octants of the partition
  * have marker = -1 (after coarse only the octants to be deleted have marker =-1).
  * \param[in] partLastDesc Last descendant of process before the actual
  * \param[out] mapidx mapidx[i] = index in old octants vector of the new i-th octant (index of first child if octant is new after coarsening)
@@ -847,7 +847,7 @@ LocalTree::checkCoarse(uint64_t partLastDesc, u32vector & mapidx){
 };
 
 // ========================================================================= //
-/*! Update max depth reached in local tree
+/** Update max depth reached in local tree
  */
 void
 LocalTree::updateLocalMaxDepth(){
@@ -1919,7 +1919,7 @@ LocalTree::findGhostNodeNeighbours(uint32_t idx, uint8_t inode, u32vector & neig
 
 // ========================================================================= //
 
-/*! Finds neighbours of octant through a periodic iface in vector m_octants or m_ghosts.
+/** Finds neighbours of octant through a periodic iface in vector m_octants or m_ghosts.
  * Returns a vector with the index of neighbours in their structure (octants or ghosts)
  * and sets isghost[i] = true if the i-th neighbour is ghost in the local tree.
  * \param[in] oct Pointer to the target local octant.
@@ -2263,7 +2263,7 @@ LocalTree::findPeriodicNeighbours(const Octant* oct, uint8_t iface, u32vector & 
 
 // ========================================================================= //
 
-/*! Finds neighbours of idx-th ghost octant through a periodic iface in vector m_octants.
+/** Finds neighbours of idx-th ghost octant through a periodic iface in vector m_octants.
  * Returns a vector with the index of neighbours in the structure octants.
  * \param[in] oct Pointer to the target ghost octant.
  * \param[in] iface local index of the face.
@@ -2389,7 +2389,7 @@ LocalTree::findGhostPeriodicNeighbours(const Octant* oct, uint8_t iface, u32vect
 
 // ========================================================================= //
 
-/*! Pre-processing for 2:1 balancing of local tree. Check if there are broken families over processes.
+/** Pre-processing for 2:1 balancing of local tree. Check if there are broken families over processes.
  * \param[in] internal Set to true if the interior octants have to be checked.
  */
 void
@@ -2572,7 +2572,7 @@ LocalTree::preBalance21(bool internal){
 
 // ========================================================================= //
 
-/*! Pre-processing for 2:1 balancing of local tree. Check if there are broken families over processes.
+/** Pre-processing for 2:1 balancing of local tree. Check if there are broken families over processes.
  * \param[out] newmodified Vector of indices of interior octants checked and whose marker is modified.
  */
 void
@@ -2755,7 +2755,7 @@ LocalTree::preBalance21(u32vector& newmodified){
 
 // ========================================================================= //
 
-/*! 2:1 balancing on level a local tree (refinement wins!)
+/** 2:1 balancing on level a local tree (refinement wins!)
  * The balance is enforced on octants with the AUX bit set and, if
  * requested, also on new octants.
  * \param[in] doNew Set to true the balance is enforced also on new octants.
@@ -3270,7 +3270,7 @@ LocalTree::localBalance(bool doNew, bool doInterior){
 
 // ========================================================================= //
 
-/*! Compute and store in m_intersections the intersections of the local tree.
+/** Compute and store in m_intersections the intersections of the local tree.
  */
 void
 LocalTree::computeIntersections() {
@@ -3495,7 +3495,7 @@ LocalTree::computeIntersections() {
 }
 
 // ========================================================================= //
-/*! Find an input Morton in octants and return the local idx
+/** Find an input Morton in octants and return the local idx
  * \param[in] Morton Morton index to be found.
  * \return Local index of the target octant (=nocts if target Morton not found).
  */
@@ -3538,7 +3538,7 @@ LocalTree::findMorton(uint64_t Morton) const {
 };
 
 // ========================================================================= //
-/*! Find an input Morton in ghosts and return the local idx
+/** Find an input Morton in ghosts and return the local idx
  * \param[in] Morton Morton index to be found.
  * \return Index of the target ghost octant (=nghosts if target Morton not found).
  */
@@ -3651,7 +3651,7 @@ LocalTree::computeConnectivity(){
   }
 };
 
-/*! Clear nodes vector and connectivity of octants of local tree
+/** Clear nodes vector and connectivity of octants of local tree
  */
 void
 LocalTree::clearConnectivity(){
@@ -3660,7 +3660,7 @@ LocalTree::clearConnectivity(){
   u32vector2D().swap(m_ghostsConnectivity);
 };
 
-/*! Updates nodes vector and connectivity of octants of local tree
+/** Updates nodes vector and connectivity of octants of local tree
  */
 void
 LocalTree::updateConnectivity(){
