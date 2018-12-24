@@ -1443,7 +1443,7 @@ LocalTree::findNodeNeighbours(const Octant* oct, bool haveIidx, uint32_t idx, ui
 
   bool amIghost = oct->getIsGhost();
 
-  int8_t 			cxyz[3] = {0,0,0};
+  int8_t 	cxyz[3] = {0,0,0};
   for (int idim=0; idim<m_dim; idim++){
     cxyz[idim] = m_global.m_nodeCoeffs[inode][idim];
   }
@@ -1462,7 +1462,9 @@ LocalTree::findNodeNeighbours(const Octant* oct, bool haveIidx, uint32_t idx, ui
   iface3 = m_global.m_nodeFace[inode][m_dim-1];
 
   // Check if octants node is a boundary
-  if (oct->m_info[iface1] == false && oct->m_info[iface2] == false && oct->m_info[iface3] == false){
+  if (oct->m_info[iface1] == false &&
+      oct->m_info[iface2] == false &&
+      oct->m_info[iface3] == false){
 
     //Build Morton number of virtual neigh of same size
     Octant samesizeoct(m_dim, oct->m_level, oct->m_x+cxyz[0]*size, oct->m_y+cxyz[1]*size, oct->m_z+cxyz[2]*size);
