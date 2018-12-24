@@ -844,7 +844,7 @@ LocalTree::checkCoarse(uint64_t partLastDesc, u32vector & mapidx){
     }
 
   }
-};
+}; // LocalTree::checkCoarse
 
 // ========================================================================= //
 /** Update max depth reached in local tree
@@ -861,7 +861,7 @@ LocalTree::updateLocalMaxDepth(){
       m_localMaxDepth = m_octants[i].getLevel();
     }
   }
-};
+}; // LocalTree::updateLocalMaxDepth
 
 
 /** Finds local and ghost or only local neighbours of octant(both local and ghost ones) through iface face.
@@ -985,7 +985,7 @@ LocalTree::findNeighbours(const Octant* oct, bool haveIidx, uint32_t idx, uint8_
     uint8_t level = oct->m_level;
     while(Mortontry <= Mortonlast && idxtry < noctants){
       for (int idim=0; idim<m_dim; idim++){
-	Dx[idim] 		= int32_t(int32_t(abs(cxyz[idim]))*(-coord[idim] + coordtry[idim]));
+	Dx[idim] 	= int32_t(int32_t(abs(cxyz[idim]))*(-coord[idim] + coordtry[idim]));
 	Dxstar[idim]	= int32_t((cxyz[idim]-1)/2)*(m_octants[idxtry].getSize()) + int32_t((cxyz[idim]+1)/2)*size;
 	coord1[idim] 	= coord[idim] + size;
 	coordtry1[idim] = coordtry[idim] + m_octants[idxtry].getSize();
@@ -995,13 +995,17 @@ LocalTree::findNeighbours(const Octant* oct, bool haveIidx, uint32_t idx, uint8_
 
       if (Dx[0] == Dxstar[0] && Dx[1] == Dxstar[1] && Dx[m_dim-1] == Dxstar[m_dim-1]){
 	if (leveltry > level){
-	  if((abs(cxyz[0])*((coordtry[1]>=coord[1])*(coordtry[1]<coord1[1]))*((coordtry[2]>=coord[2])*(coordtry[2]<coord1[2]))) + (abs(cxyz[1])*((coordtry[0]>=coord[0])*(coordtry[0]<coord1[0]))*((coordtry[2]>=coord[2])*(coordtry[2]<coord1[2]))) + (abs(cxyz[2])*((coordtry[0]>=coord[0])*(coordtry[0]<coord1[0]))*((coordtry[1]>=coord[1])*(coordtry[1]<coord1[1])))){
+	  if((abs(cxyz[0])*((coordtry[1]>=coord[1])*(coordtry[1]<coord1[1]))*((coordtry[2]>=coord[2])*(coordtry[2]<coord1[2]))) +
+	     (abs(cxyz[1])*((coordtry[0]>=coord[0])*(coordtry[0]<coord1[0]))*((coordtry[2]>=coord[2])*(coordtry[2]<coord1[2]))) +
+	     (abs(cxyz[2])*((coordtry[0]>=coord[0])*(coordtry[0]<coord1[0]))*((coordtry[1]>=coord[1])*(coordtry[1]<coord1[1])))){
 	    neighbours.push_back(idxtry);
 	    isghost.push_back(false);
 	  }
 	}
 	if (leveltry < level){
-	  if((abs(cxyz[0])*((coord[1]>=coordtry[1])*(coord[1]<coordtry1[1]))*((coord[2]>=coordtry[2])*(coord[2]<coordtry1[2]))) + (abs(cxyz[1])*((coord[0]>=coordtry[0])*(coord[0]<coordtry1[0]))*((coord[2]>=coordtry[2])*(coord[2]<coordtry1[2]))) + (abs(cxyz[2])*((coord[0]>=coordtry[0])*(coord[0]<coordtry1[0]))*((coord[1]>=coordtry[1])*(coord[1]<coordtry1[1])))){
+	  if((abs(cxyz[0])*((coord[1]>=coordtry[1])*(coord[1]<coordtry1[1]))*((coord[2]>=coordtry[2])*(coord[2]<coordtry1[2]))) +
+	     (abs(cxyz[1])*((coord[0]>=coordtry[0])*(coord[0]<coordtry1[0]))*((coord[2]>=coordtry[2])*(coord[2]<coordtry1[2]))) +
+	     (abs(cxyz[2])*((coord[0]>=coordtry[0])*(coord[0]<coordtry1[0]))*((coord[1]>=coordtry[1])*(coord[1]<coordtry1[1])))){
 	    neighbours.push_back(idxtry);
 	    isghost.push_back(false);
 	  }
@@ -1147,7 +1151,7 @@ LocalTree::findNeighbours(const Octant* oct, bool haveIidx, uint32_t idx, uint8_
     }
   }
 
-};
+}; // LocalTree::findNeighbours
 
 /** Finds local and ghost or only local neighbours of octant(both local and ghost ones) through iedge edge.
  * Returns a vector (empty if iface is a bound face) with the index of neighbours
@@ -1415,7 +1419,7 @@ LocalTree::findEdgeNeighbours(const Octant* oct, bool haveIidx, uint32_t idx, ui
   }
 
 
-};
+}; // LocalTree::findEdgeNeighbours
 
 /** Finds local and ghost or only local neighbours of octant(both local and ghost ones) through inode node.
  * Returns a vector (empty if iface is a bound face) with the index of neighbours
@@ -1646,7 +1650,7 @@ LocalTree::findNodeNeighbours(const Octant* oct, bool haveIidx, uint32_t idx, ui
     return;
   }
 
-};
+}; // LocalTree::findNodeNeighbours
 
 /** Finds local and ghost or only local neighbours of octant(both local and ghost ones) through iface face.
  * Returns a vector (empty if iface is a bound face) with the index of neighbours
@@ -1661,9 +1665,11 @@ LocalTree::findNodeNeighbours(const Octant* oct, bool haveIidx, uint32_t idx, ui
  */
 void
 LocalTree::findNeighbours(uint32_t idx, bool amIghost,uint8_t iface, u32vector & neighbours, bvector & isghost, bool onlyinternal) const{
+
   const Octant* oct = amIghost ? &m_ghosts[idx] : &m_octants[idx];
   findNeighbours(oct, true, idx, iface, neighbours, isghost, onlyinternal);
-};
+  
+}; // LocalTree::findNeighbours
 
 /** Finds local and ghost or only local neighbours of octant(both local and ghost ones) through iedge edge.
  * Returns a vector (empty if iface is a bound face) with the index of neighbours
@@ -1678,9 +1684,11 @@ LocalTree::findNeighbours(uint32_t idx, bool amIghost,uint8_t iface, u32vector &
  */
 void
 LocalTree::findEdgeNeighbours(uint32_t idx, bool amIghost,uint8_t iedge, u32vector & neighbours, bvector & isghost, bool onlyinternal) const{
+
   const Octant* oct = amIghost ? &m_ghosts[idx] : &m_octants[idx];
   findEdgeNeighbours(oct, true, idx, iedge, neighbours, isghost, onlyinternal);
-};
+  
+}; // LocalTree::findEdgeNeighbours
 
 /** Finds local and ghost or only local neighbours of octant(both local and ghost ones) through inode node.
  * Returns a vector (empty if iface is a bound face) with the index of neighbours
@@ -2259,7 +2267,7 @@ LocalTree::findPeriodicNeighbours(const Octant* oct, uint8_t iface, u32vector & 
       return;
     }
   }
-};
+}; // LocalTree::findPeriodicNeighbours
 
 // ========================================================================= //
 
@@ -2385,7 +2393,7 @@ LocalTree::findGhostPeriodicNeighbours(const Octant* oct, uint8_t iface, u32vect
     }
   }
 
-};
+}; // LocalTree::findGhostPeriodicNeighbours
 
 // ========================================================================= //
 
@@ -2568,7 +2576,7 @@ LocalTree::preBalance21(bool internal){
       }
     }
   }
-};
+}; // LocalTree::preBalance21
 
 // ========================================================================= //
 
@@ -2751,7 +2759,7 @@ LocalTree::preBalance21(u32vector& newmodified){
       }
     }
   }
-};
+}; // LocalTree::preBalance21
 
 // ========================================================================= //
 
@@ -3265,7 +3273,8 @@ LocalTree::localBalance(bool doNew, bool doInterior){
   }
   return Bdone;
   // Pay attention : info[15] may be true after local balance for some octants
-};
+  
+}; // LocalTree::localBalance
 
 
 // ========================================================================= //
@@ -3492,7 +3501,8 @@ LocalTree::computeIntersections() {
     idx++;
   }
   intervector(m_intersections).swap(m_intersections);
-}
+  
+} // LocalTree::computeIntersections
 
 // ========================================================================= //
 /** Find an input Morton in octants and return the local idx
@@ -3535,7 +3545,8 @@ LocalTree::findMorton(uint64_t Morton) const {
     }
   }
   return nocts;
-};
+  
+}; // LocalTree::findMorton
 
 // ========================================================================= //
 /** Find an input Morton in ghosts and return the local idx
@@ -3577,7 +3588,8 @@ LocalTree::findGhostMorton(uint64_t Morton) const {
     }
   }
   return nocts;
-};
+  
+}; // LocalTree::findGhostMorton
 
 // ========================================================================= //
 
@@ -3649,24 +3661,29 @@ LocalTree::computeConnectivity(){
     }
     nodeId++;
   }
-};
+  
+}; // LocalTree::computeConnectivity
 
 /** Clear nodes vector and connectivity of octants of local tree
  */
 void
 LocalTree::clearConnectivity(){
+
   u32arr3vector().swap(m_nodes);
   u32vector2D().swap(m_connectivity);
   u32vector2D().swap(m_ghostsConnectivity);
-};
+  
+}; // LocalTree::clearConnectivity
 
 /** Updates nodes vector and connectivity of octants of local tree
  */
 void
 LocalTree::updateConnectivity(){
+
   clearConnectivity();
   computeConnectivity();
-};
+  
+}; // LocalTree::updateConnectivity
 
 // ========================================================================= //
 
