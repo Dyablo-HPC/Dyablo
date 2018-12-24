@@ -22,9 +22,9 @@
  *
  \*---------------------------------------------------------------------------*/
 
-// =================================================================================== //
-// INCLUDES                                                                            //
-// =================================================================================== //
+// ========================================================================= //
+// INCLUDES
+// ========================================================================= //
 #include "bitpit_common.hpp"
 
 #include "LocalTree.hpp"
@@ -33,27 +33,27 @@
 
 namespace bitpit {
 
-// =================================================================================== //
-// NAME SPACES                                                                         //
-// =================================================================================== //
+// ========================================================================= //
+// NAME SPACES
+// ========================================================================= //
 using namespace std;
 
-// =================================================================================== //
-// CLASS IMPLEMENTATION                                                                    //
-// =================================================================================== //
+// ========================================================================= //
+// CLASS IMPLEMENTATION
+// ========================================================================= //
 
-// =================================================================================== //
+// ========================================================================= //
 // CONSTRUCTORS AND OPERATORS
-// =================================================================================== //
+// ========================================================================= //
 
-/*!Defaut constructor.
+/*! Defaut constructor.
  */
 LocalTree::LocalTree() {
   initialize();
   reset(false);
 };
 
-/*!Dimensional and default constructor.
+/*! Dimensional and default constructor.
  * \param[in] dim Space dimension of octree.
  */
 LocalTree::LocalTree(uint8_t dim){
@@ -61,15 +61,15 @@ LocalTree::LocalTree(uint8_t dim){
   reset(true);
 };
 
-// =================================================================================== //
+// ========================================================================= //
 // METHODS
-// =================================================================================== //
+// ========================================================================= //
 
-// =================================================================================== //
+// ========================================================================= //
 // BASIC GET/SET METHODS
-// =================================================================================== //
+// ========================================================================= //
 
-/*!Get the Morton number of first descentant octant of the octree.
+/*! Get the Morton number of first descentant octant of the octree.
  * \return Constant reference to the first descendant of the octree.
  */
 uint64_t
@@ -77,7 +77,7 @@ LocalTree::getFirstDescMorton() const{
   return m_firstDescMorton;
 };
 
-/*!Get the Morton number of last descentant octant of the octree.
+/*! Get the Morton number of last descentant octant of the octree.
  * \return Constant reference to the last descendant of the octree.
  */
 uint64_t
@@ -219,7 +219,7 @@ LocalTree::setBalanceCodim(uint8_t b21codim){
   m_balanceCodim = b21codim;
 };
 
-/*!Set the Morton number of first descentant octant of the octree.
+/*! Set the Morton number of first descentant octant of the octree.
  */
 void
 LocalTree::setFirstDescMorton(){
@@ -229,7 +229,7 @@ LocalTree::setFirstDescMorton(){
   }
 };
 
-/*!Set the Morton number of last descentant octant of the octree.
+/*! Set the Morton number of last descentant octant of the octree.
  */
 void
 LocalTree::setLastDescMorton(){
@@ -253,22 +253,22 @@ LocalTree::setPeriodic(bvector & periodic){
   m_periodic = periodic;
 };
 
-// =================================================================================== //
+// ========================================================================= //
 // OTHER GET/SET METHODS
-// =================================================================================== //
+// ========================================================================= //
 
-// =================================================================================== //
+// ========================================================================= //
 // OTHER METHODS
-// =================================================================================== //
+// ========================================================================= //
 
-/*!Initialize a dummy octree.
+/*! Initialize a dummy octree.
  */
 void
 LocalTree::initialize() {
   initialize(0);
 }
 
-/*!Initialize the octree.
+/*! Initialize the octree.
  * \param[in] maxlevel Maximum refinement level of the octree.
  * \param[in] dim Space dimension of octree.
  */
@@ -283,7 +283,7 @@ LocalTree::initialize(uint8_t dim) {
   }
 }
 
-/*!Reset the octree.
+/*! Reset the octree.
  */
 void
 LocalTree::reset(bool createRoot){
@@ -319,7 +319,7 @@ LocalTree::reset(bool createRoot){
   m_sizeOctants = m_octants.size();
 };
 
-/*!Extract an octant of the octree.
+/*! Extract an octant of the octree.
  * \param[in] idx Local index of the target octant.
  * \return Reference to the idx-th octant of the octree.
  */
@@ -328,7 +328,7 @@ LocalTree::extractOctant(uint32_t idx){
   return m_octants[idx];
 };
 
-/*!Extract an octant of the octree.
+/*! Extract an octant of the octree.
  * \param[in] idx Local index of the target octant.
  * \return Constant reference to the idx-th octant of the octree.
  */
@@ -337,7 +337,7 @@ LocalTree::extractOctant(uint32_t idx) const{
   return m_octants[idx];
 };
 
-/*!Extract a ghost octant of the octree.
+/*! Extract a ghost octant of the octree.
  * \param[in] idx Local index of the target ghost octant.
  * \return Reference to the idx-th ghost octant of the octree.
  */
@@ -346,7 +346,7 @@ LocalTree::extractGhostOctant(uint32_t idx) {
   return m_ghosts[idx];
 };
 
-/*!Extract a ghost octant of the octree.
+/*! Extract a ghost octant of the octree.
  * \param[in] idx Local index of the target ghost octant.
  * \return Constant reference to the idx-th ghost octant of the octree.
  */
@@ -355,7 +355,7 @@ LocalTree::extractGhostOctant(uint32_t idx) const{
   return m_ghosts[idx];
 };
 
-// =================================================================================== //
+// ========================================================================= //
 
 /*! Refine local tree: refine one time octants with marker >0
  * \param[out] mapidx mapidx[i] = index in old octants vector of the new i-th octant (index of father if octant is new after refinement)
@@ -433,7 +433,7 @@ LocalTree::refine(u32vector & mapidx){
 
 };
 
-// =================================================================================== //
+// ========================================================================= //
 /*! Coarse local tree: coarse one time family of octants with marker <0
  * (if at least one octant of family has marker>=0 set marker=0 for the entire family)
  * \param[out] mapidx mpaidx[i] = index in old octants vector of the new i-th octant (index of first child if octant is new after coarsening)
@@ -751,7 +751,7 @@ LocalTree::coarse(u32vector & mapidx){
 
 };
 
-// =================================================================================== //
+// ========================================================================= //
 
 /*! Refine local tree: refine one time all the octants
  * \param[out] mapidx mpaidx[i] = index in old octants vector of the new i-th octant (index of father if octant is new after refinement)
@@ -773,7 +773,7 @@ LocalTree::globalRefine(u32vector & mapidx){
 
 };
 
-// =================================================================================== //
+// ========================================================================= //
 
 /*! Refine local tree: corse one time all the octants
  * \param[out] mapidx mpaidx[i] = index in old octants vector of the new i-th octant (index of first child if octant is new after coarsening)
@@ -846,7 +846,7 @@ LocalTree::checkCoarse(uint64_t partLastDesc, u32vector & mapidx){
   }
 };
 
-// =================================================================================== //
+// ========================================================================= //
 /*! Update max depth reached in local tree
  */
 void
@@ -1917,7 +1917,7 @@ LocalTree::findGhostNodeNeighbours(uint32_t idx, uint8_t inode, u32vector & neig
 };
 
 
-// =================================================================================== //
+// ========================================================================= //
 
 /*! Finds neighbours of octant through a periodic iface in vector m_octants or m_ghosts.
  * Returns a vector with the index of neighbours in their structure (octants or ghosts)
@@ -2261,7 +2261,7 @@ LocalTree::findPeriodicNeighbours(const Octant* oct, uint8_t iface, u32vector & 
   }
 };
 
-// =================================================================================== //
+// ========================================================================= //
 
 /*! Finds neighbours of idx-th ghost octant through a periodic iface in vector m_octants.
  * Returns a vector with the index of neighbours in the structure octants.
@@ -2387,7 +2387,7 @@ LocalTree::findGhostPeriodicNeighbours(const Octant* oct, uint8_t iface, u32vect
 
 };
 
-// =================================================================================== //
+// ========================================================================= //
 
 /*! Pre-processing for 2:1 balancing of local tree. Check if there are broken families over processes.
  * \param[in] internal Set to true if the interior octants have to be checked.
@@ -2570,7 +2570,7 @@ LocalTree::preBalance21(bool internal){
   }
 };
 
-// =================================================================================== //
+// ========================================================================= //
 
 /*! Pre-processing for 2:1 balancing of local tree. Check if there are broken families over processes.
  * \param[out] newmodified Vector of indices of interior octants checked and whose marker is modified.
@@ -2753,7 +2753,7 @@ LocalTree::preBalance21(u32vector& newmodified){
   }
 };
 
-// =================================================================================== //
+// ========================================================================= //
 
 /*! 2:1 balancing on level a local tree (refinement wins!)
  * The balance is enforced on octants with the AUX bit set and, if
@@ -3268,7 +3268,7 @@ LocalTree::localBalance(bool doNew, bool doInterior){
 };
 
 
-// =================================================================================== //
+// ========================================================================= //
 
 /*! Compute and store in m_intersections the intersections of the local tree.
  */
@@ -3494,7 +3494,7 @@ LocalTree::computeIntersections() {
   intervector(m_intersections).swap(m_intersections);
 }
 
-// =================================================================================== //
+// ========================================================================= //
 /*! Find an input Morton in octants and return the local idx
  * \param[in] Morton Morton index to be found.
  * \return Local index of the target octant (=nocts if target Morton not found).
@@ -3537,7 +3537,7 @@ LocalTree::findMorton(uint64_t Morton) const {
   return nocts;
 };
 
-// =================================================================================== //
+// ========================================================================= //
 /*! Find an input Morton in ghosts and return the local idx
  * \param[in] Morton Morton index to be found.
  * \return Index of the target ghost octant (=nghosts if target Morton not found).
@@ -3579,7 +3579,7 @@ LocalTree::findGhostMorton(uint64_t Morton) const {
   return nocts;
 };
 
-// =================================================================================== //
+// ========================================================================= //
 
 /** Compute the connectivity of octants and store the coordinates of nodes.
  */
@@ -3668,6 +3668,6 @@ LocalTree::updateConnectivity(){
   computeConnectivity();
 };
 
-// =================================================================================== //
+// ========================================================================= //
 
-}
+} // namespace bitpit
