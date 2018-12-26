@@ -51,17 +51,17 @@ namespace bitpit {
 // ======================================================================= //
 // TYPEDEFS
 // ======================================================================= //
-typedef std::vector<bool>				bvector;
-typedef std::vector<int>				ivector;
-typedef std::bitset<72>					octantID;
-typedef std::vector<Octant*>			ptroctvector;
-typedef ptroctvector::iterator			octantIterator;
+typedef std::vector<bool>	bvector;
+typedef std::vector<int>	ivector;
+typedef std::bitset<72>		octantID;
+typedef std::vector<Octant*>	ptroctvector;
+typedef ptroctvector::iterator	octantIterator;
 
 // ======================================================================= //
 // CLASS DEFINITION
 // ======================================================================= //
 
-/*!
+/**
  * \ingroup		PABLO
  * \date			17/dec/2015
  * \authors		Marco Cisternino
@@ -118,7 +118,9 @@ public:
     ExchangeRanges recvRanges;
 
     LoadBalanceRanges();
-    LoadBalanceRanges(bool serial, const ExchangeRanges &_sendRanges, const ExchangeRanges &_recvRanges);
+    LoadBalanceRanges(bool serial,
+		      const ExchangeRanges &_sendRanges,
+		      const ExchangeRanges &_recvRanges);
 
     void clear();
   }; // struct LoadBalanceRanges
@@ -154,11 +156,20 @@ private:
   ptroctvector 		m_pborders;	/**<Local pointers to border of process octants*/
 
   //distributed adpapting members
-  u32vector 		m_mapIdx; /**<Local mapper for adapting. Mapper from new octants to old octants. 
-												   m_mapIdx[i] = j -> the i-th octant after adapt was in the j-th position before adapt;
-												   if the i-th octant is new after refinement the j-th old octant was the father of the new octant;
-												   if the i-th octant is new after coarsening the j-th old octant was the first child of the new octant.
-												*/
+  u32vector 		m_mapIdx; /**<Local mapper for
+				     adapting. Mapper from new octants
+				     to old octants.  
+				     m_mapIdx[i] = j -> the i-th
+				     octant after adapt was in the
+				     j-th position before adapt; 
+				     if the i-th octant is new after
+				     refinement the j-th old octant
+				     was the father of the new octant; 
+				     if the i-th octant is new after
+				     coarsening the j-th old octant
+				     was the first child of the new
+				     octant. 
+				  */
   
   //elements sent during last loadbalance operation
   LoadBalanceRanges     m_loadBalanceRanges; /**<Local mapper for sent
@@ -172,15 +183,19 @@ private:
   double	m_tol; /**<Tolerance for geometric operations.*/
 
   //map members
-  Map 		m_trans; /**<Transformation map from m_logical to physical domain*/
+  Map 		m_trans; /**<Transformation map from m_logical to
+			    physical domain */
   uint8_t	m_dim; /**<Space dimension of the octree object (2D/3D).*/
 
   //boundary conditions members
-  bvector 	m_periodic; /**<Boolvector: i-th element is true if the i-th boundary face is a periodic interface.*/
+  bvector 	m_periodic; /**<Boolvector: i-th element is true if
+			       the i-th boundary face is a periodic
+			       interface. */
 
   //info member
-  uint64_t	m_status; /**<Label of actual m_status of octree (incremental after an adpat
-												   with at least one modifyed element).*/
+  uint64_t	m_status; /**<Label of actual m_status of octree
+			     (incremental after an adpat with at least
+			     one modifyed element). */
   Operation	m_lastOp;	/**<Last operation perforfmed by the
 				   octree (initialization, adapt
 				   (mapped or unmapped), loadbalance
