@@ -104,7 +104,7 @@ namespace bitpit {
 // ======================================================================== //
 // NAME SPACES
 // ======================================================================== //
-using namespace std;
+//using namespace std;
 
 // ======================================================================== //
 // CLASS IMPLEMENTATION
@@ -703,9 +703,9 @@ Octant::buildFather() const {
   xx[2] = m_z;
   delta[2] = 0;
   for (int i=0; i<m_dim; i++){
-    delta[i] = xx[i]%(uint32_t(1) << (Global::getMaxLevel() - max(0,(m_level-1))));
+    delta[i] = xx[i]%(uint32_t(1) << (Global::getMaxLevel() - std::max(0,(m_level-1))));
   }
-  Octant father(m_dim, max(0,m_level-1), m_x-delta[0], m_y-delta[1], m_z-delta[2]);
+  Octant father(m_dim, std::max(0,m_level-1), m_x-delta[0], m_y-delta[1], m_z-delta[2]);
   return father;
 };
 
@@ -714,20 +714,20 @@ Octant::buildFather() const {
 /** Builds children of octant.
  *   \return Ordered (by Z-index) vector of children[nchildren] (info update)
  */
-vector< Octant >
+std::vector< Octant >
 Octant::buildChildren() const {
 
   uint8_t xf,yf,zf;
   int nchildren = 1<<m_dim;
 
   if (this->m_level < Global::getMaxLevel()){
-    vector< Octant > children(nchildren, Octant(m_dim));
+    std::vector< Octant > children(nchildren, Octant(m_dim));
     for (int i=0; i<nchildren; i++){
       switch (i) {
       case 0 :
 	{
 	  Octant oct(*this);
-	  oct.setMarker(max(0,oct.m_marker-1));
+	  oct.setMarker(std::max(0,oct.m_marker-1));
 	  oct.setLevel(oct.m_level+1);
 	  oct.m_info[OctantInfo::INFO_NEW4REFINEMENT]=true;
 	  // Update interior face bound and pbound
@@ -741,7 +741,7 @@ Octant::buildChildren() const {
       case 1 :
 	{
 	  Octant oct(*this);
-	  oct.setMarker(max(0,oct.m_marker-1));
+	  oct.setMarker(std::max(0,oct.m_marker-1));
 	  oct.setLevel(oct.m_level+1);
 	  oct.m_info[OctantInfo::INFO_NEW4REFINEMENT]=true;
 	  uint32_t dh = oct.getSize();
@@ -757,7 +757,7 @@ Octant::buildChildren() const {
       case 2 :
 	{
 	  Octant oct(*this);
-	  oct.setMarker(max(0,oct.m_marker-1));
+	  oct.setMarker(std::max(0,oct.m_marker-1));
 	  oct.setLevel(oct.m_level+1);
 	  oct.m_info[OctantInfo::INFO_NEW4REFINEMENT]=true;
 	  uint32_t dh = oct.getSize();
@@ -773,7 +773,7 @@ Octant::buildChildren() const {
       case 3 :
 	{
 	  Octant oct(*this);
-	  oct.setMarker(max(0,oct.m_marker-1));
+	  oct.setMarker(std::max(0,oct.m_marker-1));
 	  oct.setLevel(oct.m_level+1);
 	  oct.m_info[OctantInfo::INFO_NEW4REFINEMENT]=true;
 	  uint32_t dh = oct.getSize();
@@ -790,7 +790,7 @@ Octant::buildChildren() const {
       case 4 :
 	{
 	  Octant oct(*this);
-	  oct.setMarker(max(0,oct.m_marker-1));
+	  oct.setMarker(std::max(0,oct.m_marker-1));
 	  oct.setLevel(oct.m_level+1);
 	  oct.m_info[OctantInfo::INFO_NEW4REFINEMENT]=true;
 	  uint32_t dh = oct.getSize();
@@ -806,7 +806,7 @@ Octant::buildChildren() const {
       case 5 :
 	{
 	  Octant oct(*this);
-	  oct.setMarker(max(0,oct.m_marker-1));
+	  oct.setMarker(std::max(0,oct.m_marker-1));
 	  oct.setLevel(oct.m_level+1);
 	  oct.m_info[OctantInfo::INFO_NEW4REFINEMENT]=true;
 	  uint32_t dh = oct.getSize();
@@ -823,7 +823,7 @@ Octant::buildChildren() const {
       case 6 :
 	{
 	  Octant oct(*this);
-	  oct.setMarker(max(0,oct.m_marker-1));
+	  oct.setMarker(std::max(0,oct.m_marker-1));
 	  oct.setLevel(oct.m_level+1);
 	  oct.m_info[OctantInfo::INFO_NEW4REFINEMENT]=true;
 	  uint32_t dh = oct.getSize();
@@ -840,7 +840,7 @@ Octant::buildChildren() const {
       case 7 :
 	{
 	  Octant oct(*this);
-	  oct.setMarker(max(0,oct.m_marker-1));
+	  oct.setMarker(std::max(0,oct.m_marker-1));
 	  oct.setLevel(oct.m_level+1);
 	  oct.m_info[OctantInfo::INFO_NEW4REFINEMENT]=true;
 	  uint32_t dh = oct.getSize();
@@ -860,7 +860,7 @@ Octant::buildChildren() const {
     return children;
   }
   else{
-    vector< Octant > children(0, Octant(m_dim));
+    std::vector< Octant > children(0, Octant(m_dim));
     return children;
   }
 };
@@ -1669,10 +1669,10 @@ Octant::computePeriodicOctant(uint8_t iface) const {
  * \param[in] iface Local index of the face target.
  * \return Coordinates of octant considered as periodic ghost out of the logical domain.
  */
-array<int64_t,3>
+std::array<int64_t,3>
 Octant::getPeriodicCoord(uint8_t iface) const {
 
-  array<int64_t,3> coord;
+  std::array<int64_t,3> coord;
   coord[0] = this->m_x;
   coord[1] = this->m_y;
   coord[2] = this->m_z;
