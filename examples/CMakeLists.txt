@@ -63,6 +63,7 @@ if(BUILD_EXAMPLES)
   list(APPEND EXAMPLE_LIST "PABLO_example_00008")
   list(APPEND EXAMPLE_LIST "PABLO_example_00009")
   list(APPEND EXAMPLE_LIST "PABLO_example_00010")
+  list(APPEND EXAMPLE_LIST "PABLO_test1")
 
   #Rules to build the examples
   foreach(EXAMPLE_NAME IN LISTS EXAMPLE_LIST)
