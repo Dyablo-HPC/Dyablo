@@ -27,15 +27,38 @@ void run()
   for (iter=1; iter<3; iter++){
     amr_mesh.adaptGlobalRefine();
     uint32_t nocts = amr_mesh.getNumOctants();
+
+    vector<uint32_t> neigh, neigh_t;
+    vector<bool> isghost, isghost_t;
+
     for (unsigned int i=0; i<nocts; i++){
+      // print cell nodes location
       vector<array<double,3> > nodes = amr_mesh.getNodes(i);
       printf("nodes %d : %f %f | %f %f | %f %f | %f %f \n",i,
 	     nodes[0][0],nodes[0][1],
 	     nodes[1][0],nodes[1][1],
 	     nodes[2][0],nodes[2][1],
 	     nodes[3][0],nodes[3][1]);
-    }  
-  }
+
+      // print neighbors id
+      neigh.clear();
+      isghost.clear();
+
+      int codim = 1;
+      uint8_t nfaces = 4;
+      for (uint8_t iface=0; iface<nfaces; iface++){
+	amr_mesh.findNeighbours(i,iface,codim,neigh_t,isghost_t);
+	printf("neighbors of %d through face %d are : ",i,iface);
+	for (int ineigh=0; ineigh<neigh_t.size(); ++ineigh) {
+	  printf(" %d ",neigh_t[ineigh]);
+	}
+	printf("\n");
+	//neigh.insert(neigh.end(), neigh_t.begin(), neigh_t.end());
+	//isghost.insert(isghost.end(), isghost_t.begin(), isghost_t.end());
+      }
+      
+    } // end for nocts
+  } // end for iter
 
   printf("============================================================\n");
   
