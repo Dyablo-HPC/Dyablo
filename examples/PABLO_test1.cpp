@@ -25,6 +25,11 @@ void run()
 
   /**<Refine globally four level and write the octree.*/
   for (iter=1; iter<3; iter++){
+
+    printf("===================================\n");
+    printf("initial global refine iter %d\n",iter);
+    printf("===================================\n");
+
     amr_mesh.adaptGlobalRefine();
     uint32_t nocts = amr_mesh.getNumOctants();
 
@@ -53,14 +58,46 @@ void run()
 	  printf(" %d ",neigh_t[ineigh]);
 	}
 	printf("\n");
-	//neigh.insert(neigh.end(), neigh_t.begin(), neigh_t.end());
-	//isghost.insert(isghost.end(), isghost_t.begin(), isghost_t.end());
-      }
+	
+      } // end for iface
       
     } // end for nocts
   } // end for iter
 
   printf("============================================================\n");
+
+  /**< test refinement.*/
+  amr_mesh.setMarker(3,1);
+  amr_mesh.adapt();
+  amr_mesh.updateConnectivity();
+  {
+    // print neighbors id
+    vector<uint32_t> neigh_t;
+    vector<bool> isghost_t;
+
+    uint32_t nocts = amr_mesh.getNumOctants();
+    for (unsigned int i=0; i<nocts; i++){
+      // print cell nodes location
+      vector<array<double,3> > nodes = amr_mesh.getNodes(i);
+      printf("nodes %d : %f %f | %f %f | %f %f | %f %f \n",i,
+	     nodes[0][0],nodes[0][1],
+	     nodes[1][0],nodes[1][1],
+	     nodes[2][0],nodes[2][1],
+	     nodes[3][0],nodes[3][1]);
+      
+      int codim = 1;
+      uint8_t nfaces = 4;
+      for (uint8_t iface=0; iface<nfaces; iface++){
+	amr_mesh.findNeighbours(i,iface,codim,neigh_t,isghost_t);
+	printf("neighbors of %d through face %d are : ",i,iface);
+	for (int ineigh=0; ineigh<neigh_t.size(); ++ineigh) {
+	  printf(" %d ",neigh_t[ineigh]);
+	}
+	printf("\n");
+      } // end for iface
+    } // end for i
+  }
+
   
   /**<Define a center point and a radius.*/
   double xc, yc;
