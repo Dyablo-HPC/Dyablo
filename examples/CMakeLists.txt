@@ -80,11 +80,11 @@ if(BUILD_EXAMPLES)
   add_custom_target(clean-examples COMMAND ${CMAKE_MAKE_PROGRAM} clean WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 
   # Data files
-  add_custom_command(
-    TARGET "POD_application_example_00001" "POD_example_00001" "POD_example_00002" "POD_example_00003" PRE_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/data" "${CMAKE_CURRENT_BINARY_DIR}/data"
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/pod"
-    )
+  # add_custom_command(
+  #   TARGET "POD_application_example_00001" "POD_example_00001" "POD_example_00002" "POD_example_00003" PRE_BUILD
+  #   COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/data" "${CMAKE_CURRENT_BINARY_DIR}/data"
+  #   COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/pod"
+  #   )
 
   install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/data" DESTINATION doc/${CMAKE_PROJECT_NAME}-${BITPIT_VERSION}/examples)
 

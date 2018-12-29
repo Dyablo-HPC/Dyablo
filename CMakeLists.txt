@@ -25,7 +25,7 @@
 #---------------------------------------------------------------------------#
 # CMake settings
 #---------------------------------------------------------------------------#
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.5)
 
 project("bitpit" CXX)
 
@@ -122,7 +122,7 @@ endfunction()
 if (ENABLE_MPI)
   find_package(MPI)
 
-  include_directories("${MPI_INCLUDE_PATH}")
+  #include_directories("${MPI_INCLUDE_PATH}")
 
   if(MPI_C_COMPILE_FLAGS)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${MPI_C_COMPILE_FLAGS}")
