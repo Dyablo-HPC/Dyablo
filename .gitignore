@@ -1,0 +1,6 @@
+*.o
+*~
+compile_commands.json
+build
+build_*
+!build_doc.rst
