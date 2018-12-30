@@ -199,7 +199,7 @@ if(${BUILD_CODE})
   # pass Kokkos include directories to our target application
   include_directories(${Kokkos_INCLUDE_DIRS_RET})
   
-  #add_subdirectory(test)
+  add_subdirectory(test)
   #add_subdirectory(src)
 endif()
 
