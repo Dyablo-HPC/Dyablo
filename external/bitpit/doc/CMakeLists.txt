@@ -22,9 +22,6 @@
 #
 #---------------------------------------------------------------------------*/
 
-# Specify the version being used as well as the language
-cmake_minimum_required(VERSION 2.8)
-
 # Add a target to generate API documentation with Doxygen
 option(BUILD_DOCUMENTATION "Create and install the HTML based API documentation (requires Doxygen)" OFF)
 
