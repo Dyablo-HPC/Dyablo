@@ -27,7 +27,9 @@
 #---------------------------------------------------------------------------#
 cmake_minimum_required(VERSION 3.5)
 
-project("bitpit" CXX)
+if (NOT DEFINED ${PROJECT_NAME})
+  project("bitpit" CXX)
+endif()
 
 #---------------------------------------------------------------------------#
 # Variables visible to the user
