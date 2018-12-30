@@ -27,9 +27,9 @@
 #---------------------------------------------------------------------------#
 cmake_minimum_required(VERSION 3.5)
 
-if (NOT DEFINED ${PROJECT_NAME})
+#if (NOT DEFINED ${PROJECT_NAME})
   project("bitpit" CXX)
-endif()
+#endif()
 
 #---------------------------------------------------------------------------#
 # Variables visible to the user
@@ -286,7 +286,7 @@ endif()
 #---------------------------------------------------------------------------#
 # Library version
 #---------------------------------------------------------------------------#
-set (VERSION_HEADER_FILENAME "${PROJECT_SOURCE_DIR}/src/common/${CMAKE_PROJECT_NAME}_version.hpp")
+set (VERSION_HEADER_FILENAME "${PROJECT_SOURCE_DIR}/src/common/${PROJECT_NAME}_version.hpp")
 string(TOUPPER "${CMAKE_PROJECT_NAME}_VERSION" VERSION_DEFINE_NAME)
 
 file(READ "${VERSION_HEADER_FILENAME}" header)
