@@ -431,7 +431,7 @@ LocalTree::refine(u32vector & mapidx){
 
   return dorefine;
 
-};
+}; // LocalTree::refine
 
 // ========================================================================= //
 /** Coarse local tree: coarse one time family of octants with marker <0
@@ -749,7 +749,7 @@ LocalTree::coarse(u32vector & mapidx){
 
   return docoarse;
 
-};
+}; // LocalTree::coarse
 
 // ========================================================================= //
 
