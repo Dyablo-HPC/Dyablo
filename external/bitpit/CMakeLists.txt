@@ -322,6 +322,16 @@ list(APPEND BITPIT_MODULE_LIST "IO")
 list(APPEND BITPIT_MODULE_LIST "communications")
 list(APPEND BITPIT_MODULE_LIST "PABLO")
 
+# all the following is needed to build meshmapper examples !
+# LAPACKE also needed
+# if (USE_EXTRA_BITPIT)
+#   list(APPEND BITPIT_MODULE_LIST "SA")
+#   list(APPEND BITPIT_MODULE_LIST "CG")
+#   list(APPEND BITPIT_MODULE_LIST "patchkernel")
+#   list(APPEND BITPIT_MODULE_LIST "voloctree")
+#   list(APPEND BITPIT_MODULE_LIST "POD")
+# endif(USE_EXTRA_BITPIT)
+
 #---------------------------------------------------------------------------#
 # Modules dependecies
 #---------------------------------------------------------------------------#
@@ -331,6 +341,14 @@ set(IO_DEPS "common;operators;containers")
 set(COMMUNICATIONS_DEPS "common;containers;IO")
 set(PABLO_DEPS "IO;communications")
 
+# if (USE_EXTRA_BITPIT)
+#   set(SA_DEPS "common;operators")
+#   set(CG_DEPS "common;operators;SA")
+#   set(PATCHKERNEL_DEPS "common;operators;containers;IO;communications")
+#   set(VOLOCTREE_DEPS "common;PABLO;patchkernel")
+#   set(POD_DEPS "IO;common;containers;voloctree")
+# endif(USE_EXTRA_BITPIT)
+  
 #---------------------------------------------------------------------------#
 # MPI-only modules
 #---------------------------------------------------------------------------#
