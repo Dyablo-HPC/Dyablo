@@ -187,4 +187,4 @@ endforeach()
 add_custom_target(tests DEPENDS ${TEST_TARGETS})
 add_custom_target(clean-tests COMMAND ${CMAKE_MAKE_PROGRAM} clean WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 
-add_custom_target(check DEPENDS tests COMMAND ${CMAKE_MAKE_PROGRAM} test)
+add_custom_target(check_bitbit DEPENDS tests COMMAND ${CMAKE_MAKE_PROGRAM} test)
