@@ -128,7 +128,7 @@ void run()
 
   /**<Smoothing iterations on initial data*/
   int start = 1;
-  for (iter=start; iter<start+25; iter++){
+  for (iter=start; iter<start+3; iter++){
     vector<double> oct_data_smooth(nocts, 0.0);
     vector<uint32_t> neigh, neigh_t;
     vector<bool> isghost, isghost_t;
