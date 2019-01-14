@@ -124,7 +124,7 @@ void run()
   /**<Update the connectivity and write the octree.*/
   iter = 0;
   amr_mesh.updateConnectivity();
-  amr_mesh.writeTest("test1_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data);
+  amr_mesh.writeTest("PABLO_test1_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data);
 
   /**<Smoothing iterations on initial data*/
   int start = 1;
