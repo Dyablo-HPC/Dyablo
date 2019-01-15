@@ -200,7 +200,7 @@ if(${BUILD_CODE})
   include_directories(${Kokkos_INCLUDE_DIRS_RET})
   
   add_subdirectory(test)
-  #add_subdirectory(src)
+  add_subdirectory(src)
 endif()
 
 if(NOT DOC STREQUAL "OFF")
