@@ -10,9 +10,10 @@
 using namespace std;
 using namespace bitpit;
 
-
+// maximum number of iterations
 static const int NMAX=100;
 
+// physical domain extent
 static const double xmin = -2.25;
 static const double xmax =  1.25;
 static const double ymin = -1.50;
@@ -21,13 +22,18 @@ static const double ymax =  1.50;
 static const double deltaX = xmax-xmin;
 static const double deltaY = ymax-ymin;
 
+/// rescale x coordinate from unit square to physical domain
 double scaleX(double x) {
   return xmin + deltaX * x;
 }
 
+/// rescale y coordinate from unit square to physical domain
 double scaleY(double y) {
   return ymin + deltaY * y;
 }
+
+/// refinement threashold
+static const double epsilon = 0.1;
 
 // ========================================================================
 // ========================================================================
@@ -38,15 +44,17 @@ double scaleY(double y) {
 double
 compute_nb_iters (double cx, double cy)
 {
+  // init number of iterations
   int j = 0;
+
   double norm = (cx*cx + cy*cy);
   double zx = cx;
   double zy = cy;
   double tmp;
 
   while (j <= NMAX and norm < 4) {
-    tmp  = (zx*zx) - (zy*zy) + cx;// Real part 
-    zy   = (2.*zx*zy) + cy; //Imag part
+    tmp  = (zx*zx) - (zy*zy) + cx; // Real part 
+    zy   = (2.*zx*zy) + cy;        // Imag part
     zx   = tmp;
     j++;
     norm = (zx*zx + zy*zy);
@@ -56,6 +64,32 @@ compute_nb_iters (double cx, double cy)
   
 } // compute_nb_iters
 
+// ========================================================================
+// ========================================================================
+/**
+ * Compute and save Mandelbrot set to file
+ */
+void compute_and_save_mandelbrot(PabloUniform& amr_mesh, size_t iter)
+{
+  uint32_t nocts = amr_mesh.getNumOctants();
+  vector<double> oct_data(nocts, 0.0);
+
+  for (size_t i=0; i<nocts; ++i) {
+    // get cell center coordinate in the unit domain
+    std::array<double,3> center = amr_mesh.getCenter(i);
+
+    // change into coordinates in the physical domain
+    double x = scaleX(center[0]);
+    double y = scaleY(center[1]);
+
+    // compute pixel status, how many iterations for the Mandelbrot
+    // series to diverge
+    oct_data[i] = compute_nb_iters(x,y);
+  }
+  
+  amr_mesh.writeTest("mandelbrot_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data);
+
+} // save_mandelbrot
 
 // ========================================================================
 // ========================================================================
@@ -81,22 +115,75 @@ void run()
   // start with a 32x32 array
   for (int i=0; i<5; ++i)
     amr_mesh.adaptGlobalRefine();
+  
+#if BITPIT_ENABLE_MPI==1
+  // (Load)Balance the octree over the processes.
+  amr_mesh.loadBalance();
+#endif
+  
+  amr_mesh.updateConnectivity();  
 
-  for (int iter=0; iter<2; ++iter) {
+  compute_and_save_mandelbrot(amr_mesh, 0);  
+
+  // add several levels of refinement
+  for (size_t iter=1; iter<=5; ++iter) {
 
     // refine all cells
     uint32_t nocts = amr_mesh.getNumOctants();
 
-    for (unsigned int i=0; i<nocts; i++){
-      // print cell center location
-      std::array<double,3> center = amr_mesh.getCenter(i);
-      //printf("center %d : %f %f \n",i,
-      //	     scaleX(center[0]),scaleY(center[1]));
+    for (size_t i=0; i<nocts; ++i){
 
-      // decide if cell need to be flagged for refinement
+      // get cell level
+      uint8_t level = amr_mesh.getLevel(i);
+
+      // only look at level 5 + iter - 1
+      if (level == (5+iter-1)) {
+
+	double x,y;
+	double nbiter_center;
+	
+	// get cell center
+	std::array<double,3> center = amr_mesh.getCenter(i);
+	
+	// change into coordinates in the physical domain
+	x = scaleX(center[0]);
+	y = scaleY(center[1]);
+	
+	// compute how many iterations for the Mandelbrot
+	// series to diverge at center
+	nbiter_center = compute_nb_iters(x,y);
+	
+	// get cell corner nodes
+	vector<array<double,3> > nodes = amr_mesh.getNodes(i);
+
+	double interpol = 0.0;
+	for (int ic=0; ic<4; ++ic) {
+	  x = scaleX(nodes[ic][0]);
+	  y = scaleY(nodes[ic][1]);
+	  interpol += compute_nb_iters(x,y);
+	}
+	interpol /= 4.0;
+	interpol = fabs(interpol);
+	
+	bool should_refine = false;
+	// compute how much linear interpolation is different from
+	// value at cell center and
+	// decide if cell need to be flagged for refinement
+	if (interpol > 0) {
+	  if (nbiter_center / interpol > 1+epsilon or
+	      nbiter_center / interpol < 1-epsilon)
+	    should_refine = true;
+	}
+
+	if (should_refine) {
+	  //printf("refine %d\n",i);
+	  amr_mesh.setMarker(i, 1);
+	}
+	
+      } // end if level
       
-    }
-
+    } // end if nocts
+    
     amr_mesh.adapt();
 
 #if BITPIT_ENABLE_MPI==1
@@ -106,19 +193,10 @@ void run()
 
     amr_mesh.updateConnectivity();  
     
-    /**<Define vectors of data.*/
-    uint32_t nocts2 = amr_mesh.getNumOctants();
-    vector<double> oct_data(nocts2, 0.0);
-    
-    /**<Assign a data to the octants with at least one node inside the circle.*/
-    for (unsigned int i=0; i<nocts2; i++){
-      oct_data[i] = rank;
-    }
-    
-    amr_mesh.updateConnectivity();
-    amr_mesh.writeTest("PABLO_test0_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data);
+    compute_and_save_mandelbrot(amr_mesh, iter);
 
   } // end for iter
+  
 } // end run
 
 /*!
