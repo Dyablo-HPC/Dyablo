@@ -33,7 +33,7 @@ double scaleY(double y) {
 }
 
 /// refinement threashold
-static const double epsilon = 0.1;
+static const double epsilon = 0.05;
 
 // ========================================================================
 // ========================================================================
@@ -73,6 +73,7 @@ void compute_and_save_mandelbrot(PabloUniform& amr_mesh, size_t iter)
 {
   uint32_t nocts = amr_mesh.getNumOctants();
   vector<double> oct_data(nocts, 0.0);
+  vector<double> oct_data_level(nocts, 0.0);
 
   for (size_t i=0; i<nocts; ++i) {
     // get cell center coordinate in the unit domain
@@ -84,12 +85,29 @@ void compute_and_save_mandelbrot(PabloUniform& amr_mesh, size_t iter)
 
     // compute pixel status, how many iterations for the Mandelbrot
     // series to diverge
-    oct_data[i] = compute_nb_iters(x,y);
+    oct_data[i]       = compute_nb_iters(x,y);
+    oct_data_level[i] = amr_mesh.getLevel(i);
   }
   
   amr_mesh.writeTest("mandelbrot_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data);
+  amr_mesh.writeTest("mandelbrot_level"+to_string(static_cast<unsigned long long>(iter)), oct_data_level);
 
-} // save_mandelbrot
+#if BITPIT_ENABLE_MPI==1
+  // save MPI rank
+  {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    
+    for (size_t i=0; i<nocts; ++i) {
+      oct_data[i]       = rank;
+    }
+
+    amr_mesh.writeTest("mandelbrot_rank"+to_string(static_cast<unsigned long long>(iter)), oct_data);
+    
+  }
+#endif
+  
+} // compute_and_save_mandelbrot
 
 // ========================================================================
 // ========================================================================
