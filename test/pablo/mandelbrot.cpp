@@ -117,16 +117,6 @@ void compute_and_save_mandelbrot(PabloUniform& amr_mesh, size_t iter)
 void run()
 {
 
-  int nProcs;
-  int rank;
-#if BITPIT_ENABLE_MPI==1
-  MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-#else
-  nProcs = 1;
-  rank   = 0;
-#endif
-
   /**<Instantation of a 2D pablo uniform object.*/
   PabloUniform amr_mesh(2);
 
@@ -229,14 +219,11 @@ int main(int argc, char *argv[])
   BITPIT_UNUSED(argv);
 #endif
 
-  int nProcs;
-  int rank;
+  int nProcs = 1;
+  int rank = 0;
 #if BITPIT_ENABLE_MPI==1
   MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-#else
-  nProcs = 1;
-  rank   = 0;
 #endif
 
   // Initialize the logger
