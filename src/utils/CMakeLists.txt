@@ -1,3 +1,6 @@
 add_subdirectory(config)
 add_subdirectory(monitoring)
 add_subdirectory(misc)
+if (USE_MPI)
+  add_subdirectory(mpiUtils)
+endif(USE_MPI)
