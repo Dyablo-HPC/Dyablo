@@ -2,6 +2,7 @@
 ### SHARED ############
 #######################
 set (shared_SRCS
+  ${CMAKE_CURRENT_SOURCE_DIR}/problems/initRiemannConfig2d.h
   ${CMAKE_CURRENT_SOURCE_DIR}/HydroParams.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/HydroParams.h
   ${CMAKE_CURRENT_SOURCE_DIR}/HydroState.h
