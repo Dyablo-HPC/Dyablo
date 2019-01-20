@@ -16,12 +16,12 @@ using namespace bitpit;
 /**
  * Run the example.
  */
-void run()
+void run(int dim)
 {
   int iter = 0;
 
   /**<Instantation of a 2D pablo uniform object.*/
-  PabloUniform amr_mesh(2);
+  PabloUniform amr_mesh(dim);
 
   /**<Refine globally four level and write the octree.*/
   for (iter=1; iter<3; iter++){
@@ -39,18 +39,31 @@ void run()
     for (unsigned int i=0; i<nocts; i++){
       // print cell nodes location
       vector<array<double,3> > nodes = amr_mesh.getNodes(i);
-      printf("nodes %d : %f %f | %f %f | %f %f | %f %f \n",i,
-	     nodes[0][0],nodes[0][1],
-	     nodes[1][0],nodes[1][1],
-	     nodes[2][0],nodes[2][1],
-	     nodes[3][0],nodes[3][1]);
 
+      if (dim==2) {
+	printf("nodes %d : %f %f | %f %f | %f %f | %f %f \n",i,
+	       nodes[0][0],nodes[0][1],
+	       nodes[1][0],nodes[1][1],
+	       nodes[2][0],nodes[2][1],
+	       nodes[3][0],nodes[3][1]);
+      } else {
+	printf("nodes %d : %f %f %f | %f %f %f | %f %f %f | %f %f %f\n           %f %f %f | %f %f %f | %f %f %f | %f %f %f\n",i,
+	       nodes[0][0],nodes[0][1],nodes[0][2],
+	       nodes[1][0],nodes[1][1],nodes[1][2],
+	       nodes[2][0],nodes[2][1],nodes[2][2],
+	       nodes[3][0],nodes[3][1],nodes[3][2],
+	       nodes[4][0],nodes[4][1],nodes[4][2],
+	       nodes[5][0],nodes[5][1],nodes[5][2],
+	       nodes[6][0],nodes[6][1],nodes[6][2],
+	       nodes[7][0],nodes[7][1],nodes[7][2]);
+      }
+	
       // print neighbors id
       neigh.clear();
       isghost.clear();
 
       int codim = 1;
-      uint8_t nfaces = 4;
+      uint8_t nfaces = 2*dim;
       for (uint8_t iface=0; iface<nfaces; iface++){
 	amr_mesh.findNeighbours(i,iface,codim,neigh_t,isghost_t);
 	printf("neighbors of %d through face %d are : ",i,iface);
@@ -65,6 +78,7 @@ void run()
   } // end for iter
 
   printf("============================================================\n");
+  printf("============================================================\n");
 
   /**< test refinement.*/
   amr_mesh.setMarker(3,1);
@@ -76,17 +90,30 @@ void run()
     vector<bool> isghost_t;
 
     uint32_t nocts = amr_mesh.getNumOctants();
-    for (unsigned int i=0; i<nocts; i++){
+    for (unsigned int i=0; i<nocts; i++) {
+
       // print cell nodes location
       vector<array<double,3> > nodes = amr_mesh.getNodes(i);
-      printf("nodes %d : %f %f | %f %f | %f %f | %f %f \n",i,
-	     nodes[0][0],nodes[0][1],
-	     nodes[1][0],nodes[1][1],
-	     nodes[2][0],nodes[2][1],
-	     nodes[3][0],nodes[3][1]);
+      if (dim==2) {
+	printf("nodes %d : %f %f | %f %f | %f %f | %f %f \n",i,
+	       nodes[0][0],nodes[0][1],
+	       nodes[1][0],nodes[1][1],
+	       nodes[2][0],nodes[2][1],
+	       nodes[3][0],nodes[3][1]);
+      } else {
+	printf("nodes %d : %f %f %f | %f %f %f | %f %f %f | %f %f %f\n           %f %f %f | %f %f %f | %f %f %f | %f %f %f\n",i,
+	       nodes[0][0],nodes[0][1],nodes[0][2],
+	       nodes[1][0],nodes[1][1],nodes[1][2],
+	       nodes[2][0],nodes[2][1],nodes[2][2],
+	       nodes[3][0],nodes[3][1],nodes[3][2],
+	       nodes[4][0],nodes[4][1],nodes[4][2],
+	       nodes[5][0],nodes[5][1],nodes[5][2],
+	       nodes[6][0],nodes[6][1],nodes[6][2],
+	       nodes[7][0],nodes[7][1],nodes[7][2]);
+      }
       
       int codim = 1;
-      uint8_t nfaces = 4;
+      uint8_t nfaces = 2*dim;
       for (uint8_t iface=0; iface<nfaces; iface++){
 	amr_mesh.findNeighbours(i,iface,codim,neigh_t,isghost_t);
 	printf("neighbors of %d through face %d are : ",i,iface);
@@ -100,8 +127,8 @@ void run()
 
   
   /**<Define a center point and a radius.*/
-  double xc, yc;
-  xc = yc = 0.5;
+  double xc, yc, zc;
+  xc = yc = zc = 0.5;
   double radius = 0.25;
 
   /**<Define vectors of data.*/
@@ -112,11 +139,23 @@ void run()
   for (unsigned int i=0; i<nocts; i++){
     /**<Compute the nodes of the octant.*/
     vector<array<double,3> > nodes = amr_mesh.getNodes(i);
-    for (int j=0; j<4; j++){
-      double x = nodes[j][0];
-      double y = nodes[j][1];
-      if ((pow((x-xc),2.0)+pow((y-yc),2.0) <= pow(radius,2.0))){
-	oct_data[i] = 1.0;
+
+    if (dim==2) {
+      for (int j=0; j<4; j++){
+	double x = nodes[j][0];
+	double y = nodes[j][1];
+	if ((pow((x-xc),2.0)+pow((y-yc),2.0) <= pow(radius,2.0))){
+	  oct_data[i] = 1.0;
+	}
+      }
+    } else {
+      for (int j=0; j<8; j++){
+	double x = nodes[j][0];
+	double y = nodes[j][1];
+	double z = nodes[j][2];
+	if ((pow((x-xc),2.0)+pow((y-yc),2.0)+pow((z-zc),2.0) <= pow(radius,2.0))){
+	  oct_data[i] = 1.0;
+	}
       }
     }
   }
@@ -141,10 +180,10 @@ void run()
       /**<Find neighbours through faces (codim=1) and edges (codim=2) of the octants*/
       for (codim=1; codim<3; codim++){
 	if (codim == 1){
-	  nfaces = 4;
+	  nfaces = 2*dim;
 	}
 	else if (codim == 2){
-	  nfaces = 4;
+	  nfaces = dim==2 ? 4 : 12;
 	}
 	for (iface=0; iface<nfaces; iface++){
 	  amr_mesh.findNeighbours(i,iface,codim,neigh_t,isghost_t);
@@ -167,11 +206,13 @@ void run()
 
     /**<Update the connectivity and write the octree.*/
     amr_mesh.updateConnectivity();
-    amr_mesh.writeTest("test1_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data_smooth);
+    amr_mesh.writeTest("PABLO_test11_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data_smooth);
 
     oct_data = oct_data_smooth;
-  }
-}
+    
+  } // end for iter
+  
+} // end run
 
 /*!
  * Main program.
@@ -200,9 +241,16 @@ int main(int argc, char *argv[])
   log::cout() << fileVerbosity(log::NORMAL);
   log::cout() << consoleVerbosity(log::QUIET);
 
+  int dim = 2;
+  if (argc>1) {
+    dim = atoi(argv[1]);
+    if (dim != 2 and dim != 3)
+      dim=2;
+  }
+  
   // Run the example
   try {
-    run();
+    run(dim);
   } catch (const std::exception &exception) {
     log::cout() << exception.what();
     exit(1);
