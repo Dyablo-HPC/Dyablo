@@ -11,11 +11,11 @@ namespace euler_pablo {
 inline void print_solver_monitoring_info(SolverBase* solver)
 {
   
-  real_t t_tot   = solver->timers[TIMER_TOTAL]->elapsed();
-  real_t t_comp  = solver->timers[TIMER_NUM_SCHEME]->elapsed();
-  real_t t_dt    = solver->timers[TIMER_DT]->elapsed();
-  real_t t_bound = solver->timers[TIMER_BOUNDARIES]->elapsed();
-  real_t t_io    = solver->timers[TIMER_IO]->elapsed();
+  real_t t_tot   = solver->m_timers[TIMER_TOTAL]->elapsed();
+  real_t t_comp  = solver->m_timers[TIMER_NUM_SCHEME]->elapsed();
+  real_t t_dt    = solver->m_timers[TIMER_DT]->elapsed();
+  real_t t_bound = solver->m_timers[TIMER_BOUNDARIES]->elapsed();
+  real_t t_io    = solver->m_timers[TIMER_IO]->elapsed();
 
   int myRank = 0;
   int nProcs = 1;

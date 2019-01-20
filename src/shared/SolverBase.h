@@ -130,7 +130,7 @@ public:
   using Timer = OpenMPTimer;
 #endif
   using TimerMap = std::map<int, std::shared_ptr<Timer> >;
-  TimerMap timers;
+  TimerMap m_timers;
 
   void save_data(DataArray             U,
 		 DataArray::HostMirror Uh,

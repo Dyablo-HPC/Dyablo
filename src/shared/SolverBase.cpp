@@ -35,11 +35,11 @@ SolverBase::SolverBase (HydroParams& params, ConfigMap& configMap) :
   m_nDofsPerCell = -1;
   
   // create the timers
-  timers[TIMER_TOTAL]      = std::make_shared<Timer>();
-  timers[TIMER_IO]         = std::make_shared<Timer>();
-  timers[TIMER_DT]         = std::make_shared<Timer>();
-  timers[TIMER_BOUNDARIES] = std::make_shared<Timer>();
-  timers[TIMER_NUM_SCHEME] = std::make_shared<Timer>();
+  m_timers[TIMER_TOTAL]      = std::make_shared<Timer>();
+  m_timers[TIMER_IO]         = std::make_shared<Timer>();
+  m_timers[TIMER_DT]         = std::make_shared<Timer>();
+  m_timers[TIMER_BOUNDARIES] = std::make_shared<Timer>();
+  m_timers[TIMER_NUM_SCHEME] = std::make_shared<Timer>();
 
   // init variables names
   m_variables_names[ID] = "rho";
