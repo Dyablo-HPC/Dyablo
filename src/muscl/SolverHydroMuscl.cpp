@@ -13,6 +13,133 @@
 namespace euler_pablo { namespace muscl {
 
 // =======================================================
+// ==== CLASS SolverHydroMuscl IMPL ======================
+// =======================================================
+
+// =======================================================
+// =======================================================
+/**
+ *
+ */
+SolverHydroMuscl::SolverHydroMuscl(HydroParams& params,
+				   ConfigMap& configMap) :
+  SolverBase(params, configMap),
+  U(), U2(), Q(),
+  Fluxes_x(), Fluxes_y(), Fluxes_z(),
+  Slopes_x(), Slopes_y(), Slopes_z()
+{
+  
+  solver_type = SOLVER_MUSCL_HANCOCK;
+  
+  // m_nCells = nbCells; // TODO
+  m_nDofsPerCell = 1;
+
+  int nbvar = params.nbvar;
+ 
+  long long int total_mem_size = 0;
+
+  /*
+   * memory pre-allocation.
+   *
+   * Note that Uhost is not just a view to U, Uhost will be used
+   * to save data from multiple other device array.
+   * That's why we didn't use create_mirror_view to initialize Uhost.
+   */
+
+  // minimal number of cells
+  uint64_t nbCells = 2; //1<<params.level_min;
+  
+  nbCells = params.dimType == TWO_D ? nbCells * nbCells :  nbCells * nbCells * nbCells;
+  
+  U     = DataArray("U", nbCells, nbvar);
+  Uhost = Kokkos::create_mirror(U);
+  U2    = DataArray("U2",nbCells, nbvar);
+  Q     = DataArray("Q", nbCells, nbvar);
+  
+  total_mem_size += nbCells*nbvar * sizeof(real_t) * 3;// 1+1+1 for U+U2+Q
+  
+  if (params.implementationVersion == 0) {
+      
+    Fluxes_x = DataArray("Fluxes_x", nbCells, nbvar);
+    Fluxes_y = DataArray("Fluxes_y", nbCells, nbvar);
+
+    if (m_dim == 3)
+      Fluxes_z = DataArray("Fluxes_z", nbCells, nbvar);
+
+    if (m_dim == 2)
+      total_mem_size += nbCells*nbvar * sizeof(real_t) * 2;// 1+1 for Fluxes_x+Fluxes_y
+    else
+      total_mem_size += nbCells*nbvar * sizeof(real_t) * 3;// 1+1+1 for Fluxes_x+Fluxes_y+Fluxes_z
+    
+  } else if (params.implementationVersion == 1) {
+      
+    Slopes_x = DataArray("Slope_x", nbCells, nbvar);
+    Slopes_y = DataArray("Slope_y", nbCells, nbvar);
+
+    if (m_dim == 3)
+      Slopes_z = DataArray("Slope_z", nbCells, nbvar);
+
+    // direction splitting (only need one flux array)
+    Fluxes_x = DataArray("Fluxes_x", nbCells, nbvar);
+    Fluxes_y = Fluxes_x;
+    if (m_dim == 3)
+      Fluxes_z = Fluxes_x;
+
+    if (m_dim==2)
+      total_mem_size += nbCells*nbvar * sizeof(real_t) * 3;// 1+1+1 for Slopes_x+Slopes_y+Fluxes_x
+    else
+      total_mem_size += nbCells*nbvar * sizeof(real_t) * 4;// 1+1+1 for Slopes_x+Slopes_y+Slopes_z+Fluxes_x
+    
+  } 
+  
+  // if (m_gravity_enabled) {
+  //   gravity = DataArray("gravity field",nbCells,m_dim);
+  //   total_mem_size += isize*jsize*2; // TODO
+  // }      
+ 
+  // perform init condition
+  init(U);
+  
+  // initialize boundaries
+  //make_boundaries(U);
+
+  // copy U into U2
+  Kokkos::deep_copy(U2,U);
+  
+  // compute initialize time step
+  compute_dt();
+
+  int myRank=0;
+#ifdef USE_MPI
+  myRank = params.myRank;
+#endif // USE_MPI
+
+  if (myRank==0) {
+    std::cout << "##########################" << "\n";
+    std::cout << "Solver is " << m_solver_name << "\n";
+    std::cout << "Problem (init condition) is " << m_problem_name << "\n";
+    std::cout << "##########################" << "\n";
+    
+    // print parameters on screen
+    params.print();
+    std::cout << "##########################" << "\n";
+    std::cout << "Memory requested : " << (total_mem_size / 1e6) << " MBytes\n"; 
+    std::cout << "##########################" << "\n";
+  }
+
+} // SolverHydroMuscl::SolverHydroMuscl
+
+// =======================================================
+// =======================================================
+/**
+ *
+ */
+SolverHydroMuscl::~SolverHydroMuscl()
+{
+
+} // SolverHydroMuscl::~SolverHydroMuscl
+
+// =======================================================
 // =======================================================
 // //////////////////////////////////////////////////
 // Fill ghost cells according to border condition :
@@ -21,17 +148,17 @@ namespace euler_pablo { namespace muscl {
 void SolverHydroMuscl::make_boundaries(DataArray Udata)
 {
 
-  bool mhd_enabled = false;
+//   bool mhd_enabled = false;
 
-#ifdef USE_MPI
+// #ifdef USE_MPI
 
-  make_boundaries_mpi(Udata, mhd_enabled);
+//   make_boundaries_mpi(Udata, mhd_enabled);
 
-#else
+// #else
 
-  make_boundaries_serial(Udata, mhd_enabled);
+//   make_boundaries_serial(Udata, mhd_enabled);
   
-#endif // USE_MPI
+// #endif // USE_MPI
   
 } // SolverHydroMuscl::make_boundaries
 
@@ -252,6 +379,77 @@ void SolverHydroMuscl::init(DataArray Udata)
 
 // =======================================================
 // =======================================================
+/**
+ * Compute time step satisfying CFL condition.
+ *
+ * \return dt time step
+ */
+double SolverHydroMuscl::compute_dt_local()
+{
+
+
+} // SolverHydroMuscl::compute_dt_local
+
+// =======================================================
+// =======================================================
+void SolverHydroMuscl::next_iteration_impl()
+{
+  
+  int myRank=0;
+  
+#ifdef USE_MPI
+  myRank = params.myRank;
+#endif // USE_MPI
+  
+  if (m_iteration % m_nlog == 0) {
+    if (myRank==0) {
+      printf("time step=%7d (dt=% 10.8f t=% 10.8f)\n",m_iteration,m_dt, m_t);
+    }
+  }
+  
+  // output
+  if (params.enableOutput) {
+    if ( should_save_solution() ) {
+      
+      if (myRank==0) {
+	std::cout << "Output results at time t=" << m_t
+		  << " step " << m_iteration
+		  << " dt=" << m_dt << std::endl;
+      }
+      
+      save_solution();
+      
+    } // end output
+  } // end enable output
+  
+  // compute new dt
+  m_timers[TIMER_DT]->start();
+  compute_dt();
+  m_timers[TIMER_DT]->stop();
+  
+  // perform one step integration
+  godunov_unsplit(m_dt);
+  
+} // SolverHydroMuscl::next_iteration_impl
+
+// =======================================================
+// =======================================================
+// ///////////////////////////////////////////
+// Wrapper to the actual computation routine
+// ///////////////////////////////////////////
+void SolverHydroMuscl::godunov_unsplit(real_t dt)
+{
+  
+  if ( m_iteration % 2 == 0 ) {
+    godunov_unsplit_impl(U , U2, dt);
+  } else {
+    godunov_unsplit_impl(U2, U , dt);
+  }
+  
+} // SolverHydroMuscl::godunov_unsplit
+
+// =======================================================
+// =======================================================
 // ///////////////////////////////////////////
 // Actual computation of Godunov scheme
 // ///////////////////////////////////////////
@@ -298,6 +496,31 @@ void SolverHydroMuscl::godunov_unsplit_impl(DataArray data_in,
   
 } // SolverHydroMuscl::godunov_unsplit_impl
 
+// =======================================================
+// =======================================================
+// ///////////////////////////////////////////////////////////////////
+// Convert conservative variables array U into primitive var array Q
+// ///////////////////////////////////////////////////////////////////
+void SolverHydroMuscl::convertToPrimitives(DataArray Udata)
+{
+
+  
+} // SolverHydroMuscl::convertToPrimitives
+
+// =======================================================
+// =======================================================
+void SolverHydroMuscl::save_solution_impl()
+{
+
+  m_timers[TIMER_IO]->start();
+  if (m_iteration % 2 == 0)
+    save_data(U,  Uhost, m_times_saved, m_t);
+  else
+    save_data(U2, Uhost, m_times_saved, m_t);
+  
+  m_timers[TIMER_IO]->stop();
+    
+} // SolverHydroMuscl::save_solution_impl()
 
 } // namespace muscl
 
