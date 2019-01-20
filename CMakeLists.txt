@@ -192,7 +192,7 @@ if(${BUILD_CODE})
   #
   # sources
   #
-  #add_subdirectory(external/backward-cpp)
+  add_subdirectory(external/backward-cpp)
   add_subdirectory(external/kokkos)
   add_subdirectory(external/bitpit)
   
