@@ -27,6 +27,8 @@ SolverBase::SolverBase (HydroParams& params, ConfigMap& configMap) :
    */
   read_config();
 
+  m_dim = params.dimType == TWO_D ? 2 : 3;
+  
   /*
    * other variables initialization.
    */

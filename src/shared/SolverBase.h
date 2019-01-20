@@ -74,6 +74,9 @@ public:
   
   //! solver name (use in output file).
   std::string          m_solver_name;
+
+  //! dimension (2 or 3)
+  int                  m_dim;
   
   /*
    *
