@@ -53,8 +53,10 @@ public:
   //! unordered map of parameters read from input ini file
   ConfigMap& configMap;
 
+  using AMRmeshPtr = std::unique_ptr<bitpit::PabloUniform>;
+  
   //! The main AMR object (from bitpit library)
-  bitpit::PabloUniform *amr_mesh_ptr;
+  AMRmeshPtr amr_mesh_ptr;
   
   //! enum type to the actual solver type (Hydro, MHD, ...). TBC if needed.
   solver_type_t solver_type;
