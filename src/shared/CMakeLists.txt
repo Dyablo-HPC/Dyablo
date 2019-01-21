@@ -26,10 +26,11 @@ target_include_directories(shared
   ${CMAKE_SOURCE_DIR}/src/utils
   ${CMAKE_SOURCE_DIR}/src/utils/time
   ${CMAKE_SOURCE_DIR}/src/utils/io
-  ${CMAKE_SOURCE_DIR}/kokkos/core/src
-  ${CMAKE_SOURCE_DIR}/kokkos/containers/src
-  ${CMAKE_SOURCE_DIR}/kokkos/algorithms/src
-  ${CMAKE_BINARY_DIR}/kokkos
+  ${CMAKE_SOURCE_DIR}/external/bitpit/src/PABLO
+  ${CMAKE_SOURCE_DIR}/external/bitpit/src/common
+  ${CMAKE_SOURCE_DIR}/external/bitpit/src/containers
+  ${CMAKE_SOURCE_DIR}/external/bitpit/src/IO
+  ${CMAKE_SOURCE_DIR}/external/bitpit/src/operators
   ) 
 target_link_libraries(shared
   kokkos

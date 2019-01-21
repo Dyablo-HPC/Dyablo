@@ -15,6 +15,8 @@
 #include "utils/monitoring/OpenMPTimer.h"
 #endif
 
+#include "bitpit_PABLO.hpp"
+
 //! this enum helps identifying the type of solver used
 enum solver_type_t {
   SOLVER_UNDEFINED=0,
@@ -45,11 +47,16 @@ public:
   SolverBase(HydroParams& params, ConfigMap& configMap);
   virtual ~SolverBase();
 
-  // hydroParams
+  //! hydrodynamics parameters settings
   HydroParams& params;
+
+  //! unordered map of parameters read from input ini file
   ConfigMap& configMap;
 
-  /* some common member data */
+  //! The main AMR object (from bitpit library)
+  bitpit::PabloUniform *amr_mesh_ptr;
+  
+  //! enum type to the actual solver type (Hydro, MHD, ...). TBC if needed.
   solver_type_t solver_type;
   
   //! is this a restart run ?
