@@ -107,6 +107,9 @@ int main(int argc, char *argv[])
   // initialize workspace memory (U, U2, ...)
   SolverBase *solver = muscl::SolverHydroMuscl::create(params,
 						       configMap);
+
+  // init data
+  // TODO
   
   if (params.nOutput != 0)
     solver->save_solution();
