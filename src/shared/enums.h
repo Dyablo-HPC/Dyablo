@@ -25,7 +25,8 @@ enum VarIndex {
   IBZ=7,   /*!< Z magnetic field index */
   IBFX = 0,
   IBFY = 1,
-  IBFZ = 2
+  IBFZ = 2,
+  COMPONENT_SIZE=8 /*!< invalid index, just counting number of fields */
 };
 
 // //! enum class to enumerate field location in a velocity/temperature gradient array in 2d at solution points
