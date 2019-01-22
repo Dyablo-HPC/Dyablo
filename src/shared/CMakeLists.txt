@@ -15,6 +15,9 @@ set (shared_SRCS
   ${CMAKE_CURRENT_SOURCE_DIR}/utils.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/utils.h
   ${CMAKE_CURRENT_SOURCE_DIR}/solver_utils.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/SimpleVTKIO.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/SimpleVTKIO.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/bitpit_common.h
   )
 
 add_library(shared
