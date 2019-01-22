@@ -2,24 +2,65 @@
 
 namespace euler_pablo {
 
+// =======================================================
+// =======================================================
+int build_var_to_write_map(str2int_t        & map,
+			   const HydroParams& params,
+			   const ConfigMap  & configMap)
+{
+
+  // Read parameter file and get the list of variable field names
+  // we wish to write 
+  // variable names must be comma-separated (no quotes !)
+  // e.g. write_variables=rho,vx,vy,unknown
+  std::string write_variables = configMap.getString("output", "write_variables", "rho,rho_vx");
+
+  // second retrieve available / allowed names
+  FieldManager fieldMgr;
+  fieldMgr.setup(params, configMap);
+  
+  str2int_t avail_names = fieldMgr.get_names2index();
+  
+  // now tokenize
+  std::istringstream iss(write_variables);
+  std::string token;
+  while (std::getline(iss, token, ',')) {
+
+    // check if token is valid, i.e. present in avail_names
+    auto got = avail_names.find(token);
+    //std::cout << " " << token << " " << got->second << "\n";
+    
+    // if token is valid, we insert it into map
+    if (got != avail_names.end()) {
+      map[token] = got->second;
+    }
+    
+  }
+  
+  return map.size();
+    
+} // build_var_to_write_map
+
 // ==================================================
 // ==================================================
-void writeVTK(AMRmesh& amr_mesh,
-	      std::string filenameSuffix,
-	      DataArray data,
-	      id2index_t  fm,
+void writeVTK(AMRmesh&         amr_mesh,
+	      std::string      filenameSuffix,
+	      DataArray        data,
+	      id2index_t       fm,
+	      str2int_t        names2index,
 	      const ConfigMap& configMap)
 {
 
+  // copy data from device to host
   DataArrayHost datah = Kokkos::create_mirror(data);
   // copy device data to host
   Kokkos::deep_copy(datah, data);
 
+  // dimension : 2 or 3 ?
   uint8_t dim = amr_mesh.getDim();
   
-  // if done already, compute mesh connectivity
+  // if not done already, compute mesh connectivity
   // and store nodes coordinates
-  //const auto& connectivity = ;
   if (amr_mesh.getConnectivity().size() == 0) {
     amr_mesh.computeConnectivity();
   }
@@ -48,22 +89,37 @@ void writeVTK(AMRmesh& amr_mesh,
       << "<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" byte_order=\"BigEndian\">" << std::endl
       << "  <UnstructuredGrid>" << std::endl
       << "    <Piece NumberOfCells=\"" << amr_mesh.getConnectivity().size() << "\" NumberOfPoints=\"" << amr_mesh.getNodes().size() << "\">" << std::endl;
-  out << "      <CellData Scalars=\"Data\">" << std::endl;
-  out << "      <DataArray type=\"Float64\" Name=\"Data\" NumberOfComponents=\"1\" format=\"ascii\">" << std::endl
-      << "          " << std::fixed;
-  int ndata = amr_mesh.getConnectivity().size();
-  for(int i = 0; i < ndata; i++)
-    {
-      // for now, only save ID (density)
-      out << std::setprecision(6) << datah(i,fm[ID]) << " ";
-      if((i+1)%4==0 and i!=ndata-1)
-	out << std::endl << "          ";
-    }
-  out << std::endl << "        </DataArray>" << std::endl
-      << "      </CellData>" << std::endl
+  out << "      <CellData>\n";
+
+  // write data array scalar fields in ascii
+  for ( auto iter : names2index) {
+
+    // get variables string name
+    const std::string varName = iter.first;
+    
+    // get variable id
+    int iVar = iter.second;    
+
+    out << "      <DataArray type=\"Float64\" Name=\"" << varName << "\" NumberOfComponents=\"1\" format=\"ascii\">" << std::endl
+	<< "          " << std::fixed;
+    
+    int ndata = amr_mesh.getConnectivity().size();
+    for(int i = 0; i < ndata; i++)
+      {
+	// for now, only save ID (density)
+	out << std::setprecision(6) << datah(i,fm[iVar]) << " ";
+	if((i+1)%4==0 and i!=ndata-1)
+	  out << std::endl << "          ";
+      }
+    out << std::endl << "        </DataArray>" << std::endl;
+    
+  } // end for iter
+  
+  out << "      </CellData>" << std::endl
       << "      <Points>" << std::endl
       << "        <DataArray type=\"Float64\" Name=\"Coordinates\" NumberOfComponents=\""<< 3 <<"\" format=\"ascii\">" << std::endl
       << "          " << std::fixed;
+  
   for(int i = 0; i < nofNodes; i++)
     {
       for(int j = 0; j < 3; ++j){
@@ -144,11 +200,24 @@ void writeVTK(AMRmesh& amr_mesh,
 	 << "<VTKFile type=\"PUnstructuredGrid\" version=\"0.1\" byte_order=\"BigEndian\">" << std::endl
 	 << "  <PUnstructuredGrid GhostLevel=\"0\">" << std::endl
 	 << "    <PPointData>" << std::endl
-	 << "    </PPointData>" << std::endl
-	 << "    <PCellData Scalars=\"Data\">" << std::endl
-	 << "      <PDataArray type=\"Float64\" Name=\"Data\" NumberOfComponents=\"1\"/>" << std::endl
-	 << "    </PCellData>" << std::endl
-	 << "    <PPoints>" << std::endl
+	 << "    </PPointData>" << std::endl;
+
+    pout << "    <PCellData>" << std::endl;
+
+    for ( auto iter : names2index) {
+      
+      // get variables string name
+      const std::string varName = iter.first;
+      
+      // get variable id
+      int iVar = iter.second;
+      
+      pout << "      <PDataArray type=\"Float64\" Name=\"" << varName<< "\" NumberOfComponents=\"1\"/>" << std::endl;
+    } // end for iter
+    
+    pout << "    </PCellData>" << std::endl;
+
+    pout << "    <PPoints>" << std::endl
 	 << "      <PDataArray type=\"Float64\" Name=\"Coordinates\" NumberOfComponents=\"3\"/>" << std::endl
 	 << "    </PPoints>" << std::endl;
     for(int i = 0; i < amr_mesh.getNproc(); i++)

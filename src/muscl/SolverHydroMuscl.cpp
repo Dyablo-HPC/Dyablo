@@ -255,9 +255,17 @@ void SolverHydroMuscl::init_four_quadrant(DataArray Udata)
   primToCons_2D(U2, params.settings.gamma0);
   primToCons_2D(U3, params.settings.gamma0);
 
+  // retrieve available / allowed names: fieldManager, and field map (fm)
+  FieldManager fieldMgr;
+  fieldMgr.setup(params, configMap);
+  auto fm = fieldMgr.get_id2index();
+
   Kokkos::parallel_for(amr_mesh->getNumOctants(),
 		       KOKKOS_LAMBDA(const size_t &i) {
-			 U(i,ID) = 1.0*i;
+			 U(i,fm[ID]) = 1.0*i;
+			 U(i,fm[IU]) = amr_mesh->getNumOctants()-1.0*i;
+			 U(i,fm[IV]) = 1.0*i*i;
+			 U(i,fm[IE]) = 1.0*sqrt(i);
 		       });
 
   // InitFourQuadrantFunctor2D::apply(params, Udata, configNumber,
@@ -538,6 +546,14 @@ void SolverHydroMuscl::save_solution_impl()
   fieldMgr.setup(params, configMap);
   auto fm = fieldMgr.get_id2index();
 
+  // number of macroscopic variables,
+  // scalar fields : density, velocity, phase field, etc...
+  int nbVar = fieldMgr.numScalarField;
+
+  // a map containing ID and name of the variable to write
+  str2int_t names2index; // this is initially empty
+  build_var_to_write_map(names2index, params, configMap);
+  
   // prepare suffix string
   std::ostringstream strsuf;
   strsuf << "iter";
@@ -545,7 +561,7 @@ void SolverHydroMuscl::save_solution_impl()
   strsuf.fill('0');
   strsuf << m_iteration;
   
-  writeVTK(*amr_mesh, strsuf.str(), U, fm, configMap);
+  writeVTK(*amr_mesh, strsuf.str(), U, fm, names2index, configMap);
   
   m_timers[TIMER_IO]->stop();
     
