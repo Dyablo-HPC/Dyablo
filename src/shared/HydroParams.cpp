@@ -88,6 +88,9 @@ void HydroParams::setup(ConfigMap &configMap)
   boundary_type_zmin  = static_cast<BoundaryConditionType>(configMap.getInteger("mesh","boundary_type_zmin", BC_DIRICHLET));
   boundary_type_zmax  = static_cast<BoundaryConditionType>(configMap.getInteger("mesh","boundary_type_zmax", BC_DIRICHLET));
 
+  level_min = configMap.getInteger("amr","level_min", 5);
+  level_max = configMap.getInteger("amr","level_max", 10);
+  
   settings.gamma0         = configMap.getFloat("hydro","gamma0", 1.4);
   settings.cfl            = configMap.getFloat("hydro", "cfl", 0.5);
   settings.iorder         = configMap.getInteger("hydro","iorder", 2);

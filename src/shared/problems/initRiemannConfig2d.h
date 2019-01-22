@@ -17,7 +17,7 @@
 #include "shared/real_type.h"
 #include "shared/HydroState.h"
 
-namespace ppkMHD {
+namespace euler_pablo {
 
 KOKKOS_INLINE_FUNCTION
 void primToCons_2D(HydroState2d &U, real_t gamma0)
@@ -505,6 +505,6 @@ void getRiemannConfig2d(int numConfig,
   }
 };
 
-} // namespace ppkMHD
+} // namespace euler_pablo
 
 #endif // INIT_RIEMANN_CONFIG_2D_H_

@@ -97,6 +97,10 @@ struct HydroParams {
   BoundaryConditionType boundary_type_ymax; /*!< boundary condition */
   BoundaryConditionType boundary_type_zmin; /*!< boundary condition */
   BoundaryConditionType boundary_type_zmax; /*!< boundary condition */
+
+  // AMR related parameter
+  int level_min;
+  int level_max;
   
   // IO parameters
   bool ioVTK;   /*!< enable VTK  output file format (using VTI).*/

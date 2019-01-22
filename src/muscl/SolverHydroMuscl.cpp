@@ -8,6 +8,8 @@
 #include "muscl/SolverHydroMuscl.h"
 #include "shared/HydroParams.h"
 
+#include "shared/SimpleVTKIO.h"
+
 //#include "shared/mpiBorderUtils.h"
 
 namespace euler_pablo { namespace muscl {
@@ -47,7 +49,7 @@ SolverHydroMuscl::SolverHydroMuscl(HydroParams& params,
    */
 
   // minimal number of cells
-  uint64_t nbCells = 2; //1<<params.level_min;
+  uint64_t nbCells = 1<<params.level_min;
   
   nbCells = params.dimType == TWO_D ? nbCells * nbCells :  nbCells * nbCells * nbCells;
   
@@ -233,17 +235,30 @@ void SolverHydroMuscl::init_gresho_vortex(DataArray Udata)
 void SolverHydroMuscl::init_four_quadrant(DataArray Udata)
 {
 
-  // int configNumber = configMap.getInteger("riemann2d","config_number",0);
-  // real_t xt = configMap.getFloat("riemann2d","x",0.8);
-  // real_t yt = configMap.getFloat("riemann2d","y",0.8);
-
-  // HydroState2d U0, U1, U2, U3;
-  // getRiemannConfig2d(configNumber, U0, U1, U2, U3);
+  int level_min = params.level_min;
   
-  // primToCons_2D(U0, params.settings.gamma0);
-  // primToCons_2D(U1, params.settings.gamma0);
-  // primToCons_2D(U2, params.settings.gamma0);
-  // primToCons_2D(U3, params.settings.gamma0);
+  for (int iter=0; iter<level_min; iter++) {
+    amr_mesh->adaptGlobalRefine();
+  }
+
+  Kokkos::resize(U,amr_mesh->getNumOctants(),params.nbvar);
+
+  int configNumber = configMap.getInteger("riemann2d","config_number",0);
+  real_t xt = configMap.getFloat("riemann2d","x",0.8);
+  real_t yt = configMap.getFloat("riemann2d","y",0.8);
+
+  HydroState2d U0, U1, U2, U3;
+  getRiemannConfig2d(configNumber, U0, U1, U2, U3);
+  
+  primToCons_2D(U0, params.settings.gamma0);
+  primToCons_2D(U1, params.settings.gamma0);
+  primToCons_2D(U2, params.settings.gamma0);
+  primToCons_2D(U3, params.settings.gamma0);
+
+  Kokkos::parallel_for(amr_mesh->getNumOctants(),
+		       KOKKOS_LAMBDA(const size_t &i) {
+			 U(i,ID) = 1.0*i;
+		       });
 
   // InitFourQuadrantFunctor2D::apply(params, Udata, configNumber,
   // 				   U0, U1, U2, U3,
@@ -513,10 +528,24 @@ void SolverHydroMuscl::save_solution_impl()
 {
 
   m_timers[TIMER_IO]->start();
-  if (m_iteration % 2 == 0)
-    save_data(U,  Uhost, m_times_saved, m_t);
-  else
-    save_data(U2, Uhost, m_times_saved, m_t);
+  // if (m_iteration % 2 == 0)
+  //   save_data(U,  Uhost, m_times_saved, m_t);
+  // else
+  //   save_data(U2, Uhost, m_times_saved, m_t);
+
+  // retrieve available / allowed names: fieldManager, and field map (fm)
+  FieldManager fieldMgr;
+  fieldMgr.setup(params, configMap);
+  auto fm = fieldMgr.get_id2index();
+
+  // prepare suffix string
+  std::ostringstream strsuf;
+  strsuf << "iter";
+  strsuf.width(7);
+  strsuf.fill('0');
+  strsuf << m_iteration;
+  
+  writeVTK(*amr_mesh, strsuf.str(), U, fm, configMap);
   
   m_timers[TIMER_IO]->stop();
     
