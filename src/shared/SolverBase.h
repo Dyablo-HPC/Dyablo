@@ -15,7 +15,7 @@
 #include "utils/monitoring/OpenMPTimer.h"
 #endif
 
-#include "bitpit_PABLO.hpp"
+#include "shared/bitpit_common.h"
 
 //! this enum helps identifying the type of solver used
 enum solver_type_t {
@@ -53,8 +53,6 @@ public:
   //! unordered map of parameters read from input ini file
   ConfigMap& configMap;
 
-  using AMRmesh = bitpit::PabloUniform;
-  
   //! The main AMR object (from bitpit library)
   std::unique_ptr<AMRmesh> amr_mesh;
   
