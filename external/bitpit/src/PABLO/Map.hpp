@@ -108,6 +108,7 @@ private:
   void initialize();
   void initialize(uint8_t dim);
 
+public:
   darray3 mapCoordinates(u32array3 const & X) const;
   double mapX(uint32_t const & X) const;
   double mapY(uint32_t const & Y) const;

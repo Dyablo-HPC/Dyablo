@@ -2535,6 +2535,13 @@ ParaTree::initialize(const std::string &logfile, MPI_Comm comm) {
       return m_bordersPerProc;
     }
 
+    /*!
+     *
+     */
+    const Map& ParaTree::getMap() const {
+      return m_trans;
+    }
+    
     // ==================================================================== //
     // PRIVATE GET/SET METHODS
     // ==================================================================== //

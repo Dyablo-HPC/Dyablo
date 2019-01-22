@@ -62,6 +62,10 @@ typedef std::vector<darray3>	darray3vector;
  */
 class PabloUniform : public ParaTree
 {
+
+public:
+  using ParaTree::getNodes;
+  
   // ====================================================================== //
   // MEMBERS
   // ====================================================================== //

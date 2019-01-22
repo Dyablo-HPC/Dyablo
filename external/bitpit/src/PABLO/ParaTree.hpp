@@ -427,10 +427,11 @@ public:
   bool          getIsGhost(const Octant* oct) const;
   int           getGhostLayer(const Octant* oct) const;
   const LoadBalanceRanges & getLoadBalanceRanges() const;
-  std::size_t  getNofGhostLayers() const;
+  std::size_t   getNofGhostLayers() const;
   void setNofGhostLayers(std::size_t nofGhostLayers);
-  const std::map<int, std::vector<uint32_t>> & getBordersPerProc() const;
-
+  const         std::map<int, std::vector<uint32_t>> & getBordersPerProc() const;
+  const         Map&    getMap() const;
+  
   // ====================================================================== //
   // PRIVATE GET/SET METHODS
   // ====================================================================== //
