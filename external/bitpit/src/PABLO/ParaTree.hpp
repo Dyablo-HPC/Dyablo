@@ -63,7 +63,7 @@ typedef ptroctvector::iterator	octantIterator;
 
 /**
  * \ingroup		PABLO
- * \date			17/dec/2015
+ * \date		17/dec/2015
  * \authors		Marco Cisternino
  * \authors		Edoardo Lombardi
  *
@@ -313,7 +313,7 @@ public:
   darray3 	getNode(uint32_t idx, uint8_t inode) const;
   void 		getNode(uint32_t idx, uint8_t inode, darray3& node) const;
   void 		getNodes(uint32_t idx, darr3vector & nodes) const;
-  darr3vector getNodes(uint32_t idx) const;
+  darr3vector   getNodes(uint32_t idx) const;
   void 		getNormal(uint32_t idx, uint8_t iface, darray3 & normal) const;
   darray3 	getNormal(uint32_t idx, uint8_t iface) const;
   int8_t 	getMarker(uint32_t idx) const;
@@ -355,7 +355,7 @@ public:
   darray3 	getNode(const Octant* oct, uint8_t inode) const;
   void 		getNode(const Octant* oct, uint8_t inode, darray3& node) const;
   void 		getNodes(const Octant* oct, darr3vector & nodes) const;
-  darr3vector getNodes(const Octant* oct) const;
+  darr3vector   getNodes(const Octant* oct) const;
   void 		getNormal(const Octant* oct, uint8_t iface, darray3 & normal) const;
   darray3 	getNormal(const Octant* oct, uint8_t iface) const;
   int8_t 	getMarker(const Octant* oct) const;

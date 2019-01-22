@@ -47,7 +47,7 @@ typedef std::vector<darray3>	darray3vector;
 // ======================================================================== //
 /*!
  * \ingroup		PABLO
- * \date			25/jan/2016
+ * \date		25/jan/2016
  * \authors		Edoardo Lombardi
  * \authors		Marco Cisternino
  * 
