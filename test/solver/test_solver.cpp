@@ -7,6 +7,7 @@
 
 #include <cstdlib>
 #include <cstdio>
+#include <string>
 
 #include "shared/kokkos_shared.h"
 

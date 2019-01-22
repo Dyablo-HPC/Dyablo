@@ -53,10 +53,10 @@ public:
   //! unordered map of parameters read from input ini file
   ConfigMap& configMap;
 
-  using AMRmeshPtr = std::unique_ptr<bitpit::PabloUniform>;
+  using AMRmesh = bitpit::PabloUniform;
   
   //! The main AMR object (from bitpit library)
-  AMRmeshPtr amr_mesh_ptr;
+  std::unique_ptr<AMRmesh> amr_mesh;
   
   //! enum type to the actual solver type (Hydro, MHD, ...). TBC if needed.
   solver_type_t solver_type;
@@ -131,9 +131,6 @@ public:
 
   //! Number of variables to saved
   //int m_write_variables_number;
-
-  //! names of variables to save
-  std::map<int, std::string> m_variables_names;
 
   //! timers
 #ifdef KOKKOS_ENABLE_CUDA

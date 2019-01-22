@@ -13,7 +13,14 @@ target_include_directories(${EXE_NAME}
   ${CMAKE_BINARY_DIR}/src
   )
 
-target_link_libraries(${EXE_NAME} config kokkos dl muscl shared monitoring)
+target_link_libraries(${EXE_NAME}
+  config
+  kokkos
+  dl
+  muscl
+  shared
+  monitoring
+  ${BITPIT_LIBRARY})
 
 add_backward(${EXE_NAME})
 

@@ -2,6 +2,8 @@
 
 #include "shared/utils.h"
 
+#include <memory>
+
 #ifdef USE_MPI
 //#include "shared/mpiBorderUtils.h"
 #endif // USE_MPI
@@ -28,6 +30,8 @@ SolverBase::SolverBase (HydroParams& params, ConfigMap& configMap) :
   read_config();
 
   m_dim = params.dimType == TWO_D ? 2 : 3;
+
+  amr_mesh = std::make_unique<AMRmesh>(m_dim);
   
   /*
    * other variables initialization.
@@ -42,16 +46,6 @@ SolverBase::SolverBase (HydroParams& params, ConfigMap& configMap) :
   m_timers[TIMER_DT]         = std::make_shared<Timer>();
   m_timers[TIMER_BOUNDARIES] = std::make_shared<Timer>();
   m_timers[TIMER_NUM_SCHEME] = std::make_shared<Timer>();
-
-  // init variables names
-  m_variables_names[ID] = "rho";
-  m_variables_names[IP] = "energy";
-  m_variables_names[IU] = "rho_vx"; // momentum component X
-  m_variables_names[IV] = "rho_vy"; // momentum component Y
-  m_variables_names[IW] = "rho_vz"; // momentum component Z
-  m_variables_names[IA] = "bx"; // mag field X
-  m_variables_names[IB] = "by"; // mag field Y
-  m_variables_names[IC] = "bz"; // mag field Z
   
 #ifdef USE_MPI
   const int gw = params.ghostWidth;
