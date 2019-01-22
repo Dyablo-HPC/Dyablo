@@ -11,6 +11,10 @@ void writeVTK(AMRmesh& amr_mesh,
 	      const ConfigMap& configMap)
 {
 
+  DataArrayHost datah = Kokkos::create_mirror(data);
+  // copy device data to host
+  Kokkos::deep_copy(datah, data);
+
   uint8_t dim = amr_mesh.getDim();
   
   // if done already, compute mesh connectivity
@@ -50,8 +54,9 @@ void writeVTK(AMRmesh& amr_mesh,
   int ndata = amr_mesh.getConnectivity().size();
   for(int i = 0; i < ndata; i++)
     {
-      out << std::setprecision(6) << i*123 << " ";  // data[i] << " ";
-      if((i+1)%4==0 && i!=ndata-1)
+      // for now, only save ID (density)
+      out << std::setprecision(6) << datah(i,fm[ID]) << " ";
+      if((i+1)%4==0 and i!=ndata-1)
 	out << std::endl << "          ";
     }
   out << std::endl << "        </DataArray>" << std::endl

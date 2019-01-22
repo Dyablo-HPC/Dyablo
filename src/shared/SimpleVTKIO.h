@@ -11,7 +11,7 @@
 namespace euler_pablo {
 
 /**
- * Simple VTK IO routine.
+ * Simple VTK IO routine (simple means Partitionned VTU, using ASCII).
  *
  * Here we assume DataArray size is the same as the number of AMRmesh octants.
  *
