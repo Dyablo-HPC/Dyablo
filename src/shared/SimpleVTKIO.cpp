@@ -233,8 +233,9 @@ void writeVTK(AMRmesh&         amr_mesh,
     
   }
 #if BITPIT_ENABLE_MPI==1
-  if (isCommSet()) {
-    MPI_Barrier(m_comm);
+  if (amr_mesh.isCommSet()) {
+    // TODO - refactorx
+    //MPI_Barrier(m_comm);
   }
 #endif
   

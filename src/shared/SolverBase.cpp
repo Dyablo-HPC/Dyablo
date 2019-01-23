@@ -104,14 +104,16 @@ SolverBase::compute_dt()
   // get local time step
   double dt_local = compute_dt_local();
 
-  // synchronize all MPI processes
-  params.communicator->synchronize();
+  // TODO : refactor me, please
+  
+  // // synchronize all MPI processes
+  // params.communicator->synchronize();
 
-  // perform MPI_Reduceall to get global time step
-  double dt_global;
-  params.communicator->allReduce(&dt_local, &dt_global, 1, params.data_type, hydroSimu::MpiComm::MIN);
+  // // perform MPI_Reduceall to get global time step
+  // double dt_global;
+  // params.communicator->allReduce(&dt_local, &dt_global, 1, params.data_type, hydroSimu::MpiComm::MIN);
 
-  m_dt = dt_global;
+  // m_dt = dt_global;
   
 #else
 

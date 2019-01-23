@@ -23,6 +23,14 @@ set (shared_SRCS
 add_library(shared
   ${shared_SRCS}
   )
+if (USE_MPI)
+  target_include_directories(shared
+    PUBLIC
+    ${CMAKE_SOURCE_DIR}/external/bitpit/src/communications)
+ 
+  target_compile_definitions(shared PUBLIC BITPIT_ENABLE_MPI)
+endif (USE_MPI)
+
 target_include_directories(shared
   PUBLIC
   ${CMAKE_SOURCE_DIR}/src

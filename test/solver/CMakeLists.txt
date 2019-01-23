@@ -9,6 +9,11 @@ add_executable(${EXE_NAME}
 
 target_include_directories(${EXE_NAME}
   PUBLIC
+  ${CMAKE_SOURCE_DIR}/external/bitpit/src/common
+  ${CMAKE_SOURCE_DIR}/external/bitpit/src/containers
+  ${CMAKE_SOURCE_DIR}/external/bitpit/src/IO
+  ${CMAKE_SOURCE_DIR}/external/bitpit/src/operators
+  ${CMAKE_SOURCE_DIR}/external/bitpit/src/PABLO
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_BINARY_DIR}/src
   )
@@ -22,11 +27,17 @@ target_link_libraries(${EXE_NAME}
   monitoring
   ${BITPIT_LIBRARY})
 
-add_backward(${EXE_NAME})
-
 if (USE_MPI)
+  target_include_directories(${EXE_NAME}
+    PUBLIC
+    ${CMAKE_SOURCE_DIR}/external/bitpit/src/communications)
+  
+  target_compile_definitions(${EXE_NAME} PUBLIC BITPIT_ENABLE_MPI)
+
   target_link_libraries(${EXE_NAME} mpiUtils)
 endif()
+
+add_backward(${EXE_NAME})
 
 
 configure_file(test_four_quadrant_2D.ini test_four_quadrant_2D.ini COPYONLY)
