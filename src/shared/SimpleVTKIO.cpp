@@ -209,9 +209,6 @@ void writeVTK(AMRmesh&         amr_mesh,
       // get variables string name
       const std::string varName = iter.first;
       
-      // get variable id
-      int iVar = iter.second;
-      
       pout << "      <PDataArray type=\"Float64\" Name=\"" << varName<< "\" NumberOfComponents=\"1\"/>" << std::endl;
     } // end for iter
     
