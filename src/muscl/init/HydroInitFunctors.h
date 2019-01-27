@@ -8,6 +8,9 @@
 #include "shared/HydroState.h"
 #include "shared/problems/initRiemannConfig2d.h"
 
+#include "bitpit_PABLO.hpp"
+#include "shared/bitpit_common.h"
+
 namespace euler_pablo { namespace muscl {
 
 /*************************************************/
@@ -28,7 +31,8 @@ namespace euler_pablo { namespace muscl {
 class InitFourQuadrantFunctor {
 
 public:
-  InitFourQuadrantFunctor(HydroParams   params,
+  InitFourQuadrantFunctor(const AMRmesh &mesh,
+			  HydroParams   params,
 			  id2index_t    fm,
 			  DataArray     Udata,
 			  int           configNumber,
@@ -38,12 +42,13 @@ public:
 			  HydroState2d  U3,
 			  real_t        xt,
 			  real_t        yt) :
-    params(params), fm(fm), Udata(Udata),
+    mesh(mesh), params(params), fm(fm), Udata(Udata),
     U0(U0), U1(U1), U2(U2), U3(U3), xt(xt), yt(yt)
   {};
   
   // static method which does it all: create and execute functor
-  static void apply(HydroParams   params,
+  static void apply(const AMRmesh &mesh,
+		    HydroParams   params,
 		    id2index_t    fm,
                     DataArray     Udata,
 		    int           configNumber,
@@ -57,73 +62,56 @@ public:
 
     // iterate functor for refinement
     
-    InitFourQuadrantFunctor functor(params, fm, Udata, configNumber,
+    InitFourQuadrantFunctor functor(mesh, params, fm, Udata,
+				    configNumber,
 				    U0, U1, U2, U3, xt, yt);
-    //Kokkos::parallel_for(nbCells, functor);
+    Kokkos::parallel_for(mesh.getNumOctants(), functor);
   }
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(const int& index) const
+  void operator()(const size_t& i) const
   {
 
-//     const int isize = params.isize;
-//     const int jsize = params.jsize;
-//     const int ghostWidth = params.ghostWidth;
+    // get cell center coordinate in the unit domain
+    // FIXME : need to refactor AMRmesh interface to use Kokkos::Array
+    std::array<double,3> center = mesh.getCenter(i);
     
-// #ifdef USE_MPI
-//     const int i_mpi = params.myMpiPos[IX];
-//     const int j_mpi = params.myMpiPos[IY];
-// #else
-//     const int i_mpi = 0;
-//     const int j_mpi = 0;
-// #endif
-
-//     const int nx = params.nx;
-//     const int ny = params.ny;
-
-//     const real_t xmin = params.xmin;
-//     const real_t ymin = params.ymin;
-//     const real_t dx = params.dx;
-//     const real_t dy = params.dy;
+    const real_t x = center[0];
+    const real_t y = center[1];
     
-//     int i,j;
-//     index2coord(index,i,j,isize,jsize);
-    
-//     real_t x = xmin + dx/2 + (i+nx*i_mpi-ghostWidth)*dx;
-//     real_t y = ymin + dy/2 + (j+ny*j_mpi-ghostWidth)*dy;
-    
-//     if (x<xt) {
-//       if (y<yt) {
-// 	// quarter 2
-// 	Udata(i  ,j  , ID) = U2[ID];
-// 	Udata(i  ,j  , IP) = U2[IP];
-// 	Udata(i  ,j  , IU) = U2[IU];
-// 	Udata(i  ,j  , IV) = U2[IV];
-//       } else {
-// 	// quarter 1
-// 	Udata(i  ,j  , ID) = U1[ID];
-// 	Udata(i  ,j  , IP) = U1[IP];
-// 	Udata(i  ,j  , IU) = U1[IU];
-// 	Udata(i  ,j  , IV) = U1[IV];
-//       }
-//     } else {
-//       if (y<yt) {
-// 	// quarter 3
-// 	Udata(i  ,j  , ID) = U3[ID];
-// 	Udata(i  ,j  , IP) = U3[IP];
-// 	Udata(i  ,j  , IU) = U3[IU];
-// 	Udata(i  ,j  , IV) = U3[IV];
-//       } else {
-// 	// quarter 0
-// 	Udata(i  ,j  , ID) = U0[ID];
-// 	Udata(i  ,j  , IP) = U0[IP];
-// 	Udata(i  ,j  , IU) = U0[IU];
-// 	Udata(i  ,j  , IV) = U0[IV];
-//       }
-//     }
+    if (x<xt) {
+      if (y<yt) {
+	// quarter 2
+	Udata(i    , fm[ID]) = U2[ID];
+	Udata(i    , fm[IP]) = U2[IP];
+	Udata(i    , fm[IU]) = U2[IU];
+	Udata(i    , fm[IV]) = U2[IV];
+      } else {
+	// quarter 1
+	Udata(i    , fm[ID]) = U1[ID];
+	Udata(i    , fm[IP]) = U1[IP];
+	Udata(i    , fm[IU]) = U1[IU];
+	Udata(i    , fm[IV]) = U1[IV];
+      }
+    } else {
+      if (y<yt) {
+	// quarter 3
+	Udata(i    , fm[ID]) = U3[ID];
+	Udata(i    , fm[IP]) = U3[IP];
+	Udata(i    , fm[IU]) = U3[IU];
+	Udata(i    , fm[IV]) = U3[IV];
+      } else {
+	// quarter 0
+	Udata(i    , fm[ID]) = U0[ID];
+	Udata(i    , fm[IP]) = U0[IP];
+	Udata(i    , fm[IU]) = U0[IU];
+	Udata(i    , fm[IV]) = U0[IV];
+      }
+    }
     
   } // end operator ()
 
+  const AMRmesh &mesh;
   HydroParams  params;
   id2index_t   fm;
   DataArray    Udata;
