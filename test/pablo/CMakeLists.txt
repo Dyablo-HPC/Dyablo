@@ -50,3 +50,22 @@ if(USE_MPI)
   target_compile_definitions(mandelbrot PUBLIC BITPIT_ENABLE_MPI)
 endif(USE_MPI)
 target_link_libraries(mandelbrot ${BITPIT_LIBRARY})
+
+######################################################################
+### UNCOMMENT WHEN PABLO FIXED, KOKKOS SUPPORT ADDED
+# add_executable(mandelbrot_kokkos mandelbrot_kokkos.cpp)
+# target_include_directories(mandelbrot_kokkos
+#   PUBLIC
+#   ${CMAKE_SOURCE_DIR}/src
+#   ${CMAKE_SOURCE_DIR}/external/bitpit/src/common
+#   ${CMAKE_SOURCE_DIR}/external/bitpit/src/containers
+#   ${CMAKE_SOURCE_DIR}/external/bitpit/src/IO
+#   ${CMAKE_SOURCE_DIR}/external/bitpit/src/operators
+#   ${CMAKE_SOURCE_DIR}/external/bitpit/src/PABLO)
+# if(USE_MPI)
+#   target_include_directories(mandelbrot_kokkos
+#     PUBLIC
+#     ${CMAKE_SOURCE_DIR}/external/bitpit/src/communications)
+#   target_compile_definitions(mandelbrot PUBLIC BITPIT_ENABLE_MPI)
+# endif(USE_MPI)
+# target_link_libraries(mandelbrot_kokkos kokkos ${BITPIT_LIBRARY})
