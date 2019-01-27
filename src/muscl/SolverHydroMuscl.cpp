@@ -5,10 +5,14 @@
 #include <fstream>
 #include <algorithm>
 
-#include "muscl/SolverHydroMuscl.h"
 #include "shared/HydroParams.h"
 
 #include "shared/SimpleVTKIO.h"
+
+#include "muscl/SolverHydroMuscl.h"
+
+// Init conditions functors
+#include "muscl/init/HydroInitFunctors.h"
 
 //#include "shared/mpiBorderUtils.h"
 
