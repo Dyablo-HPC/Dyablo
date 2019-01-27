@@ -23,10 +23,6 @@
 //#include "muscl/HydroRunFunctors2D.h"
 //#include "muscl/HydroRunFunctors3D.h"
 
-// Init conditions functors
-//#include "muscl/HydroInitFunctors2D.h"
-//#include "muscl/HydroInitFunctors3D.h"
-
 // border conditions functors
 //#include "shared/BoundariesFunctors.h"
 
