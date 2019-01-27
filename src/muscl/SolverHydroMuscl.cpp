@@ -264,14 +264,7 @@ void SolverHydroMuscl::init_four_quadrant(DataArray Udata)
   fieldMgr.setup(params, configMap);
   auto fm = fieldMgr.get_id2index();
 
-  // Kokkos::parallel_for(amr_mesh->getNumOctants(),
-  // 		       KOKKOS_LAMBDA(const size_t &i) {
-  // 			 U(i,fm[ID]) = 1.0*i;
-  // 			 U(i,fm[IU]) = amr_mesh->getNumOctants()-1.0*i;
-  // 			 U(i,fm[IV]) = 1.0*i*i;
-  // 			 U(i,fm[IE]) = 1.0*sqrt(i);
-  // 		       });
-
+  // perform init
   InitFourQuadrantFunctor::apply(*amr_mesh, params, fm, Udata, configNumber,
 				 U0, U1, U2, U3,
 				 xt, yt);
