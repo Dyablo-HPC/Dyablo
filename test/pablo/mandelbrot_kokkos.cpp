@@ -68,6 +68,83 @@ compute_nb_iters (double cx, double cy)
   
 } // compute_nb_iters
 
+// ==========================================================
+// ==========================================================
+class MandelbrotRefine {
+
+public:
+  MandelbrotRefine(PabloUniform &amr_mesh, int iter) :
+    amr_mesh(amr_mesh), iter(iter) {};
+
+  // static method which does it all: create and execute functor
+  static void apply(PabloUniform &amr_mesh, int iter)
+  {
+    
+    // iterate functor for refinement
+    MandelbrotRefine functor(amr_mesh, iter);
+    Kokkos::parallel_for(amr_mesh.getNumOctants(), functor);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(const size_t& i) const
+  {
+
+    // get cell level
+    uint8_t level = amr_mesh.getLevel(i);
+    
+    // only look at level 5 + iter - 1
+    if (level == (5+iter-1)) {
+      
+      double x,y;
+      double nbiter_center;
+      
+      // get cell center
+      std::array<double,3> center = amr_mesh.getCenter(i);
+      
+      // change into coordinates in the physical domain
+      x = scaleX(center[0]);
+      y = scaleY(center[1]);
+      
+      // compute how many iterations for the Mandelbrot
+      // series to diverge at center
+      nbiter_center = compute_nb_iters(x,y);
+      
+      // get cell corner nodes
+      vector<array<double,3> > nodes = amr_mesh.getNodes(i);
+      
+      double interpol = 0.0;
+      for (int ic=0; ic<4; ++ic) {
+	x = scaleX(nodes[ic][0]);
+	y = scaleY(nodes[ic][1]);
+	interpol += compute_nb_iters(x,y);
+      }
+      interpol /= 4.0;
+      interpol = fabs(interpol);
+      
+      bool should_refine = false;
+      // compute how much linear interpolation is different from
+      // value at cell center and
+      // decide if cell need to be flagged for refinement
+      if (interpol > 0) {
+	if (nbiter_center / interpol > 1+epsilon or
+	    nbiter_center / interpol < 1-epsilon)
+	  should_refine = true;
+      }
+      
+      if (should_refine) {
+	//printf("refine %d\n",i);
+	amr_mesh.setMarker(i, 1);
+      }
+      
+    } // end if level    
+    
+  } // operator()
+  
+  PabloUniform &amr_mesh;
+  int iter;
+  
+}; // MandelbrotRefine
+
 // ========================================================================
 // ========================================================================
 /**
@@ -99,9 +176,16 @@ void compute_and_save_mandelbrot(PabloUniform& amr_mesh, size_t iter)
 
   // FIXME : make writeTest accept a DataArray, or
   // convert DataArray to std::vector before calling writeTest
-  
-  //amr_mesh.writeTest("mandelbrot_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data);
-  //amr_mesh.writeTest("mandelbrot_level"+to_string(static_cast<unsigned long long>(iter)), oct_data_level);
+  vector<double> oct_data_v(nocts, 0.0);
+  vector<double> oct_data_level_v(nocts, 0.0);
+
+  for (size_t i=0; i<nocts; ++i) {
+    oct_data_v[i]       = oct_data(i);
+    oct_data_level_v[i] = oct_data_level(i);
+  }
+
+  amr_mesh.writeTest("mandelbrot_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data_v);
+  amr_mesh.writeTest("mandelbrot_level"+to_string(static_cast<unsigned long long>(iter)), oct_data_level_v);
 
 #if BITPIT_ENABLE_MPI==1
   // save MPI rank
@@ -150,58 +234,7 @@ void run()
     // refine all cells
     uint32_t nocts = amr_mesh.getNumOctants();
 
-    Kokkos::parallel_for(nocts, KOKKOS_LAMBDA(const size_t &i) {
-
-	// get cell level
-	uint8_t level = amr_mesh.getLevel(i);
-	
-	// only look at level 5 + iter - 1
-	if (level == (5+iter-1)) {
-	  
-	  double x,y;
-	  double nbiter_center;
-	  
-	  // get cell center
-	  std::array<double,3> center = amr_mesh.getCenter(i);
-	  
-	  // change into coordinates in the physical domain
-	  x = scaleX(center[0]);
-	  y = scaleY(center[1]);
-	  
-	  // compute how many iterations for the Mandelbrot
-	  // series to diverge at center
-	  nbiter_center = compute_nb_iters(x,y);
-	  
-	  // get cell corner nodes
-	  vector<array<double,3> > nodes = amr_mesh.getNodes(i);
-	  
-	  double interpol = 0.0;
-	  for (int ic=0; ic<4; ++ic) {
-	    x = scaleX(nodes[ic][0]);
-	    y = scaleY(nodes[ic][1]);
-	    interpol += compute_nb_iters(x,y);
-	  }
-	  interpol /= 4.0;
-	  interpol = fabs(interpol);
-	  
-	  bool should_refine = false;
-	  // compute how much linear interpolation is different from
-	  // value at cell center and
-	  // decide if cell need to be flagged for refinement
-	  if (interpol > 0) {
-	    if (nbiter_center / interpol > 1+epsilon or
-		nbiter_center / interpol < 1-epsilon)
-	      should_refine = true;
-	  }
-	  
-	  if (should_refine) {
-	    //printf("refine %d\n",i);
-	    amr_mesh.setMarker(i, 1);
-	  }
-	  
-	} // end if level
-      
-      }); // end if nocts
+    MandelbrotRefine::apply(amr_mesh, iter);
     
     amr_mesh.adapt();
 
