@@ -265,9 +265,9 @@ void SolverHydroMuscl::init_four_quadrant(DataArray Udata)
   auto fm = fieldMgr.get_id2index();
 
   // perform init
-  InitFourQuadrantFunctor::apply(*amr_mesh, params, fm, Udata, configNumber,
-				 U0, U1, U2, U3,
-				 xt, yt);
+  InitFourQuadrantDataFunctor::apply(*amr_mesh, params, fm, Udata, configNumber,
+				     U0, U1, U2, U3,
+				     xt, yt);
   
 } // SolverHydroMuscl::init_four_quadrant
 
@@ -407,6 +407,7 @@ void SolverHydroMuscl::init(DataArray Udata)
 double SolverHydroMuscl::compute_dt_local()
 {
 
+  return 0.0;
 
 } // SolverHydroMuscl::compute_dt_local
 
@@ -545,7 +546,7 @@ void SolverHydroMuscl::save_solution_impl()
 
   // number of macroscopic variables,
   // scalar fields : density, velocity, phase field, etc...
-  int nbVar = fieldMgr.numScalarField;
+  //int nbVar = fieldMgr.numScalarField;
 
   // a map containing ID and name of the variable to write
   str2int_t names2index; // this is initially empty

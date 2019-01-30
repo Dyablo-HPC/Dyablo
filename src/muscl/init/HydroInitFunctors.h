@@ -20,28 +20,32 @@ namespace euler_pablo { namespace muscl {
  * Implement initialization functor to solve a four quadrant 2D Riemann
  * problem.
  *
+ * This functor takes as input a mesh, already refined, and initializes
+ * user data.
+ * 
  * In the 2D case, there are 19 different possible configurations (see
  * article by Lax and Liu, "Solution of two-dimensional riemann
  * problems of gas dynamics by positive schemes",SIAM journal on
  * scientific computing, 1998, vol. 19, no2, pp. 319-340).
  *
- * Initial conditions is refined near interface separating the 4 four quadrants.
+ * Initial conditions is refined near interface separating the 4 
+ * four quadrants.
  *
  */
-class InitFourQuadrantFunctor {
+class InitFourQuadrantDataFunctor {
 
 public:
-  InitFourQuadrantFunctor(const AMRmesh &mesh,
-			  HydroParams   params,
-			  id2index_t    fm,
-			  DataArray     Udata,
-			  int           configNumber,
-			  HydroState2d  U0,
-			  HydroState2d  U1,
-			  HydroState2d  U2,
-			  HydroState2d  U3,
-			  real_t        xt,
-			  real_t        yt) :
+  InitFourQuadrantDataFunctor(const AMRmesh &mesh,
+			      HydroParams   params,
+			      id2index_t    fm,
+			      DataArray     Udata,
+			      int           configNumber,
+			      HydroState2d  U0,
+			      HydroState2d  U1,
+			      HydroState2d  U2,
+			      HydroState2d  U3,
+			      real_t        xt,
+			      real_t        yt) :
     mesh(mesh), params(params), fm(fm), Udata(Udata),
     U0(U0), U1(U1), U2(U2), U3(U3), xt(xt), yt(yt)
   {};
@@ -59,19 +63,19 @@ public:
 		    real_t        xt,
 		    real_t        yt)
   {
-
+    
     // iterate functor for refinement
     
-    InitFourQuadrantFunctor functor(mesh, params, fm, Udata,
-				    configNumber,
-				    U0, U1, U2, U3, xt, yt);
+    InitFourQuadrantDataFunctor functor(mesh, params, fm, Udata,
+					configNumber,
+					U0, U1, U2, U3, xt, yt);
     Kokkos::parallel_for(mesh.getNumOctants(), functor);
   }
-
+  
   KOKKOS_INLINE_FUNCTION
   void operator()(const size_t& i) const
   {
-
+    
     // get cell center coordinate in the unit domain
     // FIXME : need to refactor AMRmesh interface to use Kokkos::Array
     std::array<double,3> center = mesh.getCenter(i);
@@ -118,7 +122,7 @@ public:
   HydroState2d U0, U1, U2, U3;
   real_t       xt, yt;
   
-}; // InitFourQuadrantFunctor
+}; // InitFourQuadrantDataFunctor
 
 } // namespace muscl
 
