@@ -244,25 +244,41 @@ void SolverHydroMuscl::init_four_quadrant(DataArray Udata)
    * so far (every MPI process does that)
    */
   int level_min = params.level_min;
+  int level_max = params.level_max;
   
-  for (int iter=0; iter<level_min; iter++) {
+  for (int iter=0; iter<=level_min; iter++) {
     amr_mesh->adaptGlobalRefine();
   }
-
+  std::cout << "NB cells =" << amr_mesh->getNumOctants() << "\n";
+  
   // load problem specific parameters
   int configNumber = configMap.getInteger("riemann2d","config_number",0);
   real_t xt = configMap.getFloat("riemann2d","x",0.8);
   real_t yt = configMap.getFloat("riemann2d","y",0.8);
 
-  HydroState2d U0, U1, U2, U3;
-  getRiemannConfig2d(configNumber, U0, U1, U2, U3);
+  HydroState2d S0, S1, S2, S3;
+  getRiemannConfig2d(configNumber, S0, S1, S2, S3);
   
-  primToCons_2D(U0, params.settings.gamma0);
-  primToCons_2D(U1, params.settings.gamma0);
-  primToCons_2D(U2, params.settings.gamma0);
-  primToCons_2D(U3, params.settings.gamma0);
+  primToCons_2D(S0, params.settings.gamma0);
+  primToCons_2D(S1, params.settings.gamma0);
+  primToCons_2D(S2, params.settings.gamma0);
+  primToCons_2D(S3, params.settings.gamma0);
 
   // genuine initial refinement
+  for (int level=level_min; level<level_max; ++level) {
+
+    // mark cells for refinement
+    InitFourQuadrantRefineFunctor::apply(amr_mesh, params, level, xt, yt);
+
+    // actually perform refinement
+    amr_mesh->adapt();
+
+#if BITPIT_ENABLE_MPI==1
+    // (Load)Balance the octree over the MPI processes.
+    amr_mesh->loadBalance();
+#endif
+
+  } // end for level
   
   // retrieve available / allowed names: fieldManager, and field map (fm)
   // necessary to access user data
@@ -274,12 +290,14 @@ void SolverHydroMuscl::init_four_quadrant(DataArray Udata)
    * perform user data init
    */
   Kokkos::resize(U,amr_mesh->getNumOctants(),params.nbvar);
-  InitFourQuadrantDataFunctor::apply(*amr_mesh, params, fm, Udata, configNumber,
-				     U0, U1, U2, U3,
-				     xt, yt);
+  Kokkos::resize(U2,amr_mesh->getNumOctants(),params.nbvar);
+  Kokkos::resize(Uhost,amr_mesh->getNumOctants(),params.nbvar);
+
+  InitFourQuadrantDataFunctor::apply(amr_mesh, params, fm, U, configNumber,
+   				     S0, S1, S2, S3,
+   				     xt, yt);
   
 } // SolverHydroMuscl::init_four_quadrant
-
 
 // =======================================================
 // =======================================================

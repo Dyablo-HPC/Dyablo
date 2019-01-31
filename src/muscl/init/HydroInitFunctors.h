@@ -35,7 +35,7 @@ namespace euler_pablo { namespace muscl {
 class InitFourQuadrantDataFunctor {
 
 public:
-  InitFourQuadrantDataFunctor(const AMRmesh &mesh,
+  InitFourQuadrantDataFunctor(std::shared_ptr<AMRmesh> pmesh,
 			      HydroParams   params,
 			      id2index_t    fm,
 			      DataArray     Udata,
@@ -46,12 +46,12 @@ public:
 			      HydroState2d  U3,
 			      real_t        xt,
 			      real_t        yt) :
-    mesh(mesh), params(params), fm(fm), Udata(Udata),
+    pmesh(pmesh), params(params), fm(fm), Udata(Udata),
     U0(U0), U1(U1), U2(U2), U3(U3), xt(xt), yt(yt)
   {};
   
   // static method which does it all: create and execute functor
-  static void apply(const AMRmesh &mesh,
+  static void apply(std::shared_ptr<AMRmesh> pmesh,
 		    HydroParams   params,
 		    id2index_t    fm,
                     DataArray     Udata,
@@ -66,10 +66,10 @@ public:
     
     // iterate functor for refinement
     
-    InitFourQuadrantDataFunctor functor(mesh, params, fm, Udata,
+    InitFourQuadrantDataFunctor functor(pmesh, params, fm, Udata,
 					configNumber,
 					U0, U1, U2, U3, xt, yt);
-    Kokkos::parallel_for(mesh.getNumOctants(), functor);
+    Kokkos::parallel_for(pmesh->getNumOctants(), functor);
   }
   
   KOKKOS_INLINE_FUNCTION
@@ -78,7 +78,7 @@ public:
     
     // get cell center coordinate in the unit domain
     // FIXME : need to refactor AMRmesh interface to use Kokkos::Array
-    std::array<double,3> center = mesh.getCenter(i);
+    std::array<double,3> center = pmesh->getCenter(i);
     
     const real_t x = center[0];
     const real_t y = center[1];
@@ -115,7 +115,7 @@ public:
     
   } // end operator ()
 
-  const AMRmesh &mesh;
+  std::shared_ptr<AMRmesh> pmesh;
   HydroParams  params;
   id2index_t   fm;
   DataArray    Udata;
@@ -123,6 +123,94 @@ public:
   real_t       xt, yt;
   
 }; // InitFourQuadrantDataFunctor
+
+/*************************************************/
+/*************************************************/
+/*************************************************/
+/**
+ * Implement initialization functor to solve a four quadrant 2D Riemann
+ * problem.
+ *
+ * This functor only performs mesh refinement, no user data init.
+ * 
+ * In the 2D case, there are 19 different possible configurations (see
+ * article by Lax and Liu, "Solution of two-dimensional riemann
+ * problems of gas dynamics by positive schemes",SIAM journal on
+ * scientific computing, 1998, vol. 19, no2, pp. 319-340).
+ *
+ * Initial conditions is refined near interface separating the 4 
+ * four quadrants.
+ *
+ * \sa InitFourQuadrantDataFunctor
+ *
+ */
+class InitFourQuadrantRefineFunctor {
+  
+public:
+  InitFourQuadrantRefineFunctor(std::shared_ptr<AMRmesh> pmesh,
+				HydroParams   params,
+				int           level_refine,
+				real_t        xt,
+				real_t        yt) :
+    pmesh(pmesh), params(params),
+    level_refine(level_refine),
+    xt(xt), yt(yt)
+  {};
+  
+  // static method which does it all: create and execute functor
+  static void apply(std::shared_ptr<AMRmesh> pmesh,
+		    HydroParams   params,
+		    int           level_refine,
+		    real_t        xt,
+		    real_t        yt)
+  {
+    
+    // iterate functor for refinement
+    InitFourQuadrantRefineFunctor functor(pmesh, params, level_refine, xt, yt);
+    Kokkos::parallel_for(pmesh->getNumOctants(), functor);
+    
+  }
+  
+  KOKKOS_INLINE_FUNCTION
+  void operator()(const size_t& i) const
+  {
+
+    // get cell level
+    uint8_t level = pmesh->getLevel(i);
+    
+    // only look at level - 1
+    if (level == level_refine) {
+
+      // get cell center coordinate in the unit domain
+      // FIXME : need to refactor AMRmesh interface to use Kokkos::Array
+      std::array<double,3> center = pmesh->getCenter(i);
+      
+      const real_t x = center[0];
+      const real_t y = center[1];
+      
+      double cellSize2 = pmesh->getSize(i)/2;
+      
+      bool should_refine = false;
+
+      if ((x+cellSize2>= xt and x-cellSize2 < xt) or
+	  (x-cellSize2<= xt and x+cellSize2 > xt) or
+	  (y+cellSize2>= yt and y-cellSize2 < yt) or
+	  (y-cellSize2<= yt and y+cellSize2 > yt)   )
+	should_refine = true;
+      
+      if (should_refine)
+	pmesh->setMarker(i, 1);
+
+    } // end if level == level_refine
+    
+  } // end operator ()
+
+  std::shared_ptr<AMRmesh> pmesh;
+  HydroParams    params;
+  int            level_refine;
+  real_t         xt, yt;
+  
+}; // InitFourQuadrantRefineFunctor
 
 } // namespace muscl
 
