@@ -239,14 +239,17 @@ void SolverHydroMuscl::init_gresho_vortex(DataArray Udata)
 void SolverHydroMuscl::init_four_quadrant(DataArray Udata)
 {
 
+  /*
+   * this is the initial global refine, to reach level_min / no parallelism
+   * so far (every MPI process does that)
+   */
   int level_min = params.level_min;
   
   for (int iter=0; iter<level_min; iter++) {
     amr_mesh->adaptGlobalRefine();
   }
 
-  Kokkos::resize(U,amr_mesh->getNumOctants(),params.nbvar);
-
+  // load problem specific parameters
   int configNumber = configMap.getInteger("riemann2d","config_number",0);
   real_t xt = configMap.getFloat("riemann2d","x",0.8);
   real_t yt = configMap.getFloat("riemann2d","y",0.8);
@@ -259,12 +262,18 @@ void SolverHydroMuscl::init_four_quadrant(DataArray Udata)
   primToCons_2D(U2, params.settings.gamma0);
   primToCons_2D(U3, params.settings.gamma0);
 
+  // genuine initial refinement
+  
   // retrieve available / allowed names: fieldManager, and field map (fm)
+  // necessary to access user data
   FieldManager fieldMgr;
   fieldMgr.setup(params, configMap);
   auto fm = fieldMgr.get_id2index();
 
-  // perform init
+  /*
+   * perform user data init
+   */
+  Kokkos::resize(U,amr_mesh->getNumOctants(),params.nbvar);
   InitFourQuadrantDataFunctor::apply(*amr_mesh, params, fm, Udata, configNumber,
 				     U0, U1, U2, U3,
 				     xt, yt);
