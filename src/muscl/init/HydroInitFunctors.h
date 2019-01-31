@@ -175,6 +175,8 @@ public:
   void operator()(const size_t& i) const
   {
 
+    //constexpr double eps = 0.005;
+    
     // get cell level
     uint8_t level = pmesh->getLevel(i);
     
@@ -188,7 +190,7 @@ public:
       const real_t x = center[0];
       const real_t y = center[1];
       
-      double cellSize2 = pmesh->getSize(i)/2;
+      double cellSize2 = pmesh->getSize(i)*0.75;
       
       bool should_refine = false;
 
