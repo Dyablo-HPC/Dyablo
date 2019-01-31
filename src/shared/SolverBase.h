@@ -54,7 +54,7 @@ public:
   ConfigMap& configMap;
 
   //! The main AMR object (from bitpit library)
-  std::unique_ptr<AMRmesh> amr_mesh;
+  std::shared_ptr<AMRmesh> amr_mesh;
   
   //! enum type to the actual solver type (Hydro, MHD, ...). TBC if needed.
   solver_type_t solver_type;

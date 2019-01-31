@@ -31,7 +31,7 @@ SolverBase::SolverBase (HydroParams& params, ConfigMap& configMap) :
 
   m_dim = params.dimType == TWO_D ? 2 : 3;
 
-  amr_mesh = std::make_unique<AMRmesh>(m_dim);
+  amr_mesh = std::make_shared<AMRmesh>(m_dim);
   
   /*
    * other variables initialization.
