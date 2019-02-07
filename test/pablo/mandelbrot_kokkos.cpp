@@ -194,10 +194,10 @@ void compute_and_save_mandelbrot(PabloUniform& amr_mesh, size_t iter)
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     
     for (size_t i=0; i<nocts; ++i) {
-      oct_data[i]       = rank;
+      oct_data_v[i]       = rank;
     }
 
-    amr_mesh.writeTest("mandelbrot_rank"+to_string(static_cast<unsigned long long>(iter)), oct_data);
+    amr_mesh.writeTest("mandelbrot_rank"+to_string(static_cast<unsigned long long>(iter)), oct_data_v);
     
   }
 #endif

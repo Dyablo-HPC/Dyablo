@@ -66,6 +66,6 @@ if(USE_MPI)
   target_include_directories(mandelbrot_kokkos
     PUBLIC
     ${CMAKE_SOURCE_DIR}/external/bitpit/src/communications)
-  target_compile_definitions(mandelbrot PUBLIC BITPIT_ENABLE_MPI)
+  target_compile_definitions(mandelbrot_kokkos PUBLIC BITPIT_ENABLE_MPI)
 endif(USE_MPI)
 target_link_libraries(mandelbrot_kokkos kokkos ${BITPIT_LIBRARY})
