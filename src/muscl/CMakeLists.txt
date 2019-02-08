@@ -23,3 +23,11 @@ target_include_directories(muscl
 target_link_libraries(muscl
   kokkos
   )
+
+if (USE_MPI)
+  target_include_directories(muscl
+    PUBLIC
+    ${CMAKE_SOURCE_DIR}/external/bitpit/src/communications)
+ 
+  target_compile_definitions(muscl PUBLIC BITPIT_ENABLE_MPI)
+endif (USE_MPI)

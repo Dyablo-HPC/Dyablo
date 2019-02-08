@@ -249,7 +249,11 @@ void SolverHydroMuscl::init_four_quadrant(DataArray Udata)
   for (int iter=0; iter<=level_min; iter++) {
     amr_mesh->adaptGlobalRefine();
   }
-  std::cout << "NB cells =" << amr_mesh->getNumOctants() << "\n";
+#if BITPIT_ENABLE_MPI==1
+    // (Load)Balance the octree over the MPI processes.
+    amr_mesh->loadBalance();
+#endif
+    //std::cout << "MPI rank=" << amr_mesh->getRank() << " | NB cells =" << amr_mesh->getNumOctants() << "\n";
   
   // load problem specific parameters
   int configNumber = configMap.getInteger("riemann2d","config_number",0);
@@ -279,6 +283,8 @@ void SolverHydroMuscl::init_four_quadrant(DataArray Udata)
 #endif
 
   } // end for level
+
+  amr_mesh->updateConnectivity();
   
   // retrieve available / allowed names: fieldManager, and field map (fm)
   // necessary to access user data
