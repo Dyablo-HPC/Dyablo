@@ -6,6 +6,7 @@ set (muscl_SRCS
   ${CMAKE_CURRENT_SOURCE_DIR}/SolverHydroMuscl.h
   ${CMAKE_CURRENT_SOURCE_DIR}/SolverHydroMuscl.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/init/HydroInitFunctors.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/init/InitFourQuadrant.h
   )
 
 add_library(muscl
