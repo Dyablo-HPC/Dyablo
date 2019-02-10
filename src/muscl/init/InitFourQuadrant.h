@@ -112,6 +112,9 @@ public:
 	Udata(i    , fm[IV]) = U0[IV];
       }
     }
+
+    if (params.dimType == THREE_D)
+      Udata(i, fm[IW]) = 0.0;
     
   } // end operator ()
 
