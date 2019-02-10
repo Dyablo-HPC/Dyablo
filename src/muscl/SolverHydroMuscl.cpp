@@ -440,7 +440,22 @@ void SolverHydroMuscl::init(DataArray Udata)
 double SolverHydroMuscl::compute_dt_local()
 {
 
-  return 0.0;
+  real_t dt;
+  real_t invDt = ZERO_F;
+  DataArray Udata;
+  
+  // which array is the current one ?
+  if (m_iteration % 2 == 0)
+    Udata = U;
+  else
+    Udata = U2;
+
+  // call device functor
+  //ComputeDtHydroFunctor::apply(amr_mesh, params, fm, Udata, invDt);
+
+  dt = params.settings.cfl/invDt;
+
+  return dt;
 
 } // SolverHydroMuscl::compute_dt_local
 
