@@ -32,7 +32,7 @@ public:
 			id2index_t    fm,
 			DataArray     Udata) :
     HydroBaseFunctor(params),
-    pmesh(pmesh), params(params), fm(fm), Udata(Udata)
+    pmesh(pmesh), fm(fm), Udata(Udata)
   {};
   
   // static method which does it all: create and execute functor
@@ -130,10 +130,10 @@ public:
   void operator()(const size_t& i, real_t &invDt) const
   {
 
-    if (params.dimType == TWO_D)
+    if (this->params.dimType == TWO_D)
       operator_2d(i,invDt);
 
-    if (params.dimType == THREE_D)
+    if (this->params.dimType == THREE_D)
       operator_3d(i,invDt);
     
   }
@@ -153,7 +153,6 @@ public:
   } // join
 
   std::shared_ptr<AMRmesh> pmesh;
-  HydroParams  params;
   id2index_t   fm;
   DataArray    Udata;
   
