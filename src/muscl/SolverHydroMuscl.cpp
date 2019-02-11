@@ -550,24 +550,20 @@ void SolverHydroMuscl::godunov_unsplit_impl(DataArray data_in,
   // convert conservative variable into primitives ones for the entire domain
   convertToPrimitives(data_in);
 
-  if (params.implementationVersion == 0) {
-    
-    // compute fluxes (if gravity_enabled is false,
-    // the last parameter is not used)
-    // ComputeAndStoreFluxesFunctor::apply(params, Q,
-    // 					Fluxes_x, Fluxes_y,
-    // 					dt,
-    // 					m_gravity_enabled,
-    // 					gravity);
-    
-    // actual update
-    // UpdateFunctor::apply(params, data_out,
-    // 			 Fluxes_x, Fluxes_y);    
-
-    
-  } else if (params.implementationVersion == 1) {
-
-  } // end params.implementationVersion == 1
+  // sort of slopes computation adapted to unstructured local mesh
+  reconstruct_gradients(data_in);
+  
+  // compute fluxes (if gravity_enabled is false,
+  // the last parameter is not used)
+  // ComputeAndStoreFluxesFunctor::apply(params, Q,
+  // 					Fluxes_x, Fluxes_y,
+  // 					dt,
+  // 					m_gravity_enabled,
+  // 					gravity);
+  
+  // actual update
+  // UpdateFunctor::apply(params, data_out,
+  // 			 Fluxes_x, Fluxes_y);
   
   m_timers[TIMER_NUM_SCHEME]->stop();
   
@@ -591,6 +587,22 @@ void SolverHydroMuscl::convertToPrimitives(DataArray Udata)
   ConvertToPrimitivesHydroFunctor::apply(amr_mesh, params, fm, Udata, Q);
   
 } // SolverHydroMuscl::convertToPrimitives
+
+// =======================================================
+// =======================================================
+void SolverHydroMuscl::reconstruct_gradients(DataArray Udata)
+{
+
+  // retrieve available / allowed names: fieldManager, and field map (fm)
+  // necessary to access user data
+  FieldManager fieldMgr;
+  fieldMgr.setup(params, configMap);
+  auto fm = fieldMgr.get_id2index();
+
+  // call device functor
+  //ReconstructGradientsHydroFunctor::apply(amr_mesh, params, fm, Udata, Q, Slopes_x, Slopes_y, Slopes_z);
+  
+} // SolverHydroMuscl::reconstruct_gradients
 
 // =======================================================
 // =======================================================

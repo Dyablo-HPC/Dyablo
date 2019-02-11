@@ -117,6 +117,8 @@ public:
 			    real_t dt);
   
   void convertToPrimitives(DataArray Udata);
+
+  void reconstruct_gradients(DataArray Udata);
   
   //void computeTrace(DataArray Udata, real_t dt);
   
