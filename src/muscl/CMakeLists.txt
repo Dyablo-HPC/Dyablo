@@ -1,13 +1,10 @@
 set (muscl_SRCS
-  # ${CMAKE_CURRENT_SOURCE_DIR}/HydroBaseFunctor2D.h
-  # ${CMAKE_CURRENT_SOURCE_DIR}/HydroBaseFunctor3D.h
-  # ${CMAKE_CURRENT_SOURCE_DIR}/HydroRunFunctors2D.h
-  # ${CMAKE_CURRENT_SOURCE_DIR}/HydroRunFunctors3D.h
   ${CMAKE_CURRENT_SOURCE_DIR}/SolverHydroMuscl.h
   ${CMAKE_CURRENT_SOURCE_DIR}/SolverHydroMuscl.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/init/HydroInitFunctors.h
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitFourQuadrant.h
-  )
+  ${CMAKE_CURRENT_SOURCE_DIR}/HydroBaseFunctor.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/ComputeDtHydroFunctor.h)
 
 add_library(muscl
   ${muscl_SRCS}
