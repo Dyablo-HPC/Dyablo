@@ -14,6 +14,7 @@
 // Init conditions functors
 #include "muscl/init/HydroInitFunctors.h"
 #include "muscl/ComputeDtHydroFunctor.h"
+#include "muscl/ConvertToPrimitivesHydroFunctor.h"
 
 //#include "shared/mpiBorderUtils.h"
 
@@ -580,6 +581,14 @@ void SolverHydroMuscl::godunov_unsplit_impl(DataArray data_in,
 void SolverHydroMuscl::convertToPrimitives(DataArray Udata)
 {
 
+  // retrieve available / allowed names: fieldManager, and field map (fm)
+  // necessary to access user data
+  FieldManager fieldMgr;
+  fieldMgr.setup(params, configMap);
+  auto fm = fieldMgr.get_id2index();
+
+  // call device functor - compute invDt
+  ConvertToPrimitivesHydroFunctor::apply(amr_mesh, params, fm, Udata, Q);
   
 } // SolverHydroMuscl::convertToPrimitives
 

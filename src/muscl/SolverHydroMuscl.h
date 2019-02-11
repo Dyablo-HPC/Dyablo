@@ -79,8 +79,6 @@ public:
   /* Gravity field */
   DataArray gravity;
   
-  //riemann_solver_t riemann_solver_fn; /*!< riemann solver function pointer */
-
   /*
    * methods
    */

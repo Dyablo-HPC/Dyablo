@@ -4,7 +4,8 @@ set (muscl_SRCS
   ${CMAKE_CURRENT_SOURCE_DIR}/init/HydroInitFunctors.h
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitFourQuadrant.h
   ${CMAKE_CURRENT_SOURCE_DIR}/HydroBaseFunctor.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/ComputeDtHydroFunctor.h)
+  ${CMAKE_CURRENT_SOURCE_DIR}/ComputeDtHydroFunctor.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/ConvertToPrimitivesHydroFunctor.h)
 
 add_library(muscl
   ${muscl_SRCS}
