@@ -152,11 +152,14 @@ void HydroParams::setup_mpi(ConfigMap& configMap)
     hydroSimu::MpiComm::FLOAT : hydroSimu::MpiComm::DOUBLE;
   
 
+  // create the MPI communicator for our amr mesh using MPI_COMM_WORLD
+  communicator = new hydroSimu::MpiComm();
+
   // get world communicator size and check it is consistent with mesh grid sizes
-  nProcs = MpiComm::world().getNProc();
+  nProcs = communicator->getNProc();
 
   // get my MPI rank inside topology
-  //myRank = communicator->getRank();
+  myRank = communicator->getRank();
   
 } // HydroParams::setup_mpi
 

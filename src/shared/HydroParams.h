@@ -19,7 +19,7 @@
 #include "shared/enums.h"
 
 #ifdef USE_MPI
-#include "utils/mpiUtils/MpiCommCart.h"
+#include "utils/mpiUtils/MpiComm.h"
 #endif // USE_MPI
 
 struct HydroSettings {
@@ -116,6 +116,9 @@ struct HydroParams {
   int implementationVersion=0; /*!< triggers which implementation to use (currently 3 versions)*/
 
 #ifdef USE_MPI
+//! MPI communicator in a cartesian virtual topology
+  hydroSimu::MpiComm *communicator;
+
   //! runtime determination if we are using float ou double (for MPI communication)
   //! initialized in constructor to either MpiComm::FLOAT or MpiComm::DOUBLE
   int data_type;
