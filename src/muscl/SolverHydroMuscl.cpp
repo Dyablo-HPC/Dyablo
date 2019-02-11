@@ -13,6 +13,7 @@
 
 // Init conditions functors
 #include "muscl/init/HydroInitFunctors.h"
+#include "muscl/ComputeDtHydroFunctor.h"
 
 //#include "shared/mpiBorderUtils.h"
 
@@ -450,8 +451,14 @@ double SolverHydroMuscl::compute_dt_local()
   else
     Udata = U2;
 
-  // call device functor
-  //ComputeDtHydroFunctor::apply(amr_mesh, params, fm, Udata, invDt);
+  // retrieve available / allowed names: fieldManager, and field map (fm)
+  // necessary to access user data
+  FieldManager fieldMgr;
+  fieldMgr.setup(params, configMap);
+  auto fm = fieldMgr.get_id2index();
+
+  // call device functor - compute invDt
+  ComputeDtHydroFunctor::apply(amr_mesh, params, fm, Udata, invDt);
 
   dt = params.settings.cfl/invDt;
 

@@ -11,20 +11,27 @@
 #include "bitpit_PABLO.hpp"
 #include "shared/bitpit_common.h"
 
+// base class
+#include "muscl/HydroBaseFunctor.h"
+
 namespace euler_pablo { namespace muscl {
 
 /*************************************************/
 /*************************************************/
 /*************************************************/
 /**
+ * Simplest CFL computational functor.
+ * All cell, whatever level, contribute equally to the CFL condition.
+ *
  */
-class ComputeDtHydroFunctor {
+class ComputeDtHydroFunctor : public HydroBaseFunctor {
 
 public:
   ComputeDtHydroFunctor(std::shared_ptr<AMRmesh> pmesh,
 			HydroParams   params,
 			id2index_t    fm,
 			DataArray     Udata) :
+    HydroBaseFunctor(params),
     pmesh(pmesh), params(params), fm(fm), Udata(Udata)
   {};
   
@@ -57,7 +64,7 @@ public:
   } // init
 
   KOKKOS_INLINE_FUNCTION
-  void operator_2d()(const size_t& i, real_t &invDt) const
+  void operator_2d(const size_t& i, real_t &invDt) const
   {
 
     // 2D version
@@ -65,6 +72,12 @@ public:
     HydroState2d qLoc; // primitive    variables in current cell
     real_t c = 0.0;
     real_t vx, vy;
+
+    // get cell level
+    uint8_t level = pmesh->getLevel(i);
+
+    // retrieve cell size from mesh
+    real_t dx = pmesh->levelToSize(level);
     
     // get local conservative variable
     uLoc[ID] = Udata(i,fm[ID]);
@@ -77,13 +90,40 @@ public:
     vx = c+FABS(qLoc[IU]);
     vy = c+FABS(qLoc[IV]);
     
-    invDt = FMAX(invDt, vx/dx + vy/dy);
+    invDt = FMAX(invDt, vx/dx + vy/dx);
 
-  } // operator_2d ()
+  } // operator_2d
 
   KOKKOS_INLINE_FUNCTION
-  void operator_3d()(const size_t& i, real_t &invDt) const
+  void operator_3d(const size_t& i, real_t &invDt) const
   {
+    
+    HydroState3d uLoc; // conservative variables in current cell
+    HydroState3d qLoc; // primitive    variables in current cell
+    real_t c = 0.0;
+    real_t vx, vy, vz;
+    
+    // get cell level
+    uint8_t level = pmesh->getLevel(i);
+
+    // retrieve cell size from mesh
+    real_t dx = pmesh->levelToSize(level);
+
+    // get local conservative variable
+    uLoc[ID] = Udata(i,fm[ID]);
+    uLoc[IP] = Udata(i,fm[IP]);
+    uLoc[IU] = Udata(i,fm[IU]);
+    uLoc[IV] = Udata(i,fm[IV]);
+    uLoc[IW] = Udata(i,fm[IW]);
+    
+    // get primitive variables in current cell
+    computePrimitives(uLoc, &c, qLoc);
+    vx = c+FABS(qLoc[IU]);
+    vy = c+FABS(qLoc[IV]);
+    vz = c+FABS(qLoc[IW]);
+    
+    invDt = FMAX(invDt, vx/dx + vy/dx + vz/dx);
+    
   } // operator_3d
 
   KOKKOS_INLINE_FUNCTION
@@ -118,5 +158,9 @@ public:
   DataArray    Udata;
   
 }; // ComputeDtHydroFunctor
+
+} // namespace muscl
+
+} // namespace euler_pablo
 
 #endif // COMPUTE_DT_HYDRO_FUNCTOR_H_
