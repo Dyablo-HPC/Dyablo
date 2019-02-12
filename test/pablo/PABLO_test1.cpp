@@ -66,13 +66,15 @@ void run(int dim)
       vector<array<double,3> > nodes = amr_mesh.getNodes(i);
 
       if (dim==2) {
-	printf("nodes %d : %f %f | %f %f | %f %f | %f %f \n",i,
+	printf("octant %d (Morton = %lu): %f %f | %f %f | %f %f | %f %f \n",
+	       i, amr_mesh.getMorton(i),
 	       nodes[0][0],nodes[0][1],
 	       nodes[1][0],nodes[1][1],
 	       nodes[2][0],nodes[2][1],
 	       nodes[3][0],nodes[3][1]);
       } else {
-	printf("nodes %d : %f %f %f | %f %f %f | %f %f %f | %f %f %f\n           %f %f %f | %f %f %f | %f %f %f | %f %f %f\n",i,
+	printf("octant %d (Morton = %lu): %f %f %f | %f %f %f | %f %f %f | %f %f %f\n           %f %f %f | %f %f %f | %f %f %f | %f %f %f\n",
+	       i, amr_mesh.getMorton(i),
 	       nodes[0][0],nodes[0][1],nodes[0][2],
 	       nodes[1][0],nodes[1][1],nodes[1][2],
 	       nodes[2][0],nodes[2][1],nodes[2][2],
@@ -95,7 +97,7 @@ void run(int dim)
       for (uint8_t iface=0; iface<nfaces; iface++){
 	amr_mesh.findNeighbours(i,iface,codim,neigh_t,isghost_t);
 	printf("neighbors of %d through face %d are : ",i,iface);
-	for (int ineigh=0; ineigh<neigh_t.size(); ++ineigh) {
+	for (size_t ineigh=0; ineigh<neigh_t.size(); ++ineigh) {
 	  printf(" %d ",neigh_t[ineigh]);
 	}
 	printf("\n");
@@ -125,13 +127,15 @@ void run(int dim)
       // print cell nodes location
       vector<array<double,3> > nodes = amr_mesh.getNodes(i);
       if (dim==2) {
-	printf("nodes %d : %f %f | %f %f | %f %f | %f %f \n",i,
+	printf("octant %d (Morton = %lu): %f %f | %f %f | %f %f | %f %f \n",
+	       i, amr_mesh.getMorton(i),
 	       nodes[0][0],nodes[0][1],
 	       nodes[1][0],nodes[1][1],
 	       nodes[2][0],nodes[2][1],
 	       nodes[3][0],nodes[3][1]);
       } else {
-	printf("nodes %d : %f %f %f | %f %f %f | %f %f %f | %f %f %f\n           %f %f %f | %f %f %f | %f %f %f | %f %f %f\n",i,
+	printf("octant %d (Morton = %lu): %f %f %f | %f %f %f | %f %f %f | %f %f %f\n           %f %f %f | %f %f %f | %f %f %f | %f %f %f\n",
+	       i, amr_mesh.getMorton(i),
 	       nodes[0][0],nodes[0][1],nodes[0][2],
 	       nodes[1][0],nodes[1][1],nodes[1][2],
 	       nodes[2][0],nodes[2][1],nodes[2][2],
@@ -147,7 +151,7 @@ void run(int dim)
       for (uint8_t iface=0; iface<nfaces; iface++){
 	amr_mesh.findNeighbours(i,iface,codim,neigh_t,isghost_t);
 	printf("neighbors of %d through face %d are : ",i,iface);
-	for (int ineigh=0; ineigh<neigh_t.size(); ++ineigh) {
+	for (size_t ineigh=0; ineigh<neigh_t.size(); ++ineigh) {
 	  printf(" %d ",neigh_t[ineigh]);
 	}
 	printf("\n");
