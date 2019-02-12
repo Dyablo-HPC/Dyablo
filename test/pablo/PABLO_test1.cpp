@@ -260,7 +260,12 @@ void run(int dim)
 
       if (iter==start) {
 	std::cout << "Rank   " << rank << " | Octant " << i << " | Number of       neighbors " << neigh.size() << "\n";
-	std::cout << "Rank   " << rank << " | Octant " << i << " | Number of ghost neighbors " << isghost.size() << "\n";
+
+	uint32_t nbGhost = 0;
+	for (size_t idx=0; idx<isghost.size(); ++idx) {
+	  if (isghost[i] == true) nbGhost++;
+	}
+	std::cout << "Rank   " << rank << " | Octant " << i << " | Number of ghost neighbors " << nbGhost << "\n";
       }
       
       /**<Smoothing data with the average over the one ring neighbours of octants*/
