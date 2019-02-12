@@ -15,12 +15,37 @@ using namespace bitpit;
 
 /**
  * Run the example.
+ *
+ * in 2D, after 3 global refine iteration, the mesh look like:
+ *
+ * 10  11  14  15
+ * 
+ *  8   9  12  13
+ *
+ *  2   3   6   7
+ *
+ *  0   1   4   5
+ *
+ * If we decide to refine cell 3, then the mesh looks like:
+ *
+ * 13    14     17     18
+ *
+ *
+ * 11    12     15     16
+ *
+ *
+ *  2   5 6     9      10
+ *      3 4
+ *
+ *  0     1     7       8
+ * 
+ * so you can cross-check the mesh connectivity.
  */
 void run(int dim)
 {
   int iter = 0;
 
-  /**<Instantation of a 2D pablo uniform object.*/
+  /**<Instantation of a nDimensional pablo uniform object.*/
   PabloUniform amr_mesh(dim);
 
   /**<Refine globally four level and write the octree.*/
@@ -58,7 +83,10 @@ void run(int dim)
 	       nodes[7][0],nodes[7][1],nodes[7][2]);
       }
 	
-      // print neighbors id
+      // print neighbors id per face
+      // if neigh_t is empty, it means there is no "genuine" neighbor
+      // and thus the given octant touches the external border.
+      // In a real application we should the border condition.
       neigh.clear();
       isghost.clear();
 
@@ -80,10 +108,12 @@ void run(int dim)
   printf("============================================================\n");
   printf("============================================================\n");
 
-  /**< test refinement.*/
+  /**< test refinement. Mark cell 3 for refinement */
   amr_mesh.setMarker(3,1);
   amr_mesh.adapt();
   amr_mesh.updateConnectivity();
+
+  // print again mesh connectivty information
   {
     // print neighbors id
     vector<uint32_t> neigh_t;
