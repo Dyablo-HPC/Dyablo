@@ -43,6 +43,17 @@ using namespace bitpit;
  */
 void run(int dim)
 {
+
+  int nProcs;
+  int rank;
+#if BITPIT_ENABLE_MPI==1
+  MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+#else
+  nProcs = 1;
+  rank   = 0;
+#endif
+
   int iter = 0;
 
   /**<Instantation of a nDimensional pablo uniform object.*/
@@ -61,20 +72,20 @@ void run(int dim)
     vector<uint32_t> neigh, neigh_t;
     vector<bool> isghost, isghost_t;
 
-    for (unsigned int i=0; i<nocts; i++){
+    for (uint32_t i=0; i<nocts; i++){
       // print cell nodes location
       vector<array<double,3> > nodes = amr_mesh.getNodes(i);
 
       if (dim==2) {
-	printf("octant %d (Morton = %lu): %f %f | %f %f | %f %f | %f %f \n",
-	       i, amr_mesh.getMorton(i),
+	printf("rank %d octant %d (Morton = %lu): %f %f | %f %f | %f %f | %f %f \n",
+	       rank, i, amr_mesh.getMorton(i),
 	       nodes[0][0],nodes[0][1],
 	       nodes[1][0],nodes[1][1],
 	       nodes[2][0],nodes[2][1],
 	       nodes[3][0],nodes[3][1]);
       } else {
-	printf("octant %d (Morton = %lu): %f %f %f | %f %f %f | %f %f %f | %f %f %f\n           %f %f %f | %f %f %f | %f %f %f | %f %f %f\n",
-	       i, amr_mesh.getMorton(i),
+	printf("rank %d octant %d (Morton = %lu): %f %f %f | %f %f %f | %f %f %f | %f %f %f\n           %f %f %f | %f %f %f | %f %f %f | %f %f %f\n",
+	       rank, i, amr_mesh.getMorton(i),
 	       nodes[0][0],nodes[0][1],nodes[0][2],
 	       nodes[1][0],nodes[1][1],nodes[1][2],
 	       nodes[2][0],nodes[2][1],nodes[2][2],
@@ -92,8 +103,14 @@ void run(int dim)
       neigh.clear();
       isghost.clear();
 
+      // codim=1 ==> faces
+      // codim=2 ==> edges
       int codim = 1;
+
+      // number of faces per cell
       uint8_t nfaces = 2*dim;
+
+      // get neighbors octant id face per face
       for (uint8_t iface=0; iface<nfaces; iface++){
 	amr_mesh.findNeighbours(i,iface,codim,neigh_t,isghost_t);
 	printf("neighbors of %d through face %d are : ",i,iface);
@@ -113,6 +130,12 @@ void run(int dim)
   /**< test refinement. Mark cell 3 for refinement */
   amr_mesh.setMarker(3,1);
   amr_mesh.adapt();
+
+#if BITPIT_ENABLE_MPI==1
+  /**<(Load)Balance the octree over the processes.*/
+  amr_mesh.loadBalance();
+#endif
+
   amr_mesh.updateConnectivity();
 
   // print again mesh connectivty information
@@ -122,20 +145,20 @@ void run(int dim)
     vector<bool> isghost_t;
 
     uint32_t nocts = amr_mesh.getNumOctants();
-    for (unsigned int i=0; i<nocts; i++) {
+    for (uint32_t i=0; i<nocts; i++) {
 
       // print cell nodes location
       vector<array<double,3> > nodes = amr_mesh.getNodes(i);
       if (dim==2) {
-	printf("octant %d (Morton = %lu): %f %f | %f %f | %f %f | %f %f \n",
-	       i, amr_mesh.getMorton(i),
+	printf("rank %d octant %d (Morton = %lu): %f %f | %f %f | %f %f | %f %f \n",
+	       rank, i, amr_mesh.getMorton(i),
 	       nodes[0][0],nodes[0][1],
 	       nodes[1][0],nodes[1][1],
 	       nodes[2][0],nodes[2][1],
 	       nodes[3][0],nodes[3][1]);
       } else {
-	printf("octant %d (Morton = %lu): %f %f %f | %f %f %f | %f %f %f | %f %f %f\n           %f %f %f | %f %f %f | %f %f %f | %f %f %f\n",
-	       i, amr_mesh.getMorton(i),
+	printf("rank %d octant %d (Morton = %lu): %f %f %f | %f %f %f | %f %f %f | %f %f %f\n           %f %f %f | %f %f %f | %f %f %f | %f %f %f\n",
+	       rank, i, amr_mesh.getMorton(i),
 	       nodes[0][0],nodes[0][1],nodes[0][2],
 	       nodes[1][0],nodes[1][1],nodes[1][2],
 	       nodes[2][0],nodes[2][1],nodes[2][2],
@@ -146,8 +169,14 @@ void run(int dim)
 	       nodes[7][0],nodes[7][1],nodes[7][2]);
       }
       
+      // codim=1 ==> faces
+      // codim=2 ==> edges
       int codim = 1;
+
+      // number of faces per cell
       uint8_t nfaces = 2*dim;
+
+      // get neighbors octant id face per face
       for (uint8_t iface=0; iface<nfaces; iface++){
 	amr_mesh.findNeighbours(i,iface,codim,neigh_t,isghost_t);
 	printf("neighbors of %d through face %d are : ",i,iface);
@@ -159,21 +188,22 @@ void run(int dim)
     } // end for i
   }
 
-  
   /**<Define a center point and a radius.*/
   double xc, yc, zc;
   xc = yc = zc = 0.5;
   double radius = 0.25;
 
-  /**<Define vectors of data.*/
+  /**<Define vector of data, one item per octant.*/
   uint32_t nocts = amr_mesh.getNumOctants();
   vector<double> oct_data(nocts, 0.0);
 
   /**<Assign a data to the octants with at least one node inside the circle.*/
-  for (unsigned int i=0; i<nocts; i++){
+  for (uint32_t i=0; i<nocts; i++) {
+
     /**<Compute the nodes of the octant.*/
     vector<array<double,3> > nodes = amr_mesh.getNodes(i);
 
+    /**<Sweep all corner nodes to assign geometry dependent data*/
     if (dim==2) {
       for (int j=0; j<4; j++){
 	double x = nodes[j][0];
@@ -207,7 +237,7 @@ void run(int dim)
     vector<bool> isghost, isghost_t;
     uint8_t iface, nfaces;
     int codim;
-    for (unsigned int i=0; i<nocts; i++){
+    for (uint32_t i=0; i<nocts; i++){
       neigh.clear();
       isghost.clear();
 
@@ -219,6 +249,8 @@ void run(int dim)
 	else if (codim == 2){
 	  nfaces = dim==2 ? 4 : 12;
 	}
+
+	/**<Merge all neighbors in a single vector */
 	for (iface=0; iface<nfaces; iface++){
 	  amr_mesh.findNeighbours(i,iface,codim,neigh_t,isghost_t);
 	  neigh.insert(neigh.end(), neigh_t.begin(), neigh_t.end());
@@ -226,6 +258,11 @@ void run(int dim)
 	}
       }
 
+      if (iter==start) {
+	std::cout << "Rank   " << rank << " | Octant " << i << " | Number of       neighbors " << neigh.size() << "\n";
+	std::cout << "Rank   " << rank << " | Octant " << i << " | Number of ghost neighbors " << isghost.size() << "\n";
+      }
+      
       /**<Smoothing data with the average over the one ring neighbours of octants*/
       oct_data_smooth[i] = oct_data[i]/(neigh.size()+1);
       for (unsigned int j=0; j<neigh.size(); j++){
