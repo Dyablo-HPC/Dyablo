@@ -59,6 +59,13 @@ void run(int dim)
   /**<Instantation of a nDimensional pablo uniform object.*/
   PabloUniform amr_mesh(dim);
 
+  /**<set periodic border condition */
+  amr_mesh.setPeriodic(0);
+  amr_mesh.setPeriodic(1);
+  amr_mesh.setPeriodic(2);
+  amr_mesh.setPeriodic(3);
+
+  
   /**<Refine globally four level and write the octree.*/
   for (iter=1; iter<3; iter++){
 
