@@ -41,9 +41,10 @@ class UserDataLB : public bitpit::DataLBInterface<UserDataLB<D> >{
 public:
   
   typedef D Data;
-  
-  Data& data;
-  Data& ghostdata;
+
+  // pass by copy (Kokkos::View)
+  Data data;
+  Data ghostdata;
   
   size_t fixedSize() const;
   size_t size(const uint32_t e) const;
@@ -60,7 +61,7 @@ public:
   void resizeGhost(uint32_t newSize);
   void shrink();
 
-  UserDataLB(Data& data_, Data& ghostdata_);
+  UserDataLB(Data data_, Data ghostdata_);
   ~UserDataLB();
 };
 
