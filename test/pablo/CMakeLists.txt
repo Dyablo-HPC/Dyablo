@@ -69,3 +69,6 @@ if(USE_MPI)
   target_compile_definitions(mandelbrot_kokkos PUBLIC BITPIT_ENABLE_MPI)
 endif(USE_MPI)
 target_link_libraries(mandelbrot_kokkos kokkos ${BITPIT_LIBRARY})
+
+
+add_subdirectory(user_data)

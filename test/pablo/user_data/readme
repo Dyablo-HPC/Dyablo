@@ -1,0 +1,2 @@
+This is an attempt to refactor a regular PABLO example
+with userdata based on Kokkos::View's instead of std::vector.
