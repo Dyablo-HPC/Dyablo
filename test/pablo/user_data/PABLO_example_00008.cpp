@@ -192,7 +192,7 @@ void run()
   /**<Update the connectivity and write the octree.*/
   pablo8.updateConnectivity();
   {
-    euler_pablo::writeTest(pablo8,"pablo00008_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data);
+    euler_pablo::writeTest(pablo8,"pablo00008_iter"+to_string(static_cast<unsigned long long>(iter)), data_lb.data);
   }
 }
 

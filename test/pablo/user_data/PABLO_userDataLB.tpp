@@ -72,6 +72,15 @@ inline void UserDataLB<D>::assign(uint32_t stride, uint32_t length) {
   /* #endif */
   /*   first = dataCopy.end(); */
   /*   last = dataCopy.end(); */
+
+  Data dataCopy("data");
+  Kokkos::resize(dataCopy,length);
+
+  Kokkos::parallel_for(length, KOKKOS_LAMBDA(size_t &i) {
+      dataCopy(i) = data(i+stride);
+    });
+
+  data = dataCopy;
 };
 
 template<class D>
