@@ -19,13 +19,13 @@ using namespace bitpit;
 void run()
 {
 
-  int nProcs;
+  //int nProcs;
   int rank;
 #if BITPIT_ENABLE_MPI==1
-  MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
+  //MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 #else
-  nProcs = 1;
+  //nProcs = 1;
   rank   = 0;
 #endif
 
@@ -38,7 +38,7 @@ void run()
 
     // refine all cells
     amr_mesh.adaptGlobalRefine();
-    uint32_t nocts = amr_mesh.getNumOctants();
+    //uint32_t nocts = amr_mesh.getNumOctants();
     
     amr_mesh.setMarker(3,1);
     amr_mesh.setMarker(8,1);

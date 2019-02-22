@@ -44,13 +44,13 @@ using namespace bitpit;
 void run(int dim)
 {
 
-  int nProcs;
+  //int nProcs;
   int rank;
 #if BITPIT_ENABLE_MPI==1
-  MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
+  //MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 #else
-  nProcs = 1;
+  //nProcs = 1;
   rank   = 0;
 #endif
 
