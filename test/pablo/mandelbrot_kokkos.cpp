@@ -1,12 +1,17 @@
 /**
  *  \example mandelbrot.cpp
  */
+#include <memory> // for shared pointer
+
+
 #if BITPIT_ENABLE_MPI==1
 #include <mpi.h>
 #endif
 
 #include "bitpit_PABLO.hpp"
 #include "shared/kokkos_shared.h"
+//#include "shared/bitpit_common.h" // for AMRmesh type
+using AMRmesh = bitpit::PabloUniform;
 
 //using namespace std;
 using namespace bitpit;
@@ -73,16 +78,18 @@ compute_nb_iters (double cx, double cy)
 class MandelbrotRefine {
 
 public:
-  MandelbrotRefine(PabloUniform &amr_mesh, int iter) :
-    amr_mesh(amr_mesh), iter(iter) {};
+  MandelbrotRefine(std::shared_ptr<AMRmesh> pmesh, int iter) :
+    pmesh(pmesh),
+    iter(iter) {};
 
   // static method which does it all: create and execute functor
-  static void apply(PabloUniform &amr_mesh, int iter)
+  static void apply(std::shared_ptr<AMRmesh> pmesh,
+		    int iter)
   {
     
     // iterate functor for refinement
-    MandelbrotRefine functor(amr_mesh, iter);
-    Kokkos::parallel_for(amr_mesh.getNumOctants(), functor);
+    MandelbrotRefine functor(pmesh, iter);
+    Kokkos::parallel_for(pmesh->getNumOctants(), functor);
   }
 
   KOKKOS_INLINE_FUNCTION
@@ -90,7 +97,7 @@ public:
   {
 
     // get cell level
-    uint8_t level = amr_mesh.getLevel(i);
+    uint8_t level = pmesh->getLevel(i);
     
     // only look at level 5 + iter - 1
     if (level == (5+iter-1)) {
@@ -99,7 +106,7 @@ public:
       double nbiter_center;
       
       // get cell center
-      std::array<double,3> center = amr_mesh.getCenter(i);
+      std::array<double,3> center = pmesh->getCenter(i);
       
       // change into coordinates in the physical domain
       x = scaleX(center[0]);
@@ -110,7 +117,7 @@ public:
       nbiter_center = compute_nb_iters(x,y);
       
       // get cell corner nodes
-      vector<array<double,3> > nodes = amr_mesh.getNodes(i);
+      vector<array<double,3> > nodes = pmesh->getNodes(i);
       
       double interpol = 0.0;
       for (int ic=0; ic<4; ++ic) {
@@ -133,14 +140,14 @@ public:
       
       if (should_refine) {
 	//printf("refine %d\n",i);
-	amr_mesh.setMarker(i, 1);
+	pmesh->setMarker(i, 1);
       }
       
     } // end if level    
     
   } // operator()
   
-  PabloUniform &amr_mesh;
+  std::shared_ptr<AMRmesh> pmesh;
   int iter;
   
 }; // MandelbrotRefine
@@ -150,9 +157,9 @@ public:
 /**
  * Compute and save Mandelbrot set to file
  */
-void compute_and_save_mandelbrot(PabloUniform& amr_mesh, size_t iter)
+void compute_and_save_mandelbrot(std::shared_ptr<AMRmesh> pmesh, size_t iter)
 {
-  uint32_t nocts = amr_mesh.getNumOctants();
+  uint32_t nocts = pmesh->getNumOctants();
 
   Kokkos::View<double*, Device> oct_data("oct_data",nocts);
   Kokkos::View<double*, Device> oct_data_level("oct_data_level",nocts);
@@ -160,7 +167,7 @@ void compute_and_save_mandelbrot(PabloUniform& amr_mesh, size_t iter)
   Kokkos::parallel_for(nocts, KOKKOS_LAMBDA(const size_t &i) {
       
       // get cell center coordinate in the unit domain
-      std::array<double,3> center = amr_mesh.getCenter(i);
+      std::array<double,3> center = pmesh->getCenter(i);
       
       // change into coordinates in the physical domain
       double x = scaleX(center[0]);
@@ -169,7 +176,7 @@ void compute_and_save_mandelbrot(PabloUniform& amr_mesh, size_t iter)
       // compute pixel status, how many iterations for the Mandelbrot
       // series to diverge
       oct_data(i)       = compute_nb_iters(x,y);
-      oct_data_level(i) = amr_mesh.getLevel(i);
+      oct_data_level(i) = pmesh->getLevel(i);
       
     });
 
@@ -184,8 +191,8 @@ void compute_and_save_mandelbrot(PabloUniform& amr_mesh, size_t iter)
     oct_data_level_v[i] = oct_data_level(i);
   }
 
-  amr_mesh.writeTest("mandelbrot_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data_v);
-  amr_mesh.writeTest("mandelbrot_level"+to_string(static_cast<unsigned long long>(iter)), oct_data_level_v);
+  pmesh->writeTest("mandelbrot_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data_v);
+  pmesh->writeTest("mandelbrot_level"+to_string(static_cast<unsigned long long>(iter)), oct_data_level_v);
 
 #if BITPIT_ENABLE_MPI==1
   // save MPI rank
@@ -197,7 +204,7 @@ void compute_and_save_mandelbrot(PabloUniform& amr_mesh, size_t iter)
       oct_data_v[i]       = rank;
     }
 
-    amr_mesh.writeTest("mandelbrot_rank"+to_string(static_cast<unsigned long long>(iter)), oct_data_v);
+    pmesh->writeTest("mandelbrot_rank"+to_string(static_cast<unsigned long long>(iter)), oct_data_v);
     
   }
 #endif
@@ -213,39 +220,39 @@ void run()
 {
 
   /**<Instantation of a 2D pablo uniform object.*/
-  PabloUniform amr_mesh(2);
+  std::shared_ptr<AMRmesh> pmesh = std::make_shared<AMRmesh>(2);
 
   // start with a 32x32 array
   for (int i=0; i<5; ++i)
-    amr_mesh.adaptGlobalRefine();
+    pmesh->adaptGlobalRefine();
   
 #if BITPIT_ENABLE_MPI==1
   // (Load)Balance the octree over the processes.
-  amr_mesh.loadBalance();
+  pmesh->loadBalance();
 #endif
   
-  amr_mesh.updateConnectivity();  
+  pmesh->updateConnectivity();  
 
-  compute_and_save_mandelbrot(amr_mesh, 0);  
+  compute_and_save_mandelbrot(pmesh, 0);  
 
   // add several levels of refinement
   for (size_t iter=1; iter<=5; ++iter) {
 
     // refine all cells
-    uint32_t nocts = amr_mesh.getNumOctants();
+    uint32_t nocts = pmesh->getNumOctants();
 
-    MandelbrotRefine::apply(amr_mesh, iter);
+    MandelbrotRefine::apply(pmesh, iter);
     
-    amr_mesh.adapt();
+    pmesh->adapt();
 
 #if BITPIT_ENABLE_MPI==1
     /**<(Load)Balance the octree over the processes.*/
-    amr_mesh.loadBalance();
+    pmesh->loadBalance();
 #endif
 
-    amr_mesh.updateConnectivity();  
+    pmesh->updateConnectivity();  
     
-    compute_and_save_mandelbrot(amr_mesh, iter);
+    compute_and_save_mandelbrot(pmesh, iter);
 
   } // end for iter
   
