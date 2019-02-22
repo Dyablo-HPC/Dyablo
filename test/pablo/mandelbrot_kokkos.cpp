@@ -239,8 +239,6 @@ void run()
   for (size_t iter=1; iter<=5; ++iter) {
 
     // refine all cells
-    uint32_t nocts = pmesh->getNumOctants();
-
     MandelbrotRefine::apply(pmesh, iter);
     
     pmesh->adapt();
@@ -313,6 +311,8 @@ int main(int argc, char *argv[])
     exit(1);
   }
 
+  Kokkos::finalize();
+  
 #if BITPIT_ENABLE_MPI==1
   MPI_Finalize();
 #endif
