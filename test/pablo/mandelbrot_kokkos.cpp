@@ -13,7 +13,6 @@
 //#include "shared/bitpit_common.h" // for AMRmesh type
 using AMRmesh = bitpit::PabloUniform;
 
-//using namespace std;
 using namespace bitpit;
 
 // maximum number of iterations

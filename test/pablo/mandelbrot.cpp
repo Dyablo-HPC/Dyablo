@@ -7,7 +7,6 @@
 
 #include "bitpit_PABLO.hpp"
 
-using namespace std;
 using namespace bitpit;
 
 // maximum number of iterations
