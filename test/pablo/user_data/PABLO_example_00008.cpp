@@ -38,6 +38,8 @@
 //using namespace std;
 using namespace bitpit;
 
+using AppData = Kokkos::View<double*>;
+
 // ======================================================================== //
 /*!
   \example PABLO_example_00008.cpp
@@ -88,8 +90,10 @@ void run()
   /**<Define vectors of data.*/
   uint32_t nocts = pablo8.getNumOctants();
   uint32_t nghosts = pablo8.getNumGhosts();
-  vector<double> oct_data(nocts, 0.0), ghost_data(nghosts, 0.0);
-
+  //vector<double> oct_data(nocts, 0.0), ghost_data(nghosts, 0.0);
+  AppData oct_data("oct_data", nocts);
+  AppData ghost_data("ghost_data", nghosts);
+  
   /**<Assign a data (distance from center of a circle) to the octants with at least one node inside the circle.*/
   for (unsigned int i=0; i<nocts; i++){
     /**<Compute the nodes of the octant.*/
@@ -100,7 +104,7 @@ void run()
       double x = nodes[j][0];
       double y = nodes[j][1];
       if ((pow((x-xc),2.0)+pow((y-yc),2.0) <= pow(radius,2.0))){
-	oct_data[i] = (pow((center[0]-xc),2.0)+pow((center[1]-yc),2.0));
+	oct_data(i) = (pow((center[0]-xc),2.0)+pow((center[1]-yc),2.0));
       }
     }
   }
@@ -108,7 +112,9 @@ void run()
   /**<Update the connectivity and write the octree.*/
   iter = 0;
   pablo8.updateConnectivity();
-  pablo8.writeTest("pablo00008_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data);
+  {
+    //pablo8.writeTest("pablo00008_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data);
+  }
 
   /**<Adapt two times with data injection on new octants.*/
   int start = 1;
@@ -137,12 +143,13 @@ void run()
     }
 
     /**<Adapt the octree and map the data in the new octants.*/
-    vector<double> oct_data_new;
+    //vector<double> oct_data_new;
+    AppData oct_data_new("oct_data_new");
     vector<uint32_t> mapper;
     vector<bool> isghost;
     pablo8.adapt(true);
     nocts = pablo8.getNumOctants();
-    oct_data_new.resize(nocts, 0.0);
+    Kokkos::resize(oct_data_new,nocts);
 
     /**<Assign to the new octant the average of the old children if it is new after a coarsening;
      * while assign to the new octant the data of the old father if it is new after a refinement.
@@ -152,21 +159,23 @@ void run()
       if (pablo8.getIsNewC(i)){
 	for (int j=0; j<4; j++){
 	  if (isghost[j]){
-	    oct_data_new[i] += ghost_data[mapper[j]]/4;
+	    oct_data_new(i) += ghost_data(mapper[j])/4;
 	  }
 	  else{
-	    oct_data_new[i] += oct_data[mapper[j]]/4;
+	    oct_data_new(i) += oct_data(mapper[j])/4;
 	  }
 	}
       }
       else{
-	oct_data_new[i] += oct_data[mapper[0]];
+	oct_data_new(i) += oct_data(mapper[0]);
       }
     }
 
     /**<Update the connectivity and write the octree.*/
     pablo8.updateConnectivity();
-    pablo8.writeTest("pablo00008_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data_new);
+    {
+      //pablo8.writeTest("pablo00008_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data_new);
+    }
 
     oct_data = oct_data_new;
   }
@@ -175,13 +184,15 @@ void run()
   /**<PARALLEL TEST: (Load)Balance the octree over the processes with communicating the data.
    * Preserve the family compact up to 4 levels over the max deep reached in the octree.*/
   uint8_t levels = 4;
-  UserDataLB<vector<double> > data_lb(oct_data,ghost_data);
+  UserDataLB<AppData> data_lb(oct_data,ghost_data);
   pablo8.loadBalance(data_lb, levels);
 #endif
 
   /**<Update the connectivity and write the octree.*/
   pablo8.updateConnectivity();
-  pablo8.writeTest("pablo00008_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data);
+  {
+    //pablo8.writeTest("pablo00008_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data);
+  }
 }
 
 /*!
