@@ -20,7 +20,7 @@
  *  You should have received a copy of the GNU Lesser General Public License
  *  along with bitpit. If not, see <http://www.gnu.org/licenses/>.
  *
-\*---------------------------------------------------------------------------*/
+ \*---------------------------------------------------------------------------*/
 
 /*
  * UserDataComm.tpp
@@ -42,27 +42,27 @@ UserDataComm<Data>::~UserDataComm() {};
 
 template<class Data>
 inline size_t UserDataComm<Data>::fixedSize() const {
-	return 0;
+  return 0;
 };
 
 template<class Data>
 inline size_t UserDataComm<Data>::size(const uint32_t e) const {
-	BITPIT_UNUSED(e);
-	return sizeof(double)+sizeof(float);
+  BITPIT_UNUSED(e);
+  return sizeof(double)+sizeof(float);
 };
 
 template<class Data>
 template<class Buffer>
 inline void UserDataComm<Data>::gather(Buffer& buff, const uint32_t e) {
-	buff << data.doubleData[e];
-	buff << data.floatData[e];
+  buff << data.doubleData[e];
+  buff << data.floatData[e];
 };
 
 template<class Data>
 template<class Buffer>
 inline void UserDataComm<Data>::scatter(Buffer& buff,	const uint32_t e) {
-	buff >> ghostData.doubleData[e];
-	buff >> ghostData.floatData[e];
+  buff >> ghostData.doubleData[e];
+  buff >> ghostData.floatData[e];
 };
 
 /*!

@@ -20,7 +20,7 @@
  *  You should have received a copy of the GNU Lesser General Public License
  *  along with bitpit. If not, see <http://www.gnu.org/licenses/>.
  *
-\*---------------------------------------------------------------------------*/
+ \*---------------------------------------------------------------------------*/
 
 /*
  * UserDataLB.tpp
@@ -33,61 +33,61 @@
  */
 template<class D>
 inline size_t UserDataLB<D>::fixedSize() const {
-	return 0;
+  return 0;
 }
 
 template<class D>
 inline size_t UserDataLB<D>::size(const uint32_t e) const {
-	BITPIT_UNUSED(e);
-	return sizeof(double);
+  BITPIT_UNUSED(e);
+  return sizeof(double);
 }
 
 template<class D>
 inline void UserDataLB<D>::move(const uint32_t from, const uint32_t to) {
-	data[to] = data[from];
+  data[to] = data[from];
 }
 
 template<class D>
 template<class Buffer>
 inline void UserDataLB<D>::gather(Buffer& buff, const uint32_t e) {
-	buff << data[e];
+  buff << data[e];
 }
 
 template<class D>
 template<class Buffer>
 inline void UserDataLB<D>::scatter(Buffer& buff, const uint32_t e) {
-	buff >> data[e];
+  buff >> data[e];
 }
 
 template<class D>
 inline void UserDataLB<D>::assign(uint32_t stride, uint32_t length) {
-	Data dataCopy = data;
-	typename Data::iterator first = dataCopy.begin() + stride;
-	typename Data::iterator last = first + length;
-	data.assign(first,last);
+  Data dataCopy = data;
+  typename Data::iterator first = dataCopy.begin() + stride;
+  typename Data::iterator last = first + length;
+  data.assign(first,last);
 #if defined(__INTEL_COMPILER)
 #else
-	data.shrink_to_fit();
+  data.shrink_to_fit();
 #endif
-	first = dataCopy.end();
-	last = dataCopy.end();
+  first = dataCopy.end();
+  last = dataCopy.end();
 };
 
 template<class D>
 inline void UserDataLB<D>::resize(uint32_t newSize) {
-	data.resize(newSize);
+  data.resize(newSize);
 }
 
 template<class D>
 inline void UserDataLB<D>::resizeGhost(uint32_t newSize) {
-	ghostdata.resize(newSize);
+  ghostdata.resize(newSize);
 }
 
 template<class D>
 inline void UserDataLB<D>::shrink() {
 #if defined(__INTEL_COMPILER)
 #else
-	data.shrink_to_fit();
+  data.shrink_to_fit();
 #endif
 }
 

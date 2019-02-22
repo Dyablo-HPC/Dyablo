@@ -20,7 +20,7 @@
  *  You should have received a copy of the GNU Lesser General Public License
  *  along with bitpit. If not, see <http://www.gnu.org/licenses/>.
  *
-\*---------------------------------------------------------------------------*/
+ \*---------------------------------------------------------------------------*/
 
 /*
  * Userdatacomm.hpp
@@ -33,33 +33,33 @@
 #define __BITPIT_USERDATACOMM_HPP__
 
 /*!
-\cond HIDDEN_SYMBOLS
+  \cond HIDDEN_SYMBOLS
 */
 #include "bitpit_PABLO.hpp"
 template <class D>
 class UserDataComm : public bitpit::DataCommInterface< UserDataComm<D> > {
 public:
 
-	typedef D Data;
+  typedef D Data;
 
-	Data & data;
-	Data & ghostData;
+  Data & data;
+  Data & ghostData;
 
-	size_t fixedSize() const;
-	size_t size(const uint32_t e) const;
+  size_t fixedSize() const;
+  size_t size(const uint32_t e) const;
 
-	template<class Buffer>
-	void gather(Buffer & buff, const uint32_t e);
+  template<class Buffer>
+  void gather(Buffer & buff, const uint32_t e);
 
-	template<class Buffer>
-	void scatter(Buffer & buff, const uint32_t e);
+  template<class Buffer>
+  void scatter(Buffer & buff, const uint32_t e);
 
-	UserDataComm(Data & data_, Data & ghostData_);
-	~UserDataComm();
+  UserDataComm(Data & data_, Data & ghostData_);
+  ~UserDataComm();
 };
 
 #include "PABLO_userDataComm.tpp"
 /*
   \endcond
- */
+*/
 #endif /* __BITPIT_USERDATACOMM_HPP__ */
