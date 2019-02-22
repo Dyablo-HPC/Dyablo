@@ -46,6 +46,13 @@ void writeVTK(AMRmesh         &amr_mesh,
 	      id2index_t       fm,
 	      str2int_t        names2index,
 	      const ConfigMap& configMap);
+
+/**
+ * Write a  Kokkos::View<double*> (see also ParaTree::writeTest)
+ */
+void writeTest(AMRmesh               &amr_mesh,
+	       std::string            filenameSuffix,
+	       Kokkos::View<double*>  data);
   
 } // namespace euler_pablo
 

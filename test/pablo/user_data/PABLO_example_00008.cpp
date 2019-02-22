@@ -29,6 +29,7 @@
 #include "bitpit_PABLO.hpp"
 
 #include "shared/kokkos_shared.h"
+#include "shared/SimpleVTKIO.h"
 
 #if BITPIT_ENABLE_MPI==1
 #include "PABLO_userDataComm.hpp"
@@ -113,7 +114,7 @@ void run()
   iter = 0;
   pablo8.updateConnectivity();
   {
-    //pablo8.writeTest("pablo00008_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data);
+    euler_pablo::writeTest(pablo8, "pablo00008_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data);
   }
 
   /**<Adapt two times with data injection on new octants.*/
@@ -174,7 +175,7 @@ void run()
     /**<Update the connectivity and write the octree.*/
     pablo8.updateConnectivity();
     {
-      //pablo8.writeTest("pablo00008_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data_new);
+      euler_pablo::writeTest(pablo8,"pablo00008_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data_new);
     }
 
     oct_data = oct_data_new;
@@ -191,7 +192,7 @@ void run()
   /**<Update the connectivity and write the octree.*/
   pablo8.updateConnectivity();
   {
-    //pablo8.writeTest("pablo00008_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data);
+    euler_pablo::writeTest(pablo8,"pablo00008_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data);
   }
 }
 
