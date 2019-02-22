@@ -1,74 +1,41 @@
-######################################################################
-add_executable(PABLO_test0 PABLO_test0.cpp)
-target_include_directories(PABLO_test0
-  PUBLIC
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/common
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/containers
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/IO
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/operators
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/PABLO)
-if(USE_MPI)
-  target_include_directories(PABLO_test0
+macro(build_test_executable name with_kokkos)
+
+  set(EXE_NAME "${name}")
+
+  set (EXE_NAME_SRC
+    ${name}.cpp
+    )
+
+  # define how to build and link
+  add_executable(${EXE_NAME} ${EXE_NAME_SRC})
+  target_include_directories(${EXE_NAME}
     PUBLIC
-    ${CMAKE_SOURCE_DIR}/external/bitpit/src/communications)
-  target_compile_definitions(PABLO_test0 PUBLIC BITPIT_ENABLE_MPI)
-endif(USE_MPI)
-target_link_libraries(PABLO_test0 ${BITPIT_LIBRARY})
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/external/bitpit/src/common
+    ${CMAKE_SOURCE_DIR}/external/bitpit/src/containers
+    ${CMAKE_SOURCE_DIR}/external/bitpit/src/IO
+    ${CMAKE_SOURCE_DIR}/external/bitpit/src/operators
+    ${CMAKE_SOURCE_DIR}/external/bitpit/src/PABLO)
+  if(USE_MPI)
+    target_include_directories(${EXE_NAME}
+      PUBLIC
+      ${CMAKE_SOURCE_DIR}/external/bitpit/src/communications)
+    target_compile_definitions(${EXE_NAME} PUBLIC BITPIT_ENABLE_MPI)
+  endif(USE_MPI)
+  target_link_libraries(${EXE_NAME} ${BITPIT_LIBRARY})
 
+  if (${with_kokkos})
+    target_link_libraries(${EXE_NAME} kokkos ${BITPIT_LIBRARY})
+  endif()
+  
+endmacro(build_test_executable)
 
+set(KOKKOS_ENABLED TRUE)
+set(KOKKOS_DISABLED FALSE)
 
-######################################################################
-add_executable(PABLO_test1 PABLO_test1.cpp)
-target_include_directories(PABLO_test1
-  PUBLIC
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/common
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/containers
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/IO
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/operators
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/PABLO)
-if(USE_MPI)
-  target_include_directories(PABLO_test1
-    PUBLIC
-    ${CMAKE_SOURCE_DIR}/external/bitpit/src/communications)
-  target_compile_definitions(PABLO_test1 PUBLIC BITPIT_ENABLE_MPI)
-endif(USE_MPI)
-target_link_libraries(PABLO_test1 ${BITPIT_LIBRARY})
-
-######################################################################
-add_executable(mandelbrot mandelbrot.cpp)
-target_include_directories(mandelbrot
-  PUBLIC
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/common
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/containers
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/IO
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/operators
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/PABLO)
-if(USE_MPI)
-  target_include_directories(mandelbrot
-    PUBLIC
-    ${CMAKE_SOURCE_DIR}/external/bitpit/src/communications)
-  target_compile_definitions(mandelbrot PUBLIC BITPIT_ENABLE_MPI)
-endif(USE_MPI)
-target_link_libraries(mandelbrot ${BITPIT_LIBRARY})
-
-######################################################################
-### UNCOMMENT WHEN PABLO FIXED, KOKKOS SUPPORT ADDED
-add_executable(mandelbrot_kokkos mandelbrot_kokkos.cpp)
-target_include_directories(mandelbrot_kokkos
-  PUBLIC
-  ${CMAKE_SOURCE_DIR}/src
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/common
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/containers
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/IO
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/operators
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/PABLO)
-if(USE_MPI)
-  target_include_directories(mandelbrot_kokkos
-    PUBLIC
-    ${CMAKE_SOURCE_DIR}/external/bitpit/src/communications)
-  target_compile_definitions(mandelbrot_kokkos PUBLIC BITPIT_ENABLE_MPI)
-endif(USE_MPI)
-target_link_libraries(mandelbrot_kokkos kokkos ${BITPIT_LIBRARY})
-
+build_test_executable(PABLO_test0       ${KOKKOS_DISABLED})
+build_test_executable(PABLO_test1       ${KOKKOS_DISABLED})
+build_test_executable(mandelbrot        ${KOKKOS_DISABLED})
+build_test_executable(mandelbrot_kokkos ${KOKKOS_ENABLED})
 
 add_subdirectory(user_data)
