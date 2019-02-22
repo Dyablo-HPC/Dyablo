@@ -20,7 +20,9 @@
  *  You should have received a copy of the GNU Lesser General Public License
  *  along with bitpit. If not, see <http://www.gnu.org/licenses/>.
  *
-\*---------------------------------------------------------------------------*/
+ \*---------------------------------------------------------------------------*/
+
+#include "MathOperators_common.hpp"
 
 // ================================================================================== //
 //                                 MATH OPERATORS                                     //
@@ -39,1035 +41,1058 @@
 // TEMPLATE IMPLEMENTATIONS                                                           //
 // ================================================================================== //
 /*!
-   @ingroup MathFunctions
-   @{
- */
+  @ingroup MathFunctions
+  @{
+*/
 
 // Operator "min" =================================================================== //
 
 // ---------------------------------------------------------------------------------- //
 /*!
-    Element-wise minimum between two vectors.
-    Given two vectors x and y, returns z such that:
-    z[i] = min(x[i], y[i]), for all i = 0, ..., n-1
-    where the n = min(x.size(), y.size()).
+  Element-wise minimum between two vectors.
+  Given two vectors x and y, returns z such that:
+  z[i] = min(x[i], y[i]), for all i = 0, ..., n-1
+  where the n = min(x.size(), y.size()).
     
-    Template parameters T can be any type such that min is defined.
-    For instance if T = std::vector<T1>, min function call itself to return
-    the element-wise minimum between x[i] and y[i].
+  Template parameters T can be any type such that min is defined.
+  For instance if T = std::vector<T1>, min function call itself to return
+  the element-wise minimum between x[i] and y[i].
 
-    \param[in] x 1st argument
-    \param[in] y 2nd argument
+  \param[in] x 1st argument
+  \param[in] y 2nd argument
 
-    \result returns a vector having the same dimensions of x and y, storing
-    the element-wise minimum between x and y.
+  \result returns a vector having the same dimensions of x and y, storing
+  the element-wise minimum between x and y.
 */
 template <class T>
 std::vector< T > min(
-    const std::vector< T >                      &x,
-    const std::vector< T >                      &y
-) {
+		     const std::vector< T >                      &x,
+		     const std::vector< T >                      &y
+		     ) {
+  
+  // using namespace std;
 
-using namespace std;
+  // ================================================================================== //
+  // VARIABLES DECLARATION                                                              //
+  // ================================================================================== //
+  int            n = std::min(x.size(), y.size());
+  int            m = std::max(x.size(), y.size());
+  std::vector< T >    z(m);
 
-// ================================================================================== //
-// VARIABLES DECLARATION                                                              //
-// ================================================================================== //
-int            n = std::min(x.size(), y.size());
-int            m = std::max(x.size(), y.size());
-std::vector< T >    z(m);
+  // ================================================================================== //
+  // COMPARE VECTORS                                                                    //
+  // ================================================================================== //
+  for (int i = 0; i < n; i++) {
+    z[i] = mymin(x[i], y[i]);
+  } //next i
 
-// ================================================================================== //
-// COMPARE VECTORS                                                                    //
-// ================================================================================== //
-for (int i = 0; i < n; i++) {
-    z[i] = min(x[i], y[i]);
-} //next i
-
-return(z); };
+  return(z);
+};
 
 // ---------------------------------------------------------------------------------- //
 /*!
-    Element-wise minimum between vector and constant.
-    Given a vector x and a constant y, returns z such that:
-    z[i] = min(x[i], y), for all i = 0, ..., n-1
-    where n = x.size().
+  Element-wise minimum between vector and constant.
+  Given a vector x and a constant y, returns z such that:
+  z[i] = min(x[i], y), for all i = 0, ..., n-1
+  where n = x.size().
 
-    Template parameters T can be any type such that min is defined.
-    For instance if T = std::vector<T1>, min function call itself to return
-    the element-wise minimum between x[i] and y.
+  Template parameters T can be any type such that min is defined.
+  For instance if T = std::vector<T1>, min function call itself to return
+  the element-wise minimum between x[i] and y.
 
-    \param[in] x 1st argument
-    \param[in] y 2nd argument
+  \param[in] x 1st argument
+  \param[in] y 2nd argument
 
-    \result returns a vector having the same dimensions of x, storing
-    the element-wise minimum between x and y.
+  \result returns a vector having the same dimensions of x, storing
+  the element-wise minimum between x and y.
 */
 template <class T>
 std::vector< T > min(
-    const std::vector< T >                      &x,
-    const T                                     &y
-) {
+		     const std::vector< T >                      &x,
+		     const T                                     &y
+		     ) {
 
-using namespace std;
+  // using namespace std;
 
-// ================================================================================== //
-// VARIABLES DECLARATION                                                              //
-// ================================================================================== //
-int            n = x.size();
-std::vector< T >    z(n);
+  // ================================================================================== //
+  // VARIABLES DECLARATION                                                              //
+  // ================================================================================== //
+  int            n = x.size();
+  std::vector< T >    z(n);
 
-// ================================================================================== //
-// COMPARE VECTOR AND SCALAR                                                          //
-// ================================================================================== //
-for (int i = 0; i < n; i++) {
-    z[i] = min(x[i], y);
-} //next i
+  // ================================================================================== //
+  // COMPARE VECTOR AND SCALAR                                                          //
+  // ================================================================================== //
+  for (int i = 0; i < n; i++) {
+    z[i] = mymin(x[i], y);
+  } //next i
 
-return(z); };
+  return(z);
+};
 
 // ---------------------------------------------------------------------------------- //
 /*!
-    Element-wise minimum between constant and vector.
-    Given a constant x and a vector y, returns z such that:
-    z[i] = min(x, y[i]), for all i = 0, ..., d-1
-    where d is the size of y.
+  Element-wise minimum between constant and vector.
+  Given a constant x and a vector y, returns z such that:
+  z[i] = min(x, y[i]), for all i = 0, ..., d-1
+  where d is the size of y.
 
-    Template parameters T can be any type such that min is defined.
-    For instance if T = std::vector<T1>, min function call itself to return
-    the element-wise minimum between x and y[i].
+  Template parameters T can be any type such that min is defined.
+  For instance if T = std::vector<T1>, min function call itself to return
+  the element-wise minimum between x and y[i].
 
-    \param[in] x 1st argument
-    \param[in] y 2nd argument
+  \param[in] x 1st argument
+  \param[in] y 2nd argument
 
-    \result returns a vector having the same dimensions of y, storing
-    the element-wise minimum between x and y.
+  \result returns a vector having the same dimensions of y, storing
+  the element-wise minimum between x and y.
 */
 template <class T>
 std::vector< T > min(
-    const T                                     &x,
-    const std::vector< T >                      &y
-) {
+		     const T                                     &x,
+		     const std::vector< T >                      &y
+		     ) {
 
-using namespace std;
+  // using namespace std;
 
-// ================================================================================== //
-// VARIABLES DECLARATION                                                              //
-// ================================================================================== //
-std::vector< T >    z;
+  // ================================================================================== //
+  // VARIABLES DECLARATION                                                              //
+  // ================================================================================== //
+  std::vector< T >    z;
 
-// ================================================================================== //
-// COMPARE VECTOR AND SCALAR                                                          //
-// ================================================================================== //
-z = min(y, x);
+  // ================================================================================== //
+  // COMPARE VECTOR AND SCALAR                                                          //
+  // ================================================================================== //
+  z = min(y, x);
 
-return(z); };
+  return(z);
+};
 
 // ---------------------------------------------------------------------------------- //
 /*!
-    Element-wise minimum between 2D vector and constant.
-    Given a 2D vector x and a constant y, returns z such that:
-    z[i][j] = min(x[i][j], y), for all j = 0, ..., x[i].size(), i = 0, ..., n-1
-    where n = x.size().
+  Element-wise minimum between 2D vector and constant.
+  Given a 2D vector x and a constant y, returns z such that:
+  z[i][j] = min(x[i][j], y), for all j = 0, ..., x[i].size(), i = 0, ..., n-1
+  where n = x.size().
 
-    Template parameters T can be any type such that min is defined.
-    For instance if T = std::vector<T1>, min function call itself to return
-    the element-wise minimum between x[i][j] and y.
+  Template parameters T can be any type such that min is defined.
+  For instance if T = std::vector<T1>, min function call itself to return
+  the element-wise minimum between x[i][j] and y.
 
-    \param[in] x 1st argument
-    \param[in] y 2nd argument
+  \param[in] x 1st argument
+  \param[in] y 2nd argument
 
-    \result returns a vector having the same dimensions of x, storing
-    the element-wise minimum between x and y.
+  \result returns a vector having the same dimensions of x, storing
+  the element-wise minimum between x and y.
 */
 template <class T>
 std::vector< std::vector< T > > min(
-    const std::vector< std::vector < T > >      &x,
-    const T                                     &y
-) {
+				    const std::vector< std::vector < T > >      &x,
+				    const T                                     &y
+				    ) {
 
-using namespace std;
+  // using namespace std;
 
-// ================================================================================== //
-// VARIABLES DECLARATION                                                              //
-// ================================================================================== //
-int                      n = x.size();
-std::vector< std::vector< T > >    z(n);
+  // ================================================================================== //
+  // VARIABLES DECLARATION                                                              //
+  // ================================================================================== //
+  int                      n = x.size();
+  std::vector< std::vector< T > >    z(n);
 
-// ================================================================================== //
-// COMPARE VECTOR AND SCALAR                                                          //
-// ================================================================================== //
-for (int i = 0; i < n; i++) {
+  // ================================================================================== //
+  // COMPARE VECTOR AND SCALAR                                                          //
+  // ================================================================================== //
+  for (int i = 0; i < n; i++) {
     z[i] = min(x[i], y);
-} //next i
+  } //next i
 
-return(z); };
+  return(z);
+};
 
 // ---------------------------------------------------------------------------------- //
 /*!
-    Element-wise minimum between constant and 2D vector.
-    Given a constant x and a 2D vector y, returns z such that:
-    z[i][j] = min(x, y[i][j]), for all j = 0, ..., y[i].size(), i = 0, ..., n-1
-    where n = y.size().
+  Element-wise minimum between constant and 2D vector.
+  Given a constant x and a 2D vector y, returns z such that:
+  z[i][j] = min(x, y[i][j]), for all j = 0, ..., y[i].size(), i = 0, ..., n-1
+  where n = y.size().
 
-    Template parameters T can be any type such that min is defined.
-    For instance if T = std::vector<T1>, min function call itself to return
-    the element-wise minimum between x and y[i][j].
+  Template parameters T can be any type such that min is defined.
+  For instance if T = std::vector<T1>, min function call itself to return
+  the element-wise minimum between x and y[i][j].
 
-    \param[in] x 1st argument
-    \param[in] y 2nd argument
+  \param[in] x 1st argument
+  \param[in] y 2nd argument
 
-    \result returns a vector having the same dimensions of y, storing
-    the element-wise minimum between x and y.
+  \result returns a vector having the same dimensions of y, storing
+  the element-wise minimum between x and y.
 */
 template <class T>
 std::vector< std::vector < T > > min(
-    const T                                     &x,
-    const std::vector< std::vector< T > >       &y
-) {
+				     const T                                     &x,
+				     const std::vector< std::vector< T > >       &y
+				     ) {
 
-using namespace std;
+  // using namespace std;
 
-// ================================================================================== //
-// VARIABLES DECLARATION                                                              //
-// ================================================================================== //
-std::vector< std::vector< T > >    z;
+  // ================================================================================== //
+  // VARIABLES DECLARATION                                                              //
+  // ================================================================================== //
+  std::vector< std::vector< T > >    z;
 
-// ================================================================================== //
-// COMPARE VECTOR AND SCALAR                                                          //
-// ================================================================================== //
-z = min(y, x);
+  // ================================================================================== //
+  // COMPARE VECTOR AND SCALAR                                                          //
+  // ================================================================================== //
+  z = min(y, x);
 
-return(z); };
+  return(z);
+};
 
 // Operator "minval" ================================================================ //
 
 // ---------------------------------------------------------------------------------- //
 /*!
-    Overloading of minval() function for scalar types.
+  Overloading of minval() function for scalar types.
     
-    \param[in] x input scalar
-    \param[in,out] min_value on output returns the input value
+  \param[in] x input scalar
+  \param[in,out] min_value on output returns the input value
 */
 template <typename T, typename std::enable_if< std::is_scalar< T >::value>::type*>
-void inline minval(
-    const T                                     &x,
-    T                                           &min_value
-) {
+  void inline minval(
+		     const T                                     &x,
+		     T                                           &min_value
+		     ) {
 
-// ================================================================================== //
-// template <typename T,                                                              //
-//           typename std::enable_if< std::is_scalar< T >::value>::type* = nullptr>   //
-// void inline minval(                                                                //
-//     const T              &x,                                                       //
-//     T                    &min_value)                                               //
-//                                                                                    //
-// Overloading of minval function for scalar types.                                   //
-// ================================================================================== //
-// INPUT                                                                              //
-// ================================================================================== //
-// - x         : T, input scalar                                                      //
-// - min_value : T, on output stores the input value.                                 //
-// ================================================================================== //
-// OUTPUT                                                                             //
-// ================================================================================== //
-// - none                                                                             //
-// ================================================================================== //
+  // ================================================================================== //
+  // template <typename T,                                                              //
+  //           typename std::enable_if< std::is_scalar< T >::value>::type* = nullptr>   //
+  // void inline minval(                                                                //
+  //     const T              &x,                                                       //
+  //     T                    &min_value)                                               //
+  //                                                                                    //
+  // Overloading of minval function for scalar types.                                   //
+  // ================================================================================== //
+  // INPUT                                                                              //
+  // ================================================================================== //
+  // - x         : T, input scalar                                                      //
+  // - min_value : T, on output stores the input value.                                 //
+  // ================================================================================== //
+  // OUTPUT                                                                             //
+  // ================================================================================== //
+  // - none                                                                             //
+  // ================================================================================== //
 
-// ================================================================================== //
-// VARIABLES DECLARATION                                                              //
-// ================================================================================== //
+  // ================================================================================== //
+  // VARIABLES DECLARATION                                                              //
+  // ================================================================================== //
 
-// Local variables
-// none
+  // Local variables
+  // none
 
-// Counters
-// none
+  // Counters
+  // none
 
-// ================================================================================== //
-// COMPUTE THE MIN VALUE                                                              //
-// ================================================================================== //
-min_value = x;
+  // ================================================================================== //
+  // COMPUTE THE MIN VALUE                                                              //
+  // ================================================================================== //
+  min_value = x;
 
-return; };
+  return;
+};
 
 // ---------------------------------------------------------------------------------- //
 /*!
-    Returns the element with the smallest value within a vector, i.e. given an input vector, x
-    min_value = min(x[i]) over all i = 0, ..., n-1
-    where n = x.size().
+  Returns the element with the smallest value within a vector, i.e. given an input vector, x
+  min_value = min(x[i]) over all i = 0, ..., n-1
+  where n = x.size().
     
-    Parameters template can be of any type with the following requirements:
-    1. minval must be defined for any type T
-    2. type T1 must be a scalar type
-    (for instance, T = std::vector<double>, T1 = double)
+  Parameters template can be of any type with the following requirements:
+  1. minval must be defined for any type T
+  2. type T1 must be a scalar type
+  (for instance, T = std::vector<double>, T1 = double)
 
-    \param[in] x input vector
-    \param[in,out] min_value on output stores the elements with the smallest value.
+  \param[in] x input vector
+  \param[in,out] min_value on output stores the elements with the smallest value.
 */
 template <class T, class T1>
-void minval(
-    const std::vector<T>                        &x,
-    T1                                          &min_value
-) {
+  void minval(
+	      const std::vector<T>                        &x,
+	      T1                                          &min_value
+	      ) {
 
-// ================================================================================== //
-// VARIABLES DECLARATION                                                              //
-// ================================================================================== //
+  // ================================================================================== //
+  // VARIABLES DECLARATION                                                              //
+  // ================================================================================== //
 
-// Local variables
-T1               value;
+  // Local variables
+  T1               value;
 
-// Counters
-int              i, n;
+  // Counters
+  int              i, n;
 
-// ================================================================================== //
-// FIND THE MIN-VALUE                                                                 //
-// ================================================================================== //
-n = x.size();
-if (n > 0) {
+  // ================================================================================== //
+  // FIND THE MIN-VALUE                                                                 //
+  // ================================================================================== //
+  n = x.size();
+  if (n > 0) {
     minval(x[0], min_value);
     for (i = 1; i < n; i++) {
-        minval(x[i], value);
-        if (value < min_value) {
-            min_value = value;
-        }
+      minval(x[i], value);
+      if (value < min_value) {
+	min_value = value;
+      }
     } //next i
-}
+  }
 
-return; };
+  return;
+};
 
 // Operator "max" =================================================================== //
 
 // ---------------------------------------------------------------------------------- //
 /*!
-    Element-wise maximum between two vectors.
-    Given two vectors x and y, returns z such that:
-    z[i] = max(x[i], y[i]), for all i = 0, ..., n-1
-    where the n = min(x.size(), y.size()).
+  Element-wise maximum between two vectors.
+  Given two vectors x and y, returns z such that:
+  z[i] = max(x[i], y[i]), for all i = 0, ..., n-1
+  where the n = min(x.size(), y.size()).
     
-    Template parameters T can be any type such that max is defined.
-    For instance if T = std::vector<T1>, max function call itself to return
-    the element-wise maximum between x[i] and y[i].
+  Template parameters T can be any type such that max is defined.
+  For instance if T = std::vector<T1>, max function call itself to return
+  the element-wise maximum between x[i] and y[i].
 
-    \param[in] x 1st argument
-    \param[in] y 2nd argument
+  \param[in] x 1st argument
+  \param[in] y 2nd argument
 
-    \result returns a vector having the same dimensions of x and y, storing
-    the element-wise maximum between x and y.
+  \result returns a vector having the same dimensions of x and y, storing
+  the element-wise maximum between x and y.
 */
 template <class T>
 std::vector<T> max(
-    const std::vector< T >                      &x,
-    const std::vector< T >                      &y
-) {
+		   const std::vector< T >                      &x,
+		   const std::vector< T >                      &y
+		   ) {
 
-using namespace std;
+  // using namespace std;
 
-// ================================================================================== //
-// VARIABLES DECLARATION                                                              //
-// ================================================================================== //
-int            n = std::min(x.size(), y.size());
-int            m = std::max(x.size(), y.size());
-std::vector< T >    z(m);
+  // ================================================================================== //
+  // VARIABLES DECLARATION                                                              //
+  // ================================================================================== //
+  int            n = std::min(x.size(), y.size());
+  int            m = std::max(x.size(), y.size());
+  std::vector< T >    z(m);
 
-// ================================================================================== //
-// COMPARE VECTORS                                                                    //
-// ================================================================================== //
-for (int i = 0; i < n; i++) {
-    z[i] = max(x[i], y[i]);
-} //next i
+  // ================================================================================== //
+  // COMPARE VECTORS                                                                    //
+  // ================================================================================== //
+  for (int i = 0; i < n; i++) {
+    z[i] = mymax(x[i], y[i]);
+  } //next i
 
-return(z); };
+  return(z);
+};
 
 // ---------------------------------------------------------------------------------- //
 /*!
-    Element-wise maximum between vector and constant.
-    Given a vector x and a constant y, returns z such that:
-    z[i] = max(x[i], y), for all i = 0, ..., n-1
-    where n = x.size().
+  Element-wise maximum between vector and constant.
+  Given a vector x and a constant y, returns z such that:
+  z[i] = max(x[i], y), for all i = 0, ..., n-1
+  where n = x.size().
 
-    Template parameters T can be any type such that max is defined.
-    For instance if T = std::vector<T1>, max function call itself to return
-    the element-wise maximum between x[i] and y.
+  Template parameters T can be any type such that max is defined.
+  For instance if T = std::vector<T1>, max function call itself to return
+  the element-wise maximum between x[i] and y.
 
-    \param[in] x 1st argument
-    \param[in] y 2nd argument
+  \param[in] x 1st argument
+  \param[in] y 2nd argument
 
-    \result returns a vector having the same dimensions of x, storing
-    the element-wise maximum between x and y.
+  \result returns a vector having the same dimensions of x, storing
+  the element-wise maximum between x and y.
 */
 template <class T>
 std::vector< T > max(
-    const std::vector< T >                      &x,
-    const T                                     &y
-) {
+		     const std::vector< T >                      &x,
+		     const T                                     &y
+		     ) {
 
-using namespace std;
+  // using namespace std;
 
-// ================================================================================== //
-// VARIABLES DECLARATION                                                              //
-// ================================================================================== //
-int            n = x.size();
-std::vector<T>      z(n);
+  // ================================================================================== //
+  // VARIABLES DECLARATION                                                              //
+  // ================================================================================== //
+  int            n = x.size();
+  std::vector<T>      z(n);
 
-// ================================================================================== //
-// COMPARE VECTOR AND SCALAR                                                          //
-// ================================================================================== //
-for (int i = 0; i < n; i++) {
-    z[i] = max(x[i], y);
-} //next i
+  // ================================================================================== //
+  // COMPARE VECTOR AND SCALAR                                                          //
+  // ================================================================================== //
+  for (int i = 0; i < n; i++) {
+    z[i] = mymax(x[i], y);
+  } //next i
 
-return(z); };
+  return(z);
+};
 
 // ---------------------------------------------------------------------------------- //
 /*!
-    Element-wise maximum between constant and vector.
-    Given a constant x and a vector y, returns z such that:
-    z[i] = max(x, y[i]), for all i = 0, ..., d-1
-    where d is the size of y.
+  Element-wise maximum between constant and vector.
+  Given a constant x and a vector y, returns z such that:
+  z[i] = max(x, y[i]), for all i = 0, ..., d-1
+  where d is the size of y.
 
-    Template parameters T can be any type such that max is defined.
-    For instance if T = std::vector<T1>, max function call itself to return
-    the element-wise maximum between x and y[i].
+  Template parameters T can be any type such that max is defined.
+  For instance if T = std::vector<T1>, max function call itself to return
+  the element-wise maximum between x and y[i].
 
-    \param[in] x 1st argument
-    \param[in] y 2nd argument
+  \param[in] x 1st argument
+  \param[in] y 2nd argument
 
-    \result returns a vector having the same dimensions of y, storing
-    the element-wise maximum between x and y.
+  \result returns a vector having the same dimensions of y, storing
+  the element-wise maximum between x and y.
 */
 template <class T>
 std::vector< T > max(
-    const T                                     &x,
-    const std::vector< T >                      &y
-) {
+		     const T                                     &x,
+		     const std::vector< T >                      &y
+		     ) {
 
-using namespace std;
+  // using namespace std;
 
-// ================================================================================== //
-// VARIABLES DECLARATION                                                              //
-// ================================================================================== //
-std::vector< T >       z;
+  // ================================================================================== //
+  // VARIABLES DECLARATION                                                              //
+  // ================================================================================== //
+  std::vector< T >       z;
 
-// ================================================================================== //
-// COMPARE VECTOR AND SCALAR                                                          //
-// ================================================================================== //
-z = max(y, x);
+  // ================================================================================== //
+  // COMPARE VECTOR AND SCALAR                                                          //
+  // ================================================================================== //
+  z = max(y, x);
 
-return(z); };
+  return(z);
+};
 
 // ---------------------------------------------------------------------------------- //
 /*!
-    Element-wise maximum between 2D vector and constant.
-    Given a 2D vector x and a constant y, returns z such that:
-    z[i][j] = max(x[i][j], y), for all j = 0, ..., x[i].size(), i = 0, ..., n-1
-    where n = x.size().
+  Element-wise maximum between 2D vector and constant.
+  Given a 2D vector x and a constant y, returns z such that:
+  z[i][j] = max(x[i][j], y), for all j = 0, ..., x[i].size(), i = 0, ..., n-1
+  where n = x.size().
 
-    Template parameters T can be any type such that max is defined.
-    For instance if T = std::vector<T1>, max function call itself to return
-    the element-wise maximum between x[i][j] and y.
+  Template parameters T can be any type such that max is defined.
+  For instance if T = std::vector<T1>, max function call itself to return
+  the element-wise maximum between x[i][j] and y.
 
-    \param[in] x 1st argument
-    \param[in] y 2nd argument
+  \param[in] x 1st argument
+  \param[in] y 2nd argument
 
-    \result returns a vector having the same dimensions of x, storing
-    the element-wise maximum between x and y.
+  \result returns a vector having the same dimensions of x, storing
+  the element-wise maximum between x and y.
 */
 template <class T>
 std::vector< std::vector< T > > max(
-    const std::vector< std::vector< T > >       &x,
-    const T                                     &y
-) {
+				    const std::vector< std::vector< T > >       &x,
+				    const T                                     &y
+				    ) {
 
-using namespace std;
+  // using namespace std;
 
-// ================================================================================== //
-// VARIABLES DECLARATION                                                              //
-// ================================================================================== //
-int                        n = x.size();
-std::vector< std::vector< T > >      z(n);
+  // ================================================================================== //
+  // VARIABLES DECLARATION                                                              //
+  // ================================================================================== //
+  int                        n = x.size();
+  std::vector< std::vector< T > >      z(n);
 
-// ================================================================================== //
-// COMPARE VECTOR AND SCALAR                                                          //
-// ================================================================================== //
-for (int i = 0; i < n; i++) {
+  // ================================================================================== //
+  // COMPARE VECTOR AND SCALAR                                                          //
+  // ================================================================================== //
+  for (int i = 0; i < n; i++) {
     z[i] = max(x[i], y);
-} //next i
+  } //next i
 
-return(z); };
+  return(z);
+};
 
 // ---------------------------------------------------------------------------------- //
 /*!
-    Element-wise maximum between constant and 2D vector.
-    Given a constant x and a 2D vector y, returns z such that:
-    z[i][j] = max(x, y[i][j]), for all j = 0, ..., y[i].size(), i = 0, ..., n-1
-    where n = y.size().
+  Element-wise maximum between constant and 2D vector.
+  Given a constant x and a 2D vector y, returns z such that:
+  z[i][j] = max(x, y[i][j]), for all j = 0, ..., y[i].size(), i = 0, ..., n-1
+  where n = y.size().
 
-    Template parameters T can be any type such that max is defined.
-    For instance if T = std::vector<T1>, max function call itself to return
-    the element-wise maximum between x and y[i][j].
+  Template parameters T can be any type such that max is defined.
+  For instance if T = std::vector<T1>, max function call itself to return
+  the element-wise maximum between x and y[i][j].
 
-    \param[in] x 1st argument
-    \param[in] y 2nd argument
+  \param[in] x 1st argument
+  \param[in] y 2nd argument
 
-    \result returns a vector having the same dimensions of y, storing
-    the element-wise maximum between x and y.
+  \result returns a vector having the same dimensions of y, storing
+  the element-wise maximum between x and y.
 */
 template <class T>
 std::vector< std::vector< T > > max(
-    const T                                     &x,
-    const std::vector< std::vector< T > >       &y
-) {
+				    const T                                     &x,
+				    const std::vector< std::vector< T > >       &y
+				    ) {
 
-using namespace std;
+  // using namespace std;
 
-// ================================================================================== //
-// VARIABLES DECLARATION                                                              //
-// ================================================================================== //
-std::vector< std::vector< T > >       z;
+  // ================================================================================== //
+  // VARIABLES DECLARATION                                                              //
+  // ================================================================================== //
+  std::vector< std::vector< T > >       z;
 
-// ================================================================================== //
-// COMPARE VECTOR AND SCALAR                                                          //
-// ================================================================================== //
-z = max(y, x);
+  // ================================================================================== //
+  // COMPARE VECTOR AND SCALAR                                                          //
+  // ================================================================================== //
+  z = max(y, x);
 
-return(z); };
+  return(z);
+};
 
 // Operator "maxval" ================================================================ //
 
 // ---------------------------------------------------------------------------------- //
 /*!
-    Overloading of maxval() function for scalar types.
+  Overloading of maxval() function for scalar types.
     
-    \param[in] x input scalar
-    \param[in,out] max_value on output returns the input value
+  \param[in] x input scalar
+  \param[in,out] max_value on output returns the input value
 */
 template <typename T, typename std::enable_if< std::is_scalar< T >::value>::type*>
-void inline maxval(
-    const T                                     &x,
-    T                                           &max_value
-) {
+  void inline maxval(
+		     const T                                     &x,
+		     T                                           &max_value
+		     ) {
 
-// ================================================================================== //
-// template <typename T,                                                              //
-//           typename std::enable_if< std::is_scalar< T >::value>::type* = nullptr>   //
-// void inline maxval(                                                                //
-//     const T              &x,                                                       //
-//     T                    &max_value)                                               //
-//                                                                                    //
-// Overloading of maxval function for scalar types.                                   //
-// ================================================================================== //
-// INPUT                                                                              //
-// ================================================================================== //
-// - x         : T, input scalar                                                      //
-// - max_value : T, on output stores the input value                                  //
-// ================================================================================== //
-// OUTPUT                                                                             //
-// ================================================================================== //
-// - none                                                                             //
-// ================================================================================== //
+  // ================================================================================== //
+  // template <typename T,                                                              //
+  //           typename std::enable_if< std::is_scalar< T >::value>::type* = nullptr>   //
+  // void inline maxval(                                                                //
+  //     const T              &x,                                                       //
+  //     T                    &max_value)                                               //
+  //                                                                                    //
+  // Overloading of maxval function for scalar types.                                   //
+  // ================================================================================== //
+  // INPUT                                                                              //
+  // ================================================================================== //
+  // - x         : T, input scalar                                                      //
+  // - max_value : T, on output stores the input value                                  //
+  // ================================================================================== //
+  // OUTPUT                                                                             //
+  // ================================================================================== //
+  // - none                                                                             //
+  // ================================================================================== //
 
-// ================================================================================== //
-// VARIABLES DECLARATION                                                              //
-// ================================================================================== //
+  // ================================================================================== //
+  // VARIABLES DECLARATION                                                              //
+  // ================================================================================== //
 
-// Local variables
-// none
+  // Local variables
+  // none
 
-// Counters
-// none
+  // Counters
+  // none
 
-// ================================================================================== //
-// COMPUTE THE MIN VALUE                                                              //
-// ================================================================================== //
-max_value = x;
+  // ================================================================================== //
+  // COMPUTE THE MIN VALUE                                                              //
+  // ================================================================================== //
+  max_value = x;
 
-return; };
+  return;
+};
 
 // ---------------------------------------------------------------------------------- //
 /*!
-    Returns the element with the largest value within a vector, i.e. given an input vector, x
-    max_value = max(x[i]) over all i = 0, ..., n-1
-    where n = x.size().
+  Returns the element with the largest value within a vector, i.e. given an input vector, x
+  max_value = max(x[i]) over all i = 0, ..., n-1
+  where n = x.size().
     
-    Parameters template can be of any type with the following requirements:
-    1. minval must be defined for any type T
-    2. type T1 must be a scalar type
-    (for instance, T = std::vector<double>, T1 = double)
+  Parameters template can be of any type with the following requirements:
+  1. minval must be defined for any type T
+  2. type T1 must be a scalar type
+  (for instance, T = std::vector<double>, T1 = double)
 
-    \param[in] x input vector
-    \param[in,out] max_value on output stores the elements with the largest value.
+  \param[in] x input vector
+  \param[in,out] max_value on output stores the elements with the largest value.
 */
 template <class T, class T1>
-void maxval(
-    const std::vector<T>                        &x,
-    T1                                          &max_value
-) {
+  void maxval(
+	      const std::vector<T>                        &x,
+	      T1                                          &max_value
+	      ) {
 
-// ================================================================================== //
-// VARIABLES DECLARATION                                                              //
-// ================================================================================== //
+  // ================================================================================== //
+  // VARIABLES DECLARATION                                                              //
+  // ================================================================================== //
 
-// Local variables
-T1               value;
+  // Local variables
+  T1               value;
 
-// Counters
-int              i, n;
+  // Counters
+  int              i, n;
 
-// ================================================================================== //
-// FIND THE MIN-VALUE                                                                 //
-// ================================================================================== //
-n = x.size();
-if (n > 0) {
+  // ================================================================================== //
+  // FIND THE MIN-VALUE                                                                 //
+  // ================================================================================== //
+  n = x.size();
+  if (n > 0) {
     maxval(x[0], max_value);
     for (i = 1; i < n; i++) {
-        maxval(x[i], value);
-        if (value > max_value) {
-            max_value = value;
-        }
+      maxval(x[i], value);
+      if (value > max_value) {
+	max_value = value;
+      }
     } //next i
-}
+  }
 
-return; };
+  return;
+};
 
 // Operator "sum" =================================================================== //
 
 // ---------------------------------------------------------------------------------- //
 /*!
-    Overloading of sum() function for scalar type.
+  Overloading of sum() function for scalar type.
 
-    \param[in] x input scalar
-    \param[in,out] s on output stores the value of the input scalar
+  \param[in] x input scalar
+  \param[in,out] s on output stores the value of the input scalar
 */
 template<class T, typename std::enable_if< std::is_scalar< T >::value>::type*>
-void inline sum(
-    const T                                     &x,
-    T                                           &s
-) {
+  void inline sum(
+		  const T                                     &x,
+		  T                                           &s
+		  ) {
 
-// ================================================================================== //
-// template<class T,                                                                  //
-//          typename std::enable_if< std::is_scalar< T >::value>::type* = nullptr>    //
-// void inline sum(                                                                   //
-//     const T              &x,                                                       //
-//     T                    &s)                                                       //
-//                                                                                    //
-// Overloading of sum() function for scalar type.                                     //
-// ================================================================================== //
-// INPUT                                                                              //
-// ================================================================================== //
-// - x         : int, dummy input                                                     //
-// - s         : int, dummy output                                                    //
-// ================================================================================== //
-// OUTPUT                                                                             //
-// ================================================================================== //
-// - none                                                                             //
-// ================================================================================== //
+  // ================================================================================== //
+  // template<class T,                                                                  //
+  //          typename std::enable_if< std::is_scalar< T >::value>::type* = nullptr>    //
+  // void inline sum(                                                                   //
+  //     const T              &x,                                                       //
+  //     T                    &s)                                                       //
+  //                                                                                    //
+  // Overloading of sum() function for scalar type.                                     //
+  // ================================================================================== //
+  // INPUT                                                                              //
+  // ================================================================================== //
+  // - x         : int, dummy input                                                     //
+  // - s         : int, dummy output                                                    //
+  // ================================================================================== //
+  // OUTPUT                                                                             //
+  // ================================================================================== //
+  // - none                                                                             //
+  // ================================================================================== //
 
-// ================================================================================== //
-// VARIABLES DECLARATION                                                              //
-// ================================================================================== //
+  // ================================================================================== //
+  // VARIABLES DECLARATION                                                              //
+  // ================================================================================== //
 
-// Local variables
-// none
+  // Local variables
+  // none
 
-// Counters
-// none
+  // Counters
+  // none
 
-// ================================================================================== //
-// PERFORM DUMMY SUM                                                                  //
-// ================================================================================== //
-s = x;
+  // ================================================================================== //
+  // PERFORM DUMMY SUM                                                                  //
+  // ================================================================================== //
+  s = x;
 
-return; };
+  return;
+};
 
 // ---------------------------------------------------------------------------------- //
 /*!
-    Given a input vector, x, returns the sum of its elements, i.e.:
-    s = sum (x[i]) over all i = 0, ..., n-1
-    where n = x.size().
+  Given a input vector, x, returns the sum of its elements, i.e.:
+  s = sum (x[i]) over all i = 0, ..., n-1
+  where n = x.size().
 
-    Parameters template can be of any type with the following requirements:
-    1. operator += must be defined for type T
-    2. type T1 must be a scalar type
-    (for instance, T = std::vector<double>, T1 = double)
+  Parameters template can be of any type with the following requirements:
+  1. operator += must be defined for type T
+  2. type T1 must be a scalar type
+  (for instance, T = std::vector<double>, T1 = double)
 
-    \param[in] x input vector
-    \param[in,out] s sum of element in x.
+  \param[in] x input vector
+  \param[in,out] s sum of element in x.
 */
 template <class T, class T1>
-void sum(
-    const std::vector< T >                      &x,
-    T1                                          &s
-) {
+  void sum(
+	   const std::vector< T >                      &x,
+	   T1                                          &s
+	   ) {
 
-// ================================================================================== //
-// VARIABLES DECLARATION                                                              //
-// ================================================================================== //
+  // ================================================================================== //
+  // VARIABLES DECLARATION                                                              //
+  // ================================================================================== //
 
-// Local variables
-int           n = x.size();
-T1            value;
+  // Local variables
+  int           n = x.size();
+  T1            value;
 
-// Counters
-int           i;
+  // Counters
+  int           i;
 
-// ================================================================================== //
-// PERFORM SUMMATION                                                                  //
-// ================================================================================== //
-if (n > 0) {
+  // ================================================================================== //
+  // PERFORM SUMMATION                                                                  //
+  // ================================================================================== //
+  if (n > 0) {
     sum(x[0], s);
     for (i = 1; i < n; i++) {
-        sum(x[i], value);
-        s += value;
+      sum(x[i], value);
+      s += value;
     } //next i
-}
+  }
 
-return; };
+  return;
+};
 
 // Operator "abs" =================================================================== //
 
 // ---------------------------------------------------------------------------------- //
 /*!
-    Given a ipnut vector, x, returns a vector storing the absolute value of elements
-    in x, i.e.:
-    z[i] = abs(x[i]), for i = 0, ..., n-1
-    where n is the size of x.
+  Given a ipnut vector, x, returns a vector storing the absolute value of elements
+  in x, i.e.:
+  z[i] = abs(x[i]), for i = 0, ..., n-1
+  where n is the size of x.
 
-    Template parameter can be any type such that abs() function is defined.
-    For instance if  T = std::vector<T1>, the abs() function will call itself
-    to return the absolute value of elements in x[i].
+  Template parameter can be any type such that abs() function is defined.
+  For instance if  T = std::vector<T1>, the abs() function will call itself
+  to return the absolute value of elements in x[i].
 
-    \param[in] x input vector
+  \param[in] x input vector
 
-    \result vector having the same dimensions of x storing the absolute value
-    of the elements in x.
+  \result vector having the same dimensions of x storing the absolute value
+  of the elements in x.
 */  
 template <class T>
 std::vector<T> abs(
-    const std::vector< T >                      &x
-) {
+		   const std::vector< T >                      &x
+		   ) {
 
-using namespace std;
+  // using namespace std;
 
-// ================================================================================== //
-// VARIABLES DECLARATION                                                              //
-// ================================================================================== //
+  // ================================================================================== //
+  // VARIABLES DECLARATION                                                              //
+  // ================================================================================== //
 
-// Local variables
-int                     n = x.size();
-std::vector< T >             z;
+  // Local variables
+  int                     n = x.size();
+  std::vector< T >             z;
 
-// Counters
-int                     i;
+  // Counters
+  int                     i;
 
-// ================================================================================== //
-// COMPUTE THE ABSOLUTE VALUE OF A VECTOR                                             //
-// ================================================================================== //
-if (n > 0) {
+  // ================================================================================== //
+  // COMPUTE THE ABSOLUTE VALUE OF A VECTOR                                             //
+  // ================================================================================== //
+  if (n > 0) {
     z.resize(n);
     for (i = 0; i < n; i++) {
-        z[i] = abs(x[i]);
+      z[i] = abs(x[i]);
     } //next i
-}
+  }
 
-return(z); };
+  return(z);
+};
 
 // Operator "pow" =================================================================== //
 
 // ---------------------------------------------------------------------------------- //
 /*!
-    Given a input vector, x, returns a vector storing the p-th power of its elements, i.e.:
-    z[i] = pow(x[i], p), for i = 0, ..., n-1
-    where n is the size of x.
+  Given a input vector, x, returns a vector storing the p-th power of its elements, i.e.:
+  z[i] = pow(x[i], p), for i = 0, ..., n-1
+  where n is the size of x.
 
-    Template parameter can be any type such that pow function is defined.
-    For instance if  T = std::vector<T1>, the pow() function will call itself
-    to return the p-th power of the elements in x[i].
+  Template parameter can be any type such that pow function is defined.
+  For instance if  T = std::vector<T1>, the pow() function will call itself
+  to return the p-th power of the elements in x[i].
 
-    \param[in] x input vector
-    \param[in] p power index
+  \param[in] x input vector
+  \param[in] p power index
 
-    \result vector having the same dimensions of x storing the p-th power
-    of the elements in x.
+  \result vector having the same dimensions of x storing the p-th power
+  of the elements in x.
 */  
 template <class T>
 std::vector< T > pow(
-    std::vector< T >                            &x,
-    double                                       p
-) {
+		     std::vector< T >                            &x,
+		     double                                       p
+		     ) {
 
-// ================================================================================== //
-// VARIABLES DECLARATION                                                              //
-// ================================================================================== //
+  // ================================================================================== //
+  // VARIABLES DECLARATION                                                              //
+  // ================================================================================== //
 
-// Local variables
-int              n;
-std::vector< T >      y;
+  // Local variables
+  int              n;
+  std::vector< T >      y;
 
-// Counters
-int              i;
+  // Counters
+  int              i;
 
-// ================================================================================== //
-// COMPUTE ELEMENT-WISE POWER                                                         //
-// ================================================================================== //
-n = x.size();
-y.resize(n);
-for (i = 0; i < n; i++) {
+  // ================================================================================== //
+  // COMPUTE ELEMENT-WISE POWER                                                         //
+  // ================================================================================== //
+  n = x.size();
+  y.resize(n);
+  for (i = 0; i < n; i++) {
     y[i] = pow(x[i], p);
-} //next i
+  } //next i
 
-return(y); };
+  return(y);
+};
 
 // Operator "norm" ================================================================== //
 
 // ---------------------------------------------------------------------------------- //
 /*!
-    Compute the 1-norm of a input vector, x, i.e.:
-    n = sum(abs(x)).
+  Compute the 1-norm of a input vector, x, i.e.:
+  n = sum(abs(x)).
 
-    Template parameter can be any scalar type
+  Template parameter can be any scalar type
 
-    \param[in] x input vector
+  \param[in] x input vector
 
-    \result on output returns the 1-norm of the input vector.
+  \result on output returns the 1-norm of the input vector.
 */
 template <class T>
 double norm1(
-    const std::vector< T >                      &x
-) {
+	     const std::vector< T >                      &x
+	     ) {
 
-using namespace std;
+  // using namespace std;
 
-// ================================================================================== //
-// VARIABLES DECLARATION                                                              //
-// ================================================================================== //
+  // ================================================================================== //
+  // VARIABLES DECLARATION                                                              //
+  // ================================================================================== //
 
-// Local variables
-int             n = x.size();
-double          z = 0.0;
+  // Local variables
+  int             n = x.size();
+  double          z = 0.0;
 
-// Counters
-int             i;
+  // Counters
+  int             i;
 
-// ================================================================================== //
-// COMPUTE THE P-NORM                                                                 //
-// ================================================================================== //
-if (n > 0) {
+  // ================================================================================== //
+  // COMPUTE THE P-NORM                                                                 //
+  // ================================================================================== //
+  if (n > 0) {
     for (i = 0; i < n; i++) {
-        z += abs(x[i]);
+      z += abs(x[i]);
     } //next i
-}
+  }
 
-return(z); };
+  return(z);
+};
 
 // ---------------------------------------------------------------------------------- //
 /*!
-    Compute the 2-norm of a input vector, x, i.e.:
-    n = sqrt(sum(pow(x, 2))).
+  Compute the 2-norm of a input vector, x, i.e.:
+  n = sqrt(sum(pow(x, 2))).
 
-    Template parameter can be any scalar type
+  Template parameter can be any scalar type
 
-    \param[in] x input vector
+  \param[in] x input vector
 
-    \result on output returns the 2-norm of the input vector.
+  \result on output returns the 2-norm of the input vector.
 */
 template <class T>
 double norm2(
-    const std::vector< T >                      &x
-) {
+	     const std::vector< T >                      &x
+	     ) {
 
-// ================================================================================== //
-// VARIABLES DECLARATION                                                              //
-// ================================================================================== //
+  // ================================================================================== //
+  // VARIABLES DECLARATION                                                              //
+  // ================================================================================== //
 
-// Local variables
-int             n = x.size();
-double          z = 0.0;
+  // Local variables
+  int             n = x.size();
+  double          z = 0.0;
 
-// Counters
-int             i;
+  // Counters
+  int             i;
 
-// ================================================================================== //
-// COMPUTE THE P-NORM                                                                 //
-// ================================================================================== //
-if (n > 0) {
+  // ================================================================================== //
+  // COMPUTE THE P-NORM                                                                 //
+  // ================================================================================== //
+  if (n > 0) {
     for (i = 0; i < n; i++) {
-        z += x[i]*x[i];
+      z += x[i]*x[i];
     } //next i
-}
+  }
 
-return(sqrt(z)); };
+  return(sqrt(z));
+};
 
 // ---------------------------------------------------------------------------------- //
 /*!
-    Compute the generic norm of a input vector, x, i.e.:
-    n = pow( sum( pow( abs(x), p ) ), 1/p ).
+  Compute the generic norm of a input vector, x, i.e.:
+  n = pow( sum( pow( abs(x), p ) ), 1/p ).
 
-    Template parameter can be any scalar type
+  Template parameter can be any scalar type
 
-    \param[in] x input vector
-    \param[in] p norm index
+  \param[in] x input vector
+  \param[in] p norm index
 
-    \result on output returns the p-norm of the input vector.
+  \result on output returns the p-norm of the input vector.
 */
 template <class T>
 double norm(
-    const std::vector< T >                      &x,
-    int                                          p
-) {
+	    const std::vector< T >                      &x,
+	    int                                          p
+	    ) {
 
-using namespace std;
+  // using namespace std;
 
-// ================================================================================== //
-// VARIABLES DECLARATION                                                              //
-// ================================================================================== //
+  // ================================================================================== //
+  // VARIABLES DECLARATION                                                              //
+  // ================================================================================== //
 
-// Local variables
-int             n = x.size();
-double          z = 0.0;
-double          t, y;
+  // Local variables
+  int             n = x.size();
+  double          z = 0.0;
+  double          t, y;
 
-// Counters
-int             i, j;
+  // Counters
+  int             i, j;
 
-// ================================================================================== //
-// COMPUTE THE P-NORM                                                                 //
-// ================================================================================== //
-if (p == 1) { return(norm1(x)); }
-if (p == 2) { return(norm2(x)); }
+  // ================================================================================== //
+  // COMPUTE THE P-NORM                                                                 //
+  // ================================================================================== //
+  if (p == 1) { return(norm1(x)); }
+  if (p == 2) { return(norm2(x)); }
 
-if (n > 0) {
+  if (n > 0) {
     for (i = 0; i < n; i++) {
-        y = 1.0;
-        t = x[i];
-        for (j = 1; j <= p; j++) {
-            y = y*t;
-        } //next j
-        z += abs(y);
+      y = 1.0;
+      t = x[i];
+      for (j = 1; j <= p; j++) {
+	y = y*t;
+      } //next j
+      z += abs(y);
     } //next i
-}
+  }
 
-return(std::exp(std::log(std::max(z, 1.0e-307))/((double) p))); };
+  return(std::exp(std::log(std::max(z, 1.0e-307))/((double) p))); };
 
 // ---------------------------------------------------------------------------------- //
 /*!
-    Compute the infinity-norm of a input vector, x, i.e.:
-    n = maxval(abs(x)).
+  Compute the infinity-norm of a input vector, x, i.e.:
+  n = maxval(abs(x)).
 
-    Template parameter can be any scalar type
+  Template parameter can be any scalar type
 
-    \param[in] x input vector
+  \param[in] x input vector
 
-    \result on output returns the inf-norm of the input vector.
+  \result on output returns the inf-norm of the input vector.
 */
 template <class T>
 double normInf(
-    const std::vector< T >                      &x
-) {
+	       const std::vector< T >                      &x
+	       ) {
 
-using namespace std;
+  // using namespace std;
 
-// ================================================================================== //
-// VARIABLES DECLARATION                                                              //
-// ================================================================================== //
+  // ================================================================================== //
+  // VARIABLES DECLARATION                                                              //
+  // ================================================================================== //
 
-// Local variables
-int             n = x.size();
-double          z = 0.0, y;
+  // Local variables
+  int             n = x.size();
+  double          z = 0.0, y;
 
-// Counters
-int             i;
+  // Counters
+  int             i;
 
-// ================================================================================== //
-// COMPUTE THE inf-NORM                                                               //
-// ================================================================================== //
-if (n > 0) {
+  // ================================================================================== //
+  // COMPUTE THE inf-NORM                                                               //
+  // ================================================================================== //
+  if (n > 0) {
     z = abs(x[0]);
     for (i = 1; i < n; i++) {
-        y = abs(x[i]);
-        if (y > z) {
-            z = y;
-        }
+      y = abs(x[i]);
+      if (y > z) {
+	z = y;
+      }
     } //next i
-}
+  }
 
-return(z); };
+  return(z);
+};
 
 // Operator "dotProduct" =========================================================== //
 
 // ---------------------------------------------------------------------------------- //
 /*!
-    Compute the scalar product of 2 input vectors, x and y, i.e.:
-    d = sum(x * y).
+  Compute the scalar product of 2 input vectors, x and y, i.e.:
+  d = sum(x * y).
 
-    Template parameter can be any scalar type
+  Template parameter can be any scalar type
 
-    \param[in] x 1st argument
-    \param[in] y 2nd argument
+  \param[in] x 1st argument
+  \param[in] y 2nd argument
 
-    \result on output returns the scalar product of x and y.
+  \result on output returns the scalar product of x and y.
 */
 template <class T>
 T dotProduct(
-    const std::vector< T >                      &x,
-    const std::vector< T >                      &y
-) {
+	     const std::vector< T >                      &x,
+	     const std::vector< T >                      &y
+	     ) {
 
-// ================================================================================== //
-// VARIABLES DECLARATION                                                              //
-// ================================================================================== //
+  // ================================================================================== //
+  // VARIABLES DECLARATION                                                              //
+  // ================================================================================== //
 
-// Local variables
-int                 n = x.size(), m = y.size();
-T                   dp = ((T) 0.0);
+  // Local variables
+  int                 n = x.size(), m = y.size();
+  T                   dp = ((T) 0.0);
 
-// Counters
-int                 i;
+  // Counters
+  int                 i;
 
-// ================================================================================== //
-// COMPUTE THE DOT PRODUCT                                                            //
-// ================================================================================== //
-if ((n > 0) && (n == m)) {
+  // ================================================================================== //
+  // COMPUTE THE DOT PRODUCT                                                            //
+  // ================================================================================== //
+  if ((n > 0) && (n == m)) {
     for (i = 0; i < n; i++) {
-        dp += x[i]*y[i];
+      dp += x[i]*y[i];
     } //next i
-}
+  }
 
-return(dp); };
+  return(dp);
+};
 
 // Operator "crossProduct" ========================================================= //
 
 // ---------------------------------------------------------------------------------- //
 /*!
-    Compute the cross product in R3 of input vectors, x and y.
-    Template parameter can be any scalar type
+  Compute the cross product in R3 of input vectors, x and y.
+  Template parameter can be any scalar type
 
-    \param[in] x 1st argument
-    \param[in] y 2nd argument
+  \param[in] x 1st argument
+  \param[in] y 2nd argument
 
-    \result on output returns the cross product product of x and y.
+  \result on output returns the cross product product of x and y.
 */
 template <class T>
 std::vector<T> crossProduct(
-    const std::vector<T>                        &x,
-    const std::vector<T>                        &y
-) {
+			    const std::vector<T>                        &x,
+			    const std::vector<T>                        &y
+			    ) {
 
-// =================================================================================== //
-// VARIABLES DECLARATION                                                               //
-// =================================================================================== //
-std::vector<T>      z(3,0.0);
+  // =================================================================================== //
+  // VARIABLES DECLARATION                                                               //
+  // =================================================================================== //
+  std::vector<T>      z(3,0.0);
 
-// =================================================================================== //
-// COMPUTE THE EXTERNAL PRODUCT                                                        //
-// =================================================================================== //
-z[0] = x[1] * y[2] - x[2] * y[1];
-z[1] = x[2] * y[0] - x[0] * y[2];
-z[2] = x[0] * y[1] - x[1] * y[0];
+  // =================================================================================== //
+  // COMPUTE THE EXTERNAL PRODUCT                                                        //
+  // =================================================================================== //
+  z[0] = x[1] * y[2] - x[2] * y[1];
+  z[1] = x[2] * y[0] - x[0] * y[2];
+  z[2] = x[0] * y[1] - x[1] * y[0];
 
-return (z);}
+  return (z);
+}
 /*!
-   @}
- */
+  @}
+*/
