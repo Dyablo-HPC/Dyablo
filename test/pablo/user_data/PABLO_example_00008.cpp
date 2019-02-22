@@ -28,12 +28,14 @@
 
 #include "bitpit_PABLO.hpp"
 
+#include "shared/kokkos_shared.h"
+
 #if BITPIT_ENABLE_MPI==1
 #include "PABLO_userDataComm.hpp"
 #include "PABLO_userDataLB.hpp"
 #endif
 
-using namespace std;
+//using namespace std;
 using namespace bitpit;
 
 // ======================================================================== //
@@ -194,15 +196,35 @@ int main(int argc, char *argv[])
   BITPIT_UNUSED(argv);
 #endif
 
-  int nProcs;
-  int rank;
+  int nProcs=1;
+  int rank=0;
+
+  Kokkos::initialize(argc, argv);
+
+  {
+    std::cout << "##########################\n";
+    std::cout << "KOKKOS CONFIG             \n";
+    std::cout << "##########################\n";
+
+    std::ostringstream msg;
+    std::cout << "Kokkos configuration" << std::endl;
+    if ( Kokkos::hwloc::available() ) {
+      msg << "hwloc( NUMA[" << Kokkos::hwloc::get_available_numa_count()
+          << "] x CORE["    << Kokkos::hwloc::get_available_cores_per_numa()
+          << "] x HT["      << Kokkos::hwloc::get_available_threads_per_core()
+          << "] )"
+          << std::endl ;
+    }
+    Kokkos::print_configuration( msg );
+    std::cout << msg.str();
+    std::cout << "##########################\n";
+
+
 #if BITPIT_ENABLE_MPI==1
-  MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-#else
-  nProcs = 1;
-  rank   = 0;
+    MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 #endif
+  }
 
   // Initialize the logger
   log::manager().initialize(log::SEPARATE, false, nProcs, rank);
@@ -217,6 +239,8 @@ int main(int argc, char *argv[])
     exit(1);
   }
 
+  Kokkos::finalize();
+  
 #if BITPIT_ENABLE_MPI==1
   MPI_Finalize();
 #endif
