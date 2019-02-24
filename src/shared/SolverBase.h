@@ -92,6 +92,9 @@ public:
    *
    */
 
+  //! perform AMR cycle (mark cells, adapt = refine/coarsen, load balance)
+  virtual void do_amr_cycle();
+  
   //! Read and parse the configuration file (ini format).
   virtual void read_config();
 
