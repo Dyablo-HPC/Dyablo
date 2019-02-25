@@ -70,13 +70,22 @@ public:
   double               m_dt;        //!< the time step at the current iteration
   int                  m_iteration; //!< the current iteration (integer)
   int                  m_max_iterations; //!< user defined maximum iteration count
+  double               m_tBeg;      //!< begin time (might be non-zero upon restart)
   double               m_tEnd;      //!< maximun time
   double               m_cfl;       //!< Courant number
   int                  m_nlog;      //!< number of steps between two monitoring print on screen
+
+  int                  m_max_save_count; //!< max number of output written
+  int                  m_max_restart_count; //!< max number of restart file written
+
   
   long long int        m_nCells;       //!< number of cells
   long long int        m_nDofsPerCell; //!< number of degrees of freedom per cell 
 
+  // statistics
+  //! total number of quadrant update
+  uint64_t             m_total_num_cell_update;
+  
   //! init condition name (or problem)
   std::string          m_problem_name;
   
@@ -108,6 +117,9 @@ public:
   //! Check if current time is larger than end time.
   virtual int finished();
 
+  //! Check if AMR cycle is required
+  virtual bool should_adapt();
+  
   //! This is where action takes place. Wrapper arround next_iteration_impl.
   virtual void next_iteration();
 
@@ -115,7 +127,7 @@ public:
   virtual void next_iteration_impl();
   
   //! Decides if the current time step is eligible for dump data to file
-  virtual int  should_save_solution();
+  virtual bool should_save_solution();
 
   //! main routine to dump solution to file
   virtual void save_solution();
@@ -123,6 +135,9 @@ public:
   //! main routine to dump solution to file
   virtual void save_solution_impl();
 
+  //! should current time step write a restart file ?
+  virtual bool should_write_restart();
+  
   //! read restart data
   virtual void read_restart_file();
   
@@ -131,6 +146,9 @@ public:
   //! counter incremented each time an output is written
   int m_times_saved;
 
+  //! counter incremented each time a restart file is written
+  int m_times_saved_restart;
+  
   //! Number of variables to saved
   //int m_write_variables_number;
 

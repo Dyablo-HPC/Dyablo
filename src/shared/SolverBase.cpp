@@ -35,10 +35,15 @@ SolverBase::SolverBase (HydroParams& params, ConfigMap& configMap) :
   
   /*
    * other variables initialization.
-   */
+   */  
   m_times_saved = 0;
+  m_times_saved_restart = 0;
+  
   m_nCells = -1;
   m_nDofsPerCell = -1;
+
+  // statistics
+  m_total_num_cell_update = 0;
   
   // create the timers
   m_timers[TIMER_TOTAL]      = std::make_shared<Timer>();
@@ -84,8 +89,17 @@ SolverBase::read_config()
 {
 
   m_t     = configMap.getFloat("run", "tCurrent", 0.0);
+  m_tBeg  = configMap.getFloat("run", "tCurrent", 0.0);
   m_tEnd  = configMap.getFloat("run", "tEnd", 0.0);
   m_max_iterations = params.nStepmax;
+
+  // maximun number of output written
+  m_max_save_count = params.nOutput;
+
+  // maximun number of restart output written
+  m_max_restart_count = configMap.getInteger("run", "restart_count", 1);
+
+  
   m_dt    = m_tEnd;
   m_cfl   = configMap.getFloat("hydro", "cfl", 1.0);
   m_nlog  = configMap.getFloat("run", "nlog", 10);
@@ -160,6 +174,17 @@ SolverBase::finished()
 
 // =======================================================
 // =======================================================
+// TODO: better strategy to decide when to adapt ?
+bool
+SolverBase::should_adapt ()
+{
+
+  return (params.level_min != params.level_max);
+
+} // SolverBase::should_adapt
+
+// =======================================================
+// =======================================================
 void
 SolverBase::next_iteration()
 {
@@ -170,6 +195,7 @@ SolverBase::next_iteration()
   next_iteration_impl();
 
   // perform some stats here (?)
+  m_total_num_cell_update += amr_mesh->getNumOctants();
   
   // incremenent
   ++m_iteration;
@@ -210,6 +236,32 @@ SolverBase::save_solution_impl()
 
 // =======================================================
 // =======================================================
+bool
+SolverBase::should_write_restart ()
+{
+
+  if (m_max_restart_count > 0) {
+
+    double interval = m_tEnd / m_max_restart_count;
+
+    // never write restart file at t = m_tBeg
+    if (((m_t - m_tBeg) - m_times_saved_restart * interval) > interval) {
+      return true;
+    }
+    
+    /* always write the restart at the last time step */
+    if (ISFUZZYNULL (m_t - m_tEnd)) {
+      return true;
+    }
+    
+  }
+
+  return false;
+  
+} // SolverBase::should_write_restart
+
+// =======================================================
+// =======================================================
 void
 SolverBase::read_restart_file()
 {
@@ -220,28 +272,28 @@ SolverBase::read_restart_file()
 
 // =======================================================
 // =======================================================
-int
+bool
 SolverBase::should_save_solution()
 {
   
-  double interval = m_tEnd / params.nOutput;
+  double interval = (m_tEnd - m_tBeg) / params.nOutput;
 
   // params.nOutput == 0 means no output at all
   // params.nOutput < 0  means always output 
-  if (params.nOutput < 0) {
-    return 1;
+  if (m_max_save_count < 0) {
+    return true;
   }
 
   if ((m_t - (m_times_saved - 1) * interval) > interval) {
-    return 1;
+    return true;
   }
 
   /* always write the last time step */
   if (ISFUZZYNULL (m_t - m_tEnd)) {
-    return 1;
+    return true;
   }
 
-  return 0;
+  return false;
   
 } // SolverBase::should_save_solution
 
@@ -276,7 +328,8 @@ SolverBase::load_data(DataArray             U,
 		      real_t& time)
 {
   // TODO
-}
+  
+} // SolverBase::load_data
 
 // =======================================================
 // =======================================================
