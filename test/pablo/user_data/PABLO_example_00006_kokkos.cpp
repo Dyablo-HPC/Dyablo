@@ -224,9 +224,35 @@ void run()
   }
 
 #if BITPIT_ENABLE_MPI==1
+  {
+    // before load balancing
+    uint32_t nocts = pablo6.getNumOctants();
+    uint32_t nghosts = pablo6.getNumGhosts();
+
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    if (rank==0)
+      std::cout << ">>> before load balancing : nocts is " << nocts << " and nghosts is " << nghosts << "\n";
+  }
+  
   /**<PARALLEL TEST: Call loadBalance, 
    * the octree is now distributed over the processes.*/
   pablo6.loadBalance();
+
+  {
+    // after load balancing
+    uint32_t nocts = pablo6.getNumOctants();
+    uint32_t nghosts = pablo6.getNumGhosts();
+
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    if (rank==0)
+      std::cout << ">>> after  load balancing : nocts is " << nocts << " and nghosts is " << nghosts << "\n";
+
+  }
+
 #endif
 
   /**<Define a center point and a radius.*/
