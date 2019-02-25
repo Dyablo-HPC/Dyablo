@@ -42,7 +42,9 @@ public:
   
   typedef D Data;
 
-  // pass by copy (Kokkos::View)
+  // pass by copy (Kokkos::View), watchout data and ghostdata
+  // wii surely be reassigned, so calling code must be aware of
+  // that.
   Data data;
   Data ghostdata;
   
