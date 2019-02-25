@@ -196,11 +196,14 @@ void run()
   }
 }
 
+// =================================================================
+// =================================================================
 /*!
  * Main program.
  */
 int main(int argc, char *argv[])
 {
+  
 #if BITPIT_ENABLE_MPI==1
   MPI_Init(&argc,&argv);
 #else
@@ -248,7 +251,7 @@ int main(int argc, char *argv[])
     run();
   } catch (const std::exception &exception) {
     log::cout() << exception.what();
-    exit(1);
+    //exit(1);
   }
 
   Kokkos::finalize();

@@ -35,7 +35,9 @@
  * \cond
  */
 template<class Data>
-UserDataComm<Data>::UserDataComm(Data & data_, Data & ghostData_) : data(data_), ghostData(ghostData_){};
+UserDataComm<Data>::UserDataComm(Data data_, Data ghostData_) :
+data(data_), ghostData(ghostData_)
+{};
 
 template<class Data>
 UserDataComm<Data>::~UserDataComm() {};
@@ -54,15 +56,15 @@ inline size_t UserDataComm<Data>::size(const uint32_t e) const {
 template<class Data>
 template<class Buffer>
 inline void UserDataComm<Data>::gather(Buffer& buff, const uint32_t e) {
-  buff << data.doubleData[e];
-  buff << data.floatData[e];
+  buff << data.doubleData(e);
+  buff << data.floatData(e);
 };
 
 template<class Data>
 template<class Buffer>
 inline void UserDataComm<Data>::scatter(Buffer& buff,	const uint32_t e) {
-  buff >> ghostData.doubleData[e];
-  buff >> ghostData.floatData[e];
+  buff >> ghostData.doubleData(e);
+  buff >> ghostData.floatData(e);
 };
 
 /*!

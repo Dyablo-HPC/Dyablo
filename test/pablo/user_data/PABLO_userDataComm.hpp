@@ -42,8 +42,8 @@ public:
 
   typedef D Data;
 
-  Data & data;
-  Data & ghostData;
+  Data data;
+  Data ghostData;
 
   size_t fixedSize() const;
   size_t size(const uint32_t e) const;
@@ -54,7 +54,7 @@ public:
   template<class Buffer>
   void scatter(Buffer & buff, const uint32_t e);
 
-  UserDataComm(Data & data_, Data & ghostData_);
+  UserDataComm(Data data_, Data ghostData_);
   ~UserDataComm();
 };
 
