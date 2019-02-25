@@ -35,7 +35,6 @@
 #include "PABLO_userDataComm.hpp"
 #endif
 
-//using namespace std;
 using namespace bitpit;
 
 // ======================================================================== //

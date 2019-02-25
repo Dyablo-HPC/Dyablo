@@ -36,7 +36,6 @@
 #include "PABLO_userDataLB.hpp"
 #endif
 
-//using namespace std;
 using namespace bitpit;
 
 using AppData = Kokkos::View<double*>;
