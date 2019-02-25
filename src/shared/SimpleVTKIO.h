@@ -1,6 +1,8 @@
 #ifndef SIMPLE_VTK_IO_H_
 #define SIMPLE_VTK_IO_H_
 
+#include <vector>
+
 #include "shared/HydroParams.h"
 #include "utils/config/ConfigMap.h"
 #include "shared/kokkos_shared.h"
@@ -48,12 +50,23 @@ void writeVTK(AMRmesh         &amr_mesh,
 	      const ConfigMap& configMap);
 
 /**
- * Write a  Kokkos::View<double*> (see also ParaTree::writeTest)
+ * Write a  Kokkos::View<double*> (see also ParaTree::writeTest).
  */
 void writeTest(AMRmesh               &amr_mesh,
 	       std::string            filenameSuffix,
 	       Kokkos::View<double*>  data);
-  
+
+/**
+ * Write a std::vector<double> (see also ParaTree::writeTest).
+ *
+ * TODO : this routine is a duplicate from the previous one, only intended
+ * for testing ideas when kokkos refactoring still underway (i.e. not
+ * finished).
+ */
+void writeTest(AMRmesh               &amr_mesh,
+	       std::string            filenameSuffix,
+	       std::vector<double>    data);
+
 } // namespace euler_pablo
 
 #endif // SIMPLE_VTK_IO_H_
