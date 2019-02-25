@@ -69,6 +69,7 @@ public:
   double               m_t;         //!< the time at the current iteration
   double               m_dt;        //!< the time step at the current iteration
   int                  m_iteration; //!< the current iteration (integer)
+  int                  m_max_iterations; //!< user defined maximum iteration count
   double               m_tEnd;      //!< maximun time
   double               m_cfl;       //!< Courant number
   int                  m_nlog;      //!< number of steps between two monitoring print on screen

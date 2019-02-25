@@ -85,6 +85,7 @@ SolverBase::read_config()
 
   m_t     = configMap.getFloat("run", "tCurrent", 0.0);
   m_tEnd  = configMap.getFloat("run", "tEnd", 0.0);
+  m_max_iterations = params.nStepmax;
   m_dt    = m_tEnd;
   m_cfl   = configMap.getFloat("hydro", "cfl", 1.0);
   m_nlog  = configMap.getFloat("run", "nlog", 10);
@@ -153,7 +154,7 @@ int
 SolverBase::finished()
 {
 
-  return m_t >= (m_tEnd - 1e-14) || m_iteration >= params.nStepmax;
+  return m_t >= (m_tEnd - 1e-14) || m_iteration >= m_max_iterations;
   
 } // SolverBase::finished
 
