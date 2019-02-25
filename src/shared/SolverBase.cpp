@@ -80,6 +80,15 @@ SolverBase::~SolverBase()
 void
 SolverBase::do_amr_cycle()
 {
+
+  // TODO
+
+  // 1. User data comm to update ghost cell values
+
+  // 2. mark cell for refinement
+
+  // 3. adapt mesh + load balanced
+  
 } // SolverBase::do_amr_cycle
 
 // =======================================================
