@@ -281,21 +281,33 @@ void run()
   }
 
   /**<Assign a data to the ghost octants (PARALLEL TEST) with at least one node inside the circle.*/
-  for (unsigned int i=0; i<nghosts; i++){
-    /**<Compute the nodes of the octant (Use pointer for ghost).*/
-    Octant *oct = pablo6.getGhostOctant(i);
-    vector<array<double,3> > nodes = pablo6.getNodes(oct);
-    for (int j=0; j<4; j++){
-      double x = nodes[j][0];
-      double y = nodes[j][1];
-      if ((pow((x-xc),2.0)+pow((y-yc),2.0) <= pow(radius,2.0))){
-	//ghost_data[i] = 1.0;
-	ghostdata.doubleData[i] = 1.0;
-	ghostdata.floatData[i] = 1.0;
-      }
-    }
-  }
+  // for (unsigned int i=0; i<nghosts; i++){
+  //   /**<Compute the nodes of the octant (Use pointer for ghost).*/
+  //   Octant *oct = pablo6.getGhostOctant(i);
+  //   vector<array<double,3> > nodes = pablo6.getNodes(oct);
+  //   for (int j=0; j<4; j++){
+  //     double x = nodes[j][0];
+  //     double y = nodes[j][1];
+  //     if ((pow((x-xc),2.0)+pow((y-yc),2.0) <= pow(radius,2.0))){
+  // 	//ghost_data[i] = 1.0;
+  // 	ghostdata.doubleData[i] = 1.0;
+  // 	ghostdata.floatData[i] = 1.0;
+  //     }
+  //   }
+  // }
 
+  // alternatively, one can assign data to ghost octants
+  // using MPI communication routines
+  {
+#if BITPIT_ENABLE_MPI==1
+    /**<Communicate the data of the octants and the ghost octants between the processes.*/
+    UserDataComm<AppData> data_comm(octdata, ghostdata);
+    pablo6.communicate(data_comm);
+
+#endif
+
+  }
+  
   /**<Update the connectivity and write the para_tree.*/
   iter = 0;
   pablo6.updateConnectivity();
