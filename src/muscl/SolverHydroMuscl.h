@@ -65,6 +65,8 @@ public:
   DataArray     U2;    /*!< hydrodynamics conservative variables arrays */
   DataArray     Q;     /*!< hydrodynamics primitive    variables array  */
 
+  DataArray     Ughost; /*!< ghost cell data */
+  
   /* implementation 0 */
   DataArray Fluxes_x; /*!< implementation 0 */
   DataArray Fluxes_y; /*!< implementation 0 */
@@ -103,6 +105,9 @@ public:
   //! init wrapper (actual initialization)
   void init(DataArray Udata);
 
+  //! override base class
+  void do_amr_cycle();
+  
   //! compute time step inside an MPI process, at shared memory level.
   double compute_dt_local();
 

@@ -16,6 +16,9 @@
 #include "muscl/ComputeDtHydroFunctor.h"
 #include "muscl/ConvertToPrimitivesHydroFunctor.h"
 
+#include "muscl/UserDataComm.h"
+#include "muscl/UserDataLB.h"
+
 //#include "shared/mpiBorderUtils.h"
 
 namespace euler_pablo { namespace muscl {
@@ -33,6 +36,7 @@ SolverHydroMuscl::SolverHydroMuscl(HydroParams& params,
 				   ConfigMap& configMap) :
   SolverBase(params, configMap),
   U(), U2(), Q(),
+  Ughost(),
   Fluxes_x(), Fluxes_y(), Fluxes_z(),
   Slopes_x(), Slopes_y(), Slopes_z()
 {
@@ -431,6 +435,42 @@ void SolverHydroMuscl::init(DataArray Udata)
   } // end regular initialization
 
 } // SolverHydroMuscl::init
+
+// =======================================================
+// =======================================================
+void SolverHydroMuscl::do_amr_cycle()
+{
+
+  /*
+   * Following steps:
+   *
+   * 1. User data comm to update ghost cell values
+   * 2. mark cell for refinement / coarsening
+   * 3. adapt mesh + load balanced
+   */
+
+  // 1. User data communication / fill ghost data
+  UserDataComm data_comm(U, Ughost);
+  amr_mesh->communicate(data_comm);
+
+  // 2. mark cell for refinement / coarsening
+  // TODO
+  
+  // 3. adapt mesh + map data to new data array
+  // TODO
+
+  // 4. load balance
+  /* (Load)Balance the octree over the processes with communicating the data.
+   * Preserve the family compact up to 4 levels over the max deep reached
+   * in the octree. */
+  {
+    uint8_t levels = 4;
+    UserDataLB data_lb(U,Ughost);
+    amr_mesh->loadBalance(data_lb, levels);
+  }
+  
+  
+} // SolverHydroMuscl::do_amr_cycle
 
 // =======================================================
 // =======================================================

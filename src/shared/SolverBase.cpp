@@ -77,13 +77,13 @@ void
 SolverBase::do_amr_cycle()
 {
 
-  // TODO
+  // Example of what must be implemented in derived class
 
   // 1. User data comm to update ghost cell values
 
-  // 2. mark cell for refinement
+  // 2. mark cell for refinement / coarsening
 
-  // 3. adapt mesh + load balanced
+  // 3. adapt mesh + load balance
   
 } // SolverBase::do_amr_cycle
 

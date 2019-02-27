@@ -24,7 +24,7 @@ UserDataComm::~UserDataComm()
 
 // ==================================================================
 // ==================================================================
-inline size_t UserDataComm::fixedSize() const
+size_t UserDataComm::fixedSize() const
 {
   
   return 0;
@@ -33,7 +33,7 @@ inline size_t UserDataComm::fixedSize() const
 
 // ==================================================================
 // ==================================================================
-inline size_t UserDataComm::size(const uint32_t e) const
+size_t UserDataComm::size(const uint32_t e) const
 {
   
   BITPIT_UNUSED(e);
