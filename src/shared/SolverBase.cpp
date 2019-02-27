@@ -53,11 +53,7 @@ SolverBase::SolverBase (HydroParams& params, ConfigMap& configMap) :
   m_timers[TIMER_NUM_SCHEME] = std::make_shared<Timer>();
   
 #ifdef USE_MPI
-  const int gw = params.ghostWidth;
-  const int isize = params.isize;
-  const int jsize = params.jsize;
-  const int ksize = params.ksize;
-  const int nbvar = params.nbvar;
+  //const int nbvar = params.nbvar;
 
   // TODO
   
@@ -185,12 +181,12 @@ SolverBase::finished()
 // =======================================================
 // TODO: better strategy to decide when to adapt ?
 bool
-SolverBase::should_adapt ()
+SolverBase::should_do_amr_cycle()
 {
 
   return (params.level_min != params.level_max);
 
-} // SolverBase::should_adapt
+} // SolverBase::should_do_amr_cycle
 
 // =======================================================
 // =======================================================
@@ -225,6 +221,32 @@ SolverBase::next_iteration_impl()
 // =======================================================
 // =======================================================
 void
+SolverBase::run()
+{
+
+  /*
+   * Default implementation for the time loop
+   */
+  while ( !finished() ) {
+
+    next_iteration();
+
+    if ( should_do_amr_cycle() )
+      do_amr_cycle();
+
+    if ( should_save_solution() )
+      save_solution();
+
+    if ( should_write_restart_file() )
+      write_restart_file();
+    
+  } // end time loop
+  
+} // SolverBase::run
+
+// =======================================================
+// =======================================================
+void
 SolverBase::save_solution()
 {
 
@@ -246,7 +268,7 @@ SolverBase::save_solution_impl()
 // =======================================================
 // =======================================================
 bool
-SolverBase::should_write_restart ()
+SolverBase::should_write_restart_file()
 {
 
   if (m_max_restart_count > 0) {
@@ -268,6 +290,18 @@ SolverBase::should_write_restart ()
   return false;
   
 } // SolverBase::should_write_restart
+
+// =======================================================
+// =======================================================
+void
+SolverBase::write_restart_file()
+{
+
+  // TODO
+  if (params.myRank==0)
+    std::cout << "Please implement me : SolverBase::write_restart_file\n";
+  
+} // SolverBase::write_restart_file
 
 // =======================================================
 // =======================================================

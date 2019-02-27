@@ -118,13 +118,16 @@ public:
   virtual int finished();
 
   //! Check if AMR cycle is required
-  virtual bool should_adapt();
+  virtual bool should_do_amr_cycle();
   
   //! This is where action takes place. Wrapper arround next_iteration_impl.
   virtual void next_iteration();
 
   //! This is the next iteration computation (application specific).
   virtual void next_iteration_impl();
+
+  //! This is were the time loop is done
+  virtual void run();
   
   //! Decides if the current time step is eligible for dump data to file
   virtual bool should_save_solution();
@@ -136,7 +139,10 @@ public:
   virtual void save_solution_impl();
 
   //! should current time step write a restart file ?
-  virtual bool should_write_restart();
+  virtual bool should_write_restart_file();
+
+  //! write restart file
+  virtual void write_restart_file();
   
   //! read restart data
   virtual void read_restart_file();

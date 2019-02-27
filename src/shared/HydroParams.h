@@ -124,16 +124,16 @@ struct HydroParams {
   int data_type;
 
   //! number of dimension
-  int nDim;
-  
+  int nDim;  
+
+#endif // USE_MPI
+
   //! MPI rank of current process
   int myRank;
   
   //! number of MPI processes
   int nProcs;  
 
-#endif // USE_MPI
-  
   HydroParams() :
     nStepmax(0), tEnd(0.0), nOutput(0), enableOutput(true), mhdEnabled(false),
     nlog(10),
@@ -151,7 +151,9 @@ struct HydroParams {
     ioVTK(true), ioHDF5(false),
     settings(),
     niter_riemann(10), riemannSolverType(),
-    implementationVersion(0)
+    implementationVersion(0),
+    myRank(0),
+    nProcs(1)
   {}
 
   virtual ~HydroParams() {}
