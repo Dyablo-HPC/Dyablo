@@ -36,7 +36,6 @@ public:
 
     for (uint32_t ivar=0; ivar<nbVars; ++ivar) {
       buff << data(e,ivar);
-      buff << data(e,ivar);
     }
 
   } // gather
@@ -48,7 +47,6 @@ public:
   void scatter(Buffer & buff, const uint32_t e) {
 
     for (uint32_t ivar=0; ivar<nbVars; ++ivar) {
-      buff >> ghostData(e,ivar);
       buff >> ghostData(e,ivar);
     }
 
