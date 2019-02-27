@@ -129,6 +129,24 @@ public:
   
   // output
   void save_solution_impl();
+
+private:
+
+  /*
+   * the following routines are necessary for amr cycle.
+   */
+  
+  //! synchonize ghost data
+  void synchronize_ghost_data();
+
+  //! mark cells for refinement
+  void mark_cells();
+
+  //! map data from old U to new U after adapting mesh
+  void map_userdata_after_adapt();
+
+  //! mesh load balancing with data communication
+  void load_balance_userdata();
   
 }; // class SolverHydroMuscl
 

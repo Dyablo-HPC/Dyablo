@@ -55,6 +55,9 @@ public:
 
   //! The main AMR object (from bitpit library)
   std::shared_ptr<AMRmesh> amr_mesh;
+
+  //! number of children: 4 in 2D, 8 in 3D
+  uint8_t m_nbChildren;
   
   //! enum type to the actual solver type (Hydro, MHD, ...). TBC if needed.
   solver_type_t solver_type;

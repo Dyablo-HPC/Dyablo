@@ -16,8 +16,10 @@
 #include "muscl/ComputeDtHydroFunctor.h"
 #include "muscl/ConvertToPrimitivesHydroFunctor.h"
 
+#if BITPIT_ENABLE_MPI==1
 #include "muscl/UserDataComm.h"
 #include "muscl/UserDataLB.h"
+#endif
 
 //#include "shared/mpiBorderUtils.h"
 
@@ -450,25 +452,16 @@ void SolverHydroMuscl::do_amr_cycle()
    */
 
   // 1. User data communication / fill ghost data
-  UserDataComm data_comm(U, Ughost);
-  amr_mesh->communicate(data_comm);
-
-  // 2. mark cell for refinement / coarsening
-  // TODO
+  synchronize_ghost_data();
   
-  // 3. adapt mesh + map data to new data array
-  // TODO
+  // 2. mark cell for refinement / coarsening + adapt mesh
+  mark_cells();
+  
+  // 3. map data to new data array
+  map_userdata_after_adapt();
 
   // 4. load balance
-  /* (Load)Balance the octree over the processes with communicating the data.
-   * Preserve the family compact up to 4 levels over the max deep reached
-   * in the octree. */
-  {
-    uint8_t levels = 4;
-    UserDataLB data_lb(U,Ughost);
-    amr_mesh->loadBalance(data_lb, levels);
-  }
-  
+  load_balance_userdata();
   
 } // SolverHydroMuscl::do_amr_cycle
 
@@ -680,6 +673,94 @@ void SolverHydroMuscl::save_solution_impl()
   m_timers[TIMER_IO]->stop();
     
 } // SolverHydroMuscl::save_solution_impl()
+
+// =======================================================
+// =======================================================
+void SolverHydroMuscl::synchronize_ghost_data()
+{
+
+#if BITPIT_ENABLE_MPI==1
+  UserDataComm data_comm(U, Ughost);
+  amr_mesh->communicate(data_comm);
+#endif
+
+} // SolverHydroMuscl::synchronize_ghost_data
+
+// =======================================================
+// =======================================================
+void SolverHydroMuscl::mark_cells()
+{
+
+  // TODO
+  
+} // SolverHydroMuscl::mark_cells
+
+// =======================================================
+// =======================================================
+void SolverHydroMuscl::map_userdata_after_adapt()
+{
+
+  // TODO : make is mapper and isghost Kokkos::View's so that
+  // one can make the rest of this routine parallel
+  DataArray U_new("U_new");
+  std::vector<uint32_t> mapper;
+  std::vector<bool> isghost;
+  
+  amr_mesh->adapt(true);
+  uint32_t nocts = amr_mesh->getNumOctants();
+  Kokkos::resize(U_new,nocts);
+
+  int nbVars = U.dimension(0);
+  
+  /*
+   * Assign to the new octant the average of the old children
+   *  if it is new after a coarsening;
+   * while assign to the new octant the data of the old father
+   *  if it is new after a refinement.
+   */
+  // TODO : make this loop a parallel_for ?
+  for (uint32_t i=0; i<nocts; i++){
+    amr_mesh->getMapping(i, mapper, isghost);
+    if (amr_mesh->getIsNewC(i)){
+      for (int j=0; j<m_nbChildren; ++j) {
+	if (isghost[j]){
+	  for (int ivar=0; ivar<nbVars; ++ivar)
+	    U_new(i,ivar) += Ughost(mapper[j],ivar)/4;
+	}
+	else{
+	  for (int ivar=0; ivar<nbVars; ++ivar)
+	    U_new(i,ivar) += U(mapper[j],ivar)/4;
+	}
+      }
+    } else {
+      for (int ivar=0; ivar<nbVars; ++ivar)
+	U_new(i,ivar) += U(mapper[0],ivar);
+    }
+  }
+
+  // re-assign U_new to U
+  U = U_new;
+  
+} // SolverHydroMuscl::map_data_after_adapt
+
+// =======================================================
+// =======================================================
+void SolverHydroMuscl::load_balance_userdata()
+{
+  
+#if BITPIT_ENABLE_MPI==1
+  /* (Load)Balance the octree over the processes with communicating the data.
+   * Preserve the family compact up to 4 levels over the max deep reached
+   * in the octree. */
+  {
+    uint8_t levels = 4;
+    UserDataLB data_lb(U, Ughost);
+    amr_mesh->loadBalance(data_lb, levels);
+  }
+#endif // BITPIT_ENABLE_MPI==1
+  
+} // SolverHydroMuscl::load_balance_user_data
+
 
 } // namespace muscl
 
