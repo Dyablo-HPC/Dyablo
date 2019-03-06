@@ -10,7 +10,7 @@ Why did we chose BitPit/PABLO for this test ? What are the difference with [p4es
 - [BitPit/PABLO](https://github.com/optimad/bitpit) also implements cell-based AMR but on a single cubic box; this is a major difference with [p4est](http://www.p4est.org/); it is written in C++, the core code is pleasant to read. It terms of size, PitPit/PABLO is less than half of p4est SLOC.
 
 
-# Waht is the plan ?
+# What is the plan ?
 
 1. Re-implement Hydro/Euler à la Ramses (as done in [Canop](https://gitlab.maisondelasimulation.fr/canoPdev/canoP), i.e. on cell per leaf of the octree); mesh is managed by PABLO, computational kernels are written in Kokkos. As the computational kernels need to access cell connectivity, the first milestone will be to target MPI + Kokkos/OpenMP only, so that we will enable the use of CPU-only routine (from PABLO) in Kokkos kernels.
 2. Test the performance of Euler/Pablo in MPI + Kokkos/OpenMP on a large cluster (e.g. skylake) and compare with Ramses and CanoP to evaluate the cost of mesh management.
