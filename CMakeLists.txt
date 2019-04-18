@@ -166,19 +166,19 @@ if(${BUILD_CODE})
   #
   
   if (KOKKOS_ENABLE_CUDA)
-    set( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -DCUDA" )
+    add_compile_options(-DCUDA)
   endif()
   
   if (USE_DOUBLE)
-    set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_DOUBLE" )
+    add_compile_options(-DUSE_DOUBLE)
   endif()
   
   if (USE_MPI)
-    set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_MPI" )
+    add_compile_options(-DUSE_MPI)    
   endif()
   
   if (USE_FPE_DEBUG)
-    set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_FPE_DEBUG" )
+    add_compile_options(-DUSE_FPE_DEBUG)
   endif()
   
   ##
