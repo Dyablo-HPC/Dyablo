@@ -165,8 +165,7 @@ void run()
 	    oct_data_new(i) += oct_data(mapper[j])/4;
 	  }
 	}
-      }
-      else{
+      } else{
 	oct_data_new(i) += oct_data(mapper[0]);
       }
     }
@@ -186,14 +185,15 @@ void run()
   uint8_t levels = 4;
   UserDataLB<AppData> data_lb(oct_data,ghost_data);
   pablo8.loadBalance(data_lb, levels);
-#endif
 
   /**<Update the connectivity and write the octree.*/
   pablo8.updateConnectivity();
   {
     euler_pablo::writeTest(pablo8,"pablo00008_iter"+to_string(static_cast<unsigned long long>(iter)), data_lb.data);
   }
-}
+#endif // BITPIT_ENABLE_MPI
+
+} // run
 
 // =================================================================
 // =================================================================
