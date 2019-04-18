@@ -4,12 +4,17 @@ set (muscl_SRCS
   ${CMAKE_CURRENT_SOURCE_DIR}/init/HydroInitFunctors.h
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitFourQuadrant.h
   ${CMAKE_CURRENT_SOURCE_DIR}/HydroBaseFunctor.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/UserDataComm.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/UserDataComm.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/UserDataLB.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/UserDataLB.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/ComputeDtHydroFunctor.h
   ${CMAKE_CURRENT_SOURCE_DIR}/ConvertToPrimitivesHydroFunctor.h)
+
+# add MPI user data communication interface
+if (USE_MPI)
+  list(APPEND muscl_SRCS
+    ${CMAKE_CURRENT_SOURCE_DIR}/UserDataComm.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/UserDataComm.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/UserDataLB.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/UserDataLB.cpp)
+endif(USE_MPI)
 
 add_library(muscl
   ${muscl_SRCS}
