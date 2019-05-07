@@ -1,6 +1,9 @@
 find_package(OpenMP)
 
-set (monitoring_SRCS
+add_library(monitoring "")
+
+target_sources(monitoring
+  PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/OpenMPTimer.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/OpenMPTimer.h
   ${CMAKE_CURRENT_SOURCE_DIR}/SimpleTimer.cpp
@@ -9,17 +12,24 @@ set (monitoring_SRCS
   )
 
 if (PAPI_FOUND)
-  list (APPEND monitoring_SRCS
+  target_sources(monitoring
+    PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/PapiInfo.h
     ${CMAKE_CURRENT_SOURCE_DIR}/PapiInfo.cpp
     )
-endif()
+endif(PAPI_FOUND)
     
 
-add_library(monitoring
-  ${monitoring_SRCS}
-  )
+target_include_directories(monitoring
+  PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+  PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/
+)
 
 if(OpenMP_CXX_FOUND)
   target_link_libraries(monitoring PUBLIC OpenMP::OpenMP_CXX)
-endif()
+endif(OpenMP_CXX_FOUND)
+
+#Add an alias so that library can be used inside the build tree
+add_library(EulerPablo::monitoring ALIAS monitoring)
