@@ -447,7 +447,8 @@ if (MODULE_IO_ENABLED)
 endif()
 
 if (ENABLE_MPI)
-  list (APPEND BITPIT_EXTERNAL_LIBRARIES "${MPI_CXX_LIBRARIES}")
+  #list (APPEND BITPIT_EXTERNAL_LIBRARIES "${MPI_CXX_LIBRARIES}")
+  list (APPEND BITPIT_EXTERNAL_LIBRARIES "MPI::MPI_CXX")
 endif()
 
 #---------------------------------------------------------------------------#
