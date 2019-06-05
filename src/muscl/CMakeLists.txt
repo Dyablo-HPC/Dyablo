@@ -28,14 +28,16 @@ target_include_directories(muscl
   ${CMAKE_SOURCE_DIR}/external/bitpit/src/IO
   ${CMAKE_SOURCE_DIR}/external/bitpit/src/operators
   ) 
-target_link_libraries(muscl
-  kokkos
-  )
+target_link_libraries(muscl PUBLIC kokkos)
 
 if (USE_MPI)
+  
   target_include_directories(muscl
     PUBLIC
     ${CMAKE_SOURCE_DIR}/external/bitpit/src/communications)
  
   target_compile_definitions(muscl PUBLIC BITPIT_ENABLE_MPI)
+
+  target_link_libraries(muscl PUBLIC MPI::MPI_CXX)
+
 endif (USE_MPI)

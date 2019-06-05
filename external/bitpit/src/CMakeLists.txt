@@ -85,7 +85,9 @@ set_target_properties(${BITPIT_LIBRARY} PROPERTIES VERSION "${BITPIT_VERSION}"
 
 # Windows shared libraries have to be linked against their dependencies.
 if (MINGW AND BUILD_SHARED_LIBS)
-	target_link_libraries(${BITPIT_LIBRARY} ${BITPIT_EXTERNAL_LIBRARIES})
+  target_link_libraries(${BITPIT_LIBRARY} ${BITPIT_EXTERNAL_LIBRARIES})
+else()
+  target_link_libraries(${BITPIT_LIBRARY} PUBLIC ${BITPIT_EXTERNAL_LIBRARIES})
 endif()
 
 # Install target
