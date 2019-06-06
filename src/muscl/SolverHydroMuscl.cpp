@@ -616,7 +616,10 @@ void SolverHydroMuscl::convertToPrimitives(DataArray Udata)
   fieldMgr.setup(params, configMap);
   auto fm = fieldMgr.get_id2index();
 
-  // call device functor - compute invDt
+  // resize output Q view to the same size as input Udata
+  Kokkos::resize(Q, Udata.extent(0), Udata.extent(1));
+
+  // call device functor
   ConvertToPrimitivesHydroFunctor::apply(amr_mesh, params, fm, Udata, Q);
   
 } // SolverHydroMuscl::convertToPrimitives
