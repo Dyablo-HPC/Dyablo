@@ -308,6 +308,13 @@ void SolverHydroMuscl::init_four_quadrant(DataArray Udata)
   Kokkos::resize(U2,amr_mesh->getNumOctants(),params.nbvar);
   Kokkos::resize(Uhost,amr_mesh->getNumOctants(),params.nbvar);
 
+  Kokkos::resize(Q,amr_mesh->getNumOctants(),params.nbvar);
+  
+  Kokkos::resize(Slopes_x,amr_mesh->getNumOctants(),params.nbvar);
+  Kokkos::resize(Slopes_y,amr_mesh->getNumOctants(),params.nbvar);
+  if (params.dimType==THREE_D)
+    Kokkos::resize(Slopes_z,amr_mesh->getNumOctants(),params.nbvar);
+
   InitFourQuadrantDataFunctor::apply(amr_mesh, params, fm, U, configNumber,
    				     S0, S1, S2, S3,
    				     xt, yt);
@@ -678,7 +685,7 @@ void SolverHydroMuscl::save_solution_impl()
   strsuf.width(7);
   strsuf.fill('0');
   strsuf << m_iteration;
-
+  
   writeVTK(*amr_mesh, strsuf.str(), U, fm, names2index, configMap);
   
   m_timers[TIMER_IO]->stop();

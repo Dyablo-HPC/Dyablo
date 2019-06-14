@@ -172,8 +172,9 @@ public:
       
       // init gradx, grady
       for (uint16_t j = 0; j < neigh.size(); j++) {
+        
         // neighbor cell center coordinates
-        bitpit::darray3 xyz_n = pmesh->getCenter(j);
+        bitpit::darray3 xyz_n = pmesh->getCenter(neigh_all[j]);
 
         // distance between current and neighbor cell
         real_t delta_x;
@@ -211,7 +212,7 @@ public:
       for (uint16_t j = 0; j < neigh.size(); j++) {
 
         // neighbor cell center coordinates
-        bitpit::darray3 xyz_n = pmesh->getCenter(j);
+        bitpit::darray3 xyz_n = pmesh->getCenter(neigh_all[j]);
 
         grad[IX] = update_minmod(grad[IX], i, j,
                                  dx, xyz_c[IX], xyz_n[IX],
@@ -227,8 +228,6 @@ public:
       // copy back limited gradient
       SlopeX(i,fm[ivar]) = grad[IX];
       SlopeY(i,fm[ivar]) = grad[IY];
-
-      //if (ivar==ID) printf("kkkk %d %f | %f %f\n",ivar, Udata(i, fm[ivar]), grad[IX],grad[IY]);
 
     } // end for ivar
     
