@@ -198,6 +198,62 @@ void SolverHydroMuscl::init_implode(DataArray Udata)
 void SolverHydroMuscl::init_blast(DataArray Udata)
 {
 
+  /*
+   * this is the initial global refine, to reach level_min / no parallelism
+   * so far (every MPI process does that)
+   */
+  int level_min = params.level_min;
+  int level_max = params.level_max;
+  
+  for (int iter=0; iter<=level_min; iter++) {
+    amr_mesh->adaptGlobalRefine();
+  }
+#if BITPIT_ENABLE_MPI==1
+    // (Load)Balance the octree over the MPI processes.
+    amr_mesh->loadBalance();
+#endif
+    //std::cout << "MPI rank=" << amr_mesh->getRank() << " | NB cells =" << amr_mesh->getNumOctants() << "\n";
+  
+
+  // genuine initial refinement
+  for (int level=level_min; level<level_max; ++level) {
+
+    // mark cells for refinement
+    InitBlastRefineFunctor::apply(amr_mesh, configMap, params, level);
+
+    // actually perform refinement
+    amr_mesh->adapt();
+
+#if BITPIT_ENABLE_MPI==1
+    // (Load)Balance the octree over the MPI processes.
+    amr_mesh->loadBalance();
+#endif
+
+  } // end for level
+
+  amr_mesh->updateConnectivity();
+  
+  // retrieve available / allowed names: fieldManager, and field map (fm)
+  // necessary to access user data
+  FieldManager fieldMgr;
+  fieldMgr.setup(params, configMap);
+  auto fm = fieldMgr.get_id2index();
+
+  /*
+   * perform user data init
+   */
+  Kokkos::resize(U,amr_mesh->getNumOctants(),params.nbvar);
+  Kokkos::resize(U2,amr_mesh->getNumOctants(),params.nbvar);
+  Kokkos::resize(Uhost,amr_mesh->getNumOctants(),params.nbvar);
+
+  Kokkos::resize(Q,amr_mesh->getNumOctants(),params.nbvar);
+  
+  Kokkos::resize(Slopes_x,amr_mesh->getNumOctants(),params.nbvar);
+  Kokkos::resize(Slopes_y,amr_mesh->getNumOctants(),params.nbvar);
+  if (params.dimType==THREE_D)
+    Kokkos::resize(Slopes_z,amr_mesh->getNumOctants(),params.nbvar);
+
+  InitBlastDataFunctor::apply(amr_mesh, params, configMap, fm, U);
 
 } // SolverHydroMuscl::init_blast
 
