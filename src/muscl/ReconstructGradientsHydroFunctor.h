@@ -41,7 +41,8 @@ public:
 				   DataArray SlopeY,
 				   DataArray SlopeZ) :
     HydroBaseFunctor(params),
-    pmesh(pmesh), fm(fm), Udata(Udata), Qdata(Qdata)
+    pmesh(pmesh), fm(fm), Udata(Udata), Qdata(Qdata),
+    SlopeX(SlopeX), SlopeY(SlopeY), SlopeZ(SlopeZ)
   {};
   
   // static method which does it all: create and execute functor
@@ -129,17 +130,8 @@ public:
     // temp variables for gradient
     Kokkos::Array<real_t,dim> grad;
 
-    // gradient modulus - used to compute minimum modulus
-    Kokkos::Array<real_t,dim> grad_m;
-
-    // initialized minimum modulus to something very large
-#ifdef __CUDA_ARCH__
-    grad_m[IX] = CUDART_INF;
-    grad_m[IY] = CUDART_INF;
-#else
-    grad_m[IX] = std::numeric_limits<real_t>::max();
-    grad_m[IY] = std::numeric_limits<real_t>::max();
-#endif // __CUDA_ARCH__
+    grad[IX] = 0;
+    grad[IY] = 0;
 
     // this vector contains quad ids
     // corresponding to neighbors
@@ -213,6 +205,8 @@ public:
 
       } // end initialize gradx, grady
 
+      //if (ivar==IU) printf("kkk2 %d %f || %f %f || %f %f\n",ivar, Udata(i, fm[ivar]), grad[IX],grad[IY],xyz_c[IX],xyz_c[IY]);
+
       // sweep neighbors to compute minmod limited gradient
       for (uint16_t j = 0; j < neigh.size(); j++) {
 
@@ -231,7 +225,10 @@ public:
       } // end minmod
 
       // copy back limited gradient
-      //if (ivar==ID) printf("kkkk %d %f %f\n",ivar, grad[IX],grad[IY]);
+      SlopeX(i,fm[ivar]) = grad[IX];
+      SlopeY(i,fm[ivar]) = grad[IY];
+
+      //if (ivar==ID) printf("kkkk %d %f | %f %f\n",ivar, Udata(i, fm[ivar]), grad[IX],grad[IY]);
 
     } // end for ivar
     

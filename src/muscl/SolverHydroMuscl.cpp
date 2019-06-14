@@ -636,6 +636,13 @@ void SolverHydroMuscl::reconstruct_gradients(DataArray Udata)
   fieldMgr.setup(params, configMap);
   auto fm = fieldMgr.get_id2index();
 
+  // resize slopes views to the same size as input Udata
+  Kokkos::resize(Slopes_x, Udata.extent(0), Udata.extent(1));
+  Kokkos::resize(Slopes_y, Udata.extent(0), Udata.extent(1));
+  if (params.dimType == THREE_D)
+    Kokkos::resize(Slopes_z, Udata.extent(0), Udata.extent(1));
+  
+
   // call device functor
   ReconstructGradientsHydroFunctor::apply(amr_mesh, params, fm, Udata, Q, Slopes_x, Slopes_y, Slopes_z);
   
@@ -671,7 +678,7 @@ void SolverHydroMuscl::save_solution_impl()
   strsuf.width(7);
   strsuf.fill('0');
   strsuf << m_iteration;
-  
+
   writeVTK(*amr_mesh, strsuf.str(), U, fm, names2index, configMap);
   
   m_timers[TIMER_IO]->stop();
@@ -710,11 +717,13 @@ void SolverHydroMuscl::map_userdata_after_adapt()
   std::vector<uint32_t> mapper;
   std::vector<bool> isghost;
   
+  // 
+  int nbVars = params.nbvar;
+
   amr_mesh->adapt(true);
   uint32_t nocts = amr_mesh->getNumOctants();
-  Kokkos::resize(U_new,nocts);
+  Kokkos::resize(U_new, nocts, nbVars);
 
-  int nbVars = U.dimension(0);
   
   /*
    * Assign to the new octant the average of the old children
