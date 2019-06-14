@@ -15,6 +15,7 @@
 #include "muscl/init/HydroInitFunctors.h"
 #include "muscl/ComputeDtHydroFunctor.h"
 #include "muscl/ConvertToPrimitivesHydroFunctor.h"
+#include "muscl/ReconstructGradientsHydroFunctor.h"
 
 #if BITPIT_ENABLE_MPI==1
 #include "muscl/UserDataComm.h"
@@ -636,7 +637,7 @@ void SolverHydroMuscl::reconstruct_gradients(DataArray Udata)
   auto fm = fieldMgr.get_id2index();
 
   // call device functor
-  //ReconstructGradientsHydroFunctor::apply(amr_mesh, params, fm, Udata, Q, Slopes_x, Slopes_y, Slopes_z);
+  ReconstructGradientsHydroFunctor::apply(amr_mesh, params, fm, Udata, Q, Slopes_x, Slopes_y, Slopes_z);
   
 } // SolverHydroMuscl::reconstruct_gradients
 
