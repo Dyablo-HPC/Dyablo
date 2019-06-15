@@ -159,7 +159,7 @@ public:
 
     // blast problem parameters
     const real_t radius            = bParams.blast_radius;
-    const real_t radius2           = radius*radius;
+    //const real_t radius2           = radius*radius;
     const real_t blast_center_x    = bParams.blast_center_x;
     const real_t blast_center_y    = bParams.blast_center_y;
     const real_t blast_center_z    = bParams.blast_center_z;
