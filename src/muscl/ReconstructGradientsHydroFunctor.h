@@ -124,9 +124,6 @@ public:
 
     const int nbvar = params.nbvar;
 
-    //HydroState2d qLoc; // primitive    variables in current  cell
-    //HydroState2d qNei; // primitive    variables in neighbor cell
-
     // temp variables for gradient
     Kokkos::Array<real_t,dim> grad;
 
@@ -143,9 +140,8 @@ public:
     std::vector<bool> isghost; // through a given face
     std::vector<bool> isghost_all; // all neighbors
 
-
     // only sweep neighbors through faces
-    for (uint8_t iface=0; iface<nfaces; iface++) {
+    for (uint8_t iface=0; iface<nfaces; ++iface) {
       pmesh->findNeighbours(i,iface,codim,neigh,isghost);
       
       // insert data into all neighbor lists
@@ -172,33 +168,56 @@ public:
       
       // init gradx, grady
       for (uint16_t j = 0; j < neigh.size(); j++) {
-        
+
+        // neighbor index
+        uint32_t i_n = neigh_all[j];
+
         // neighbor cell center coordinates
-        bitpit::darray3 xyz_n = pmesh->getCenter(neigh_all[j]);
+        bitpit::darray3 xyz_n = pmesh->getCenter(i_n);
 
         // distance between current and neighbor cell
-        real_t delta_x;
+        real_t delta_x, delta_y;
 
-        // check if we found a neigh along x
+        /*
+         * check if we found a neigh along x
+         */
+
+        // start by evaluating delta x
         delta_x = fabs(xyz_n[IX] - xyz_c[IX]);
+        
+        // correct delta_x if needed (when i and i_n are actually
+        // accross external border with periodic boundaries)
+        if (delta_x>2*dx)
+          delta_x = (pmesh->getSize(i)+pmesh->getSize(i_n))/2;
+
         if (grad_ok[IX]==false and 
             ( delta_x > 0.5 * dx) ) {
           grad_ok[IX] = true;
           grad[IX] = xyz_n[IX] - xyz_c[IX] > 0.5 * dx ? 
-            Udata(j,fm[ivar]) - Udata(i,fm[ivar]) :
-            Udata(i,fm[ivar]) - Udata(j,fm[ivar]) ;
+            Udata(i_n,fm[ivar]) - Udata(i  ,fm[ivar]) :
+            Udata(i  ,fm[ivar]) - Udata(i_n,fm[ivar]) ;
           grad[IX] /= delta_x;
         }
 
-        // check if we found a neigh along y
-        delta_x = fabs(xyz_n[IY] - xyz_c[IY]);
+        /*
+         * check if we found a neigh along y
+         */
+
+        // start by evaluating delta x
+        delta_y = fabs(xyz_n[IY] - xyz_c[IY]);
+
+        // correct delta_y if needed (when i and i_n are actually
+        // accross external border with periodic boundaries)
+        if (delta_y>2*dx) 
+          delta_y = (pmesh->getSize(i)+pmesh->getSize(i_n))/2;
+        
         if (grad_ok[IY]==false and 
-            (delta_x > 0.5 * dx) ) {
+            (delta_y > 0.5 * dx) ) {
           grad_ok[IY] = true;
           grad[IY] = xyz_n[IY] - xyz_c[IY] > 0.5 * dx ? 
-            Udata(j,fm[ivar]) - Udata(i,fm[ivar]) :
-            Udata(i,fm[ivar]) - Udata(j,fm[ivar]) ;
-          grad[IY] /= delta_x;
+            Udata(i_n,fm[ivar]) - Udata(i  ,fm[ivar]) :
+            Udata(i  ,fm[ivar]) - Udata(i_n,fm[ivar]) ;
+          grad[IY] /= delta_y;
         }
 
         if (grad_ok[IX] and grad_ok[IY])
@@ -206,25 +225,28 @@ public:
 
       } // end initialize gradx, grady
 
-      //if (ivar==IU) printf("kkk2 %d %f || %f %f || %f %f\n",ivar, Udata(i, fm[ivar]), grad[IX],grad[IY],xyz_c[IX],xyz_c[IY]);
+      //if (ivar==ID) printf("kkk2 %d %f || %f %f || %f %f\n",ivar, Udata(i, fm[ivar]), grad[IX],grad[IY],xyz_c[IX],xyz_c[IY]);
 
       // sweep neighbors to compute minmod limited gradient
       for (uint16_t j = 0; j < neigh.size(); j++) {
 
-        // neighbor cell center coordinates
-        bitpit::darray3 xyz_n = pmesh->getCenter(neigh_all[j]);
+        // neighbor index
+        uint32_t i_n = neigh_all[j];
 
-        grad[IX] = update_minmod(grad[IX], i, j,
+        // neighbor cell center coordinates
+        bitpit::darray3 xyz_n = pmesh->getCenter(i_n);
+
+        grad[IX] = update_minmod(grad[IX], i, i_n,
                                  dx, xyz_c[IX], xyz_n[IX],
                                  ivar, IX);
 
-        grad[IY] = update_minmod(grad[IY], i, j,
+        grad[IY] = update_minmod(grad[IY], i, i_n,
                                  dx, xyz_c[IY], xyz_n[IY],
                                  ivar, IY);
 
-
       } // end minmod
 
+      //if (ivar==ID) printf("kkk2 %d %f || %f %f || %f %f\n",ivar, Udata(i, fm[ivar]), grad[IX],grad[IY],xyz_c[IX],xyz_c[IY]);
       // copy back limited gradient
       SlopeX(i,fm[ivar]) = grad[IX];
       SlopeY(i,fm[ivar]) = grad[IY];

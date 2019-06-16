@@ -743,6 +743,8 @@ void SolverHydroMuscl::save_solution_impl()
   strsuf << m_iteration;
   
   writeVTK(*amr_mesh, strsuf.str(), U, fm, names2index, configMap);
+  //writeVTK(*amr_mesh, strsuf.str()+"_slope_x", Slopes_x, fm, names2index, configMap);
+  //writeVTK(*amr_mesh, strsuf.str()+"_slope_y", Slopes_y, fm, names2index, configMap);
   
   m_timers[TIMER_IO]->stop();
     
