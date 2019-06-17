@@ -405,7 +405,7 @@ public:
       qc[ivar] = Qdata(i,fm[ivar]);
 
     // current cell conservative variable state
-    HydroState qcons;
+    HydroState2d qcons;
     for (uint8_t ivar=0; ivar<nbvar; ++ivar)
       qcons[ivar] = Data_in(i,fm[ivar]);
 
