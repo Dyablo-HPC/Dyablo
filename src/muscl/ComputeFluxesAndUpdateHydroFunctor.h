@@ -55,9 +55,9 @@ public:
                                      DataArray Data_in,
                                      DataArray Data_out,
                                      DataArray Qdata,
-                                     DataArray SlopeX,
-                                     DataArray SlopeY,
-                                     DataArray SlopeZ,
+                                     DataArray Slopes_x,
+                                     DataArray Slopes_y,
+                                     DataArray Slopes_z,
                                      real_t    dt) :
     HydroBaseFunctor(params),
     pmesh(pmesh),
@@ -65,9 +65,9 @@ public:
     Data_in(Data_in),
     Data_out(Data_out),
     Qdata(Qdata),
-    SlopeX(SlopeX),
-    SlopeY(SlopeY),
-    SlopeZ(SlopeZ),
+    Slopes_x(Slopes_x),
+    Slopes_y(Slopes_y),
+    Slopes_z(Slopes_z),
     dt(dt)
   {};
   
@@ -288,17 +288,91 @@ public:
    *
    * \note offsets are given in units dx/2.
    *
+   * \note How different is this with CanoP ? In CanoP reconstructed state are systematically taken
+   *       at face center (from the point of view of the reconstructing cell) which may not correspond
+   *       to the same location when current and neighbor cells have not the same size.
+   *       Here we always reconstruct at the same location from side of an interface.
+   *
    * \param[in] q primitive variables at cell center
+   * \param[in] i cell id (needed to read slopes)
    * \param[in] offsets
    * \param[in] dx2 cell size divided by 2 (dx/2)
+   * \param[in] dt
    *
    * \return qr reconstructed state (primitive variables)
    */
   KOKKOS_INLINE_FUNCTION
-  HydroState2d reconstruct_state_2d(HydroState2d q, offsets_t offsets, real_t dx2) const
+  HydroState2d reconstruct_state_2d(HydroState2d q, 
+                                    uint32_t i,
+                                    offsets_t offsets,
+                                    real_t dx2, real_t dt) const
   {
     HydroState2d qr;
     
+    const double gamma  = params.settings.gamma0;
+    const double smallr = params.settings.smallr;
+    
+    //double xyz_center[3];
+    
+    real_t r,p,u,v,w;
+    real_t sr0, sp0, su0, sv0, sw0;
+    real_t drx, dpx, dux, dvx, dwx;
+    real_t dry, dpy, duy, dvy, dwy;
+    real_t drz, dpz, duz, dvz, dwz;
+    
+    const real_t dtdx = dt/(2*dx2);
+    const real_t dtdy = dtdx;
+    const real_t dtdz = params.dimType==THREE_D ? dtdx : 0.0;
+
+    const real_t dy2 = dx2;
+
+    // retrieve primitive variables in current quadrant
+    r = q[ID];
+    p = q[IP];
+    u = q[IU];
+    v = q[IV];
+    w = 0.0;
+
+    // retrieve variations = dx * slopes 
+    drx = dx2*Slopes_x(i,fm[ID]);
+    dpx = dx2*Slopes_x(i,fm[IP]);
+    dux = dx2*Slopes_x(i,fm[IU]);
+    dvx = dx2*Slopes_x(i,fm[IV]);
+    dwx = 0.0;
+    
+    dry = dy2*Slopes_y(i,fm[ID]);
+    dpy = dy2*Slopes_y(i,fm[IP]);
+    duy = dy2*Slopes_y(i,fm[IU]);
+    dvy = dy2*Slopes_y(i,fm[IV]);
+    dwy = 0.0;
+    
+    drz = 0.0;
+    dpz = 0.0;
+    duz = 0.0;
+    dvz = 0.0;
+    dwz = 0.0;
+
+    // source terms (with transverse derivatives)
+    sr0 = (-u*drx-dux*r      )*dtdx + (-v*dry-dvy*r      )*dtdy + (-w*drz-dwz*r      )*dtdz;
+    su0 = (-u*dux-dpx/r      )*dtdx + (-v*duy            )*dtdy + (-w*duz            )*dtdz;
+    sv0 = (-u*dvx            )*dtdx + (-v*dvy-dpy/r      )*dtdy + (-w*dvz            )*dtdz;
+    sw0 = (-u*dwx            )*dtdx + (-v*dwy            )*dtdy + (-w*dwz-dpz/r      )*dtdz;
+    sp0 = (-u*dpx-dux*gamma*p)*dtdx + (-v*dpy-dvy*gamma*p)*dtdy + (-w*dpz-dwz*gamma*p)*dtdz;
+
+    // Update in time the  primitive variables
+    r = r + sr0;
+    u = u + su0;
+    v = v + sv0;
+    w = w + sw0;
+    p = p + sp0;
+    
+    /* Right state at left interface */
+    qr[ID] = r + offsets[IX] * drx + offsets[IY] * dry;
+    qr[IP] = p + offsets[IX] * dpx + offsets[IY] * dpy;
+    qr[IU] = u + offsets[IX] * dux + offsets[IY] * duy ;
+    qr[IV] = v + offsets[IX] * dvx + offsets[IY] * dvy ;
+    qr[ID] = fmax(smallr, qr[ID]);
+
     return qr;
     
   } // reconstruct_state_2d
@@ -329,7 +403,12 @@ public:
     HydroState2d qc;
     for (uint8_t ivar=0; ivar<nbvar; ++ivar)
       qc[ivar] = Qdata(i,fm[ivar]);
-    
+
+    // current cell conservative variable state
+    HydroState qcons;
+    for (uint8_t ivar=0; ivar<nbvar; ++ivar)
+      qcons[ivar] = Data_in(i,fm[ivar]);
+
     // iterate neighbors through a given face
     for (uint8_t iface = 0; iface < nfaces; ++iface) {
       
@@ -341,19 +420,21 @@ public:
 
         uint32_t i_n = neigh[j];
 
-        // 1. reconstruct on current cell side, two cases
-        // - if neighbor is larger or same size, we reconstruct on face center
-        // - if neighbor is smaller, we reconstruct at center of the sub-face
+        // 1. reconstruct primitive variables on both sides of current interface (iface)
 
         // current cell reconstruction  (primitive variables)
-
-        real_t dx_over_2 = pmesh->getSize(i);
-
-        offsets_t offsets = get_reconstruct_offsets_current_2d(i, i_n, iface);
-        HydroState2d qr_c = reconstruct_state_2d(qc, offsets, dx_over_2);
+        const real_t dx_over_2 = pmesh->getSize(i);
+        const offsets_t offsets = get_reconstruct_offsets_current_2d(i, i_n, iface);
+        const HydroState2d qr_c = reconstruct_state_2d(qc, i, offsets, dx_over_2, dt);
 
         // neighbor cell reconstruction (primitive variables)
-        HydroState2d qr_n;
+        const real_t dx_over_2_n = pmesh->getSize(i_n);
+        const offsets_t offsets_n = get_reconstruct_offsets_neighbor_2d(i, i_n, iface);
+        const HydroState2d qr_n = reconstruct_state_2d(qc, i_n, offsets_n, dx_over_2_n, dt);;
+
+        // 2. we now have "qleft / qright" state ready to solver Riemann problem
+
+        // 3. update current cell (write qcons into Data_out)
 
       } // end for j (neighbors accross a given face)
 
@@ -384,7 +465,7 @@ public:
   id2index_t   fm;
   DataArray    Data_in, Data_out;
   DataArray    Qdata;
-  DataArray    SlopeX, SlopeY, SlopeZ;
+  DataArray    Slopes_x, Slopes_y, Slopes_z;
   real_t       dt;
   
 }; // ComputeFluxesAndUpdateHydroFunctor
