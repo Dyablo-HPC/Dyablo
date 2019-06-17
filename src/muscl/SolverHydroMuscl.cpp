@@ -650,6 +650,15 @@ void SolverHydroMuscl::godunov_unsplit_impl(DataArray data_in,
   // sort of slopes computation adapted to unstructured local mesh
   reconstruct_gradients(data_in);
   
+  // communicate borders again, so that slopes in direct neighbors are ok
+  // don't care for now about external border - deal with it later
+  m_timers[TIMER_BOUNDARIES]->start();
+  make_boundaries(Slopes_x);
+  make_boundaries(Slopes_y);
+  if (params.dimType==THREE_D)
+    make_boundaries(Slopes_z);
+  m_timers[TIMER_BOUNDARIES]->stop();
+
   // compute fluxes (if gravity_enabled is false,
   // the last parameter is not used)
   // ComputeAndStoreFluxesFunctor::apply(params, Q,
