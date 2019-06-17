@@ -124,7 +124,9 @@ public:
   void convertToPrimitives(DataArray Udata);
 
   void reconstruct_gradients(DataArray Udata);
-  
+
+  void compute_fluxes_and_update(DataArray data_in, DataArray data_out, real_t dt);
+
   //void computeTrace(DataArray Udata, real_t dt);
   
   // output

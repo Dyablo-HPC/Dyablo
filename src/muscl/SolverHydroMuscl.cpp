@@ -16,6 +16,7 @@
 #include "muscl/ComputeDtHydroFunctor.h"
 #include "muscl/ConvertToPrimitivesHydroFunctor.h"
 #include "muscl/ReconstructGradientsHydroFunctor.h"
+#include "muscl/ComputeFluxesAndUpdateHydroFunctor.h"
 
 #if BITPIT_ENABLE_MPI==1
 #include "muscl/UserDataComm.h"
@@ -33,7 +34,7 @@ namespace euler_pablo { namespace muscl {
 // =======================================================
 // =======================================================
 /**
- *
+ * \brief SolverHydroMuscl's constructor
  */
 SolverHydroMuscl::SolverHydroMuscl(HydroParams& params,
 				   ConfigMap& configMap) :
@@ -670,7 +671,9 @@ void SolverHydroMuscl::godunov_unsplit_impl(DataArray data_in,
   // actual update
   // UpdateFunctor::apply(params, data_out,
   // 			 Fluxes_x, Fluxes_y);
-  
+
+  compute_fluxes_and_update(data_in, data_out, dt);
+
   m_timers[TIMER_NUM_SCHEME]->stop();
   
 } // SolverHydroMuscl::godunov_unsplit_impl
@@ -719,6 +722,27 @@ void SolverHydroMuscl::reconstruct_gradients(DataArray Udata)
   ReconstructGradientsHydroFunctor::apply(amr_mesh, params, fm, Udata, Q, Slopes_x, Slopes_y, Slopes_z);
   
 } // SolverHydroMuscl::reconstruct_gradients
+
+// =======================================================
+// =======================================================
+void SolverHydroMuscl::compute_fluxes_and_update(DataArray data_in,
+                                                 DataArray data_out,
+                                                 real_t dt)
+{
+
+  // retrieve available / allowed names: fieldManager, and field map (fm)
+  // necessary to access user data
+  FieldManager fieldMgr;
+  fieldMgr.setup(params, configMap);
+  auto fm = fieldMgr.get_id2index();
+
+  // call device functor
+  ComputeFluxesAndUpdateHydroFunctor::apply(amr_mesh, params, fm, 
+                                            data_in, data_out, 
+                                            Q, Slopes_x, Slopes_y, Slopes_z,
+                                            dt);
+  
+} // SolverHydroMuscl::compute_fluxes_and_update
 
 // =======================================================
 // =======================================================
