@@ -41,3 +41,4 @@ add_backward(${EXE_NAME})
 
 
 configure_file(test_four_quadrant_2D.ini test_four_quadrant_2D.ini COPYONLY)
+configure_file(test_blast_2D.ini test_blast_2D.ini COPYONLY)
