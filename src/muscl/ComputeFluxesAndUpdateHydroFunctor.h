@@ -11,6 +11,7 @@
 
 #include "bitpit_PABLO.hpp"
 #include "shared/bitpit_common.h"
+#include "shared/RiemannSolvers.h"
 
 // base class
 #include "muscl/HydroBaseFunctor.h"
@@ -91,6 +92,16 @@ public:
     Kokkos::parallel_for(pmesh->getNumOctants(), functor);
   }
 
+  // =======================================================================
+  // =======================================================================
+  /**
+   * a dummy swap device routine.
+   */
+  KOKKOS_INLINE_FUNCTION
+  void swap ( real_t& a, real_t& b ) const {
+    real_t c=a; a=b; b=c;
+  } // swap
+  
   // =======================================================================
   // =======================================================================
   template<uint8_t dir>
@@ -425,20 +436,63 @@ public:
         // current cell reconstruction  (primitive variables)
         const real_t dx_over_2 = pmesh->getSize(i);
         const offsets_t offsets = get_reconstruct_offsets_current_2d(i, i_n, iface);
-        const HydroState2d qr_c = reconstruct_state_2d(qc, i, offsets, dx_over_2, dt);
+        HydroState2d qr_c = reconstruct_state_2d(qc, i, offsets, dx_over_2, dt);
 
         // neighbor cell reconstruction (primitive variables)
         const real_t dx_over_2_n = pmesh->getSize(i_n);
         const offsets_t offsets_n = get_reconstruct_offsets_neighbor_2d(i, i_n, iface);
-        const HydroState2d qr_n = reconstruct_state_2d(qc, i_n, offsets_n, dx_over_2_n, dt);;
+        HydroState2d qr_n = reconstruct_state_2d(qc, i_n, offsets_n, dx_over_2_n, dt);;
 
         // 2. we now have "qleft / qright" state ready to solver Riemann problem
+        HydroState2d flux;
 
-        // 3. update current cell (write qcons into Data_out)
+        // riemann solver along Y direction requires to swap velocity
+        // components
+        if (iface>>1 == 1) {
+          swap(qr_c[IU], qr_c[IV]);
+          swap(qr_n[IU], qr_n[IV]);
+        }
+          
+
+        if (iface==0 or iface==2) {
+
+          riemann_hydro(qr_n,qr_c,flux,params);
+
+        } else if (iface==1 or iface==3) {
+        
+          riemann_hydro(qr_c,qr_n,flux,params);
+
+        }
+
+        // swap back velocity components in flux when dealing with 
+        // a face along IY direction
+        if (iface>>1 == 1) {
+          swap(flux[IU], flux[IV]);
+        }
+
+        // 3. accumulate flux into qcons
+        if (iface == 0 or iface == 2) {
+          qcons[ID] += flux[ID];
+          qcons[IE] += flux[IE];
+          qcons[IU] += flux[IU];
+          qcons[IV] += flux[IV];
+        }
+        if (iface == 1 or iface == 3) {
+          qcons[ID] -= flux[ID];
+          qcons[IE] -= flux[IE];
+          qcons[IU] -= flux[IU];
+          qcons[IV] -= flux[IV];
+        }
 
       } // end for j (neighbors accross a given face)
 
     } // end for iface
+
+    // Now we can update current cell (write qcons into Data_out)
+    Data_out(i,fm[ID]) = qcons[ID];
+    Data_out(i,fm[IE]) = qcons[IE];
+    Data_out(i,fm[IU]) = qcons[IU];
+    Data_out(i,fm[IV]) = qcons[IV];
 
   } // operator_2d
 

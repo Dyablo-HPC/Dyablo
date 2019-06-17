@@ -63,10 +63,11 @@ template<class HydroState>
 KOKKOS_INLINE_FUNCTION
 void riemann_approx(const HydroState& qleft,
 		    const HydroState& qright,
-		    HydroState& qgdnv, 
 		    HydroState& flux,
 		    const HydroParams& params)
 {
+  HydroState qgdnv;
+
   real_t gamma0  = params.settings.gamma0;
   real_t gamma6  = params.settings.gamma6;
   real_t smallr  = params.settings.smallr;
@@ -214,14 +215,12 @@ void riemann_approx(const HydroState& qleft,
  *
  * @param[in] qleft  : input left  state (primitive variables)
  * @param[in] qright : input right state (primitive variables)
- * @param[out] qgdnv : output Godunov state
  * @param[out] flux  : output flux
  */
 template<class HydroState>
 KOKKOS_INLINE_FUNCTION
 void riemann_llf(const HydroState& qleft,
 		 const HydroState& qright,
-		 HydroState& qgdnv,
 		 HydroState& flux,
 		 const HydroParams& params)
 {
@@ -252,7 +251,7 @@ void riemann_llf(const HydroState& qleft,
   real_t cmax = FMAX(FABS(ul)+cl,FABS(ur)+cr);
   
   // Compute average velocity
-  qgdnv[IU] = HALF_F*(qleft[IU]+qright[IU]);
+  //qgdnv[IU] = HALF_F*(qleft[IU]+qright[IU]);
 
   //================================
   // Compute conservative variables
@@ -335,14 +334,12 @@ void riemann_llf(const HydroState& qleft,
  *
  * @param[in] qleft  : input left  state (primitive variables)
  * @param[in] qright : input right state (primitive variables)
- * @param[out] qgdnv : output Godunov state
  * @param[out] flux  : output flux
  */
 template<class HydroState>
 KOKKOS_INLINE_FUNCTION
 void riemann_hll(const HydroState& qleft,
 		 const HydroState& qright,
-		 HydroState& qgdnv,
 		 HydroState& flux,
 		 const HydroParams& params)
 {
@@ -374,7 +371,7 @@ void riemann_hll(const HydroState& qleft,
   real_t SR = FMAX(FMAX(ul,ur)+FMAX(cl,cr),(real_t) ZERO_F);
   
   // Compute average velocity
-  qgdnv[IU] = HALF_F*(qleft[IU]+qright[IU]);
+  //qgdnv[IU] = HALF_F*(qleft[IU]+qright[IU]);
   
   // Compute conservative variables
   HydroState uleft, uright;
@@ -433,18 +430,16 @@ void riemann_hll(const HydroState& qleft,
  *
  * @param[in] qleft  : input left  state (primitive variables)
  * @param[in] qright : input right state (primitive variables)
- * @param[out] qgdnv : output Godunov state
  * @param[out] flux  : output flux
  */
 template<class HydroState>
 KOKKOS_INLINE_FUNCTION
 void riemann_hllc(const HydroState& qleft,
 		  const HydroState& qright,
-		  HydroState& qgdnv,
 		  HydroState& flux,
 		  const HydroParams& params)
 {
-  UNUSED(qgdnv);
+  //UNUSED(qgdnv);
   
   real_t gamma0 = params.settings.gamma0;
   real_t smallr = params.settings.smallr;
@@ -553,26 +548,25 @@ void riemann_hllc(const HydroState& qleft,
 KOKKOS_INLINE_FUNCTION
 void riemann_hydro(const HydroState2d& qleft,
 		   const HydroState2d& qright,
-		   HydroState2d& qgdnv, 
 		   HydroState2d& flux,
 		   const HydroParams& params)
 {
 
   if        (params.riemannSolverType == RIEMANN_APPROX) {
     
-    riemann_approx<HydroState2d>(qleft,qright,qgdnv,flux,params);
+    riemann_approx<HydroState2d>(qleft,qright,flux,params);
     
   } else if (params.riemannSolverType == RIEMANN_HLL) {
     
-    riemann_hll<HydroState2d>  (qleft,qright,qgdnv,flux,params);
+    riemann_hll<HydroState2d>  (qleft,qright,flux,params);
 
   } else if (params.riemannSolverType == RIEMANN_HLLC) {
     
-    riemann_hllc<HydroState2d>  (qleft,qright,qgdnv,flux,params);
+    riemann_hllc<HydroState2d>  (qleft,qright,flux,params);
 
   } else if (params.riemannSolverType == RIEMANN_LLF) {
     
-    riemann_llf<HydroState2d>  (qleft,qright,qgdnv,flux,params);
+    riemann_llf<HydroState2d>  (qleft,qright,flux,params);
 
   }
   
@@ -584,22 +578,21 @@ void riemann_hydro(const HydroState2d& qleft,
 KOKKOS_INLINE_FUNCTION
 void riemann_hydro(const HydroState3d& qleft,
 		   const HydroState3d& qright,
-		   HydroState3d& qgdnv, 
 		   HydroState3d& flux,
 		   const HydroParams& params)
 {
 
   if        (params.riemannSolverType == RIEMANN_APPROX) {
     
-    riemann_approx<HydroState3d>(qleft,qright,qgdnv,flux,params);
+    riemann_approx<HydroState3d>(qleft,qright,flux,params);
     
   } else if (params.riemannSolverType == RIEMANN_HLLC) {
     
-    riemann_hllc<HydroState3d>  (qleft,qright,qgdnv,flux,params);
+    riemann_hllc<HydroState3d>  (qleft,qright,flux,params);
 
   } else if (params.riemannSolverType == RIEMANN_LLF) {
     
-    riemann_llf<HydroState3d>  (qleft,qright,qgdnv,flux,params);
+    riemann_llf<HydroState3d>  (qleft,qright,flux,params);
 
   }
   
