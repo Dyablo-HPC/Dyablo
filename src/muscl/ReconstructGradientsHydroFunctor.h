@@ -112,7 +112,7 @@ public:
   } // update_minmod
 
   KOKKOS_INLINE_FUNCTION
-  void operator_2d(const size_t &i) const 
+  void operator_2d(const size_t i) const 
   {
     constexpr int dim = 2;
     // codim=1 ==> faces
@@ -162,73 +162,24 @@ public:
     for (uint8_t ivar = 0; ivar<nbvar; ++ivar) {
 
       // initialize gradient
-      Kokkos::Array<bool,dim> grad_ok;
-      grad_ok[IX] = false;
-      grad_ok[IY] = false;
-      
-      // init gradx, grady
-      for (uint16_t j = 0; j < neigh.size(); j++) {
+      // Kokkos::Array<bool,dim> grad_ok;
+      // grad_ok[IX] = false;
+      // grad_ok[IY] = false;
 
-        // neighbor index
-        uint32_t i_n = neigh_all[j];
-
-        // neighbor cell center coordinates
-        bitpit::darray3 xyz_n = pmesh->getCenter(i_n);
-
-        // distance between current and neighbor cell
-        real_t delta_x, delta_y;
-
-        /*
-         * check if we found a neigh along x
-         */
-
-        // start by evaluating delta x
-        delta_x = fabs(xyz_n[IX] - xyz_c[IX]);
-        
-        // correct delta_x if needed (when i and i_n are actually
-        // accross external border with periodic boundaries)
-        if (delta_x>2*dx)
-          delta_x = (pmesh->getSize(i)+pmesh->getSize(i_n))/2;
-
-        if (grad_ok[IX]==false and 
-            ( delta_x > 0.5 * dx) ) {
-          grad_ok[IX] = true;
-          grad[IX] = xyz_n[IX] - xyz_c[IX] > 0.5 * dx ? 
-            Udata(i_n,fm[ivar]) - Udata(i  ,fm[ivar]) :
-            Udata(i  ,fm[ivar]) - Udata(i_n,fm[ivar]) ;
-          grad[IX] /= delta_x;
-        }
-
-        /*
-         * check if we found a neigh along y
-         */
-
-        // start by evaluating delta x
-        delta_y = fabs(xyz_n[IY] - xyz_c[IY]);
-
-        // correct delta_y if needed (when i and i_n are actually
-        // accross external border with periodic boundaries)
-        if (delta_y>2*dx) 
-          delta_y = (pmesh->getSize(i)+pmesh->getSize(i_n))/2;
-        
-        if (grad_ok[IY]==false and 
-            (delta_y > 0.5 * dx) ) {
-          grad_ok[IY] = true;
-          grad[IY] = xyz_n[IY] - xyz_c[IY] > 0.5 * dx ? 
-            Udata(i_n,fm[ivar]) - Udata(i  ,fm[ivar]) :
-            Udata(i  ,fm[ivar]) - Udata(i_n,fm[ivar]) ;
-          grad[IY] /= delta_y;
-        }
-
-        if (grad_ok[IX] and grad_ok[IY])
-          break; // initialization done
-
-      } // end initialize gradx, grady
-
-      //if (ivar==ID) printf("kkk2 %d %f || %f %f || %f %f\n",ivar, Udata(i, fm[ivar]), grad[IX],grad[IY],xyz_c[IX],xyz_c[IY]);
+      // initialize gradient components with something very large, since
+      // we are doing a minmod slope limiter, as soon as a genuine 
+      // neighbor is found, gradient components will be updated to
+      // something reasonnable
+#ifdef __CUDA_ARCH__
+      grad[IX] = CUDART_INF;
+      grad[IY] = CUDART_INF;
+#else
+      grad[IX] = std::numeric_limits<real_t>::max();
+      grad[IY] = std::numeric_limits<real_t>::max();
+#endif // __CUDA_ARCH__
 
       // sweep neighbors to compute minmod limited gradient
-      for (uint16_t j = 0; j < neigh.size(); j++) {
+      for (uint16_t j = 0; j < neigh_all.size(); ++j) {
 
         // neighbor index
         uint32_t i_n = neigh_all[j];
@@ -246,23 +197,21 @@ public:
 
       } // end minmod
 
-      //if (ivar==ID) printf("kkk2 %d %f || %f %f || %f %f\n",ivar, Udata(i, fm[ivar]), grad[IX],grad[IY],xyz_c[IX],xyz_c[IY]);
       // copy back limited gradient
       SlopeX(i,fm[ivar]) = grad[IX];
       SlopeY(i,fm[ivar]) = grad[IY];
 
     } // end for ivar
-    
-    
+        
   } // operator_2d
 
   KOKKOS_INLINE_FUNCTION
-  void operator_3d(const size_t &i) const {
+  void operator_3d(const size_t i) const {
   
   } // operator_3d
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(const size_t& i) const
+  void operator()(const size_t i) const
   {
     
     if (this->params.dimType == TWO_D)
