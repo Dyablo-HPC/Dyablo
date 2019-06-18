@@ -108,7 +108,7 @@ public:
   KOKKOS_INLINE_FUNCTION
   bool face_along_axis(uint8_t iface) const
   {
-    return ( (iface>>(dir+1)) == 0 );
+    return ( iface>>1 == dir );
 
   } // face_along_axis
 
@@ -145,8 +145,10 @@ public:
 
     offsets_t offsets;
 
-    uint8_t ifaceX = iface>>IX;
-    uint8_t ifaceY = iface>>IY;
+    // iface2 :
+    // - 0 for left  interface
+    // - 1 for right interface
+    uint8_t iface2 = iface & 0x1;
 
     /*
      * - current cell and neighbor cell have the same size
@@ -157,7 +159,7 @@ public:
 
       // along x axis
       if (face_along_axis<IX>(iface)) {
-        offsets[IX] = 2.0 * ifaceX - 1;
+        offsets[IX] = 2.0 * iface2 - 1;
         offsets[IY] = 0.0;
         offsets[IZ] = 0.0;
       }
@@ -165,7 +167,7 @@ public:
       // along y axis
       if (face_along_axis<IY>(iface)) {
         offsets[IX] = 0.0;
-        offsets[IY] = 2.0 * ifaceY - 1;
+        offsets[IY] = 2.0 * iface2 - 1;
         offsets[IZ] = 0.0;
       }
 
@@ -181,7 +183,7 @@ public:
 
       // along x axis
       if (face_along_axis<IX>(iface)) {
-        offsets[IX] = 2.0*ifaceX-1;
+        offsets[IX] = 2.0*iface2-1;
         offsets[IY] = xyz_n[IY]>xyz_c[IY] ? -0.5 : 0.5;
         offsets[IZ] = 0.0;
       }
@@ -189,7 +191,7 @@ public:
       // along y axis
       if (face_along_axis<IY>(iface)) {
         offsets[IX] = xyz_n[IX]>xyz_c[IX] ? 0.5 : -0.5;
-        offsets[IY] = 2.0*ifaceY-1;
+        offsets[IY] = 2.0*iface2-1;
         offsets[IZ] = 0.0;
       }      
 
@@ -234,8 +236,10 @@ public:
 
     offsets_t offsets;
 
-    uint8_t ifaceX = iface>>IX;
-    uint8_t ifaceY = iface>>IY;
+    // iface2 :
+    // - 0 for left  interface
+    // - 1 for right interface
+    uint8_t iface2 = iface & 0x1;
 
     /*
      * - current cell and neighbor cell have the same size
@@ -246,7 +250,7 @@ public:
 
       // along x axis
       if (face_along_axis<IX>(iface)) {
-        offsets[IX] = 1.0 - 2.0 * ifaceX;
+        offsets[IX] = 1.0 - 2.0 * iface2;
         offsets[IY] = 0.0;
         offsets[IZ] = 0.0;
       }
@@ -254,7 +258,7 @@ public:
       // along y axis
       if (face_along_axis<IY>(iface)) {
         offsets[IX] = 0.0;
-        offsets[IY] = 1.0 - 2.0 * ifaceY;
+        offsets[IY] = 1.0 - 2.0 * iface2;
         offsets[IZ] = 0.0;
       }
 
@@ -270,7 +274,7 @@ public:
 
       // along x axis
       if (face_along_axis<IX>(iface)) {
-        offsets[IX] = 1.0-2.0*ifaceX;
+        offsets[IX] = 1.0-2.0*iface2;
         offsets[IY] = xyz_n[IY]>xyz_c[IY] ? -0.5 : 0.5;
         offsets[IZ] = 0.0;
       }
@@ -278,12 +282,12 @@ public:
       // along y axis
       if (face_along_axis<IY>(iface)) {
         offsets[IX] = xyz_n[IX]>xyz_c[IX] ? 0.5 : -0.5;
-        offsets[IY] = 1.0-2.0*ifaceY;
+        offsets[IY] = 1.0-2.0*iface2;
         offsets[IZ] = 0.0;
       }      
 
     } // end current cell is larger
-  
+ 
     return offsets;
 
   } // get_reconstruct_offsets_neighbor_2d
