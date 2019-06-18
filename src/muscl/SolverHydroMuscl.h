@@ -138,11 +138,14 @@ private:
    * the following routines are necessary for amr cycle.
    */
   
-  //! synchonize ghost data
+  //! synchonize ghost data / only necessary when MPI is activated
   void synchronize_ghost_data();
 
   //! mark cells for refinement
   void mark_cells();
+
+  //! adapt mesh and recompute connectivity
+  void adapt_mesh();
 
   //! map data from old U to new U after adapting mesh
   void map_userdata_after_adapt();

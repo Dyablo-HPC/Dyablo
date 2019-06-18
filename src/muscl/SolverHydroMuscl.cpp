@@ -232,6 +232,7 @@ void SolverHydroMuscl::init_blast(DataArray Udata)
 
   } // end for level
 
+  // re-compute mesh connectivity (morton index list, nodes coordinates, ...)
   amr_mesh->updateConnectivity();
   
   // retrieve available / allowed names: fieldManager, and field map (fm)
@@ -350,6 +351,7 @@ void SolverHydroMuscl::init_four_quadrant(DataArray Udata)
 
   } // end for level
 
+  // re-compute mesh connectivity (morton index list, nodes coordinates, ...)
   amr_mesh->updateConnectivity();
   
   // retrieve available / allowed names: fieldManager, and field map (fm)
@@ -513,19 +515,25 @@ void SolverHydroMuscl::do_amr_cycle()
    *
    * 1. User data comm to update ghost cell values
    * 2. mark cell for refinement / coarsening
-   * 3. adapt mesh + load balanced
+   * 3. adapt mesh
+   * 4. remap user data to the mesh
+   * 5. load balance mesh and user data
    */
 
-  // 1. User data communication / fill ghost data
+  // 1. User data communication / fill ghost data, ghost data
+  //    may be needed, e.g. if refine/coarsen condition is a gradient
   synchronize_ghost_data();
   
   // 2. mark cell for refinement / coarsening + adapt mesh
   mark_cells();
-  
-  // 3. map data to new data array
+
+  // 3. adapt mesh + re-compute connectivity
+  adapt_mesh();
+
+  // 4. map data to new data array
   map_userdata_after_adapt();
 
-  // 4. load balance
+  // 5. load balance
   load_balance_userdata();
   
 } // SolverHydroMuscl::do_amr_cycle
@@ -801,6 +809,18 @@ void SolverHydroMuscl::mark_cells()
 {
 
   // TODO
+  
+} // SolverHydroMuscl::mark_cells
+
+// =======================================================
+// =======================================================
+void SolverHydroMuscl::adapt_mesh()
+{
+
+  // 1. adapt mesh
+
+  // 2. re-compute connectivity
+  amr_mesh->updateConnectivity();
   
 } // SolverHydroMuscl::mark_cells
 
