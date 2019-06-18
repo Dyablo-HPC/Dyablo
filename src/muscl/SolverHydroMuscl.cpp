@@ -661,12 +661,12 @@ void SolverHydroMuscl::godunov_unsplit_impl(DataArray data_in,
   
   // communicate borders again, so that slopes in direct neighbors are ok
   // don't care for now about external border - deal with it later
-  m_timers[TIMER_BOUNDARIES]->start();
-  make_boundaries(Slopes_x);
-  make_boundaries(Slopes_y);
-  if (params.dimType==THREE_D)
-    make_boundaries(Slopes_z);
-  m_timers[TIMER_BOUNDARIES]->stop();
+  // m_timers[TIMER_BOUNDARIES]->start();
+  // make_boundaries(Slopes_x);
+  // make_boundaries(Slopes_y);
+  // if (params.dimType==THREE_D)
+  //   make_boundaries(Slopes_z);
+  // m_timers[TIMER_BOUNDARIES]->stop();
 
   // compute fluxes (if gravity_enabled is false,
   // the last parameter is not used)
@@ -723,11 +723,11 @@ void SolverHydroMuscl::reconstruct_gradients(DataArray Udata)
   Kokkos::resize(Slopes_x, Udata.extent(0), Udata.extent(1));
   Kokkos::resize(Slopes_y, Udata.extent(0), Udata.extent(1));
   if (params.dimType == THREE_D)
-    Kokkos::resize(Slopes_z, Udata.extent(0), Udata.extent(1));
-  
+    Kokkos::resize(Slopes_z, Udata.extent(0), Udata.extent(1));  
 
   // call device functor
-  ReconstructGradientsHydroFunctor::apply(amr_mesh, params, fm, Udata, Q, Slopes_x, Slopes_y, Slopes_z);
+  ReconstructGradientsHydroFunctor::apply(amr_mesh, params, fm, 
+                                          Udata, Q, Slopes_x, Slopes_y, Slopes_z);
   
 } // SolverHydroMuscl::reconstruct_gradients
 
@@ -784,8 +784,8 @@ void SolverHydroMuscl::save_solution_impl()
   strsuf << m_iteration;
   
   writeVTK(*amr_mesh, strsuf.str(), U, fm, names2index, configMap);
-  //writeVTK(*amr_mesh, strsuf.str()+"_slope_x", Slopes_x, fm, names2index, configMap);
-  //writeVTK(*amr_mesh, strsuf.str()+"_slope_y", Slopes_y, fm, names2index, configMap);
+  writeVTK(*amr_mesh, strsuf.str(), Slopes_x, fm, names2index, configMap, "_slope_x");
+  writeVTK(*amr_mesh, strsuf.str(), Slopes_y, fm, names2index, configMap, "_slope_y");
   
   m_timers[TIMER_IO]->stop();
     
