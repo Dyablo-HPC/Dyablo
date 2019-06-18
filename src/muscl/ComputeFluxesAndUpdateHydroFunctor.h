@@ -403,6 +403,12 @@ public:
 
     const int nbvar = params.nbvar;
 
+    // current cell size
+    real_t dx = pmesh->getSize(i);
+    
+    // current cell volume
+    real_t dV = dx*dx*dx;
+
     // this vector contains quad ids
     // corresponding to neighbors
     std::vector<uint32_t> neigh; // through a given face
@@ -471,17 +477,24 @@ public:
         }
 
         // 3. accumulate flux into qcons
+        
+        // current face area:
+        // if neighbor is smaller, flux is divided by the number of sub-faces
+        // else only one interface (neigh.size = 1)
+        real_t dS = dx*dx / neigh.size();
+        real_t scale = dt*dS/dV;
+
         if (iface == 0 or iface == 2) {
-          qcons[ID] += flux[ID];
-          qcons[IE] += flux[IE];
-          qcons[IU] += flux[IU];
-          qcons[IV] += flux[IV];
+          qcons[ID] += flux[ID]*scale;
+          qcons[IE] += flux[IE]*scale;
+          qcons[IU] += flux[IU]*scale;
+          qcons[IV] += flux[IV]*scale;
         }
         if (iface == 1 or iface == 3) {
-          qcons[ID] -= flux[ID];
-          qcons[IE] -= flux[IE];
-          qcons[IU] -= flux[IU];
-          qcons[IV] -= flux[IV];
+          qcons[ID] -= flux[ID]*scale;
+          qcons[IE] -= flux[IE]*scale;
+          qcons[IU] -= flux[IU]*scale;
+          qcons[IV] -= flux[IV]*scale;
         }
 
       } // end for j (neighbors accross a given face)
