@@ -29,10 +29,33 @@ SolverBase::SolverBase (HydroParams& params, ConfigMap& configMap) :
    */
   read_config();
 
+  // 2D or 3D ?
   m_dim = params.dimType == TWO_D ? 2 : 3;
 
+  // create PABLO mesh
   amr_mesh = std::make_shared<AMRmesh>(m_dim);
 
+  // here periodic means : 
+  // every cell will have at least one neighbor through every face
+  // periodicity for user data is treated elsewhere, here we only
+  // deal with periodicity at mesh level
+  if (params.boundary_type_xmin == BC_PERIODIC)
+    amr_mesh->setPeriodic(0);
+  if (params.boundary_type_xmax == BC_PERIODIC)
+    amr_mesh->setPeriodic(1);
+  if (params.boundary_type_ymin == BC_PERIODIC)
+    amr_mesh->setPeriodic(2);
+  if (params.boundary_type_ymax == BC_PERIODIC)
+    amr_mesh->setPeriodic(3);
+
+  if (m_dim == 3) {
+    if (params.boundary_type_zmin == BC_PERIODIC)
+      amr_mesh->setPeriodic(4);
+    if (params.boundary_type_zmax == BC_PERIODIC)
+      amr_mesh->setPeriodic(5);
+  }
+
+  // set the number of children upon refinement
   m_nbChildren = m_dim == 2 ? 4 : 8;
   
   /*
