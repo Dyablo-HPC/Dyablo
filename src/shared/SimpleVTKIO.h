@@ -47,7 +47,8 @@ void writeVTK(AMRmesh         &amr_mesh,
 	      DataArray        data,
 	      id2index_t       fm,
 	      str2int_t        names2index,
-	      const ConfigMap& configMap);
+	      const ConfigMap& configMap,
+              std::string      nameSuffix = "");
 
 /**
  * Write a  Kokkos::View<double*> (see also ParaTree::writeTest).

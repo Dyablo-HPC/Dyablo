@@ -48,7 +48,8 @@ void writeVTK(AMRmesh&         amr_mesh,
 	      DataArray        data,
 	      id2index_t       fm,
 	      str2int_t        names2index,
-	      const ConfigMap& configMap)
+	      const ConfigMap& configMap,
+              std::string      nameSuffix)
 {
 
   // copy data from device to host
@@ -66,7 +67,10 @@ void writeVTK(AMRmesh&         amr_mesh,
   }
 
   std::string outputPrefix = configMap.getString("output", "outputPrefix", "output");
-  
+
+  if (nameSuffix.size() > 0)
+    outputPrefix = outputPrefix + nameSuffix;
+
   std::stringstream name;
   name << outputPrefix
        << "-"  << std::setfill('0') << std::setw(4) << amr_mesh.getNproc()
