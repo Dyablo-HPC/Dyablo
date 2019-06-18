@@ -417,9 +417,9 @@ public:
     std::vector<bool> isghost; // through a given face
 
     // current cell center state (primitive variables)
-    HydroState2d qc;
+    HydroState2d qprim;
     for (uint8_t ivar=0; ivar<nbvar; ++ivar)
-      qc[ivar] = Qdata(i,fm[ivar]);
+      qprim[ivar] = Qdata(i,fm[ivar]);
 
     // current cell conservative variable state
     HydroState2d qcons;
@@ -437,17 +437,22 @@ public:
 
         uint32_t i_n = neigh[j];
 
+        // 0. retrieve primitive variables in neighbor cell
+        HydroState2d qprim_n;
+        for (uint8_t ivar=0; ivar<nbvar; ++ivar)
+          qprim_n[ivar] = Qdata(i_n,fm[ivar]);
+
         // 1. reconstruct primitive variables on both sides of current interface (iface)
 
         // current cell reconstruction  (primitive variables)
         const real_t dx_over_2 = pmesh->getSize(i);
         const offsets_t offsets = get_reconstruct_offsets_current_2d(i, i_n, iface);
-        HydroState2d qr_c = reconstruct_state_2d(qc, i, offsets, dx_over_2, dt);
+        HydroState2d qr_c = reconstruct_state_2d(qprim, i, offsets, dx_over_2, dt);
 
         // neighbor cell reconstruction (primitive variables)
         const real_t dx_over_2_n = pmesh->getSize(i_n);
         const offsets_t offsets_n = get_reconstruct_offsets_neighbor_2d(i, i_n, iface);
-        HydroState2d qr_n = reconstruct_state_2d(qc, i_n, offsets_n, dx_over_2_n, dt);;
+        HydroState2d qr_n = reconstruct_state_2d(qprim_n, i_n, offsets_n, dx_over_2_n, dt);
 
         // 2. we now have "qleft / qright" state ready to solver Riemann problem
         HydroState2d flux;
