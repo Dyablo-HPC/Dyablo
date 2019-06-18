@@ -73,7 +73,7 @@ struct EulerEquations<2>
     std::map<int, std::string> names;
     
     names[ID] = "rho";
-    names[IP] = "energy";
+    names[IP] = "e_tot";
     names[IU] = "rho_vx"; // momentum component X
     names[IV] = "rho_vy"; // momentum component Y
 
@@ -477,7 +477,7 @@ struct EulerEquations<3>
     std::map<int, std::string> names;
     
     names[ID] = "rho";
-    names[IE] = "energy";
+    names[IE] = "e_tot";
     names[IU] = "rho_vx"; // momentum component X
     names[IV] = "rho_vy"; // momentum component Y
     names[IW] = "rho_vz"; // momentum component Z
