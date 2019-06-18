@@ -184,7 +184,7 @@ public:
       // along x axis
       if (face_along_axis<IX>(iface)) {
         offsets[IX] = 2.0*iface2-1;
-        offsets[IY] = xyz_n[IY]>xyz_c[IY] ? -0.5 : 0.5;
+        offsets[IY] = xyz_n[IY]>xyz_c[IY] ? 0.5 : -0.5;
         offsets[IZ] = 0.0;
       }
       
@@ -281,7 +281,7 @@ public:
       
       // along y axis
       if (face_along_axis<IY>(iface)) {
-        offsets[IX] = xyz_n[IX]>xyz_c[IX] ? 0.5 : -0.5;
+        offsets[IX] = xyz_n[IX]>xyz_c[IX] ? -0.5 : 0.5;
         offsets[IY] = 1.0-2.0*iface2;
         offsets[IZ] = 0.0;
       }      
@@ -381,7 +381,7 @@ public:
     w = w + sw0;
     p = p + sp0;
     
-    /* Right state at left interface */
+    // reconstruct state on interface
     qr[ID] = r + offsets[IX] * drx + offsets[IY] * dry;
     qr[IP] = p + offsets[IX] * dpx + offsets[IY] * dpy;
     qr[IU] = u + offsets[IX] * dux + offsets[IY] * duy ;
@@ -463,7 +463,7 @@ public:
 
         // riemann solver along Y direction requires to swap velocity
         // components
-        if (iface>>1 == 1) {
+        if (face_along_axis<IY>(iface)) {
           swap(qr_c[IU], qr_c[IV]);
           swap(qr_n[IU], qr_n[IV]);
         }
@@ -481,7 +481,7 @@ public:
 
         // swap back velocity components in flux when dealing with 
         // a face along IY direction
-        if (iface>>1 == 1) {
+        if (face_along_axis<IY>(iface)) {
           swap(flux[IU], flux[IV]);
         }
 
