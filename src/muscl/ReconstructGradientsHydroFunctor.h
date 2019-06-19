@@ -1,3 +1,7 @@
+/**
+ * \file ReconstructGradientsHydroFunctor.h
+ * \author Pierre Kestener
+ */
 #ifndef RECONSTRUCT_GRADIENTS_HYDRO_FUNCTOR_H_
 #define RECONSTRUCT_GRADIENTS_HYDRO_FUNCTOR_H_
 
@@ -94,17 +98,27 @@ public:
     if (delta_x > 0.5 * dx) {
 
       // left or right neighbor ?
-      real_t new_grad = pos_n - pos_c > 0 ?
+      real_t new_grad = pos_n > pos_c ?
         Udata(cellId_n,fm[ivar]) - Udata(cellId_c,fm[ivar]) :
         Udata(cellId_c,fm[ivar]) - Udata(cellId_n,fm[ivar]) ;
       new_grad /= delta_x;
-      
-      // this is minmod: limited gradient might need to be update
-      if (current_grad * new_grad < 0)
+
+      /*
+       * this is minmod: limited gradient may need to be updated
+       */
+
+       // this first test ensure a correct initialization
+#ifdef __CUDA_ARCH__
+      if ( current_grad == CUDART_INF )
+        new_value = new_grad;
+#else
+      if ( current_grad == std::numeric_limits<real_t>::max() )
+        new_value = new_grad;
+#endif
+      else if (current_grad * new_grad < 0)
         new_value = 0.0;
       else if ( fabs(new_grad) < fabs(current_grad) )
         new_value = new_grad;
-
     }
 
     return new_value;
@@ -169,7 +183,8 @@ public:
       // initialize gradient components with something very large, since
       // we are doing a minmod slope limiter, as soon as a genuine 
       // neighbor is found, gradient components will be updated to
-      // something reasonnable
+      // something reasonable
+      // watch out the sign might be wrong
 #ifdef __CUDA_ARCH__
       grad[IX] = CUDART_INF;
       grad[IY] = CUDART_INF;
