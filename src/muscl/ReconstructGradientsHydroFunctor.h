@@ -217,7 +217,7 @@ public:
       SlopeY(i,fm[ivar]) = grad[IY];
 
     } // end for ivar
-        
+    
   } // operator_2d
 
   KOKKOS_INLINE_FUNCTION
@@ -238,7 +238,6 @@ public:
   } // operator ()
   
   std::shared_ptr<AMRmesh> pmesh;
-  HydroParams  params;
   id2index_t   fm;
   DataArray    Udata;
   DataArray    Qdata;

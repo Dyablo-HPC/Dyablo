@@ -183,7 +183,7 @@ public:
 
       // along x axis
       if (face_along_axis<IX>(iface)) {
-        offsets[IX] = 2.0*iface2-1;
+        offsets[IX] = 2.0 * iface2 - 1;
         offsets[IY] = xyz_n[IY]>xyz_c[IY] ? 0.5 : -0.5;
         offsets[IZ] = 0.0;
       }
@@ -191,7 +191,7 @@ public:
       // along y axis
       if (face_along_axis<IY>(iface)) {
         offsets[IX] = xyz_n[IX]>xyz_c[IX] ? 0.5 : -0.5;
-        offsets[IY] = 2.0*iface2-1;
+        offsets[IY] = 2.0 * iface2 - 1;
         offsets[IZ] = 0.0;
       }      
 
@@ -274,7 +274,7 @@ public:
 
       // along x axis
       if (face_along_axis<IX>(iface)) {
-        offsets[IX] = 1.0-2.0*iface2;
+        offsets[IX] = 1.0 -2.0 * iface2;
         offsets[IY] = xyz_n[IY]>xyz_c[IY] ? -0.5 : 0.5;
         offsets[IZ] = 0.0;
       }
@@ -282,7 +282,7 @@ public:
       // along y axis
       if (face_along_axis<IY>(iface)) {
         offsets[IX] = xyz_n[IX]>xyz_c[IX] ? -0.5 : 0.5;
-        offsets[IY] = 1.0-2.0*iface2;
+        offsets[IY] = 1.0 - 2.0 * iface2;
         offsets[IZ] = 0.0;
       }      
 
@@ -349,16 +349,16 @@ public:
     w = 0.0;
 
     // retrieve variations = dx * slopes 
-    drx = dx2*Slopes_x(i,fm[ID]);
-    dpx = dx2*Slopes_x(i,fm[IP]);
-    dux = dx2*Slopes_x(i,fm[IU]);
-    dvx = dx2*Slopes_x(i,fm[IV]);
+    drx = dx2 * Slopes_x(i,fm[ID]);
+    dpx = dx2 * Slopes_x(i,fm[IP]);
+    dux = dx2 * Slopes_x(i,fm[IU]);
+    dvx = dx2 * Slopes_x(i,fm[IV]);
     dwx = 0.0;
     
-    dry = dy2*Slopes_y(i,fm[ID]);
-    dpy = dy2*Slopes_y(i,fm[IP]);
-    duy = dy2*Slopes_y(i,fm[IU]);
-    dvy = dy2*Slopes_y(i,fm[IV]);
+    dry = dy2 * Slopes_y(i,fm[ID]);
+    dpy = dy2 * Slopes_y(i,fm[IP]);
+    duy = dy2 * Slopes_y(i,fm[IU]);
+    dvy = dy2 * Slopes_y(i,fm[IV]);
     dwy = 0.0;
     
     drz = 0.0;
@@ -467,14 +467,13 @@ public:
           swap(qr_c[IU], qr_c[IV]);
           swap(qr_n[IU], qr_n[IV]);
         }
-          
 
         if (iface==0 or iface==2) {
 
           riemann_hydro(qr_n,qr_c,flux,params);
 
         } else if (iface==1 or iface==3) {
-        
+
           riemann_hydro(qr_c,qr_n,flux,params);
 
         }
@@ -484,7 +483,7 @@ public:
         if (face_along_axis<IY>(iface)) {
           swap(flux[IU], flux[IV]);
         }
-
+        
         // 3. accumulate flux into qcons
         
         // current face area:
@@ -537,7 +536,6 @@ public:
   } // operator ()
   
   std::shared_ptr<AMRmesh> pmesh;
-  HydroParams  params;
   id2index_t   fm;
   DataArray    Data_in, Data_out;
   DataArray    Qdata;

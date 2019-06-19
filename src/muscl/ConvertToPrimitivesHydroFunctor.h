@@ -115,7 +115,6 @@ public:
   } // operator ()
   
   std::shared_ptr<AMRmesh> pmesh;
-  HydroParams  params;
   id2index_t   fm;
   DataArray    Udata;
   DataArray    Qdata;
