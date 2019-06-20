@@ -27,9 +27,9 @@ UserDataComm::~UserDataComm()
 // ==================================================================
 // ==================================================================
 size_t UserDataComm::fixedSize() const
-{  
-  
-  return sizeof(real_t)*nbVars;
+{
+
+  return 0;  
   
 }; // UserDataComm::fixedSize
 
@@ -39,7 +39,7 @@ size_t UserDataComm::size(const uint32_t e) const
 {
   
   BITPIT_UNUSED(e);
-  return 0;
+  return sizeof(real_t)*nbVars;
  
 }; // UserDataComm::size
 

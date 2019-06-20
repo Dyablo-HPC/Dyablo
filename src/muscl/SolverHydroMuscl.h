@@ -45,6 +45,11 @@ namespace euler_pablo { namespace muscl {
 class SolverHydroMuscl : public euler_pablo::SolverBase
 {
 
+private:
+  //! enum use in synchronize ghost data operation to
+  //! identify which variables need to be exchange by MPI
+  enum class UserDataCommType {UDATA, QDATA, SLOPE};
+
 public:
 
   SolverHydroMuscl(HydroParams& params, ConfigMap& configMap);
@@ -143,7 +148,7 @@ private:
    */
   
   //! synchonize ghost data / only necessary when MPI is activated
-  void synchronize_ghost_data();
+  void synchronize_ghost_data(UserDataCommType t);
 
   //! mark cells for refinement
   void mark_cells();

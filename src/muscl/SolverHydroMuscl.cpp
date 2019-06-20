@@ -522,7 +522,7 @@ void SolverHydroMuscl::do_amr_cycle()
 
   // 1. User data communication / fill ghost data, ghost data
   //    may be needed, e.g. if refine/coarsen condition is a gradient
-  synchronize_ghost_data();
+  synchronize_ghost_data(UserDataCommType::UDATA);
   
   // 2. mark cell for refinement / coarsening + adapt mesh
   mark_cells();
@@ -709,6 +709,9 @@ void SolverHydroMuscl::convertToPrimitives(DataArray Udata)
 void SolverHydroMuscl::reconstruct_gradients(DataArray Udata)
 {
 
+  // we need primitive variables in ghost cell to be up to date
+  synchronize_ghost_data(UserDataCommType::QDATA);
+
   // retrieve available / allowed names: fieldManager, and field map (fm)
   // necessary to access user data
   auto fm = fieldMgr.get_id2index();
@@ -783,15 +786,55 @@ void SolverHydroMuscl::save_solution_impl()
 
 // =======================================================
 // =======================================================
-void SolverHydroMuscl::synchronize_ghost_data()
+void SolverHydroMuscl::synchronize_ghost_data(UserDataCommType t)
 {
 
   // retrieve available / allowed names: fieldManager, and field map (fm)
   auto fm = fieldMgr.get_id2index();
 
+  // retrieve current number of ghost cells
+  uint32_t nghosts = amr_mesh->getNumGhosts();
+
 #if BITPIT_ENABLE_MPI==1
-  UserDataComm data_comm(U, Ughost, fm);
-  amr_mesh->communicate(data_comm);
+
+  // select which data to exchange
+
+  // 3 operations :
+  // 1. resize ghost array
+  // 2. create UserDataComm object
+  // 3. perform MPI communications
+  
+  switch(t) {
+  case UserDataCommType::UDATA: {
+    Kokkos::resize(Ughost, nghosts, U.extent(1));
+    UserDataComm data_comm(U, Ughost, fm);
+    amr_mesh->communicate(data_comm);
+    break;
+  }
+  case UserDataCommType::QDATA : {
+    Kokkos::resize(Qghost, nghosts, Q.extent(1));
+    UserDataComm data_comm(Q, Qghost, fm);
+    amr_mesh->communicate(data_comm);
+    break;
+  }
+  case UserDataCommType::SLOPE : {
+    // {
+    //   UserDataComm data_comm(Slopes_x, Slopes_x_ghost, fm);
+    //   amr_mesh->communicate(data_comm);
+    // }
+    // {
+    //   UserDataComm data_comm(Slopes_y, Slopes_y_ghost, fm);
+    //   amr_mesh->communicate(data_comm);
+    // }
+    // if (dimType==THREE_D) {
+    //   UserDataComm data_comm(Slopes_z, Slopes_z_ghost, fm);
+    //   amr_mesh->communicate(data_comm);
+    // }
+    
+  } // end case SLOPE
+
+  } // end switch
+  
 #endif
 
 } // SolverHydroMuscl::synchronize_ghost_data
