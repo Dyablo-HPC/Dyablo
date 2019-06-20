@@ -1,5 +1,14 @@
 /**
- *  \example mandelbrot.cpp
+ *  \example mandelbrot_kokkos.cpp
+ *  \author Pierre Kestener
+ *
+ * Compute Mandelbrot set in an iterative way, starting with a coarse
+ * uniform grid, then apply N times a refinement operator, and saving
+ * the results (VTU unstructured grid file format) for each intermediate
+ * step.
+ *
+ * Same as mandelbrot.cpp but computation kernel is done with Kokkos.
+ * For now, only Kokkos/OpenMP backend can be used.  
  */
 #include <memory> // for shared pointer
 
@@ -39,14 +48,19 @@ double scaleY(double y) {
   return ymin + deltaY * y;
 }
 
-/// refinement threashold
+/// refinement threshold
 static constexpr double epsilon = 0.05;
 
 // ========================================================================
 // ========================================================================
 /**
- * Compute number of iterations of \f$ z_{n+1} = z_n^2 + c \f$ starting with
- * \f$ z_0=c\f$ to reach 4 in modulus.
+ * Compute number of iterations of complex number sequence defined by
+ * \f$ z_{n+1} = z_n^2 + c \f$
+ * starting with \f$ z_0=c\f$ and stopping when \f$ |z^2| \f$ reaches 4 or
+ * after maximum iterations NMAX.
+ *
+ * \param[in] cx x coordinate of c
+ * \param[in] cy y coordinate of c
  */
 KOKKOS_INLINE_FUNCTION
 double
@@ -154,9 +168,14 @@ public:
 // ========================================================================
 // ========================================================================
 /**
- * Compute and save Mandelbrot set to file
+ * Compute and save Mandelbrot set to file.
+ *
+ * \param[in] amr_mesh reference to PabloUniform object
+ * \param[in] iter number used to suffix output file name
+ *
  */
-void compute_and_save_mandelbrot(std::shared_ptr<AMRmesh> pmesh, size_t iter)
+void compute_and_save_mandelbrot(std::shared_ptr<AMRmesh> pmesh, 
+                                 size_t iter)
 {
   uint32_t nocts = pmesh->getNumOctants();
 
@@ -213,7 +232,16 @@ void compute_and_save_mandelbrot(std::shared_ptr<AMRmesh> pmesh, size_t iter)
 // ========================================================================
 // ========================================================================
 /**
- * Run the example.
+ * Main driver for Mandelbrot set computation.
+ *
+ * Here are the computing steps:
+ * 0. create a uniformly refine coarse mesh (typically 32 by 32), 
+ *    then compute and save the coarse regular grid Mandelbrot set.
+ * 1. Repeat 5 times:
+ *    - flags cell for refinement when Mandelbrot set requires smaller
+ *      cell for better evaluation
+ *    - apply mesh refinement
+ *    - compute and save the new refined Mandelbrot set.
  */
 void run()
 {
