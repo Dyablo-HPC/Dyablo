@@ -1337,6 +1337,18 @@ ParaTree::initialize(const std::string &logfile, MPI_Comm comm) {
       return center;
     }
 
+    /*! PK : Get the coordinates of the center of a ghost octant.
+     * \param[in] idx Local index of target ghost octant.
+     * \return center Coordinates of the center of ghost octant.
+     */
+    darray3
+      ParaTree::getCenterGhost(uint32_t idx) const {
+      darray3 center;
+      darray3 center_ = m_octree.m_ghosts[idx].getCenter();
+      m_trans.mapCenter(center_, center);
+      return center;
+    }
+
     /*! Get the coordinates of the center of a face of an octant.
      * \param[in] idx Local index of target octant.
      * \param[in] iface Index of the target face.

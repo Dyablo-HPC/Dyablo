@@ -223,7 +223,9 @@ public:
         uint32_t i_n = neigh_all[j];
 
         // neighbor cell center coordinates
-        bitpit::darray3 xyz_n = pmesh->getCenter(i_n);
+        // if neighbor is a ghost cell, we need to modifiy xyz_c
+        bitpit::darray3 xyz_n = isghost_all[j] ?
+          xyz_n = pmesh->getCenterGhost(i_n) : pmesh->getCenter(i_n);
 
         grad[IX] = update_minmod(grad[IX], i, i_n, isghost_all[j],
                                  dx, xyz_c[IX], xyz_n[IX],
