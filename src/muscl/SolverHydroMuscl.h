@@ -81,6 +81,9 @@ public:
 
   /* Gravity field */
   DataArray gravity;
+
+  //! field manager for scalar variables mapping to memory index
+  FieldManager fieldMgr;
   
   /*
    * methods

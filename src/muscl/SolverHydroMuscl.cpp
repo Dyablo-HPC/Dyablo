@@ -39,9 +39,8 @@ namespace euler_pablo { namespace muscl {
 SolverHydroMuscl::SolverHydroMuscl(HydroParams& params,
 				   ConfigMap& configMap) :
   SolverBase(params, configMap),
-  U(), U2(), 
-  Q(), Qghost(),
-  Ughost(),
+  U(), Uhost(), U2(), Q(), 
+  Ughost(), Qghost(),
   Fluxes_x(), Fluxes_y(), Fluxes_z(),
   Slopes_x(), Slopes_y(), Slopes_z()
 {
@@ -113,7 +112,12 @@ SolverHydroMuscl::SolverHydroMuscl(HydroParams& params,
   //   gravity = DataArray("gravity field",nbCells,m_dim);
   //   total_mem_size += isize*jsize*2; // TODO
   // }      
- 
+
+  // init field manager
+  // retrieve available / allowed names: fieldManager, and field map (fm)
+  // necessary to access user data
+  fieldMgr.setup(params, configMap);
+
   // perform init condition
   init(U);
   
@@ -235,11 +239,8 @@ void SolverHydroMuscl::init_blast(DataArray Udata)
 
   // re-compute mesh connectivity (morton index list, nodes coordinates, ...)
   amr_mesh->updateConnectivity();
-  
-  // retrieve available / allowed names: fieldManager, and field map (fm)
-  // necessary to access user data
-  FieldManager fieldMgr;
-  fieldMgr.setup(params, configMap);
+
+  // field manager index array
   auto fm = fieldMgr.get_id2index();
 
   /*
@@ -357,8 +358,6 @@ void SolverHydroMuscl::init_four_quadrant(DataArray Udata)
   
   // retrieve available / allowed names: fieldManager, and field map (fm)
   // necessary to access user data
-  FieldManager fieldMgr;
-  fieldMgr.setup(params, configMap);
   auto fm = fieldMgr.get_id2index();
 
   /*
@@ -561,8 +560,6 @@ double SolverHydroMuscl::compute_dt_local()
 
   // retrieve available / allowed names: fieldManager, and field map (fm)
   // necessary to access user data
-  FieldManager fieldMgr;
-  fieldMgr.setup(params, configMap);
   auto fm = fieldMgr.get_id2index();
 
   // call device functor - compute invDt
@@ -697,8 +694,6 @@ void SolverHydroMuscl::convertToPrimitives(DataArray Udata)
 
   // retrieve available / allowed names: fieldManager, and field map (fm)
   // necessary to access user data
-  FieldManager fieldMgr;
-  fieldMgr.setup(params, configMap);
   auto fm = fieldMgr.get_id2index();
 
   // resize output Q view to the same size as input Udata
@@ -716,8 +711,6 @@ void SolverHydroMuscl::reconstruct_gradients(DataArray Udata)
 
   // retrieve available / allowed names: fieldManager, and field map (fm)
   // necessary to access user data
-  FieldManager fieldMgr;
-  fieldMgr.setup(params, configMap);
   auto fm = fieldMgr.get_id2index();
 
   // resize slopes views to the same size as input Udata
@@ -741,8 +734,6 @@ void SolverHydroMuscl::compute_fluxes_and_update(DataArray data_in,
 
   // retrieve available / allowed names: fieldManager, and field map (fm)
   // necessary to access user data
-  FieldManager fieldMgr;
-  fieldMgr.setup(params, configMap);
   auto fm = fieldMgr.get_id2index();
 
   // call device functor
@@ -765,8 +756,6 @@ void SolverHydroMuscl::save_solution_impl()
   //   save_data(U2, Uhost, m_times_saved, m_t);
 
   // retrieve available / allowed names: fieldManager, and field map (fm)
-  FieldManager fieldMgr;
-  fieldMgr.setup(params, configMap);
   auto fm = fieldMgr.get_id2index();
 
   // number of macroscopic variables,
@@ -797,8 +786,11 @@ void SolverHydroMuscl::save_solution_impl()
 void SolverHydroMuscl::synchronize_ghost_data()
 {
 
+  // retrieve available / allowed names: fieldManager, and field map (fm)
+  auto fm = fieldMgr.get_id2index();
+
 #if BITPIT_ENABLE_MPI==1
-  UserDataComm data_comm(U, Ughost);
+  UserDataComm data_comm(U, Ughost, fm);
   amr_mesh->communicate(data_comm);
 #endif
 
