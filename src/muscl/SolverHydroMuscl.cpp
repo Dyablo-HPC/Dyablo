@@ -727,7 +727,7 @@ void SolverHydroMuscl::reconstruct_gradients(DataArray Udata)
 
   // call device functor
   ReconstructGradientsHydroFunctor::apply(amr_mesh, params, fm, 
-                                          Udata, Q, Slopes_x, Slopes_y, Slopes_z);
+                                          Q, Slopes_x, Slopes_y, Slopes_z);
   
 } // SolverHydroMuscl::reconstruct_gradients
 

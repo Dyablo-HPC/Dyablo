@@ -32,20 +32,25 @@ public:
   /**
    * Reconstruct gradients
    *
+   * \param[in] pmesh AMRmesh Pablo data structure
    * \param[in] params
-   * \param[in] Udata conservative variables - needed ???
+   * \param[in] fm field map to access user data
    * \param[in] Qdata primitive variables
+   * \param[out] SlopeX limited slopes along x data array
+   * \param[out] SlopeY limited slopes along y data array
+   * \param[out] SlopeZ limited slopes along z data array
+   *
+   *
    */
   ReconstructGradientsHydroFunctor(std::shared_ptr<AMRmesh> pmesh,
 				   HydroParams params,
 				   id2index_t    fm,
-				   DataArray Udata,
 				   DataArray Qdata,
 				   DataArray SlopeX,
 				   DataArray SlopeY,
 				   DataArray SlopeZ) :
     HydroBaseFunctor(params),
-    pmesh(pmesh), fm(fm), Udata(Udata), Qdata(Qdata),
+    pmesh(pmesh), fm(fm), Qdata(Qdata),
     SlopeX(SlopeX), SlopeY(SlopeY), SlopeZ(SlopeZ)
   {};
   
@@ -53,13 +58,13 @@ public:
   static void apply(std::shared_ptr<AMRmesh> pmesh,
 		    HydroParams params,
 		    id2index_t  fm,
-		    DataArray Udata,
                     DataArray Qdata,
 		    DataArray SlopeX,
 		    DataArray SlopeY,
 		    DataArray SlopeZ)
   {
-    ReconstructGradientsHydroFunctor functor(pmesh, params, fm, Udata, Qdata,SlopeX,SlopeY,SlopeZ);
+    ReconstructGradientsHydroFunctor functor(pmesh, params, fm, Qdata,
+                                             SlopeX, SlopeY, SlopeZ);
     Kokkos::parallel_for(pmesh->getNumOctants(), functor);
   }
 
@@ -99,8 +104,8 @@ public:
 
       // left or right neighbor ?
       real_t new_grad = pos_n > pos_c ?
-        Udata(cellId_n,fm[ivar]) - Udata(cellId_c,fm[ivar]) :
-        Udata(cellId_c,fm[ivar]) - Udata(cellId_n,fm[ivar]) ;
+        Qdata(cellId_n,fm[ivar]) - Qdata(cellId_c,fm[ivar]) :
+        Qdata(cellId_c,fm[ivar]) - Qdata(cellId_n,fm[ivar]) ;
       new_grad /= delta_x;
 
       /*
@@ -175,16 +180,12 @@ public:
     // for each (primitive) variable, compute limited gradient
     for (uint8_t ivar = 0; ivar<nbvar; ++ivar) {
 
-      // initialize gradient
-      // Kokkos::Array<bool,dim> grad_ok;
-      // grad_ok[IX] = false;
-      // grad_ok[IY] = false;
-
       // initialize gradient components with something very large, since
       // we are doing a minmod slope limiter, as soon as a genuine 
       // neighbor is found, gradient components will be updated to
       // something reasonable
-      // watch out the sign might be wrong
+      // watch out the sign of the slope might be wrong here, 
+      // but it will later be corrected inside update_minmod
 #ifdef __CUDA_ARCH__
       grad[IX] = CUDART_INF;
       grad[IY] = CUDART_INF;
@@ -239,7 +240,6 @@ public:
   
   std::shared_ptr<AMRmesh> pmesh;
   id2index_t   fm;
-  DataArray    Udata;
   DataArray    Qdata;
   DataArray    SlopeX, SlopeY, SlopeZ;
   
