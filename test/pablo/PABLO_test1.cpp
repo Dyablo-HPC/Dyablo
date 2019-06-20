@@ -9,6 +9,10 @@ using namespace bitpit;
 // ======================================================================== //
 /**
  *  \example PABLO_test1.cpp
+ *
+ * No user data involved here, just playing with AMR mesh structure:
+ * - learn how to instanciate an mesh, cell ordererd with Morton indexing
+ * - learn how findNeighbours works, with/without periodic borders 
  */
 // ======================================================================== //
 
