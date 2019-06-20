@@ -39,7 +39,8 @@ namespace euler_pablo { namespace muscl {
 SolverHydroMuscl::SolverHydroMuscl(HydroParams& params,
 				   ConfigMap& configMap) :
   SolverBase(params, configMap),
-  U(), U2(), Q(),
+  U(), U2(), 
+  Q(), Qghost(),
   Ughost(),
   Fluxes_x(), Fluxes_y(), Fluxes_z(),
   Slopes_x(), Slopes_y(), Slopes_z()
@@ -727,7 +728,7 @@ void SolverHydroMuscl::reconstruct_gradients(DataArray Udata)
 
   // call device functor
   ReconstructGradientsHydroFunctor::apply(amr_mesh, params, fm, 
-                                          Q, Slopes_x, Slopes_y, Slopes_z);
+                                          Q, Qghost, Slopes_x, Slopes_y, Slopes_z);
   
 } // SolverHydroMuscl::reconstruct_gradients
 

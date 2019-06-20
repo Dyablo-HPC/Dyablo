@@ -66,7 +66,8 @@ public:
   DataArray     Q;     /*!< hydrodynamics primitive    variables array  */
 
   DataArray     Ughost; /*!< ghost cell data */
-  
+  DataArray     Qghost; /*!< ghost cell data for primitive variables */
+
   /* implementation 0 */
   DataArray Fluxes_x; /*!< implementation 0 */
   DataArray Fluxes_y; /*!< implementation 0 */

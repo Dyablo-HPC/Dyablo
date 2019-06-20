@@ -30,27 +30,29 @@ class ReconstructGradientsHydroFunctor : public HydroBaseFunctor {
   
 public:
   /**
-   * Reconstruct gradients
+   * Reconstruct gradients functor constructor.
    *
    * \param[in] pmesh AMRmesh Pablo data structure
    * \param[in] params
    * \param[in] fm field map to access user data
    * \param[in] Qdata primitive variables
+   * \param[in] Qdata_ghost primitive variables in ghost cells (only meaningful when MPI activated)
    * \param[out] SlopeX limited slopes along x data array
    * \param[out] SlopeY limited slopes along y data array
    * \param[out] SlopeZ limited slopes along z data array
-   *
    *
    */
   ReconstructGradientsHydroFunctor(std::shared_ptr<AMRmesh> pmesh,
 				   HydroParams params,
 				   id2index_t    fm,
 				   DataArray Qdata,
+				   DataArray Qdata_ghost,
 				   DataArray SlopeX,
 				   DataArray SlopeY,
 				   DataArray SlopeZ) :
     HydroBaseFunctor(params),
-    pmesh(pmesh), fm(fm), Qdata(Qdata),
+    pmesh(pmesh), fm(fm), 
+    Qdata(Qdata), Qdata_ghost(Qdata_ghost),
     SlopeX(SlopeX), SlopeY(SlopeY), SlopeZ(SlopeZ)
   {};
   
@@ -59,11 +61,13 @@ public:
 		    HydroParams params,
 		    id2index_t  fm,
                     DataArray Qdata,
+		    DataArray Qdata_ghost,
 		    DataArray SlopeX,
 		    DataArray SlopeY,
 		    DataArray SlopeZ)
   {
-    ReconstructGradientsHydroFunctor functor(pmesh, params, fm, Qdata,
+    ReconstructGradientsHydroFunctor functor(pmesh, params, fm, 
+                                             Qdata, Qdata_ghost,
                                              SlopeX, SlopeY, SlopeZ);
     Kokkos::parallel_for(pmesh->getNumOctants(), functor);
   }
@@ -74,6 +78,7 @@ public:
    * \param[in] current_gradient is the current value (to be updated)
    * \param[in] cellId_c is current cell id
    * \param[in] cellId_n is neighbor cell id
+   * \param[in] isghost_n boolean specifying is neighbor is a ghost
    * \param[in] dx is current cell size
    * \param[in] pos_c is current  cell coordinates (either x,y or z)
    * \param[in] pos_n is neighbor cell coordinates (either x,y or z)
@@ -85,6 +90,7 @@ public:
   real_t update_minmod(real_t current_grad,
                        uint32_t cellId_c,
                        uint32_t cellId_n,
+                       bool   isghost_n,
                        real_t dx,
                        real_t pos_c,
                        real_t pos_n,
@@ -102,11 +108,27 @@ public:
     // only check if we truly have a neighbor along given dir
     if (delta_x > 0.5 * dx) {
 
-      // left or right neighbor ?
-      real_t new_grad = pos_n > pos_c ?
-        Qdata(cellId_n,fm[ivar]) - Qdata(cellId_c,fm[ivar]) :
-        Qdata(cellId_c,fm[ivar]) - Qdata(cellId_n,fm[ivar]) ;
-      new_grad /= delta_x;
+      real_t new_grad;
+
+      // is neighbor a ghost ?
+      if (isghost_n) {
+      
+        // left or right neighbor ?
+        new_grad = pos_n > pos_c ?
+          Qdata_ghost(cellId_n, fm[ivar]) - Qdata(cellId_c, fm[ivar]) :
+          Qdata(cellId_c, fm[ivar])       - Qdata_ghost(cellId_n, fm[ivar]);
+        new_grad /= delta_x;
+        
+      } else {
+        
+        // left or right neighbor ?
+        new_grad =
+            pos_n > pos_c
+                ? Qdata(cellId_n, fm[ivar]) - Qdata(cellId_c, fm[ivar])
+                : Qdata(cellId_c, fm[ivar]) - Qdata(cellId_n, fm[ivar]);
+        new_grad /= delta_x;
+
+      }
 
       /*
        * this is minmod: limited gradient may need to be updated
@@ -203,11 +225,11 @@ public:
         // neighbor cell center coordinates
         bitpit::darray3 xyz_n = pmesh->getCenter(i_n);
 
-        grad[IX] = update_minmod(grad[IX], i, i_n,
+        grad[IX] = update_minmod(grad[IX], i, i_n, isghost_all[j],
                                  dx, xyz_c[IX], xyz_n[IX],
                                  ivar, IX);
 
-        grad[IY] = update_minmod(grad[IY], i, i_n,
+        grad[IY] = update_minmod(grad[IY], i, i_n, isghost_all[j],
                                  dx, xyz_c[IY], xyz_n[IY],
                                  ivar, IY);
 
@@ -241,6 +263,7 @@ public:
   std::shared_ptr<AMRmesh> pmesh;
   id2index_t   fm;
   DataArray    Qdata;
+  DataArray    Qdata_ghost;
   DataArray    SlopeX, SlopeY, SlopeZ;
   
 }; // ReconstructGradientsHydroFunctor
