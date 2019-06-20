@@ -735,6 +735,9 @@ void SolverHydroMuscl::compute_fluxes_and_update(DataArray data_in,
                                                  real_t dt)
 {
 
+  // we need Qdata in ghost update, but this has already been done in reconstruct_gradients
+  // we also need slopes in ghost up to date
+
   // retrieve available / allowed names: fieldManager, and field map (fm)
   // necessary to access user data
   auto fm = fieldMgr.get_id2index();
@@ -742,7 +745,8 @@ void SolverHydroMuscl::compute_fluxes_and_update(DataArray data_in,
   // call device functor
   ComputeFluxesAndUpdateHydroFunctor::apply(amr_mesh, params, fm, 
                                             data_in, data_out, 
-                                            Q, Slopes_x, Slopes_y, Slopes_z,
+                                            Q, Qghost, 
+                                            Slopes_x, Slopes_y, Slopes_z,
                                             dt);
   
 } // SolverHydroMuscl::compute_fluxes_and_update

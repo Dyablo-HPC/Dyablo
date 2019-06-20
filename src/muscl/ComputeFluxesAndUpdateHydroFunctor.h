@@ -37,7 +37,7 @@ private:
 
 public:
   /**
-   * Reconstruct gradients
+   * Compute Riemann fluxes and update current cell only.
    *
    * \param[in]  pmesh pointer to AMR mesh structure
    * \param[in]  params
@@ -45,6 +45,7 @@ public:
    * \param[in]  Data_in current time step data (conservative variables)
    * \param[out] Data_out next time step data (conservative variables)
    * \param[in]  Qdata primitive variables
+   * \param[in]  Qdata_ghost primitive variables in ghost cells
    * \param[in]  Slopes_x limited slopes along x axis
    * \param[in]  Slopes_y limited slopes along y axis
    * \param[in]  Slopes_z limited slopes along z axis
@@ -56,6 +57,7 @@ public:
                                      DataArray Data_in,
                                      DataArray Data_out,
                                      DataArray Qdata,
+                                     DataArray Qdata_ghost,
                                      DataArray Slopes_x,
                                      DataArray Slopes_y,
                                      DataArray Slopes_z,
@@ -66,6 +68,7 @@ public:
     Data_in(Data_in),
     Data_out(Data_out),
     Qdata(Qdata),
+    Qdata_ghost(Qdata_ghost),
     Slopes_x(Slopes_x),
     Slopes_y(Slopes_y),
     Slopes_z(Slopes_z),
@@ -79,6 +82,7 @@ public:
 		    DataArray Data_in,
 		    DataArray Data_out,
                     DataArray Qdata,
+		    DataArray Qdata_ghost,
 		    DataArray SlopeX,
 		    DataArray SlopeY,
 		    DataArray SlopeZ,
@@ -86,7 +90,7 @@ public:
   {
     ComputeFluxesAndUpdateHydroFunctor functor(pmesh, params, fm, 
                                                Data_in, Data_out,
-                                               Qdata,
+                                               Qdata, Qdata_ghost,
                                                SlopeX,SlopeY,SlopeZ,
                                                dt);
     Kokkos::parallel_for(pmesh->getNumOctants(), functor);
@@ -140,6 +144,7 @@ public:
   KOKKOS_INLINE_FUNCTION
   offsets_t get_reconstruct_offsets_current_2d(const uint32_t i, 
                                                const uint32_t i_n,
+                                               const bool isghost_n,
                                                const uint8_t iface) const
   {
 
@@ -180,6 +185,10 @@ public:
 
       bitpit::darray3 xyz_c = pmesh->getCenter(i);
       bitpit::darray3 xyz_n = pmesh->getCenter(i_n);
+      
+      // modify xyz_n if neighbor is actually a ghost cell
+      if (isghost_n)
+        xyz_n = pmesh->getCenterGhost(i_n);
 
       // along x axis
       if (face_along_axis<IX>(iface)) {
@@ -231,6 +240,7 @@ public:
   KOKKOS_INLINE_FUNCTION
   offsets_t get_reconstruct_offsets_neighbor_2d(const uint32_t i, 
                                                 const uint32_t i_n,
+                                                const bool isghost_n,
                                                 const uint8_t iface) const
   {
 
@@ -271,6 +281,10 @@ public:
 
       bitpit::darray3 xyz_c = pmesh->getCenter(i);
       bitpit::darray3 xyz_n = pmesh->getCenter(i_n);
+
+      // modify xyz_n if neighbor is actually a ghost cell
+      if (isghost_n)
+        xyz_n = pmesh->getCenterGhost(i_n);
 
       // along x axis
       if (face_along_axis<IX>(iface)) {
@@ -443,19 +457,24 @@ public:
 
         // 0. retrieve primitive variables in neighbor cell
         HydroState2d qprim_n;
-        for (uint8_t ivar=0; ivar<nbvar; ++ivar)
-          qprim_n[ivar] = Qdata(i_n,fm[ivar]);
+        if (isghost[j]) {
+          for (uint8_t ivar = 0; ivar < nbvar; ++ivar)
+            qprim_n[ivar] = Qdata_ghost(i_n, fm[ivar]);
+        } else {
+          for (uint8_t ivar = 0; ivar < nbvar; ++ivar)
+            qprim_n[ivar] = Qdata(i_n, fm[ivar]);
+        }
 
         // 1. reconstruct primitive variables on both sides of current interface (iface)
 
         // current cell reconstruction  (primitive variables)
         const real_t dx_over_2 = pmesh->getSize(i);
-        const offsets_t offsets = get_reconstruct_offsets_current_2d(i, i_n, iface);
+        const offsets_t offsets = get_reconstruct_offsets_current_2d(i, i_n, isghost[j], iface);
         HydroState2d qr_c = reconstruct_state_2d(qprim, i, offsets, dx_over_2, dt);
 
         // neighbor cell reconstruction (primitive variables)
         const real_t dx_over_2_n = pmesh->getSize(i_n);
-        const offsets_t offsets_n = get_reconstruct_offsets_neighbor_2d(i, i_n, iface);
+        const offsets_t offsets_n = get_reconstruct_offsets_neighbor_2d(i, i_n, isghost[j], iface);
         HydroState2d qr_n = reconstruct_state_2d(qprim_n, i_n, offsets_n, dx_over_2_n, dt);
 
         // 2. we now have "qleft / qright" state ready to solver Riemann problem
@@ -538,7 +557,7 @@ public:
   std::shared_ptr<AMRmesh> pmesh;
   id2index_t   fm;
   DataArray    Data_in, Data_out;
-  DataArray    Qdata;
+  DataArray    Qdata, Qdata_ghost;
   DataArray    Slopes_x, Slopes_y, Slopes_z;
   real_t       dt;
   
