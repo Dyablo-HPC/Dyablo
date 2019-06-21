@@ -17,6 +17,7 @@
 #include "muscl/ConvertToPrimitivesHydroFunctor.h"
 #include "muscl/ReconstructGradientsHydroFunctor.h"
 #include "muscl/ComputeFluxesAndUpdateHydroFunctor.h"
+#include "muscl/MarkCellsHydroFunctor.h"
 
 #if BITPIT_ENABLE_MPI==1
 #include "muscl/UserDataComm.h"
@@ -862,7 +863,12 @@ void SolverHydroMuscl::synchronize_ghost_data(UserDataCommType t)
 void SolverHydroMuscl::mark_cells()
 {
 
-  // TODO
+  // retrieve available / allowed names: fieldManager, and field map (fm)
+  // necessary to access user data
+  auto fm = fieldMgr.get_id2index();
+
+  // call device functor fto flag for refine/coarsen
+  //MarkCellsHydroFunctor::apply(amr_mesh, params, fm, data);
   
 } // SolverHydroMuscl::mark_cells
 
@@ -876,7 +882,7 @@ void SolverHydroMuscl::adapt_mesh()
   // 2. re-compute connectivity
   amr_mesh->updateConnectivity();
   
-} // SolverHydroMuscl::mark_cells
+} // SolverHydroMuscl::adapt_mesh
 
 // =======================================================
 // =======================================================
