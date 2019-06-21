@@ -224,8 +224,9 @@ public:
 
         // neighbor cell center coordinates
         // if neighbor is a ghost cell, we need to modifiy xyz_c
-        bitpit::darray3 xyz_n = isghost_all[j] ?
-          xyz_n = pmesh->getCenterGhost(i_n) : pmesh->getCenter(i_n);
+        bitpit::darray3 xyz_n = pmesh->getCenter(i_n);
+        if (isghost_all[j])
+          xyz_n = pmesh->getCenterGhost(i_n);
 
         grad[IX] = update_minmod(grad[IX], i, i_n, isghost_all[j],
                                  dx, xyz_c[IX], xyz_n[IX],
