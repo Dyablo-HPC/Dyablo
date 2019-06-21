@@ -105,7 +105,8 @@ struct HydroParams {
   // IO parameters
   bool ioVTK;   /*!< enable VTK  output file format (using VTI).*/
   bool ioHDF5;  /*!< enable HDF5 output file format.*/
-  
+  bool debug_output; /*!< more verbous output */
+
   //! hydro settings (gamma0, ...) to be passed to Kokkos device functions
   HydroSettings settings;
   
@@ -148,7 +149,7 @@ struct HydroParams {
     boundary_type_ymax(BC_UNDEFINED),
     boundary_type_zmin(BC_UNDEFINED),
     boundary_type_zmax(BC_UNDEFINED),
-    ioVTK(true), ioHDF5(false),
+    ioVTK(true), ioHDF5(false), debug_output(false),
     settings(),
     niter_riemann(10), riemannSolverType(),
     implementationVersion(0),

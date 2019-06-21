@@ -789,9 +789,12 @@ void SolverHydroMuscl::save_solution_impl()
   strsuf << m_iteration;
   
   writeVTK(*amr_mesh, strsuf.str(), U, fm, names2index, configMap);
-  writeVTK(*amr_mesh, strsuf.str(), Slopes_x, fm, names2index, configMap, "_slope_x");
-  writeVTK(*amr_mesh, strsuf.str(), Slopes_y, fm, names2index, configMap, "_slope_y");
-  
+
+  if (params.debug_output) {
+    writeVTK(*amr_mesh, strsuf.str(), Slopes_x, fm, names2index, configMap, "_slope_x");
+    writeVTK(*amr_mesh, strsuf.str(), Slopes_y, fm, names2index, configMap, "_slope_y");
+  }
+
   m_timers[TIMER_IO]->stop();
     
 } // SolverHydroMuscl::save_solution_impl()

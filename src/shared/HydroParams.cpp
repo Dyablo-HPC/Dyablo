@@ -133,6 +133,8 @@ void HydroParams::setup(ConfigMap &configMap)
     implementationVersion = 0;
   }
 
+  debug_output = configMap.getBool("output", "debug", false);
+
   init();
 
 #ifdef USE_MPI
