@@ -1297,6 +1297,15 @@ ParaTree::initialize(const std::string &logfile, MPI_Comm comm) {
       return m_trans.mapSize(m_octree.m_octants[idx].getSize());
     }
 
+    /*! Get the size of a ghost octant, i.e. the side length.
+     * \param[in] idx Local index of target octant.
+     * \return Size of octant.
+     */
+    double
+      ParaTree::getSizeGhost(uint32_t idx) const {
+      return m_trans.mapSize(m_octree.m_ghosts[idx].getSize());
+    }
+
     /*! Get the area of an octant (for 2D case the same value of getSize).
      * \param[in] idx Local index of target octant.
      * \return Area of octant.

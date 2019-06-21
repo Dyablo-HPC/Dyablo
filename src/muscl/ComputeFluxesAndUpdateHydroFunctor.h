@@ -468,12 +468,13 @@ public:
         // 1. reconstruct primitive variables on both sides of current interface (iface)
 
         // current cell reconstruction  (primitive variables)
-        const real_t dx_over_2 = pmesh->getSize(i);
+        const real_t dx_over_2 = pmesh->getSize(i)/2;
         const offsets_t offsets = get_reconstruct_offsets_current_2d(i, i_n, isghost[j], iface);
         HydroState2d qr_c = reconstruct_state_2d(qprim, i, offsets, dx_over_2, dt);
 
         // neighbor cell reconstruction (primitive variables)
-        const real_t dx_over_2_n = pmesh->getSize(i_n);
+        const real_t size_n = isghost[j] ? pmesh->getSizeGhost(i_n) : pmesh->getSize(i_n);
+        const real_t dx_over_2_n = size_n/2;
         const offsets_t offsets_n = get_reconstruct_offsets_neighbor_2d(i, i_n, isghost[j], iface);
         HydroState2d qr_n = reconstruct_state_2d(qprim_n, i_n, offsets_n, dx_over_2_n, dt);
 
