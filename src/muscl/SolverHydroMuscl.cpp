@@ -831,14 +831,17 @@ void SolverHydroMuscl::synchronize_ghost_data(UserDataCommType t)
   }
   case UserDataCommType::SLOPES : {
     {
+      Kokkos::resize(Slopes_x_ghost, nghosts, Q.extent(1));
       UserDataComm data_comm(Slopes_x, Slopes_x_ghost, fm);
       amr_mesh->communicate(data_comm);
     }
     {
+      Kokkos::resize(Slopes_y_ghost, nghosts, Q.extent(1));
       UserDataComm data_comm(Slopes_y, Slopes_y_ghost, fm);
       amr_mesh->communicate(data_comm);
     }
     if (params.dimType==THREE_D) {
+      Kokkos::resize(Slopes_z_ghost, nghosts, Q.extent(1));
       UserDataComm data_comm(Slopes_z, Slopes_z_ghost, fm);
       amr_mesh->communicate(data_comm);
     }
