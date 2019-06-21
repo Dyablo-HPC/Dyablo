@@ -49,6 +49,9 @@ public:
    * \param[in]  Slopes_x limited slopes along x axis
    * \param[in]  Slopes_y limited slopes along y axis
    * \param[in]  Slopes_z limited slopes along z axis
+   * \param[in]  Slopes_x_ghost limited slopes along x axis, ghost cells
+   * \param[in]  Slopes_y_ghost limited slopes along y axis, ghost cells
+   * \param[in]  Slopes_z_ghost limited slopes along z axis, ghost cells
    * \
    */
   ComputeFluxesAndUpdateHydroFunctor(std::shared_ptr<AMRmesh> pmesh,
@@ -61,6 +64,9 @@ public:
                                      DataArray Slopes_x,
                                      DataArray Slopes_y,
                                      DataArray Slopes_z,
+                                     DataArray Slopes_x_ghost,
+                                     DataArray Slopes_y_ghost,
+                                     DataArray Slopes_z_ghost,
                                      real_t    dt) :
     HydroBaseFunctor(params),
     pmesh(pmesh),
@@ -72,6 +78,9 @@ public:
     Slopes_x(Slopes_x),
     Slopes_y(Slopes_y),
     Slopes_z(Slopes_z),
+    Slopes_x_ghost(Slopes_x_ghost),
+    Slopes_y_ghost(Slopes_y_ghost),
+    Slopes_z_ghost(Slopes_z_ghost),
     dt(dt)
   {};
   
@@ -86,12 +95,16 @@ public:
 		    DataArray SlopeX,
 		    DataArray SlopeY,
 		    DataArray SlopeZ,
+		    DataArray SlopeX_ghost,
+		    DataArray SlopeY_ghost,
+		    DataArray SlopeZ_ghost,
                     real_t    dt)
   {
     ComputeFluxesAndUpdateHydroFunctor functor(pmesh, params, fm, 
                                                Data_in, Data_out,
                                                Qdata, Qdata_ghost,
                                                SlopeX,SlopeY,SlopeZ,
+                                               SlopeX_ghost,SlopeY_ghost,SlopeZ_ghost,
                                                dt);
     Kokkos::parallel_for(pmesh->getNumOctants(), functor);
   }
@@ -139,7 +152,8 @@ public:
    *
    * \param[in] i   current  cell id
    * \param[in] i_n neighbor cell id
-   * \param[in] iface face id (from current cell side)
+   * \param[in] isghost_n boolean status of neighbor cell (ghost or regular ?)
+   * \param[in] iface face id (from current cell side point of view)
    */
   KOKKOS_INLINE_FUNCTION
   offsets_t get_reconstruct_offsets_current_2d(const uint32_t i, 
@@ -160,7 +174,10 @@ public:
      * or
      * - current cell is smaller than neighbor
      */
-    if (pmesh->getSize(i) <= pmesh->getSize(i_n)) {
+    const real_t size_c = pmesh->getSize(i);
+    const real_t size_n = isghost_n ? pmesh->getSizeGhost(i_n) : pmesh->getSize(i_n);
+
+    if (size_c <= size_n) {
 
       // along x axis
       if (face_along_axis<IX>(iface)) {
@@ -181,14 +198,12 @@ public:
     /*
      * current cell is larger than neighbors
      */
-    if (pmesh->getSize(i) > pmesh->getSize(i_n)) {
+    if (size_c > size_n) {
 
-      bitpit::darray3 xyz_c = pmesh->getCenter(i);
-      bitpit::darray3 xyz_n = pmesh->getCenter(i_n);
-      
-      // modify xyz_n if neighbor is actually a ghost cell
-      if (isghost_n)
-        xyz_n = pmesh->getCenterGhost(i_n);
+      const bitpit::darray3 xyz_c = pmesh->getCenter(i);
+      const bitpit::darray3 xyz_n = isghost_n ? 
+        pmesh->getCenter(i_n) :
+        pmesh->getCenterGhost(i_n);      
 
       // along x axis
       if (face_along_axis<IX>(iface)) {
@@ -256,7 +271,10 @@ public:
      * or
      * - current cell is larger than neighbor
      */
-    if (pmesh->getSize(i) >= pmesh->getSize(i_n)) {
+    const real_t size_c = pmesh->getSize(i);
+    const real_t size_n = isghost_n ? pmesh->getSizeGhost(i_n) : pmesh->getSize(i_n);
+
+    if (size_c >= size_n) {
 
       // along x axis
       if (face_along_axis<IX>(iface)) {
@@ -279,12 +297,10 @@ public:
      */
     if (pmesh->getSize(i) < pmesh->getSize(i_n)) {
 
-      bitpit::darray3 xyz_c = pmesh->getCenter(i);
-      bitpit::darray3 xyz_n = pmesh->getCenter(i_n);
-
-      // modify xyz_n if neighbor is actually a ghost cell
-      if (isghost_n)
-        xyz_n = pmesh->getCenterGhost(i_n);
+      const bitpit::darray3 xyz_c = pmesh->getCenter(i);
+      const bitpit::darray3 xyz_n = isghost_n ? 
+        pmesh->getCenter(i_n) :
+        pmesh->getCenterGhost(i_n);      
 
       // along x axis
       if (face_along_axis<IX>(iface)) {
@@ -324,8 +340,9 @@ public:
    *
    * \param[in] q primitive variables at cell center
    * \param[in] i cell id (needed to read slopes)
+   * \param[in] isghost boolean stating if the cell where reconstruction happens is a ghost cell
    * \param[in] offsets
-   * \param[in] dx2 cell size divided by 2 (dx/2)
+   * \param[in] dx_over_2 cell size divided by 2 (dx/2)
    * \param[in] dt
    *
    * \return qr reconstructed state (primitive variables)
@@ -333,8 +350,9 @@ public:
   KOKKOS_INLINE_FUNCTION
   HydroState2d reconstruct_state_2d(HydroState2d q, 
                                     uint32_t i,
+                                    bool isghost,
                                     offsets_t offsets,
-                                    real_t dx2, real_t dt) const
+                                    real_t dx_over_2, real_t dt) const
   {
     HydroState2d qr;
     
@@ -349,11 +367,12 @@ public:
     real_t dry, dpy, duy, dvy, dwy;
     real_t drz, dpz, duz, dvz, dwz;
     
-    const real_t dtdx = dt/(2*dx2);
+    const real_t dtdx = dt/(2*dx_over_2);
     const real_t dtdy = dtdx;
     const real_t dtdz = params.dimType==THREE_D ? dtdx : 0.0;
 
-    const real_t dy2 = dx2;
+    real_t &dx2 = dx_over_2;
+    real_t &dy2 = dx_over_2;
 
     // retrieve primitive variables in current quadrant
     r = q[ID];
@@ -362,24 +381,44 @@ public:
     v = q[IV];
     w = 0.0;
 
-    // retrieve variations = dx * slopes 
-    drx = dx2 * Slopes_x(i,fm[ID]);
-    dpx = dx2 * Slopes_x(i,fm[IP]);
-    dux = dx2 * Slopes_x(i,fm[IU]);
-    dvx = dx2 * Slopes_x(i,fm[IV]);
-    dwx = 0.0;
-    
-    dry = dy2 * Slopes_y(i,fm[ID]);
-    dpy = dy2 * Slopes_y(i,fm[IP]);
-    duy = dy2 * Slopes_y(i,fm[IU]);
-    dvy = dy2 * Slopes_y(i,fm[IV]);
-    dwy = 0.0;
-    
-    drz = 0.0;
-    dpz = 0.0;
-    duz = 0.0;
-    dvz = 0.0;
-    dwz = 0.0;
+    // retrieve variations = dx * slopes
+    if (isghost) {
+      drx = dx2 * Slopes_x_ghost(i, fm[ID]);
+      dpx = dx2 * Slopes_x_ghost(i, fm[IP]);
+      dux = dx2 * Slopes_x_ghost(i, fm[IU]);
+      dvx = dx2 * Slopes_x_ghost(i, fm[IV]);
+      dwx = 0.0;
+
+      dry = dy2 * Slopes_y_ghost(i, fm[ID]);
+      dpy = dy2 * Slopes_y_ghost(i, fm[IP]);
+      duy = dy2 * Slopes_y_ghost(i, fm[IU]);
+      dvy = dy2 * Slopes_y_ghost(i, fm[IV]);
+      dwy = 0.0;
+
+      drz = 0.0;
+      dpz = 0.0;
+      duz = 0.0;
+      dvz = 0.0;
+      dwz = 0.0;
+    } else {
+      drx = dx2 * Slopes_x(i, fm[ID]);
+      dpx = dx2 * Slopes_x(i, fm[IP]);
+      dux = dx2 * Slopes_x(i, fm[IU]);
+      dvx = dx2 * Slopes_x(i, fm[IV]);
+      dwx = 0.0;
+
+      dry = dy2 * Slopes_y(i, fm[ID]);
+      dpy = dy2 * Slopes_y(i, fm[IP]);
+      duy = dy2 * Slopes_y(i, fm[IU]);
+      dvy = dy2 * Slopes_y(i, fm[IV]);
+      dwy = 0.0;
+
+      drz = 0.0;
+      dpz = 0.0;
+      duz = 0.0;
+      dvz = 0.0;
+      dwz = 0.0;
+    }
 
     // source terms (with transverse derivatives)
     sr0 = (-u*drx-dux*r      )*dtdx + (-v*dry-dvy*r      )*dtdy + (-w*drz-dwz*r      )*dtdz;
@@ -470,13 +509,13 @@ public:
         // current cell reconstruction  (primitive variables)
         const real_t dx_over_2 = pmesh->getSize(i)/2;
         const offsets_t offsets = get_reconstruct_offsets_current_2d(i, i_n, isghost[j], iface);
-        HydroState2d qr_c = reconstruct_state_2d(qprim, i, offsets, dx_over_2, dt);
+        HydroState2d qr_c = reconstruct_state_2d(qprim, i, false, offsets, dx_over_2, dt);
 
         // neighbor cell reconstruction (primitive variables)
         const real_t size_n = isghost[j] ? pmesh->getSizeGhost(i_n) : pmesh->getSize(i_n);
         const real_t dx_over_2_n = size_n/2;
         const offsets_t offsets_n = get_reconstruct_offsets_neighbor_2d(i, i_n, isghost[j], iface);
-        HydroState2d qr_n = reconstruct_state_2d(qprim_n, i_n, offsets_n, dx_over_2_n, dt);
+        HydroState2d qr_n = reconstruct_state_2d(qprim_n, i_n, isghost[j], offsets_n, dx_over_2_n, dt);
 
         // 2. we now have "qleft / qright" state ready to solver Riemann problem
         HydroState2d flux;
@@ -560,6 +599,7 @@ public:
   DataArray    Data_in, Data_out;
   DataArray    Qdata, Qdata_ghost;
   DataArray    Slopes_x, Slopes_y, Slopes_z;
+  DataArray    Slopes_x_ghost, Slopes_y_ghost, Slopes_z_ghost;
   real_t       dt;
   
 }; // ComputeFluxesAndUpdateHydroFunctor

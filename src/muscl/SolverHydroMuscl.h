@@ -48,7 +48,7 @@ class SolverHydroMuscl : public euler_pablo::SolverBase
 private:
   //! enum use in synchronize ghost data operation to
   //! identify which variables need to be exchange by MPI
-  enum class UserDataCommType {UDATA, QDATA, SLOPE};
+  enum class UserDataCommType {UDATA, QDATA, SLOPES};
 
 public:
 
@@ -83,6 +83,9 @@ public:
   DataArray Slopes_y; /*!< implementation 1 only */
   DataArray Slopes_z; /*!< implementation 1 only */
 
+  DataArray Slopes_x_ghost; /*!< implementation 1 only */
+  DataArray Slopes_y_ghost; /*!< implementation 1 only */
+  DataArray Slopes_z_ghost; /*!< implementation 1 only */
 
   /* Gravity field */
   DataArray gravity;

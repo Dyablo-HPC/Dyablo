@@ -42,7 +42,8 @@ SolverHydroMuscl::SolverHydroMuscl(HydroParams& params,
   U(), Uhost(), U2(), Q(), 
   Ughost(), Qghost(),
   Fluxes_x(), Fluxes_y(), Fluxes_z(),
-  Slopes_x(), Slopes_y(), Slopes_z()
+  Slopes_x(), Slopes_y(), Slopes_z(),
+  Slopes_x_ghost(), Slopes_y_ghost(), Slopes_z_ghost()
 {
   
   solver_type = SOLVER_MUSCL_HANCOCK;
@@ -735,8 +736,10 @@ void SolverHydroMuscl::compute_fluxes_and_update(DataArray data_in,
                                                  real_t dt)
 {
 
-  // we need Qdata in ghost update, but this has already been done in reconstruct_gradients
+  // we need Qdata in ghost update, but this has already been done in 
+  // reconstruct_gradients
   // we also need slopes in ghost up to date
+  synchronize_ghost_data(UserDataCommType::SLOPES);
 
   // retrieve available / allowed names: fieldManager, and field map (fm)
   // necessary to access user data
@@ -746,7 +749,12 @@ void SolverHydroMuscl::compute_fluxes_and_update(DataArray data_in,
   ComputeFluxesAndUpdateHydroFunctor::apply(amr_mesh, params, fm, 
                                             data_in, data_out, 
                                             Q, Qghost, 
-                                            Slopes_x, Slopes_y, Slopes_z,
+                                            Slopes_x, 
+                                            Slopes_y, 
+                                            Slopes_z,
+                                            Slopes_x_ghost, 
+                                            Slopes_y_ghost,
+                                            Slopes_z_ghost,
                                             dt);
   
 } // SolverHydroMuscl::compute_fluxes_and_update
@@ -821,21 +829,21 @@ void SolverHydroMuscl::synchronize_ghost_data(UserDataCommType t)
     amr_mesh->communicate(data_comm);
     break;
   }
-  case UserDataCommType::SLOPE : {
-    // {
-    //   UserDataComm data_comm(Slopes_x, Slopes_x_ghost, fm);
-    //   amr_mesh->communicate(data_comm);
-    // }
-    // {
-    //   UserDataComm data_comm(Slopes_y, Slopes_y_ghost, fm);
-    //   amr_mesh->communicate(data_comm);
-    // }
-    // if (dimType==THREE_D) {
-    //   UserDataComm data_comm(Slopes_z, Slopes_z_ghost, fm);
-    //   amr_mesh->communicate(data_comm);
-    // }
+  case UserDataCommType::SLOPES : {
+    {
+      UserDataComm data_comm(Slopes_x, Slopes_x_ghost, fm);
+      amr_mesh->communicate(data_comm);
+    }
+    {
+      UserDataComm data_comm(Slopes_y, Slopes_y_ghost, fm);
+      amr_mesh->communicate(data_comm);
+    }
+    if (params.dimType==THREE_D) {
+      UserDataComm data_comm(Slopes_z, Slopes_z_ghost, fm);
+      amr_mesh->communicate(data_comm);
+    }
     
-  } // end case SLOPE
+  } // end case SLOPES
 
   } // end switch
   
