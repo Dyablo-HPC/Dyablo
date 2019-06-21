@@ -35,6 +35,14 @@ SolverBase::SolverBase (HydroParams& params, ConfigMap& configMap) :
   // create PABLO mesh
   amr_mesh = std::make_shared<AMRmesh>(m_dim);
 
+  // set default behavior regarding 2:1 balance
+  // codim 1 ==> balance through faces
+  // codim 2 ==> balance through nodes and edges
+  amr_mesh->setBalanceCodimension(1);
+  uint32_t idx = 0;
+  amr_mesh->setBalance(idx,true);
+
+
   // here periodic means : 
   // every cell will have at least one neighbor through every face
   // periodicity for user data is treated elsewhere, here we only
