@@ -867,8 +867,16 @@ void SolverHydroMuscl::mark_cells()
   // necessary to access user data
   auto fm = fieldMgr.get_id2index();
 
+  real_t eps_refine  = configMap.getFloat("amr", "epsilon_refine", 0.001);
+  real_t eps_coarsen = configMap.getFloat("amr", "epsilon_coarsen", 0.002);
+
+  DataArray Udata = m_iteration % 2 == 0 ? U : U2;
+
+  // TODO : make sure Ughost is up to date
+
   // call device functor fto flag for refine/coarsen
-  //MarkCellsHydroFunctor::apply(amr_mesh, params, fm, data);
+  MarkCellsHydroFunctor::apply(amr_mesh, params, fm, Udata, Ughost,
+                               eps_refine, eps_coarsen);
   
 } // SolverHydroMuscl::mark_cells
 
