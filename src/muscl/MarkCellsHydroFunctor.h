@@ -128,9 +128,11 @@ public:
   } // update_epsilon
 
   KOKKOS_INLINE_FUNCTION
-  void operator_2d(const size_t i) const 
+  void operator()(const size_t i) const
   {
-    constexpr int dim = 2;
+    
+    const int dim = this->params.dimType == TWO_D ? 2 : 3;
+    
     // codim=1 ==> faces
     // codim=2 ==> edges
     const int codim = 1;
@@ -158,12 +160,6 @@ public:
       isghost_all.insert(isghost_all.end(), isghost.begin(), isghost.end());
     }
 
-    // current cell center coordinates
-    bitpit::darray3 xyz_c = pmesh->getCenter(i);
-
-    // current cell size
-    double dx = pmesh->getSize(i);
-
     // now that we have all neighbors, 
     // we can start apply refinement criterium
 
@@ -182,28 +178,11 @@ public:
 
     // epsilon too large, set octant to be refined
     if ( epsilon > epsilon_refine )
-      amr_mesh->setMarker(i,1);
+      pmesh->setMarker(i,1);
 
     // epsilon too small, set octant to be coarsened
     if ( epsilon < epsilon_coarsen)
-      amr_mesh->setMarker(i,-1);
-    
-  } // operator_2d
-
-  KOKKOS_INLINE_FUNCTION
-  void operator_3d(const size_t i) const {
-  
-  } // operator_3d
-
-  KOKKOS_INLINE_FUNCTION
-  void operator()(const size_t i) const
-  {
-    
-    if (this->params.dimType == TWO_D)
-      operator_2d(i);
-    
-    if (this->params.dimType == THREE_D)
-      operator_3d(i);
+      pmesh->setMarker(i,-1);
     
   } // operator ()
   
