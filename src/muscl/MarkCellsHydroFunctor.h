@@ -39,25 +39,59 @@ public:
    */
   MarkCellsHydroFunctor(std::shared_ptr<AMRmesh> pmesh,
                         HydroParams params,
-                        id2index_t    fm,
-                        DataArray Udata,
-                        DataArray Udata_ghost) :
+                        id2index_t  fm,
+                        DataArray   Udata,
+                        DataArray   Udata_ghost,
+                        real_t      eps_refine,
+                        real_t      eps_coarsen) :
     HydroBaseFunctor(params),
-    pmesh(pmesh), fm(fm), 
-    Udata(Udata), Udata_ghost(Udata_ghost)
+    pmesh(pmesh),
+    fm(fm),
+    Udata(Udata), 
+    Udata_ghost(Udata_ghost),
+    epsilon_refine(eps_refine),
+    epsilon_coarsen(eps_coarsen)
   {};
   
   // static method which does it all: create and execute functor
   static void apply(std::shared_ptr<AMRmesh> pmesh,
 		    HydroParams params,
 		    id2index_t  fm,
-                    DataArray Udata,
-		    DataArray Udata_ghost)
+                    DataArray   Udata,
+		    DataArray   Udata_ghost,
+                    real_t      eps_refine,
+                    real_t      eps_coarsen)
   {
     MarkCellsHydroFunctor functor(pmesh, params, fm, 
-                                  Udata, Udata_ghost);
+                                  Udata, Udata_ghost,
+                                  eps_refine, 
+                                  eps_coarsen);
     Kokkos::parallel_for(pmesh->getNumOctants(), functor);
-  }
+  } // apply
+
+  /**
+   * Indicator - scalar gradient.
+   *
+   * Adapted from CanoP for comparison.
+   * returned value is between 0 and 1.
+   * - a small value probably means no refinement necessary
+   * - a high value probably means refinement should be activated
+   */
+  KOKKOS_INLINE_FUNCTION
+  real_t
+  indicator_scalar_gradient (real_t qi, real_t qj) const
+  {
+    
+    real_t max = fmax (fabs (qi), fabs (qj));
+    
+    if (max < 0.001) {
+      return 0;
+    }
+    
+    max = fabs (qi - qj) / max;
+    return fmax (fmin (max, 1.0), 0.0);
+    
+  } // indicator_scalar_gradient
 
   /**
    * Update epsilon with information from a given neighbor.
@@ -73,18 +107,23 @@ public:
    */
   KOKKOS_INLINE_FUNCTION
   real_t update_epsilon(real_t current_epsilon,
-                        uint32_t cellId_c,
-                        uint32_t cellId_n,
-                        bool   isghost_n,
-                        real_t dx,
-                        real_t pos_c,
-                        real_t pos_n) const
+                        uint32_t i,
+                        uint32_t i_n,
+                        bool   isghost_n) const
   {
 
     // default returned value
     real_t new_value = current_epsilon;
 
-    return new_value;
+    if (isghost_n) {
+      new_value = indicator_scalar_gradient (Udata(i,fm[ID]), 
+                                             Udata_ghost(i_n,fm[ID]));
+    } else {
+      new_value = indicator_scalar_gradient (Udata(i,fm[ID]), 
+                                             Udata(i_n,fm[ID]));    
+    }
+
+    return fmax(new_value,current_epsilon);
 
   } // update_epsilon
 
@@ -99,9 +138,7 @@ public:
     // number of faces per cell
     uint8_t nfaces = 2*dim;
 
-    const int nbvar = params.nbvar;
-
-    real_t epsilon;
+    real_t epsilon = 0.0;
 
     // this vector contains quad ids
     // corresponding to neighbors
@@ -128,26 +165,28 @@ public:
     double dx = pmesh->getSize(i);
 
     // now that we have all neighbors, 
-    // we can start computing gradient components
+    // we can start apply refinement criterium
 
     // sweep neighbors to compute minmod limited gradient
     for (uint16_t j = 0; j < neigh_all.size(); ++j) {
       
       // neighbor index
       uint32_t i_n = neigh_all[j];
-      
-      // neighbor cell center coordinates
-      // if neighbor is a ghost cell, we need to modifiy xyz_c
-      bitpit::darray3 xyz_n = pmesh->getCenter(i_n);
-      if (isghost_all[j])
-        xyz_n = pmesh->getCenterGhost(i_n);
-      
-      epsilon = update_epsilon(epsilon, i, i_n, isghost_all[j],
-                               dx, xyz_c[IX], xyz_n[IX]);  
+            
+      epsilon = update_epsilon(epsilon, i, i_n, isghost_all[j]);  
       
     } // end update epsilon
     
-    // mark cell - TODO
+    // now epsilon has been computed, we can mark / flag cells for 
+    // refinement or coarsening
+
+    // epsilon too large, set octant to be refined
+    if ( epsilon > epsilon_refine )
+      amr_mesh->setMarker(i,1);
+
+    // epsilon too small, set octant to be coarsened
+    if ( epsilon < epsilon_coarsen)
+      amr_mesh->setMarker(i,-1);
     
   } // operator_2d
 
@@ -172,7 +211,9 @@ public:
   id2index_t   fm;
   DataArray    Udata;
   DataArray    Udata_ghost;
-  
+  real_t       epsilon_refine;
+  real_t       epsilon_coarsen;
+
 }; // MarkCellsHydroFunctor
 
 } // namespace muscl
