@@ -648,7 +648,9 @@ void SolverHydroMuscl::godunov_unsplit_impl(DataArray data_in,
   m_timers[TIMER_BOUNDARIES]->start();
   make_boundaries(data_in);
   m_timers[TIMER_BOUNDARIES]->stop();
-    
+
+  printf("size U %ld %d U2 %ld %ld - %ld\n", U.extent(0), U.extent(1), U2.extent(0), U2.extent(1), amr_mesh->getNumOctants());
+
   // copy data_in into data_out (not necessary)
   // data_out = data_in;
   Kokkos::deep_copy(data_out, data_in);
@@ -869,7 +871,7 @@ void SolverHydroMuscl::mark_cells()
   real_t eps_refine  = configMap.getFloat("amr", "epsilon_refine", 0.001);
   real_t eps_coarsen = configMap.getFloat("amr", "epsilon_coarsen", 0.002);
 
-  DataArray Udata = m_iteration % 2 == 0 ? U : U2;
+  DataArray Udata = U2;
 
   // Note: Ughost is up to date, update at the beginning of do_amr_cycle
 
