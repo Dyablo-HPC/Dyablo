@@ -911,11 +911,14 @@ void SolverHydroMuscl::map_userdata_after_adapt()
   // 
   int nbVars = params.nbvar;
 
-  amr_mesh->adapt(true);
+  //amr_mesh->adapt(true);
   uint32_t nocts = amr_mesh->getNumOctants();
   Kokkos::resize(U_new, nocts, nbVars);
 
   
+  // field manager index array
+  auto fm = fieldMgr.get_id2index();
+
   /*
    * Assign to the new octant the average of the old children
    *  if it is new after a coarsening;
@@ -929,16 +932,16 @@ void SolverHydroMuscl::map_userdata_after_adapt()
       for (int j=0; j<m_nbChildren; ++j) {
 	if (isghost[j]){
 	  for (int ivar=0; ivar<nbVars; ++ivar)
-	    U_new(i,ivar) += Ughost(mapper[j],ivar)/4;
+	    U_new(i,fm[ivar]) += Ughost(mapper[j],fm[ivar])/4;
 	}
 	else{
 	  for (int ivar=0; ivar<nbVars; ++ivar)
-	    U_new(i,ivar) += U(mapper[j],ivar)/4;
+	    U_new(i,fm[ivar]) += U(mapper[j],fm[ivar])/4;
 	}
       }
     } else {
       for (int ivar=0; ivar<nbVars; ++ivar)
-	U_new(i,ivar) += U(mapper[0],ivar);
+	U_new(i,fm[ivar]) += U(mapper[0],fm[ivar]);
     }
   }
 
