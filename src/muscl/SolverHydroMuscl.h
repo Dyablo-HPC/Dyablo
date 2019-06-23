@@ -65,9 +65,9 @@ public:
     return solver;
   }
 
-  DataArray     U;     /*!< hydrodynamics conservative variables arrays */
-  DataArrayHost Uhost; /*!< U mirror on host memory space */
-  DataArray     U2;    /*!< hydrodynamics conservative variables arrays */
+  DataArray     U;     /*!< hydrodynamics conservative variables arrays at t_n */
+  DataArrayHost Uhost; /*!< mirror DataArray U on host memory space */
+  DataArray     U2;    /*!< hydrodynamics conservative variables arrays at t_{n+1}*/
   DataArray     Q;     /*!< hydrodynamics primitive    variables array  */
 
   DataArray     Ughost; /*!< ghost cell data */
@@ -117,7 +117,8 @@ public:
   //! init wrapper (actual initialization)
   void init(DataArray Udata);
 
-  //! override base class
+  //! override base class, do_amr_cycle is supposed to be called after
+  //! the numerical scheme (godunov_unsplit)
   void do_amr_cycle();
   
   //! compute time step inside an MPI process, at shared memory level.

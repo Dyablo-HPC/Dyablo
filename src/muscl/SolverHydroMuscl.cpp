@@ -503,6 +503,9 @@ void SolverHydroMuscl::init(DataArray Udata)
       
     }
 
+    if (params.myRank==0)
+      printf("Number of octants after init conditions: %ld\n",amr_mesh->getNumOctants());
+
   } // end regular initialization
 
 } // SolverHydroMuscl::init
@@ -552,20 +555,13 @@ double SolverHydroMuscl::compute_dt_local()
 
   real_t dt;
   real_t invDt = ZERO_F;
-  DataArray Udata;
-  
-  // which array is the current one ?
-  if (m_iteration % 2 == 0)
-    Udata = U;
-  else
-    Udata = U2;
 
   // retrieve available / allowed names: fieldManager, and field map (fm)
   // necessary to access user data
   auto fm = fieldMgr.get_id2index();
 
   // call device functor - compute invDt
-  ComputeDtHydroFunctor::apply(amr_mesh, params, fm, Udata, invDt);
+  ComputeDtHydroFunctor::apply(amr_mesh, params, fm, U, invDt);
 
   dt = params.settings.cfl/invDt;
 
@@ -613,9 +609,16 @@ void SolverHydroMuscl::next_iteration_impl()
   // perform one step integration
   godunov_unsplit(m_dt);
 
+  // end of time step, U2 contains next time step data, swap U and U2
+  //std::swap(U,U2);
+
+  // deep copy U2 into U
+  Kokkos::deep_copy(U,U2);
+
   // mesh adaptation (perform refine / coarsen)
   if ( should_do_amr_cycle() )
     do_amr_cycle();
+    
 
 } // SolverHydroMuscl::next_iteration_impl
 
@@ -627,11 +630,7 @@ void SolverHydroMuscl::next_iteration_impl()
 void SolverHydroMuscl::godunov_unsplit(real_t dt)
 {
   
-  if ( m_iteration % 2 == 0 ) {
-    godunov_unsplit_impl(U , U2, dt);
-  } else {
-    godunov_unsplit_impl(U2, U , dt);
-  }
+  godunov_unsplit_impl(U , U2, dt);
   
 } // SolverHydroMuscl::godunov_unsplit
 
@@ -770,10 +769,6 @@ void SolverHydroMuscl::save_solution_impl()
 {
 
   m_timers[TIMER_IO]->start();
-  // if (m_iteration % 2 == 0)
-  //   save_data(U,  Uhost, m_times_saved, m_t);
-  // else
-  //   save_data(U2, Uhost, m_times_saved, m_t);
 
   // retrieve available / allowed names: fieldManager, and field map (fm)
   auto fm = fieldMgr.get_id2index();
@@ -904,21 +899,31 @@ void SolverHydroMuscl::map_userdata_after_adapt()
 
   // TODO : make is mapper and isghost Kokkos::View's so that
   // one can make the rest of this routine parallel
-  DataArray U_new("U_new");
   std::vector<uint32_t> mapper;
   std::vector<bool> isghost;
   
   // 
   int nbVars = params.nbvar;
 
-  //amr_mesh->adapt(true);
-  uint32_t nocts = amr_mesh->getNumOctants();
-  Kokkos::resize(U_new, nocts, nbVars);
-
-  
-  // field manager index array
+    // field manager index array
   auto fm = fieldMgr.get_id2index();
 
+  // at this stage, the numerical scheme has been computed
+  // U contains data at t_n
+  // U2 contains data at t_{n+1}
+  //
+  // so let's just resize U, and remap U2 to U after the mesh adaptation
+
+  //amr_mesh->adapt(true);
+  uint32_t nocts = amr_mesh->getNumOctants();
+  Kokkos::resize(U, nocts, nbVars);
+  
+  // reset U
+  Kokkos::parallel_for(nocts, KOKKOS_LAMBDA(const size_t i) {
+      for (int ivar=0; ivar<nbVars; ++ivar)
+        U(i,fm[ivar])=0.0;
+    });
+  
   /*
    * Assign to the new octant the average of the old children
    *  if it is new after a coarsening;
@@ -926,27 +931,38 @@ void SolverHydroMuscl::map_userdata_after_adapt()
    *  if it is new after a refinement.
    */
   // TODO : make this loop a parallel_for ?
-  for (uint32_t i=0; i<nocts; i++){
+  for (uint32_t i=0; i<nocts; i++) {
+    
     amr_mesh->getMapping(i, mapper, isghost);
-    if (amr_mesh->getIsNewC(i)){
+    
+    if (amr_mesh->getIsNewC(i)) {
+
       for (int j=0; j<m_nbChildren; ++j) {
-	if (isghost[j]){
+
+	if (isghost[j]) {
+	  
+          for (int ivar=0; ivar<nbVars; ++ivar)
+	    U(i,fm[ivar]) += Ughost(mapper[j],fm[ivar])/m_nbChildren;
+
+	} else {
+
 	  for (int ivar=0; ivar<nbVars; ++ivar)
-	    U_new(i,fm[ivar]) += Ughost(mapper[j],fm[ivar])/4;
-	}
-	else{
-	  for (int ivar=0; ivar<nbVars; ++ivar)
-	    U_new(i,fm[ivar]) += U(mapper[j],fm[ivar])/4;
+	    U(i,fm[ivar]) += U2(mapper[j],fm[ivar])/m_nbChildren;
 	}
       }
+
     } else {
+
       for (int ivar=0; ivar<nbVars; ++ivar)
-	U_new(i,fm[ivar]) += U(mapper[0],fm[ivar]);
+	U(i,fm[ivar]) = U2(mapper[0],fm[ivar]);
+
     }
   }
 
+  // now U contains the most up to date data after mesh adaptation
+
   // re-assign U_new to U
-  U = U_new;
+  //U = U_new;
   
 } // SolverHydroMuscl::map_data_after_adapt
 
