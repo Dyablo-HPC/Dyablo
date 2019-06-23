@@ -612,7 +612,11 @@ void SolverHydroMuscl::next_iteration_impl()
   
   // perform one step integration
   godunov_unsplit(m_dt);
-  
+
+  // mesh adaptation (perform refine / coarsen)
+  if ( should_do_amr_cycle() )
+    do_amr_cycle();
+
 } // SolverHydroMuscl::next_iteration_impl
 
 // =======================================================
@@ -872,9 +876,9 @@ void SolverHydroMuscl::mark_cells()
 
   DataArray Udata = m_iteration % 2 == 0 ? U : U2;
 
-  // TODO : make sure Ughost is up to date
+  // Note: Ughost is up to date, update at the beginning of do_amr_cycle
 
-  // call device functor fto flag for refine/coarsen
+  // call device functor to flag for refine/coarsen
   MarkCellsHydroFunctor::apply(amr_mesh, params, fm, Udata, Ughost,
                                eps_refine, eps_coarsen);
   
@@ -886,6 +890,7 @@ void SolverHydroMuscl::adapt_mesh()
 {
 
   // 1. adapt mesh
+  amr_mesh->adapt(true);
 
   // 2. re-compute connectivity
   amr_mesh->updateConnectivity();
