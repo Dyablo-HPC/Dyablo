@@ -176,12 +176,15 @@ public:
     // now epsilon has been computed, we can mark / flag cells for 
     // refinement or coarsening
 
+    // get current cell level
+    uint8_t level = pmesh->getLevel(i);
+
     // epsilon too large, set octant to be refined
-    if ( epsilon > epsilon_refine )
+    if ( level < params.level_max and epsilon > epsilon_refine )
       pmesh->setMarker(i,1);
 
     // epsilon too small, set octant to be coarsened
-    if ( epsilon < epsilon_coarsen)
+    if ( level > params.level_min and epsilon < epsilon_coarsen)
       pmesh->setMarker(i,-1);
     
   } // operator ()
