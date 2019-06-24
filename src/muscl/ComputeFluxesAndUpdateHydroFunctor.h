@@ -175,7 +175,9 @@ public:
      * - current cell is smaller than neighbor
      */
     const real_t size_c = pmesh->getSize(i);
-    const real_t size_n = isghost_n ? pmesh->getSizeGhost(i_n) : pmesh->getSize(i_n);
+    const real_t size_n = isghost_n ? 
+      pmesh->getSizeGhost(i_n) : 
+      pmesh->getSize(i_n);
 
     if (size_c <= size_n) {
 
@@ -202,8 +204,8 @@ public:
 
       const bitpit::darray3 xyz_c = pmesh->getCenter(i);
       const bitpit::darray3 xyz_n = isghost_n ? 
-        pmesh->getCenter(i_n) :
-        pmesh->getCenterGhost(i_n);      
+        pmesh->getCenterGhost(i_n) :
+        pmesh->getCenter(i_n);
 
       // along x axis
       if (face_along_axis<IX>(iface)) {
@@ -272,7 +274,9 @@ public:
      * - current cell is larger than neighbor
      */
     const real_t size_c = pmesh->getSize(i);
-    const real_t size_n = isghost_n ? pmesh->getSizeGhost(i_n) : pmesh->getSize(i_n);
+    const real_t size_n = isghost_n ? 
+      pmesh->getSizeGhost(i_n) : 
+      pmesh->getSize(i_n);
 
     if (size_c >= size_n) {
 
@@ -299,8 +303,8 @@ public:
 
       const bitpit::darray3 xyz_c = pmesh->getCenter(i);
       const bitpit::darray3 xyz_n = isghost_n ? 
-        pmesh->getCenter(i_n) :
-        pmesh->getCenterGhost(i_n);      
+        pmesh->getCenterGhost(i_n) : 
+        pmesh->getCenter(i_n);      
 
       // along x axis
       if (face_along_axis<IX>(iface)) {
