@@ -540,7 +540,7 @@ void SolverHydroMuscl::do_amr_cycle()
 
   // 5. load balance
   load_balance_userdata();
-  
+
 } // SolverHydroMuscl::do_amr_cycle
 
 // =======================================================
@@ -648,8 +648,6 @@ void SolverHydroMuscl::godunov_unsplit_impl(DataArray data_in,
   m_timers[TIMER_BOUNDARIES]->start();
   make_boundaries(data_in);
   m_timers[TIMER_BOUNDARIES]->stop();
-
-  printf("size U %ld %d U2 %ld %ld - %ld\n", U.extent(0), U.extent(1), U2.extent(0), U2.extent(1), amr_mesh->getNumOctants());
 
   // copy data_in into data_out (not necessary)
   // data_out = data_in;
@@ -962,6 +960,8 @@ void SolverHydroMuscl::map_userdata_after_adapt()
   }
 
   // now U contains the most up to date data after mesh adaptation
+  // we can resize U2 for the next time-step
+  Kokkos::resize(U2, U.extent(0), U.extent(1));
 
   // re-assign U_new to U
   //U = U_new;
