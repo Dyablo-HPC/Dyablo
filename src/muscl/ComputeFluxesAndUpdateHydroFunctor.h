@@ -299,7 +299,7 @@ public:
     /*
      * current cell is smaller than neighbor
      */
-    if (pmesh->getSize(i) < pmesh->getSize(i_n)) {
+    if (size_c < size_n) {
 
       const bitpit::darray3 xyz_c = pmesh->getCenter(i);
       const bitpit::darray3 xyz_n = isghost_n ? 
@@ -308,7 +308,7 @@ public:
 
       // along x axis
       if (face_along_axis<IX>(iface)) {
-        offsets[IX] = 1.0 -2.0 * iface2;
+        offsets[IX] = 1.0 - 2.0 * iface2;
         offsets[IY] = xyz_n[IY]>xyz_c[IY] ? -0.5 : 0.5;
         offsets[IZ] = 0.0;
       }
