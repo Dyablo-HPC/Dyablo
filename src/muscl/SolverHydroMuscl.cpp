@@ -232,15 +232,15 @@ void SolverHydroMuscl::init_blast(DataArray Udata)
     // actually perform refinement
     amr_mesh->adapt();
 
+    // re-compute mesh connectivity (morton index list, nodes coordinates, ...)
+    amr_mesh->updateConnectivity();
+
 #if BITPIT_ENABLE_MPI==1
     // (Load)Balance the octree over the MPI processes.
     amr_mesh->loadBalance();
 #endif
 
   } // end for level
-
-  // re-compute mesh connectivity (morton index list, nodes coordinates, ...)
-  amr_mesh->updateConnectivity();
 
   // field manager index array
   auto fm = fieldMgr.get_id2index();
@@ -348,6 +348,9 @@ void SolverHydroMuscl::init_four_quadrant(DataArray Udata)
     // actually perform refinement
     amr_mesh->adapt();
 
+    // re-compute mesh connectivity (morton index list, nodes coordinates, ...)
+    amr_mesh->updateConnectivity();
+  
 #if BITPIT_ENABLE_MPI==1
     // (Load)Balance the octree over the MPI processes.
     amr_mesh->loadBalance();
@@ -355,9 +358,6 @@ void SolverHydroMuscl::init_four_quadrant(DataArray Udata)
 
   } // end for level
 
-  // re-compute mesh connectivity (morton index list, nodes coordinates, ...)
-  amr_mesh->updateConnectivity();
-  
   // retrieve available / allowed names: fieldManager, and field map (fm)
   // necessary to access user data
   auto fm = fieldMgr.get_id2index();
@@ -503,6 +503,9 @@ void SolverHydroMuscl::init(DataArray Udata)
       
     }
 
+    // initialize U2
+    Kokkos::deep_copy(U2,U);
+
     if (params.myRank==0)
       printf("Number of octants after init conditions: %ld\n",amr_mesh->getNumOctants());
 
@@ -616,9 +619,9 @@ void SolverHydroMuscl::next_iteration_impl()
   Kokkos::deep_copy(U,U2);
 
   // mesh adaptation (perform refine / coarsen)
-  if ( should_do_amr_cycle() )
+  if ( should_do_amr_cycle() ) {
     do_amr_cycle();
-    
+  }
 
 } // SolverHydroMuscl::next_iteration_impl
 
