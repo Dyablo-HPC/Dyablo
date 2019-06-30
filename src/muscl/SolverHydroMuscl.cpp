@@ -887,7 +887,7 @@ void SolverHydroMuscl::mark_cells()
 void SolverHydroMuscl::adapt_mesh()
 {
 
-  // 1. adapt mesh
+  // 1. adapt mesh with mapper enabled
   amr_mesh->adapt(true);
 
   // 2. re-compute connectivity
@@ -937,7 +937,8 @@ void SolverHydroMuscl::map_userdata_after_adapt()
   for (uint32_t i=0; i<nocts; i++) {
     
     amr_mesh->getMapping(i, mapper, isghost);
-    
+
+    // test is current cell is new upon a coarsening operation
     if (amr_mesh->getIsNewC(i)) {
 
       for (int j=0; j<m_nbChildren; ++j) {
@@ -955,6 +956,9 @@ void SolverHydroMuscl::map_userdata_after_adapt()
       }
 
     } else {
+
+      // current cell is just an old cell or new upon a refinement,
+      // so we just copy data
 
       for (int ivar=0; ivar<nbVars; ++ivar)
 	U(i,fm[ivar]) = U2(mapper[0],fm[ivar]);
