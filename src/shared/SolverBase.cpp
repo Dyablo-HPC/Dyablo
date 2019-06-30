@@ -37,8 +37,9 @@ SolverBase::SolverBase (HydroParams& params, ConfigMap& configMap) :
 
   // set default behavior regarding 2:1 balance
   // codim 1 ==> balance through faces
-  // codim 2 ==> balance through nodes and edges
-  int codim = configMap.getInteger("amr", "codim", 2);
+  // codim 2 ==> balance through faces and corner
+  // codim 3 ==> balance through faces, edges and corner (3D only)
+  int codim = configMap.getInteger("amr", "codim", m_dim);
   amr_mesh->setBalanceCodimension(codim);
 
   uint32_t idx = 0;
