@@ -528,10 +528,10 @@ void SolverHydroMuscl::do_amr_cycle()
   /*
    * Following steps:
    *
-   * 1. User data comm to update ghost cell values
-   * 2. mark cell for refinement / coarsening
+   * 1. MPI synchronize user data to update ghost cell values
+   * 2. mark cell for refinement / coarsening (requiring up to date ghost)
    * 3. adapt mesh
-   * 4. remap user data to the mesh
+   * 4. remap user data to the new mesh
    * 5. load balance mesh and user data
    */
 
