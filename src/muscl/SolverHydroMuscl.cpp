@@ -622,12 +622,16 @@ void SolverHydroMuscl::next_iteration_impl()
   // end of time step, U2 contains next time step data, swap U and U2
   //std::swap(U,U2);
 
-  // deep copy U2 into U
-  Kokkos::deep_copy(U,U2);
-
   // mesh adaptation (perform refine / coarsen)
   if ( should_do_amr_cycle() ) {
+    
     do_amr_cycle();
+
+  } else {
+    
+    // just deep copy U2 into U 
+    Kokkos::deep_copy(U,U2);
+
   }
 
 } // SolverHydroMuscl::next_iteration_impl
@@ -904,6 +908,10 @@ void SolverHydroMuscl::adapt_mesh()
 
 // =======================================================
 // =======================================================
+/**
+ * input  U2 contains user data before adapt step
+ * output U  will be filled with data after remap
+ */
 void SolverHydroMuscl::map_userdata_after_adapt()
 {
 
