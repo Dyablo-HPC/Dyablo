@@ -179,6 +179,16 @@ public:
       pmesh->getSizeGhost(i_n) : 
       pmesh->getSize(i_n);
 
+
+    /*
+     * current cell (c) is smaller or has same size as neighbor (n)
+     *
+     * +----+          +----+----+
+     * | n  |__    or  | n  | c  |
+     * |    | c|       |    |    |
+     * +----+--+       +----+----+
+     *
+     */
     if (size_c <= size_n) {
 
       // along x axis
@@ -198,7 +208,13 @@ public:
     } // end same size
 
     /*
-     * current cell is larger than neighbors
+     * current cell (c) is larger than neighbor (n)
+     *
+     *    +----+
+     *  __| c  |
+     * | n|    |
+     * +--+----+
+     *
      */
     if (size_c > size_n) {
 
@@ -278,6 +294,15 @@ public:
       pmesh->getSizeGhost(i_n) : 
       pmesh->getSize(i_n);
 
+    /*
+     * current cell (c) is larger than neighbor (n) or same size
+     *
+     *    +----+       +----+----+
+     *  __| c  |   or  | n  | c  |
+     * | n|    |       |    |    |
+     * +--+----+       +----+----+
+     *
+     */
     if (size_c >= size_n) {
 
       // along x axis
@@ -297,7 +322,13 @@ public:
     } // end same size
 
     /*
-     * current cell is smaller than neighbor
+     * current cell (c) is smaller than neighbor (n)
+     *
+     * +----+    
+     * | n  |__  
+     * |    | c| 
+     * +----+--+ 
+     *
      */
     if (size_c < size_n) {
 
