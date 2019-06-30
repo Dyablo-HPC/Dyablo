@@ -51,9 +51,13 @@ public:
 				   DataArray SlopeY,
 				   DataArray SlopeZ) :
     HydroBaseFunctor(params),
-    pmesh(pmesh), fm(fm), 
-    Qdata(Qdata), Qdata_ghost(Qdata_ghost),
-    SlopeX(SlopeX), SlopeY(SlopeY), SlopeZ(SlopeZ)
+    pmesh(pmesh), 
+    fm(fm),
+    Qdata(Qdata), 
+    Qdata_ghost(Qdata_ghost),
+    SlopeX(SlopeX), 
+    SlopeY(SlopeY), 
+    SlopeZ(SlopeZ)
   {};
   
   // static method which does it all: create and execute functor
