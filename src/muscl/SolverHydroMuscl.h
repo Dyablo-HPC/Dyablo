@@ -1,5 +1,8 @@
 /**
- * Class SolverHydroMuscl implementation.
+ * \file SolverHydroMuscl.h
+ * \author Pierre Kestener 
+ *
+ * Class SolverHydroMuscl definition.
  *
  * Main class for solving hydrodynamics (Euler) with
  * MUSCL-Hancock scheme for 2D/3D.

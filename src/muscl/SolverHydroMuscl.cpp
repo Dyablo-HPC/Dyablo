@@ -1,3 +1,7 @@
+/**
+ * \file SolverHydroMuscl.cpp
+ * \author Pierre Kestener
+ */
 #include <string>
 #include <cstdio>
 #include <cstdbool>
@@ -211,17 +215,18 @@ void SolverHydroMuscl::init_blast(DataArray Udata)
    * so far (every MPI process does that)
    */
   int level_min = params.level_min;
-  int level_max = params.level_max;
-  
-  for (int iter=0; iter<=level_min; iter++) {
+  int level_max = params.level_max;  
+
+  for (int iter=0; iter<level_min; iter++) {
     amr_mesh->adaptGlobalRefine();
   }
 #if BITPIT_ENABLE_MPI==1
-    // (Load)Balance the octree over the MPI processes.
-    amr_mesh->loadBalance();
+  // (Load)Balance the octree over the MPI processes.
+  amr_mesh->loadBalance();
 #endif
-    //std::cout << "MPI rank=" << amr_mesh->getRank() << " | NB cells =" << amr_mesh->getNumOctants() << "\n";
-  
+  //std::cout << "MPI rank=" << amr_mesh->getRank() << " | NB cells =" << amr_mesh->getNumOctants() << "\n";
+
+  // after the global refine stages, all cells are at level = level_min
 
   // genuine initial refinement
   for (int level=level_min; level<level_max; ++level) {
@@ -317,7 +322,7 @@ void SolverHydroMuscl::init_four_quadrant(DataArray Udata)
   int level_min = params.level_min;
   int level_max = params.level_max;
   
-  for (int iter=0; iter<=level_min; iter++) {
+  for (int iter=0; iter<level_min; iter++) {
     amr_mesh->adaptGlobalRefine();
   }
 #if BITPIT_ENABLE_MPI==1
@@ -325,7 +330,9 @@ void SolverHydroMuscl::init_four_quadrant(DataArray Udata)
     amr_mesh->loadBalance();
 #endif
     //std::cout << "MPI rank=" << amr_mesh->getRank() << " | NB cells =" << amr_mesh->getNumOctants() << "\n";
-  
+
+  // after the global refine stages, all cells are at level = level_min
+
   // load problem specific parameters
   int configNumber = configMap.getInteger("riemann2d","config_number",0);
   real_t xt = configMap.getFloat("riemann2d","x",0.8);
