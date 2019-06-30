@@ -954,7 +954,7 @@ void SolverHydroMuscl::map_userdata_after_adapt()
     amr_mesh->getMapping(i, mapper, isghost);
 
     // test is current cell is new upon a coarsening operation
-    if (amr_mesh->getIsNewC(i)) {
+    if ( amr_mesh->getIsNewC(i) ) {
 
       for (int j=0; j<m_nbChildren; ++j) {
 
@@ -963,30 +963,27 @@ void SolverHydroMuscl::map_userdata_after_adapt()
           for (int ivar=0; ivar<nbVars; ++ivar)
 	    U(i,fm[ivar]) += Ughost(mapper[j],fm[ivar])/m_nbChildren;
 
-	} else {
+        } else {
 
-	  for (int ivar=0; ivar<nbVars; ++ivar)
-	    U(i,fm[ivar]) += U2(mapper[j],fm[ivar])/m_nbChildren;
-	}
+          for (int ivar = 0; ivar < nbVars; ++ivar)
+            U(i, fm[ivar]) += U2(mapper[j], fm[ivar]) / m_nbChildren;
+        }
+
       }
 
     } else {
-
+      
       // current cell is just an old cell or new upon a refinement,
       // so we just copy data
-
-      for (int ivar=0; ivar<nbVars; ++ivar)
-	U(i,fm[ivar]) = U2(mapper[0],fm[ivar]);
-
+      
+      for (int ivar = 0; ivar < nbVars; ++ivar)
+        U(i, fm[ivar]) = U2(mapper[0], fm[ivar]);
     }
   }
 
   // now U contains the most up to date data after mesh adaptation
   // we can resize U2 for the next time-step
   Kokkos::resize(U2, U.extent(0), U.extent(1));
-
-  // re-assign U_new to U
-  //U = U_new;
   
 } // SolverHydroMuscl::map_data_after_adapt
 
