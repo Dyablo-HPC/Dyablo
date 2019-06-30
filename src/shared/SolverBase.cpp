@@ -38,7 +38,7 @@ SolverBase::SolverBase (HydroParams& params, ConfigMap& configMap) :
   // set default behavior regarding 2:1 balance
   // codim 1 ==> balance through faces
   // codim 2 ==> balance through nodes and edges
-  amr_mesh->setBalanceCodimension(1);
+  amr_mesh->setBalanceCodimension(2);
   uint32_t idx = 0;
   amr_mesh->setBalance(idx,true);
 
