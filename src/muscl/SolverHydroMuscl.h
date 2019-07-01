@@ -76,12 +76,6 @@ public:
   DataArray     Ughost; /*!< ghost cell data */
   DataArray     Qghost; /*!< ghost cell data for primitive variables */
 
-  /* implementation 0 */
-  DataArray Fluxes_x; /*!< implementation 0 */
-  DataArray Fluxes_y; /*!< implementation 0 */
-  DataArray Fluxes_z; /*!< implementation 0 */
-  
-  /* implementation 1 only */
   DataArray Slopes_x; /*!< implementation 1 only */
   DataArray Slopes_y; /*!< implementation 1 only */
   DataArray Slopes_z; /*!< implementation 1 only */
