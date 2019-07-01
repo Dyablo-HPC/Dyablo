@@ -99,6 +99,7 @@ public:
 
   // host routines (initialization)  
   void init_implode(DataArray Udata); // 2d and 3d
+  void init_sod(DataArray Udata); // 2d and 3d
   void init_blast(DataArray Udata); // 2d and 3d
   void init_kelvin_helmholtz(DataArray Udata); // 2d and 3d
   void init_gresho_vortex(DataArray Udata); // 2d and 3d
