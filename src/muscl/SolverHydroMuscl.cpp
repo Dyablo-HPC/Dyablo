@@ -47,7 +47,6 @@ SolverHydroMuscl::SolverHydroMuscl(HydroParams& params,
   SolverBase(params, configMap),
   U(), Uhost(), U2(), Q(), 
   Ughost(), Qghost(),
-  Fluxes_x(), Fluxes_y(), Fluxes_z(),
   Slopes_x(), Slopes_y(), Slopes_z(),
   Slopes_x_ghost(), Slopes_y_ghost(), Slopes_z_ghost()
 {
@@ -81,39 +80,17 @@ SolverHydroMuscl::SolverHydroMuscl(HydroParams& params,
   
   total_mem_size += nbCells*nbvar * sizeof(real_t) * 3;// 1+1+1 for U+U2+Q
   
-  if (params.implementationVersion == 0) {
-      
-    Fluxes_x = DataArray("Fluxes_x", nbCells, nbvar);
-    Fluxes_y = DataArray("Fluxes_y", nbCells, nbvar);
-
-    if (m_dim == 3)
-      Fluxes_z = DataArray("Fluxes_z", nbCells, nbvar);
-
-    if (m_dim == 2)
-      total_mem_size += nbCells*nbvar * sizeof(real_t) * 2;// 1+1 for Fluxes_x+Fluxes_y
-    else
-      total_mem_size += nbCells*nbvar * sizeof(real_t) * 3;// 1+1+1 for Fluxes_x+Fluxes_y+Fluxes_z
-    
-  } else if (params.implementationVersion == 1) {
-      
-    Slopes_x = DataArray("Slope_x", nbCells, nbvar);
-    Slopes_y = DataArray("Slope_y", nbCells, nbvar);
-
-    if (m_dim == 3)
-      Slopes_z = DataArray("Slope_z", nbCells, nbvar);
-
-    // direction splitting (only need one flux array)
-    Fluxes_x = DataArray("Fluxes_x", nbCells, nbvar);
-    Fluxes_y = Fluxes_x;
-    if (m_dim == 3)
-      Fluxes_z = Fluxes_x;
-
-    if (m_dim==2)
-      total_mem_size += nbCells*nbvar * sizeof(real_t) * 3;// 1+1+1 for Slopes_x+Slopes_y+Fluxes_x
-    else
-      total_mem_size += nbCells*nbvar * sizeof(real_t) * 4;// 1+1+1 for Slopes_x+Slopes_y+Slopes_z+Fluxes_x
-    
-  } 
+  Slopes_x = DataArray("Slope_x", nbCells, nbvar);
+  Slopes_y = DataArray("Slope_y", nbCells, nbvar);
+  
+  if (m_dim == 3)
+    Slopes_z = DataArray("Slope_z", nbCells, nbvar);
+  
+  if (m_dim==2)
+    total_mem_size += nbCells*nbvar * sizeof(real_t) * 2;// 1+1 for Slopes_x+Slopes_y
+  else
+    total_mem_size += nbCells*nbvar * sizeof(real_t) * 3;// 1+1+1 for Slopes_x+Slopes_y+Slopes_z
+  
   
   // if (m_gravity_enabled) {
   //   gravity = DataArray("gravity field",nbCells,m_dim);
@@ -513,9 +490,6 @@ void SolverHydroMuscl::init(DataArray Udata)
 
     // initialize U2
     Kokkos::deep_copy(U2,U);
-
-    if (params.myRank==0)
-      printf("Number of octants after init conditions: %ld\n",amr_mesh->getNumOctants());
 
   } // end regular initialization
 
