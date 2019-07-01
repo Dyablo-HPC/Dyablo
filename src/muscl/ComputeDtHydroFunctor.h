@@ -1,3 +1,7 @@
+/**
+ * \file ComputeDtHydroFunctor.h
+ * \author Pierre Kestener
+ */
 #ifndef COMPUTE_DT_HYDRO_FUNCTOR_H_
 #define COMPUTE_DT_HYDRO_FUNCTOR_H_
 

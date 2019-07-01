@@ -349,7 +349,7 @@ public:
         offsets[IX] = xyz_n[IX]>xyz_c[IX] ? -0.5 : 0.5;
         offsets[IY] = 1.0 - 2.0 * iface2;
         offsets[IZ] = 0.0;
-      }      
+      }
 
     } // end current cell is larger
  

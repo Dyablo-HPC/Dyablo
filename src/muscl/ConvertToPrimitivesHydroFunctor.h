@@ -1,3 +1,7 @@
+/**
+ * \file ConvertToPrimitivesHydroFunctor.h
+ * \author Pierre Kestener
+ */
 #ifndef CONVERT_TO_PRIMITIVES_HYDRO_FUNCTOR_H_
 #define CONVERT_TO_PRIMITIVES_HYDRO_FUNCTOR_H_
 

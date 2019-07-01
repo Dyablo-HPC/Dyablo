@@ -1,5 +1,6 @@
 /**
  * \file SolverHydroMuscl.cpp
+ *
  * \author Pierre Kestener
  */
 #include <string>

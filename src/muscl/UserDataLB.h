@@ -1,5 +1,7 @@
 /*
- * UserDataLB.h for muscl scheme.
+ * \file UserDataLB.h for muscl scheme.
+ *
+ * \author Pierre Kestener
  *
  * MPI load balancing user data.
  */

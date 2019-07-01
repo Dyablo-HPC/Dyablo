@@ -1,3 +1,7 @@
+/**
+ * \file HydroBaseFunctor.h
+ * \author Pierre Kestener
+ */
 #ifndef HYDRO_BASE_FUNCTORS_H_
 #define HYDRO_BASE_FUNCTORS_H_
 

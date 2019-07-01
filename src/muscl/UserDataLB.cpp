@@ -1,5 +1,7 @@
 /*
- * UserDataLB.cpp
+ * \file UserDataLB.cpp
+ *
+ * \author Pierre Kestener
  *
  */
 
