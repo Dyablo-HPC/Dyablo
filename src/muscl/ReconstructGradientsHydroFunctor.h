@@ -157,9 +157,9 @@ public:
   } // update_minmod
 
   KOKKOS_INLINE_FUNCTION
-  void operator_2d(const size_t i) const 
+  void compute_limited_slopes(const size_t i) const 
   {
-    constexpr int dim = 2;
+    const int dim = this->params.dimType == TWO_D ? 2 : 3;
     // codim=1 ==> faces
     // codim=2 ==> edges
     const int codim = 1;
@@ -170,16 +170,16 @@ public:
     const int nbvar = params.nbvar;
 
     // temp variables for gradient
-    Kokkos::Array<real_t,dim> grad;
+    Kokkos::Array<real_t,3> grad;
 
     grad[IX] = 0;
     grad[IY] = 0;
+    grad[IZ] = 0;
 
     // this vector contains quad ids
     // corresponding to neighbors
     std::vector<uint32_t> neigh; // through a given face
     std::vector<uint32_t> neigh_all; // all neighbors
-
 
     // this vector contains ghost status of each neighbors
     std::vector<bool> isghost; // through a given face
@@ -215,9 +215,11 @@ public:
 #ifdef __CUDA_ARCH__
       grad[IX] = CUDART_INF;
       grad[IY] = CUDART_INF;
+      grad[IZ] = CUDART_INF;
 #else
       grad[IX] = std::numeric_limits<real_t>::max();
       grad[IY] = std::numeric_limits<real_t>::max();
+      grad[IZ] = std::numeric_limits<real_t>::max();
 #endif // __CUDA_ARCH__
 
       // sweep neighbors to compute minmod limited gradient
@@ -240,30 +242,35 @@ public:
                                  dx, xyz_c[IY], xyz_n[IY],
                                  ivar, IY);
 
+        if (this->params.dimType == THREE_D) {
+
+          grad[IZ] = update_minmod(grad[IZ], i, i_n, isghost_all[j],
+                                   dx, xyz_c[IZ], xyz_n[IZ],
+                                   ivar, IZ);
+        
+        }
+
       } // end minmod
 
       // copy back limited gradient
       SlopeX(i,fm[ivar]) = grad[IX];
       SlopeY(i,fm[ivar]) = grad[IY];
 
+      if (this->params.dimType == THREE_D) {
+        
+        SlopeZ(i,fm[ivar]) = grad[IZ];
+        
+      }
+
     } // end for ivar
     
-  } // operator_2d
-
-  KOKKOS_INLINE_FUNCTION
-  void operator_3d(const size_t i) const {
-  
-  } // operator_3d
+  } // compute_limited_slopes
 
   KOKKOS_INLINE_FUNCTION
   void operator()(const size_t i) const
   {
     
-    if (this->params.dimType == TWO_D)
-      operator_2d(i);
-    
-    if (this->params.dimType == THREE_D)
-      operator_3d(i);
+    compute_limited_slopes(i);
     
   } // operator ()
   
