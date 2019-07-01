@@ -48,7 +48,9 @@ public:
     ComputeDtHydroFunctor functor(pmesh, params, fm, Udata);
     Kokkos::parallel_reduce(pmesh->getNumOctants(), functor, invDt);
   }
-  
+
+  // ====================================================================
+  // ====================================================================
   // Tell each thread how to initialize its reduction result.
   KOKKOS_INLINE_FUNCTION
   void init (real_t& dst) const
@@ -63,6 +65,8 @@ public:
 #endif // __CUDA_ARCH__
   } // init
 
+  // ====================================================================
+  // ====================================================================
   KOKKOS_INLINE_FUNCTION
   void operator_2d(const size_t& i, real_t &invDt) const
   {
@@ -94,6 +98,8 @@ public:
 
   } // operator_2d
 
+  // ====================================================================
+  // ====================================================================
   KOKKOS_INLINE_FUNCTION
   void operator_3d(const size_t& i, real_t &invDt) const
   {
