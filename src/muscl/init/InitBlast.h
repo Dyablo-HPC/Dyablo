@@ -89,24 +89,17 @@ public:
     if (params.dimType == THREE_D)
       d2 += (z-blast_center_z)*(z-blast_center_z);
 
-    // if (d2 < radius2) {
-    //   Udata(i    , fm[ID]) = blast_density_in; 
-    //   Udata(i    , fm[IP]) = blast_pressure_in/(gamma0-1.0); 
-    //   Udata(i    , fm[IU]) = 0.0;
-    //   Udata(i    , fm[IV]) = 0.0;
-    // } else {
-    //   Udata(i    , fm[ID]) = blast_density_out; 
-    //   Udata(i    , fm[IP]) = blast_pressure_out/(gamma0-1.0); 
-    //   Udata(i    , fm[IU]) = 0.0;
-    //   Udata(i    , fm[IV]) = 0.0;
-    // }
-
-    real_t tmp = log(sqrt(d2)/blast_radius);
-
-    Udata(i    , fm[ID]) = blast_density_in + (blast_density_out-blast_density_in)*(1+tanh(tmp))*0.5;
-    Udata(i    , fm[IP]) = blast_pressure_in + (blast_pressure_out-blast_pressure_in)*(1+tanh(tmp))*0.5;
-    Udata(i    , fm[IU]) = 0.0;
-    Udata(i    , fm[IV]) = 0.0;
+    if (d2 < radius2) {
+      Udata(i    , fm[ID]) = blast_density_in; 
+      Udata(i    , fm[IP]) = blast_pressure_in/(gamma0-1.0); 
+      Udata(i    , fm[IU]) = 0.0;
+      Udata(i    , fm[IV]) = 0.0;
+    } else {
+      Udata(i    , fm[ID]) = blast_density_out; 
+      Udata(i    , fm[IP]) = blast_pressure_out/(gamma0-1.0); 
+      Udata(i    , fm[IU]) = 0.0;
+      Udata(i    , fm[IV]) = 0.0;
+    }
 
     if (params.dimType == THREE_D)
       Udata(i, fm[IW]) = 0.0;
