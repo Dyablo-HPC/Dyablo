@@ -156,11 +156,14 @@ public:
    * \param[in] iface face id (from current cell side point of view)
    */
   KOKKOS_INLINE_FUNCTION
-  offsets_t get_reconstruct_offsets_current_2d(const uint32_t i, 
-                                               const uint32_t i_n,
-                                               const bool isghost_n,
-                                               const uint8_t iface) const
+  offsets_t get_reconstruct_offsets_current(const uint32_t i, 
+                                            const uint32_t i_n,
+                                            const bool isghost_n,
+                                            const uint8_t iface) const
   {
+
+    // get dimension
+    const int dim = this->params.dimType == TWO_D ? 2 : 3;
 
     offsets_t offsets;
 
@@ -205,6 +208,13 @@ public:
         offsets[IZ] = 0.0;
       }
 
+      // along y axis
+      if (face_along_axis<IZ>(iface)) {
+        offsets[IX] = 0.0;
+        offsets[IY] = 0.0;
+        offsets[IZ] = 2.0 * iface2 - 1;
+      }
+
     } // end same size
 
     /*
@@ -227,21 +237,28 @@ public:
       if (face_along_axis<IX>(iface)) {
         offsets[IX] = 2.0 * iface2 - 1;
         offsets[IY] = xyz_n[IY]>xyz_c[IY] ? 0.5 : -0.5;
-        offsets[IZ] = 0.0;
+        offsets[IZ] = dim==2 ? 0.0 : (xyz_n[IZ]>xyz_c[IZ] ? 0.5 : -0.5) ;
       }
       
       // along y axis
       if (face_along_axis<IY>(iface)) {
         offsets[IX] = xyz_n[IX]>xyz_c[IX] ? 0.5 : -0.5;
         offsets[IY] = 2.0 * iface2 - 1;
-        offsets[IZ] = 0.0;
+        offsets[IZ] = dim==2 ? 0.0 : (xyz_n[IZ]>xyz_c[IZ] ? 0.5 : -0.5) ;
       }      
+
+      // along z axis
+      if (face_along_axis<IZ>(iface)) {
+        offsets[IX] = xyz_n[IX]>xyz_c[IX] ? 0.5 : -0.5;
+        offsets[IY] = xyz_n[IY]>xyz_c[IY] ? 0.5 : -0.5;
+        offsets[IZ] = 2.0 * iface2 - 1;
+      }
 
     } // end current cell is larger
 
     return offsets;
 
-  } // get_reconstruct_offsets_current_2d
+  } // get_reconstruct_offsets_current
 
   // =======================================================================
   // =======================================================================
@@ -271,11 +288,14 @@ public:
    * We use the symetry 2*ifaceX-1 becomes 1-2*ifaceX (same for other direction)
    */
   KOKKOS_INLINE_FUNCTION
-  offsets_t get_reconstruct_offsets_neighbor_2d(const uint32_t i, 
-                                                const uint32_t i_n,
-                                                const bool isghost_n,
-                                                const uint8_t iface) const
+  offsets_t get_reconstruct_offsets_neighbor(const uint32_t i, 
+                                             const uint32_t i_n,
+                                             const bool isghost_n,
+                                             const uint8_t iface) const
   {
+
+    // get dimension
+    const int dim = this->params.dimType == TWO_D ? 2 : 3;
 
     offsets_t offsets;
 
@@ -319,6 +339,13 @@ public:
         offsets[IZ] = 0.0;
       }
 
+      // along z axis
+      if (face_along_axis<IZ>(iface)) {
+        offsets[IX] = 0.0;
+        offsets[IY] = 0.0;
+        offsets[IZ] = 1.0 - 2.0 * iface2;
+      }
+
     } // end same size
 
     /*
@@ -341,21 +368,28 @@ public:
       if (face_along_axis<IX>(iface)) {
         offsets[IX] = 1.0 - 2.0 * iface2;
         offsets[IY] = xyz_n[IY]>xyz_c[IY] ? -0.5 : 0.5;
-        offsets[IZ] = 0.0;
+        offsets[IZ] = dim==2 ? 0.0 : (xyz_n[IZ]>xyz_c[IZ] ? -0.5 : 0.5) ;
       }
       
       // along y axis
       if (face_along_axis<IY>(iface)) {
         offsets[IX] = xyz_n[IX]>xyz_c[IX] ? -0.5 : 0.5;
         offsets[IY] = 1.0 - 2.0 * iface2;
-        offsets[IZ] = 0.0;
+        offsets[IZ] = dim==2 ? 0.0 : (xyz_n[IZ]>xyz_c[IZ] ? -0.5 : 0.5) ;
+      }
+
+      // along y axis
+      if (face_along_axis<IZ>(iface)) {
+        offsets[IX] = xyz_n[IX]>xyz_c[IX] ? -0.5 : 0.5;
+        offsets[IY] = xyz_n[IY]>xyz_c[IY] ? -0.5 : 0.5;
+        offsets[IZ] = 1.0 - 2.0 * iface2;
       }
 
     } // end current cell is larger
  
     return offsets;
 
-  } // get_reconstruct_offsets_neighbor_2d
+  } // get_reconstruct_offsets_neighbor
 
   // =======================================================================
   // =======================================================================
@@ -543,13 +577,13 @@ public:
 
         // current cell reconstruction  (primitive variables)
         const real_t dx_over_2 = pmesh->getSize(i)/2;
-        const offsets_t offsets = get_reconstruct_offsets_current_2d(i, i_n, isghost[j], iface);
+        const offsets_t offsets = get_reconstruct_offsets_current(i, i_n, isghost[j], iface);
         HydroState2d qr_c = reconstruct_state_2d(qprim, i, false, offsets, dx_over_2, dt);
 
         // neighbor cell reconstruction (primitive variables)
         const real_t size_n = isghost[j] ? pmesh->getSizeGhost(i_n) : pmesh->getSize(i_n);
         const real_t dx_over_2_n = size_n/2;
-        const offsets_t offsets_n = get_reconstruct_offsets_neighbor_2d(i, i_n, isghost[j], iface);
+        const offsets_t offsets_n = get_reconstruct_offsets_neighbor(i, i_n, isghost[j], iface);
         HydroState2d qr_n = reconstruct_state_2d(qprim_n, i_n, isghost[j], offsets_n, dx_over_2_n, dt);
 
         // 2. we now have "qleft / qright" state ready to solver Riemann problem
