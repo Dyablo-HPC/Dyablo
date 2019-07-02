@@ -445,10 +445,46 @@ void SolverHydroMuscl::init_four_quadrant(DataArray Udata)
  */
 void SolverHydroMuscl::init_isentropic_vortex(DataArray Udata)
 {
-  
-  //IsentropicVortexParams iparams(configMap);
-  
-  //InitIsentropicVortexFunctor::apply(params, iparams, Udata, nbCells);
+
+  // field manager index array
+  auto fm = fieldMgr.get_id2index();
+
+  /*
+   * this is the initial global refine, to reach level_min / no parallelism
+   * so far (every MPI process does that)
+   */
+  int level_min = params.level_min;
+  int level_max = params.level_max;  
+
+  for (int iter=0; iter<level_min; iter++) {
+    amr_mesh->adaptGlobalRefine();
+  }
+#if BITPIT_ENABLE_MPI==1
+  // (Load)Balance the octree over the MPI processes.
+  amr_mesh->loadBalance();
+#endif
+
+  // re-compute mesh connectivity (morton index list, nodes coordinates, ...)
+  amr_mesh->updateConnectivity();
+
+  // after the global refine stages, all cells are at level = level_min
+
+  // initialize user data (U and U2) at level_min
+  Kokkos::resize(U,amr_mesh->getNumOctants(),params.nbvar);
+  Kokkos::resize(U2,amr_mesh->getNumOctants(),params.nbvar);
+  InitIsentropicVortexDataFunctor::apply(amr_mesh, params, configMap, fm, U);
+  Kokkos::deep_copy(U2,U);
+
+  // update mesh until we reach level_max
+  for (int level = level_min; level < level_max; ++level) {
+
+    do_amr_cycle();
+
+    // re-compute U on the new mesh
+    InitIsentropicVortexDataFunctor::apply(amr_mesh, params, configMap, fm, U);
+    Kokkos::deep_copy(U2,U);
+    
+  }
   
 } // SolverHydroMuscl::init_isentropic_vortex
 
