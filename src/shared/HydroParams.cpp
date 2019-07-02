@@ -81,12 +81,12 @@ void HydroParams::setup(ConfigMap &configMap)
   ymax = configMap.getFloat("mesh", "ymax", 1.0);
   zmax = configMap.getFloat("mesh", "zmax", 1.0);
 
-  boundary_type_xmin  = static_cast<BoundaryConditionType>(configMap.getInteger("mesh","boundary_type_xmin", BC_DIRICHLET));
-  boundary_type_xmax  = static_cast<BoundaryConditionType>(configMap.getInteger("mesh","boundary_type_xmax", BC_DIRICHLET));
-  boundary_type_ymin  = static_cast<BoundaryConditionType>(configMap.getInteger("mesh","boundary_type_ymin", BC_DIRICHLET));
-  boundary_type_ymax  = static_cast<BoundaryConditionType>(configMap.getInteger("mesh","boundary_type_ymax", BC_DIRICHLET));
-  boundary_type_zmin  = static_cast<BoundaryConditionType>(configMap.getInteger("mesh","boundary_type_zmin", BC_DIRICHLET));
-  boundary_type_zmax  = static_cast<BoundaryConditionType>(configMap.getInteger("mesh","boundary_type_zmax", BC_DIRICHLET));
+  boundary_type_xmin  = static_cast<BoundaryConditionType>(configMap.getInteger("mesh","boundary_type_xmin", BC_ABSORBING));
+  boundary_type_xmax  = static_cast<BoundaryConditionType>(configMap.getInteger("mesh","boundary_type_xmax", BC_ABSORBING));
+  boundary_type_ymin  = static_cast<BoundaryConditionType>(configMap.getInteger("mesh","boundary_type_ymin", BC_ABSORBING));
+  boundary_type_ymax  = static_cast<BoundaryConditionType>(configMap.getInteger("mesh","boundary_type_ymax", BC_ABSORBING));
+  boundary_type_zmin  = static_cast<BoundaryConditionType>(configMap.getInteger("mesh","boundary_type_zmin", BC_ABSORBING));
+  boundary_type_zmax  = static_cast<BoundaryConditionType>(configMap.getInteger("mesh","boundary_type_zmax", BC_ABSORBING));
 
   level_min = configMap.getInteger("amr","level_min", 5);
   level_max = configMap.getInteger("amr","level_max", 10);

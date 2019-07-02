@@ -134,8 +134,8 @@ enum RiemannSolverType {
 //! MPI version for inside boundary)
 enum BoundaryConditionType {
   BC_UNDEFINED, 
-  BC_DIRICHLET,   /*!< reflecting border condition */
-  BC_NEUMANN,     /*!< absorbing border condition */
+  BC_REFLECTING,  /*!< reflecting border condition */
+  BC_ABSORBING,   /*!< absorbing border condition */
   BC_PERIODIC,    /*!< periodic border condition */
   BC_COPY         /*!< only used in MPI parallelized version */
 };
