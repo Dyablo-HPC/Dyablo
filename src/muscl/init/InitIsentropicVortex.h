@@ -41,8 +41,13 @@ public:
         Udata(Udata){};
 
   // static method which does it all: create and execute functor
-  static void apply(std::shared_ptr<AMRmesh> pmesh, HydroParams params,
-                    ConfigMap configMap, id2index_t fm, DataArray Udata) {
+  static void apply(std::shared_ptr<AMRmesh> pmesh, 
+                    HydroParams params,
+                    ConfigMap configMap, 
+                    id2index_t fm, 
+                    DataArray Udata) 
+  {
+    // isentropic vortex specific parameters
     IsentropicVortexParams ivParams = IsentropicVortexParams(configMap);
 
     // data init functor
@@ -79,9 +84,11 @@ public:
     const real_t vortex_x = ivParams.vortex_x;
     const real_t vortex_y = ivParams.vortex_y;
 
+    const real_t scale = ivParams.scale;
+
     // relative coordinates versus vortex center
-    real_t xp = x - vortex_x;
-    real_t yp = y - vortex_y;
+    real_t xp = (x - vortex_x)/scale;
+    real_t yp = (y - vortex_y)/scale;
     real_t r = sqrt(xp * xp + yp * yp);
 
     const real_t beta = ivParams.beta;
