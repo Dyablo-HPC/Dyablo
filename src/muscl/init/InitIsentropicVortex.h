@@ -65,7 +65,7 @@ public:
 
     const real_t x = center[0];
     const real_t y = center[1];
-    const real_t z = center[2];
+    //const real_t z = center[2];
 
     // fluid specific heat ratio
     const real_t gamma0 = params.settings.gamma0;
@@ -166,13 +166,13 @@ public:
 
       // get cell center coordinate in the unit domain
       // FIXME : need to refactor AMRmesh interface to use Kokkos::Array
-      std::array<double, 3> center = pmesh->getCenter(i);
+      //std::array<double, 3> center = pmesh->getCenter(i);
 
-      const real_t x = center[0];
-      const real_t y = center[1];
-      const real_t z = center[2];
+      //const real_t x = center[0];
+      //const real_t y = center[1];
+      //const real_t z = center[2];
 
-      double cellSize2 = pmesh->getSize(i) * 0.75;
+      //double cellSize2 = pmesh->getSize(i) * 0.75;
 
       bool should_refine = false;
 

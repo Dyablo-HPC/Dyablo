@@ -5,5 +5,6 @@
 #include "InitSod.h"
 #include "InitBlast.h"
 #include "InitIsentropicVortex.h"
+#include "InitKelvinHelmholtz.h"
 
 #endif // HYDRO_INIT_FUNCTORS_H_
