@@ -132,7 +132,7 @@ int main(int argc, char *argv[])
   
   if (rank==0) printf("final time is %f\n", solver->m_t);
   
-  //print_solver_monitoring_info(solver);
+  print_solver_monitoring_info(solver);
   
   delete solver;
 

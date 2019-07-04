@@ -667,6 +667,8 @@ void SolverHydroMuscl::init(DataArray Udata)
 void SolverHydroMuscl::do_amr_cycle()
 {
 
+  m_timers[TIMER_AMR_CYCLE]->start();
+
   /*
    * Following steps:
    *
@@ -692,6 +694,8 @@ void SolverHydroMuscl::do_amr_cycle()
 
   // 5. load balance
   load_balance_userdata();
+
+  m_timers[TIMER_AMR_CYCLE]->stop();
 
 } // SolverHydroMuscl::do_amr_cycle
 

@@ -32,7 +32,8 @@ enum TimerIds {
   TIMER_IO = 1,
   TIMER_DT = 2,
   TIMER_BOUNDARIES = 3,
-  TIMER_NUM_SCHEME = 4
+  TIMER_NUM_SCHEME = 4,
+  TIMER_AMR_CYCLE = 5
 }; // enum TimerIds
 
 namespace euler_pablo {
@@ -87,7 +88,7 @@ public:
 
   // statistics
   //! total number of quadrant update
-  uint64_t             m_total_num_cell_update;
+  uint64_t             m_total_num_cell_updates;
   
   //! init condition name (or problem)
   std::string          m_problem_name;

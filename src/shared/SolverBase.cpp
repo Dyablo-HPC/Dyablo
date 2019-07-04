@@ -79,7 +79,7 @@ SolverBase::SolverBase (HydroParams& params, ConfigMap& configMap) :
   m_nDofsPerCell = -1;
 
   // statistics
-  m_total_num_cell_update = 0;
+  m_total_num_cell_updates = 0;
   
   // create the timers
   m_timers[TIMER_TOTAL]      = std::make_shared<Timer>();
@@ -87,6 +87,7 @@ SolverBase::SolverBase (HydroParams& params, ConfigMap& configMap) :
   m_timers[TIMER_DT]         = std::make_shared<Timer>();
   m_timers[TIMER_BOUNDARIES] = std::make_shared<Timer>();
   m_timers[TIMER_NUM_SCHEME] = std::make_shared<Timer>();
+  m_timers[TIMER_AMR_CYCLE]  = std::make_shared<Timer>();
   
 #ifdef USE_MPI
   //const int nbvar = params.nbvar;
@@ -236,7 +237,7 @@ SolverBase::next_iteration()
   next_iteration_impl();
 
   // perform some stats here (?)
-  m_total_num_cell_update += amr_mesh->getNumOctants();
+  m_total_num_cell_updates += amr_mesh->getGlobalNumOctants();
   
   // incremenent
   ++m_iteration;
