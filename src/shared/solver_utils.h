@@ -18,6 +18,12 @@ inline void print_solver_monitoring_info(SolverBase* solver)
   real_t t_io    = solver->m_timers[TIMER_IO]->elapsed();
   real_t t_amr   = solver->m_timers[TIMER_AMR_CYCLE]->elapsed();
 
+  real_t t_amr_sync_ghost   = solver->m_timers[TIMER_AMR_CYCLE_SYNC_GHOST]->elapsed();
+  real_t t_amr_mark_cells   = solver->m_timers[TIMER_AMR_CYCLE_MARK_CELLS]->elapsed();
+  real_t t_amr_adapt_mesh   = solver->m_timers[TIMER_AMR_CYCLE_ADAPT_MESH]->elapsed();
+  real_t t_amr_map_userdata = solver->m_timers[TIMER_AMR_CYCLE_MAP_USERDATA]->elapsed();
+  real_t t_amr_load_balance = solver->m_timers[TIMER_AMR_CYCLE_LOAD_BALANCE]->elapsed();
+
   int myRank = 0;
   int nProcs = 1;
 
@@ -35,7 +41,13 @@ inline void print_solver_monitoring_info(SolverBase* solver)
     printf("boundaries  time : %5.3f secondes %5.2f%%\n",t_bound,100*t_bound/t_tot);
     printf("io          time : %5.3f secondes %5.2f%%\n",t_io,100*t_io/t_tot);
     printf("amr cycle   time : %5.3f secondes %5.2f%%\n",t_amr,100*t_amr/t_tot);
-  
+
+    printf("amr cycle sync ghost    : %5.3f secondes %5.2f%%\n",t_amr_sync_ghost,100*t_amr_sync_ghost/t_tot);
+    printf("amr cycle mark cells    : %5.3f secondes %5.2f%%\n",t_amr_mark_cells,100*t_amr_mark_cells/t_tot);
+    printf("amr cycle adapt mesh    : %5.3f secondes %5.2f%%\n",t_amr_adapt_mesh,100*t_amr_adapt_mesh/t_tot);
+    printf("amr cycle map user data : %5.3f secondes %5.2f%%\n",t_amr_map_userdata,100*t_amr_map_userdata/t_tot);
+    printf("amr cycle load balance  : %5.3f secondes %5.2f%%\n",t_amr_load_balance,100*t_amr_load_balance/t_tot);
+
     printf("Perf             : %5.3f number of Mcell-updates/s\n",solver->m_total_num_cell_updates/t_tot*1e-6);
     
     printf("Total number of cell-updates : %ld\n",solver->m_total_num_cell_updates);

@@ -964,6 +964,8 @@ void SolverHydroMuscl::save_solution_impl()
 void SolverHydroMuscl::synchronize_ghost_data(UserDataCommType t)
 {
 
+  m_timers[TIMER_AMR_CYCLE_SYNC_GHOST]->start();
+
   // retrieve available / allowed names: fieldManager, and field map (fm)
   auto fm = fieldMgr.get_id2index();
 
@@ -1015,12 +1017,16 @@ void SolverHydroMuscl::synchronize_ghost_data(UserDataCommType t)
   
 #endif
 
+  m_timers[TIMER_AMR_CYCLE_SYNC_GHOST]->stop();
+
 } // SolverHydroMuscl::synchronize_ghost_data
 
 // =======================================================
 // =======================================================
 void SolverHydroMuscl::mark_cells()
 {
+
+  m_timers[TIMER_AMR_CYCLE_MARK_CELLS]->start();
 
   // retrieve available / allowed names: fieldManager, and field map (fm)
   // necessary to access user data
@@ -1036,7 +1042,9 @@ void SolverHydroMuscl::mark_cells()
   // call device functor to flag for refine/coarsen
   MarkCellsHydroFunctor::apply(amr_mesh, params, fm, Udata, Ughost,
                                eps_refine, eps_coarsen);
-  
+
+  m_timers[TIMER_AMR_CYCLE_MARK_CELLS]->stop();
+
 } // SolverHydroMuscl::mark_cells
 
 // =======================================================
@@ -1044,12 +1052,16 @@ void SolverHydroMuscl::mark_cells()
 void SolverHydroMuscl::adapt_mesh()
 {
 
+  m_timers[TIMER_AMR_CYCLE_ADAPT_MESH]->start();
+
   // 1. adapt mesh with mapper enabled
   amr_mesh->adapt(true);
 
   // 2. re-compute connectivity
   amr_mesh->updateConnectivity();
   
+  m_timers[TIMER_AMR_CYCLE_ADAPT_MESH]->stop();
+
 } // SolverHydroMuscl::adapt_mesh
 
 // =======================================================
@@ -1060,6 +1072,8 @@ void SolverHydroMuscl::adapt_mesh()
  */
 void SolverHydroMuscl::map_userdata_after_adapt()
 {
+
+  m_timers[TIMER_AMR_CYCLE_MAP_USERDATA]->start();
 
   // TODO : make is mapper and isghost Kokkos::View's so that
   // one can make the rest of this routine parallel
@@ -1131,13 +1145,17 @@ void SolverHydroMuscl::map_userdata_after_adapt()
   // we can resize U2 for the next time-step
   Kokkos::resize(U2, U.extent(0), U.extent(1));
   
+  m_timers[TIMER_AMR_CYCLE_MAP_USERDATA]->stop();
+
 } // SolverHydroMuscl::map_data_after_adapt
 
 // =======================================================
 // =======================================================
 void SolverHydroMuscl::load_balance_userdata()
 {
-  
+
+  m_timers[TIMER_AMR_CYCLE_LOAD_BALANCE]->start();
+
 #if BITPIT_ENABLE_MPI==1
   /* (Load)Balance the octree over the processes with communicating the data.
    * Preserve the family compact up to 4 levels over the max deep reached
@@ -1149,6 +1167,8 @@ void SolverHydroMuscl::load_balance_userdata()
   }
 #endif // BITPIT_ENABLE_MPI==1
   
+  m_timers[TIMER_AMR_CYCLE_LOAD_BALANCE]->stop();
+
 } // SolverHydroMuscl::load_balance_user_data
 
 
