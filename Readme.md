@@ -7,7 +7,7 @@ It is a just a attemp to rewrite again an AMR (Adaptive Mesh Refinement) miniapp
 
 Why did we chose BitPit/PABLO for this test ? What are the difference with [p4est](http://www.p4est.org/) used in [Canop](https://gitlab.maisondelasimulation.fr/canoPdev/canoP) ?
 - [p4est](http://www.p4est.org/) is written in C, about 40 kSLOC; cell-based AMR; manage of forest of octrees, i.e. the physical domain is made of a coarse mesh (p4est connectivty), and each cell of this coarse mesh serves as a root to an octree. Some of the core algorithms used in p4est are very complex due to the management of a forest of octree in distributed memory
-- [BitPit/PABLO](https://github.com/optimad/bitpit) also implements cell-based AMR but on a single cubic box; this is a major difference with [p4est](http://www.p4est.org/); it is written in C++, the core code is pleasant to read. It terms of size, PitPit/PABLO is less than half of p4est SLOC.
+- [BitPit/PABLO](https://github.com/optimad/bitpit) also implements cell-based AMR but on a single cubic box; this is a major difference with [p4est](http://www.p4est.org/); it is written in C++, the core code is pleasant to read. It terms of size, BitPit/PABLO is less than half of p4est SLOC.
 
 
 # What is the plan ?
