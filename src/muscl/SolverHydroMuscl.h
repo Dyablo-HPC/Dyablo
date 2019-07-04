@@ -94,12 +94,13 @@ public:
    * methods
    */
 
+  void resize_solver_data();
+
   // fill boundaries / ghost 2d / 3d
   void make_boundaries(DataArray Udata);
 
   // host routines (initialization)  
   void init_implode(DataArray Udata); // 2d and 3d
-  void init_sod(DataArray Udata); // 2d and 3d
   void init_blast(DataArray Udata); // 2d and 3d
   void init_kelvin_helmholtz(DataArray Udata); // 2d and 3d
   void init_gresho_vortex(DataArray Udata); // 2d and 3d

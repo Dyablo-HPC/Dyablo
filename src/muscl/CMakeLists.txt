@@ -2,7 +2,7 @@ set (muscl_SRCS
   ${CMAKE_CURRENT_SOURCE_DIR}/SolverHydroMuscl.h
   ${CMAKE_CURRENT_SOURCE_DIR}/SolverHydroMuscl.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/init/HydroInitFunctors.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/init/InitFourQuadrant.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/init/InitSod.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/HydroBaseFunctor.h
   ${CMAKE_CURRENT_SOURCE_DIR}/ComputeDtHydroFunctor.h
   ${CMAKE_CURRENT_SOURCE_DIR}/ConvertToPrimitivesHydroFunctor.h)

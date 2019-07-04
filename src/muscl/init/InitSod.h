@@ -6,6 +6,7 @@
 #define HYDRO_INIT_SOD_H_
 
 #include <limits> // for std::numeric_limits
+#include <memory> // for std::shared_ptr
 
 #include "shared/kokkos_shared.h"
 #include "shared/FieldManager.h"
@@ -164,6 +165,9 @@ public:
   int            level_refine;
   
 }; // InitSodRefineFunctor
+
+class SolverHydroMuscl;
+void init_sod(SolverHydroMuscl *psolver);
 
 } // namespace muscl
 

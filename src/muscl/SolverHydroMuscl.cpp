@@ -150,6 +150,24 @@ SolverHydroMuscl::~SolverHydroMuscl()
 
 // =======================================================
 // =======================================================
+void SolverHydroMuscl::resize_solver_data()
+{
+
+  Kokkos::resize(U,amr_mesh->getNumOctants(),params.nbvar);
+  Kokkos::resize(U2,amr_mesh->getNumOctants(),params.nbvar);
+  Kokkos::resize(Uhost,amr_mesh->getNumOctants(),params.nbvar);
+  
+  Kokkos::resize(Q,amr_mesh->getNumOctants(),params.nbvar);
+  
+  Kokkos::resize(Slopes_x,amr_mesh->getNumOctants(),params.nbvar);
+  Kokkos::resize(Slopes_y,amr_mesh->getNumOctants(),params.nbvar);
+  if (params.dimType==THREE_D)
+    Kokkos::resize(Slopes_z,amr_mesh->getNumOctants(),params.nbvar);
+
+} // SolverHydroMuscl::resize_solver_data
+
+// =======================================================
+// =======================================================
 // //////////////////////////////////////////////////
 // Fill ghost cells according to border condition :
 // absorbant, reflexive or periodic
@@ -180,77 +198,7 @@ void SolverHydroMuscl::make_boundaries(DataArray Udata)
 void SolverHydroMuscl::init_implode(DataArray Udata)
 {
 
-
 } // SolverHydroMuscl::init_implode
-
-// =======================================================
-// =======================================================
-/**
- * Hydrodynamical shock tube test (SOD).
- *
- * https://en.wikipedia.org/wiki/Sod_shock_tube
- * https://github.com/ibackus/sod-shocktube
- */
-void SolverHydroMuscl::init_sod(DataArray Udata)
-{
-  
-  /*
-   * this is the initial global refine, to reach level_min / no parallelism
-   * so far (every MPI process does that)
-   */
-  int level_min = params.level_min;
-  int level_max = params.level_max;  
-  
-  for (int iter=0; iter<level_min; iter++) {
-    amr_mesh->adaptGlobalRefine();
-  }
-#if BITPIT_ENABLE_MPI==1
-  // (Load)Balance the octree over the MPI processes.
-  amr_mesh->loadBalance();
-#endif
-  //std::cout << "MPI rank=" << amr_mesh->getRank() << " | NB cells =" << amr_mesh->getNumOctants() << "\n";
-
-  // after the global refine stages, all cells are at level = level_min
-
-  // genuine initial refinement
-  for (int level=level_min; level<level_max; ++level) {
-
-    // mark cells for refinement
-    InitSodRefineFunctor::apply(amr_mesh, configMap, params, level);
-
-    // actually perform refinement
-    amr_mesh->adapt();
-
-    // re-compute mesh connectivity (morton index list, nodes coordinates, ...)
-    amr_mesh->updateConnectivity();
-
-#if BITPIT_ENABLE_MPI==1
-    // (Load)Balance the octree over the MPI processes.
-    amr_mesh->loadBalance();
-#endif
-
-  } // end for level
-
-  // field manager index array
-  auto fm = fieldMgr.get_id2index();
-
-  /*
-   * perform user data init
-   */
-  Kokkos::resize(U,amr_mesh->getNumOctants(),params.nbvar);
-  Kokkos::resize(U2,amr_mesh->getNumOctants(),params.nbvar);
-  Kokkos::resize(Uhost,amr_mesh->getNumOctants(),params.nbvar);
-
-  Kokkos::resize(Q,amr_mesh->getNumOctants(),params.nbvar);
-  
-  Kokkos::resize(Slopes_x,amr_mesh->getNumOctants(),params.nbvar);
-  Kokkos::resize(Slopes_y,amr_mesh->getNumOctants(),params.nbvar);
-  if (params.dimType==THREE_D)
-    Kokkos::resize(Slopes_z,amr_mesh->getNumOctants(),params.nbvar);
-
-  InitSodDataFunctor::apply(amr_mesh, params, configMap, fm, U);
-
-} // SolverHydroMuscl::init_sod
 
 // =======================================================
 // =======================================================
@@ -301,20 +249,11 @@ void SolverHydroMuscl::init_blast(DataArray Udata)
   // field manager index array
   auto fm = fieldMgr.get_id2index();
 
+  resize_solver_data();
+
   /*
    * perform user data init
    */
-  Kokkos::resize(U,amr_mesh->getNumOctants(),params.nbvar);
-  Kokkos::resize(U2,amr_mesh->getNumOctants(),params.nbvar);
-  Kokkos::resize(Uhost,amr_mesh->getNumOctants(),params.nbvar);
-
-  Kokkos::resize(Q,amr_mesh->getNumOctants(),params.nbvar);
-  
-  Kokkos::resize(Slopes_x,amr_mesh->getNumOctants(),params.nbvar);
-  Kokkos::resize(Slopes_y,amr_mesh->getNumOctants(),params.nbvar);
-  if (params.dimType==THREE_D)
-    Kokkos::resize(Slopes_z,amr_mesh->getNumOctants(),params.nbvar);
-
   InitBlastDataFunctor::apply(amr_mesh, params, configMap, fm, U);
 
 } // SolverHydroMuscl::init_blast
@@ -373,20 +312,11 @@ void SolverHydroMuscl::init_kelvin_helmholtz(DataArray Udata)
   // field manager index array
   auto fm = fieldMgr.get_id2index();
 
+  resize_solver_data();
+
   /*
    * perform user data init
    */
-  Kokkos::resize(U,amr_mesh->getNumOctants(),params.nbvar);
-  Kokkos::resize(U2,amr_mesh->getNumOctants(),params.nbvar);
-  Kokkos::resize(Uhost,amr_mesh->getNumOctants(),params.nbvar);
-
-  Kokkos::resize(Q,amr_mesh->getNumOctants(),params.nbvar);
-  
-  Kokkos::resize(Slopes_x,amr_mesh->getNumOctants(),params.nbvar);
-  Kokkos::resize(Slopes_y,amr_mesh->getNumOctants(),params.nbvar);
-  if (params.dimType==THREE_D)
-    Kokkos::resize(Slopes_z,amr_mesh->getNumOctants(),params.nbvar);
-
   InitKelvinHelmholtzDataFunctor::apply(amr_mesh, params, configMap, fm, U);
 
 } // SolverHydroMuscl::init_kelvin_helmholtz
@@ -474,20 +404,11 @@ void SolverHydroMuscl::init_four_quadrant(DataArray Udata)
   // necessary to access user data
   auto fm = fieldMgr.get_id2index();
 
+  resize_solver_data();
+
   /*
    * perform user data init
    */
-  Kokkos::resize(U,amr_mesh->getNumOctants(),params.nbvar);
-  Kokkos::resize(U2,amr_mesh->getNumOctants(),params.nbvar);
-  Kokkos::resize(Uhost,amr_mesh->getNumOctants(),params.nbvar);
-
-  Kokkos::resize(Q,amr_mesh->getNumOctants(),params.nbvar);
-  
-  Kokkos::resize(Slopes_x,amr_mesh->getNumOctants(),params.nbvar);
-  Kokkos::resize(Slopes_y,amr_mesh->getNumOctants(),params.nbvar);
-  if (params.dimType==THREE_D)
-    Kokkos::resize(Slopes_z,amr_mesh->getNumOctants(),params.nbvar);
-
   InitFourQuadrantDataFunctor::apply(amr_mesh, params, fm, U, configNumber,
    				     S0, S1, S2, S3,
    				     xt, yt);
@@ -611,7 +532,7 @@ void SolverHydroMuscl::init(DataArray Udata)
       
     } else if ( !m_problem_name.compare("sod") ) {
       
-      init_sod(Udata);
+      init_sod(this);
       
     } else if ( !m_problem_name.compare("blast") ) {
       
