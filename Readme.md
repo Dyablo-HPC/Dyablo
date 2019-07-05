@@ -53,9 +53,9 @@ make
 Optionally, you can (recommended) activate HWLOC support by turning ON the flag KOKKOS_ENABLE_HWLOC.
 
 
-### build for Kokkos/Cuda
+### build for Kokkos/Cuda (not supported yet)
 
-Obviously, you need to have Nvidia/CUDA driver and toolkit installed on your platform.
+You need to have Nvidia/CUDA driver and toolkit installed on your platform.
 Then you need to
 
  1. tell cmake to use kokkos compiler wrapper for cuda:
@@ -81,7 +81,9 @@ For now, just visit the wiki page https://gitlab.maisondelasimulation.fr/pkesten
 
 # Other references
 
-## Codes (same as in khamr Readme)
+- AMR on FPGA : FP-AMR: A Reconfigurable Fabric Framework for Adaptive Mesh Refinement Applications,  Tianqi Wang ; Tong Geng ; Xi Jin ; Martin Herbordt , https://ieeexplore.ieee.org/document/8735523
+
+## Other codes (same as in khamr Readme)
 
 In no particular order, interesting codes implementing parallel AMR algorithms, either standalone, either
 by using external libraries (e.g. HPX, ...):
