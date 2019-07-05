@@ -81,8 +81,22 @@ public:
     // const real_t w_a   = ivParams.w_a;
 
     // vortex center
-    const real_t vortex_x = ivParams.vortex_x;
-    const real_t vortex_y = ivParams.vortex_y;
+    real_t vortex_x = ivParams.vortex_x;
+    real_t vortex_y = ivParams.vortex_y;
+
+    const bool use_tEnd = this->ivParams.use_tEnd;
+    if (use_tEnd) {
+      const real_t xmin = this->params.xmin;
+      const real_t ymin = this->params.ymin;
+      const real_t xmax = this->params.xmax;
+      const real_t ymax = this->params.ymax;
+      vortex_x += this->ivParams.tEnd * u_a;
+      vortex_y += this->ivParams.tEnd * v_a;
+
+      // make sure vortex center is inside the box (periodic boundaries for this test)
+      vortex_x = fmod(vortex_x, xmax-xmin);
+      vortex_y = fmod(vortex_y, ymax-ymin);
+    }
 
     const real_t scale = ivParams.scale;
 
