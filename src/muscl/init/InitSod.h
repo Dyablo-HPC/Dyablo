@@ -166,9 +166,6 @@ public:
   
 }; // InitSodRefineFunctor
 
-class SolverHydroMuscl;
-void init_sod(SolverHydroMuscl *psolver);
-
 } // namespace muscl
 
 } // namespace euler_pablo

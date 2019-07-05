@@ -104,7 +104,6 @@ public:
   void init_blast(DataArray Udata); // 2d and 3d
   void init_kelvin_helmholtz(DataArray Udata); // 2d and 3d
   void init_gresho_vortex(DataArray Udata); // 2d and 3d
-  void init_four_quadrant(DataArray Udata); // 2d only
   void init_isentropic_vortex(DataArray Udata); // 2d only
   void init_rayleigh_taylor(DataArray Udata, DataArray gravity); // 2d and 3d
   void init_rising_bubble(DataArray Udata, DataArray gravity); // 2d and 3d
