@@ -21,6 +21,7 @@
 #include "shared/SolverBase.h"
 #include "shared/HydroParams.h"
 #include "shared/kokkos_shared.h"
+#include "shared/FieldManager.h"
 
 // the actual computational functors called in HydroRun
 //#include "muscl/HydroRunFunctors2D.h"
@@ -94,21 +95,12 @@ public:
    * methods
    */
 
+  //! resize all workspace data array
   void resize_solver_data();
 
   // fill boundaries / ghost 2d / 3d
   void make_boundaries(DataArray Udata);
-
-  // host routines (initialization)  
-  void init_implode(DataArray Udata); // 2d and 3d
-  void init_blast(DataArray Udata); // 2d and 3d
-  void init_kelvin_helmholtz(DataArray Udata); // 2d and 3d
-  void init_gresho_vortex(DataArray Udata); // 2d and 3d
-  void init_isentropic_vortex(DataArray Udata); // 2d only
-  void init_rayleigh_taylor(DataArray Udata, DataArray gravity); // 2d and 3d
-  void init_rising_bubble(DataArray Udata, DataArray gravity); // 2d and 3d
-  void init_disk(DataArray Udata, DataArray gravity); // 2d and 3d
-
+  
   //! init restart (load data from file)
   void init_restart(DataArray Udata);
   

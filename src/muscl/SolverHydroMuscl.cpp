@@ -191,242 +191,10 @@ void SolverHydroMuscl::make_boundaries(DataArray Udata)
 
 // =======================================================
 // =======================================================
-/**
- * Hydrodynamical Implosion Test.
- * http://www.astro.princeton.edu/~jstone/Athena/tests/implode/Implode.html
- */
-void SolverHydroMuscl::init_implode(DataArray Udata)
-{
-
-} // SolverHydroMuscl::init_implode
-
-// =======================================================
-// =======================================================
-/**
- * Hydrodynamical blast Test.
- * http://www.astro.princeton.edu/~jstone/Athena/tests/blast/blast.html
- */
-void SolverHydroMuscl::init_blast(DataArray Udata)
-{
-
-  /*
-   * this is the initial global refine, to reach level_min / no parallelism
-   * so far (every MPI process does that)
-   */
-  int level_min = params.level_min;
-  int level_max = params.level_max;  
-
-  for (int iter=0; iter<level_min; iter++) {
-    amr_mesh->adaptGlobalRefine();
-  }
-#if BITPIT_ENABLE_MPI==1
-  // (Load)Balance the octree over the MPI processes.
-  amr_mesh->loadBalance();
-#endif
-  //std::cout << "MPI rank=" << amr_mesh->getRank() << " | NB cells =" << amr_mesh->getNumOctants() << "\n";
-
-  // after the global refine stages, all cells are at level = level_min
-
-  // genuine initial refinement
-  for (int level=level_min; level<level_max; ++level) {
-
-    // mark cells for refinement
-    InitBlastRefineFunctor::apply(amr_mesh, configMap, params, level);
-
-    // actually perform refinement
-    amr_mesh->adapt();
-
-    // re-compute mesh connectivity (morton index list, nodes coordinates, ...)
-    amr_mesh->updateConnectivity();
-
-#if BITPIT_ENABLE_MPI==1
-    // (Load)Balance the octree over the MPI processes.
-    amr_mesh->loadBalance();
-#endif
-
-  } // end for level
-
-  // field manager index array
-  auto fm = fieldMgr.get_id2index();
-
-  resize_solver_data();
-
-  /*
-   * perform user data init
-   */
-  InitBlastDataFunctor::apply(amr_mesh, params, configMap, fm, U);
-
-} // SolverHydroMuscl::init_blast
-
-// =======================================================
-// =======================================================
-/**
- * Hydrodynamical Kelvin-Helmholtz instability Test.
- *
- * see https://www.astro.princeton.edu/~jstone/Athena/tests/kh/kh.html
- *
- * See also article by Robertson et al:
- * "Computational Eulerian hydrodynamics and Galilean invariance", 
- * B.E. Robertson et al, Mon. Not. R. Astron. Soc., 401, 2463-2476, (2010).
- *
- */
-void SolverHydroMuscl::init_kelvin_helmholtz(DataArray Udata)
-{
-
-  /*
-   * this is the initial global refine, to reach level_min / no parallelism
-   * so far (every MPI process does that)
-   */
-  int level_min = params.level_min;
-  int level_max = params.level_max;  
-
-  for (int iter=0; iter<level_min; iter++) {
-    amr_mesh->adaptGlobalRefine();
-  }
-#if BITPIT_ENABLE_MPI==1
-  // (Load)Balance the octree over the MPI processes.
-  amr_mesh->loadBalance();
-#endif
-
-  // after the global refine stages, all cells are at level = level_min
-
-  // genuine initial refinement
-  for (int level=level_min; level<level_max; ++level) {
-
-    // mark cells for refinement
-    InitKelvinHelmholtzRefineFunctor::apply(amr_mesh, configMap, params, level);
-
-    // actually perform refinement
-    amr_mesh->adapt();
-
-    // re-compute mesh connectivity (morton index list, nodes coordinates, ...)
-    amr_mesh->updateConnectivity();
-
-#if BITPIT_ENABLE_MPI==1
-    // (Load)Balance the octree over the MPI processes.
-    amr_mesh->loadBalance();
-#endif
-
-  } // end for level
-
-  // field manager index array
-  auto fm = fieldMgr.get_id2index();
-
-  resize_solver_data();
-
-  /*
-   * perform user data init
-   */
-  InitKelvinHelmholtzDataFunctor::apply(amr_mesh, params, configMap, fm, U);
-
-} // SolverHydroMuscl::init_kelvin_helmholtz
-
-// =======================================================
-// =======================================================
-/**
- * Hydrodynamical Gresho vortex Test.
- *
- * \sa https://www.cfd-online.com/Wiki/Gresho_vortex
- * \sa https://arxiv.org/abs/1409.7395 - section 4.2.3
- * \sa https://arxiv.org/abs/1612.03910
- *
- */
-void SolverHydroMuscl::init_gresho_vortex(DataArray Udata)
-{
-
-} // SolverHydroMuscl::init_gresho_vortex
-
-// =======================================================
-// =======================================================
-/**
- * Isentropic vortex advection test.
- * https://www.cfd-online.com/Wiki/2-D_vortex_in_isentropic_flow
- * https://hal.archives-ouvertes.fr/hal-01485587/document
- */
-void SolverHydroMuscl::init_isentropic_vortex(DataArray Udata)
-{
-
-  // field manager index array
-  auto fm = fieldMgr.get_id2index();
-
-  /*
-   * this is the initial global refine, to reach level_min / no parallelism
-   * so far (every MPI process does that)
-   */
-  int level_min = params.level_min;
-  int level_max = params.level_max;  
-
-  for (int iter=0; iter<level_min; iter++) {
-    amr_mesh->adaptGlobalRefine();
-  }
-#if BITPIT_ENABLE_MPI==1
-  // (Load)Balance the octree over the MPI processes.
-  amr_mesh->loadBalance();
-#endif
-
-  // re-compute mesh connectivity (morton index list, nodes coordinates, ...)
-  amr_mesh->updateConnectivity();
-
-  // after the global refine stages, all cells are at level = level_min
-
-  // initialize user data (U and U2) at level_min
-  Kokkos::resize(U,amr_mesh->getNumOctants(),params.nbvar);
-  Kokkos::resize(U2,amr_mesh->getNumOctants(),params.nbvar);
-  InitIsentropicVortexDataFunctor::apply(amr_mesh, params, configMap, fm, U);
-  Kokkos::deep_copy(U2,U);
-
-  // update mesh until we reach level_max
-  for (int level = level_min; level < level_max; ++level) {
-
-    do_amr_cycle();
-
-    // re-compute U on the new mesh
-    InitIsentropicVortexDataFunctor::apply(amr_mesh, params, configMap, fm, U);
-    Kokkos::deep_copy(U2,U);
-    
-  }
-  
-} // SolverHydroMuscl::init_isentropic_vortex
-
-// =======================================================
-// =======================================================
-void SolverHydroMuscl::init_rayleigh_taylor(DataArray Udata,
-					    DataArray gravity)
-{
-  
-  
-} // SolverHydroMuscl::init_rayleigh_taylor
-
-// =======================================================
-// =======================================================
-/**
- * Hydrodynamical rising bubble test.
- *
- */
-void SolverHydroMuscl::init_rising_bubble(DataArray Udata,
-					  DataArray gravity)
-{
-  
-} // SolverHydroMuscl::init_rising_bubble
-
-// =======================================================
-// =======================================================
-/**
- * Disk setup.
- *
- */
-void SolverHydroMuscl::init_disk(DataArray Udata,
-				 DataArray gravity)
-{
-  
-  
-} // SolverHydroMuscl::init_disk
-
-// =======================================================
-// =======================================================
 void SolverHydroMuscl::init_restart(DataArray Udata)
 {
 
+  // TODO
   
 } // SolverHydroMuscl::init_restart
 
@@ -449,7 +217,7 @@ void SolverHydroMuscl::init(DataArray Udata)
      */
     if ( !m_problem_name.compare("implode") ) {
       
-      init_implode(Udata);
+      init_implode(this);
       
     } else if ( !m_problem_name.compare("sod") ) {
       
@@ -457,15 +225,15 @@ void SolverHydroMuscl::init(DataArray Udata)
       
     } else if ( !m_problem_name.compare("blast") ) {
       
-      init_blast(Udata);
+      init_blast(this);
       
     } else if ( !m_problem_name.compare("kelvin_helmholtz") ) {
       
-      init_kelvin_helmholtz(Udata);
+      init_kelvin_helmholtz(this);
       
     } else if ( !m_problem_name.compare("gresho_vortex") ) {
       
-      init_gresho_vortex(Udata);
+      init_gresho_vortex(this);
       
     } else if ( !m_problem_name.compare("four_quadrant") ) {
       
@@ -473,19 +241,11 @@ void SolverHydroMuscl::init(DataArray Udata)
       
     } else if ( !m_problem_name.compare("isentropic_vortex") ) {
       
-      init_isentropic_vortex(Udata);
+      init_isentropic_vortex(this);
       
     } else if ( !m_problem_name.compare("rayleigh_taylor") ) {
       
-      init_rayleigh_taylor(Udata,gravity);
-      
-    } else if ( !m_problem_name.compare("rising_bubble") ) {
-      
-      init_rising_bubble(Udata,gravity);
-      
-    } else if ( !m_problem_name.compare("disk") ) {
-      
-      init_disk(Udata,gravity);
+      init_rayleigh_taylor(this);
       
     } else {
       
@@ -493,7 +253,7 @@ void SolverHydroMuscl::init(DataArray Udata)
 		<< " is not recognized / implemented."
 		<< std::endl;
       std::cout <<  "Use default - implode" << std::endl;
-      init_implode(Udata);
+      init_implode(this);
       
     }
 
