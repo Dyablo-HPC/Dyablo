@@ -79,8 +79,10 @@ void generate_input_file(int level_min, int level_max) {
   outFile << "# globalRefine steps\n";
   outFile << "enable_load_balance_during_init=false\n";
   outFile << "\n";
-  outFile << "epsilon_refine=0.01\n";
-  outFile << "epsilon_coarsen=0.002\n";
+  //outFile << "epsilon_refine=0.01\n";
+  //outFile << "epsilon_coarsen=0.002\n";
+  outFile << "epsilon_refine=0.005\n";
+  outFile << "epsilon_coarsen=0.001\n";
   outFile << "\n";
   outFile << "[mesh]\n";
   outFile << "xmin=0.0\n";
