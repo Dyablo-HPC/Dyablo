@@ -29,6 +29,7 @@ namespace euler_pablo { namespace muscl {
 class ReconstructGradientsHydroFunctor : public HydroBaseFunctor {
   
 public:
+
   /**
    * Reconstruct gradients functor constructor.
    *
@@ -76,6 +77,8 @@ public:
     Kokkos::parallel_for(pmesh->getNumOctants(), functor);
   }
 
+  // =============================================================
+  // =============================================================
   /**
    * Update limited gradient with information from a given neighbor.
    *
@@ -91,54 +94,47 @@ public:
    * \return updated limiter gradient
    */
   KOKKOS_INLINE_FUNCTION
-  real_t update_minmod(real_t current_grad,
-                       uint32_t cellId_c,
-                       uint32_t cellId_n,
-                       bool   isghost_n,
-                       real_t dx,
-                       real_t pos_c,
-                       real_t pos_n,
-                       int ivar,
-                       int dir) const
-  {
-
+  real_t update_minmod(real_t current_grad, uint32_t cellId_c,
+                       uint32_t cellId_n, bool isghost_n, real_t dx,
+                       real_t pos_c, real_t pos_n, int ivar, int dir) const {
+    
     // default returned value (limited gradient didn't change)
     real_t new_value = current_grad;
-
+    
     // compute distance along direction "dir" between current and
     // neighbor cell
     real_t delta_x = fabs(pos_n - pos_c);
-
+    
     // only check if we truly have a neighbor along given dir
     if (delta_x > 0.5 * dx) {
-
+      
       real_t new_grad;
-
+      
       // is neighbor a ghost ?
       if (isghost_n) {
-      
+        
         // left or right neighbor ?
-        new_grad = pos_n > pos_c ?
-          Qdata_ghost(cellId_n, fm[ivar]) - Qdata(cellId_c, fm[ivar]) :
-          Qdata(cellId_c, fm[ivar])       - Qdata_ghost(cellId_n, fm[ivar]);
+        new_grad =
+          pos_n > pos_c
+          ? Qdata_ghost(cellId_n, fm[ivar]) - Qdata(cellId_c, fm[ivar])
+          : Qdata(cellId_c, fm[ivar]) - Qdata_ghost(cellId_n, fm[ivar]);
         new_grad /= delta_x;
         
       } else {
         
         // left or right neighbor ?
         new_grad =
-            pos_n > pos_c
-                ? Qdata(cellId_n, fm[ivar]) - Qdata(cellId_c, fm[ivar])
-                : Qdata(cellId_c, fm[ivar]) - Qdata(cellId_n, fm[ivar]);
+          pos_n > pos_c
+          ? Qdata(cellId_n, fm[ivar]) - Qdata(cellId_c, fm[ivar])
+          : Qdata(cellId_c, fm[ivar]) - Qdata(cellId_n, fm[ivar]);
         new_grad /= delta_x;
-
       }
-
+      
       /*
        * this is minmod: limited gradient may need to be updated
        */
-
-       // this first test ensure a correct initialization
+      
+      // this first test ensure a correct initialization
 #ifdef __CUDA_ARCH__
       if ( current_grad == CUDART_INF )
         new_value = new_grad;
