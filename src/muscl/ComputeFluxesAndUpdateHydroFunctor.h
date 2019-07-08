@@ -671,11 +671,13 @@ public:
       // find neighbors Id
       pmesh->findNeighbours(i, iface, codim, neigh, isghost);
 
+      //===================================================
       //
       // Border conditions: define reconstructed states on both
       // sides of an interface at external border
       //
       // is current cell touching the external border ?
+      //===================================================
       if (neigh.size()==0) {
 
         HydroState2d qr_c, qr_n; 
@@ -766,13 +768,13 @@ public:
         real_t dS = dx*dx;
         real_t scale = dt*dS/dV;
 
-        if (iface == 0 or iface == 2) {
+        // iface = 0 or 2
+        if ( (iface & 0x1) == 0 ) {
           qcons[ID] += flux[ID]*scale;
           qcons[IE] += flux[IE]*scale;
           qcons[IU] += flux[IU]*scale;
           qcons[IV] += flux[IV]*scale;
-        }
-        if (iface == 1 or iface == 3) {
+        } else {
           qcons[ID] -= flux[ID]*scale;
           qcons[IE] -= flux[IE]*scale;
           qcons[IU] -= flux[IU]*scale;
@@ -781,9 +783,11 @@ public:
       
       } // end neigh.size == 0
 
+      //===================================================
       // Deal with bulk cells (no face with zero neighbors)
       //
       // sweep neighbors accross face identified by iface
+      //===================================================
       for (uint16_t j = 0; j < neigh.size(); ++j) {
 
         uint32_t i_n = neigh[j];
@@ -822,11 +826,12 @@ public:
           swap(qr_n[IU], qr_n[IV]);
         }
 
-        if (iface==0 or iface==2) {
+        // iface = 0 or 2
+        if ( (iface & 0x1) == 0 ) {
 
           riemann_hydro(qr_n,qr_c,flux,params);
 
-        } else if (iface==1 or iface==3) {
+        } else {
 
           riemann_hydro(qr_c,qr_n,flux,params);
 
@@ -846,13 +851,13 @@ public:
         real_t dS = dx*dx / neigh.size();
         real_t scale = dt*dS/dV;
 
-        if (iface == 0 or iface == 2) {
+        // iface = 0 or 2
+        if ( (iface & 0x1) == 0 ) {
           qcons[ID] += flux[ID]*scale;
           qcons[IE] += flux[IE]*scale;
           qcons[IU] += flux[IU]*scale;
           qcons[IV] += flux[IV]*scale;
-        }
-        if (iface == 1 or iface == 3) {
+        } else { // iface = 1 or 3
           qcons[ID] -= flux[ID]*scale;
           qcons[IE] -= flux[IE]*scale;
           qcons[IU] -= flux[IU]*scale;
@@ -916,7 +921,153 @@ public:
       // find neighbors Id
       pmesh->findNeighbours(i, iface, codim, neigh, isghost);
       
+      //
+      // Border conditions: define reconstructed states on both
+      // sides of an interface at external border
+      //
+      // is current cell touching the external border ?
+      if (neigh.size() == 0) {
+
+        HydroState3d qr_c, qr_n;
+
+        // take care of border conditions (in case of open or
+        // reflective border)
+        
+        // get x,y,z coordinate at current cell center
+        const bitpit::darray3 xyz_c = pmesh->getCenter(i);
+        const double &x = xyz_c[IX];
+        const double &y = xyz_c[IY];
+        
+        if ( is_at_border<XMIN>(dx,x) and iface == 0 ) {
+          if (params.boundary_type_xmin == BC_ABSORBING) {
+            qr_n = qprim;
+            qr_c = qprim;
+          }
+          if (params.boundary_type_xmin == BC_REFLECTING) {
+            qr_n = qr_c;
+            qr_n[IU] = - qr_n[IU];
+          }
+        }
+        
+        if ( is_at_border<XMAX>(dx,x) and iface == 1 ) {
+          if (params.boundary_type_xmax == BC_ABSORBING) {
+            qr_n = qprim;
+            qr_c = qprim;
+          }
+          if (params.boundary_type_xmax == BC_REFLECTING) {
+            qr_n = qr_c;
+            qr_n[IU] = - qr_n[IU];
+          }
+        }
+          
+        if ( is_at_border<YMIN>(dx,y) and iface == 2 ) {
+          if (params.boundary_type_ymin == BC_ABSORBING) {
+            qr_n = qprim;
+            qr_c = qprim;
+          }
+          if (params.boundary_type_ymin == BC_REFLECTING) {
+            qr_n = qr_c;
+            qr_n[IV] = -qr_n[IV];
+          }
+        }
+        
+        if ( is_at_border<YMAX>(dx,y) and iface == 3 ) {
+          if (params.boundary_type_ymax == BC_ABSORBING) {
+            qr_n = qprim;
+            qr_c = qprim;
+          }
+          if (params.boundary_type_ymax == BC_REFLECTING) {
+            qr_n = qr_c;
+            qr_n[IV] = -qr_n[IV];
+          }
+        }
+
+        if ( is_at_border<ZMIN>(dx,y) and iface == 4 ) {
+          if (params.boundary_type_zmin == BC_ABSORBING) {
+            qr_n = qprim;
+            qr_c = qprim;
+          }
+          if (params.boundary_type_zmin == BC_REFLECTING) {
+            qr_n = qr_c;
+            qr_n[IW] = -qr_n[IW];
+          }
+        }
+        
+        if ( is_at_border<ZMAX>(dx,y) and iface == 5 ) {
+          if (params.boundary_type_zmax == BC_ABSORBING) {
+            qr_n = qprim;
+            qr_c = qprim;
+          }
+          if (params.boundary_type_zmax == BC_REFLECTING) {
+            qr_n = qr_c;
+            qr_n[IW] = -qr_n[IW];
+          }
+        }
+
+        // 2. we now have "qleft / qright" state ready to solver Riemann problem
+        HydroState3d flux;
+
+        // riemann solver along Y or Z direction requires to 
+        // swap velocity components
+        if (face_along_axis<IY>(iface)) {
+          swap(qr_c[IU], qr_c[IV]);
+          swap(qr_n[IU], qr_n[IV]);
+        }
+        if (face_along_axis<IZ>(iface)) {
+          swap(qr_c[IU], qr_c[IW]);
+          swap(qr_n[IU], qr_n[IW]);
+        }
+
+        // iface = 0, 2 or 4
+        if ( (iface & 0x1) == 0 ) {
+
+          riemann_hydro(qr_n,qr_c,flux,params);
+
+        } else {
+
+          riemann_hydro(qr_c,qr_n,flux,params);
+
+        }
+
+        // swap back velocity components in flux when dealing with 
+        // a face along IY or IZ direction
+        if (face_along_axis<IY>(iface)) {
+          swap(flux[IU], flux[IV]);
+        }
+        if (face_along_axis<IZ>(iface)) {
+          swap(flux[IU], flux[IW]);
+        }
+        
+        // 3. accumulate flux into qcons
+        
+        // current face area:
+        // if neighbor is smaller, flux is divided by the number of sub-faces
+        // else only one interface (neigh.size = 1)
+        real_t dS = dx*dx;
+        real_t scale = dt*dS/dV;
+
+        // iface = 0, 2 or 4
+        if ( (iface & 0x1) == 0 ) {
+          qcons[ID] += flux[ID]*scale;
+          qcons[IE] += flux[IE]*scale;
+          qcons[IU] += flux[IU]*scale;
+          qcons[IV] += flux[IV]*scale;
+          qcons[IW] += flux[IW]*scale;
+        } else {
+          qcons[ID] -= flux[ID] * scale;
+          qcons[IE] -= flux[IE] * scale;
+          qcons[IU] -= flux[IU] * scale;
+          qcons[IV] -= flux[IV] * scale;
+          qcons[IW] -= flux[IW] * scale;
+        }
+
+      } // end neigh.size() == 0
+
+      //===================================================
+      // Deal with bulk cells (no face with zero neighbors)
+      //
       // sweep neighbors accross face identified by iface
+      //===================================================
       for (uint16_t j = 0; j < neigh.size(); ++j) {
 
         uint32_t i_n = neigh[j];
@@ -961,24 +1112,22 @@ public:
           swap(qr_n[IU], qr_n[IW]);
         }
 
-        if (iface==0 or iface==2 or iface==4) {
+        // iface = 0, 2 or 4
+        if ( (iface & 0x1) == 0 ) {
 
           riemann_hydro(qr_n,qr_c,flux,params);
 
-        } else if (iface==1 or iface==3 or iface==5) {
+        } else { // iface = 1, 3 or 5
 
           riemann_hydro(qr_c,qr_n,flux,params);
 
         }
 
         // swap back velocity components in flux when dealing with 
-        // a face along IY direction
+        // a face along IY or IZ direction
         if (face_along_axis<IY>(iface)) {
           swap(flux[IU], flux[IV]);
         }
-        
-        // swap back velocity components in flux when dealing with 
-        // a face along IY direction
         if (face_along_axis<IZ>(iface)) {
           swap(flux[IU], flux[IW]);
         }
@@ -991,14 +1140,14 @@ public:
         real_t dS = dx*dx / neigh.size();
         real_t scale = dt*dS/dV;
 
-        if (iface == 0 or iface == 2 or iface == 4) {
+        // iface = 0, 2 or 4
+        if ( (iface & 0x1) == 0 ) {
           qcons[ID] += flux[ID]*scale;
           qcons[IE] += flux[IE]*scale;
           qcons[IU] += flux[IU]*scale;
           qcons[IV] += flux[IV]*scale;
           qcons[IW] += flux[IW]*scale;
-        }
-        if (iface == 1 or iface == 3 or iface == 5) {
+        } else {
           qcons[ID] -= flux[ID]*scale;
           qcons[IE] -= flux[IE]*scale;
           qcons[IU] -= flux[IU]*scale;
