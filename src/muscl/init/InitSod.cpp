@@ -15,7 +15,12 @@ namespace muscl {
  * Hydrodynamical shock tube test (SOD).
  *
  * https://en.wikipedia.org/wiki/Sod_shock_tube
+ *
+ * The following provides python code for the exact solution (EOS is perfect gas)
  * https://github.com/ibackus/sod-shocktube
+ *
+ * See also https://www3.nd.edu/~gtryggva/CFD-Course2017/Lecture-10-2017.pdf
+ * which provides analytical solutions (EOS is perfect gas).
  */
 void init_sod(SolverHydroMuscl *psolver)
 {
