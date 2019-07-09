@@ -555,6 +555,8 @@ void SolverHydroMuscl::save_solution_impl()
   if (params.debug_output) {
     writeVTK(*amr_mesh, strsuf.str(), Slopes_x, fm, names2index, configMap, "_slope_x");
     writeVTK(*amr_mesh, strsuf.str(), Slopes_y, fm, names2index, configMap, "_slope_y");
+    if (params.dimType==THREE_D)
+      writeVTK(*amr_mesh, strsuf.str(), Slopes_z, fm, names2index, configMap, "_slope_z");
   }
 
   m_timers[TIMER_IO]->stop();
