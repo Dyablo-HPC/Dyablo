@@ -1101,15 +1101,12 @@ public:
         // 2. we now have "qleft / qright" state ready to solver Riemann problem
         HydroState3d flux;
 
-        // riemann solver along Y direction requires to swap velocity
+        // riemann solver along Y or Z direction requires to swap velocity
         // components
         if (face_along_axis<IY>(iface)) {
           swap(qr_c[IU], qr_c[IV]);
           swap(qr_n[IU], qr_n[IV]);
         }
-
-        // riemann solver along Z direction requires to swap velocity
-        // components
         if (face_along_axis<IZ>(iface)) {
           swap(qr_c[IU], qr_c[IW]);
           swap(qr_n[IU], qr_n[IW]);
