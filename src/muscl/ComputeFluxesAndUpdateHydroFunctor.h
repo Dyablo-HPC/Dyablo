@@ -921,11 +921,13 @@ public:
       // find neighbors Id
       pmesh->findNeighbours(i, iface, codim, neigh, isghost);
       
+      //===================================================
       //
       // Border conditions: define reconstructed states on both
       // sides of an interface at external border
       //
       // is current cell touching the external border ?
+      //===================================================
       if (neigh.size() == 0) {
 
         HydroState3d qr_c, qr_n;
@@ -937,7 +939,8 @@ public:
         const bitpit::darray3 xyz_c = pmesh->getCenter(i);
         const double &x = xyz_c[IX];
         const double &y = xyz_c[IY];
-        
+        const double &z = xyz_c[IZ];
+
         if ( is_at_border<XMIN>(dx,x) and iface == 0 ) {
           if (params.boundary_type_xmin == BC_ABSORBING) {
             qr_n = qprim;
@@ -982,7 +985,7 @@ public:
           }
         }
 
-        if ( is_at_border<ZMIN>(dx,y) and iface == 4 ) {
+        if ( is_at_border<ZMIN>(dx,z) and iface == 4 ) {
           if (params.boundary_type_zmin == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -993,7 +996,7 @@ public:
           }
         }
         
-        if ( is_at_border<ZMAX>(dx,y) and iface == 5 ) {
+        if ( is_at_border<ZMAX>(dx,z) and iface == 5 ) {
           if (params.boundary_type_zmax == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
