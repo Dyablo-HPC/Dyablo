@@ -42,6 +42,7 @@ add_backward(${EXE_NAME})
 
 configure_file(test_four_quadrant_2D.ini test_four_quadrant_2D.ini COPYONLY)
 configure_file(test_blast_2D.ini test_blast_2D.ini COPYONLY)
+configure_file(test_blast_3D.ini test_blast_3D.ini COPYONLY)
 configure_file(test_sod_2D.ini test_sod_2D.ini COPYONLY)
 configure_file(test_isentropic_vortex_2D.ini test_isentropic_vortex_2D.ini COPYONLY)
 configure_file(test_gresho_vortex_2D.ini test_gresho_vortex_2D.ini COPYONLY)
