@@ -696,7 +696,8 @@ public:
             qr_c = qprim;
           }
           if (params.boundary_type_xmin == BC_REFLECTING) {
-            qr_n = qr_c;
+            qr_n = qprim;
+            qr_c = qprim;
             qr_n[IU] = - qr_n[IU];
           }
         }
@@ -707,7 +708,8 @@ public:
             qr_c = qprim;
           }
           if (params.boundary_type_xmax == BC_REFLECTING) {
-            qr_n = qr_c;
+            qr_n = qprim;
+            qr_c = qprim;
             qr_n[IU] = - qr_n[IU];
           }
         }
@@ -718,7 +720,8 @@ public:
             qr_c = qprim;
           }
           if (params.boundary_type_ymin == BC_REFLECTING) {
-            qr_n = qr_c;
+            qr_n = qprim;
+            qr_c = qprim;
             qr_n[IV] = -qr_n[IV];
           }
         }
@@ -729,7 +732,8 @@ public:
             qr_c = qprim;
           }
           if (params.boundary_type_ymax == BC_REFLECTING) {
-            qr_n = qr_c;
+            qr_n = qprim;
+            qr_c = qprim;
             qr_n[IV] = -qr_n[IV];
           }
         }
@@ -947,7 +951,8 @@ public:
             qr_c = qprim;
           }
           if (params.boundary_type_xmin == BC_REFLECTING) {
-            qr_n = qr_c;
+            qr_n = qprim;
+            qr_c = qprim;
             qr_n[IU] = - qr_n[IU];
           }
         }
@@ -958,7 +963,8 @@ public:
             qr_c = qprim;
           }
           if (params.boundary_type_xmax == BC_REFLECTING) {
-            qr_n = qr_c;
+            qr_n = qprim;
+            qr_c = qprim;
             qr_n[IU] = - qr_n[IU];
           }
         }
@@ -969,7 +975,8 @@ public:
             qr_c = qprim;
           }
           if (params.boundary_type_ymin == BC_REFLECTING) {
-            qr_n = qr_c;
+            qr_n = qprim;
+            qr_c = qprim;
             qr_n[IV] = -qr_n[IV];
           }
         }
@@ -980,7 +987,8 @@ public:
             qr_c = qprim;
           }
           if (params.boundary_type_ymax == BC_REFLECTING) {
-            qr_n = qr_c;
+            qr_n = qprim;
+            qr_c = qprim;
             qr_n[IV] = -qr_n[IV];
           }
         }
@@ -991,7 +999,8 @@ public:
             qr_c = qprim;
           }
           if (params.boundary_type_zmin == BC_REFLECTING) {
-            qr_n = qr_c;
+            qr_n = qprim;
+            qr_c = qprim;
             qr_n[IW] = -qr_n[IW];
           }
         }
@@ -1002,7 +1011,8 @@ public:
             qr_c = qprim;
           }
           if (params.boundary_type_zmax == BC_REFLECTING) {
-            qr_n = qr_c;
+            qr_n = qprim;
+            qr_c = qprim;
             qr_n[IW] = -qr_n[IW];
           }
         }
