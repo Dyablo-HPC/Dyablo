@@ -1067,11 +1067,11 @@ public:
           qcons[IV] += flux[IV]*scale;
           qcons[IW] += flux[IW]*scale;
         } else {
-          qcons[ID] -= flux[ID] * scale;
-          qcons[IE] -= flux[IE] * scale;
-          qcons[IU] -= flux[IU] * scale;
-          qcons[IV] -= flux[IV] * scale;
-          qcons[IW] -= flux[IW] * scale;
+          qcons[ID] -= flux[ID]*scale;
+          qcons[IE] -= flux[IE]*scale;
+          qcons[IU] -= flux[IU]*scale;
+          qcons[IV] -= flux[IV]*scale;
+          qcons[IW] -= flux[IW]*scale;
         }
 
       } // end neigh.size() == 0
