@@ -698,7 +698,7 @@ public:
           if (params.boundary_type_xmin == BC_REFLECTING) {
             qr_n = qprim;
             qr_c = qprim;
-            qr_n[IU] = - qr_n[IU];
+            qr_n[IU] = -qr_n[IU];
           }
         }
         
@@ -710,7 +710,7 @@ public:
           if (params.boundary_type_xmax == BC_REFLECTING) {
             qr_n = qprim;
             qr_c = qprim;
-            qr_n[IU] = - qr_n[IU];
+            qr_n[IU] = -qr_n[IU];
           }
         }
           
@@ -924,7 +924,7 @@ public:
       
       // find neighbors Id
       pmesh->findNeighbours(i, iface, codim, neigh, isghost);
-      
+
       //===================================================
       //
       // Border conditions: define reconstructed states on both
@@ -953,7 +953,7 @@ public:
           if (params.boundary_type_xmin == BC_REFLECTING) {
             qr_n = qprim;
             qr_c = qprim;
-            qr_n[IU] = - qr_n[IU];
+            qr_n[IU] = -qr_n[IU];
           }
         }
         
@@ -965,7 +965,7 @@ public:
           if (params.boundary_type_xmax == BC_REFLECTING) {
             qr_n = qprim;
             qr_c = qprim;
-            qr_n[IU] = - qr_n[IU];
+            qr_n[IU] = -qr_n[IU];
           }
         }
           
@@ -1133,7 +1133,7 @@ public:
 
         }
 
-        // swap back velocity components in flux when dealing with 
+        // swap back velocity components in flux when dealing with
         // a face along IY or IZ direction
         if (face_along_axis<IY>(iface)) {
           swap(flux[IU], flux[IV]);
