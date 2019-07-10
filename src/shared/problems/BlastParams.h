@@ -7,6 +7,9 @@
 
 #include "utils/config/ConfigMap.h"
 
+/**
+ * Blast test parameters.
+ */
 struct BlastParams {
 
   // blast problem parameters
