@@ -26,6 +26,7 @@ inline void print_solver_monitoring_info(SolverBase* solver)
 
   int myRank = 0;
   int nProcs = 1;
+  UNUSED(nProcs);
 
 #ifdef USE_MPI
   myRank = solver->params.myRank;
