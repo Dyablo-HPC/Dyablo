@@ -109,9 +109,6 @@ SolverHydroMuscl::SolverHydroMuscl(HydroParams& params,
   // perform init condition
   init(U);
   
-  // initialize boundaries
-  //make_boundaries(U);
-
   // copy U into U2
   Kokkos::deep_copy(U2,U);
   
@@ -165,29 +162,6 @@ void SolverHydroMuscl::resize_solver_data()
     Kokkos::resize(Slopes_z,amr_mesh->getNumOctants(),params.nbvar);
 
 } // SolverHydroMuscl::resize_solver_data
-
-// =======================================================
-// =======================================================
-// //////////////////////////////////////////////////
-// Fill ghost cells according to border condition :
-// absorbant, reflexive or periodic
-// //////////////////////////////////////////////////
-void SolverHydroMuscl::make_boundaries(DataArray Udata)
-{
-
-//   bool mhd_enabled = false;
-
-// #ifdef USE_MPI
-
-//   make_boundaries_mpi(Udata, mhd_enabled);
-
-// #else
-
-//   make_boundaries_serial(Udata, mhd_enabled);
-  
-// #endif // USE_MPI
-  
-} // SolverHydroMuscl::make_boundaries
 
 // =======================================================
 // =======================================================
@@ -406,11 +380,6 @@ void SolverHydroMuscl::godunov_unsplit_impl(DataArray data_in,
 					    real_t dt)
 {
   
-  // fill ghost cell in data_in
-  m_timers[TIMER_BOUNDARIES]->start();
-  make_boundaries(data_in);
-  m_timers[TIMER_BOUNDARIES]->stop();
-
   // copy data_in into data_out (not necessary)
   // data_out = data_in;
   Kokkos::deep_copy(data_out, data_in);
@@ -424,27 +393,7 @@ void SolverHydroMuscl::godunov_unsplit_impl(DataArray data_in,
   // sort of slopes computation adapted to unstructured local mesh
   reconstruct_gradients(data_in);
   
-  // communicate borders again, so that slopes in direct neighbors are ok
-  // don't care for now about external border - deal with it later
-  // m_timers[TIMER_BOUNDARIES]->start();
-  // make_boundaries(Slopes_x);
-  // make_boundaries(Slopes_y);
-  // if (params.dimType==THREE_D)
-  //   make_boundaries(Slopes_z);
-  // m_timers[TIMER_BOUNDARIES]->stop();
-
-  // compute fluxes (if gravity_enabled is false,
-  // the last parameter is not used)
-  // ComputeAndStoreFluxesFunctor::apply(params, Q,
-  // 					Fluxes_x, Fluxes_y,
-  // 					dt,
-  // 					m_gravity_enabled,
-  // 					gravity);
-  
-  // actual update
-  // UpdateFunctor::apply(params, data_out,
-  // 			 Fluxes_x, Fluxes_y);
-
+  // compute fluxes (finite volume) and update
   compute_fluxes_and_update(data_in, data_out, dt);
 
   m_timers[TIMER_NUM_SCHEME]->stop();

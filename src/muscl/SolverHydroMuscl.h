@@ -98,9 +98,6 @@ public:
   //! resize all workspace data array
   void resize_solver_data();
 
-  // fill boundaries / ghost 2d / 3d
-  void make_boundaries(DataArray Udata);
-  
   //! init restart (load data from file)
   void init_restart(DataArray Udata);
   
