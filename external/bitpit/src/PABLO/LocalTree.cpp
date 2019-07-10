@@ -915,7 +915,10 @@ LocalTree::findNeighbours(const Octant* oct, bool haveIidx, uint32_t idx, uint8_
   //
 
   //Build Morton number of virtual neigh of same size
-  Octant samesizeoct(m_dim, oct->m_level, int32_t(oct->m_x)+int32_t(cxyz[0]*size), int32_t(oct->m_y)+int32_t(cxyz[1]*size), int32_t(oct->m_z)+int32_t(cxyz[2]*size));
+  Octant samesizeoct(m_dim, oct->m_level, 
+                     int32_t(oct->m_x)+int32_t(cxyz[0]*size), 
+                     int32_t(oct->m_y)+int32_t(cxyz[1]*size), 
+                     int32_t(oct->m_z)+int32_t(cxyz[2]*size));
   Morton = samesizeoct.computeMorton();
   // Search morton in octants
   // If a even face morton is lower than morton of oct, if odd higher
@@ -1054,7 +1057,10 @@ LocalTree::findNeighbours(const Octant* oct, bool haveIidx, uint32_t idx, uint8_
     const Octant* octghost = &m_ghosts[idxghost];
 
     //Build Morton number of virtual neigh of same size
-    Octant samesizeoct(m_dim, oct->m_level, int32_t(oct->m_x)+int32_t(cxyz[0]*size), int32_t(oct->m_y)+int32_t(cxyz[1]*size), int32_t(oct->m_z)+int32_t(cxyz[2]*size));
+    Octant samesizeoct(m_dim, oct->m_level, 
+                       int32_t(oct->m_x)+int32_t(cxyz[0]*size), 
+                       int32_t(oct->m_y)+int32_t(cxyz[1]*size), 
+                       int32_t(oct->m_z)+int32_t(cxyz[2]*size));
     Morton = samesizeoct.computeMorton();
 
     // Search morton in octants
@@ -1127,13 +1133,17 @@ LocalTree::findNeighbours(const Octant* oct, bool haveIidx, uint32_t idx, uint8_
 
 	  if (Dx[0] == Dxstar[0] && Dx[1] == Dxstar[1] && Dx[m_dim-1] == Dxstar[m_dim-1]){
 	    if (leveltry > level){
-	      if((abs(cxyz[0])*((coordtry[1]>=coord[1])*(coordtry[1]<coord1[1]))*((coordtry[2]>=coord[2])*(coordtry[2]<coord1[2]))) + (abs(cxyz[1])*((coordtry[0]>=coord[0])*(coordtry[0]<coord1[0]))*((coordtry[2]>=coord[2])*(coordtry[2]<coord1[2]))) + (abs(cxyz[2])*((coordtry[0]>=coord[0])*(coordtry[0]<coord1[0]))*((coordtry[1]>=coord[1])*(coordtry[1]<coord1[1])))){
+	      if((abs(cxyz[0])*((coordtry[1]>=coord[1])*(coordtry[1]<coord1[1]))*((coordtry[2]>=coord[2])*(coordtry[2]<coord1[2]))) + 
+                 (abs(cxyz[1])*((coordtry[0]>=coord[0])*(coordtry[0]<coord1[0]))*((coordtry[2]>=coord[2])*(coordtry[2]<coord1[2]))) +
+                 (abs(cxyz[2])*((coordtry[0]>=coord[0])*(coordtry[0]<coord1[0]))*((coordtry[1]>=coord[1])*(coordtry[1]<coord1[1])))){
 		neighbours.push_back(idxtry);
 		isghost.push_back(true);
 	      }
 	    }
 	    if (leveltry < level){
-	      if((abs(cxyz[0])*((coord[1]>=coordtry[1])*(coord[1]<coordtry1[1]))*((coord[2]>=coordtry[2])*(coord[2]<coordtry1[2]))) + (abs(cxyz[1])*((coord[0]>=coordtry[0])*(coord[0]<coordtry1[0]))*((coord[2]>=coordtry[2])*(coord[2]<coordtry1[2]))) + (abs(cxyz[2])*((coord[0]>=coordtry[0])*(coord[0]<coordtry1[0]))*((coord[1]>=coordtry[1])*(coord[1]<coordtry1[1])))){
+	      if((abs(cxyz[0])*((coord[1]>=coordtry[1])*(coord[1]<coordtry1[1]))*((coord[2]>=coordtry[2])*(coord[2]<coordtry1[2]))) + 
+                 (abs(cxyz[1])*((coord[0]>=coordtry[0])*(coord[0]<coordtry1[0]))*((coord[2]>=coordtry[2])*(coord[2]<coordtry1[2]))) +
+                 (abs(cxyz[2])*((coord[0]>=coordtry[0])*(coord[0]<coordtry1[0]))*((coord[1]>=coordtry[1])*(coord[1]<coordtry1[1])))){
 		neighbours.push_back(idxtry);
 		isghost.push_back(true);
 	      }
@@ -1198,7 +1208,10 @@ LocalTree::findEdgeNeighbours(const Octant* oct, bool haveIidx, uint32_t idx, ui
   if (oct->m_info[iface1] == false && oct->m_info[iface2] == false){
 
     //Build Morton number of virtual neigh of same size
-    Octant samesizeoct(m_dim, oct->m_level, oct->m_x+cx*size, oct->m_y+cy*size, oct->m_z+cz*size);
+    Octant samesizeoct(m_dim, oct->m_level, 
+                       oct->m_x+cx*size, 
+                       oct->m_y+cy*size, 
+                       oct->m_z+cz*size);
     Morton = samesizeoct.computeMorton();
 
     //SEARCH IN GHOSTS
@@ -1280,13 +1293,17 @@ LocalTree::findEdgeNeighbours(const Octant* oct, bool haveIidx, uint32_t idx, ui
 
 	    if (Dx == Dxstar && Dy == Dystar && Dz == Dzstar){
 	      if (leveltry > level){
-		if((abs(cx)*abs(cz)*((y0try>=y0)*(y0try<y1))) + (abs(cy)*abs(cz)*((x0try>=x0)*(x0try<x1))) + (abs(cx)*abs(cy)*((z0try>=z0)*(z0try<z1)))){
+		if((abs(cx)*abs(cz)*((y0try>=y0)*(y0try<y1))) +
+                   (abs(cy)*abs(cz)*((x0try>=x0)*(x0try<x1))) +
+                   (abs(cx)*abs(cy)*((z0try>=z0)*(z0try<z1)))){
 		  neighbours.push_back(idxtry);
 		  isghost.push_back(true);
 		}
 	      }
 	      if (leveltry < level){
-		if((abs(cx)*abs(cz)*((y0>=y0try)*(y0<y1try))) + (abs(cy)*abs(cz)*((x0>=x0try)*(x0<x1try))) + (abs(cx)*abs(cy)*((z0>=z0try)*(z0<z1try)))){
+		if((abs(cx)*abs(cz)*((y0>=y0try)*(y0<y1try))) + 
+                   (abs(cy)*abs(cz)*((x0>=x0try)*(x0<x1try))) +
+                   (abs(cx)*abs(cy)*((z0>=z0try)*(z0<z1try)))){
 		  neighbours.push_back(idxtry);
 		  isghost.push_back(true);
 		}
@@ -1390,13 +1407,17 @@ LocalTree::findEdgeNeighbours(const Octant* oct, bool haveIidx, uint32_t idx, ui
 
 	  if (Dx == Dxstar && Dy == Dystar && Dz == Dzstar){
 	    if (leveltry > level){
-	      if((abs(cx)*abs(cz)*((y0try>=y0)*(y0try<y1))) + (abs(cy)*abs(cz)*((x0try>=x0)*(x0try<x1))) + (abs(cx)*abs(cy)*((z0try>=z0)*(z0try<z1)))){
+	      if((abs(cx)*abs(cz)*((y0try>=y0)*(y0try<y1))) +
+                 (abs(cy)*abs(cz)*((x0try>=x0)*(x0try<x1))) +
+                 (abs(cx)*abs(cy)*((z0try>=z0)*(z0try<z1)))){
 		neighbours.push_back(idxtry);
 		isghost.push_back(false);
 	      }
 	    }
 	    if (leveltry < level){
-	      if((abs(cx)*abs(cz)*((y0>=y0try)*(y0<y1try))) + (abs(cy)*abs(cz)*((x0>=x0try)*(x0<x1try))) + (abs(cx)*abs(cy)*((z0>=z0try)*(z0<z1try)))){
+	      if((abs(cx)*abs(cz)*((y0>=y0try)*(y0<y1try))) +
+                 (abs(cy)*abs(cz)*((x0>=x0try)*(x0<x1try))) +
+                 (abs(cx)*abs(cy)*((z0>=z0try)*(z0<z1try)))){
 		neighbours.push_back(idxtry);
 		isghost.push_back(false);
 	      }
@@ -1467,7 +1488,10 @@ LocalTree::findNodeNeighbours(const Octant* oct, bool haveIidx, uint32_t idx, ui
       oct->m_info[iface3] == false){
 
     //Build Morton number of virtual neigh of same size
-    Octant samesizeoct(m_dim, oct->m_level, oct->m_x+cxyz[0]*size, oct->m_y+cxyz[1]*size, oct->m_z+cxyz[2]*size);
+    Octant samesizeoct(m_dim, oct->m_level, 
+                       oct->m_x+cxyz[0]*size, 
+                       oct->m_y+cxyz[1]*size, 
+                       oct->m_z+cxyz[2]*size);
     Morton = samesizeoct.computeMorton();
 
     //SEARCH IN GHOSTS
