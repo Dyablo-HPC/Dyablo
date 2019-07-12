@@ -3,10 +3,10 @@
 
 #include "bitpit_PABLO.hpp"
 
-namespace euler_pablo {
+namespace dyablo {
 
 using AMRmesh = bitpit::PabloUniform;
 
-} // namespace euler_pablo
+} // namespace dyablo
 
 #endif // BITPIT_COMMON_H_

@@ -10,7 +10,7 @@
 
 #include "shared/bitpit_common.h"
 
-namespace euler_pablo {
+namespace dyablo {
 
 /**
  * Use configMap information to retrieve a list of scalar field to write, 
@@ -68,6 +68,6 @@ void writeTest(AMRmesh               &amr_mesh,
 	       std::string            filenameSuffix,
 	       std::vector<double>    data);
 
-} // namespace euler_pablo
+} // namespace dyablo
 
 #endif // SIMPLE_VTK_IO_H_

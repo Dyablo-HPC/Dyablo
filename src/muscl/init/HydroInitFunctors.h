@@ -4,7 +4,7 @@
 #ifndef HYDRO_INIT_FUNCTORS_H_
 #define HYDRO_INIT_FUNCTORS_H_
 
-namespace euler_pablo {
+namespace dyablo {
 namespace muscl {
 
 class SolverHydroMuscl;
@@ -20,6 +20,6 @@ void init_isentropic_vortex(SolverHydroMuscl *psolver);
 void init_rayleigh_taylor(SolverHydroMuscl *psolver);
 
 } // namespace muscl
-} // namespace euler_pablo
+} // namespace dyablo
 
 #endif // HYDRO_INIT_FUNCTORS_H_

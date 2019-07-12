@@ -113,7 +113,7 @@ void run()
   iter = 0;
   pablo8.updateConnectivity();
   {
-    euler_pablo::writeTest(pablo8, "pablo00008_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data);
+    dyablo::writeTest(pablo8, "pablo00008_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data);
   }
 
   /**<Adapt two times with data injection on new octants.*/
@@ -173,7 +173,7 @@ void run()
     /**<Update the connectivity and write the octree.*/
     pablo8.updateConnectivity();
     {
-      euler_pablo::writeTest(pablo8,"pablo00008_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data_new);
+      dyablo::writeTest(pablo8,"pablo00008_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data_new);
     }
 
     oct_data = oct_data_new;
@@ -189,7 +189,7 @@ void run()
   /**<Update the connectivity and write the octree.*/
   pablo8.updateConnectivity();
   {
-    euler_pablo::writeTest(pablo8,"pablo00008_iter"+to_string(static_cast<unsigned long long>(iter)), data_lb.data);
+    dyablo::writeTest(pablo8,"pablo00008_iter"+to_string(static_cast<unsigned long long>(iter)), data_lb.data);
   }
 #endif // BITPIT_ENABLE_MPI
 

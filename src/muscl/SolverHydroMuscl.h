@@ -41,12 +41,12 @@
 // #include "shared/problems/GreshoParams.h"
 // #include "shared/problems/IsentropicVortexParams.h"
 
-namespace euler_pablo { namespace muscl {
+namespace dyablo { namespace muscl {
 
 /**
  * Main hydrodynamics data structure for 2D/3D MUSCL-Hancock scheme.
  */
-class SolverHydroMuscl : public euler_pablo::SolverBase
+class SolverHydroMuscl : public dyablo::SolverBase
 {
 
 private:
@@ -157,6 +157,6 @@ private:
 
 } // namespace muscl
 
-} // namespace euler_pablo
+} // namespace dyablo
 
 #endif // SOLVER_HYDRO_MUSCL_H_

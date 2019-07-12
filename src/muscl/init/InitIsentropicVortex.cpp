@@ -6,7 +6,7 @@
 #include "InitIsentropicVortex.h"
 #include "../SolverHydroMuscl.h"
 
-namespace euler_pablo {
+namespace dyablo {
 namespace muscl {
 
 // =======================================================
@@ -67,4 +67,4 @@ void init_isentropic_vortex(SolverHydroMuscl *psolver)
 
 } // namespace muscl
 
-} // namespace euler_pablo
+} // namespace dyablo

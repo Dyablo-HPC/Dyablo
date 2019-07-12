@@ -14,7 +14,7 @@
 #include "DataLBInterface.hpp" // for DataCommInterface
 #include "shared/kokkos_shared.h"
 
-namespace euler_pablo { namespace muscl {
+namespace dyablo { namespace muscl {
 
 /**
  * Main class for user data load balancing.
@@ -60,6 +60,6 @@ public:
 
 } // namespace muscl
 
-} // namespace euler_pablo
+} // namespace dyablo
 
 #endif // MUSCL_USER_DATA_LB_H_

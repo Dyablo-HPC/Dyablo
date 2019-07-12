@@ -6,7 +6,7 @@
 //#include "InitRayleighTaylor.h"
 #include "../SolverHydroMuscl.h"
 
-namespace euler_pablo {
+namespace dyablo {
 namespace muscl {
 
 // =======================================================
@@ -24,4 +24,4 @@ void init_rayleigh_taylor(SolverHydroMuscl *psolver)
 
 } // namespace muscl
 
-} // namespace euler_pablo
+} // namespace dyablo

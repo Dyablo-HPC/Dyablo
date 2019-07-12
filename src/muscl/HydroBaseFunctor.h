@@ -11,7 +11,7 @@
 #include "shared/HydroParams.h"
 #include "shared/HydroState.h"
 
-namespace euler_pablo { namespace muscl {
+namespace dyablo { namespace muscl {
 
 /**
  * SDM base functor, this is not a functor, but a base class to derive an actual
@@ -183,6 +183,6 @@ public:
 
 } // namespace muscl
 
-} // namespace euler_pablo
+} // namespace dyablo
 
 #endif // HYDRO_BASE_FUNCTORS_H_

@@ -26,4 +26,4 @@ target_include_directories(mpiUtils
 target_link_libraries (mpiUtils PUBLIC MPI::MPI_CXX)
 
 #Add an alias so that library can be used inside the build tree
-add_library(EulerPablo::mpiUtils ALIAS mpiUtils)
+add_library(dyablo::mpiUtils ALIAS mpiUtils)

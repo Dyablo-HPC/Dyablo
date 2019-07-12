@@ -6,7 +6,7 @@
 
 #include "muscl/UserDataComm.h"
 
-namespace euler_pablo { namespace muscl {
+namespace dyablo { namespace muscl {
 
 // ==================================================================
 // ==================================================================
@@ -45,4 +45,4 @@ size_t UserDataComm::size(const uint32_t e) const
 
 } // namespace muscl
 
-} // namespace euler_pablo
+} // namespace dyablo

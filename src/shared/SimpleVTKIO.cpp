@@ -1,6 +1,6 @@
 #include "shared/SimpleVTKIO.h"
 
-namespace euler_pablo {
+namespace dyablo {
 
 // =======================================================
 // =======================================================
@@ -613,5 +613,5 @@ void writeTest(AMRmesh             &amr_mesh,
 
 } // writeTest - std::vector<double>
 
-} // namespace euler_pablo
+} // namespace dyablo
 

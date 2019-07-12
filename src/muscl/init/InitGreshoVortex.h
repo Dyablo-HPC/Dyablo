@@ -15,7 +15,7 @@
 #include "bitpit_PABLO.hpp"
 #include "shared/bitpit_common.h"
 
-namespace euler_pablo {
+namespace dyablo {
 namespace muscl {
 
 /*************************************************/
@@ -197,6 +197,6 @@ public:
 
 } // namespace muscl
 
-} // namespace euler_pablo
+} // namespace dyablo
 
 #endif // HYDRO_INIT_GRESHO_VORTEX_H_

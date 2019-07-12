@@ -16,7 +16,7 @@
 
 //#include "shared/EulerEquations.h"
 
-namespace euler_pablo {
+namespace dyablo {
 namespace muscl {
 
 enum norm_type {
@@ -113,6 +113,6 @@ public:
 }; // class Compute_Error_Functor
 
 } // namespace muscl
-} // namespace euler_pablo
+} // namespace dyablo
 
 #endif // MUSCL_COMPUTE_ERROR_FUNCTOR_H_

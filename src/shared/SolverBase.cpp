@@ -10,7 +10,7 @@
 
 //#include "utils/io/IO_ReadWrite.h"
 
-namespace euler_pablo {
+namespace dyablo {
 
 // =======================================================
 // ==== CLASS SolverBase IMPL ============================
@@ -450,4 +450,4 @@ SolverBase::make_boundaries_mpi(DataArray Udata, bool mhd_enabled)
 
 #endif // USE_MPI
 
-} // namespace euler_pablo
+} // namespace dyablo

@@ -1,5 +1,5 @@
 /**
- * Euler Pablo test solver.
+ * dyablo test solver.
  *
  * \date January, 20th 2019
  * \author P. Kestener
@@ -24,7 +24,7 @@
 #include "muscl/SolverHydroMuscl.h"
 
 // banner
-//#include "euler_pablo_version.h"
+//#include "dyablo_version.h"
 
 // ===============================================================
 // ===============================================================
@@ -32,7 +32,7 @@
 int main(int argc, char *argv[])
 {
 
-  using namespace euler_pablo;
+  using namespace dyablo;
 
   // Create MPI session if MPI enabled
 #ifdef USE_MPI

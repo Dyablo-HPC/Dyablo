@@ -8,7 +8,7 @@
 #include "shared/enums.h"
 #include "shared/HydroState.h"
 
-namespace euler_pablo {
+namespace dyablo {
 
 /**
  * This structure gather useful information (variable names, 
@@ -918,6 +918,6 @@ struct EulerEquations<3>
 
 }; //struct EulerEquations<3>
 
-} // namespace euler_pablo
+} // namespace dyablo
 
 #endif // EULER_EQUATIONS_H_

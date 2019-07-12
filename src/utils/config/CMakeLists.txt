@@ -21,4 +21,4 @@ if (USE_MPI)
 endif(USE_MPI)
 
 #Add an alias so that library can be used inside the build tree
-add_library(EulerPablo::config ALIAS config)
+add_library(dyablo::config ALIAS config)

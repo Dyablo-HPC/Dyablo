@@ -6,7 +6,7 @@
 #include "InitFourQuadrant.h"
 #include "../SolverHydroMuscl.h"
 
-namespace euler_pablo {
+namespace dyablo {
 namespace muscl {
 
 // =======================================================
@@ -94,4 +94,4 @@ void init_four_quadrant(SolverHydroMuscl *psolver)
 
 } // namespace muscl
 
-} // namespace euler_pablo
+} // namespace dyablo

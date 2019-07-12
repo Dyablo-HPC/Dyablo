@@ -1,8 +1,10 @@
-# What is EulerPablo ?
+# What is dyablo ?
+
+Dyablo stands for DYnamics adaptive mesh refinement CFD applications with PABLO.
 
 It is a just a attemp to rewrite again an AMR (Adaptive Mesh Refinement) miniapp (with both shared and distributed parallelism in mind). We do not write from scratch but try to couple some of the best state-of-the-art tools.
 
-- AMR is delegated to C++ [BitPit/PABLO](https://github.com/optimad/bitpit) library. BitPit only uses MPI (distributed memory parallelism). 
+- AMR is delegated to C++ library [BitPit/PABLO](https://github.com/optimad/bitpit). BitPit only uses MPI (distributed memory parallelism). 
 - numerical scheme is built on top of the PABLO mesh, in a decoupled manner, using [kokkos](https://github.com/kokkos/kokkos) for shared memory parallelism.
 
 Why did we chose BitPit/PABLO for this test ? What are the difference with [p4est](http://www.p4est.org/) used in [Canop](https://gitlab.maisondelasimulation.fr/canoPdev/canoP) ?
@@ -16,7 +18,7 @@ Why did we chose BitPit/PABLO for this test ? What are the difference with [p4es
 2. Test the performance of Euler/Pablo in MPI + Kokkos/OpenMP on a large cluster (e.g. skylake) and compare with Ramses and CanoP to evaluate the cost of mesh management.
 3. If 1 and 2 are OK, evaluate how much work is needed to Kokkossify PABLO itself (or a sub-part). To start with, we could consider keeping most of PABLO on CPU, but at each mesh modification (refine + coarsen) export mesh connectivity in a Kokkos::View + hashmap to be used in the computational kernels (either OpenMP, or CUDA).
 
-EulerPablo is not correlated to [khamr](https://gitlab.maisondelasimulation.fr/pkestene/khamr) yet, will use some of its ideas (e.g Kokkos HashMap implementation).
+dyablo is not correlated to [khamr](https://gitlab.maisondelasimulation.fr/pkestene/khamr) yet, will use some of its ideas (e.g Kokkos HashMap implementation).
 
 
 Performance portability means, we will be using the [Kokkos library](https://github.com/kokkos/kokkos), a C++ parallel programing model and library for performance portability.
@@ -28,17 +30,17 @@ Performance portability means, we will be using the [Kokkos library](https://git
 Make sure to clone this repository recursively, this will also download kokkos source as a git submodule.
 
 ```bash
-git clone --recurse-submodules git@gitlab.maisondelasimulation.fr:pkestene/EulerPablo.git
+git clone --recurse-submodules git@gitlab.maisondelasimulation.fr:pkestene/dyablo.git
 ```
 
-Kokkos and BitPit/PABLO are built as part of EulerPablo with the cmake build system.
+Kokkos and BitPit/PABLO are built as part of dyablo with the cmake build system.
 
 ## prerequisites
 
 - [kokkos](https://github.com/kokkos/kokkos) : preconfigured as a git submodule
-- [BitPit/PABLO](https://github.com/optimad/bitpit) : a local copy (slightly refactored) is included in EulerPablo
+- [BitPit/PABLO](https://github.com/optimad/bitpit) : a local copy (slightly refactored) is included in dyablo
 
-## build EulerPablo
+## build dyablo
 
 ### build for Kokkos/OpenMP
 
@@ -77,7 +79,7 @@ Then you need to
 
 # More information
 
-For now, just visit the wiki page https://gitlab.maisondelasimulation.fr/pkestene/EulerPablo/wikis/home
+For now, just visit the wiki page https://gitlab.maisondelasimulation.fr/pkestene/dyablo/wikis/home
 
 # Other references
 

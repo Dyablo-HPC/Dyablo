@@ -39,9 +39,9 @@
 #include "muscl/ComputeError.h"
 
 // banner
-//#include "euler_pablo_version.h"
+//#include "dyablo_version.h"
 
-namespace euler_pablo {
+namespace dyablo {
 namespace muscl {
 
 //! data type to store errors values (L1 / L2)
@@ -205,7 +205,7 @@ errors_t compute_error_versus_exact(SolverHydroMuscl *solver)
 errors_t test_isentropic_vortex(int level_min, int level_max, real_t tEnd)
 {
 
-  using namespace euler_pablo;
+  using namespace dyablo;
 
   std::cout << "###############################\n";
   std::cout << "Running isentropic vortex test (MUSCL-Hancock)\n";
@@ -334,14 +334,14 @@ void run_test_single(int level_min, int level_max, real_t tEnd)
 
 } // namespace muscl
 
-} // namespace euler_pablo
+} // namespace dyablo
 
 // ===============================================================
 // ===============================================================
 // ===============================================================
 int main(int argc, char *argv[]) {
 
-  using namespace euler_pablo::muscl;
+  using namespace dyablo::muscl;
 
   // Create MPI session if MPI enabled
 #ifdef USE_MPI

@@ -18,7 +18,7 @@
 // base class
 #include "muscl/HydroBaseFunctor.h"
 
-namespace euler_pablo { namespace muscl {
+namespace dyablo { namespace muscl {
 
 /*************************************************/
 /*************************************************/
@@ -170,6 +170,6 @@ public:
 
 } // namespace muscl
 
-} // namespace euler_pablo
+} // namespace dyablo
 
 #endif // COMPUTE_DT_HYDRO_FUNCTOR_H_

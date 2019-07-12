@@ -14,4 +14,4 @@ target_include_directories(misc
   ${CMAKE_SOURCE_DIR}/src/utils/misc
   )
 
-add_library(EulerPablo::misc ALIAS misc)
+add_library(dyablo::misc ALIAS misc)

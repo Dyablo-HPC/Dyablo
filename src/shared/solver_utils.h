@@ -3,7 +3,7 @@
 
 #include "shared/SolverBase.h"
 
-namespace euler_pablo {
+namespace dyablo {
 
 /**
  * print monitoring information
@@ -57,6 +57,6 @@ inline void print_solver_monitoring_info(SolverBase* solver)
 
 } // print_solver_monitoring_info
 
-} // namespace euler_pablo
+} // namespace dyablo
 
 #endif // SOLVER_UTILS_H_

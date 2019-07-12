@@ -32,4 +32,4 @@ if(OpenMP_CXX_FOUND)
 endif(OpenMP_CXX_FOUND)
 
 #Add an alias so that library can be used inside the build tree
-add_library(EulerPablo::monitoring ALIAS monitoring)
+add_library(dyablo::monitoring ALIAS monitoring)

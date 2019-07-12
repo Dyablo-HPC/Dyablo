@@ -329,7 +329,7 @@ void run()
   iter = 0;
   pablo7.updateConnectivity();
   {
-    euler_pablo::writeTest(pablo7,"pablo00007_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data);
+    dyablo::writeTest(pablo7,"pablo00007_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data);
   }
   
   /**<Adapt two times with data injection on new octants.*/
@@ -399,7 +399,7 @@ void run()
     /**<Update the connectivity and write the octree.*/
     pablo7.updateConnectivity();
     {
-      euler_pablo::writeTest(pablo7,"pablo00007_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data_new);
+      dyablo::writeTest(pablo7,"pablo00007_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data_new);
     }
 
     oct_data = oct_data_new;
@@ -420,7 +420,7 @@ void run()
   /**<Update the connectivity and write the octree.*/
   pablo7.updateConnectivity();
   {
-    euler_pablo::writeTest(pablo7,"pablo00007_iter"+to_string(static_cast<unsigned long long>(iter)), weight);
+    dyablo::writeTest(pablo7,"pablo00007_iter"+to_string(static_cast<unsigned long long>(iter)), weight);
   }
 }
 

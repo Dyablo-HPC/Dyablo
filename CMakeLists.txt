@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.9)
 
 set(PROJECT_LANGUAGES ${PROJECT_LANGUAGES} C CXX)
-project(EulerPablo
+project(dyablo
   LANGUAGES ${PROJECT_LANGUAGES})
 
 #

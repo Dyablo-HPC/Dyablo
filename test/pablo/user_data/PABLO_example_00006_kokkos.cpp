@@ -312,7 +312,7 @@ void run()
   iter = 0;
   pablo6.updateConnectivity();
   {
-    euler_pablo::writeTest(pablo6,"pablo00006_double_iter"+to_string(static_cast<unsigned long long>(iter)), octdata.doubleData);
+    dyablo::writeTest(pablo6,"pablo00006_double_iter"+to_string(static_cast<unsigned long long>(iter)), octdata.doubleData);
   }
 
   /**<Smoothing iterations on initial data*/
@@ -363,7 +363,7 @@ void run()
     /**<Update the connectivity and write the para_tree.*/
     pablo6.updateConnectivity();
     {
-      euler_pablo::writeTest(pablo6,"pablo00006_iter"+to_string(static_cast<unsigned long long>(iter)), octdatasmooth.doubleData);
+      dyablo::writeTest(pablo6,"pablo00006_iter"+to_string(static_cast<unsigned long long>(iter)), octdatasmooth.doubleData);
     }
 
 #if BITPIT_ENABLE_MPI==1

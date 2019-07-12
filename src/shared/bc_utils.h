@@ -7,7 +7,7 @@
 
 #include "shared/enums.h"
 
-namespace euler_pablo { namespace muscl {
+namespace dyablo { namespace muscl {
 
 // =============================================================
 // =============================================================
@@ -34,4 +34,4 @@ bool is_at_border(real_t dx, real_t pos) {
 
 } // namespace muscl
 
-} // namespace euler_pablo
+} // namespace dyablo

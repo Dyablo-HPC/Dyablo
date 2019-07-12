@@ -6,7 +6,7 @@
 #include "InitBlast.h"
 #include "../SolverHydroMuscl.h"
 
-namespace euler_pablo {
+namespace dyablo {
 namespace muscl {
 
 // =======================================================
@@ -73,4 +73,4 @@ void init_blast(SolverHydroMuscl *psolver)
 
 } // namespace muscl
 
-} // namespace euler_pablo
+} // namespace dyablo

@@ -18,7 +18,7 @@
 // kokkos random numbers generator
 #include <Kokkos_Random.hpp>
 
-namespace euler_pablo {
+namespace dyablo {
 namespace muscl {
 
 /*************************************************/
@@ -280,6 +280,6 @@ public:
 
 } // namespace muscl
 
-} // namespace euler_pablo
+} // namespace dyablo
 
 #endif // HYDRO_INIT_KELVIN_HELMHOLTZ_H_

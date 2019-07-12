@@ -23,7 +23,7 @@ enum solver_type_t {
   SOLVER_MUSCL_HANCOCK=1
 };
 
-namespace euler_pablo { namespace io {
+namespace dyablo { namespace io {
 class IO_ReadWriteBase;
 } }
 
@@ -41,7 +41,7 @@ enum TimerIds {
   TIMER_AMR_CYCLE_LOAD_BALANCE = 10
 }; // enum TimerIds
 
-namespace euler_pablo {
+namespace dyablo {
 
 /**
  * Abstract base class for all our actual solvers.
@@ -206,6 +206,6 @@ public:
 
 }; // class SolverBase
 
-} // namespace euler_pablo
+} // namespace dyablo
 
 #endif // SOLVER_BASE_H_

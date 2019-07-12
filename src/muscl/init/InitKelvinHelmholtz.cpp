@@ -6,7 +6,7 @@
 #include "InitKelvinHelmholtz.h"
 #include "../SolverHydroMuscl.h"
 
-namespace euler_pablo {
+namespace dyablo {
 namespace muscl {
 
 // =======================================================
@@ -79,4 +79,4 @@ void init_kelvin_helmholtz(SolverHydroMuscl *psolver)
 
 } // namespace muscl
 
-} // namespace euler_pablo
+} // namespace dyablo

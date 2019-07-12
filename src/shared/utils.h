@@ -1,5 +1,5 @@
-#ifndef EULER_PABLO_UTILS_H
-#define EULER_PABLO_UTILS_H
+#ifndef DYABLO_UTILS_H
+#define DYABLO_UTILS_H
 
 #include <math.h>
 #include <iosfwd>
@@ -28,4 +28,4 @@
 void        print_current_date(std::ostream& stream);
 std::string get_current_date();
 
-#endif // EULER_PABLO_UTILS_H
+#endif // DYABLO_UTILS_H

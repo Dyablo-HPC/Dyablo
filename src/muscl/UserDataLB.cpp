@@ -9,7 +9,7 @@
 
 #include "bitpit_common.hpp"
 
-namespace euler_pablo { namespace muscl {
+namespace dyablo { namespace muscl {
 
 // ==================================================================
 // ==================================================================
@@ -87,4 +87,4 @@ void UserDataLB::shrink() {
 
 } // namespace muscl
 
-} // namespace euler_pablo
+} // namespace dyablo

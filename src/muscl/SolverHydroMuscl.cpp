@@ -31,7 +31,7 @@
 
 //#include "shared/mpiBorderUtils.h"
 
-namespace euler_pablo { namespace muscl {
+namespace dyablo { namespace muscl {
 
 // =======================================================
 // ==== CLASS SolverHydroMuscl IMPL ======================
@@ -727,4 +727,4 @@ void SolverHydroMuscl::load_balance_userdata()
 
 } // namespace muscl
 
-} // namespace euler_pablo
+} // namespace dyablo

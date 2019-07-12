@@ -9,7 +9,7 @@
 #include "HydroParams.h"
 #include "HydroState.h"
 
-namespace euler_pablo {
+namespace dyablo {
   
 /**
  * Compute cell fluxes from the Godunov state
@@ -598,6 +598,6 @@ void riemann_hydro(const HydroState3d& qleft,
   
 } // riemann_hydro
 
-} // namespace euler_pablo
+} // namespace dyablo
 
 #endif // RIEMANN_SOLVERS_H_

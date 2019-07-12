@@ -12,7 +12,7 @@
 
 #include "shared/FieldManager.h" // for id2index_t type
 
-namespace euler_pablo { namespace muscl {
+namespace dyablo { namespace muscl {
 
 /**
  * Main class for user data communication for MUSCL/hancock scheme.
@@ -82,6 +82,6 @@ public:
 
 } // namespace muscl
 
-} // namespace euler_pablo
+} // namespace dyablo
 
 #endif // MUSCL_USER_DATA_COMM_H_
