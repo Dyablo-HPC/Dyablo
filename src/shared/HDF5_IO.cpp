@@ -57,8 +57,8 @@ hdf5_native_type_to_string (hid_t type)
 HDF5_Writer::HDF5_Writer(std::shared_ptr<AMRmesh> amr_mesh, 
                          //id2index_t     fm,
                          //str2int_t      names2index,
-                         std::shared_ptr<ConfigMap> configMap,
-                         std::shared_ptr<HydroParams> params) :
+                         ConfigMap& configMap,
+                         HydroParams& params) :
   m_amr_mesh(amr_mesh),
   //m_fm(fm),
   //m_names2index(names2index),
@@ -66,12 +66,12 @@ HDF5_Writer::HDF5_Writer(std::shared_ptr<AMRmesh> amr_mesh,
   m_params(params)
 {
 
-  m_write_mesh_info = configMap->getBool("output", "write_mesh_info", false);
+  m_write_mesh_info = m_configMap.getBool("output", "write_mesh_info", false);
 
   m_write_level = m_write_mesh_info;
   m_write_rank =  m_write_mesh_info;
 
-  m_nbNodesPerCell = m_params->dimType==TWO_D ? 
+  m_nbNodesPerCell = m_params.dimType==TWO_D ? 
     IO_NODES_PER_CELL_2D : 
     IO_NODES_PER_CELL_3D;
 
@@ -203,7 +203,7 @@ HDF5_Writer::io_xdmf_write_header(double time)
   size_t  global_num_quads = this->m_amr_mesh->getGlobalNumOctants();
   size_t  global_num_nodes = global_num_quads * m_nbNodesPerCell;
 
-  const std::string IO_TOPOLOGY_TYPE = m_params->dimType == TWO_D ?
+  const std::string IO_TOPOLOGY_TYPE = m_params.dimType == TWO_D ?
     IO_TOPOLOGY_TYPE_2D :
     IO_TOPOLOGY_TYPE_3D;
 

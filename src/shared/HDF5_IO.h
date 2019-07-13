@@ -47,8 +47,8 @@ public:
   HDF5_Writer(std::shared_ptr<AMRmesh> amr_mesh, 
 	      //id2index_t       fm,
 	      //str2int_t        names2index,
-	      std::shared_ptr<ConfigMap> configMap,
-              std::shared_ptr<HydroParams> params);
+	      ConfigMap& configMap,
+              HydroParams& params);
   ~HDF5_Writer();
 
   /**
@@ -70,8 +70,8 @@ public:
   //id2index_t     m_fm; //!< field manager object
   //str2int_t      m_names2index; //!< map from names to user data variables
 
-  std::shared_ptr<ConfigMap> m_configMap;
-  std::shared_ptr<HydroParams> m_params;
+  ConfigMap&     m_configMap;
+  HydroParams&   m_params;
 
   bool           m_write_mesh_info; //!< write mesh info (oct level, mpi proc, ...)
 

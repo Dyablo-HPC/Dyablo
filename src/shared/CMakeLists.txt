@@ -1,18 +1,24 @@
 #######################
 ### SHARED ############
 #######################
-set (shared_SRCS
+add_library(shared "")
+
+target_sources (shared
+  PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/HydroParams.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/SolverBase.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/utils.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/io_utils.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/SimpleVTKIO.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/HDF5_IO.cpp
   )
 
-add_library(shared
-  ${shared_SRCS}
-  )
+if (USE_HDF5)
+  target_sources(shared
+    PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/HDF5_IO.cpp
+    )
+endif(USE_HDF5)
+
 if (USE_MPI)
   target_include_directories(shared
     PUBLIC
@@ -42,3 +48,8 @@ if (USE_MPI)
     MPI::MPI_CXX
     )
 endif(USE_MPI)
+
+if(USE_HDF5)
+  target_link_libraries(shared PUBLIC
+    ${HDF5_LIBRARIES})
+endif(USE_HDF5)
