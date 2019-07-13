@@ -55,14 +55,13 @@ hdf5_native_type_to_string (hid_t type)
 // =======================================================
 // =======================================================
 HDF5_Writer::HDF5_Writer(std::shared_ptr<AMRmesh> amr_mesh, 
-                         //DataArray     data,
-                         id2index_t     fm,
-                         str2int_t      names2index,
+                         //id2index_t     fm,
+                         //str2int_t      names2index,
                          std::shared_ptr<ConfigMap> configMap,
                          std::shared_ptr<HydroParams> params) :
   m_amr_mesh(amr_mesh),
-  m_fm(fm),
-  m_names2index(names2index),
+  //m_fm(fm),
+  //m_names2index(names2index),
   m_configMap(configMap),
   m_params(params)
 {

@@ -1,12 +1,16 @@
 #ifndef SOLVER_BASE_H_
 #define SOLVER_BASE_H_
 
+#include <map>
+#include <memory> // for std::unique_ptr / std::shared_ptr
+
 #include "shared/HydroParams.h"
 #include "utils/config/ConfigMap.h"
 #include "shared/kokkos_shared.h"
 
-#include <map>
-#include <memory> // for std::unique_ptr / std::shared_ptr
+#ifdef USE_HDF5
+#include "shared/HDF5_IO.h"
+#endif // USE_HDF5
 
 // for timer
 #ifdef KOKKOS_ENABLE_CUDA
@@ -103,7 +107,11 @@ public:
 
   //! dimension (2 or 3)
   int                  m_dim;
-  
+
+#ifdef USE_HDF5
+  std::shared_ptr<HDF5_Writer> m_hdf5_writer;
+#endif // USE_HDF5
+
   /*
    *
    * Computation interface that may be overriden in a derived 

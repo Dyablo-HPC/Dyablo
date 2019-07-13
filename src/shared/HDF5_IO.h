@@ -45,8 +45,8 @@ public:
    *
    */
   HDF5_Writer(std::shared_ptr<AMRmesh> amr_mesh, 
-	      id2index_t       fm,
-	      str2int_t        names2index,
+	      //id2index_t       fm,
+	      //str2int_t        names2index,
 	      std::shared_ptr<ConfigMap> configMap,
               std::shared_ptr<HydroParams> params);
   ~HDF5_Writer();
@@ -67,8 +67,8 @@ public:
 
   std::shared_ptr<AMRmesh> m_amr_mesh; //!<
   std::string    m_basename; //!< the base name of the two files
-  id2index_t     m_fm; //!< field manager object
-  str2int_t      m_names2index; //!< map from names to user data variables
+  //id2index_t     m_fm; //!< field manager object
+  //str2int_t      m_names2index; //!< map from names to user data variables
 
   std::shared_ptr<ConfigMap> m_configMap;
   std::shared_ptr<HydroParams> m_params;
