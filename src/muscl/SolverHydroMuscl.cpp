@@ -481,6 +481,21 @@ void SolverHydroMuscl::save_solution_impl()
 
   m_timers[TIMER_IO]->start();
 
+  if (params.ioVTK)
+    save_solution_vtk();
+
+  if (params.ioHDF5)
+    save_solution_hdf5();
+
+  m_timers[TIMER_IO]->stop();
+    
+} // SolverHydroMuscl::save_solution_impl()
+
+// =======================================================
+// =======================================================
+void SolverHydroMuscl::save_solution_vtk() 
+{
+
   // retrieve available / allowed names: fieldManager, and field map (fm)
   auto fm = fieldMgr.get_id2index();
 
@@ -508,9 +523,25 @@ void SolverHydroMuscl::save_solution_impl()
       writeVTK(*amr_mesh, strsuf.str(), Slopes_z, fm, names2index, configMap, "_slope_z");
   }
 
-  m_timers[TIMER_IO]->stop();
-    
-} // SolverHydroMuscl::save_solution_impl()
+} // SolverHydroMuscl::save_solution_vtk
+
+// =======================================================
+// =======================================================
+void SolverHydroMuscl::save_solution_hdf5() 
+{
+
+#ifdef USE_HDF5
+
+  // TODO
+
+#else
+
+  if (amr_mesh->getRank() == 0)
+    std::cerr << "You need to re-run cmake and enable HDF5 to have HDF5 output available.\n";
+
+#endif // USE_HDF5
+
+} // SolverHydroMuscl::save_solution_hdf5
 
 // =======================================================
 // =======================================================

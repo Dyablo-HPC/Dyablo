@@ -134,6 +134,9 @@ public:
 
 private:
 
+  void save_solution_vtk(); //!< VTK output
+  void save_solution_hdf5(); //!< HDF5 output
+
   /*
    * the following routines are necessary for amr cycle.
    */
