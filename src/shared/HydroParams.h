@@ -103,7 +103,7 @@ struct HydroParams {
   int level_max;
   
   // IO parameters
-  bool ioVTK;   /*!< enable VTK  output file format (using VTI).*/
+  bool ioVTK;   /*!< enable VTK  output file format (using VTU).*/
   bool ioHDF5;  /*!< enable HDF5 output file format.*/
   bool debug_output; /*!< more verbous output */
 

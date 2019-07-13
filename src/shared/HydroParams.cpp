@@ -90,7 +90,10 @@ void HydroParams::setup(ConfigMap &configMap)
 
   level_min = configMap.getInteger("amr","level_min", 5);
   level_max = configMap.getInteger("amr","level_max", 10);
-  
+
+  ioVTK = configMap.getBool("output","vtk_enabled",true);
+  ioHDF5 = configMap.getBool("output","hdf5_enabled",false);
+
   settings.gamma0         = configMap.getFloat("hydro","gamma0", 1.4);
   settings.cfl            = configMap.getFloat("hydro", "cfl", 0.5);
   settings.iorder         = configMap.getInteger("hydro","iorder", 2);
