@@ -117,7 +117,7 @@ public:
    */
   KOKKOS_INLINE_FUNCTION
   void swap ( real_t& a, real_t& b ) const {
-    real_t c=a; a=b; b=c;
+    real_t tmp(a); a=b; b=tmp;
   } // swap
   
   // =======================================================================
