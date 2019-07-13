@@ -10,22 +10,9 @@
 
 #include "shared/bitpit_common.h"
 
-namespace dyablo {
+#include "shared/io_utils.h"
 
-/**
- * Use configMap information to retrieve a list of scalar field to write, 
- * compute the their id the access them in DataArray. This routine returns
- * a map with this information.
- *
- * \param[in,out] map       this is the map to fill
- * \param[in]     params    a DataParams reference object
- * \param[in]     configMap to access parameters settings
- *
- * \return the map size (i.e. the number of valid variable names)
- */
-int build_var_to_write_map(str2int_t        & map,
-			   const HydroParams& params,
-			   const ConfigMap  & configMap);
+namespace dyablo {
 
 /**
  * Simple VTK IO routine (simple means Partitionned VTU, using ASCII).

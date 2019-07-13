@@ -5,7 +5,9 @@ set (shared_SRCS
   ${CMAKE_CURRENT_SOURCE_DIR}/HydroParams.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/SolverBase.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/utils.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/io_utils.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/SimpleVTKIO.cpp
+  #${CMAKE_CURRENT_SOURCE_DIR}/HDF5_IO.cpp
   )
 
 add_library(shared
