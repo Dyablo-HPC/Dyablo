@@ -79,13 +79,13 @@ void run(std::string input_filename)
     {
       hid_t output_type = H5T_NATIVE_DOUBLE;
 
-      // // open the new file and write our stuff
-      // writer.open("test_hdf5");
-      // writer.write_header(0.0);
+      // open the new file and write our stuff
+      writer.open("test_hdf5");
+      writer.write_header(0.0);
 
-      // // close the file
-      // writer.write_footer();
-      // writer.close();
+      // close the file
+      writer.write_footer();
+      writer.close();
 
     }
 

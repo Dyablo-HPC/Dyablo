@@ -170,6 +170,55 @@ HDF5_Writer::close()
 
 // =======================================================
 // =======================================================
+int
+HDF5_Writer::write_header(double time)
+{
+  int           mpirank = m_amr_mesh->getRank();
+
+  uint32_t      local_num_quads = m_amr_mesh->getNumOctants();
+  uint64_t      global_num_quads = m_amr_mesh->getGlobalNumOctants();
+
+  // get the number of nodes to write considering the scale
+
+  m_local_num_nodes = m_nbNodesPerCell * local_num_quads;
+  m_global_num_nodes = m_nbNodesPerCell * global_num_quads;
+
+    //m_start_nodes = m_nbNodesPerCell * amr_mesh->global_first_quadrant[mpirank];
+    
+
+  // write the xmdf file first
+  if (mpirank == 0) {
+    io_xdmf_write_header(time);
+  }
+
+  // and write stuff into the hdf file
+  //io_hdf5_write_coordinates(m_nodes);
+  //io_hdf5_write_connectivity(m_nodes);
+  //io_hdf5_write_level();
+  //io_hdf5_write_rank();
+
+  return 0;
+
+} // HDF5_Writer::write_header
+
+// =======================================================
+// =======================================================
+int
+HDF5_Writer::write_footer()
+{
+  int mpirank = m_amr_mesh->getRank();
+
+  if (mpirank == 0) {
+    io_xdmf_write_footer();
+  }
+
+  return 0;
+  
+} // HDF5_Writer::write_footer
+
+
+// =======================================================
+// =======================================================
 // Private members
 // =======================================================
 // =======================================================

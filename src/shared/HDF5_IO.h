@@ -65,6 +65,48 @@ public:
    */
   void                close ();
 
+  /**
+   * \brief Write the header for the XMF and HDF5 files.
+   *
+   * The header includes the node information, connectivity information and
+   * the treeid, level or mpirank for each quadrant, if required.
+   *
+   * In the case of the XMF file, this will defined the topology and geometry
+   * of the mesh and point to the relevant fields in the HDF5 file.
+   */
+  int                 write_header (double time);
+
+  /**
+   * \brief Write the XMF footer.
+   *
+   * Closes all the XML tags.
+   */
+  int                 write_footer ();
+
+
+  /**
+   * \brief Write a node-centered or cell-centered attribute.
+   *
+   * \param [in] w The writer.
+   * \param [in] name The name of the attribute.
+   * \param [in] data The data to be written.
+   * \param [in] dim In the case of a vector, this is the dimension of each
+   * element in the vector field.
+   * \param [in] ftype The type of the attribute. See supported types in
+   *  the io_attribute_type_t enum.
+   * \param [in] dtype The type of the data we are writing. This is given as a
+   * native HDF5 type. See the types defined in the H5Tpublic.h header.
+   * \param [in] wtype The type of the data written to the file. The
+   * conversion between the data type and the written data is handled
+   * by HDF5.
+   */
+  int                 write_attribute (const std::string &name,
+				       void *data,
+				       size_t dim,
+				       io_attribute_type_t ftype,
+				       hid_t dtype, hid_t wtype);
+  
+
   std::shared_ptr<AMRmesh> m_amr_mesh; //!<
   std::string    m_basename; //!< the base name of the two files
   //id2index_t     m_fm; //!< field manager object
@@ -86,6 +128,12 @@ public:
   bool           m_write_rank;       // default 1
 
   int            m_mpiRank;
+
+  // store information about nodes for writing node data
+  uint64_t       m_global_num_nodes;
+  uint32_t       m_local_num_nodes;
+  uint64_t       m_start_nodes;
+
 
 private:
   /*
