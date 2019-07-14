@@ -75,6 +75,13 @@ HDF5_Writer::HDF5_Writer(std::shared_ptr<AMRmesh> amr_mesh,
     IO_NODES_PER_CELL_2D : 
     IO_NODES_PER_CELL_3D;
 
+  m_local_num_quads = m_amr_mesh->getNumOctants();
+  m_global_num_quads = m_amr_mesh->getGlobalNumOctants();
+
+  m_local_num_nodes = m_nbNodesPerCell * m_local_num_quads;
+  m_global_num_nodes = m_nbNodesPerCell * m_global_num_quads;
+
+
   m_basename = ""; // TODO setup from params
   m_hdf5_file = 0;
   m_xdmf_file = nullptr;
@@ -173,27 +180,15 @@ HDF5_Writer::close()
 int
 HDF5_Writer::write_header(double time)
 {
-  int           mpirank = m_amr_mesh->getRank();
-
-  uint32_t      local_num_quads = m_amr_mesh->getNumOctants();
-  uint64_t      global_num_quads = m_amr_mesh->getGlobalNumOctants();
-
-  // get the number of nodes to write considering the scale
-
-  m_local_num_nodes = m_nbNodesPerCell * local_num_quads;
-  m_global_num_nodes = m_nbNodesPerCell * global_num_quads;
-
-    //m_start_nodes = m_nbNodesPerCell * amr_mesh->global_first_quadrant[mpirank];
-    
 
   // write the xmdf file first
-  if (mpirank == 0) {
+  if (m_mpiRank == 0) {
     io_xdmf_write_header(time);
   }
 
   // and write stuff into the hdf file
-  //io_hdf5_write_coordinates(m_nodes);
-  //io_hdf5_write_connectivity(m_nodes);
+  io_hdf5_write_coordinates();
+  //io_hdf5_write_connectivity();
   //io_hdf5_write_level();
   //io_hdf5_write_rank();
 
@@ -216,6 +211,170 @@ HDF5_Writer::write_footer()
   
 } // HDF5_Writer::write_footer
 
+// =======================================================
+// =======================================================
+int
+HDF5_Writer::write_attribute(const std::string &name,
+                             void *data,
+                             size_t dim,
+                             io_attribute_type_t ftype,
+                             hid_t dtype,
+                             hid_t wtype)
+{
+  int                 mpirank = m_amr_mesh->getRank();
+
+  hsize_t             dims[2] = { 0, 0 };
+  hsize_t             count[2] = { 0, 0 };
+  hsize_t             start[2] = { 0, 0 };
+  int                 rank = 0;
+
+  if (ftype == IO_CELL_SCALAR || ftype == IO_CELL_VECTOR) {
+
+    dims[0] = m_amr_mesh->getGlobalNumOctants();
+    dims[1] = dim;
+
+    count[0] = m_amr_mesh->getNumOctants();
+    count[1] = dims[1];
+
+    // get global index of the first octant of current mpi processor
+    start[0] = m_amr_mesh->getGlobalIdx((uint32_t) 0);
+    start[1] = 0;
+
+  } else {
+
+    // is this relevant ?
+
+    // dims[0] = m_global_num_nodes;
+    // dims[1] = dim;
+
+    // count[0] = m_local_num_nodes;
+    // count[1] = dims[1];
+
+    // start[0] = m_start_nodes;
+    // start[1] = 0;
+
+  }
+
+  if (ftype == IO_CELL_SCALAR || ftype == IO_NODE_SCALAR) {
+    rank = 1;
+  } else {
+    rank = 2;
+  }
+
+  // TODO: find a better way to pass the number type
+  if (mpirank == 0) {
+    const char *dtype_str = hdf5_native_type_to_string(dtype);
+    io_xdmf_write_attribute(name, dtype_str, ftype, dims);
+  }
+
+  io_hdf5_writev(m_hdf5_file, name, data, dtype, wtype, rank, dims, count, start);
+  return 0;
+  
+} // HDF5_Writer::write_attribute
+
+// =======================================================
+// =======================================================
+void
+HDF5_Writer::io_hdf5_writev(hid_t fd, 
+                            const std::string &name, 
+                            void *data,
+                            hid_t dtype_id, 
+                            hid_t wtype_id, 
+                            hid_t rank,
+                            hsize_t dims[], 
+                            hsize_t count[],
+                            hsize_t start[])
+{
+  int                 status;
+  UNUSED(status);
+  hsize_t             size = 1;
+  hid_t               filespace = 0;
+  hid_t               memspace = 0;
+  hid_t               dataset = 0;
+  hid_t               dataset_properties = 0;
+  hid_t               write_properties = 0;
+
+  //CANOP_GLOBAL_INFOF("Writing \"%s\" of size %llu / %llu\n",
+  //                   name.c_str(), count[0], dims[0]);
+
+  // compute size of the dataset
+  for (int i = 0; i < rank; ++i) {
+    size *= count[i];
+  }
+
+  // create the layout in the file and 
+  // in the memory of the current process
+  filespace = H5Screate_simple(rank, dims, nullptr);
+  memspace = H5Screate_simple(rank, count, nullptr);
+
+  // set some properties
+  dataset_properties = H5Pcreate(H5P_DATASET_CREATE);
+  write_properties = H5Pcreate(H5P_DATASET_XFER);
+  H5Pset_dxpl_mpio(write_properties, H5FD_MPIO_COLLECTIVE);
+
+  // create the dataset and the location of the local data
+  dataset = H5Dcreate2(fd, name.c_str(), wtype_id, filespace,
+		       H5P_DEFAULT, dataset_properties, H5P_DEFAULT);
+  H5Sselect_hyperslab(filespace, H5S_SELECT_SET, start, nullptr, count, nullptr);
+
+  if (dtype_id != wtype_id) {
+    status = H5Tconvert(dtype_id, wtype_id, size, data, nullptr, H5P_DEFAULT);
+    //SC_CHECK_ABORT(status >= 0, "H5Tconvert failed!");
+  }
+  H5Dwrite(dataset, wtype_id, memspace, filespace, write_properties, data);
+
+  H5Dclose(dataset);
+  H5Sclose(filespace);
+  H5Sclose(memspace);
+  H5Pclose(dataset_properties);
+  H5Pclose(write_properties);
+
+} // HDF5_Writer::io_hdf5_writev
+
+// =======================================================
+// =======================================================
+void
+HDF5_Writer::io_hdf5_write_coordinates()
+{
+
+  std::vector<float> data(3 * m_local_num_nodes);
+
+  /*
+   * construct the list of node coordinates
+   */
+  //uint32_t nofNodes = m_amr_mesh->getNodes().size();
+
+  for (uint32_t i = 0; i < m_local_num_nodes; ++i) {
+
+    data[3*i+0] = m_amr_mesh->getMap().mapX(m_amr_mesh->getNodes()[i][0]);
+    data[3*i+1] = m_amr_mesh->getMap().mapX(m_amr_mesh->getNodes()[i][1]);
+    data[3*i+2] = m_amr_mesh->getMap().mapX(m_amr_mesh->getNodes()[i][2]);
+
+  }
+
+  // get prepared for hdf5 writing
+
+  hsize_t             dims[2] = { 0, 0 };
+  hsize_t             count[2] = { 0, 0 };
+  hsize_t             start[2] = { 0, 0 };
+
+  // get the dimensions and offset of the node coordinates array
+  dims[0] = m_global_num_nodes;
+  dims[1] = 3;
+  
+  count[0] = m_local_num_nodes;
+  count[1] = 3;
+  
+  // get global index of the first octant of current mpi processor
+  start[0] = m_amr_mesh->getGlobalIdx((uint32_t) 0);
+  start[1] = 0;
+
+  // write the node coordinates
+  io_hdf5_writev(this->m_hdf5_file, "coordinates", &(data[0]),
+                 H5T_NATIVE_FLOAT, H5T_NATIVE_FLOAT, 2, 
+                 dims, count, start);
+
+} // HDF5_Writer::io_hdf_write_coordinates
 
 // =======================================================
 // =======================================================

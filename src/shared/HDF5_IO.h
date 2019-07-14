@@ -104,7 +104,8 @@ public:
 				       void *data,
 				       size_t dim,
 				       io_attribute_type_t ftype,
-				       hid_t dtype, hid_t wtype);
+				       hid_t dtype, 
+                                       hid_t wtype);
   
 
   std::shared_ptr<AMRmesh> m_amr_mesh; //!<
@@ -132,8 +133,10 @@ public:
   // store information about nodes for writing node data
   uint64_t       m_global_num_nodes;
   uint32_t       m_local_num_nodes;
-  uint64_t       m_start_nodes;
+  //uint64_t       m_start_nodes;
 
+  uint64_t       m_global_num_quads;
+  uint32_t       m_local_num_quads;
 
 private:
   /*
@@ -185,7 +188,48 @@ private:
   /*
    * HDF5 utilities.
    */
+  /**
+   * \brief Write a given dataset into the HDF5 file.
+   *
+   * \param [in] fd An open file descriptor to a HDF5 file.
+   * \param [in] name The name of the dataset we are writing.
+   * \param [in] data The data to write.
+   * \param [in] dtype_id The native HDF5 type of the given data.
+   * \param [in] wtype_id The native HDF5 type of the written data.
+   * \param [in] rank The rank of the dataset. 1 if it is a vector, 2 for a matrix.
+   * \param [in] dims The global dimensions of the dataset.
+   * \param [in] count The local dimensions of the dataset.
+   * \param [in] start The offset of the local data with respect to the global
+   * positioning.
+   *
+   * \sa H5TPublic.h
+   */
+  void
+  io_hdf5_writev(hid_t fd, const std::string &name, void *data,
+                 hid_t dtype_id, hid_t wtype_id, hid_t rank,
+                 hsize_t dims[], hsize_t count[], hsize_t start[]);
 
+  /**
+   * \brief Compute and write the coordinates of all the mesh nodes.
+   */
+  void io_hdf5_write_coordinates();
+
+  /**
+   * \brief Compute and write the connectivity information for each quadrant.
+   */
+  void io_hdf5_write_connectivity();
+
+  /**
+   * \brief Compute and write the level for each quadrant.
+   */
+  void io_hdf5_write_level();
+
+  /**
+   * \brief Compute and write the MPI rank for each quadrant.
+   *
+   * The rank is wrapped with IO_MPIRANK_WRAP.
+   */
+  void io_hdf5_write_rank();
 
 }; // class HDF5_Writer
 
