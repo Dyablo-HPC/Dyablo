@@ -74,13 +74,10 @@ HDF5_Writer::HDF5_Writer(std::shared_ptr<AMRmesh> amr_mesh,
   m_nbNodesPerCell = m_params.dimType==TWO_D ? 
     IO_NODES_PER_CELL_2D : 
     IO_NODES_PER_CELL_3D;
+  
+  update_mesh_info();
 
-  m_local_num_quads = m_amr_mesh->getNumOctants();
-  m_global_num_quads = m_amr_mesh->getGlobalNumOctants();
-
-  m_local_num_nodes = m_nbNodesPerCell * m_local_num_quads;
-  m_global_num_nodes = m_nbNodesPerCell * m_global_num_quads;
-
+  printf("%d %d %d %d\n",m_local_num_quads,m_global_num_quads,m_local_num_nodes,m_global_num_nodes);
 
   m_basename = ""; // TODO setup from params
   m_hdf5_file = 0;
@@ -120,6 +117,20 @@ HDF5_Writer::~HDF5_Writer()
   close();
   
 } // HDF5_Writer::~HDF5_Writer
+
+// =======================================================
+// =======================================================
+void
+HDF5_Writer::update_mesh_info()
+{
+
+  m_local_num_quads = m_amr_mesh->getNumOctants();
+  m_global_num_quads = m_amr_mesh->getGlobalNumOctants();
+
+  m_local_num_nodes = m_nbNodesPerCell * m_local_num_quads;
+  m_global_num_nodes = m_nbNodesPerCell * m_global_num_quads;
+
+} // HDF5_Writer::update_mesh_info
 
 // =======================================================
 // =======================================================
@@ -342,14 +353,18 @@ HDF5_Writer::io_hdf5_write_coordinates()
   /*
    * construct the list of node coordinates
    */
-  //uint32_t nofNodes = m_amr_mesh->getNodes().size();
 
-  for (uint32_t i = 0; i < m_local_num_nodes; ++i) {
+  for (uint32_t i = 0; i < m_local_num_quads; ++i) {
 
-    data[3*i+0] = m_amr_mesh->getMap().mapX(m_amr_mesh->getNodes()[i][0]);
-    data[3*i+1] = m_amr_mesh->getMap().mapX(m_amr_mesh->getNodes()[i][1]);
-    data[3*i+2] = m_amr_mesh->getMap().mapX(m_amr_mesh->getNodes()[i][2]);
+    for (uint8_t j = 0; j < m_nbNodesPerCell; ++j) {
+      data[3 * m_nbNodesPerCell * i + 3 * j + 0] =
+          m_amr_mesh->getNode(i, j)[0];
+      data[3 * m_nbNodesPerCell * i + 3 * j + 1] =
+          m_amr_mesh->getNode(i, j)[1];
+      data[3 * m_nbNodesPerCell * i + 3 * j + 2] =
+          m_amr_mesh->getNode(i, j)[2];
 
+    }
   }
 
   // get prepared for hdf5 writing
@@ -381,7 +396,6 @@ HDF5_Writer::io_hdf5_write_coordinates()
 // Private members
 // =======================================================
 // =======================================================
-
 
 // =======================================================
 // =======================================================

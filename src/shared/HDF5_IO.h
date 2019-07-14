@@ -52,6 +52,11 @@ public:
   ~HDF5_Writer();
 
   /**
+   * To be called as often as the mesh changes.
+   */
+  void                update_mesh_info();
+
+  /**
    * \brief Open the HDF5 and XMF files for writing.
    *
    * Also includes this file inside the main xmf file, if needed.
@@ -139,6 +144,7 @@ public:
   uint32_t       m_local_num_quads;
 
 private:
+
   /*
    * XMDF utilities.
    */

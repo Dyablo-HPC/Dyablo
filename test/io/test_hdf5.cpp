@@ -46,7 +46,7 @@ void run(std::string input_filename)
   // create HDF5 writer
   dyablo::HDF5_Writer writer(amr_mesh, configMap, params);
 
-  for (int iter=0; iter<3; ++iter) {
+  for (int iter=0; iter<2; ++iter) {
 
     // refine all cells
     amr_mesh->adaptGlobalRefine();
@@ -71,16 +71,21 @@ void run(std::string input_filename)
     for (unsigned int i=0; i<nocts2; i++){
       oct_data[i] = rank;
     }
-    
+
     amr_mesh->updateConnectivity();
     //amr_mesh->writeTest("PABLO_test0_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data);
+
+    printf("local  num octants : %ld\n",amr_mesh->getNumOctants());
+    printf("global num octants : %ld\n",amr_mesh->getGlobalNumOctants());
 
     // save hdf5 data
     {
       hid_t output_type = H5T_NATIVE_DOUBLE;
 
+      writer.update_mesh_info();
+
       // open the new file and write our stuff
-      writer.open("test_hdf5");
+      writer.open("test_hdf5_iter"+std::to_string(iter));
       writer.write_header(0.0);
 
       // close the file
