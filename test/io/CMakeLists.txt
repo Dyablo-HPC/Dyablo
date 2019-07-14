@@ -39,3 +39,4 @@ set(KOKKOS_DISABLED FALSE)
 
 build_test_executable(test_hdf5       ${KOKKOS_ENABLED})
 
+configure_file(test_io_hdf5.ini test_io_hdf5.ini COPYONLY)

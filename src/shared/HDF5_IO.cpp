@@ -199,9 +199,9 @@ HDF5_Writer::write_header(double time)
 
   // and write stuff into the hdf file
   io_hdf5_write_coordinates();
-  //io_hdf5_write_connectivity();
-  //io_hdf5_write_level();
-  //io_hdf5_write_rank();
+  io_hdf5_write_connectivity();
+  io_hdf5_write_level();
+  io_hdf5_write_rank();
 
   return 0;
 
@@ -232,7 +232,6 @@ HDF5_Writer::write_attribute(const std::string &name,
                              hid_t dtype,
                              hid_t wtype)
 {
-  int                 mpirank = m_amr_mesh->getRank();
 
   hsize_t             dims[2] = { 0, 0 };
   hsize_t             count[2] = { 0, 0 };
@@ -273,7 +272,7 @@ HDF5_Writer::write_attribute(const std::string &name,
   }
 
   // TODO: find a better way to pass the number type
-  if (mpirank == 0) {
+  if (m_mpiRank == 0) {
     const char *dtype_str = hdf5_native_type_to_string(dtype);
     io_xdmf_write_attribute(name, dtype_str, ftype, dims);
   }
@@ -389,7 +388,106 @@ HDF5_Writer::io_hdf5_write_coordinates()
                  H5T_NATIVE_FLOAT, H5T_NATIVE_FLOAT, 2, 
                  dims, count, start);
 
-} // HDF5_Writer::io_hdf_write_coordinates
+} // HDF5_Writer::io_hdf5_write_coordinates
+
+// =======================================================
+// =======================================================
+void HDF5_Writer::io_hdf5_write_connectivity()
+{
+  
+  uint32_t node[8] =  {0, 1, 3, 2, 0, 0, 0, 0};
+
+  if (m_amr_mesh->getDim() == 3) {
+    node[4] = 4;
+    node[5] = 5;
+    node[6] = 7;
+    node[7] = 6;
+  }
+
+  std::vector<int> data(m_local_num_quads*m_nbNodesPerCell);
+
+  uint32_t in = 0;
+
+  // get connectivity data
+  for (uint32_t i = 0; i < m_local_num_quads; ++i) {
+
+    for (int j = 0; j < m_nbNodesPerCell; ++j) {
+      
+      uint32_t idx = m_nbNodesPerCell * i + j;
+      
+      data[idx] = m_nbNodesPerCell * m_amr_mesh->getGlobalIdx((uint32_t) 0) + in + node[j];
+    } // end for j
+
+    in += m_nbNodesPerCell;
+
+  } // end for i
+
+  // now write connectivity with hdf5
+
+  hsize_t             dims[2] = { 0, 0 };
+  hsize_t             count[2] = { 0, 0 };
+  hsize_t             start[2] = { 0, 0 };
+
+  // get the dimensions and offsets for each connectivity array
+  dims[0] = m_global_num_quads;
+  dims[1] = m_nbNodesPerCell;
+
+  count[0] = m_local_num_quads;
+  count[1] = m_nbNodesPerCell;
+
+  start[0] = m_amr_mesh->getGlobalIdx((uint32_t) 0);
+  start[1] = 0;
+
+  // write the node coordinates
+  io_hdf5_writev(m_hdf5_file, "connectivity", &(data)[0],
+                 H5T_NATIVE_INT, H5T_NATIVE_INT, 2, dims, count, start);
+  
+} // HDF5_Writer::io_hdf5_write_connectivity
+
+// =======================================================
+// =======================================================
+void
+HDF5_Writer::io_hdf5_write_level()
+{
+
+  if (!this->m_write_level) {
+    return;
+  }
+
+  std::vector<int> data(m_local_num_quads);
+
+
+  // gather level for each local quadrant
+  for (uint32_t i = 0; i < m_local_num_quads; ++i) {
+    data[i] = m_amr_mesh->getLevel(i);
+  }
+
+  this->write_attribute("level", &(data)[0], 0, IO_CELL_SCALAR,
+			H5T_NATIVE_INT, H5T_NATIVE_INT);
+  
+} // HDF5_Writer::io_hdf5_write_level
+
+// =======================================================
+// =======================================================
+void
+HDF5_Writer::io_hdf5_write_rank()
+{
+
+  if (!this->m_write_level) {
+    return;
+  }
+
+  std::vector<int> data(m_local_num_quads);
+
+  // gather level for each local quadrant
+  for (uint32_t i = 0; i < m_local_num_quads; ++i) {
+    data[i] = m_mpiRank;
+  }
+
+  this->write_attribute("level", &(data)[0], 0, IO_CELL_SCALAR,
+			H5T_NATIVE_INT, H5T_NATIVE_INT);
+  
+} // HDF5_Writer::io_hdf5_write_rank
 
 // =======================================================
 // =======================================================
