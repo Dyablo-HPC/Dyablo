@@ -462,35 +462,8 @@ HDF5_Writer::io_hdf5_write_level()
     data[i] = m_amr_mesh->getLevel(i);
   }
 
-  // get prepared for hdf5 writing
-
-  hsize_t             dims[2] = { 0, 0 };
-  hsize_t             count[2] = { 0, 0 };
-  hsize_t             start[2] = { 0, 0 };
-
-  // get the dimensions and offset of the node coordinates array
-  dims[0] = m_global_num_quads;
-  dims[1] = 1;
-  
-  count[0] = m_local_num_quads;
-  count[1] = 1;
-  
-  // get global index of the first octant of current mpi processor
-  start[0] = m_amr_mesh->getGlobalIdx((uint32_t) 0);
-  start[1] = 0;
-
-  // write the node coordinates
-  io_hdf5_writev(this->m_hdf5_file, "level", &(data[0]),
-                 H5T_NATIVE_INT, H5T_NATIVE_INT, 1, 
-                 dims, count, start);
-
-  // this->write_attribute("level", &(data)[0], 0, IO_CELL_SCALAR,
-  //       		H5T_NATIVE_INT, H5T_NATIVE_INT);
-
-  if (m_mpiRank == 0) {
-    const char *dtype_str = hdf5_native_type_to_string(H5T_NATIVE_INT);
-    io_xdmf_write_attribute("level", dtype_str, IO_CELL_SCALAR, dims);
-  }
+  this->write_attribute("level", &(data)[0], 0, IO_CELL_SCALAR,
+        		H5T_NATIVE_INT, H5T_NATIVE_INT);
 
 } // HDF5_Writer::io_hdf5_write_level
 
@@ -510,36 +483,10 @@ HDF5_Writer::io_hdf5_write_rank()
   for (uint32_t i = 0; i < m_local_num_quads; ++i) {
     data[i] = m_mpiRank;
   }
-
-  // get prepared for hdf5 writing
-
-  hsize_t             dims[2] = { 0, 0 };
-  hsize_t             count[2] = { 0, 0 };
-  hsize_t             start[2] = { 0, 0 };
-
-  // get the dimensions and offset of the node coordinates array
-  dims[0] = m_global_num_quads;
-  dims[1] = 1;
   
-  count[0] = m_local_num_quads;
-  count[1] = 1;
-  
-  // get global index of the first octant of current mpi processor
-  start[0] = m_amr_mesh->getGlobalIdx((uint32_t) 0);
-  start[1] = 0;
+  this->write_attribute("rank", &(data)[0], 0, IO_CELL_SCALAR,
+         		H5T_NATIVE_INT, H5T_NATIVE_INT);
 
-  // write the node coordinates
-  io_hdf5_writev(this->m_hdf5_file, "rank", &(data[0]),
-                 H5T_NATIVE_INT, H5T_NATIVE_INT, 1, 
-                 dims, count, start);
-  
-  // this->write_attribute("rank", &(data)[0], 0, IO_CELL_SCALAR,
-  //       		H5T_NATIVE_INT, H5T_NATIVE_INT);
-
-  if (m_mpiRank == 0) {
-    const char *dtype_str = hdf5_native_type_to_string(H5T_NATIVE_INT);
-    io_xdmf_write_attribute("rank", dtype_str, IO_CELL_SCALAR, dims);
-  }
 
 } // HDF5_Writer::io_hdf5_write_rank
 
