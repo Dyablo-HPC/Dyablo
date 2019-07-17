@@ -27,10 +27,7 @@ enum solver_type_t {
   SOLVER_MUSCL_HANCOCK=1
 };
 
-namespace dyablo { namespace io {
-class IO_ReadWriteBase;
-} }
-
+//! enum for identifying timers
 enum TimerIds {
   TIMER_TOTAL = 0,
   TIMER_IO = 1,

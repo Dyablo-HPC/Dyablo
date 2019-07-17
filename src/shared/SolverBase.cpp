@@ -8,8 +8,6 @@
 //#include "shared/mpiBorderUtils.h"
 #endif // USE_MPI
 
-//#include "utils/io/IO_ReadWrite.h"
-
 namespace dyablo {
 
 // =======================================================
@@ -113,9 +111,6 @@ SolverBase::SolverBase (HydroParams& params, ConfigMap& configMap) :
 SolverBase::~SolverBase()
 {
 
-  // m_io_reader_writer is now a shared (managed) pointer
-  //delete m_io_reader_writer;
-  
 } // SolverBase::~SolverBase
 
 // =======================================================
