@@ -77,7 +77,7 @@ HDF5_Writer::HDF5_Writer(std::shared_ptr<AMRmesh> amr_mesh,
   
   update_mesh_info();
 
-  printf("%d %d %d %d\n",m_local_num_quads,m_global_num_quads,m_local_num_nodes,m_global_num_nodes);
+  //printf("%d %d %d %d\n",m_local_num_quads,m_global_num_quads,m_local_num_nodes,m_global_num_nodes);
 
   m_basename = ""; // TODO setup from params
   m_hdf5_file = 0;

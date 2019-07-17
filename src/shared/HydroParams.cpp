@@ -7,11 +7,6 @@
 
 #include "config/inih/ini.h" // our INI file reader
 
-#ifdef USE_MOOD
-#include "mood/Stencil.h"
-#include "mood/StencilUtils.h"
-#endif // USE_MOOD
-
 #ifdef USE_MPI
 using namespace hydroSimu;
 #endif // USE_MPI
@@ -91,8 +86,8 @@ void HydroParams::setup(ConfigMap &configMap)
   level_min = configMap.getInteger("amr","level_min", 5);
   level_max = configMap.getInteger("amr","level_max", 10);
 
-  ioVTK = configMap.getBool("output","vtk_enabled",true);
-  ioHDF5 = configMap.getBool("output","hdf5_enabled",false);
+  output_vtk_enabled  = configMap.getBool("output","vtk_enabled",true);
+  output_hdf5_enabled = configMap.getBool("output","hdf5_enabled",false);
 
   settings.gamma0         = configMap.getFloat("hydro","gamma0", 1.4);
   settings.cfl            = configMap.getFloat("hydro", "cfl", 0.5);
