@@ -481,10 +481,10 @@ void SolverHydroMuscl::save_solution_impl()
 
   m_timers[TIMER_IO]->start();
 
-  if (params.ioVTK)
+  if (params.output_vtk_enabled)
     save_solution_vtk();
 
-  if (params.ioHDF5)
+  if (params.output_hdf5_enabled)
     save_solution_hdf5();
 
   m_timers[TIMER_IO]->stop();
@@ -532,12 +532,46 @@ void SolverHydroMuscl::save_solution_hdf5()
 
 #ifdef USE_HDF5
 
-  // TODO
+  // retrieve available / allowed names: fieldManager, and field map (fm)
+  auto fm = fieldMgr.get_id2index();
+
+  // a map containing ID and name of the variable to write
+  str2int_t names2index; // this is initially empty
+  build_var_to_write_map(names2index, params, configMap);
+
+  // prepare output filename
+  std::string outputPrefix = configMap.getString("output", "outputPrefix", "output");
+
+  // prepare suffix string
+  std::ostringstream strsuffix;
+  strsuffix << "iter";
+  strsuffix.width(7);
+  strsuffix.fill('0');
+  strsuffix << m_iteration;
+  
+  HDF5_Writer writer(amr_mesh, configMap, params);
+
+  // actual writing
+  {
+
+    writer.update_mesh_info();
+
+    // open the new file and write our stuff
+    writer.open(outputPrefix + strsuffix.str());
+    writer.write_header(m_t);
+
+    // write user the fake data (all scalar fields, here only one)
+    writer.write_quadrant_attribute(U, fm, names2index);
+
+    // close the file
+    writer.write_footer();
+    writer.close();
+  }
 
 #else
 
   if (amr_mesh->getRank() == 0)
-    std::cerr << "You need to re-run cmake and enable HDF5 to have HDF5 output available.\n";
+    std::cerr << "You need to re-run cmake and enable HDF5 to have HDF5 output available. Also set hdf5_enabled variable to true in the input paramter file for the run.\n";
 
 #endif // USE_HDF5
 
