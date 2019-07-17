@@ -9,6 +9,8 @@
 #include "shared/kokkos_shared.h"
 #include "shared/FieldManager.h"
 
+#include "shared/kokkos_shared.h" // for DataArray
+
 #include "shared/bitpit_common.h"
 
 namespace dyablo {
@@ -112,7 +114,20 @@ public:
 				       hid_t dtype, 
                                        hid_t wtype);
   
-
+  /**
+   * \brief Write all cell-centered scalar attributes.
+   *
+   * \param
+   * \param [in] data a Kokkos View with the user data
+   * \param [in] fm the field map
+   * \param [in] names2indes a std::map for names (string) to index(int) 
+   * \param [in] type_id The HDF5 type id of the data to be written (double, int, ...). 
+   *
+   */
+  int            write_quadrant_attribute (DataArray data,
+                                           id2index_t  fm,
+                                           str2int_t   names2index);
+  
   std::shared_ptr<AMRmesh> m_amr_mesh; //!<
   std::string    m_basename; //!< the base name of the two files
   //id2index_t     m_fm; //!< field manager object

@@ -278,9 +278,46 @@ HDF5_Writer::write_attribute(const std::string &name,
   }
 
   io_hdf5_writev(m_hdf5_file, name, data, dtype, wtype, rank, dims, count, start);
+
   return 0;
   
 } // HDF5_Writer::write_attribute
+
+// =======================================================
+// =======================================================
+int
+HDF5_Writer::write_quadrant_attribute(DataArray  data,
+                                      id2index_t fm,
+                                      str2int_t  names2index)
+{
+
+  // copy data from device to host
+  DataArrayHost datah = Kokkos::create_mirror(data);
+  // copy device data to host
+  Kokkos::deep_copy(datah, data);
+  
+  // write data array scalar fields in ascii
+  for ( auto iter : names2index) {
+    
+    // get variables string name
+    const std::string varName = iter.first;
+    
+    // get variable id
+    int iVar = iter.second;
+    
+    // define a slice to actual scalar data
+    auto dataVar = Kokkos::subview(data, Kokkos::ALL(), fm[iVar]);
+
+    // actual data writing
+    write_attribute(varName, dataVar.ptr_on_device(),
+                    0, IO_CELL_SCALAR,
+                    H5T_NATIVE_DOUBLE, H5T_NATIVE_DOUBLE);
+  
+  } // end for iter
+    
+  return 0;
+
+} // HDF5_Writer::write_quadrant_attribute
 
 // =======================================================
 // =======================================================

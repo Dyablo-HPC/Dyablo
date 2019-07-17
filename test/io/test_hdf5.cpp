@@ -13,7 +13,9 @@
 
 #include "utils/config/ConfigMap.h"
 #include "shared/HydroParams.h"
+#include "shared/FieldManager.h"
 #include "shared/HDF5_IO.h"
+#include "shared/io_utils.h"
 
 using namespace bitpit;
 
@@ -37,6 +39,17 @@ void run(std::string input_filename)
   ConfigMap configMap = broadcast_parameters(input_filename);
   HydroParams params = HydroParams();
   params.setup(configMap);
+
+  // variable map
+  str2int_t names2index; // this is initially empty
+  dyablo::build_var_to_write_map(names2index, params, configMap);
+
+  // retrieve available / allowed names: fieldManager, and field map (fm)
+  // necessary to access user data
+  FieldManager fieldMgr;
+  fieldMgr.setup(params, configMap);
+  auto fm = fieldMgr.get_id2index();
+
 
   /// Instantation of a 2D pablo uniform object.
   std::shared_ptr<dyablo::AMRmesh> amr_mesh = std::make_shared<dyablo::AMRmesh>(2);
@@ -78,6 +91,11 @@ void run(std::string input_filename)
     printf("local  num octants : %ld\n",amr_mesh->getNumOctants());
     printf("global num octants : %ld\n",amr_mesh->getGlobalNumOctants());
 
+    // create some fake data
+    DataArray userdata = DataArray("fake_data",amr_mesh->getNumOctants(),1);
+    
+    Kokkos::parallel_for(amr_mesh->getNumOctants(), KOKKOS_LAMBDA (int i) {userdata(i,fm[ID])=amr_mesh->getGlobalIdx((uint32_t) 0)+i;});
+
     // save hdf5 data
     {
       hid_t output_type = H5T_NATIVE_DOUBLE;
@@ -87,6 +105,9 @@ void run(std::string input_filename)
       // open the new file and write our stuff
       writer.open("test_hdf5_iter"+std::to_string(iter));
       writer.write_header(0.0);
+
+      // write user the fake data (all scalar fields, here only one)
+      writer.write_quadrant_attribute(userdata, fm, names2index);
 
       // close the file
       writer.write_footer();
@@ -118,6 +139,26 @@ int main(int argc, char *argv[])
   nProcs = 1;
   rank   = 0;
 #endif
+
+  // initialize kokkos 
+  Kokkos::initialize(argc, argv);
+  {
+    std::cout << "##########################\n";
+    std::cout << "KOKKOS CONFIG             \n";
+    std::cout << "##########################\n";
+
+    std::ostringstream msg;
+    std::cout << "Kokkos configuration" << std::endl;
+    if (Kokkos::hwloc::available()) {
+      msg << "hwloc( NUMA[" << Kokkos::hwloc::get_available_numa_count()
+          << "] x CORE[" << Kokkos::hwloc::get_available_cores_per_numa()
+          << "] x HT[" << Kokkos::hwloc::get_available_threads_per_core()
+          << "] )" << std::endl;
+    }
+    Kokkos::print_configuration(msg);
+    std::cout << msg.str();
+    std::cout << "##########################\n";
+  }
 
   // Initialize the logger
   log::manager().initialize(log::SEPARATE, false, nProcs, rank);
