@@ -107,8 +107,9 @@ void run(std::string input_filename)
       writer.update_mesh_info();
 
       // open the new file and write our stuff
-      writer.open("test_hdf5_iter"+std::to_string(iter));
-      writer.write_header(0.0);
+      std::string prefix = configMap.getString("output", "outputPrefix", "output");
+      writer.open(prefix+"_iter"+std::to_string(iter));
+      writer.write_header(1.0*iter);
 
       // write user the fake data (all scalar fields, here only one)
       writer.write_quadrant_attribute(userdata, fm, names2index);
