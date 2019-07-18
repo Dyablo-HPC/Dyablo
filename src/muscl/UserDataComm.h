@@ -3,6 +3,7 @@
  *
  * \author Pierre Kestener
  *
+ * MPI ghost synchronization.
  */
 #ifndef MUSCL_USER_DATA_COMM_H_
 #define MUSCL_USER_DATA_COMM_H_
@@ -15,7 +16,7 @@
 namespace dyablo { namespace muscl {
 
 /**
- * Main class for user data communication for MUSCL/hancock scheme.
+ * Main class for user data communication for MUSCL/Hancock scheme.
  *
  * \note This class will have to be slightly refactored when
  * we will start using Kokkos/Cuda backend.
