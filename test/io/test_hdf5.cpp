@@ -91,8 +91,12 @@ void run(std::string input_filename)
     printf("local  num octants : %ld\n",amr_mesh->getNumOctants());
     printf("global num octants : %ld\n",amr_mesh->getGlobalNumOctants());
 
-    // create some fake data
-    DataArray userdata = DataArray("fake_data",amr_mesh->getNumOctants(),1);
+    // create some fake data - 2 scalar value but only one initialized
+    // the idea for this test is allocated at least 2 variables
+    // to have actual left/right layout
+    // out Hdf5 writer does something different whether data has
+    // left or right layout
+    DataArray userdata = DataArray("fake_data",amr_mesh->getNumOctants(),2);
     
     Kokkos::parallel_for(amr_mesh->getNumOctants(), KOKKOS_LAMBDA (int i) {userdata(i,fm[ID])=amr_mesh->getGlobalIdx((uint32_t) 0)+i;});
 

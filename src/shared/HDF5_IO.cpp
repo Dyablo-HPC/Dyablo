@@ -304,15 +304,38 @@ HDF5_Writer::write_quadrant_attribute(DataArray  data,
     
     // get variable id
     int iVar = iter.second;
-    
-    // define a slice to actual scalar data
-    auto dataVar = Kokkos::subview(data, Kokkos::ALL(), fm[iVar]);
 
-    // actual data writing
-    write_attribute(varName, dataVar.ptr_on_device(),
-                    0, IO_CELL_SCALAR,
-                    H5T_NATIVE_DOUBLE, H5T_NATIVE_DOUBLE);
-  
+    // if DataArray has a left layout, we only need to define
+    // a slice to actual scalar data
+    // if DataArray has right layout, we need to actually extract
+    // the slide so that it is memory contiguous
+    if ( std::is_same< 
+         DataArray::array_layout,
+         Kokkos::LayoutLeft >::value) {
+
+      auto dataVar = Kokkos::subview(data, Kokkos::ALL(), fm[iVar]);
+
+      // actual data writing
+      write_attribute(varName, dataVar.ptr_on_device(),
+                      0, IO_CELL_SCALAR,
+                      H5T_NATIVE_DOUBLE, H5T_NATIVE_DOUBLE);
+    } else {
+
+      using DataArrayScalar = Kokkos::View<real_t*, Kokkos::HostSpace>;
+      
+      DataArrayScalar dataVar = DataArrayScalar("scalar_array_for_hdf5_io",data.extent(0));
+
+      Kokkos::parallel_for(data.extent(0), KOKKOS_LAMBDA (uint32_t i) {
+          dataVar(i) = data(i,fm[iVar]);
+        });
+
+      // actual data writing
+      write_attribute(varName, dataVar.ptr_on_device(), 
+                      0, IO_CELL_SCALAR,
+                      H5T_NATIVE_DOUBLE, H5T_NATIVE_DOUBLE);
+
+    }
+
   } // end for iter
     
   return 0;
