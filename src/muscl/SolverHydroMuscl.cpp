@@ -780,13 +780,19 @@ void SolverHydroMuscl::load_balance_userdata()
   m_timers[TIMER_AMR_CYCLE_LOAD_BALANCE]->start();
 
 #if BITPIT_ENABLE_MPI==1
+
+  // retrieve available / allowed names: fieldManager, and field map (fm)
+  auto fm = fieldMgr.get_id2index();
+
   /* (Load)Balance the octree over the processes with communicating the data.
    * Preserve the family compact up to 4 levels over the max deep reached
    * in the octree. */
   {
     uint8_t levels = 4;
-    UserDataLB data_lb(U, Ughost);
+    
+    UserDataLB data_lb(U, Ughost, fm);
     amr_mesh->loadBalance(data_lb, levels);
+
   }
 #endif // BITPIT_ENABLE_MPI==1
   
