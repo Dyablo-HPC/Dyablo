@@ -55,13 +55,9 @@ hdf5_native_type_to_string (hid_t type)
 // =======================================================
 // =======================================================
 HDF5_Writer::HDF5_Writer(std::shared_ptr<AMRmesh> amr_mesh, 
-                         //id2index_t     fm,
-                         //str2int_t      names2index,
                          ConfigMap& configMap,
                          HydroParams& params) :
   m_amr_mesh(amr_mesh),
-  //m_fm(fm),
-  //m_names2index(names2index),
   m_configMap(configMap),
   m_params(params)
 {
@@ -79,22 +75,25 @@ HDF5_Writer::HDF5_Writer(std::shared_ptr<AMRmesh> amr_mesh,
 
   //printf("%d %d %d %d\n",m_local_num_quads,m_global_num_quads,m_local_num_nodes,m_global_num_nodes);
 
-  m_basename = ""; // TODO setup from params
+  m_basename = ""; // NOT VERY clean: setup in open
   m_hdf5_file = 0;
   m_xdmf_file = nullptr;
 
-  if (m_mpiRank == 0 and m_basename.size() ) {
-    std::string filename;
-    filename = m_basename + "_main.xmf";
+  m_mpiRank = m_amr_mesh->getRank();
 
+  if (m_mpiRank == 0) {
+
+    std::string outputPrefix = configMap.getString("output", "outputPrefix", "output");
+    
+    std::string filename;
+    filename = outputPrefix + "_main.xmf";
+    
     // INFOF("Writing main XMDF file \"%s\".\n", filename.c_str());
     m_main_xdmf_file = fopen(filename.c_str(), "w");
     io_xdmf_write_main_header();
   } else {
     m_main_xdmf_file = nullptr;
   }
-
-  m_mpiRank = m_amr_mesh->getRank();
 
 } // HDF5_Writer::HDF5_Writer
 
@@ -106,11 +105,12 @@ HDF5_Writer::~HDF5_Writer()
   /*
    * Only rank 0 needs to close the main xdmf file.
    */
-  if (m_mpiRank == 0 and m_main_xdmf_file) {
+  if (m_mpiRank == 0 and m_main_xdmf_file != nullptr) {
     io_xdmf_write_main_footer();
 
     fflush(m_main_xdmf_file);
     fclose(m_main_xdmf_file);
+    m_main_xdmf_file = nullptr;
   }
 
   // close other file

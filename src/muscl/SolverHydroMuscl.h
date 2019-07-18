@@ -23,15 +23,8 @@
 #include "shared/kokkos_shared.h"
 #include "shared/FieldManager.h"
 
-// the actual computational functors called in HydroRun
-//#include "muscl/HydroRunFunctors2D.h"
-//#include "muscl/HydroRunFunctors3D.h"
-
-// border conditions functors
-//#include "shared/BoundariesFunctors.h"
-
 // for IO
-//#include <utils/io/IO_ReadWrite.h>
+#include <shared/HDF5_IO.h>
 
 // for init condition
 #include "shared/problems/initRiemannConfig2d.h"
@@ -133,6 +126,10 @@ public:
   void save_solution_impl();
 
 private:
+
+#ifdef USE_HDF5
+  std::shared_ptr<HDF5_Writer> hdf5_writer;
+#endif // USE_HDF5
 
   void save_solution_vtk(); //!< VTK output
   void save_solution_hdf5(); //!< HDF5 output

@@ -105,10 +105,6 @@ public:
   //! dimension (2 or 3)
   int                  m_dim;
 
-#ifdef USE_HDF5
-  std::shared_ptr<HDF5_Writer> m_hdf5_writer;
-#endif // USE_HDF5
-
   /*
    *
    * Computation interface that may be overriden in a derived 

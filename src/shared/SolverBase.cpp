@@ -92,11 +92,6 @@ SolverBase::SolverBase (HydroParams& params, ConfigMap& configMap) :
   m_timers[TIMER_AMR_CYCLE_MAP_USERDATA]  = std::make_shared<Timer>();
   m_timers[TIMER_AMR_CYCLE_LOAD_BALANCE]  = std::make_shared<Timer>();
 
-  // HDF5 writer
-#ifdef USE_HDF5
-  m_hdf5_writer = std::make_shared<HDF5_Writer>(amr_mesh, configMap, params);
-#endif // USE_HDF5
-
 #ifdef USE_MPI
   //const int nbvar = params.nbvar;
 

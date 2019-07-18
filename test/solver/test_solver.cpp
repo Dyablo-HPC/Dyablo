@@ -108,9 +108,6 @@ int main(int argc, char *argv[])
   // initialize workspace memory (U, U2, ...)
   SolverBase *solver = muscl::SolverHydroMuscl::create(params,
 						       configMap);
-
-  if (params.nOutput != 0)
-    solver->save_solution();
   
   // start computation
   if (rank==0) std::cout << "Start computation....\n";

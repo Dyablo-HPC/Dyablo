@@ -53,8 +53,11 @@ SolverHydroMuscl::SolverHydroMuscl(HydroParams& params,
   Slopes_x_ghost(), 
   Slopes_y_ghost(), 
   Slopes_z_ghost()
+#ifdef USE_HDF5
+  , hdf5_writer(std::make_shared<HDF5_Writer>(amr_mesh, configMap, params))
+#endif // USE_HDF5
 {
-  
+
   solver_type = SOLVER_MUSCL_HANCOCK;
   
   // m_nCells = nbCells; // TODO
@@ -111,7 +114,7 @@ SolverHydroMuscl::SolverHydroMuscl(HydroParams& params,
   
   // copy U into U2
   Kokkos::deep_copy(U2,U);
-  
+
   // compute initialize time step
   compute_dt();
 
@@ -142,6 +145,10 @@ SolverHydroMuscl::SolverHydroMuscl(HydroParams& params,
  */
 SolverHydroMuscl::~SolverHydroMuscl()
 {
+
+#ifdef USE_HDF5
+  //delete hdf5_writer;
+#endif // USE_HDF5
 
 } // SolverHydroMuscl::~SolverHydroMuscl
 
@@ -549,23 +556,21 @@ void SolverHydroMuscl::save_solution_hdf5()
   strsuffix.fill('0');
   strsuffix << m_iteration;
   
-  HDF5_Writer writer(amr_mesh, configMap, params);
-
   // actual writing
   {
 
-    writer.update_mesh_info();
+    hdf5_writer->update_mesh_info();
 
     // open the new file and write our stuff
-    writer.open(outputPrefix + strsuffix.str());
-    writer.write_header(m_t);
+    hdf5_writer->open(outputPrefix + "_" + strsuffix.str());
+    hdf5_writer->write_header(m_t);
 
     // write user the fake data (all scalar fields, here only one)
-    writer.write_quadrant_attribute(U, fm, names2index);
+    hdf5_writer->write_quadrant_attribute(U, fm, names2index);
 
     // close the file
-    writer.write_footer();
-    writer.close();
+    hdf5_writer->write_footer();
+    hdf5_writer->close();
   }
 
 #else
