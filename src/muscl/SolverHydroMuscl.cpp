@@ -353,7 +353,9 @@ void SolverHydroMuscl::next_iteration_impl()
 
   // mesh adaptation (perform refine / coarsen)
   if ( should_do_amr_cycle() ) {
-    
+
+    // before do_amr_cycle, update to date data are in U2
+    // after  do_amr_cycle, update to date data are in U
     do_amr_cycle();
 
   } else {
@@ -789,9 +791,12 @@ void SolverHydroMuscl::load_balance_userdata()
    * in the octree. */
   {
     uint8_t levels = 4;
-    
+
     UserDataLB data_lb(U, Ughost, fm);
     amr_mesh->loadBalance(data_lb, levels);
+
+    // we probably need to resize U2, ....
+    Kokkos::resize(U2,U.extent(0),U.extent(1));
 
   }
 #endif // BITPIT_ENABLE_MPI==1
