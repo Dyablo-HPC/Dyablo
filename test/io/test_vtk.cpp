@@ -53,15 +53,23 @@ void run(std::string input_filename)
   /// Instantation of a 2D pablo uniform object.
   std::shared_ptr<dyablo::AMRmesh> amr_mesh = std::make_shared<dyablo::AMRmesh>(2);
 
+  // 2:1 balance
+  int codim = configMap.getInteger("amr", "codim", amr_mesh->getDim());
+  amr_mesh->setBalanceCodimension(codim);
+
+  uint32_t idx = 0;
+  amr_mesh->setBalance(idx,true);
+
   amr_mesh->adaptGlobalRefine();
 
-  for (int iter=0; iter<2; ++iter) {
+  for (int iter=0; iter<3; ++iter) {
 
     // refine all cells
     amr_mesh->adaptGlobalRefine();
     //uint32_t nocts = amr_mesh->getNumOctants();
     
     amr_mesh->setMarker(3,1);
+    amr_mesh->setMarker(5,1);
     amr_mesh->setMarker(8,1);
     amr_mesh->adapt();
 
