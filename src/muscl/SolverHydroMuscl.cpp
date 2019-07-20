@@ -18,6 +18,8 @@
 
 // Init conditions functors
 #include "muscl/init/HydroInitFunctors.h"
+
+// Compute functors
 #include "muscl/ComputeDtHydroFunctor.h"
 #include "muscl/ConvertToPrimitivesHydroFunctor.h"
 #include "muscl/ReconstructGradientsHydroFunctor.h"

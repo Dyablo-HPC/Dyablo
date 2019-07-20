@@ -26,14 +26,6 @@
 // for IO
 #include <shared/HDF5_IO.h>
 
-// for init condition
-#include "shared/problems/initRiemannConfig2d.h"
-// #include "shared/problems/BlastParams.h"
-// #include "shared/problems/ImplodeParams.h"
-// #include "shared/problems/KHParams.h"
-// #include "shared/problems/GreshoParams.h"
-// #include "shared/problems/IsentropicVortexParams.h"
-
 namespace dyablo { namespace muscl {
 
 /**
@@ -107,22 +99,24 @@ public:
   //! perform 1 time step (time integration).
   void next_iteration_impl();
 
-  //! numerical scheme
+  //! numerical scheme - wrapper around godunov_unsplit_impl 
   void godunov_unsplit(real_t dt);
-  
+
+  //! numerical scheme
   void godunov_unsplit_impl(DataArray data_in, 
 			    DataArray data_out, 
 			    real_t dt);
-  
+
+  //! convert conservative variables to primitive variables
   void convertToPrimitives(DataArray Udata);
 
+  //! reconstruct gradients / limited slopes
   void reconstruct_gradients(DataArray Udata);
 
+  //! compute flux (Riemann solver) and perform time update
   void compute_fluxes_and_update(DataArray data_in, DataArray data_out, real_t dt);
 
-  //void computeTrace(DataArray Udata, real_t dt);
-  
-  // output
+  //! output
   void save_solution_impl();
 
 private:
@@ -131,8 +125,11 @@ private:
   std::shared_ptr<HDF5_Writer> hdf5_writer;
 #endif // USE_HDF5
 
-  void save_solution_vtk(); //!< VTK output
-  void save_solution_hdf5(); //!< HDF5 output
+  //! VTK output
+  void save_solution_vtk();
+  
+  //! HDF5 output
+  void save_solution_hdf5();
 
   /*
    * the following routines are necessary for amr cycle.
