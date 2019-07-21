@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Xdmf Version="2.2" xmlns:xi="http://www.w3.org/2003/XInclude">
+ <Domain>
+  <Grid Name="region_0" GridType="Collection" CollectionType="Spatial">
+   <Time TimeType="Single" Value="0.0000000"/>
+    <Grid Name="block_18">
+     <Topology TopologyType="2DCoRectMesh" Dimensions="4 4"/>
+     <Geometry GeometryType="ORIGIN_DXDY">
+      <DataItem Name="Origin" NumberType="Float" Precision="4" Dimensions="2" Format="XML">0.1 0.1</DataItem>
+      <DataItem Name="Spacing" NumberType="Float" Precision="4" Dimensions="2" Format="XML">0.5 0.5 </DataItem>
+     </Geometry>
+     <Attribute Name="dens" AttributeType="Scalar" Center="Cell">
+       <DataItem NumberType="Float" Precision="8" Dimensions="3 3" Format="XML">0 1 2 3 4 5 6 7 8</DataItem>
+     </Attribute>
+    </Grid>
+  </Grid>
+ </Domain>
+</Xdmf>
