@@ -63,6 +63,8 @@ HDF5_Writer::HDF5_Writer(std::shared_ptr<AMRmesh> amr_mesh,
 {
 
   m_write_mesh_info = m_configMap.getBool("output", "write_mesh_info", false);
+  
+  m_write_block_data = m_configMap.getBool("amr", "use_block_data", false);
 
   m_write_level = m_write_mesh_info;
   m_write_rank =  m_write_mesh_info;

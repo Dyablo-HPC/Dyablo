@@ -47,8 +47,6 @@ public:
    *
    */
   HDF5_Writer(std::shared_ptr<AMRmesh> amr_mesh, 
-	      //id2index_t       fm,
-	      //str2int_t        names2index,
 	      ConfigMap& configMap,
               HydroParams& params);
   ~HDF5_Writer();
@@ -137,6 +135,8 @@ public:
   HydroParams&   m_params;
 
   bool           m_write_mesh_info; //!< write mesh info (oct level, mpi proc, ...)
+
+  bool           m_write_block_data; //!< if true, expect a DataArrayBlock object
 
   uint8_t        m_nbNodesPerCell;
 
