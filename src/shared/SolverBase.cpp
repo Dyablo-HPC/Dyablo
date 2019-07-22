@@ -267,15 +267,6 @@ SolverBase::run()
   while ( !finished() ) {
 
     next_iteration();
-
-    if ( should_do_amr_cycle() )
-      do_amr_cycle();
-
-    if ( should_save_solution() )
-      save_solution();
-
-    if ( should_write_restart_file() )
-      write_restart_file();
     
   } // end time loop
   

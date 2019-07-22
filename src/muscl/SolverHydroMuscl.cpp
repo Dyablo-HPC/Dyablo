@@ -367,6 +367,10 @@ void SolverHydroMuscl::next_iteration_impl()
 
   }
 
+  // TODO
+  // if ( should_write_restart_file() )
+  //   write_restart_file();
+
 } // SolverHydroMuscl::next_iteration_impl
 
 // =======================================================

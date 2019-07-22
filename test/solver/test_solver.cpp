@@ -113,12 +113,8 @@ int main(int argc, char *argv[])
   if (rank==0) std::cout << "Start computation....\n";
   solver->m_timers[TIMER_TOTAL]->start();
 
-  // Hydrodynamics solver loop
-  while ( ! solver->finished() ) {
-
-    solver->next_iteration();
-
-  } // end solver loop
+  // Hydrodynamics solver time loop
+  solver->run();
 
   // end of computation
   solver->m_timers[TIMER_TOTAL]->stop();
