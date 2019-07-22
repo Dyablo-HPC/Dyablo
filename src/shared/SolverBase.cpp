@@ -411,38 +411,4 @@ SolverBase::load_data(DataArray             U,
   
 } // SolverBase::load_data
 
-// =======================================================
-// =======================================================
-void
-SolverBase::make_boundary(DataArray Udata, FaceIdType faceId, bool mhd_enabled)
-{
-
-  // TODO
-  
-} // SolverBase::make_boundary
-
-
-// =======================================================
-// =======================================================
-void
-SolverBase::make_boundaries_serial(DataArray Udata, bool mhd_enabled)
-{
-
-  // TODO
-  
-} // SolverBase::make_boundaries_serial   
-
-#ifdef USE_MPI
-// =======================================================
-// =======================================================
-void
-SolverBase::make_boundaries_mpi(DataArray Udata, bool mhd_enabled)
-{
-
-  // TODO
-  
-} // SolverBase::make_boundaries_mpi
-
-#endif // USE_MPI
-
 } // namespace dyablo

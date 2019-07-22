@@ -197,14 +197,6 @@ public:
 		 int& iStep,
 		 real_t& time);
   
-  
-  virtual void make_boundary(DataArray Udata, FaceIdType faceId, bool mhd_enabled);
-  virtual void make_boundaries_serial(DataArray Udata, bool mhd_enabled);
-
-#ifdef USE_MPI
-  virtual void make_boundaries_mpi(DataArray Udata, bool mhd_enabled);
-#endif // USE_MPI
-
 }; // class SolverBase
 
 } // namespace dyablo
