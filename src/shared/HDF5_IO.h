@@ -137,6 +137,9 @@ public:
   bool           m_write_mesh_info; //!< write mesh info (oct level, mpi proc, ...)
 
   bool           m_write_block_data; //!< if true, expect a DataArrayBlock object
+  int            m_bx; //!< block size along x
+  int            m_by; //!< block size along y
+  int            m_bz; //!< block size along z
 
   uint8_t        m_nbNodesPerCell;
 
