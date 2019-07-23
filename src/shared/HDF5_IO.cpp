@@ -415,10 +415,16 @@ HDF5_Writer::io_hdf5_write_coordinates()
 
   if (m_write_block_data) {
 
+    //m_local_num_quads  = m_amr_mesh->getNumOctants();
+    //m_global_num_quads = m_amr_mesh->getGlobalNumOctants();
+    
+    //m_local_num_nodes  = m_nbNodesPerCell * m_local_num_quads;
+    //m_global_num_nodes = m_nbNodesPerCell * m_global_num_quads;
+
     uint32_t nbNodesPerCell = m_params.dimType==TWO_D ?
       (m_bx+1) * (m_by+1)            :
       (m_bx+1) * (m_by+1) * (m_bz+1);
-    uint64_t totalNumOfCoords = 3 * m_local_num_nodes * (m_bx+1) * (m_by+1) * (m_bz+1);
+    uint64_t totalNumOfCoords = 3 * m_local_num_quads * (m_bx+1) * (m_by+1) * (m_bz+1);
 
     std::vector<float> data(totalNumOfCoords);
 
@@ -438,7 +444,7 @@ HDF5_Writer::io_hdf5_write_coordinates()
 
       real_t dx = cellSize/(m_bx)*Lx;
       real_t dy = cellSize/(m_by)*Ly;
-      real_t dz = cellSize/(m_bz)*Lz;
+      real_t dz = m_bz==0 ? 0 : cellSize/(m_bz)*Lz;
 
       // coordinates of the lower left corner
       real_t orig_x = m_amr_mesh->getNode(i, 0)[0];
@@ -460,6 +466,28 @@ HDF5_Writer::io_hdf5_write_coordinates()
         } // end for jy
       } // end for jz
     } // end for i
+
+    // get prepared for hdf5 writing
+    
+    hsize_t dims[2] = {0, 0};
+    hsize_t count[2] = {0, 0};
+    hsize_t start[2] = {0, 0};
+    
+    // get the dimensions and offset of the node coordinates array
+    dims[0] = m_global_num_quads * nbNodesPerCell;
+    dims[1] = 3;
+
+    count[0] = m_local_num_quads * nbNodesPerCell;
+    count[1] = 3;
+
+    // get global index of the first octant of current mpi processor
+    start[0] = nbNodesPerCell * m_amr_mesh->getGlobalIdx((uint32_t)0);
+    start[1] = 0;
+
+    // write the node coordinates
+    io_hdf5_writev(this->m_hdf5_file, "coordinates", &(data[0]),
+                   H5T_NATIVE_FLOAT, H5T_NATIVE_FLOAT, 2 /* rank = 2 */, dims,
+                   count, start);
 
   } else {
 
