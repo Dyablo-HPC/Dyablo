@@ -118,7 +118,7 @@ void run(std::string input_filename)
             userdata(i * nbCellsPerLeaf + j, fm[ID]) =
                 amr_mesh->getGlobalIdx((uint32_t)0) + i;
             userdata(i * nbCellsPerLeaf + j, fm[IP]) =
-                amr_mesh->getGlobalIdx((uint32_t)0) + i * nbCellsPerLeaf + j;
+                (amr_mesh->getGlobalIdx((uint32_t)0) + i) * nbCellsPerLeaf + j;
           }
         });
 

@@ -261,7 +261,7 @@ HDF5_Writer::write_attribute(const std::string &name,
     count[1] = dims[1];
 
     // get global index of the first octant of current mpi processor
-    start[0] = m_amr_mesh->getGlobalIdx((uint32_t) 0);
+    start[0] = m_amr_mesh->getGlobalIdx((uint32_t) 0)*m_nbCellsPerLeaf;
     start[1] = 0;
 
   } else {
@@ -489,7 +489,7 @@ HDF5_Writer::io_hdf5_write_coordinates()
     count[1] = 3;
 
     // get global index of the first octant of current mpi processor
-    start[0] = nbNodesPerCell * m_amr_mesh->getGlobalIdx((uint32_t)0);
+    start[0] = m_amr_mesh->getGlobalIdx((uint32_t)0) * nbNodesPerCell;
     start[1] = 0;
 
     // write the node coordinates
@@ -613,7 +613,7 @@ void HDF5_Writer::io_hdf5_write_connectivity()
     count[0] = m_local_num_quads*m_nbCellsPerLeaf;
     count[1] = m_nbNodesPerCell;
 
-    start[0] = m_amr_mesh->getGlobalIdx((uint32_t)0);
+    start[0] = m_amr_mesh->getGlobalIdx((uint32_t)0)*m_nbCellsPerLeaf;
     start[1] = 0;
 
     // write the node coordinates
