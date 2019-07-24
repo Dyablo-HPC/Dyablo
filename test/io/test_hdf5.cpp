@@ -40,6 +40,20 @@ void run(std::string input_filename)
   HydroParams params = HydroParams();
   params.setup(configMap);
 
+  // should we write multiple cell per octree leaf ?
+  bool write_block_data = configMap.getBool("amr", "use_block_data", false);
+  int bx = configMap.getInteger("amr", "bx", 0);
+  int by = configMap.getInteger("amr", "by", 0);
+  int bz = configMap.getInteger("amr", "bz", 0);
+
+  int nbCellsPerLeaf = 1;
+
+  if (write_block_data) {
+    nbCellsPerLeaf = params.dimType == TWO_D ? 
+      bx * by : 
+      bx * by * bz;
+  }
+
   // variable map
   str2int_t names2index; // this is initially empty
   dyablo::build_var_to_write_map(names2index, params, configMap);
@@ -96,9 +110,17 @@ void run(std::string input_filename)
     // to have actual left/right layout
     // out Hdf5 writer does something different whether data has
     // left or right layout
-    DataArray userdata = DataArray("fake_data",amr_mesh->getNumOctants(),2);
-    
-    Kokkos::parallel_for(amr_mesh->getNumOctants(), KOKKOS_LAMBDA (int i) {userdata(i,fm[ID])=amr_mesh->getGlobalIdx((uint32_t) 0)+i;});
+    DataArray userdata = DataArray("fake_data",amr_mesh->getNumOctants()*nbCellsPerLeaf,2);
+
+    Kokkos::parallel_for(
+        amr_mesh->getNumOctants(), KOKKOS_LAMBDA(int i) {
+          for (int j = 0; j < nbCellsPerLeaf; ++j) {
+            userdata(i * nbCellsPerLeaf + j, fm[ID]) =
+                amr_mesh->getGlobalIdx((uint32_t)0) + i;
+            userdata(i * nbCellsPerLeaf + j, fm[IP]) =
+                amr_mesh->getGlobalIdx((uint32_t)0) + i * nbCellsPerLeaf + j;
+          }
+        });
 
     // save hdf5 data
     {

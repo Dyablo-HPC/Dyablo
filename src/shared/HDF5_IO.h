@@ -143,6 +143,8 @@ public:
 
   uint8_t        m_nbNodesPerCell;
 
+  uint32_t       m_nbCellsPerLeaf;
+
   hid_t          m_hdf5_file;     //!< HDF5 file descriptor
   FILE          *m_xdmf_file;     //!< XDMF file descriptor
   FILE          *m_main_xdmf_file; //!< main XDMF file descriptor
@@ -254,6 +256,12 @@ private:
    * The rank is wrapped with IO_MPIRANK_WRAP.
    */
   void io_hdf5_write_rank();
+
+  //!
+  int32_t subCellIndex(int jx, int jy, int jz);
+
+  //!
+  int32_t subNodeIndex(int jx, int jy, int jz);
 
 }; // class HDF5_Writer
 
