@@ -104,7 +104,12 @@ SolverHydroMuscl::SolverHydroMuscl(HydroParams& params,
   // if (m_gravity_enabled) {
   //   gravity = DataArray("gravity field",nbCells,m_dim);
   //   total_mem_size += isize*jsize*2; // TODO
-  // }      
+  // }
+
+  if (params.rsst_enabled) {
+    Fluxes = DataArray("Fluxes", nbCells, nbvar);
+    total_mem_size += nbCells * nbvar * sizeof(real_t); //
+  }
 
   // init field manager
   // retrieve available / allowed names: fieldManager, and field map (fm)
@@ -476,17 +481,38 @@ void SolverHydroMuscl::compute_fluxes_and_update(DataArray data_in,
   auto fm = fieldMgr.get_id2index();
 
   // call device functor
-  ComputeFluxesAndUpdateHydroFunctor::apply(amr_mesh, params, fm, 
-                                            data_in, data_out, 
-                                            Q, Qghost, 
-                                            Slopes_x, 
-                                            Slopes_y, 
-                                            Slopes_z,
-                                            Slopes_x_ghost, 
-                                            Slopes_y_ghost,
-                                            Slopes_z_ghost,
-                                            dt);
-  
+
+  if (params.rsst_enabled) {
+
+    // stored out fluxes in Fluxes
+    ComputeFluxesAndUpdateHydroFunctor::apply(amr_mesh, params, fm,
+                                              data_in, Fluxes,
+                                              Q, Qghost,
+                                              Slopes_x,
+                                              Slopes_y,
+                                              Slopes_z,
+                                              Slopes_x_ghost,
+                                              Slopes_y_ghost,
+                                              Slopes_z_ghost,
+                                              dt);
+
+    // then modify fluxes with RSST correction + update
+    
+  } else {
+
+    ComputeFluxesAndUpdateHydroFunctor::apply(amr_mesh, params, fm,
+                                              data_in, data_out,
+                                              Q, Qghost,
+                                              Slopes_x,
+                                              Slopes_y,
+                                              Slopes_z,
+                                              Slopes_x_ghost,
+                                              Slopes_y_ghost,
+                                              Slopes_z_ghost,
+                                              dt);
+
+  }
+
 } // SolverHydroMuscl::compute_fluxes_and_update
 
 // =======================================================

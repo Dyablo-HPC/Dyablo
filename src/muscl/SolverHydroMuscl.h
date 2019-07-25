@@ -70,7 +70,10 @@ public:
   DataArray Slopes_y_ghost; /*!< implementation 1 only */
   DataArray Slopes_z_ghost; /*!< implementation 1 only */
 
-  /* Gravity field */
+  // fluxes - only usefull when low Mach RSST computation is activated
+  DataArray Fluxes;
+
+  // Gravity field
   DataArray gravity;
 
   //! field manager for scalar variables mapping to memory index
@@ -149,7 +152,7 @@ private:
 
   //! mesh load balancing with data communication
   void load_balance_userdata();
-  
+
 }; // class SolverHydroMuscl
 
 } // namespace muscl

@@ -662,8 +662,20 @@ public:
 
     // current cell conservative variable state
     HydroState2d qcons;
-    for (uint8_t ivar=0; ivar<nbvar; ++ivar)
-      qcons[ivar] = Data_in(i,fm[ivar]);
+
+    if (params.rsst_enabled) {
+
+      // if low Mach correction is activated, here we only accumulate the flux
+      // the actual correction and update will be done later
+      for (uint8_t ivar = 0; ivar < nbvar; ++ivar)
+        qcons[ivar] = 0.0;
+    
+    } else {
+
+      for (uint8_t ivar = 0; ivar < nbvar; ++ivar)
+        qcons[ivar] = Data_in(i, fm[ivar]);
+
+    }
 
     // iterate neighbors through a given face
     for (uint8_t iface = 0; iface < nfaces; ++iface) {
@@ -916,8 +928,20 @@ public:
 
     // current cell conservative variable state
     HydroState3d qcons;
-    for (uint8_t ivar=0; ivar<nbvar; ++ivar)
-      qcons[ivar] = Data_in(i,fm[ivar]);
+
+    if (params.rsst_enabled) {
+      
+      // if low Mach correction is activated, here we only accumulate the flux
+      // the actual correction and update will be done later
+      for (uint8_t ivar = 0; ivar < nbvar; ++ivar)
+        qcons[ivar] = 0.0;
+
+    } else {
+
+      for (uint8_t ivar = 0; ivar < nbvar; ++ivar)
+        qcons[ivar] = Data_in(i, fm[ivar]);
+        
+    }
 
     // iterate neighbors through a given face
     for (uint8_t iface = 0; iface < nfaces; ++iface) {
