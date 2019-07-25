@@ -487,6 +487,8 @@ void SolverHydroMuscl::compute_fluxes_and_update(DataArray data_in,
 
   if (params.rsst_enabled) {
 
+    Kokkos::resize(Fluxes, U.extent(0), U.extent(1));
+    
     // stored out fluxes in Fluxes
     ComputeFluxesAndUpdateHydroFunctor::apply(amr_mesh, params, fm,
                                               data_in, Fluxes,
@@ -500,7 +502,10 @@ void SolverHydroMuscl::compute_fluxes_and_update(DataArray data_in,
                                               dt);
 
     // then modify fluxes with RSST correction + update
-    
+    UpdateRSSTHydroFunctor::apply(amr_mesh, params, fm,
+                                  data_in, data_out,
+                                  Q,Fluxes);
+
   } else {
 
     ComputeFluxesAndUpdateHydroFunctor::apply(amr_mesh, params, fm,
