@@ -26,6 +26,9 @@
 #include "muscl/ComputeFluxesAndUpdateHydroFunctor.h"
 #include "muscl/MarkCellsHydroFunctor.h"
 
+// compute functor for low Mach flows
+#include "muscl/UpdateRSSTHydroFunctor.h"
+
 #if BITPIT_ENABLE_MPI==1
 #include "muscl/UserDataComm.h"
 #include "muscl/UserDataLB.h"
