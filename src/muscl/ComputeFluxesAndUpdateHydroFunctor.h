@@ -53,7 +53,7 @@ public:
    * \param[in]  Slopes_x_ghost limited slopes along x axis, ghost cells
    * \param[in]  Slopes_y_ghost limited slopes along y axis, ghost cells
    * \param[in]  Slopes_z_ghost limited slopes along z axis, ghost cells
-   * \
+   *
    */
   ComputeFluxesAndUpdateHydroFunctor(std::shared_ptr<AMRmesh> pmesh,
                                      HydroParams params,
