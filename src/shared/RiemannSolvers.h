@@ -247,7 +247,12 @@ void riemann_llf(const HydroState& qleft,
   
   real_t cl= SQRT(gamma0*pl/rl);
   real_t cr= SQRT(gamma0*pr/rr);
-  
+
+  if (params.rsst_enabled) {
+    cl /= params.rsst_ksi;
+    cr /= params.rsst_ksi;
+  }
+
   real_t cmax = FMAX(FABS(ul)+cl,FABS(ur)+cr);
   
   // Compute average velocity
