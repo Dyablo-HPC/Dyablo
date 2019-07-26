@@ -131,10 +131,10 @@ public:
     const real_t delta_P2 = ksi2 / cs2 * delta_P;
 
     // compute corrected fluxes
-    delta_rho -= delta_P2;
+    delta_rho    -= delta_P2;
     delta_rhov_x -= delta_P2 * qprim[IU];
     delta_rhov_y -= delta_P2 * qprim[IV];
-    delta_e_tot -= delta_P2 * (qprim[IP]+qcons[IE])/qprim[ID]; 
+    delta_e_tot  -= delta_P2 * (qprim[IP]+qcons[IE])/qprim[ID]; 
 
     // now update
     Data_out(i,fm[ID]) = qcons[ID] + delta_rho;
