@@ -96,7 +96,7 @@ public:
     // get primitive variables in current cell
     computePrimitives(uLoc, &c, qLoc);
 
-    if (params.rsst_enabled) {
+    if (params.rsst_enabled and params.rsst_cfl_enabled) {
       vx = c/params.rsst_ksi + FABS(qLoc[IU]);
       vy = c/params.rsst_ksi + FABS(qLoc[IV]);
     } else {
@@ -134,7 +134,7 @@ public:
     
     // get primitive variables in current cell
     computePrimitives(uLoc, &c, qLoc);
-    if (params.rsst_enabled) {
+    if (params.rsst_enabled and params.rsst_cfl_enabled) {
       vx = c/params.rsst_ksi + FABS(qLoc[IU]);
       vy = c/params.rsst_ksi + FABS(qLoc[IV]);
       vz = c/params.rsst_ksi + FABS(qLoc[IW]);
