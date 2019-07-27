@@ -148,6 +148,64 @@ public:
   // =======================================================================
   KOKKOS_INLINE_FUNCTION
   void operator_3d(const size_t i) const {
+
+    const int nbvar = params.nbvar;
+
+    // speed of sound reducer (must be larger >= 1)
+    const real_t ksi = params.rsst_ksi;
+
+    // compute prefactor 1-1/ksi^2
+    const real_t ksi2 = 1.0 - 1.0/ksi/ksi;
+
+    // current cell center state (primitive variables)
+    HydroState3d qprim;
+    for (uint8_t ivar=0; ivar<nbvar; ++ivar)
+      qprim[ivar] = Qdata(i,fm[ivar]);
+
+    // current cell conservative variable state
+    HydroState3d qcons;
+    for (uint8_t ivar=0; ivar<nbvar; ++ivar)
+      qcons[ivar] = Data_in(i,fm[ivar]);
+
+    // current cell pressure and speed of sound
+    real_t pressure, cs;
+    compute_Pressure_and_SpeedOfSound(qcons, pressure, cs);
+    const real_t cs2 = cs*cs;
+
+    // read flux
+    real_t delta_rho    = Fluxes(i,fm[ID]);
+    real_t delta_rhov_x = Fluxes(i,fm[IU]);
+    real_t delta_rhov_y = Fluxes(i,fm[IV]);
+    real_t delta_rhov_z = Fluxes(i,fm[IW]);
+    real_t delta_e_tot  = Fluxes(i,fm[IE]);
+
+    // compute V^2
+    const real_t V2 = qprim[IU]*qprim[IU] + qprim[IV]*qprim[IV] + qprim[IW]*qprim[IW];
+
+    // pressure correction (ideal equation of state)
+    const real_t gamma0 = params.settings.gamma0;
+    const real_t delta_P = (gamma0-1) * ( (0.5*V2)*delta_rho 
+                                    - qprim[IU] * delta_rhov_x
+                                    - qprim[IV] * delta_rhov_y
+                                    - qprim[IW] * delta_rhov_z
+                                    + delta_e_tot );
+
+    const real_t delta_P2 = ksi2 / cs2 * delta_P;
+
+    // compute corrected fluxes
+    delta_rho    -= delta_P2;
+    delta_rhov_x -= delta_P2 * qprim[IU];
+    delta_rhov_y -= delta_P2 * qprim[IV];
+    delta_rhov_z -= delta_P2 * qprim[IW];
+    delta_e_tot  -= delta_P2 * (qprim[IP]+qcons[IE])/qprim[ID]; 
+
+    // now update
+    Data_out(i,fm[ID]) = qcons[ID] + delta_rho;
+    Data_out(i,fm[IU]) = qcons[IU] + delta_rhov_x;
+    Data_out(i,fm[IV]) = qcons[IV] + delta_rhov_y;
+    Data_out(i,fm[IW]) = qcons[IW] + delta_rhov_z;
+    Data_out(i,fm[IE]) = qcons[IE] + delta_e_tot;
+
   } // operator_3d
 
   // =======================================================================
