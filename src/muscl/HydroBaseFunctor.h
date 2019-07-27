@@ -178,7 +178,82 @@ public:
     q[IW] = uz;
     
   } // computePrimitives - 3d
-  
+
+  /**
+   * Compute speed of sound (ideal gas equation of state).
+   *
+   * @param[in]  u  conservative variables array
+   * @param[out] p  pressure
+   * @param[out] c speed of sound
+   *
+   */
+  KOKKOS_INLINE_FUNCTION
+  void compute_Pressure_and_SpeedOfSound(const HydroState2d &u,
+                                         real_t & pressure,
+                                         real_t & c) const
+  {
+    const real_t gamma0 = params.settings.gamma0;
+    const real_t smallr = params.settings.smallr;
+    const real_t smallp = params.settings.smallp;
+    
+    real_t d, p, ux, uy;
+    
+    d = fmax(u[ID], smallr);
+    ux = u[IU] / d;
+    uy = u[IV] / d;
+
+    // kinetic energy
+    const real_t eken = HALF_F * (ux*ux + uy*uy);
+
+    // internal
+    const real_t eint = u[IP] / d - eken;
+    
+    // compute pressure
+    pressure = fmax((gamma0 - 1.0) * d * eint, d * smallp);
+
+    // compute speed of sound
+    c = sqrt(gamma0 * (pressure) / d);
+    
+  } // computePressure_and_SpeedOfSound - 2d
+
+  /**
+   * Compute speed of sound (ideal gas equation of state).
+   *
+   * @param[in]  u  conservative variables array
+   * @param[out] p  pressure
+   * @param[out] c speed of sound
+   *
+   */
+  KOKKOS_INLINE_FUNCTION
+  void compute_Pressure_and_SpeedOfSound(const HydroState3d &u,
+                                         real_t & pressure,
+                                         real_t & c) const
+  {
+    const real_t gamma0 = params.settings.gamma0;
+    const real_t smallr = params.settings.smallr;
+    const real_t smallp = params.settings.smallp;
+    
+    real_t d, p, ux, uy, uz;
+    
+    d = fmax(u[ID], smallr);
+    ux = u[IU] / d;
+    uy = u[IV] / d;
+    uz = u[IW] / d;
+
+    // volumic kinetic energy
+    const real_t eken = HALF_F * (ux*ux + uy*uy + uz*uz);
+    
+    // volumic internal energy
+    const real_t eint = u[IP] / d - eken;
+    
+    // compute pressure
+    pressure = fmax((gamma0 - 1.0) * d * eint, d * smallp);
+    
+    // compute speed of sound
+    c = sqrt(gamma0 * (pressure) / d);
+        
+  } // computePressure_and_SpeedOfSound - 3d
+
 }; // class HydroBaseFunctor
 
 } // namespace muscl
