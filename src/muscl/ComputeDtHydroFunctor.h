@@ -95,9 +95,15 @@ public:
     
     // get primitive variables in current cell
     computePrimitives(uLoc, &c, qLoc);
-    vx = c+FABS(qLoc[IU]);
-    vy = c+FABS(qLoc[IV]);
-    
+
+    if (params.rsst_enabled and params.rsst_cfl_enabled) {
+      vx = c/params.rsst_ksi + FABS(qLoc[IU]);
+      vy = c/params.rsst_ksi + FABS(qLoc[IV]);
+    } else {
+      vx = c + FABS(qLoc[IU]);
+      vy = c + FABS(qLoc[IV]);
+    }
+
     invDt = FMAX(invDt, vx/dx + vy/dx);
 
   } // operator_2d
@@ -128,9 +134,15 @@ public:
     
     // get primitive variables in current cell
     computePrimitives(uLoc, &c, qLoc);
-    vx = c+FABS(qLoc[IU]);
-    vy = c+FABS(qLoc[IV]);
-    vz = c+FABS(qLoc[IW]);
+    if (params.rsst_enabled and params.rsst_cfl_enabled) {
+      vx = c/params.rsst_ksi + FABS(qLoc[IU]);
+      vy = c/params.rsst_ksi + FABS(qLoc[IV]);
+      vz = c/params.rsst_ksi + FABS(qLoc[IW]);
+    } else {
+      vx = c + FABS(qLoc[IU]);
+      vy = c + FABS(qLoc[IV]);
+      vz = c + FABS(qLoc[IW]);
+    }
     
     invDt = FMAX(invDt, vx/dx + vy/dx + vz/dx);
     

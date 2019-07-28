@@ -116,6 +116,15 @@ struct HydroParams {
   // other parameters
   int implementationVersion=0; /*!< triggers which implementation to use (currently 3 versions)*/
 
+  //! low Mach parameter (reduced speed of sound)
+  bool rsst_enabled;
+
+  //! modify cfl when rsst enabled ?
+  bool rsst_cfl_enabled;
+
+  //! reduce speed of sound parameter
+  real_t rsst_ksi;
+
 #ifdef USE_MPI
 //! MPI communicator in a cartesian virtual topology
   hydroSimu::MpiComm *communicator;

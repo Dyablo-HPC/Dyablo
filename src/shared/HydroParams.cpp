@@ -131,6 +131,11 @@ void HydroParams::setup(ConfigMap &configMap)
     implementationVersion = 0;
   }
 
+  // low Mach correction
+  rsst_enabled = configMap.getBool("low_mach", "rsst_enabled", false);
+  rsst_cfl_enabled = configMap.getBool("low_mach", "rsst_cfl_enabled", false);
+  rsst_ksi = configMap.getFloat("low_mach", "rsst_ksi", 10.0);
+
   debug_output = configMap.getBool("output", "debug", false);
 
   init();
