@@ -378,15 +378,15 @@ HDF5_Writer::write_quadrant_velocity(DataArray  data,
   Kokkos::parallel_for(
       data.extent(0), KOKKOS_LAMBDA(uint32_t i) {
         if (use_momentum) {
-          dataVector(dim * i + 0) = data(i, fm[IU]);
-          dataVector(dim * i + 1) = data(i, fm[IV]);
+          dataVector(3 * i + 0) = data(i, fm[IU]);
+          dataVector(3 * i + 1) = data(i, fm[IV]);
           //if (dim == 3)
-          dataVector(dim * i + 2) = dim==3 ? data(i, fm[IW]) : 0;
+          dataVector(3 * i + 2) = dim==3 ? data(i, fm[IW]) : 0;
         } else {
-          dataVector(dim * i + 0) = data(i, fm[IU])/data(i, fm[ID]);
-          dataVector(dim * i + 1) = data(i, fm[IV])/data(i, fm[ID]);
-          //if (dim == 3)
-          dataVector(dim * i + 2) = dim==3 ? data(i, fm[IW])/data(i, fm[ID]) : 0;
+          dataVector(3 * i + 0) = data(i, fm[IU])/data(i, fm[ID]);
+          dataVector(3 * i + 1) = data(i, fm[IV])/data(i, fm[ID]);
+          //if (3 == 3)
+          dataVector(3 * i + 2) = dim==3 ? data(i, fm[IW])/data(i, fm[ID]) : 0;
         }
       });
 
