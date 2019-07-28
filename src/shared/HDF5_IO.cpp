@@ -358,6 +358,50 @@ HDF5_Writer::write_quadrant_attribute(DataArray  data,
 
 // =======================================================
 // =======================================================
+int
+HDF5_Writer::write_quadrant_velocity(DataArray  data,
+                                     id2index_t fm,
+                                     bool use_momentum)
+{
+
+  using DataArrayVector = Kokkos::View<real_t*, Kokkos::HostSpace>;    
+
+  // copy data from device to host
+  DataArrayHost datah = Kokkos::create_mirror(data);
+  // copy device data to host
+  Kokkos::deep_copy(datah, data);
+  
+  int dim = fm[IW]==-1 ? 2 : 3;
+
+  DataArrayVector dataVector = DataArrayVector("temp_array_hdf5", data.extent(0)*3);
+
+  Kokkos::parallel_for(
+      data.extent(0), KOKKOS_LAMBDA(uint32_t i) {
+        if (use_momentum) {
+          dataVector(dim * i + 0) = data(i, fm[IU]);
+          dataVector(dim * i + 1) = data(i, fm[IV]);
+          //if (dim == 3)
+          dataVector(dim * i + 2) = dim==3 ? data(i, fm[IW]) : 0;
+        } else {
+          dataVector(dim * i + 0) = data(i, fm[IU])/data(i, fm[ID]);
+          dataVector(dim * i + 1) = data(i, fm[IV])/data(i, fm[ID]);
+          //if (dim == 3)
+          dataVector(dim * i + 2) = dim==3 ? data(i, fm[IW])/data(i, fm[ID]) : 0;
+        }
+      });
+
+  // actual data writing
+  const std::string varName = use_momentum ? "rhoV" : "velocity";
+  write_attribute(varName, dataVector.ptr_on_device(),
+                  3 /*dim*/, IO_CELL_VECTOR,
+                  H5T_NATIVE_DOUBLE, H5T_NATIVE_DOUBLE);
+  
+  return 0;
+
+} // HDF5_Writer::write_quadrant_velocity
+
+// =======================================================
+// =======================================================
 void
 HDF5_Writer::io_hdf5_writev(hid_t fd, 
                             const std::string &name, 

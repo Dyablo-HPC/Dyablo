@@ -576,6 +576,14 @@ void SolverHydroMuscl::save_solution_hdf5()
     // write user the fake data (all scalar fields, here only one)
     hdf5_writer->write_quadrant_attribute(U, fm, names2index);
 
+    // check if we want to write velocity or rhoV vector fields
+    std::string write_variables = configMap.getString("output", "write_variables", "");
+    if (write_variables.find("velocity") != std::string::npos) {
+      hdf5_writer->write_quadrant_velocity(U, fm, false);
+    } else if (write_variables.find("rhoV") != std::string::npos) {
+      hdf5_writer->write_quadrant_velocity(U, fm, true);
+    }
+
     // close the file
     hdf5_writer->write_footer();
     hdf5_writer->close();

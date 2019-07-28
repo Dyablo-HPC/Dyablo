@@ -125,7 +125,15 @@ public:
   int            write_quadrant_attribute (DataArray data,
                                            id2index_t  fm,
                                            str2int_t   names2index);
-  
+
+  /**
+   * special variant of write_quadrant_attribute for velocity
+   * vector field.
+   */
+  int            write_quadrant_velocity(DataArray  data,
+                                         id2index_t fm,
+                                         bool use_momentum);
+
   std::shared_ptr<AMRmesh> m_amr_mesh; //!<
   std::string    m_basename; //!< the base name of the two files
   //id2index_t     m_fm; //!< field manager object
