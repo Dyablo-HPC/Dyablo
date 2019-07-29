@@ -86,6 +86,14 @@ void HydroParams::setup(ConfigMap &configMap)
   level_min = configMap.getInteger("amr","level_min", 5);
   level_max = configMap.getInteger("amr","level_max", 10);
 
+  // default value for amr_cycle_enabled
+  bool amr_cycle_enabled_default = (level_min != level_max);
+
+  // we can overwrite amr_cycle_enabled; e.g.
+  // we can chose level_min != level_max for initial condition
+  // but then swithoff amr cycle.
+  amr_cycle_enabled = configMap.getInteger("amr", "amr_cycle", amr_cycle_enabled_default);
+
   output_vtk_enabled  = configMap.getBool("output","vtk_enabled",true);
   output_hdf5_enabled = configMap.getBool("output","hdf5_enabled",false);
 

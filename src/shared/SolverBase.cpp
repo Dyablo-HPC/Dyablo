@@ -221,7 +221,7 @@ bool
 SolverBase::should_do_amr_cycle()
 {
 
-  return (params.level_min != params.level_max);
+  return params.amr_cycle_enabled;
 
 } // SolverBase::should_do_amr_cycle
 

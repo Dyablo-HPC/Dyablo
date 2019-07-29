@@ -101,7 +101,10 @@ struct HydroParams {
   // AMR related parameter
   int level_min;
   int level_max;
-  
+
+  // switch on/off AMR cycle
+  bool amr_cycle_enabled;
+
   // IO parameters
   bool output_vtk_enabled; /*!< enable VTK  output file format (using VTU).*/
   bool output_hdf5_enabled; /*!< enable HDF5 output file format.*/
