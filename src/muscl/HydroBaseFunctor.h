@@ -126,8 +126,11 @@ public:
     d = fmax(u[ID], smallr);
     ux = u[IU] / d;
     uy = u[IV] / d;
-    
+
+    // kinetic energy
     real_t eken = HALF_F * (ux*ux + uy*uy);
+    
+    // internal energy
     real_t e = u[IP] / d - eken;
     
     // compute pressure and speed of sound
@@ -163,8 +166,11 @@ public:
     ux = u[IU] / d;
     uy = u[IV] / d;
     uz = u[IW] / d;
-    
+
+    // kinetic energy
     real_t eken = HALF_F * (ux*ux + uy*uy + uz*uz);
+    
+    // internal energy
     real_t e = u[IP] / d - eken;
     
     // compute pressure and speed of sound
