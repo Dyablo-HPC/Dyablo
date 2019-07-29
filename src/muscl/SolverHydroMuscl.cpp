@@ -616,6 +616,10 @@ void SolverHydroMuscl::save_solution_hdf5()
       hdf5_writer->write_quadrant_velocity(U, fm, false);
     } else if (write_variables.find("rhoV") != std::string::npos) {
       hdf5_writer->write_quadrant_velocity(U, fm, true);
+    } 
+    
+    if (write_variables.find("Mach") != std::string::npos) {
+      hdf5_writer->write_quadrant_mach_number(Q, fm);
     }
 
     // close the file

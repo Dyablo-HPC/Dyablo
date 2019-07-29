@@ -402,6 +402,49 @@ HDF5_Writer::write_quadrant_velocity(DataArray  data,
 
 // =======================================================
 // =======================================================
+int
+HDF5_Writer::write_quadrant_mach_number(DataArray  Qdata,
+                                        id2index_t fm)
+{
+  // copy data from device to host
+  DataArrayHost datah = Kokkos::create_mirror(Qdata);
+  
+  // copy device data to host
+  Kokkos::deep_copy(datah, Qdata);
+  
+  {
+    
+    using DataArrayScalar = Kokkos::View<real_t*, Kokkos::HostSpace>;
+    
+    DataArrayScalar mach_number = DataArrayScalar("mach_number", Qdata.extent(0));
+    
+    Kokkos::parallel_for(datah.extent(0), KOKKOS_LAMBDA (uint32_t i) {
+        
+        // compute square fluid velocity
+        real_t u2 = datah(i,fm[IU])*datah(i,fm[IU]) + datah(i,fm[IV])*datah(i,fm[IV]);
+        if (fm[IW]!=-1)
+          u2 += datah(i,fm[IW])*datah(i,fm[IW]);
+        
+
+        // compute speed of sound (square) : pressure/density
+        real_t cs2 = datah(i,fm[IP]) / datah(i,fm[ID]);
+
+        mach_number(i) = sqrt(u2/cs2);
+      });
+
+    // actual data writing
+    write_attribute("Mach", mach_number.ptr_on_device(), 
+                    0, IO_CELL_SCALAR,
+                    H5T_NATIVE_DOUBLE, H5T_NATIVE_DOUBLE);
+
+  }
+    
+  return 0;
+
+} // HDF5_Writer::write_quadrant_mach_number
+
+// =======================================================
+// =======================================================
 void
 HDF5_Writer::io_hdf5_writev(hid_t fd, 
                             const std::string &name, 

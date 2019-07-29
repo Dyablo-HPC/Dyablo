@@ -134,6 +134,14 @@ public:
                                          id2index_t fm,
                                          bool use_momentum);
 
+  /**
+   * special variant of write_quadrant_attribute for Mach number.
+   *
+   * Input array is assumed to contain primitive variables.
+   */
+  int            write_quadrant_mach_number(DataArray  Qdata,
+                                            id2index_t fm);
+
   std::shared_ptr<AMRmesh> m_amr_mesh; //!<
   std::string    m_basename; //!< the base name of the two files
   //id2index_t     m_fm; //!< field manager object
