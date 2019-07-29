@@ -168,18 +168,36 @@ public:
 
       // get cell center coordinate in the unit domain
       // FIXME : need to refactor AMRmesh interface to use Kokkos::Array
-      // std::array<double, 3> center = pmesh->getCenter(i);
+      std::array<double, 3> center = pmesh->getCenter(i);
 
-      // const real_t x = center[0];
-      // const real_t y = center[1];
-      // const real_t z = center[2];
+      real_t x = center[0];
+      real_t y = center[1];
+      real_t z = center[2];
 
-      // double cellSize2 = pmesh->getSize(i) * 0.75;
+      // retrieve coordinates to domain center
+      x -= 0.5;
+      y -= 0.5;
+      z -= 0.5;
+
+      double cellSize2 = pmesh->getSize(i) * 0.75;
 
       bool should_refine = false;
 
-      // TODO
-      should_refine = true;
+      // refine near r=0.2
+      real_t radius = 0.2;
+
+      real_t d2 = x*x + y*y;
+
+      if (params.dimType == THREE_D)
+        d2 += z*z;
+
+      real_t d = sqrt(d2);
+
+      if ( fabs(d - radius) < cellSize2 )
+        should_refine = true;
+      
+      if ( d > 0.15 and d < 0.25 )
+        should_refine = true;
 
       if (should_refine)
         pmesh->setMarker(i, 1);
