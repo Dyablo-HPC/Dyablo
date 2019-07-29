@@ -619,7 +619,11 @@ void SolverHydroMuscl::save_solution_hdf5()
     } 
     
     if (write_variables.find("Mach") != std::string::npos) {
-      hdf5_writer->write_quadrant_mach_number(Q, fm);
+      // mach number will be recomputed from conservative variables
+      // we could have used primitive variables, but since here Q
+      // may not have the same size, Q may need to be resized
+      // and recomputed anyway.
+      hdf5_writer->write_quadrant_mach_number(U, fm);
     }
 
     // close the file

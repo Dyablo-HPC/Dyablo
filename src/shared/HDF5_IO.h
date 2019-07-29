@@ -137,9 +137,9 @@ public:
   /**
    * special variant of write_quadrant_attribute for Mach number.
    *
-   * Input array is assumed to contain primitive variables.
+   * Input array is assumed to contain conservative variables.
    */
-  int            write_quadrant_mach_number(DataArray  Qdata,
+  int            write_quadrant_mach_number(DataArray  data,
                                             id2index_t fm);
 
   std::shared_ptr<AMRmesh> m_amr_mesh; //!<

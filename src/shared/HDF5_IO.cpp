@@ -403,33 +403,61 @@ HDF5_Writer::write_quadrant_velocity(DataArray  data,
 // =======================================================
 // =======================================================
 int
-HDF5_Writer::write_quadrant_mach_number(DataArray  Qdata,
+HDF5_Writer::write_quadrant_mach_number(DataArray  data,
                                         id2index_t fm)
 {
   // copy data from device to host
-  DataArrayHost datah = Kokkos::create_mirror(Qdata);
+  DataArrayHost datah = Kokkos::create_mirror(data);
   
   // copy device data to host
-  Kokkos::deep_copy(datah, Qdata);
+  Kokkos::deep_copy(datah, data);
   
   {
     
     using DataArrayScalar = Kokkos::View<real_t*, Kokkos::HostSpace>;
     
-    DataArrayScalar mach_number = DataArrayScalar("mach_number", Qdata.extent(0));
+    DataArrayScalar mach_number = DataArrayScalar("mach_number", data.extent(0));
     
     Kokkos::parallel_for(datah.extent(0), KOKKOS_LAMBDA (uint32_t i) {
         
-        // compute square fluid velocity
-        real_t u2 = datah(i,fm[IU])*datah(i,fm[IU]) + datah(i,fm[IV])*datah(i,fm[IV]);
-        if (fm[IW]!=-1)
-          u2 += datah(i,fm[IW])*datah(i,fm[IW]);
+        // // compute square fluid velocity
+        // real_t u2 = 
+        //   datah(i,fm[IU])*datah(i,fm[IU]) +
+        //   datah(i,fm[IV])*datah(i,fm[IV]);
+        // if (fm[IW]!=-1)
+        //   u2 += datah(i,fm[IW])*datah(i,fm[IW]);
         
 
-        // compute speed of sound (square) : pressure/density
-        real_t cs2 = datah(i,fm[IP]) / datah(i,fm[ID]);
+        // // compute speed of sound (square) : pressure/density
+        // real_t cs2 = datah(i,fm[IP]) / datah(i,fm[ID]);
+
+        // mach_number(i) = sqrt(u2/cs2);
+
+        real_t d = datah(i,fm[ID]);
+        real_t u = datah(i,fm[IU])/datah(i,fm[ID]);
+        real_t v = datah(i,fm[IV])/datah(i,fm[ID]);
+        real_t w = fm[IW]==-1 ? 0 : datah(i,fm[IW])/datah(i,fm[ID]);
+
+        // kinetic energy
+        real_t eken = 0.5*d*(u*u+v*v+w*w); 
+
+        // internal energy
+        real_t eint = datah(i,fm[IE])-eken;
+
+        // specific heat ratio
+        real_t gamma0 = m_params.settings.gamma0;
+
+        // pressure
+        real_t p = (gamma0-1)*eint;
+
+        // square speed of sound
+        real_t cs2 = p/d;
+
+        // velocity square
+        real_t u2 = u*u+v*v+w*w;
 
         mach_number(i) = sqrt(u2/cs2);
+
       });
 
     // actual data writing
