@@ -55,7 +55,8 @@ public:
     // data init functor
     InitImplodeDataFunctor functor(pmesh, params, implodeParams, fm, Udata);
     
-    Kokkos::parallel_for(pmesh->getNumOctants(), functor);
+    Kokkos::parallel_for("dyablo::muscl::InitImplodeDataFunctor", 
+                         pmesh->getNumOctants(), functor);
   }
   
   KOKKOS_INLINE_FUNCTION

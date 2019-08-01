@@ -107,7 +107,7 @@ public:
                                                SlopeX,SlopeY,SlopeZ,
                                                SlopeX_ghost,SlopeY_ghost,SlopeZ_ghost,
                                                dt);
-    Kokkos::parallel_for(pmesh->getNumOctants(), functor);
+    Kokkos::parallel_for("dyablo::muscl::ComputeFluxesAndUpdateHydroFunctor", pmesh->getNumOctants(), functor);
   }
 
   // =======================================================================

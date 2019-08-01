@@ -64,7 +64,8 @@ public:
     InitKelvinHelmholtzDataFunctor functor(pmesh, params, khParams, fm,
                                            Udata);
 
-    Kokkos::parallel_for(pmesh->getNumOctants(), functor);
+    Kokkos::parallel_for("dyablo::muscl::InitKelvinHelmholtzDataFunctor",
+                         pmesh->getNumOctants(), functor);
   }
 
   KOKKOS_INLINE_FUNCTION
@@ -221,7 +222,8 @@ public:
     // iterate functor for refinement
     InitKelvinHelmholtzRefineFunctor functor(pmesh, params, blastParams,
                                              level_refine);
-    Kokkos::parallel_for(pmesh->getNumOctants(), functor);
+    Kokkos::parallel_for("dyablo::muscl::InitKelvinHelmholtzRefineFunctor", 
+                         pmesh->getNumOctants(), functor);
   }
 
   KOKKOS_INLINE_FUNCTION

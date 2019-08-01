@@ -80,7 +80,7 @@ public:
     UpdateRSSTHydroFunctor functor(pmesh, params, fm, 
                                    Data_in, Data_out,
                                    Qdata, Fluxes);
-    Kokkos::parallel_for(pmesh->getNumOctants(), functor);
+    Kokkos::parallel_for("dyablo::muscl::UpdateRSSTHydroFunctor", pmesh->getNumOctants(), functor);
   }
 
   // =======================================================================

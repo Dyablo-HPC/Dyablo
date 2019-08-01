@@ -66,7 +66,7 @@ public:
                                   Udata, Udata_ghost,
                                   eps_refine, 
                                   eps_coarsen);
-    Kokkos::parallel_for(pmesh->getNumOctants(), functor);
+    Kokkos::parallel_for("dyablo::muscl::MarkCellsHydroFunctor", pmesh->getNumOctants(), functor);
   } // apply
 
   /**

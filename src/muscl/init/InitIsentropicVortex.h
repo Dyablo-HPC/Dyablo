@@ -53,7 +53,8 @@ public:
     // data init functor
     InitIsentropicVortexDataFunctor functor(pmesh, params, ivParams, fm, Udata);
 
-    Kokkos::parallel_for(pmesh->getNumOctants(), functor);
+    Kokkos::parallel_for("dyablo::muscl::InitIsentropicVortexDataFunctor", 
+                         pmesh->getNumOctants(), functor);
   }
 
   KOKKOS_INLINE_FUNCTION
@@ -166,7 +167,8 @@ public:
     // iterate functor for refinement
     InitIsentropicVortexRefineFunctor functor(pmesh, params, ivParams,
                                               level_refine);
-    Kokkos::parallel_for(pmesh->getNumOctants(), functor);
+    Kokkos::parallel_for("dyablo::muscl::InitIsentropicVortexRefineFunctor", 
+                         pmesh->getNumOctants(), functor);
   }
 
   KOKKOS_INLINE_FUNCTION
