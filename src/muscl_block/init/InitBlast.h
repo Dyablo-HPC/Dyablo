@@ -59,7 +59,8 @@ public:
     // data init functor
     InitBlastDataFunctor functor(pmesh, params, blastParams, fm, Udata);
 
-    //Kokkos::parallel_for(pmesh->getNumOctants(), functor);
+    Kokkos::parallel_for("dyablo::muscl_block::InitBlastDataFunctor",
+                         pmesh->getNumOctants(), functor);
   }
   
   KOKKOS_INLINE_FUNCTION
