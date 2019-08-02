@@ -51,7 +51,8 @@ public:
                     DataArray Qdata)
   {
     ConvertToPrimitivesHydroFunctor functor(pmesh, params, fm, Udata, Qdata);
-    Kokkos::parallel_for(pmesh->getNumOctants(), functor);
+    Kokkos::parallel_for("dyablo::muscl::ConvertToPrimitivesHydroFunctor",
+                         pmesh->getNumOctants(), functor);
   }
 
   KOKKOS_INLINE_FUNCTION

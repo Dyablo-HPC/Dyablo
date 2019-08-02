@@ -74,7 +74,7 @@ public:
     ReconstructGradientsHydroFunctor functor(pmesh, params, fm, 
                                              Qdata, Qdata_ghost,
                                              SlopeX, SlopeY, SlopeZ);
-    Kokkos::parallel_for(pmesh->getNumOctants(), functor);
+    Kokkos::parallel_for("dyablo::muscl::ReconstructGradientsHydroFunctor", pmesh->getNumOctants(), functor);
   }
 
   // =============================================================

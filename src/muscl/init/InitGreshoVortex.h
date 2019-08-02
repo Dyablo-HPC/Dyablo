@@ -49,7 +49,7 @@ public:
     // data init functor
     InitGreshoVortexDataFunctor functor(pmesh, params, gvParams, fm, Udata);
 
-    Kokkos::parallel_for(pmesh->getNumOctants(), functor);
+    Kokkos::parallel_for("dyablo::muscl::InitGreshoVortexDataFunctor", pmesh->getNumOctants(), functor);
   }
 
   KOKKOS_INLINE_FUNCTION
@@ -154,7 +154,7 @@ public:
     // iterate functor for refinement
     InitGreshoVortexRefineFunctor functor(pmesh, params, gvParams,
                                           level_refine);
-    Kokkos::parallel_for(pmesh->getNumOctants(), functor);
+    Kokkos::parallel_for("dyablo::muscl::InitGreshoVortexRefineFunctor", pmesh->getNumOctants(), functor);
   }
 
   KOKKOS_INLINE_FUNCTION

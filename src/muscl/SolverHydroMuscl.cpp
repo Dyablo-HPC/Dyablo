@@ -778,7 +778,7 @@ void SolverHydroMuscl::map_userdata_after_adapt()
   Kokkos::resize(U, nocts, nbVars);
   
   // reset U
-  Kokkos::parallel_for(nocts, KOKKOS_LAMBDA(const size_t i) {
+  Kokkos::parallel_for("dyablo::muscl::SolverHydroMuscl reset U",nocts, KOKKOS_LAMBDA(const size_t i) {
       for (int ivar=0; ivar<nbVars; ++ivar)
         U(i,fm[ivar])=0.0;
     });

@@ -51,7 +51,8 @@ public:
     // data init functor
     InitSodDataFunctor functor(pmesh, params, fm, Udata);
 
-    Kokkos::parallel_for(pmesh->getNumOctants(), functor);
+    Kokkos::parallel_for("dyablo::muscl::InitSodDataFunctor", 
+                         pmesh->getNumOctants(), functor);
   }
   
   KOKKOS_INLINE_FUNCTION
@@ -124,7 +125,8 @@ public:
     // iterate functor for refinement
     InitSodRefineFunctor functor(pmesh, params, 
                                  level_refine);
-    Kokkos::parallel_for(pmesh->getNumOctants(), functor);
+    Kokkos::parallel_for("dyablo::muscl::InitSodRefineFunctor", 
+                         pmesh->getNumOctants(), functor);
     
   }
   
