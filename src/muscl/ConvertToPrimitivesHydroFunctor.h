@@ -13,7 +13,7 @@
 #include "shared/bitpit_common.h"
 
 // utils hydro
-#include "muscl/utils_hydro.h"
+#include "shared/utils_hydro.h"
 
 namespace dyablo { namespace muscl {
 

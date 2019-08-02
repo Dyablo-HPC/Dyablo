@@ -12,7 +12,7 @@
 
 #include "shared/kokkos_shared.h"
 
-#include "muscl/utils_hydro.h"
+#include "shared/utils_hydro.h"
 
 
 //#include "shared/EulerEquations.h"

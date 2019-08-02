@@ -1,7 +1,5 @@
 set (muscl_SRCS
-  ${CMAKE_CURRENT_SOURCE_DIR}/SolverHydroMuscl.h
   ${CMAKE_CURRENT_SOURCE_DIR}/SolverHydroMuscl.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/init/HydroInitFunctors.h
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitImplode.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitSod.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitBlast.cpp
@@ -11,16 +9,12 @@ set (muscl_SRCS
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitIsentropicVortex.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitKelvinHelmholtz.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitRayleighTaylor.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/HydroBaseFunctor.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/ComputeDtHydroFunctor.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/ConvertToPrimitivesHydroFunctor.h)
+  )
 
 # add MPI user data communication interface
 if (USE_MPI)
   list(APPEND muscl_SRCS
-    ${CMAKE_CURRENT_SOURCE_DIR}/UserDataComm.h
     ${CMAKE_CURRENT_SOURCE_DIR}/UserDataComm.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/UserDataLB.h
     ${CMAKE_CURRENT_SOURCE_DIR}/UserDataLB.cpp)
 endif(USE_MPI)
 

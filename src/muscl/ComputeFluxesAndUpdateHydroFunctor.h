@@ -15,7 +15,7 @@
 #include "shared/bc_utils.h"
 
 // utils hydro
-#include "muscl/utils_hydro.h"
+#include "shared/utils_hydro.h"
 
 namespace dyablo { namespace muscl {
 
