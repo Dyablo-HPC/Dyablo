@@ -12,6 +12,8 @@
 #include "shared/HydroState.h"
 #include "shared/problems/BlastParams.h"
 
+#include "muscl_block/utils_block.h"
+
 #include "bitpit_PABLO.hpp"
 #include "shared/bitpit_common.h"
 
@@ -131,17 +133,15 @@ public:
 
           // convert index into ix,iy,iz of local cell inside
           // block
-          real_t ix, iy, iz;
+          Kokkos::Array<int32_t,3> iCoord;
+          int32_t& ix = iCoord[IX];
+          int32_t& iy = iCoord[IY];
+          int32_t& iz = iCoord[IZ];                    
 
           if (params.dimType == TWO_D) {
-            iz = 0;
-            iy = index / bx;
-            ix = index - bx * iy;
+            iCoord = compute_cell_coord(index,bx,by,1);
           } else {
-            iz = index / (bx*by);
-            int32_t index2 = index - bx*by*iz; 
-            iy = index2 / bx;
-            ix = index2 - bx*iy;
+            iCoord = compute_cell_coord(index,bx,by,bz);
           }
 
           // compute x,y,z for that cell (cell center)
