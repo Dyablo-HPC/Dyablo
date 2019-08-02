@@ -35,11 +35,13 @@ namespace dyablo { namespace muscl_block {
 class InitBlastDataFunctor {
 
 private:
- uint32_t nbTeams; //!< number of thread teams
+  uint32_t nbTeams; //!< number of thread teams
 
 public:
   using team_policy_t = Kokkos::TeamPolicy<Kokkos::IndexType<int32_t>>;
   using thread_t = team_policy_t::member_type;
+
+  void setNbTeams(uint32_t nbTeams_) {nbTeams = nbTeams_;}; 
 
   InitBlastDataFunctor(std::shared_ptr<AMRmesh> pmesh,
                        HydroParams    params,
@@ -69,8 +71,10 @@ public:
     InitBlastDataFunctor functor(pmesh, params, blastParams, fm, blockSizes, Udata);
 
     // kokkos execution policy
-    nbTeams = configMap.getInteger("init","nbTeams",16);
-    team_policy_t policy (nbTeams,
+    uint32_t nbTeams_ = configMap.getInteger("init","nbTeams",16);
+    functor.setNbTeams ( nbTeams_  );
+
+    team_policy_t policy (nbTeams_,
                           Kokkos::AUTO() /* team size chosen by kokkos */);
 
     Kokkos::parallel_for("dyablo::muscl_block::InitBlastDataFunctor",
@@ -96,14 +100,16 @@ public:
 
     uint32_t iOct = member.league_rank();
 
-    unit32_t nbCells = bx*by*bz;
+    uint32_t nbCells = params.dimType == TWO_D ? bx*by : bx*by*bz;
 
     while (iOct <  pmesh->getNumOctants() )
     {
-
+      
       // get octant size
       const real_t octSize = pmesh->getSize(iOct);
 
+      // the following assumes bx=by=bz
+      // TODO : allow non-cubic blocks
       const real_t cellSize = octSize/bx;
 
       // get cell center coordinate in the unit domain
@@ -115,10 +121,9 @@ public:
       // const real_t zc = center[2];
 
       // coordinates of the lower left corner
-      const real_t xo = pmesh->getNode(iOct, 0)[0];
-      const real_t yo = pmesh->getNode(iOct, 0)[1];
-      const real_t zo = pmesh->getNode(iOct, 0)[2];
-
+      const real_t x0 = pmesh->getNode(iOct, 0)[IX];
+      const real_t y0 = pmesh->getNode(iOct, 0)[IY];
+      const real_t z0 = pmesh->getNode(iOct, 0)[IZ];
 
       Kokkos::parallel_for(
         Kokkos::TeamVectorRange(member, nbCells),
@@ -129,6 +134,7 @@ public:
           real_t ix, iy, iz;
 
           if (params.dimType == TWO_D) {
+            iz = 0;
             iy = index / bx;
             ix = index - bx * iy;
           } else {
@@ -150,7 +156,7 @@ public:
           
           if (params.dimType == THREE_D)
             d2 += (z-blast_center_z)*(z-blast_center_z);
-
+          
           if (d2 < radius2) {
             Udata(index, fm[ID], iOct) = blast_density_in;
             Udata(index, fm[IP], iOct) = blast_pressure_in/(gamma0-1.0);
@@ -167,6 +173,8 @@ public:
             Udata(index, fm[IW], iOct) = 0.0;
 
         }); // end TeamVectorRange
+
+      iOct += nbTeams;
 
     } // end while
 
