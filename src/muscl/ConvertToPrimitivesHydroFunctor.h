@@ -12,8 +12,8 @@
 #include "bitpit_PABLO.hpp"
 #include "shared/bitpit_common.h"
 
-// base class
-#include "muscl/HydroBaseFunctor.h"
+// utils hydro
+#include "muscl/utils_hydro.h"
 
 namespace dyablo { namespace muscl {
 
@@ -24,7 +24,7 @@ namespace dyablo { namespace muscl {
  * Convert conservative variables to primitive variables functor.
  *
  */
-class ConvertToPrimitivesHydroFunctor : public HydroBaseFunctor {
+class ConvertToPrimitivesHydroFunctor {
 
 public:
   /**
@@ -39,8 +39,8 @@ public:
 				  id2index_t    fm,
 				  DataArray Udata,
 				  DataArray Qdata) :
-    HydroBaseFunctor(params),
-    pmesh(pmesh), fm(fm), Udata(Udata), Qdata(Qdata)
+    pmesh(pmesh), params(params),
+    fm(fm), Udata(Udata), Qdata(Qdata)
   {};
   
   // static method which does it all: create and execute functor
@@ -70,7 +70,7 @@ public:
     uLoc[IV] = Udata(i,fm[IV]);
     
     // get primitive variables in current cell
-    computePrimitives(uLoc, &c, qLoc);
+    computePrimitives(uLoc, &c, qLoc, params);
     
     // copy q state in q global
     Qdata(i,fm[ID]) = qLoc[ID];
@@ -96,7 +96,7 @@ public:
     uLoc[IW] = Udata(i,fm[IW]);
     
     // get primitive variables in current cell
-    computePrimitives(uLoc, &c, qLoc);
+    computePrimitives(uLoc, &c, qLoc, params);
     
     // copy q state in q global
     Qdata(i,fm[ID]) = qLoc[ID];
@@ -120,6 +120,7 @@ public:
   } // operator ()
   
   std::shared_ptr<AMRmesh> pmesh;
+  HydroParams  params;
   id2index_t   fm;
   DataArray    Udata;
   DataArray    Qdata;

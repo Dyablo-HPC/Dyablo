@@ -14,8 +14,8 @@
 //#include "shared/RiemannSolvers.h"
 //#include "shared/bc_utils.h"
 
-// base class
-#include "muscl/HydroBaseFunctor.h"
+// utils hydro
+#include "muscl/utils_hydro.h"
 
 namespace dyablo { namespace muscl {
 
@@ -37,7 +37,7 @@ namespace dyablo { namespace muscl {
  * \sa functor ComputeFluxesAndUpdateHydroFunctor
  *
  */
-class UpdateRSSTHydroFunctor : public HydroBaseFunctor {
+class UpdateRSSTHydroFunctor {
 
 public:
   /**
@@ -59,8 +59,8 @@ public:
                          DataArray Data_out,
                          DataArray Qdata,
                          DataArray Fluxes) :
-    HydroBaseFunctor(params),
     pmesh(pmesh),
+    params(params),
     fm(fm),
     Data_in(Data_in),
     Data_out(Data_out),
@@ -109,7 +109,7 @@ public:
 
     // current cell pressure and speed of sound
     real_t pressure, cs;
-    compute_Pressure_and_SpeedOfSound(qcons, pressure, cs);
+    compute_Pressure_and_SpeedOfSound(qcons, pressure, cs, params);
     const real_t cs2 = cs*cs;
 
     // read flux
@@ -169,7 +169,7 @@ public:
 
     // current cell pressure and speed of sound
     real_t pressure, cs;
-    compute_Pressure_and_SpeedOfSound(qcons, pressure, cs);
+    compute_Pressure_and_SpeedOfSound(qcons, pressure, cs, params);
     const real_t cs2 = cs*cs;
 
     // read flux
@@ -223,6 +223,7 @@ public:
   } // operator ()
 
   std::shared_ptr<AMRmesh> pmesh;
+  HydroParams  params;
   id2index_t   fm;
   DataArray    Data_in, Data_out;
   DataArray    Qdata;

@@ -11,7 +11,8 @@
 #endif // __CUDA_ARCH__
 
 #include "shared/kokkos_shared.h"
-#include "muscl/HydroBaseFunctor.h"
+
+#include "muscl/utils_hydro.h"
 
 
 //#include "shared/EulerEquations.h"
@@ -31,7 +32,7 @@ enum norm_type {
  * compute L1 / L2 error between two data array (solution data).
  *
  */
-class Compute_Error_Functor : public HydroBaseFunctor {
+class Compute_Error_Functor {
 
 public:
   
@@ -43,7 +44,7 @@ public:
                         DataArray           Udata2,
                         int                 varId,
                         norm_type           norm) :
-    HydroBaseFunctor(params),
+    params(params),
     Udata1(Udata1),
     Udata2(Udata2),
     varId(varId),
@@ -105,6 +106,7 @@ public:
     dst += src;
   } // join
 
+  HydroParams params;
   DataArray Udata1;
   DataArray Udata2;
   int varId;

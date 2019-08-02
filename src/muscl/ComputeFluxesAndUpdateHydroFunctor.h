@@ -14,8 +14,8 @@
 #include "shared/RiemannSolvers.h"
 #include "shared/bc_utils.h"
 
-// base class
-#include "muscl/HydroBaseFunctor.h"
+// utils hydro
+#include "muscl/utils_hydro.h"
 
 namespace dyablo { namespace muscl {
 
@@ -31,7 +31,7 @@ namespace dyablo { namespace muscl {
  * - update only current cell
  *
  */
-class ComputeFluxesAndUpdateHydroFunctor : public HydroBaseFunctor {
+class ComputeFluxesAndUpdateHydroFunctor {
 
 private:
   using offsets_t = Kokkos::Array<real_t,3>;
@@ -69,8 +69,8 @@ public:
                                      DataArray Slopes_y_ghost,
                                      DataArray Slopes_z_ghost,
                                      real_t    dt) :
-    HydroBaseFunctor(params),
     pmesh(pmesh),
+    params(params),
     fm(fm),
     Data_in(Data_in),
     Data_out(Data_out),
@@ -1217,6 +1217,7 @@ public:
   } // operator ()
   
   std::shared_ptr<AMRmesh> pmesh;
+  HydroParams  params;
   id2index_t   fm;
   DataArray    Data_in, Data_out;
   DataArray    Qdata, Qdata_ghost;
