@@ -136,24 +136,24 @@ void run(std::string input_filename)
                                                      blockSizes,
                                                      userdataBlock);
 
-    DataArray userdata = DataArray("fake_data",
-                                   amr_mesh->getNumOctants()*nbCellsPerLeaf,nbvar);
+    // DataArray userdata = DataArray("fake_data",
+    //                                amr_mesh->getNumOctants()*nbCellsPerLeaf,nbvar);
 
-    Kokkos::parallel_for(
-      amr_mesh->getNumOctants(), KOKKOS_LAMBDA(int i) {
-        for (int iy = 0; iy < by; ++iy) {
-          for (int ix = 0; ix < bx; ++ix) {
-            uint32_t j = ix + bx * iy;
+    // Kokkos::parallel_for(
+    //   amr_mesh->getNumOctants(), KOKKOS_LAMBDA(int i) {
+    //     for (int iy = 0; iy < by; ++iy) {
+    //       for (int ix = 0; ix < bx; ++ix) {
+    //         uint32_t j = ix + bx * iy;
 
-            userdata(i * nbCellsPerLeaf + j, fm[ID]) =
-              userdataBlock(j,fm[ID],i);
+    //         userdata(i * nbCellsPerLeaf + j, fm[ID]) =
+    //           userdataBlock(j,fm[ID],i);
               
-            userdata(i * nbCellsPerLeaf + j, fm[IP]) =
-              userdataBlock(j,fm[IP],i);
+    //         userdata(i * nbCellsPerLeaf + j, fm[IP]) =
+    //           userdataBlock(j,fm[IP],i);
 
-          } // end for ix
-        } // end for iy
-      });
+    //       } // end for ix
+    //     } // end for iy
+    //   });
 
     // save hdf5 data
     {
@@ -167,7 +167,7 @@ void run(std::string input_filename)
       writer.write_header(1.0*iter);
 
       // write user the fake data (all scalar fields, here only one)
-      writer.write_quadrant_attribute(userdata, fm, names2index);
+      writer.write_quadrant_attribute(userdataBlock, fm, names2index);
 
       // close the file
       writer.write_footer();

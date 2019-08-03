@@ -473,6 +473,52 @@ HDF5_Writer::write_quadrant_mach_number(DataArray  data,
 
 // =======================================================
 // =======================================================
+int
+HDF5_Writer::write_quadrant_attribute(DataArrayBlock  data,
+                                      id2index_t      fm,
+                                      str2int_t       names2index)
+{
+
+  // copy data from device to host
+  DataArrayBlockHost datah = Kokkos::create_mirror(data);
+  
+  // copy device data to host
+  Kokkos::deep_copy(datah, data);
+  
+  // write data array scalar fields in ascii
+  for ( auto iter : names2index) {
+    
+    // get variables string name
+    const std::string varName = iter.first;
+    
+    // get variable id
+    int iVar = iter.second;
+
+    // we need to gather data corresponding to the given variable
+    using DataArrayScalar = Kokkos::View<real_t*, Kokkos::HostSpace>;
+    
+    DataArrayScalar dataVar = DataArrayScalar("scalar_array_for_hdf5_io",data.extent(0)*data.extent(2));
+
+    uint32_t nbCellsPerOct = data.extent(0);
+
+    Kokkos::parallel_for(data.extent(2), KOKKOS_LAMBDA (uint32_t i) {
+        for (uint32_t index=0; index<nbCellsPerOct; ++index)
+          dataVar(index + nbCellsPerOct*i) = data(index,fm[iVar],i);
+      });
+    
+    // actual data writing
+    write_attribute(varName, dataVar.ptr_on_device(), 
+                    0, IO_CELL_SCALAR,
+                    H5T_NATIVE_DOUBLE, H5T_NATIVE_DOUBLE);
+
+  } // end for iter
+    
+  return 0;
+
+} // HDF5_Writer::write_quadrant_attribute
+
+// =======================================================
+// =======================================================
 void
 HDF5_Writer::io_hdf5_writev(hid_t fd, 
                             const std::string &name, 

@@ -39,5 +39,6 @@ using DataArrayHost = DataArray::HostMirror;
  * Note that we enforce Left layout here, since we plan to the Kokkos TeamPolicy with one team per leaf, so we favor memory locality inside a block.
  */
 using DataArrayBlock = Kokkos::View<real_t***, Kokkos::LayoutLeft, Device>;
+using DataArrayBlockHost = DataArrayBlock::HostMirror;
 
 #endif // KOKKOS_SHARED_H_
