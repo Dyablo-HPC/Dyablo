@@ -1,11 +1,11 @@
 /**
  * \file HydroInitFunctor.h
  */
-#ifndef HYDRO_INIT_FUNCTORS_H_
-#define HYDRO_INIT_FUNCTORS_H_
+#ifndef HYDRO_INIT_MUSCL_BLOCK_FUNCTORS_H_
+#define HYDRO_INIT_MUSCL_BLOCK_FUNCTORS_H_
 
 namespace dyablo {
-namespace muscl {
+namespace muscl_block {
 
 class SolverHydroMusclBlock;
 
@@ -19,7 +19,7 @@ void init_blast(SolverHydroMusclBlock *psolver);
 // void init_isentropic_vortex(SolverHydroMuscl *psolver);
 // void init_rayleigh_taylor(SolverHydroMuscl *psolver);
 
-} // namespace muscl
+} // namespace muscl_block
 } // namespace dyablo
 
-#endif // HYDRO_INIT_FUNCTORS_H_
+#endif // HYDRO_INIT_MUSCL_BLOCK_FUNCTORS_H_
