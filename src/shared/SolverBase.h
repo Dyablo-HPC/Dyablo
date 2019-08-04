@@ -24,7 +24,8 @@
 //! this enum helps identifying the type of solver used
 enum solver_type_t {
   SOLVER_UNDEFINED=0,
-  SOLVER_MUSCL_HANCOCK=1
+  SOLVER_MUSCL_HANCOCK=1,
+  SOLVER_MUSCL_HANCOCK_BLOCK=2
 };
 
 //! enum for identifying timers

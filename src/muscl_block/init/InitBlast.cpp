@@ -4,10 +4,10 @@
  */
 
 #include "InitBlast.h"
-#include "../SolverHydroMuscl.h"
+#include "../SolverHydroMusclBlock.h"
 
 namespace dyablo {
-namespace muscl {
+namespace muscl_block {
 
 // =======================================================
 // =======================================================
@@ -19,8 +19,8 @@ void init_blast(SolverHydroMuscl *psolver)
 {
 
   std::shared_ptr<AMRmesh> amr_mesh = psolver->amr_mesh;
-  ConfigMap &configMap = psolver->configMap;
-  HydroParams& params = psolver->params;
+  ConfigMap&   configMap = psolver->configMap;
+  HydroParams& params    = psolver->params;
 
   /*
    * this is the initial global refine, to reach level_min / no parallelism
@@ -71,6 +71,6 @@ void init_blast(SolverHydroMuscl *psolver)
 
 } // init_blast
 
-} // namespace muscl
+} // namespace muscl_block
 
 } // namespace dyablo
