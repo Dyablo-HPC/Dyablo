@@ -14,7 +14,7 @@ set (muscl_block_SRCS
 # add MPI user data communication interface
 if (USE_MPI)
   list(APPEND muscl_block_SRCS
-    #${CMAKE_CURRENT_SOURCE_DIR}/UserDataComm.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/UserDataComm.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/UserDataLB.cpp)
 endif(USE_MPI)
 

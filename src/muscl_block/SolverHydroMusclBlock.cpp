@@ -30,7 +30,7 @@
 // #include "muscl_block/UpdateRSSTHydroFunctor.h"
 
 #if BITPIT_ENABLE_MPI==1
-// #include "muscl_block/UserDataComm.h"
+#include "muscl_block/UserDataComm.h"
 #include "muscl_block/UserDataLB.h"
 #endif
 
@@ -88,6 +88,10 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   bx = configMap.getInteger("amr", "bx", 0);
   by = configMap.getInteger("amr", "by", 0);
   bz = configMap.getInteger("amr", "bz", 1);
+
+  blockSizes[IX] = bx;
+  blockSizes[IY] = by;
+  blockSizes[IZ] = bz;
 
   nbCellsPerOct = params.dimType == TWO_D ? bx*by : bx*by*bz;
 
@@ -316,7 +320,7 @@ double SolverHydroMusclBlock::compute_dt_local()
   auto fm = fieldMgr.get_id2index();
 
   // call device functor - compute invDt
-  ComputeDtHydroFunctor::apply(amr_mesh, params, fm, U, invDt);
+  //ComputeDtHydroFunctor::apply(amr_mesh, params, fm, U, invDt);
 
   dt = params.settings.cfl/invDt;
 
@@ -552,32 +556,34 @@ void SolverHydroMusclBlock::save_solution_impl()
 void SolverHydroMusclBlock::save_solution_vtk() 
 {
 
-  // retrieve available / allowed names: fieldManager, and field map (fm)
-  auto fm = fieldMgr.get_id2index();
+  std::cerr << "writeVTK for block AMR is not implemented - TODO\n";
 
-  // number of macroscopic variables,
-  // scalar fields : density, velocity, phase field, etc...
-  //int nbVar = fieldMgr.numScalarField;
+  // // retrieve available / allowed names: fieldManager, and field map (fm)
+  // auto fm = fieldMgr.get_id2index();
 
-  // a map containing ID and name of the variable to write
-  str2int_t names2index; // this is initially empty
-  build_var_to_write_map(names2index, params, configMap);
+  // // number of macroscopic variables,
+  // // scalar fields : density, velocity, phase field, etc...
+  // //int nbVar = fieldMgr.numScalarField;
+
+  // // a map containing ID and name of the variable to write
+  // str2int_t names2index; // this is initially empty
+  // build_var_to_write_map(names2index, params, configMap);
   
-  // prepare suffix string
-  std::ostringstream strsuf;
-  strsuf << "iter";
-  strsuf.width(7);
-  strsuf.fill('0');
-  strsuf << m_iteration;
+  // // prepare suffix string
+  // std::ostringstream strsuf;
+  // strsuf << "iter";
+  // strsuf.width(7);
+  // strsuf.fill('0');
+  // strsuf << m_iteration;
   
-  writeVTK(*amr_mesh, strsuf.str(), U, fm, names2index, configMap);
+  // writeVTK(*amr_mesh, strsuf.str(), U, fm, names2index, configMap);
 
-  if (params.debug_output) {
-    writeVTK(*amr_mesh, strsuf.str(), Slopes_x, fm, names2index, configMap, "_slope_x");
-    writeVTK(*amr_mesh, strsuf.str(), Slopes_y, fm, names2index, configMap, "_slope_y");
-    if (params.dimType==THREE_D)
-      writeVTK(*amr_mesh, strsuf.str(), Slopes_z, fm, names2index, configMap, "_slope_z");
-  }
+  // if (params.debug_output) {
+  //   writeVTK(*amr_mesh, strsuf.str(), Slopes_x, fm, names2index, configMap, "_slope_x");
+  //   writeVTK(*amr_mesh, strsuf.str(), Slopes_y, fm, names2index, configMap, "_slope_y");
+  //   if (params.dimType==THREE_D)
+  //     writeVTK(*amr_mesh, strsuf.str(), Slopes_z, fm, names2index, configMap, "_slope_z");
+  // }
 
 } // SolverHydroMusclBlock::save_solution_vtk
 
@@ -619,18 +625,18 @@ void SolverHydroMusclBlock::save_solution_hdf5()
 
     // check if we want to write velocity or rhoV vector fields
     std::string write_variables = configMap.getString("output", "write_variables", "");
-    if (write_variables.find("velocity") != std::string::npos) {
-      hdf5_writer->write_quadrant_velocity(U, fm, false);
-    } else if (write_variables.find("rhoV") != std::string::npos) {
-      hdf5_writer->write_quadrant_velocity(U, fm, true);
-    } 
+    // if (write_variables.find("velocity") != std::string::npos) {
+    //   hdf5_writer->write_quadrant_velocity(U, fm, false);
+    // } else if (write_variables.find("rhoV") != std::string::npos) {
+    //   hdf5_writer->write_quadrant_velocity(U, fm, true);
+    // } 
     
     if (write_variables.find("Mach") != std::string::npos) {
       // mach number will be recomputed from conservative variables
       // we could have used primitive variables, but since here Q
       // may not have the same size, Q may need to be resized
       // and recomputed anyway.
-      hdf5_writer->write_quadrant_mach_number(U, fm);
+      //hdf5_writer->write_quadrant_mach_number(U, fm);
     }
 
     // close the file

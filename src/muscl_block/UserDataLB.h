@@ -5,8 +5,8 @@
  *
  * MPI load balancing user data.
  */
-#ifndef MUSCL_USER_DATA_LB_H_
-#define MUSCL_USER_DATA_LB_H_
+#ifndef MUSCL_BLOCK_USER_DATA_LB_H_
+#define MUSCL_BLOCK_USER_DATA_LB_H_
 
 #include <cstdlib>
 #include <cstdint>
@@ -107,4 +107,4 @@ public:
 
 } // namespace dyablo
 
-#endif // MUSCL_USER_DATA_LB_H_
+#endif // MUSCL_BLOCK_USER_DATA_LB_H_

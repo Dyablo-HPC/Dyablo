@@ -15,7 +15,7 @@ namespace muscl_block {
  * Hydrodynamical blast Test.
  * http://www.astro.princeton.edu/~jstone/Athena/tests/blast/blast.html
  */
-void init_blast(SolverHydroMuscl *psolver)
+void init_blast(SolverHydroMusclBlock *psolver)
 {
 
   std::shared_ptr<AMRmesh> amr_mesh = psolver->amr_mesh;
@@ -67,7 +67,9 @@ void init_blast(SolverHydroMuscl *psolver)
   /*
    * perform user data init
    */
-  InitBlastDataFunctor::apply(amr_mesh, params, configMap, fm, psolver->U);
+  InitBlastDataFunctor::apply(amr_mesh, params, configMap, fm, 
+                              psolver->blockSizes,
+                              psolver->U);
 
 } // init_blast
 

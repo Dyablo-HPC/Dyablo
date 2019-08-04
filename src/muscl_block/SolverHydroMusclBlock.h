@@ -127,6 +127,8 @@ public:
   //! block sizes
   uint32_t bx, by, bz;
 
+  Kokkos::Array<int32_t, 3> blockSizes;
+
   //! number of cells per octant
   uint32_t nbCellsPerOct;
 

@@ -61,7 +61,7 @@ public:
 		    HydroParams    params,
                     ConfigMap      configMap,
 		    id2index_t     fm,
-                    Kokkos::Array<int,3> blockSizes,
+                    Kokkos::Array<int32_t,3> blockSizes,
                     DataArrayBlock Udata)
   {
     BlastParams blastParams = BlastParams(configMap);
@@ -194,7 +194,7 @@ public:
   id2index_t     fm;
 
   //! block sizes
-  Kokkos::Array<int, 3>  blockSizes;
+  Kokkos::Array<int32_t, 3> blockSizes;
 
   //! heavy data
   DataArrayBlock Udata;
