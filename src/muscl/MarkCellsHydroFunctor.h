@@ -12,8 +12,8 @@
 #include "bitpit_PABLO.hpp"
 #include "shared/bitpit_common.h"
 
-// base class
-#include "muscl/HydroBaseFunctor.h"
+// utils hydro
+#include "shared/utils_hydro.h"
 
 namespace dyablo { namespace muscl {
 
@@ -24,7 +24,7 @@ namespace dyablo { namespace muscl {
  * Mark cells for refine or coarsen according to a gradient-like conditions.
  *
  */
-class MarkCellsHydroFunctor : public HydroBaseFunctor {
+class MarkCellsHydroFunctor {
   
 public:
   /**
@@ -44,8 +44,8 @@ public:
                         DataArray   Udata_ghost,
                         real_t      eps_refine,
                         real_t      eps_coarsen) :
-    HydroBaseFunctor(params),
     pmesh(pmesh),
+    params(params),
     fm(fm),
     Udata(Udata), 
     Udata_ghost(Udata_ghost),
@@ -190,6 +190,7 @@ public:
   } // operator ()
   
   std::shared_ptr<AMRmesh> pmesh;
+  HydroParams  params;
   id2index_t   fm;
   DataArray    Udata;
   DataArray    Udata_ghost;

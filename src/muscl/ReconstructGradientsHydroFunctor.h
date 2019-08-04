@@ -12,8 +12,8 @@
 #include "bitpit_PABLO.hpp"
 #include "shared/bitpit_common.h"
 
-// base class
-#include "muscl/HydroBaseFunctor.h"
+// utils hydro
+#include "shared/utils_hydro.h"
 
 namespace dyablo { namespace muscl {
 
@@ -26,7 +26,7 @@ namespace dyablo { namespace muscl {
  * Equivalent to slope limiter in a regular cartesian grid code.
  *
  */
-class ReconstructGradientsHydroFunctor : public HydroBaseFunctor {
+class ReconstructGradientsHydroFunctor {
   
 public:
 
@@ -51,8 +51,8 @@ public:
 				   DataArray SlopeX,
 				   DataArray SlopeY,
 				   DataArray SlopeZ) :
-    HydroBaseFunctor(params),
     pmesh(pmesh), 
+    params(params),
     fm(fm),
     Qdata(Qdata), 
     Qdata_ghost(Qdata_ghost),
@@ -271,6 +271,7 @@ public:
   } // operator ()
   
   std::shared_ptr<AMRmesh> pmesh;
+  HydroParams params;
   id2index_t   fm;
   DataArray    Qdata;
   DataArray    Qdata_ghost;

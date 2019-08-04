@@ -15,8 +15,8 @@
 #include "bitpit_PABLO.hpp"
 #include "shared/bitpit_common.h"
 
-// base class
-#include "muscl/HydroBaseFunctor.h"
+// hydro utils
+#include "shared/utils_hydro.h"
 
 namespace dyablo { namespace muscl {
 
@@ -28,15 +28,14 @@ namespace dyablo { namespace muscl {
  * All cell, whatever level, contribute equally to the CFL condition.
  *
  */
-class ComputeDtHydroFunctor : public HydroBaseFunctor {
+class ComputeDtHydroFunctor {
 
 public:
   ComputeDtHydroFunctor(std::shared_ptr<AMRmesh> pmesh,
 			HydroParams   params,
 			id2index_t    fm,
 			DataArray     Udata) :
-    HydroBaseFunctor(params),
-    pmesh(pmesh), fm(fm), Udata(Udata)
+    pmesh(pmesh), params(params), fm(fm), Udata(Udata)
   {};
   
   // static method which does it all: create and execute functor
@@ -94,7 +93,7 @@ public:
     uLoc[IV] = Udata(i,fm[IV]);
     
     // get primitive variables in current cell
-    computePrimitives(uLoc, &c, qLoc);
+    computePrimitives(uLoc, &c, qLoc, params);
 
     if (params.rsst_enabled and params.rsst_cfl_enabled) {
       vx = c/params.rsst_ksi + FABS(qLoc[IU]);
@@ -133,7 +132,7 @@ public:
     uLoc[IW] = Udata(i,fm[IW]);
     
     // get primitive variables in current cell
-    computePrimitives(uLoc, &c, qLoc);
+    computePrimitives(uLoc, &c, qLoc, params);
     if (params.rsst_enabled and params.rsst_cfl_enabled) {
       vx = c/params.rsst_ksi + FABS(qLoc[IU]);
       vy = c/params.rsst_ksi + FABS(qLoc[IV]);
@@ -152,10 +151,10 @@ public:
   void operator()(const size_t& i, real_t &invDt) const
   {
 
-    if (this->params.dimType == TWO_D)
+    if (params.dimType == TWO_D)
       operator_2d(i,invDt);
 
-    if (this->params.dimType == THREE_D)
+    if (params.dimType == THREE_D)
       operator_3d(i,invDt);
     
   }
@@ -175,6 +174,7 @@ public:
   } // join
 
   std::shared_ptr<AMRmesh> pmesh;
+  HydroParams  params;
   id2index_t   fm;
   DataArray    Udata;
   
