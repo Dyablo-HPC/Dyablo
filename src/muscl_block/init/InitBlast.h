@@ -190,7 +190,7 @@ public:
   //! Blast problem specific parameters
   BlastParams    bParams;
 
-  // field manager
+  //! field manager
   id2index_t     fm;
 
   //! block sizes
