@@ -21,7 +21,7 @@
 
 // Compute functors
 // #include "muscl_block/ComputeDtHydroFunctor.h"
-// #include "muscl_block/ConvertToPrimitivesHydroFunctor.h"
+#include "muscl_block/ConvertToPrimitivesHydroFunctor.h"
 // #include "muscl_block/ReconstructGradientsHydroFunctor.h"
 // #include "muscl_block/ComputeFluxesAndUpdateHydroFunctor.h"
 // #include "muscl_block/MarkCellsHydroFunctor.h"
@@ -449,7 +449,9 @@ void SolverHydroMusclBlock::convertToPrimitives(DataArrayBlock Udata)
   Kokkos::resize(Q, Udata.extent(0), Udata.extent(1), Udata.extent(2));
 
   // call device functor
-  //ConvertToPrimitivesHydroFunctor::apply(amr_mesh, params, fm, Udata, Q);
+  ConvertToPrimitivesHydroFunctor::apply(amr_mesh, configMap, params, fm, 
+                                         blockSizes,
+                                         Udata, Q);
   
 } // SolverHydroMusclBlock::convertToPrimitives
 

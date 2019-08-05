@@ -127,6 +127,7 @@ public:
   //! block sizes
   uint32_t bx, by, bz;
 
+  //! block sizes as an array
   Kokkos::Array<int32_t, 3> blockSizes;
 
   //! number of cells per octant
