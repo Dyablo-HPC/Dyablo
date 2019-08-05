@@ -54,10 +54,10 @@ public:
   template<class Buffer>
   void gather(Buffer & buff, const uint32_t iOct) {
 
-    for (uint32_t index=0; index<nbCellsPerOct; ++index)
-      for (uint32_t ivar=0; ivar<nbVars; ++ivar) {
+    for (uint32_t ivar=0; ivar<nbVars; ++ivar) {
+      for (uint32_t index=0; index<nbCellsPerOct; ++index)
         buff << data(index,fm[ivar],iOct);
-      }
+    }
 
   } // gather
 
@@ -67,10 +67,10 @@ public:
   template<class Buffer>
   void scatter(Buffer & buff, const uint32_t iOct) {
 
-    for (uint32_t index=0; index<nbCellsPerOct; ++index)
-      for (uint32_t ivar=0; ivar<nbVars; ++ivar) {
+    for (uint32_t ivar=0; ivar<nbVars; ++ivar) {
+      for (uint32_t index=0; index<nbCellsPerOct; ++index)
         buff >> ghostData(index,fm[ivar],iOct);
-      }
+    }
 
   } // scatter
 

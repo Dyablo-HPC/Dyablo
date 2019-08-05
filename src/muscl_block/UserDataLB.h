@@ -62,8 +62,8 @@ public:
   template<class Buffer>
   void gather(Buffer & buff, const uint32_t iOct) {
     // copy block of data
-    for (uint32_t index=0; index<nbCellsPerOct; ++index)
-      for (uint32_t ivar=0; ivar<nbVars; ++ivar)
+    for (uint32_t ivar=0; ivar<nbVars; ++ivar)
+      for (uint32_t index=0; index<nbCellsPerOct; ++index)
         buff << data(index, fm[ivar], iOct);
   };
 
@@ -71,8 +71,8 @@ public:
   template<class Buffer>
   void scatter(Buffer & buff, const uint32_t iOct) {
     // copy block of data
-    for (uint32_t index=0; index<nbCellsPerOct; ++index)
-      for (uint32_t ivar=0; ivar<nbVars; ++ivar)
+    for (uint32_t ivar=0; ivar<nbVars; ++ivar)
+      for (uint32_t index=0; index<nbCellsPerOct; ++index)
         buff >> data(index, fm[ivar], iOct);
   };
 

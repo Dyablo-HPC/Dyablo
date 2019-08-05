@@ -56,8 +56,8 @@ size_t UserDataLB::size(const uint32_t iOct) const
 void UserDataLB::move(const uint32_t from, const uint32_t to)
 {
 
-  for (uint32_t index=0; index<nbCellsPerOct; ++index)
-    for (uint32_t ivar=0; ivar<nbVars; ++ivar)
+  for (uint32_t ivar=0; ivar<nbVars; ++ivar)
+    for (uint32_t index=0; index<nbCellsPerOct; ++index)
       data(index,fm[ivar],to) = data(index,fm[ivar],from);
 
 }; // UserDataLB::move
@@ -71,16 +71,16 @@ void UserDataLB::assign(uint32_t stride, uint32_t length)
   Kokkos::resize(dataCopy, nbCellsPerOct, length, nbVars);
   
   Kokkos::parallel_for("dyablo::muscl_block::UserDataLB::assign copy data to dataCopy",length, KOKKOS_LAMBDA(size_t &iOct) {
-      for (uint32_t index=0; index<nbCellsPerOct; ++index)
-        for (uint32_t ivar=0; ivar<nbVars; ++ivar)
+      for (uint32_t ivar=0; ivar<nbVars; ++ivar)
+        for (uint32_t index=0; index<nbCellsPerOct; ++index)
           dataCopy(index, fm[ivar], iOct) = data(index, fm[ivar], iOct+stride);
     });
   
   //data = dataCopy;
   //Kokkos::resize(data,nbCellsPerOct,length,nbVars);
   Kokkos::parallel_for("dyablo::muscl_block::UserDataLB::assign copy dataCopy to data",length, KOKKOS_LAMBDA(size_t &iOct) {
-      for (uint32_t index=0; index<nbCellsPerOct; ++index)
-        for (uint32_t ivar=0; ivar<nbVars; ++ivar)
+      for (uint32_t ivar=0; ivar<nbVars; ++ivar)
+        for (uint32_t index=0; index<nbCellsPerOct; ++index)
           data(index,fm[ivar],iOct) = dataCopy(index,fm[ivar],iOct);
     });
 
