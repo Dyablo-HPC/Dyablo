@@ -11,7 +11,7 @@
 #include "shared/HydroParams.h"
 #include "shared/HydroState.h"
 
-namespace dyablo { namespace muscl {
+namespace dyablo {
   
 /**
  * a dummy swap device routine.
@@ -207,8 +207,6 @@ void compute_Pressure_and_SpeedOfSound(const HydroState3d &u,
   c = sqrt(gamma0 * (pressure) / d);
   
 } // computePressure_and_SpeedOfSound - 3d
-
-} // namespace muscl
 
 } // namespace dyablo
 
