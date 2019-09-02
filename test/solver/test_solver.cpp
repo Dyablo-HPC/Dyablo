@@ -22,6 +22,7 @@
 #endif // USE_MPI
 
 #include "muscl/SolverHydroMuscl.h"
+#include "muscl_block/SolverHydroMusclBlock.h"
 
 // banner
 //#include "dyablo_version.h"
@@ -106,9 +107,13 @@ int main(int argc, char *argv[])
   const std::string solver_name = configMap.getString("run", "solver_name", "Unknown");
 
   // initialize workspace memory (U, U2, ...)
-  SolverBase *solver = muscl::SolverHydroMuscl::create(params,
-						       configMap);
-  
+  SolverBase *solver;
+  if (solver_name.find("Muscl_Block") != std::string::npos) {
+    solver = muscl_block::SolverHydroMusclBlock::create(params, configMap);
+  } else {
+    solver = muscl::SolverHydroMuscl::create(params, configMap);
+  }
+
   // start computation
   if (rank==0) std::cout << "Start computation....\n";
   solver->m_timers[TIMER_TOTAL]->start();

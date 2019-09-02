@@ -23,6 +23,7 @@ target_link_libraries(${EXE_NAME}
   kokkos
   dl
   muscl
+  muscl_block
   shared
   monitoring
   ${BITPIT_LIBRARY})
