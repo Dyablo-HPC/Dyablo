@@ -81,7 +81,7 @@ public:
   }
   
   KOKKOS_INLINE_FUNCTION
-  void operator()(team_policy_t::member_type member) const
+  void operator()(thread_t member) const
   {
 
     // blast problem parameters
