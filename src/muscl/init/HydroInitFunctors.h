@@ -18,6 +18,7 @@ void init_gresho_vortex(SolverHydroMuscl *psolver);
 void init_four_quadrant(SolverHydroMuscl *psolver);
 void init_isentropic_vortex(SolverHydroMuscl *psolver);
 void init_rayleigh_taylor(SolverHydroMuscl *psolver);
+void init_shu_osher(SolverHydroMuscl *psolver);
 
 } // namespace muscl
 } // namespace dyablo

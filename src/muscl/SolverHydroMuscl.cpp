@@ -238,6 +238,10 @@ void SolverHydroMuscl::init(DataArray Udata)
       
       init_rayleigh_taylor(this);
       
+    } else if ( !m_problem_name.compare("shu_osher") ) {
+      
+      init_shu_osher(this);
+      
     } else {
       
       std::cout << "Problem : " << m_problem_name
