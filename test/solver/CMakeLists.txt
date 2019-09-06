@@ -51,3 +51,4 @@ configure_file(test_kelvin_helmholtz_2D.ini test_kelvin_helmholtz_2D.ini COPYONL
 configure_file(test_implode_2D.ini test_implode_2D.ini COPYONLY)
 configure_file(test_implode_3D.ini test_implode_3D.ini COPYONLY)
 
+configure_file(test_shu_osher_2D.ini test_shu_osher_2D.ini COPYONLY)
