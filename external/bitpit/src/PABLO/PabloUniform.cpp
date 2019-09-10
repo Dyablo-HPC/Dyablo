@@ -288,10 +288,10 @@ PabloUniform::getX(uint32_t idx) const {
  */
 double
 PabloUniform::getY(uint32_t idx) const {
-  double X, X_;
-  X_ = ParaTree::getY(idx);
-  X = m_origin[0] + m_L * X_;
-  return X;
+  double Y, Y_;
+  Y_ = ParaTree::getY(idx);
+  Y = m_origin[1] + m_L * Y_;
+  return Y;
 };
 
 /*! Get the coordinate Z of an octant, i.e. the coordinates of its node 0.
@@ -300,10 +300,10 @@ PabloUniform::getY(uint32_t idx) const {
  */
 double
 PabloUniform::getZ(uint32_t idx) const {
-  double X, X_;
-  X_ = ParaTree::getZ(idx);
-  X = m_origin[0] + m_L * X_;
-  return X;
+  double Z, Z_;
+  Z_ = ParaTree::getZ(idx);
+  Z = m_origin[2] + m_L * Z_;
+  return Z;
 };
 
 /*! Get the size of an octant, i.e. the side length.
@@ -498,10 +498,10 @@ PabloUniform::getX(const Octant* oct) const {
  */
 double
 PabloUniform::getY(const Octant* oct) const {
-  double X, X_;
-  X_ = ParaTree::getY(oct);
-  X = m_origin[0] + m_L * X_;
-  return X;
+  double Y, Y_;
+  Y_ = ParaTree::getY(oct);
+  Y = m_origin[1] + m_L * Y_;
+  return Y;
 };
 
 /*! Get the coordinate Z of an octant, i.e. the coordinates of its node 0.
@@ -510,10 +510,10 @@ PabloUniform::getY(const Octant* oct) const {
  */
 double
 PabloUniform::getZ(const Octant* oct) const {
-  double X, X_;
-  X_ = ParaTree::getZ(oct);
-  X = m_origin[0] + m_L * X_;
-  return X;
+  double Z, Z_;
+  Z_ = ParaTree::getZ(oct);
+  Z = m_origin[2] + m_L * Z_;
+  return Z;
 };
 
 /*! Get the size of an octant, i.e. the side length.
