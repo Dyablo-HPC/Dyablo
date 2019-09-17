@@ -16,10 +16,9 @@
 #include <mpi.h>
 #endif // USE_MPI
 
-
 using Device = Kokkos::DefaultExecutionSpace;
 
-using Data_t = Kokkos::View<int32_t*, Device>;
+using Data_t = Kokkos::View<int32_t *, Device>;
 using DataHost_t = Data_t::HostMirror;
 
 /*************************************************/
@@ -39,60 +38,52 @@ public:
   using team_policy_t = Kokkos::TeamPolicy<Kokkos::IndexType<int32_t>>;
   using thread_t = team_policy_t::member_type;
 
-  void setNbTeams(uint32_t nbTeams_) {nbTeams = nbTeams_;}; 
+  void setNbTeams(uint32_t nbTeams_) { nbTeams = nbTeams_; };
 
   /**
    * test parallel for functor
    *
    */
-  TestKokkosTeamVectorForFunctor(Data_t data, uint32_t bSize) :
-    data(data),
-    bSize(bSize)
-    {
-      nbBlocks = (data.extent(0) + bSize -1)/bSize;
-    };
+  TestKokkosTeamVectorForFunctor(Data_t data, uint32_t bSize)
+      : data(data), bSize(bSize) {
+    nbBlocks = (data.extent(0) + bSize - 1) / bSize;
+  };
 
   // static method which does it all: create and execute functor
-  static void apply(Data_t data, uint32_t bSize)
-  {
+  static void apply(Data_t data, uint32_t bSize) {
 
-    TestKokkosTeamVectorForFunctor functor(data,bSize);
-    
+    TestKokkosTeamVectorForFunctor functor(data, bSize);
+
     // kokkos execution policy
-    uint32_t nbTeams_ = 16; 
-    functor.setNbTeams ( nbTeams_ );
-    
-    team_policy_t policy (nbTeams_,
-                          Kokkos::AUTO() /* team size chosen by kokkos */);
-    
-    Kokkos::parallel_for("TestKokkosTeamVectorForFunctor",
-                         policy, functor);
+    uint32_t nbTeams_ = 16;
+    functor.setNbTeams(nbTeams_);
+
+    team_policy_t policy(nbTeams_,
+                         Kokkos::AUTO() /* team size chosen by kokkos */);
+
+    Kokkos::parallel_for("TestKokkosTeamVectorForFunctor", policy, functor);
   }
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(team_policy_t::member_type member) const
-  {
-    
+  void operator()(team_policy_t::member_type member) const {
+
     uint32_t iBlock = member.league_rank();
 
-    while (iBlock < nbBlocks)
-    {
+    while (iBlock < nbBlocks) {
 
       Kokkos::parallel_for(
-        Kokkos::TeamVectorRange(member, bSize),
-        KOKKOS_LAMBDA(const int32_t index) {
-          
-          // copy q state in q global
-          data(index+iBlock*bSize) += 12;
-
-        }); // end TeamVectorRange
+          Kokkos::TeamVectorRange(member, bSize),
+          KOKKOS_LAMBDA(const int32_t index) {
+            // copy q state in q global
+            data(index + iBlock * bSize) += 12;
+          }); // end TeamVectorRange
 
       iBlock += nbTeams;
-      
+
     } // end while iBlock < nbBlocks
 
   } // operator
-  
+
   //! heavy data
   Data_t data;
 
@@ -104,74 +95,180 @@ public:
 
 }; // TestKokkosTeamVectorForFunctor
 
+/*************************************************/
+/*************************************************/
+/*************************************************/
+/**
+ * Kokkos team vector - parallel reduce
+ *
+ * \note in this test, data array size must be a multiple of nbBlocks
+ */
+class TestKokkosTeamVectorReduceFunctor {
+
+private:
+  uint32_t nbTeams; //!< number of thread teams
+
+public:
+  using team_policy_t = Kokkos::TeamPolicy<Kokkos::IndexType<int32_t>>;
+  using thread_t = team_policy_t::member_type;
+
+  void setNbTeams(uint32_t nbTeams_) { nbTeams = nbTeams_; };
+
+  /**
+   * test parallel reduce functor
+   *
+   */
+  TestKokkosTeamVectorReduceFunctor(Data_t data, uint32_t bSize)
+      : data(data), bSize(bSize) {
+    nbBlocks = (data.extent(0) + bSize - 1) / bSize;
+  };
+
+  // static method which does it all: create and execute functor
+  static void apply(Data_t data, uint32_t bSize) {
+
+    TestKokkosTeamVectorReduceFunctor functor(data, bSize);
+
+    // kokkos execution policy
+    uint32_t nbTeams_ = 16;
+    functor.setNbTeams(nbTeams_);
+
+    team_policy_t policy(nbTeams_,
+                         Kokkos::AUTO() /* team size chosen by kokkos */);
+
+    Kokkos::parallel_for("TestKokkosTeamVectorReduceFunctor", policy,
+                         functor);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(team_policy_t::member_type member) const {
+
+    uint32_t iBlock = member.league_rank();
+
+    while (iBlock < nbBlocks) {
+
+      int sum=0;
+
+      Kokkos::parallel_reduce(
+          Kokkos::TeamVectorRange(member, bSize),
+          KOKKOS_LAMBDA(const int32_t index, int& local_sum) {
+            // copy q state in q global
+            local_sum += data(index + iBlock * bSize);
+          },
+          sum); // end TeamVectorRange
+
+      // write sum
+      std::cout << iBlock << " " << sum << "\n";
+
+      iBlock += nbTeams;
+
+    } // end while iBlock < nbBlocks
+
+  } // operator
+
+  //! heavy data
+  Data_t data;
+
+  //! block size
+  uint32_t bSize;
+
+  //! number of blocks
+  uint32_t nbBlocks;
+
+}; // TestKokkosTeamVectorReduceFunctor
+
 // =======================================================================
 // =======================================================================
-void run_test(uint32_t bSize, uint32_t nbBlocks)
-{
+void run_test(uint32_t bSize, uint32_t nbBlocks) {
 
-  uint32_t dataSize = bSize*nbBlocks;
+  /*
+   * TestKokkosTeamVectorForFunctor
+   */
+  {
+    std::cout << "Testing TestKokkosTeamVectorForFunctor...\n";
 
-  // create and init test data
-  Data_t data = Data_t("test_data",dataSize);
-  Kokkos::parallel_for("init_test_data", dataSize,
-    KOKKOS_LAMBDA(uint32_t i) {
-                         data(i) = i;
-    });
+    uint32_t dataSize = bSize * nbBlocks;
 
-  // Kokkos::fence();
-  // Kokkos::parallel_for("print_results", dataSize,
-  //   KOKKOS_LAMBDA(uint32_t i) {
-  //                        std::cout << i << " " << data(i) << "\n";
-  //   });
+    // create and init test data
+    Data_t data = Data_t("test_data", dataSize);
+    Kokkos::parallel_for(
+        "init_test_data", dataSize, KOKKOS_LAMBDA(uint32_t i) { data(i) = i; });
 
-  TestKokkosTeamVectorForFunctor::apply(data, bSize);
+    // Kokkos::fence();
+    // Kokkos::parallel_for("print_results", dataSize,
+    //   KOKKOS_LAMBDA(uint32_t i) {
+    //                        std::cout << i << " " << data(i) << "\n";
+    //   });
 
-  Kokkos::fence();
+    TestKokkosTeamVectorForFunctor::apply(data, bSize);
 
-  Kokkos::parallel_for("print_results", dataSize,
-    KOKKOS_LAMBDA(uint32_t i) {
-                         std::cout << i << " " << data(i) << "\n";
-    });
+    Kokkos::fence();
+
+    Kokkos::parallel_for(
+        "print_results", dataSize, KOKKOS_LAMBDA(uint32_t i) {
+          std::cout << i << " " << data(i) << "\n";
+        });
+  }
+
+  /*
+   * TestKokkosTeamVectorReduceFunctor
+   */
+  {
+    std::cout << "Testing TestKokkosTeamVectorReduceFunctor...\n";
+
+    uint32_t dataSize = bSize * nbBlocks;
+
+    // create and init test data
+    Data_t data = Data_t("test_data", dataSize);
+    Kokkos::parallel_for(
+        "init_test_data", dataSize, KOKKOS_LAMBDA(uint32_t i) { data(i) = i; });
+
+    // Kokkos::fence();
+    // Kokkos::parallel_for("print_results", dataSize,
+    //   KOKKOS_LAMBDA(uint32_t i) {
+    //                        std::cout << i << " " << data(i) << "\n";
+    //   });
+
+    TestKokkosTeamVectorReduceFunctor::apply(data, bSize);
+
+  }
 
 } // run_test
 
 // =======================================================================
 // =======================================================================
-int main(int argc, char* argv[])
-{
+int main(int argc, char *argv[]) {
 
- // Create MPI session if MPI enabled
+  // Create MPI session if MPI enabled
 #ifdef USE_MPI
-  hydroSimu::GlobalMpiSession mpiSession(&argc,&argv);
+  hydroSimu::GlobalMpiSession mpiSession(&argc, &argv);
 #endif // USE_MPI
 
   Kokkos::initialize(argc, argv);
 
-  int rank=0;
-  int nRanks=1;
+  int rank = 0;
+  int nRanks = 1;
 
   {
     std::cout << "##########################\n";
     std::cout << "KOKKOS CONFIG             \n";
     std::cout << "##########################\n";
-    
+
     std::ostringstream msg;
     std::cout << "Kokkos configuration" << std::endl;
-    if ( Kokkos::hwloc::available() ) {
+    if (Kokkos::hwloc::available()) {
       msg << "hwloc( NUMA[" << Kokkos::hwloc::get_available_numa_count()
-          << "] x CORE["    << Kokkos::hwloc::get_available_cores_per_numa()
-          << "] x HT["      << Kokkos::hwloc::get_available_threads_per_core()
-          << "] )"
-          << std::endl ;
+          << "] x CORE[" << Kokkos::hwloc::get_available_cores_per_numa()
+          << "] x HT[" << Kokkos::hwloc::get_available_threads_per_core()
+          << "] )" << std::endl;
     }
-    Kokkos::print_configuration( msg );
+    Kokkos::print_configuration(msg);
     std::cout << msg.str();
     std::cout << "##########################\n";
-    
+
 #ifdef USE_MPI
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &nRanks);
-# ifdef KOKKOS_ENABLE_CUDA
+#ifdef KOKKOS_ENABLE_CUDA
     {
 
       // To enable kokkos accessing multiple GPUs don't forget to
@@ -189,14 +286,13 @@ int main(int argc, char* argv[])
     }
 #endif // KOKKOS_ENABLE_CUDA
 #endif // USE_MPI
-  } // end kokkos config
+  }    // end kokkos config
 
-  uint32_t bSize = 8;
-  uint32_t nbBlocks = 12;
+  uint32_t bSize = 4;
+  uint32_t nbBlocks = 6;
   run_test(bSize, nbBlocks);
 
   Kokkos::finalize();
 
   return EXIT_SUCCESS;
-
 }
