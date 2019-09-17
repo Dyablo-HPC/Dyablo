@@ -22,6 +22,7 @@
 #include "shared/HydroParams.h"
 #include "shared/kokkos_shared.h"
 #include "shared/FieldManager.h"
+#include "muscl_block/utils_block.h"
 
 // for IO
 #include <shared/HDF5_IO.h>
@@ -128,7 +129,7 @@ public:
   uint32_t bx, by, bz;
 
   //! block sizes as an array
-  Kokkos::Array<int32_t, 3> blockSizes;
+  blockSize_t blockSizes;
 
   //! number of cells per octant
   uint32_t nbCellsPerOct;

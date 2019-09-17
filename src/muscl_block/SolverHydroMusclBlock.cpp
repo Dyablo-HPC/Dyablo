@@ -20,7 +20,7 @@
 #include "muscl_block/init/HydroInitFunctors.h"
 
 // Compute functors
-// #include "muscl_block/ComputeDtHydroFunctor.h"
+//#include "muscl_block/ComputeDtHydroFunctor.h"
 #include "muscl_block/ConvertToPrimitivesHydroFunctor.h"
 // #include "muscl_block/ReconstructGradientsHydroFunctor.h"
 // #include "muscl_block/ComputeFluxesAndUpdateHydroFunctor.h"

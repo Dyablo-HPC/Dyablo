@@ -46,9 +46,9 @@ public:
    * \param[out] Qdata primitive variables
    */
   ConvertToPrimitivesHydroFunctor(std::shared_ptr<AMRmesh> pmesh,
-				  HydroParams params,
-				  id2index_t    fm,
-                                  Kokkos::Array<int32_t,3> blockSizes,
+				  HydroParams    params,
+				  id2index_t     fm,
+                                  blockSize_t    blockSizes,
 				  DataArrayBlock Udata,
 				  DataArrayBlock Qdata) :
     pmesh(pmesh), params(params),
@@ -61,7 +61,7 @@ public:
                     ConfigMap      configMap,
 		    HydroParams    params,
 		    id2index_t     fm,
-                    Kokkos::Array<int32_t,3> blockSizes,
+                    blockSize_t    blockSizes,
 		    DataArrayBlock Udata,
                     DataArrayBlock Qdata)
   {
@@ -198,7 +198,7 @@ public:
   id2index_t   fm;
 
   //! block sizes
-  Kokkos::Array<int32_t, 3> blockSizes;
+  blockSize_t blockSizes;
 
   //! heavy data - conservative variables
   DataArrayBlock    Udata;

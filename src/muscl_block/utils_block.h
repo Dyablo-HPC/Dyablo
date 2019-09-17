@@ -7,6 +7,12 @@
 
 #include "shared/kokkos_shared.h"
 
+namespace dyablo { namespace muscl_block {
+
+using blockSize_t = Kokkos::Array<int32_t, 3>;
+
+// =======================================================
+// =======================================================
 KOKKOS_INLINE_FUNCTION
 Kokkos::Array<int32_t,3> compute_cell_coord(int32_t index, 
                                             int32_t bx,
@@ -23,5 +29,9 @@ Kokkos::Array<int32_t,3> compute_cell_coord(int32_t index,
   return res;
 
 } // compute_cell_coord
+
+} // namespace muscl_block
+
+} // namespace dyablo
 
 #endif // MUSCL_BLOCK_UTILS_H_
