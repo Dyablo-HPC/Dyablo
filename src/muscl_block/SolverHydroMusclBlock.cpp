@@ -20,7 +20,7 @@
 #include "muscl_block/init/HydroInitFunctors.h"
 
 // Compute functors
-// #include "muscl_block/ComputeDtHydroFunctor.h"
+#include "muscl_block/ComputeDtHydroFunctor.h"
 #include "muscl_block/ConvertToPrimitivesHydroFunctor.h"
 // #include "muscl_block/ReconstructGradientsHydroFunctor.h"
 // #include "muscl_block/ComputeFluxesAndUpdateHydroFunctor.h"
@@ -320,7 +320,9 @@ double SolverHydroMusclBlock::compute_dt_local()
   auto fm = fieldMgr.get_id2index();
 
   // call device functor - compute invDt
-  //ComputeDtHydroFunctor::apply(amr_mesh, params, fm, U, invDt);
+  ComputeDtHydroFunctor::apply(amr_mesh, configMap, 
+                               params, fm,
+                               blockSizes, U, invDt);
 
   dt = params.settings.cfl/invDt;
 
@@ -795,7 +797,7 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
   // reset U
   Kokkos::parallel_for("dyablo::muscl_block::SolverHydroMusclBlock reset U",nocts, KOKKOS_LAMBDA(const size_t iOct) {
       for (int ivar=0; ivar<nbVars; ++ivar)
-        for (int index=0; index<nbCellsPerOct; ++index)
+        for (uint32_t index=0; index<nbCellsPerOct; ++index)
           U(index,fm[ivar],iOct)=0.0;
     });
   

@@ -42,28 +42,37 @@ public:
   void setNbTeams(uint32_t nbTeams_) {nbTeams = nbTeams_;}; 
 
   ComputeDtHydroFunctor(std::shared_ptr<AMRmesh> pmesh,
-			HydroParams   params,
-			id2index_t    fm,
-                        blockSize_t   blockSizes,
-			DataArray     Udata) :
+			HydroParams    params,
+			id2index_t     fm,
+                        blockSize_t    blockSizes,
+			DataArrayBlock Udata) :
     pmesh(pmesh), params(params),
-     fm(fm), blockSizes(blockSizes),
-      Udata(Udata)
+    fm(fm), blockSizes(blockSizes),
+    Udata(Udata)
   {};
   
   // static method which does it all: create and execute functor
   static void apply(std::shared_ptr<AMRmesh> pmesh,
-		    HydroParams   params,
-		    id2index_t    fm,
-                    DataArray     Udata,
-		    double       &invDt)
+		    ConfigMap      configMap,
+                    HydroParams    params,
+		    id2index_t     fm,
+                    blockSize_t    blockSizes,
+                    DataArrayBlock Udata,
+		    double        &invDt)
   {
     
-    // iterate functor for refinement
-    
-    ComputeDtHydroFunctor functor(pmesh, params, fm, Udata);
-    Kokkos::parallel_reduce(pmesh->getNumOctants(), functor, invDt);
-  }
+    ComputeDtHydroFunctor functor(pmesh, params, fm, blockSizes, Udata);
+
+    // kokkos execution policy
+    uint32_t nbTeams_ = configMap.getInteger("amr","nbTeams",16);
+    functor.setNbTeams ( nbTeams_ );
+
+    team_policy_t policy (nbTeams_,
+                          Kokkos::AUTO() /* team size chosen by kokkos */);
+
+    Kokkos::parallel_reduce("dyablo::muscl_block::ComputeDtHydroFunctor",
+                            policy, functor, invDt);
+  } // apply
 
   // ====================================================================
   // ====================================================================
@@ -84,8 +93,20 @@ public:
   // ====================================================================
   // ====================================================================
   KOKKOS_INLINE_FUNCTION
-  void operator_2d(const size_t& i, real_t &invDt) const
+  void operator_2d(const thread_t& member, real_t &invDt) const
   {
+    uint32_t iOct = member.league_rank();
+    uint32_t iCell = member.team_rank();
+
+    uint32_t nbOct = pmesh->getNumOctants();
+
+    const int& bx = blockSizes[IX];
+    const int& by = blockSizes[IY];
+    const int& bz = blockSizes[IZ];
+
+    uint32_t nbCells = params.dimType == TWO_D ? bx*by : bx*by*bz;
+
+    real_t invDt_local = invDt;
 
     // 2D version
     HydroState2d uLoc; // conservative variables in current cell
@@ -93,82 +114,134 @@ public:
     real_t c = 0.0;
     real_t vx, vy;
 
-    // get cell level
-    uint8_t level = pmesh->getLevel(i);
+    while (iOct < nbOct) {
 
-    // retrieve cell size from mesh
-    real_t dx = pmesh->levelToSize(level);
+      // get cell level
+      uint8_t level = pmesh->getLevel(iOct);
+      
+      // retrieve cell size from mesh
+      real_t dx = pmesh->levelToSize(level) / blockSizes[IX];
+      real_t dy = pmesh->levelToSize(level) / blockSizes[IY];
+
+      while (iCell < nbCells) {
     
-    // get local conservative variable
-    uLoc[ID] = Udata(i,fm[ID]);
-    uLoc[IP] = Udata(i,fm[IP]);
-    uLoc[IU] = Udata(i,fm[IU]);
-    uLoc[IV] = Udata(i,fm[IV]);
-    
-    // get primitive variables in current cell
-    computePrimitives(uLoc, &c, qLoc, params);
+        // get local conservative variable
+        uLoc[ID] = Udata(iCell,fm[ID],iOct);
+        uLoc[IP] = Udata(iCell,fm[IP],iOct);
+        uLoc[IU] = Udata(iCell,fm[IU],iOct);
+        uLoc[IV] = Udata(iCell,fm[IV],iOct);
+        
+        // get primitive variables in current cell
+        computePrimitives(uLoc, &c, qLoc, params);
 
-    if (params.rsst_enabled and params.rsst_cfl_enabled) {
-      vx = c/params.rsst_ksi + FABS(qLoc[IU]);
-      vy = c/params.rsst_ksi + FABS(qLoc[IV]);
-    } else {
-      vx = c + FABS(qLoc[IU]);
-      vy = c + FABS(qLoc[IV]);
-    }
+        if (params.rsst_enabled and params.rsst_cfl_enabled) {
+          vx = c/params.rsst_ksi + FABS(qLoc[IU]);
+          vy = c/params.rsst_ksi + FABS(qLoc[IV]);
+        } else {
+          vx = c + FABS(qLoc[IU]);
+          vy = c + FABS(qLoc[IV]);
+        }
 
-    invDt = FMAX(invDt, vx/dx + vy/dx);
+        invDt_local = FMAX(invDt_local, vx / dx + vy / dy);
+
+        iCell += member.team_size();
+      
+      } // end while iCell
+
+      iOct += nbTeams;
+
+    } // end while iOct
+
+    // update global reduced value
+    if (invDt < invDt_local)
+      invDt = invDt_local;
 
   } // operator_2d
 
   // ====================================================================
   // ====================================================================
   KOKKOS_INLINE_FUNCTION
-  void operator_3d(const size_t& i, real_t &invDt) const
+  void operator_3d(const thread_t& member, real_t &invDt) const
   {
+    uint32_t iOct = member.league_rank();
+    uint32_t iCell = member.team_rank();
+
+    uint32_t nbOct = pmesh->getNumOctants();
+
+    const int& bx = blockSizes[IX];
+    const int& by = blockSizes[IY];
+    const int& bz = blockSizes[IZ];
+
+    uint32_t nbCells = params.dimType == TWO_D ? bx*by : bx*by*bz;
+
+    real_t invDt_local = invDt;
     
+    // 3D version
     HydroState3d uLoc; // conservative variables in current cell
     HydroState3d qLoc; // primitive    variables in current cell
     real_t c = 0.0;
     real_t vx, vy, vz;
-    
-    // get cell level
-    uint8_t level = pmesh->getLevel(i);
 
-    // retrieve cell size from mesh
-    real_t dx = pmesh->levelToSize(level);
+    while (iOct < nbOct) {
 
-    // get local conservative variable
-    uLoc[ID] = Udata(i,fm[ID]);
-    uLoc[IP] = Udata(i,fm[IP]);
-    uLoc[IU] = Udata(i,fm[IU]);
-    uLoc[IV] = Udata(i,fm[IV]);
-    uLoc[IW] = Udata(i,fm[IW]);
+      // get cell level
+      uint8_t level = pmesh->getLevel(iOct);
+      
+      // retrieve cell size from mesh
+      real_t dx = pmesh->levelToSize(level) / blockSizes[IX];
+      real_t dy = pmesh->levelToSize(level) / blockSizes[IY];
+      real_t dz = pmesh->levelToSize(level) / blockSizes[IZ];
+
+      while (iCell < nbCells) {
     
-    // get primitive variables in current cell
-    computePrimitives(uLoc, &c, qLoc, params);
-    if (params.rsst_enabled and params.rsst_cfl_enabled) {
-      vx = c/params.rsst_ksi + FABS(qLoc[IU]);
-      vy = c/params.rsst_ksi + FABS(qLoc[IV]);
-      vz = c/params.rsst_ksi + FABS(qLoc[IW]);
-    } else {
-      vx = c + FABS(qLoc[IU]);
-      vy = c + FABS(qLoc[IV]);
-      vz = c + FABS(qLoc[IW]);
-    }
-    
-    invDt = FMAX(invDt, vx/dx + vy/dx + vz/dx);
-    
+        // get local conservative variable
+        uLoc[ID] = Udata(iCell,fm[ID],iOct);
+        uLoc[IP] = Udata(iCell,fm[IP],iOct);
+        uLoc[IU] = Udata(iCell,fm[IU],iOct);
+        uLoc[IV] = Udata(iCell,fm[IV],iOct);
+        uLoc[IW] = Udata(iCell,fm[IW],iOct);
+        
+        // get primitive variables in current cell
+        computePrimitives(uLoc, &c, qLoc, params);
+
+        if (params.rsst_enabled and params.rsst_cfl_enabled) {
+          vx = c/params.rsst_ksi + FABS(qLoc[IU]);
+          vy = c/params.rsst_ksi + FABS(qLoc[IV]);
+          vz = c/params.rsst_ksi + FABS(qLoc[IW]);
+        } else {
+          vx = c + FABS(qLoc[IU]);
+          vy = c + FABS(qLoc[IV]);
+          vz = c + FABS(qLoc[IW]);
+        }
+
+        invDt_local = FMAX(invDt_local, vx / dx + vy / dy + vz / dz);
+
+        iCell += member.team_size();
+      
+      } // end while iCell
+
+      iOct += nbTeams;
+
+    } // end while iOct
+
+    // update global reduced value
+    if (invDt < invDt_local)
+      invDt = invDt_local;
+
   } // operator_3d
 
+
+  // ====================================================================
+  // ====================================================================
   KOKKOS_INLINE_FUNCTION
-  void operator()(const size_t& i, real_t &invDt) const
+  void operator()(const thread_t& member, real_t &invDt) const
   {
 
     if (params.dimType == TWO_D)
-      operator_2d(i,invDt);
+      operator_2d(member,invDt);
 
     if (params.dimType == THREE_D)
-      operator_3d(i,invDt);
+      operator_3d(member,invDt);
     
   }
   
@@ -186,14 +259,24 @@ public:
     }
   } // join
 
+  //! AMR mesh
   std::shared_ptr<AMRmesh> pmesh;
+  
+  //! general parameters
   HydroParams  params;
+
+  //! field manager
   id2index_t   fm;
-  DataArray    Udata;
+
+  //! block sizes
+  blockSize_t blockSizes;
+
+  //! heavy data - conservative variables
+  DataArrayBlock Udata;
   
 }; // ComputeDtHydroFunctor
 
-} // namespace muscl
+} // namespace muscl_block
 
 } // namespace dyablo
 
