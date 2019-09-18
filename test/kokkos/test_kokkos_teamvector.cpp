@@ -268,12 +268,7 @@ public:
     uint32_t iBlock = member.league_rank();
     uint32_t index = member.team_rank();
 
-    int32_t result;
-#ifdef __CUDA_ARCH__
-    result = -0x7f800000;
-#else
-    result = std::numeric_limits<int32_t>::min();
-#endif // __CUDA_ARCH__
+    int32_t result = max_value;
 
     while (iBlock < nbBlocks) {
 
@@ -319,7 +314,9 @@ void run_test(uint32_t bSize, uint32_t nbBlocks) {
    * TestKokkosTeamVectorForFunctor
    */
   {
+    std::cout << "// ======================================\n";
     std::cout << "Testing TestKokkosTeamVectorForFunctor...\n";
+    std::cout << "// ======================================\n";
 
     uint32_t dataSize = bSize * nbBlocks;
 
@@ -348,7 +345,9 @@ void run_test(uint32_t bSize, uint32_t nbBlocks) {
    * TestKokkosTeamVectorReduceFunctor
    */
   {
+    std::cout << "// ======================================\n";
     std::cout << "Testing TestKokkosTeamVectorReduceFunctor...\n";
+    std::cout << "// ======================================\n";
 
     uint32_t dataSize = bSize * nbBlocks;
 
@@ -371,7 +370,9 @@ void run_test(uint32_t bSize, uint32_t nbBlocks) {
    * TestKokkosTeamVectorReduceFunctor2 - this i a "max" reduction
    */
   {
+    std::cout << "// ======================================\n";
     std::cout << "Testing TestKokkosTeamVectorReduceFunctor2...\n";
+    std::cout << "// ======================================\n";
 
     uint32_t dataSize = bSize * nbBlocks;
 
