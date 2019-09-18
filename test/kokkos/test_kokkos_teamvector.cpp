@@ -99,7 +99,7 @@ public:
 /*************************************************/
 /*************************************************/
 /**
- * Kokkos team vector - parallel reduce
+ * Kokkos team vector - parallel reduce inside block
  *
  * \note in this test, data array size must be a multiple of nbBlocks
  */
@@ -156,8 +156,11 @@ public:
           },
           sum); // end TeamVectorRange
 
-      // write sum
-      std::cout << iBlock << " " << sum << "\n";
+      // check results :
+      int32_t diff = sum - (bSize-1)*bSize/2 - iBlock*bSize*bSize;
+      bool valid = diff==0 ? true : false;
+
+      std::cout << iBlock << ": res=" << sum << " results valid ? " << valid << "\n";
 
       iBlock += nbTeams;
 
@@ -175,6 +178,138 @@ public:
   uint32_t nbBlocks;
 
 }; // TestKokkosTeamVectorReduceFunctor
+
+/*************************************************/
+/*************************************************/
+/*************************************************/
+/**
+ * Kokkos team vector - parallel reduce.
+ *
+ * Do a hierarchical reduce, i.e. first reduce inside a team, then a global reduce.
+ *
+ * \note in this test, data array size must be a multiple of nbBlocks
+ */
+class TestKokkosTeamVectorReduceFunctor2 {
+
+private:
+  uint32_t nbTeams; //!< number of thread teams
+
+public:
+  using team_policy_t = Kokkos::TeamPolicy<Kokkos::IndexType<int32_t>>;
+  using thread_t = team_policy_t::member_type;
+
+  void setNbTeams(uint32_t nbTeams_) { nbTeams = nbTeams_; };
+
+  /**
+   * test parallel reduce functor
+   *
+   */
+  TestKokkosTeamVectorReduceFunctor2(Data_t data, uint32_t bSize)
+      : data(data), bSize(bSize) {
+    nbBlocks = (data.extent(0) + bSize - 1) / bSize;
+  };
+
+  // static method which does it all: create and execute functor
+  static void apply(Data_t data, uint32_t bSize) {
+
+    TestKokkosTeamVectorReduceFunctor2 functor(data, bSize);
+
+    // kokkos execution policy
+    uint32_t nbTeams_ = 16;
+    functor.setNbTeams(nbTeams_);
+
+    team_policy_t policy(nbTeams_,
+                         Kokkos::AUTO() /* team size chosen by kokkos */);
+
+    // initialize reduce value to something really small
+    int32_t max_value = std::numeric_limits<int32_t>::min();
+
+    Kokkos::parallel_reduce("TestKokkosTeamVectorReduceFunctor2", policy,
+                            functor,
+                            max_value);
+
+    printf("maximum value is %d\n",max_value);
+
+  }
+
+  // "Join" intermediate results from different threads.
+  // This should normally implement the same reduction
+  // operation as operator() above. Note that both input
+  // arguments MUST be declared volatile.
+  KOKKOS_INLINE_FUNCTION
+  void join (volatile int32_t& dst,
+             const volatile int32_t& src) const
+  {
+    // max reduce
+    if (dst < src) {
+      dst = src;
+    }
+  } // join
+
+  // ====================================================================
+  // ====================================================================
+  // Tell each thread how to initialize its reduction result.
+  KOKKOS_INLINE_FUNCTION
+  void init (int32_t& dst) const
+  {
+
+  // initialize to something really small
+#ifdef __CUDA_ARCH__
+    dst = -0x7f800000;
+#else
+    dst = std::numeric_limits<int32_t>::min();
+#endif // __CUDA_ARCH__
+    
+  } // init
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(thread_t member, int32_t &max_value) const {
+
+    uint32_t iBlock = member.league_rank();
+    uint32_t index = member.team_rank();
+
+    int32_t result;
+#ifdef __CUDA_ARCH__
+    result = -0x7f800000;
+#else
+    result = std::numeric_limits<int32_t>::min();
+#endif // __CUDA_ARCH__
+
+    while (iBlock < nbBlocks) {
+
+      while (index < bSize) {
+
+        //printf("[debug] index=%d iBlock=%d bSize=%d | data=%d\n",index,iBlock,bSize,data(index + iBlock * bSize));
+
+        // update result
+        result = 
+          data(index + iBlock * bSize) > result ?
+                                         data(index + iBlock * bSize) : result;
+
+        index += member.team_size();
+        
+      }
+
+      iBlock += nbTeams;
+
+    } // end while iBlock < nbBlocks
+
+    // update global reduced value
+    if (max_value < result)
+      max_value = result;
+
+  } // operator
+
+  //! heavy data
+  Data_t data;
+
+  //! block size
+  uint32_t bSize;
+
+  //! number of blocks
+  uint32_t nbBlocks;
+
+}; // TestKokkosTeamVectorReduceFunctor2
 
 // =======================================================================
 // =======================================================================
@@ -232,6 +367,25 @@ void run_test(uint32_t bSize, uint32_t nbBlocks) {
 
   }
 
+  /*
+   * TestKokkosTeamVectorReduceFunctor2 - this i a "max" reduction
+   */
+  {
+    std::cout << "Testing TestKokkosTeamVectorReduceFunctor2...\n";
+
+    uint32_t dataSize = bSize * nbBlocks;
+
+    // create and init test data
+    Data_t data = Data_t("test_data", dataSize);
+    Kokkos::parallel_for(
+        "init_test_data", dataSize, KOKKOS_LAMBDA(uint32_t i) { 
+          data(i) = 12-(i-13)*(i-15); 
+        });
+
+    TestKokkosTeamVectorReduceFunctor2::apply(data, bSize);
+
+  }
+  
 } // run_test
 
 // =======================================================================
@@ -289,7 +443,7 @@ int main(int argc, char *argv[]) {
   }    // end kokkos config
 
   uint32_t bSize = 4;
-  uint32_t nbBlocks = 6;
+  uint32_t nbBlocks = 32;
   run_test(bSize, nbBlocks);
 
   Kokkos::finalize();
