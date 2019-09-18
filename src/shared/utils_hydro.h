@@ -149,7 +149,7 @@ void compute_Pressure_and_SpeedOfSound(const HydroState2d &u,
   const real_t smallr = params.settings.smallr;
   const real_t smallp = params.settings.smallp;
   
-  real_t d, p, ux, uy;
+  real_t d, ux, uy;
   
   d = fmax(u[ID], smallr);
   ux = u[IU] / d;
@@ -187,7 +187,7 @@ void compute_Pressure_and_SpeedOfSound(const HydroState3d &u,
   const real_t smallr = params.settings.smallr;
   const real_t smallp = params.settings.smallp;
   
-  real_t d, p, ux, uy, uz;
+  real_t d, ux, uy, uz;
   
   d = fmax(u[ID], smallr);
   ux = u[IU] / d;
