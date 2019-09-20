@@ -4,7 +4,11 @@
 
 add_executable(test_CopyInnerBlockCellData
   test_CopyInnerBlockCellData.cpp)
-target_link_libraries(test_CopyInnerBlockCellData PUBLIC kokkos)
+target_link_libraries(test_CopyInnerBlockCellData PUBLIC 
+  config
+  kokkos
+  shared 
+  monitoring)
 if (USE_MPI)
   target_link_libraries(test_CopyInnerBlockCellData
     PUBLIC 
