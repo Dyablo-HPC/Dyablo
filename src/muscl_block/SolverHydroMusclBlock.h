@@ -64,9 +64,12 @@ public:
     return solver;
   }
 
-  DataArrayBlock     U;     /*!< hydrodynamics conservative variables arrays at t_n */
-  DataArrayBlockHost Uhost; /*!< mirror DataArrayBlock U on host memory space */
-  DataArrayBlock     U2;    /*!< hydrodynamics conservative variables arrays at t_{n+1}*/
+  DataArrayBlock     U;     /*!< hydrodynamics conservative variables arrays at t_n - no ghost */
+  DataArrayBlockHost Uhost; /*!< mirror DataArrayBlock U on host memory space  - no ghost */
+  DataArrayBlock     U2;    /*!< hydrodynamics conservative variables arrays at t_{n+1} - no ghost */
+
+  DataArrayBlock     Ugroup; /*!< fixed size array of block data with ghost replacing U and U2 when applying numerical scheme */
+
   DataArrayBlock     Q;     /*!< hydrodynamics primitive    variables array  */
 
   DataArrayBlock     Ughost; /*!< ghost cell data */

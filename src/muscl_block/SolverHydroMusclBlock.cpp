@@ -50,7 +50,8 @@ namespace dyablo { namespace muscl_block {
 SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
                                              ConfigMap& configMap) :
   SolverBase(params, configMap),
-  U(), Uhost(), U2(), Q(), 
+  U(), Uhost(), U2(), 
+  Ugroup(), Q(),
   Ughost(), Qghost(),
   Slopes_x(), 
   Slopes_y(), 
@@ -120,9 +121,15 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   U     = DataArrayBlock("U", nbCellsPerOct, nbvar, nbOcts);
   Uhost = Kokkos::create_mirror(U);
   U2    = DataArrayBlock("U2",nbCellsPerOct, nbvar, nbOcts);
-  Q     = DataArrayBlock("Q", nbCellsPerOct, nbvar, nbOcts);
   
-  total_mem_size += nbCellsPerOct*nbOcts*nbvar * sizeof(real_t) * 3;// 1+1+1 for U+U2+Q
+  total_mem_size += nbCellsPerOct*nbOcts*nbvar * sizeof(real_t) * 2;// 1+1+1 for U+U2
+
+
+  Ugroup= DataArrayBlock("Ugroup", nbCellsPerOct, nbvar, nbOctsPerGroup);
+  Q     = DataArrayBlock("Q", nbCellsPerOct, nbvar, nbOctsPerGroup);
+
+  total_mem_size += nbCellsPerOct*nbOctsPerGroup*nbvar * sizeof(real_t) * 2 ;// 1+1 for Ugroup and Q
+
 
   // all intermediate data array are sized upon nbOctsPerGroup
 
