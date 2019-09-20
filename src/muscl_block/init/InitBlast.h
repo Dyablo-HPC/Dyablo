@@ -49,7 +49,7 @@ public:
                        HydroParams    params,
                        BlastParams    bParams,
                        id2index_t     fm,
-                       Kokkos::Array<int,3> blockSizes,
+                       blockSize_t    blockSizes,
                        DataArrayBlock Udata) :
     pmesh(pmesh), params(params), bParams(bParams),
     fm(fm), blockSizes(blockSizes), Udata(Udata)
@@ -61,7 +61,7 @@ public:
 		    HydroParams    params,
                     ConfigMap      configMap,
 		    id2index_t     fm,
-                    Kokkos::Array<int32_t,3> blockSizes,
+                    blockSize_t    blockSizes,
                     DataArrayBlock Udata)
   {
     BlastParams blastParams = BlastParams(configMap);
@@ -134,15 +134,15 @@ public:
 
           // convert index into ix,iy,iz of local cell inside
           // block
-          Kokkos::Array<int32_t,3> iCoord;
-          int32_t& ix = iCoord[IX];
-          int32_t& iy = iCoord[IY];
-          int32_t& iz = iCoord[IZ];                    
+          coord_t iCoord;
+          uint32_t& ix = iCoord[IX];
+          uint32_t& iy = iCoord[IY];
+          uint32_t& iz = iCoord[IZ];                    
 
           if (params.dimType == TWO_D) {
-            iCoord = compute_cell_coord(index,bx,by,1);
+            iCoord = index_to_coord<2>(index,blockSizes);
           } else {
-            iCoord = compute_cell_coord(index,bx,by,bz);
+            iCoord = index_to_coord<3>(index,blockSizes);
           }
 
           // compute x,y,z for that cell (cell center)
@@ -194,7 +194,7 @@ public:
   id2index_t     fm;
 
   //! block sizes
-  Kokkos::Array<int32_t, 3> blockSizes;
+  blockSize_t    blockSizes;
 
   //! heavy data
   DataArrayBlock Udata;
@@ -298,7 +298,7 @@ public:
   BlastParams    bParams;
 
   //! block sizes
-  //Kokkos::Array<int, 3>  blockSizes;
+  //blockSize_t  blockSizes;
 
   //! which level should we look at
   int            level_refine;

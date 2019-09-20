@@ -17,6 +17,8 @@
 #include "shared/HDF5_IO.h"
 #include "shared/io_utils.h"
 
+#include "muscl_block/utils_block.h"
+
 // testing muscl_block functor for initialization
 #include "muscl_block/init/InitBlast.h"
 
@@ -47,11 +49,11 @@ void run(std::string input_filename)
 
   // should we write multiple cell per octree leaf ?
   bool write_block_data = configMap.getBool("amr", "use_block_data", false);
-  int bx = configMap.getInteger("amr", "bx", 0);
-  int by = configMap.getInteger("amr", "by", 0);
-  int bz = configMap.getInteger("amr", "bz", 0);
+  uint32_t bx = (uint32_t) configMap.getInteger("amr", "bx", 0);
+  uint32_t by = (uint32_t) configMap.getInteger("amr", "by", 0);
+  uint32_t bz = (uint32_t) configMap.getInteger("amr", "bz", 0);
 
-  Kokkos::Array<int,3> blockSizes;
+  dyablo::muscl_block::blockSize_t blockSizes;
   blockSizes[IX] = bx;
   blockSizes[IY] = by;
   blockSizes[IZ] = bz;
