@@ -7,10 +7,6 @@
 
 #include "shared/kokkos_shared.h"
 #include "shared/FieldManager.h"
-#include "shared/HydroState.h"
-
-#include "bitpit_PABLO.hpp"
-#include "shared/bitpit_common.h"
 
 // utils hydro
 #include "shared/utils_hydro.h"
@@ -58,8 +54,7 @@ public:
    * \param[in] iGroup identify the group of octant we want to copy
    * \param[out] Ugroup conservative var of a group of octants (block data with ghosts)
    */
-  CopyInnerBlockCellDataFunctor(std::shared_ptr<AMRmesh> pmesh,
-                                HydroParams    params,
+  CopyInnerBlockCellDataFunctor(HydroParams    params,
                                 id2index_t     fm,
                                 blockSize_t    blockSizes,
                                 blockSize_t    blockSizes_g,
@@ -68,7 +63,7 @@ public:
                                 DataArrayBlock U,
                                 DataArrayBlock Ugroup,
                                 uint32_t       iGroup) :
-    pmesh(pmesh), params(params),
+    params(params),
     fm(fm), blockSizes(blockSizes), blockSizes_g(blockSizes_g),
     ghostWidth(ghostWidth), nbOctsPerGroup(nbOctsPerGroup),
     U(U), Ugroup(Ugroup),
@@ -76,8 +71,7 @@ public:
   {};
   
   // static method which does it all: create and execute functor
-  static void apply(std::shared_ptr<AMRmesh> pmesh,
-                    ConfigMap      configMap,
+  static void apply(ConfigMap      configMap,
 		    HydroParams    params,
 		    id2index_t     fm,
                     blockSize_t    blockSizes,
@@ -89,7 +83,7 @@ public:
                     uint32_t       iGroup)
   {
 
-    CopyInnerBlockCellDataFunctor functor(pmesh, params, fm, 
+    CopyInnerBlockCellDataFunctor functor(params, fm, 
                                           blockSizes, blockSizes_g,
                                           ghostWidth, nbOctsPerGroup,
                                           U, Ugroup,
@@ -169,9 +163,6 @@ public:
     
   } // operator
   
-  //! AMR mesh
-  std::shared_ptr<AMRmesh> pmesh;
-    
   //! general parameters
   HydroParams  params;
   
