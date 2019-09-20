@@ -30,7 +30,16 @@
 namespace dyablo { namespace muscl_block {
 
 /**
- * Main hydrodynamics data structure for 2D/3D MUSCL-Hancock scheme.
+ * Main hydrodynamics data structure for 2D/3D MUSCL-Hancock scheme for block AMR.
+ *
+ * See gitlab milestone page https://gitlab.maisondelasimulation.fr/pkestene/dyablo/-/milestones/4
+ * for a discussion on "Should we include ghost cells on the leaves block data ?"
+ *
+ * The trade-off explored here is to design the main data array structure to hold block data without 
+ * ghost cells, but then apply all operators in a piecewise way. More precisely each MPI task allocate
+ * memory to hold a fixed amount of block data with ghost cells included and processes the complete list
+ * of octree leaves block group by group.
+ *
  */
 class SolverHydroMusclBlock : public dyablo::SolverBase
 {
@@ -125,14 +134,29 @@ public:
   //! output
   void save_solution_impl();
 
-  //! block sizes
-  uint32_t bx, by, bz;
+  //! ghost width
+  uint32_t ghostWidth;
 
-  //! block sizes as an array
+  //! block sizes as an array without ghost
   blockSize_t blockSizes;
 
-  //! number of cells per octant
+  //! block sizes as an array with ghost
+  blockSize_t blockSizes_g;
+
+  //! block sizes without ghost
+  uint32_t bx, by, bz;
+
+  //! block sizes with ghost
+  uint32_t bx_g, by_g, bz_g;
+
+  //! number of cells per octant without ghost
   uint32_t nbCellsPerOct;
+
+  //! number of cells per octant with ghost
+  uint32_t nbCellsPerOct_g;
+
+  //! number of octants (octre leaves) per group
+  uint32_t nbOctsPerGroup;
 
 private:
 

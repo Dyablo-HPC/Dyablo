@@ -80,20 +80,42 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
    * That's why we didn't use create_mirror_view to initialize Uhost.
    */
 
-  // minimal number of cells
+  // minimal number of cells only used for initial memory allocation
+  // afterwards memory resizing will append
   uint64_t nbOcts = 1<<params.level_min;
   
   nbOcts = params.dimType == TWO_D ? nbOcts * nbOcts :  nbOcts * nbOcts * nbOcts;
+
+  /*
+   * setup parameters related to block AMR
+   */
+
+  ghostWidth = configMap.getInteger("amr", "ghostwidth", 2);
 
   bx = configMap.getInteger("amr", "bx", 0);
   by = configMap.getInteger("amr", "by", 0);
   bz = configMap.getInteger("amr", "bz", 1);
 
+  bx_g = bx+2*ghostWidth;
+  by_g = bx+2*ghostWidth;
+  bz_g = bx+2*ghostWidth;
+
   blockSizes[IX] = bx;
   blockSizes[IY] = by;
   blockSizes[IZ] = bz;
 
+  blockSizes_g[IX] = bx_g;
+  blockSizes_g[IY] = by_g;
+  blockSizes_g[IZ] = bz_g;
+
   nbCellsPerOct = params.dimType == TWO_D ? bx*by : bx*by*bz;
+  nbCellsPerOct_g = params.dimType == TWO_D ? bx_g*by_g : bx_g*by_g*bz_g;
+
+  nbOctsPerGroup = configMap.getInteger("amr", "nbOctsPerGroup", 32);
+
+  /*
+   * main data array memory allocation
+   */
 
   U     = DataArrayBlock("U", nbCellsPerOct, nbvar, nbOcts);
   Uhost = Kokkos::create_mirror(U);
@@ -101,17 +123,19 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   Q     = DataArrayBlock("Q", nbCellsPerOct, nbvar, nbOcts);
   
   total_mem_size += nbCellsPerOct*nbOcts*nbvar * sizeof(real_t) * 3;// 1+1+1 for U+U2+Q
-  
-  Slopes_x = DataArrayBlock("Slope_x", nbCellsPerOct, nbvar, nbOcts);
-  Slopes_y = DataArrayBlock("Slope_y", nbCellsPerOct, nbvar, nbOcts);
+
+  // all intermediate data array are sized upon nbOctsPerGroup
+
+  Slopes_x = DataArrayBlock("Slope_x", nbCellsPerOct, nbvar, nbOctsPerGroup);
+  Slopes_y = DataArrayBlock("Slope_y", nbCellsPerOct, nbvar, nbOctsPerGroup);
   
   if (m_dim == 3)
-    Slopes_z = DataArrayBlock("Slope_z", nbCellsPerOct, nbvar, nbOcts);
+    Slopes_z = DataArrayBlock("Slope_z", nbCellsPerOct, nbvar, nbOctsPerGroup);
   
   if (m_dim==2)
-    total_mem_size += nbCellsPerOct*nbOcts*nbvar * sizeof(real_t) * 2;// 1+1 for Slopes_x+Slopes_y
+    total_mem_size += nbCellsPerOct*nbOctsPerGroup*nbvar * sizeof(real_t) * 2;// 1+1 for Slopes_x+Slopes_y
   else
-    total_mem_size += nbCellsPerOct*nbOcts*nbvar * sizeof(real_t) * 3;// 1+1+1 for Slopes_x+Slopes_y+Slopes_z
+    total_mem_size += nbCellsPerOct*nbOctsPerGroup*nbvar * sizeof(real_t) * 3;// 1+1+1 for Slopes_x+Slopes_y+Slopes_z
   
   
   // if (m_gravity_enabled) {
@@ -120,8 +144,8 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   // }
 
   if (params.rsst_enabled) {
-    Fluxes = DataArrayBlock("Fluxes", nbCellsPerOct, nbvar, nbOcts);
-    total_mem_size += nbCellsPerOct * nbOcts * nbvar * sizeof(real_t); //
+    Fluxes = DataArrayBlock("Fluxes", nbCellsPerOct, nbvar, nbOctsPerGroup);
+    total_mem_size += nbCellsPerOct * nbOctsPerGroup * nbvar * sizeof(real_t); //
   }
 
   // init field manager
