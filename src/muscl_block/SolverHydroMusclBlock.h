@@ -40,6 +40,10 @@ namespace dyablo { namespace muscl_block {
  * memory to hold a fixed amount of block data with ghost cells included and processes the complete list
  * of octree leaves block group by group.
  *
+ * Just for clarification:
+ * - variables names suffix "_ghost" means variables in the MPI ghost octants
+ * - variables names suffix "_g"     means variables in the block data ghost cells (from an octant to neighbor octant)
+ * 
  */
 class SolverHydroMusclBlock : public dyablo::SolverBase
 {
@@ -79,6 +83,7 @@ public:
   DataArrayBlock Slopes_y; /*!< implementation 1 only */
   DataArrayBlock Slopes_z; /*!< implementation 1 only */
 
+  // we probably won't need those array anymore - TBD
   DataArrayBlock Slopes_x_ghost; /*!< implementation 1 only */
   DataArrayBlock Slopes_y_ghost; /*!< implementation 1 only */
   DataArrayBlock Slopes_z_ghost; /*!< implementation 1 only */
@@ -191,6 +196,16 @@ private:
 
   //! mesh load balancing with data communication
   void load_balance_userdata();
+
+  /*
+   * block data ghost cells related methods
+   */
+
+  //! copy block data from U to Ugroup for the inner cells of the blocks of each octants belong to a given group
+  void fill_block_data_inner(uint32_t iGroup);
+  
+  //! copy block data ghost cells from U to Ugroup - take into account all faces, edges and corners.
+  void fill_block_data_ghost(uint32_t iGroup);
 
 }; // class SolverHydroMusclBlock
 

@@ -29,6 +29,9 @@
 // // compute functor for low Mach flows
 // #include "muscl_block/UpdateRSSTHydroFunctor.h"
 
+// Block data related functors
+#include "muscl_block/CopyInnerBlockCellData.h"
+
 #if BITPIT_ENABLE_MPI==1
 #include "muscl_block/UserDataComm.h"
 #include "muscl_block/UserDataLB.h"
@@ -109,7 +112,7 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   blockSizes_g[IY] = by_g;
   blockSizes_g[IZ] = bz_g;
 
-  nbCellsPerOct = params.dimType == TWO_D ? bx*by : bx*by*bz;
+  nbCellsPerOct   = params.dimType == TWO_D ? bx  *by   : bx  *by  *bz;
   nbCellsPerOct_g = params.dimType == TWO_D ? bx_g*by_g : bx_g*by_g*bz_g;
 
   nbOctsPerGroup = configMap.getInteger("amr", "nbOctsPerGroup", 32);
@@ -125,24 +128,25 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   total_mem_size += nbCellsPerOct*nbOcts*nbvar * sizeof(real_t) * 2;// 1+1+1 for U+U2
 
 
-  Ugroup= DataArrayBlock("Ugroup", nbCellsPerOct, nbvar, nbOctsPerGroup);
-  Q     = DataArrayBlock("Q", nbCellsPerOct, nbvar, nbOctsPerGroup);
+  // block data array with ghost cells
+  Ugroup= DataArrayBlock("Ugroup", nbCellsPerOct_g, nbvar, nbOctsPerGroup);
+  Q     = DataArrayBlock("Q"     , nbCellsPerOct_g, nbvar, nbOctsPerGroup);
 
-  total_mem_size += nbCellsPerOct*nbOctsPerGroup*nbvar * sizeof(real_t) * 2 ;// 1+1 for Ugroup and Q
+  total_mem_size += nbCellsPerOct_g*nbOctsPerGroup*nbvar * sizeof(real_t) * 2 ;// 1+1 for Ugroup and Q
 
 
   // all intermediate data array are sized upon nbOctsPerGroup
 
-  Slopes_x = DataArrayBlock("Slope_x", nbCellsPerOct, nbvar, nbOctsPerGroup);
-  Slopes_y = DataArrayBlock("Slope_y", nbCellsPerOct, nbvar, nbOctsPerGroup);
+  Slopes_x = DataArrayBlock("Slope_x", nbCellsPerOct_g, nbvar, nbOctsPerGroup);
+  Slopes_y = DataArrayBlock("Slope_y", nbCellsPerOct_g, nbvar, nbOctsPerGroup);
   
   if (m_dim == 3)
-    Slopes_z = DataArrayBlock("Slope_z", nbCellsPerOct, nbvar, nbOctsPerGroup);
+    Slopes_z = DataArrayBlock("Slope_z", nbCellsPerOct_g, nbvar, nbOctsPerGroup);
   
   if (m_dim==2)
-    total_mem_size += nbCellsPerOct*nbOctsPerGroup*nbvar * sizeof(real_t) * 2;// 1+1 for Slopes_x+Slopes_y
+    total_mem_size += nbCellsPerOct_g*nbOctsPerGroup*nbvar * sizeof(real_t) * 2;// 1+1 for Slopes_x+Slopes_y
   else
-    total_mem_size += nbCellsPerOct*nbOctsPerGroup*nbvar * sizeof(real_t) * 3;// 1+1+1 for Slopes_x+Slopes_y+Slopes_z
+    total_mem_size += nbCellsPerOct_g*nbOctsPerGroup*nbvar * sizeof(real_t) * 3;// 1+1+1 for Slopes_x+Slopes_y+Slopes_z
   
   
   // if (m_gravity_enabled) {
@@ -211,7 +215,9 @@ void SolverHydroMusclBlock::resize_solver_data()
   Kokkos::resize(U, nbCellsPerOct, params.nbvar, amr_mesh->getNumOctants());
   Kokkos::resize(U2, nbCellsPerOct, params.nbvar, amr_mesh->getNumOctants());
   Kokkos::resize(Uhost, nbCellsPerOct, params.nbvar, amr_mesh->getNumOctants());
-  
+
+  // the following is TBD ....
+
   Kokkos::resize(Q, nbCellsPerOct, params.nbvar, amr_mesh->getNumOctants());
   
   Kokkos::resize(Slopes_x, nbCellsPerOct, params.nbvar, amr_mesh->getNumOctants());
@@ -911,6 +917,17 @@ void SolverHydroMusclBlock::load_balance_userdata()
   m_timers[TIMER_AMR_CYCLE_LOAD_BALANCE]->stop();
 
 } // SolverHydroMusclBlock::load_balance_user_data
+
+// =======================================================
+// =======================================================
+void SolverHydroMusclBlock::fill_block_data_inner(uint32_t iGroup) {
+
+  /*
+   *
+   */
+  
+
+} // SolverHydroMusclBlock::fill_block_data_inner
 
 } // namespace muscl_block
 
