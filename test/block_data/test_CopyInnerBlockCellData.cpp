@@ -30,6 +30,30 @@ namespace dyablo { namespace muscl_block {
 
 // =======================================================================
 // =======================================================================
+void init_U(DataArrayBlock U) {
+
+  using team_policy_t = Kokkos::TeamPolicy<Kokkos::IndexType<int32_t>>;
+  using thread_t = team_policy_t::member_type;
+
+  uint32_t nbTeams_ = 4;
+  
+  team_policy_t policy (nbTeams_,
+                        Kokkos::AUTO() /* team size chosen by kokkos */);
+  
+  Kokkos::parallel_for("init_U", policy,
+                       KOKKOS_LAMBDA(const team_member& member)
+                       {
+                         uint32_t nbCells = params.dimType == TWO_D ? 
+                           bx*by : bx*by*bz;
+                         uint32_t iOct = member.league_rank();
+                         
+                       });
+
+
+} // init_U
+
+// =======================================================================
+// =======================================================================
 void run_test(int argc, char *argv[], uint32_t bSize, uint32_t nbBlocks) {
 
   /*
@@ -94,6 +118,7 @@ void run_test(int argc, char *argv[], uint32_t bSize, uint32_t nbBlocks) {
   uint32_t iGroup = 1;
 
   // TODO initialize U, reset Ugroup - write a functor for that
+  init_U(U);
 
   CopyInnerBlockCellDataFunctor::apply(configMap, params, fm, 
                                        blockSizes, blockSizes_g,
