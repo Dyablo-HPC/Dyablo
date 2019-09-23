@@ -31,6 +31,7 @@
 
 // Block data related functors
 #include "muscl_block/CopyInnerBlockCellData.h"
+#include "muscl_block/CopyFaceBlockCellData.h"
 
 #if BITPIT_ENABLE_MPI==1
 #include "muscl_block/UserDataComm.h"
