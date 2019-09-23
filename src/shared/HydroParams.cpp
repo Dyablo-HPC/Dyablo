@@ -30,13 +30,15 @@ void HydroParams::setup(ConfigMap &configMap)
   
   std::string solver_name = configMap.getString("run", "solver_name", "unknown");
 
-  if ( !solver_name.compare("Hydro_Muscl_2D") ) {
+  if ( !solver_name.compare("Hydro_Muscl_2D") or 
+       !solver_name.compare("Hydro_Muscl_Block_2D")) {
     
     dimType = TWO_D;
     nbvar = 4;
     ghostWidth = 2;
     
-  } else if ( !solver_name.compare("Hydro_Muscl_3D")) {
+  } else if ( !solver_name.compare("Hydro_Muscl_3D") or
+              !solver_name.compare("Hydro_Muscl_Block_3D") ) {
 
     dimType = THREE_D;
     nbvar = 5;
