@@ -71,8 +71,8 @@ uint32_t coord_to_index_g(coord_t     coords,
   //const uint32_t& bz = bSizes[IZ];
 
   uint32_t res = dim == 2 ?
-    i + (bx+ghostWidth)*j : 
-    i + (bx+ghostWidth)*j + (bx+ghostWidth)*(by+ghostWidth)*k;
+    i + (bx+2*ghostWidth)*j : 
+    i + (bx+2*ghostWidth)*j + (bx+2*ghostWidth)*(by+2*ghostWidth)*k;
 
   return res;
 
