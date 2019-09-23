@@ -57,16 +57,18 @@ public:
   CopyInnerBlockCellDataFunctor(HydroParams    params,
                                 id2index_t     fm,
                                 blockSize_t    blockSizes,
-                                blockSize_t    blockSizes_g,
                                 uint32_t       ghostWidth,
                                 uint32_t       nbOctsPerGroup,
                                 DataArrayBlock U,
                                 DataArrayBlock Ugroup,
                                 uint32_t       iGroup) :
     params(params),
-    fm(fm), blockSizes(blockSizes), blockSizes_g(blockSizes_g),
-    ghostWidth(ghostWidth), nbOctsPerGroup(nbOctsPerGroup),
-    U(U), Ugroup(Ugroup),
+    fm(fm), 
+    blockSizes(blockSizes),
+    ghostWidth(ghostWidth), 
+    nbOctsPerGroup(nbOctsPerGroup),
+    U(U), 
+    Ugroup(Ugroup),
     iGroup(iGroup)
   {};
   
@@ -75,7 +77,6 @@ public:
 		    HydroParams    params,
 		    id2index_t     fm,
                     blockSize_t    blockSizes,
-                    blockSize_t    blockSizes_g,
                     uint32_t       ghostWidth,
                     uint32_t       nbOctsPerGroup,
 		    DataArrayBlock U,
@@ -83,10 +84,13 @@ public:
                     uint32_t       iGroup)
   {
 
-    CopyInnerBlockCellDataFunctor functor(params, fm, 
-                                          blockSizes, blockSizes_g,
-                                          ghostWidth, nbOctsPerGroup,
-                                          U, Ugroup,
+    CopyInnerBlockCellDataFunctor functor(params, 
+                                          fm,
+                                          blockSizes,
+                                          ghostWidth,
+                                          nbOctsPerGroup,
+                                          U,
+                                          Ugroup,
                                           iGroup);
     
     // kokkos execution policy
@@ -118,12 +122,12 @@ public:
     const int& by = blockSizes[IY];
     const int& bz = blockSizes[IZ];
     
-    const int& bx_g = blockSizes_g[IX];
-    const int& by_g = blockSizes_g[IY];
-    const int& bz_g = blockSizes_g[IZ];
+    //const int& bx_g = blockSizes_g[IX];
+    //const int& by_g = blockSizes_g[IY];
+    //const int& bz_g = blockSizes_g[IZ];
     
     uint32_t nbCells   = params.dimType == TWO_D ? bx  *by   : bx  *by  *bz;
-    uint32_t nbCells_g = params.dimType == TWO_D ? bx_g*by_g : bx_g*by_g*bz_g;
+    //uint32_t nbCells_g = params.dimType == TWO_D ? bx_g*by_g : bx_g*by_g*bz_g;
 
     while (iOct < iOctNextGroup)
     {
@@ -173,7 +177,7 @@ public:
   blockSize_t blockSizes;
 
   //! block sizes with    ghosts
-  blockSize_t blockSizes_g;
+  //blockSize_t blockSizes_g;
 
   //! ghost width
   uint32_t ghostWidth;
