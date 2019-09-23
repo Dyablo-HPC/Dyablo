@@ -51,6 +51,29 @@ coord_t index_to_coord(int32_t index,
 // =======================================================
 // =======================================================
 /**
+ * input  : index to a given cell inside a block of data of size (bx,by,bz)
+ * output : extract integer coordinates 
+ */
+template <int dim>
+KOKKOS_INLINE_FUNCTION
+coord_t index_to_coord(int32_t index, 
+                       uint32_t bx,
+                       uint32_t by)
+{
+
+  coord_t res;
+
+  res[IZ] = 0;
+  res[IY] = (uint32_t)(index / bx);
+  res[IX] = (uint32_t)(index - bx * res[IY]);    
+  
+  return res;
+
+} // index_to_coord
+
+// =======================================================
+// =======================================================
+/**
  * convert coordinates (i,j,k) of a given of a block of sizes (bx,by,bz)
  * into its corresponding linearized index in the same block but with 
  * ghost cells.

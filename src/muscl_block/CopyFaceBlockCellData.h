@@ -21,20 +21,22 @@ namespace muscl_block {
 /*************************************************/
 /*************************************************/
 /**
- * For each oct of a group of octs, copy face cell block data into a larger
- * block data (ghost included).
+ * For each oct of a group of octs, fill all faces of the block data associated to octant.
  *
- * e.g. 3x3 block (no ghost) copied into a 5x5 block (with ghost, ghostwidth of
- * 1) 
+ * e.g. right face ("o" symbol) of the 3x3 block (on the left) is copied into a 5x5 block (with ghost, left face)
+ *  
  *            . . . . . 
- * x x x      . x x x . 
- * x x x  ==> . x x x . 
- * x x x      . x x x .
+ * x x o      o x x x . 
+ * x x o  ==> o x x x . 
+ * x x o      o x x x .
  *            . . . . .
  *
  * \note As always use the nested parallelism strategy:
  * - loop over octants              parallelized with Team policy,
  * - loop over cells inside a block paralellized with ThreadVectorRange policy.
+ *
+ *
+ * In reality, to simplify things, we assume block sizes are even integers.
  *
  */
 class CopyFaceBlockCellDataFunctor {
@@ -49,14 +51,24 @@ public:
 
   void setNbTeams(uint32_t nbTeams_) { nbTeams = nbTeams_; };
 
+  enum FACE_ID : uint8_t {
+    FACE_LEFT=0,
+    FACE_RIGHT=1
+  };
+
+  enum DIR_ID : uint8_t {
+    DIR_X=0,
+    DIR_Y=1,
+    DIR_Z=2
+  };
+
   /**
-   *
    *
    * \param[in] params
    * \param[in] U conservative variables - global block array data (no ghost)
    * \param[in] iGroup identify the group of octant we want to copy
    * \param[out] Ugroup conservative var of a group of octants (block data with
-   * ghosts)
+   *             ghosts)
    */
   CopyFaceBlockCellDataFunctor(std::shared_ptr<AMRmesh> pmesh,
                                HydroParams params,
@@ -99,8 +111,42 @@ public:
                          policy, functor);
   }
 
+  // ==============================================================
+  // ==============================================================
   KOKKOS_INLINE_FUNCTION
-  void operator()(team_policy_t::member_type member) const {
+  void fill_ghost_face_2d(const uint32_t iOct, const index_t index, const DIR_ID dir, FACE_ID face) const 
+  {
+
+    
+
+    const int &bx = blockSizes[IX];
+    const int &by = blockSizes[IY];
+
+    if (face == FACE_LEFT) {
+      // border sizes for input  cell are : ghostWidth,by
+      // border sizes for output cell are : ghostWidth,by+2*ghostWidth
+
+
+    }
+
+    // compute current cell coordinates inside block
+    coord_t cell_coord = index_to_coord<2>(index, blockSizes);
+    
+    // compute corresponding index in the block with ghost data
+    uint32_t index_g = coord_to_index_g<2>(cell_coord, blockSizes, ghostWidth);
+    
+    // get local conservative variable
+    // Ugroup(index_g, fm[ID], iOct_g) = U(index, fm[ID], iOct);
+    // Ugroup(index_g, fm[IP], iOct_g) = U(index, fm[IP], iOct);
+    // Ugroup(index_g, fm[IU], iOct_g) = U(index, fm[IU], iOct);
+    // Ugroup(index_g, fm[IV], iOct_g) = U(index, fm[IV], iOct);
+    
+  } // fill_ghost_face_2d
+
+  // ==============================================================
+  // ==============================================================
+  KOKKOS_INLINE_FUNCTION
+  void functor2d(team_policy_t::member_type member) const {
 
     // iOct must span the range [iGroup*nbOctsPerGroup ,
     // (iGroup+1)*nbOctsPerGroup [
@@ -114,42 +160,31 @@ public:
 
     const int &bx = blockSizes[IX];
     const int &by = blockSizes[IY];
-    const int &bz = blockSizes[IZ];
 
-    // const int& bx_g = blockSizes_g[IX];
-    // const int& by_g = blockSizes_g[IY];
-    // const int& bz_g = blockSizes_g[IZ];
-
-    uint32_t nbCells = params.dimType == TWO_D ? bx * by : bx * by * bz;
-    // uint32_t nbCells_g = params.dimType == TWO_D ? bx_g*by_g :
-    // bx_g*by_g*bz_g;
+    // maximun number of ghost cells to fill (per face)
+    // this number will be used to set the number of working threads
+    uint32_t bmax = bx < by ? by : bx;
+    uint32_t nbCells = bmax*ghostWidth;
 
     while (iOct < iOctNextGroup) {
 
-      // perform vectorized loop inside a given block data
+      // perform "vectorized" loop inside a given block data
       Kokkos::parallel_for(
           Kokkos::TeamVectorRange(member, nbCells),
           KOKKOS_LAMBDA(const index_t index) {
-            // compute current cell coordinates inside block
 
-            coord_t cell_coord = params.dimType == TWO_D
-                                     ? index_to_coord<2>(index, blockSizes)
-                                     : index_to_coord<3>(index, blockSizes);
+            // compute face X,left
+            fill_ghost_face_2d(iOct, index, DIR_X, FACE_LEFT);
 
-            // compute corresponding index in the block with ghost data
-            uint32_t index_g =
-                params.dimType == TWO_D
-                    ? coord_to_index_g<2>(cell_coord, blockSizes, ghostWidth)
-                    : coord_to_index_g<3>(cell_coord, blockSizes, ghostWidth);
+            // compute face X,right
+            //fill_ghost_face_2d(iOct, index, DIR_X, FACE_RIGHT);
 
-            // get local conservative variable
-            Ugroup(index_g, fm[ID], iOct_g) = U(index, fm[ID], iOct);
-            Ugroup(index_g, fm[IP], iOct_g) = U(index, fm[IP], iOct);
-            Ugroup(index_g, fm[IU], iOct_g) = U(index, fm[IU], iOct);
-            Ugroup(index_g, fm[IV], iOct_g) = U(index, fm[IV], iOct);
+            // compute face Y,left
+            //fill_ghost_face_2d(iOct, index, DIR_Y, FACE_LEFT);
 
-            if (params.dimType == THREE_D)
-              Ugroup(index_g, fm[IW], iOct_g) = U(index, fm[IW], iOct);
+            // compute face Y,right
+            //fill_ghost_face_2d(iOct, index, DIR_Y, FACE_RIGHT);
+            
           }); // end TeamVectorRange
 
       // increase current octant location both in U and Ugroup
@@ -158,7 +193,20 @@ public:
 
     } // end while iOct inside current group of octants
 
-  } // operator
+  } // functor2d()
+
+  // ==============================================================
+  // ==============================================================
+  KOKKOS_INLINE_FUNCTION
+  void operator()(team_policy_t::member_type member) const {
+
+    if (params.dimType == TWO_D)
+      functor2d(member);
+
+    // if (params.dimType == THREE_D)
+    //   functor3d(member);
+
+  } // operator()
 
   //! AMR mesh
   std::shared_ptr<AMRmesh> pmesh;
