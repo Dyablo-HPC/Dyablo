@@ -30,7 +30,12 @@ namespace dyablo { namespace muscl_block {
 
 // =======================================================================
 // =======================================================================
-void init_U(DataArrayBlock U) {
+void init_U(DataArrayBlock U,
+            uint32_t nbOcts,
+            HydroParams params, 
+            blockSize_t blockSizes,
+            uint32_t ghostWidth,
+            id2index_t fm) {
 
   using team_policy_t = Kokkos::TeamPolicy<Kokkos::IndexType<int32_t>>;
   using thread_t = team_policy_t::member_type;
@@ -39,14 +44,32 @@ void init_U(DataArrayBlock U) {
   
   team_policy_t policy (nbTeams_,
                         Kokkos::AUTO() /* team size chosen by kokkos */);
-  
+
+
+  uint32_t bx = blockSizes[IX];
+  uint32_t by = blockSizes[IY];
+  uint32_t bz = blockSizes[IZ];
+
   Kokkos::parallel_for("init_U", policy,
-                       KOKKOS_LAMBDA(const team_member& member)
+                       KOKKOS_LAMBDA(const thread_t& member)
                        {
                          uint32_t nbCells = params.dimType == TWO_D ? 
                            bx*by : bx*by*bz;
                          uint32_t iOct = member.league_rank();
-                         
+
+                         while (iOct <  nbOcts) {
+
+                           Kokkos::parallel_for(
+                             Kokkos::TeamVectorRange(member, nbCells),
+                             KOKKOS_LAMBDA(const int32_t index) {
+                               U(index, fm[ID], iOct) =
+                                 index + iOct * nbCells;
+                             }); // end TeamVectorRange
+                           
+                           iOct += nbTeams_;
+
+                         }
+
                        });
 
 
@@ -59,9 +82,9 @@ void run_test(int argc, char *argv[], uint32_t bSize, uint32_t nbBlocks) {
   /*
    * testing CopyInnerBlockCellDataFunctor
    */
-  std::cout << "// ======================================\n";
-  std::cout << "Testing CopyInnerBlockCellDataFunctor ...\n";
-  std::cout << "// ======================================\n";
+  std::cout << "// =========================================\n";
+  std::cout << "// Testing CopyInnerBlockCellDataFunctor ...\n";
+  std::cout << "// =========================================\n";
 
   /*
    * read parameter file and initialize a ConfigMap object
@@ -99,6 +122,15 @@ void run_test(int argc, char *argv[], uint32_t bSize, uint32_t nbBlocks) {
   blockSizes_g[IY] = by_g;
   blockSizes_g[IZ] = bz_g;
 
+  std::cout << "Using " 
+            << "bx=" << bx << " "
+            << "by=" << by << " "
+            << "bz=" << bz << " "
+            << "bx_g=" << bx_g << " "
+            << "by_g=" << by_g << " "
+            << "bz_g=" << bz_g << " "
+            << "ghostwidth=" << ghostWidth << "\n";
+
   uint32_t nbCellsPerOct = params.dimType == TWO_D ? bx * by : bx * by * bz;
   uint32_t nbCellsPerOct_g =
       params.dimType == TWO_D ? bx_g * by_g : bx_g * by_g * bz_g;
@@ -116,18 +148,57 @@ void run_test(int argc, char *argv[], uint32_t bSize, uint32_t nbBlocks) {
   DataArrayBlock Ugroup = DataArrayBlock("Ugroup", nbCellsPerOct_g, params.nbvar, nbOctsPerGroup);
 
   uint32_t iGroup = 1;
+  uint32_t iOctOffset = 1;
+
+  uint32_t iOct = iOctOffset + iGroup * nbOctsPerGroup;
 
   // TODO initialize U, reset Ugroup - write a functor for that
-  init_U(U);
+  std::cout << "Initializing data...\n";
+  init_U(U, nbOcts, params, blockSizes, ghostWidth, fm);
+
+  std::cout << "Printing U data from iOct = " << iOct << "\n";
+  for (uint32_t iz=0; iz<bz; ++iz) {
+    for (uint32_t iy=0; iy<by; ++iy) {
+      for (uint32_t ix=0; ix<bx; ++ix) {
+        uint32_t index = ix + bx*(iy+by*iz);
+        std::cout << U(index,fm[ID],iOct) << " ";
+      }
+      std::cout << "\n";
+    }
+    std::cout << "\n";
+  }
 
   CopyInnerBlockCellDataFunctor::apply(configMap, params, fm, 
-                                       blockSizes, blockSizes_g,
+                                       blockSizes,
                                        ghostWidth, nbOctsPerGroup,
                                        U, Ugroup, iGroup);
 
-  // TODO - print data from from the chosen iGroup 
+  // print data from from the chosen iGroup 
+  std::cout << "Printing Ugroup data from iOct = " << iOct << " | iOctLocal =" << iOctOffset << " and iGroup=" << iGroup << "\n";
+  if (bz>1) {
+    
+    for (uint32_t iz=0; iz<bz_g; ++iz) {
+      for (uint32_t iy=0; iy<by_g; ++iy) {
+        for (uint32_t ix = 0; ix < bx_g; ++ix) {
+          uint32_t index = ix + bx_g * (iy + by_g * iz);
+          std::cout << Ugroup(index, fm[ID], iOctOffset) << " ";
+        }
+        std::cout << "\n";
+      }
+      std::cout << "\n";
+    }
+
+  } else {
+
+    for (uint32_t iy=0; iy<by_g; ++iy) {
+        for (uint32_t ix = 0; ix < bx_g; ++ix) {
+          uint32_t index = ix + bx_g * iy;
+          std::cout << Ugroup(index, fm[ID], iOctOffset) << " ";
+        }
+        std::cout << "\n";
+      }
   
-  // UNFINISHED
+  }
 
 } // run_test
 
@@ -188,6 +259,13 @@ int main(int argc, char *argv[]) {
 #endif // KOKKOS_ENABLE_CUDA
 #endif // USE_MPI
   }    // end kokkos config
+
+  if (argc < 2) {
+    std::cerr << "Wrong number of arguments.\n\n";
+    std::cerr << "Usage:\n";
+    std::cerr << " ./test_CopyInnerBlockCellData ./parameter_file.ini\n";
+    exit(EXIT_FAILURE);
+  }
 
   uint32_t bSize = 4;
   uint32_t nbBlocks = 32;
