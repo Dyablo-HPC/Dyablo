@@ -86,8 +86,8 @@ void run_test(int argc, char *argv[]) {
   uint32_t bz = configMap.getInteger("amr", "bz", 1);
 
   uint32_t bx_g = bx + 2 * ghostWidth;
-  uint32_t by_g = bx + 2 * ghostWidth;
-  uint32_t bz_g = bx + 2 * ghostWidth;
+  uint32_t by_g = by + 2 * ghostWidth;
+  uint32_t bz_g = bz + 2 * ghostWidth;
 
   blockSize_t blockSizes, blockSizes_g;
   blockSizes[IX] = bx;
@@ -126,21 +126,21 @@ void run_test(int argc, char *argv[]) {
   DataArrayBlock Ugroup = DataArrayBlock("Ugroup", nbCellsPerOct_g, params.nbvar, nbOctsPerGroup);
 
   uint32_t iGroup = 1;
-  uint32_t iOctOffset = 1;
+  uint32_t iOct_local = 2;
 
-  uint32_t iOct = iOctOffset + iGroup * nbOctsPerGroup;
+  uint32_t iOct_global = iOct_local + iGroup * nbOctsPerGroup;
 
-  std::cout << "Looking at octant id = " << iOct << "\n";
+  std::cout << "Looking at octant id = " << iOct_global << "\n";
 
   // save solution, just for cross-checking
   solver->save_solution();
 
-  std::cout << "Printing U data from iOct = " << iOct << "\n";
+  std::cout << "Printing U data from iOct = " << iOct_global << "\n";
   for (uint32_t iz=0; iz<bz; ++iz) {
     for (uint32_t iy=0; iy<by; ++iy) {
       for (uint32_t ix=0; ix<bx; ++ix) {
         uint32_t index = ix + bx*(iy+by*iz);
-        printf("%5f ",solver->U(index,fm[ID],iOct));
+        printf("%5f ",solver->U(index,fm[ID],iOct_global));
       }
       std::cout << "\n";
     }
@@ -151,6 +151,14 @@ void run_test(int argc, char *argv[]) {
             << Ugroup.extent(0) << " "
             << Ugroup.extent(1) << " "
             << Ugroup.extent(2) << "\n";
+
+  // first copy inner cells
+
+  CopyInnerBlockCellDataFunctor::apply(configMap, params, fm, 
+                                       blockSizes,
+                                       ghostWidth, nbOctsPerGroup,
+                                       solver->U, Ugroup, iGroup);
+
 
   CopyFaceBlockCellDataFunctor::apply(solver->amr_mesh,
                                       configMap,
@@ -165,14 +173,14 @@ void run_test(int argc, char *argv[]) {
                                       iGroup);
 
   // print data from from the chosen iGroup 
-  std::cout << "Printing Ugroup data from iOct = " << iOct << " | iOctLocal =" << iOctOffset << " and iGroup=" << iGroup << "\n";
+  std::cout << "Printing Ugroup data from iOct = " << iOct_global << " | iOctLocal = " << iOct_local << " and iGroup = " << iGroup << "\n";
   if (bz>1) {
     
-    for (uint32_t iz=0; iz<bz_g; ++iz) {
-      for (uint32_t iy=0; iy<by_g; ++iy) {
+    for (uint32_t iz = 0; iz < bz_g; ++iz) {
+      for (uint32_t iy = 0; iy < by_g; ++iy) {
         for (uint32_t ix = 0; ix < bx_g; ++ix) {
           uint32_t index = ix + bx_g * (iy + by_g * iz);
-          std::cout << Ugroup(index, fm[ID], iOctOffset) << " ";
+          printf("%5f ", Ugroup(index, fm[ID], iOct_local));
         }
         std::cout << "\n";
       }
@@ -182,13 +190,13 @@ void run_test(int argc, char *argv[]) {
   } else {
 
     for (uint32_t iy=0; iy<by_g; ++iy) {
-        for (uint32_t ix = 0; ix < bx_g; ++ix) {
-          uint32_t index = ix + bx_g * iy;
-          std::cout << Ugroup(index, fm[ID], iOctOffset) << " ";
-        }
-        std::cout << "\n";
+      for (uint32_t ix = 0; ix < bx_g; ++ix) {
+        uint32_t index = ix + bx_g * iy;
+        printf("%5f ", Ugroup(index, fm[ID], iOct_local) );
       }
-  
+      std::cout << "\n";
+    }
+    
   }
 
   delete solver;

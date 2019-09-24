@@ -129,6 +129,7 @@ public:
   // ==============================================================
   KOKKOS_INLINE_FUNCTION
   void fill_ghost_face_2d_same_size(uint32_t iOct,
+                                    uint32_t iOct_local,
                                     uint32_t iOct_neigh,
                                     bool     is_ghost,
                                     index_t  index,
@@ -148,43 +149,47 @@ public:
       // border sizes for input  cell are : ghostWidth,by
       // border sizes for output cell are : ghostWidth,by+2*ghostWidth
       
-      // compute current cell coordinates inside input block
-      coord_t cell_coord_in = index_to_coord(index, ghostWidth, by);
-      
-      coord_t cell_coord_out = {cell_coord_in[IX],
-                                cell_coord_in[IY] + ghostWidth, 
-                                0};
+      // compute cell coordinates inside border
+      coord_t coord_border = index_to_coord(index, ghostWidth, by);
+
+      // compute neighbor cell coordinates inside non-ghosted block
+      coord_t coord_cur = {coord_border[IX],
+                           coord_border[IY] + ghostWidth, 
+                           0};
       
       // compute corresponding index in the block with ghost data
-      uint32_t index_out =
-        coord_to_index_g(cell_coord_out, bx + 2 * ghostWidth,
-                         by + 2 * ghostWidth, ghostWidth);
+      uint32_t index_cur =
+        coord_to_index_g(coord_cur,
+                         bx,
+                         by,
+                         ghostWidth);
       
-      // shift input cell coords to access input cell data on the right
-      cell_coord_in[IX] += (bx - ghostWidth);
+      // shift border coords to access input (neighbor) cell data
+      // on the right
+      coord_border[IX] += (bx - ghostWidth);
 
-      uint32_t index_in = cell_coord_in[IX] + bx_g * cell_coord_in[IY];
+      uint32_t index_border = coord_border[IX] + bx * coord_border[IY];
 
       if (is_ghost) {
-        Ugroup(index_out, fm[ID], iOct_neigh) = U_ghost(index_in, fm[ID], iOct);
-        Ugroup(index_out, fm[IP], iOct_neigh) = U_ghost(index_in, fm[IP], iOct);
-        Ugroup(index_out, fm[IU], iOct_neigh) = U_ghost(index_in, fm[IU], iOct);
-        Ugroup(index_out, fm[IV], iOct_neigh) = U_ghost(index_in, fm[IV], iOct);
+        Ugroup(index_cur, fm[ID], iOct_local) = U_ghost(index_border, fm[ID], iOct_neigh);
+        Ugroup(index_cur, fm[IP], iOct_local) = U_ghost(index_border, fm[IP], iOct_neigh);
+        Ugroup(index_cur, fm[IU], iOct_local) = U_ghost(index_border, fm[IU], iOct_neigh);
+        Ugroup(index_cur, fm[IV], iOct_local) = U_ghost(index_border, fm[IV], iOct_neigh);
       } else {
-        Ugroup(index_out, fm[ID], iOct_neigh) = U(index_in, fm[ID], iOct);
-        Ugroup(index_out, fm[IP], iOct_neigh) = U(index_in, fm[IP], iOct);
-        Ugroup(index_out, fm[IU], iOct_neigh) = U(index_in, fm[IU], iOct);
-        Ugroup(index_out, fm[IV], iOct_neigh) = U(index_in, fm[IV], iOct);
+        Ugroup(index_cur, fm[ID], iOct_local) = U(index_border, fm[ID], iOct_neigh);
+        Ugroup(index_cur, fm[IP], iOct_local) = U(index_border, fm[IP], iOct_neigh);
+        Ugroup(index_cur, fm[IU], iOct_local) = U(index_border, fm[IU], iOct_neigh);
+        Ugroup(index_cur, fm[IV], iOct_local) = U(index_border, fm[IV], iOct_neigh);
       }
     }
   
-} // fill_ghost_face_2d_same_size
-
+  } // fill_ghost_face_2d_same_size
 
   // ==============================================================
   // ==============================================================
   KOKKOS_INLINE_FUNCTION
   void fill_ghost_face_2d(uint32_t iOct, 
+                          uint32_t iOct_local, 
                           index_t  index_in, 
                           DIR_ID   dir, 
                           FACE_ID  face) const
@@ -225,7 +230,9 @@ public:
 
       } else {
 
-        fill_ghost_face_2d_same_size(iOct, iOct_neigh, isghost[0], index_in, dir, face);
+        //printf("KK iOct_global=%d iOct_local=%2d iOct_neigh=%2d \n",iOct, iOct_local, iOct_neigh);
+
+        fill_ghost_face_2d_same_size(iOct, iOct_local, iOct_neigh, isghost[0], index_in, dir, face);
 
       } // end iOct and iOct_neigh have same size
 
@@ -254,6 +261,9 @@ public:
     // octant id inside the Ugroup data array
     uint32_t iOct_g = member.league_rank();
 
+    // total number of octants
+    uint32_t nbOcts = pmesh->getNumOctants();
+
     // compute first octant index after current group
     uint32_t iOctNextGroup = (iGroup + 1) * nbOctsPerGroup;
 
@@ -265,7 +275,7 @@ public:
     uint32_t bmax = bx < by ? by : bx;
     uint32_t nbCells = bmax*ghostWidth;
 
-    while (iOct < iOctNextGroup) {
+    while (iOct < iOctNextGroup and iOct < nbOcts) {
 
       // perform "vectorized" loop inside a given block data
       Kokkos::parallel_for(
@@ -273,7 +283,7 @@ public:
           KOKKOS_LAMBDA(const index_t index) {
 
             // compute face X,left
-            fill_ghost_face_2d(iOct, index, DIR_X, FACE_LEFT);
+            fill_ghost_face_2d(iOct, iOct_g, index, DIR_X, FACE_LEFT);
 
             // compute face X,right
             //fill_ghost_face_2d(iOct, index, DIR_X, FACE_RIGHT);
