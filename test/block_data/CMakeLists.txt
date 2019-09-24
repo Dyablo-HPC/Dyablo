@@ -15,3 +15,5 @@ if (USE_MPI)
     mpiUtils MPI::MPI_CXX)
 endif(USE_MPI)
 
+# some useful parameter file
+configure_file(test_implode_2D_block.ini test_implode_2D_block.ini COPYONLY)
