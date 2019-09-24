@@ -151,19 +151,15 @@ public:
       
       // compute cell coordinates inside border
       coord_t coord_border = index_to_coord(index, ghostWidth, by);
-
+      
       // compute neighbor cell coordinates inside non-ghosted block
       coord_t coord_cur = {coord_border[IX],
                            coord_border[IY] + ghostWidth, 
                            0};
       
-      // compute corresponding index in the block with ghost data
-      uint32_t index_cur =
-        coord_to_index_g(coord_cur,
-                         bx,
-                         by,
-                         ghostWidth);
-      
+      // compute corresponding index in the ghosted block 
+      uint32_t index_cur = coord_cur[IX] + (bx+2*ghostWidth)*coord_cur[IY];
+
       // shift border coords to access input (neighbor) cell data
       // on the right
       coord_border[IX] += (bx - ghostWidth);
@@ -230,7 +226,8 @@ public:
 
       } else {
 
-        //printf("KK iOct_global=%d iOct_local=%2d iOct_neigh=%2d \n",iOct, iOct_local, iOct_neigh);
+        if (index_in==0)
+          printf("[same size] iOct_global=%d iOct_local=%2d iOct_neigh=%2d \n",iOct, iOct_local, iOct_neigh);
 
         fill_ghost_face_2d_same_size(iOct, iOct_local, iOct_neigh, isghost[0], index_in, dir, face);
 

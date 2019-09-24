@@ -189,7 +189,7 @@ void run_test(int argc, char *argv[]) {
 
   } else {
 
-    for (uint32_t iy=0; iy<by_g; ++iy) {
+    for (uint32_t iy = 0; iy < by_g; ++iy) {
       for (uint32_t ix = 0; ix < bx_g; ++ix) {
         uint32_t index = ix + bx_g * iy;
         printf("%5f ", Ugroup(index, fm[ID], iOct_local) );
