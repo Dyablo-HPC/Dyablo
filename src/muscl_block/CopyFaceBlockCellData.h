@@ -77,11 +77,17 @@ public:
                                uint32_t ghostWidth,
                                uint32_t nbOctsPerGroup,
                                DataArrayBlock U,
+                               DataArrayBlock U_ghost,
                                DataArrayBlock Ugroup,
                                uint32_t iGroup) :
     pmesh(pmesh), params(params), 
-    fm(fm), blockSizes(blockSizes), ghostWidth(ghostWidth),
-    nbOctsPerGroup(nbOctsPerGroup), U(U), Ugroup(Ugroup), iGroup(iGroup)
+    fm(fm), blockSizes(blockSizes), 
+    ghostWidth(ghostWidth),
+    nbOctsPerGroup(nbOctsPerGroup), 
+    U(U), 
+    U_ghost(U_ghost),
+    Ugroup(Ugroup), 
+    iGroup(iGroup)
   {};
 
   // static method which does it all: create and execute functor
@@ -93,12 +99,16 @@ public:
                     uint32_t ghostWidth,
                     uint32_t nbOctsPerGroup,
                     DataArrayBlock U,
+                    DataArrayBlock U_ghost,
                     DataArrayBlock Ugroup,
                     uint32_t iGroup)
   {
 
-    CopyFaceBlockCellDataFunctor functor(pmesh, params, fm, blockSizes, ghostWidth,
-                                         nbOctsPerGroup, U, Ugroup, iGroup);
+    CopyFaceBlockCellDataFunctor functor(pmesh, params, fm, 
+                                         blockSizes, ghostWidth,
+                                         nbOctsPerGroup, 
+                                         U, U_ghost, 
+                                         Ugroup, iGroup);
 
     // kokkos execution policy
     uint32_t nbTeams_ = configMap.getInteger("amr", "nbTeams", 16);
@@ -114,26 +124,40 @@ public:
   // ==============================================================
   // ==============================================================
   KOKKOS_INLINE_FUNCTION
-  void fill_ghost_face_2d(const uint32_t iOct, const index_t index, const DIR_ID dir, FACE_ID face) const 
+  void fill_ghost_face_2d_same_size(uint32_t iOct,
+                                    uint32_t iOct_neigh,
+                                    bool     is_ghost,
+                                    index_t  index_in,
+                                    DIR_ID   dir,
+                                    FACE_ID  face) const
   {
-
     
-
     const int &bx = blockSizes[IX];
     const int &by = blockSizes[IY];
-
-    if (face == FACE_LEFT) {
+    
+    // current octant and neighbor are at same level (= same size)
+    if (index_in < ghostWidth*by and 
+        dir == DIR_X             and 
+        face == FACE_LEFT) {
+      
+      
       // border sizes for input  cell are : ghostWidth,by
       // border sizes for output cell are : ghostWidth,by+2*ghostWidth
-
-
+      
+      // compute current cell coordinates inside input block
+      coord_t cell_coord_in = index_to_coord(index_in, ghostWidth, by);
+      
+      coord_t cell_coord_out = {cell_coord_in[IX],
+                                cell_coord_in[IY] + ghostWidth, 0};
+      
+      // compute corresponding index in the block with ghost data
+      uint32_t index_out =
+        coord_to_index_g(cell_coord_out, bx + 2 * ghostWidth,
+                         by + 2 * ghostWidth, ghostWidth);
+      
+      // shift input cell coords to access input cell data on the right
+      cell_coord_in[IX] += (bx - ghostWidth);
     }
-
-    // compute current cell coordinates inside block
-    coord_t cell_coord = index_to_coord<2>(index, blockSizes);
-    
-    // compute corresponding index in the block with ghost data
-    uint32_t index_g = coord_to_index_g<2>(cell_coord, blockSizes, ghostWidth);
     
     // get local conservative variable
     // Ugroup(index_g, fm[ID], iOct_g) = U(index, fm[ID], iOct);
@@ -141,6 +165,66 @@ public:
     // Ugroup(index_g, fm[IU], iOct_g) = U(index, fm[IU], iOct);
     // Ugroup(index_g, fm[IV], iOct_g) = U(index, fm[IV], iOct);
     
+  
+} // fill_ghost_face_2d_same_size
+
+
+  // ==============================================================
+  // ==============================================================
+  KOKKOS_INLINE_FUNCTION
+  void fill_ghost_face_2d(uint32_t iOct, 
+                          index_t  index_in, 
+                          DIR_ID   dir, 
+                          FACE_ID  face) const
+  {
+
+    const int &bx = blockSizes[IX];
+    const int &by = blockSizes[IY];
+
+    // probe mesh neighbor information
+    uint8_t iface = face + 2*dir;
+    uint8_t codim = 1;
+
+    // list of neighbors octant id, neighbor through a given face
+    std::vector<uint32_t> neigh;
+    std::vector<bool> isghost;
+
+    pmesh->findNeighbours(iOct,iface,codim,neigh,isghost);
+
+    /*
+     * first deal with external border -- TODO
+     */
+    if (neigh.size() == 0) {
+      // fill_ghost_face_2d_external_border(iOct, index_in, dir, face);
+    } 
+    
+    /*
+     * there one neighbor accross face , either same size or larger
+     */
+    else if (neigh.size() == 1) {
+
+      // retrieve neighbor octant id
+      uint32_t iOct_neigh = neigh[0];
+
+      // check if neighbor is larger
+      if ( pmesh->getLevel(iOct) > pmesh->getLevel(iOct_neigh) ) {
+
+        // TODO
+
+      } else {
+
+        fill_ghost_face_2d_same_size(iOct, iOct_neigh, isghost[0], index_in, dir, face);
+
+      } // end iOct and iOct_neigh have same size
+
+    } // end neigh.size() == 1
+
+    /*
+     * there are 2 neighbors accross face, smaller than current octant
+     */
+    else if (neigh.size() == 2) {
+    }
+
   } // fill_ghost_face_2d
 
   // ==============================================================
@@ -229,8 +313,11 @@ public:
   //! number of octants per group
   uint32_t nbOctsPerGroup;
 
-  //! heavy data - input - global array of block data (no ghosts)
+  //! heavy data - input - global array of block data in octants own by current MPI process
   DataArrayBlock U;
+
+  //! heavy data - input - global array of block data in MPI ghost octant
+  DataArrayBlock U_ghost;
 
   //! heavy data - output - local group array of block data (with ghosts)
   DataArrayBlock Ugroup;
