@@ -311,7 +311,7 @@ public:
           fabs(x + y - ( 0.5*(xmin+xmax) + ymin ) ) :
           fabs(x + y + z - ( 0.5*(xmin+xmax) + ymin + zmin ) ) ;
 
-        if ( d < cellSize )
+        if ( d < 1.5*cellSize )
           should_refine = true;
 
         if (should_refine)
