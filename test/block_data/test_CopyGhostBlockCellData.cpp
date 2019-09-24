@@ -37,53 +37,6 @@ namespace muscl_block {
 
 // =======================================================================
 // =======================================================================
-void init_U(DataArrayBlock U,
-            uint32_t nbOcts,
-            HydroParams params, 
-            blockSize_t blockSizes,
-            uint32_t ghostWidth,
-            id2index_t fm) {
-
-  using team_policy_t = Kokkos::TeamPolicy<Kokkos::IndexType<int32_t>>;
-  using thread_t = team_policy_t::member_type;
-
-  uint32_t nbTeams_ = 4;
-  
-  team_policy_t policy (nbTeams_,
-                        Kokkos::AUTO() /* team size chosen by kokkos */);
-
-
-  uint32_t bx = blockSizes[IX];
-  uint32_t by = blockSizes[IY];
-  uint32_t bz = blockSizes[IZ];
-
-  Kokkos::parallel_for("init_U", policy,
-                       KOKKOS_LAMBDA(const thread_t& member)
-                       {
-                         uint32_t nbCells = params.dimType == TWO_D ? 
-                           bx*by : bx*by*bz;
-                         uint32_t iOct = member.league_rank();
-
-                         while (iOct <  nbOcts) {
-
-                           Kokkos::parallel_for(
-                             Kokkos::TeamVectorRange(member, nbCells),
-                             KOKKOS_LAMBDA(const int32_t index) {
-                               U(index, fm[ID], iOct) =
-                                 index + iOct * nbCells;
-                             }); // end TeamVectorRange
-                           
-                           iOct += nbTeams_;
-
-                         }
-
-                       });
-
-
-} // init_U
-
-// =======================================================================
-// =======================================================================
 void run_test(int argc, char *argv[]) {
 
   /*
@@ -109,7 +62,6 @@ void run_test(int argc, char *argv[]) {
 
   // actually initializing a solver
   // initialize workspace memory (U, U2, ...)
-  SolverBase *solver;
   if (solver_name.find("Muscl_Block") == std::string::npos) {
 
     std::cerr << "Please modify your input parameter file.\n";
@@ -117,7 +69,7 @@ void run_test(int argc, char *argv[]) {
 
   }
   // anyway create the right solver
-  solver = muscl_block::SolverHydroMusclBlock::create(params, configMap);
+  SolverHydroMusclBlock* solver = new SolverHydroMusclBlock(params, configMap);
 
   // by now, init condition must have been called
 
@@ -162,12 +114,14 @@ void run_test(int argc, char *argv[]) {
   uint32_t nbOctsPerGroup = configMap.getInteger("amr", "nbOctsPerGroup", 32);
 
   /*
-   * allocate/initialize U / Ugroup
+   * allocate/initialize Ugroup
    */
 
-  uint32_t nbOcts = 128;
+  uint32_t nbOcts = solver->amr_mesh->getNumOctants();
+  std::cout << "Currently mesh has " << nbOcts << " octants\n";
 
-  DataArrayBlock U = DataArrayBlock("U", nbCellsPerOct, params.nbvar, nbOcts);
+  std::cout << "Using nbCellsPerOct_g (number of cells per octant with ghots) = " << nbCellsPerOct_g << "\n";
+  std::cout << "Using nbOctsPerGroup (number of octant per group) = " << nbOctsPerGroup << "\n";
 
   DataArrayBlock Ugroup = DataArrayBlock("Ugroup", nbCellsPerOct_g, params.nbvar, nbOctsPerGroup);
 
@@ -176,56 +130,68 @@ void run_test(int argc, char *argv[]) {
 
   uint32_t iOct = iOctOffset + iGroup * nbOctsPerGroup;
 
+  std::cout << "Looking at octant id = " << iOct << "\n";
+
   // save solution, just for cross-checking
   solver->save_solution();
 
-  // // TODO initialize U, reset Ugroup - write a functor for that
-  // std::cout << "Initializing data...\n";
-  // init_U(U, nbOcts, params, blockSizes, ghostWidth, fm);
+  std::cout << "Printing U data from iOct = " << iOct << "\n";
+  for (uint32_t iz=0; iz<bz; ++iz) {
+    for (uint32_t iy=0; iy<by; ++iy) {
+      for (uint32_t ix=0; ix<bx; ++ix) {
+        uint32_t index = ix + bx*(iy+by*iz);
+        printf("%5f ",solver->U(index,fm[ID],iOct));
+      }
+      std::cout << "\n";
+    }
+    std::cout << "\n";
+  }
 
-  // std::cout << "Printing U data from iOct = " << iOct << "\n";
-  // for (uint32_t iz=0; iz<bz; ++iz) {
-  //   for (uint32_t iy=0; iy<by; ++iy) {
-  //     for (uint32_t ix=0; ix<bx; ++ix) {
-  //       uint32_t index = ix + bx*(iy+by*iz);
-  //       std::cout << U(index,fm[ID],iOct) << " ";
-  //     }
-  //     std::cout << "\n";
-  //   }
-  //   std::cout << "\n";
-  // }
+  std::cout << "Ugroup sizes = " 
+            << Ugroup.extent(0) << " "
+            << Ugroup.extent(1) << " "
+            << Ugroup.extent(2) << "\n";
 
-  // CopyGhostBlockCellDataFunctor::apply(configMap, params, fm, 
-  //                                      blockSizes,
-  //                                      ghostWidth, nbOctsPerGroup,
-  //                                      U, Ugroup, iGroup);
+  CopyFaceBlockCellDataFunctor::apply(solver->amr_mesh,
+                                      configMap,
+                                      params, 
+                                      fm,
+                                      blockSizes,
+                                      ghostWidth,
+                                      nbOctsPerGroup,
+                                      solver->U, 
+                                      solver->Ughost, 
+                                      Ugroup, 
+                                      iGroup);
 
-  // // print data from from the chosen iGroup 
-  // std::cout << "Printing Ugroup data from iOct = " << iOct << " | iOctLocal =" << iOctOffset << " and iGroup=" << iGroup << "\n";
-  // if (bz>1) {
+  // print data from from the chosen iGroup 
+  std::cout << "Printing Ugroup data from iOct = " << iOct << " | iOctLocal =" << iOctOffset << " and iGroup=" << iGroup << "\n";
+  if (bz>1) {
     
-  //   for (uint32_t iz=0; iz<bz_g; ++iz) {
-  //     for (uint32_t iy=0; iy<by_g; ++iy) {
-  //       for (uint32_t ix = 0; ix < bx_g; ++ix) {
-  //         uint32_t index = ix + bx_g * (iy + by_g * iz);
-  //         std::cout << Ugroup(index, fm[ID], iOctOffset) << " ";
-  //       }
-  //       std::cout << "\n";
-  //     }
-  //     std::cout << "\n";
-  //   }
+    for (uint32_t iz=0; iz<bz_g; ++iz) {
+      for (uint32_t iy=0; iy<by_g; ++iy) {
+        for (uint32_t ix = 0; ix < bx_g; ++ix) {
+          uint32_t index = ix + bx_g * (iy + by_g * iz);
+          std::cout << Ugroup(index, fm[ID], iOctOffset) << " ";
+        }
+        std::cout << "\n";
+      }
+      std::cout << "\n";
+    }
 
-  // } else {
+  } else {
 
-  //   for (uint32_t iy=0; iy<by_g; ++iy) {
-  //       for (uint32_t ix = 0; ix < bx_g; ++ix) {
-  //         uint32_t index = ix + bx_g * iy;
-  //         std::cout << Ugroup(index, fm[ID], iOctOffset) << " ";
-  //       }
-  //       std::cout << "\n";
-  //     }
+    for (uint32_t iy=0; iy<by_g; ++iy) {
+        for (uint32_t ix = 0; ix < bx_g; ++ix) {
+          uint32_t index = ix + bx_g * iy;
+          std::cout << Ugroup(index, fm[ID], iOctOffset) << " ";
+        }
+        std::cout << "\n";
+      }
   
-  // }
+  }
+
+  delete solver;
 
 } // run_test
 
