@@ -110,8 +110,8 @@ void run_test(int argc, char *argv[], uint32_t bSize, uint32_t nbBlocks) {
   uint32_t bz = configMap.getInteger("amr", "bz", 1);
 
   uint32_t bx_g = bx + 2 * ghostWidth;
-  uint32_t by_g = bx + 2 * ghostWidth;
-  uint32_t bz_g = bx + 2 * ghostWidth;
+  uint32_t by_g = by + 2 * ghostWidth;
+  uint32_t bz_g = bz + 2 * ghostWidth;
 
   blockSize_t blockSizes, blockSizes_g;
   blockSizes[IX] = bx;
