@@ -88,7 +88,11 @@ public:
     U_ghost(U_ghost),
     Ugroup(Ugroup), 
     iGroup(iGroup)
-  {};
+  {
+    bx_g = blockSizes[IX] + 2*ghostWidth;
+    by_g = blockSizes[IY] + 2*ghostWidth;
+    bz_g = blockSizes[IZ] + 2*ghostWidth;
+  };
 
   // static method which does it all: create and execute functor
   static void apply(std::shared_ptr<AMRmesh> pmesh,
@@ -127,17 +131,17 @@ public:
   void fill_ghost_face_2d_same_size(uint32_t iOct,
                                     uint32_t iOct_neigh,
                                     bool     is_ghost,
-                                    index_t  index_in,
+                                    index_t  index,
                                     DIR_ID   dir,
                                     FACE_ID  face) const
   {
     
     const int &bx = blockSizes[IX];
     const int &by = blockSizes[IY];
-    
+
     // current octant and neighbor are at same level (= same size)
-    if (index_in < ghostWidth*by and 
-        dir == DIR_X             and 
+    if (index < ghostWidth*by and 
+        dir == DIR_X          and 
         face == FACE_LEFT) {
       
       
@@ -145,10 +149,11 @@ public:
       // border sizes for output cell are : ghostWidth,by+2*ghostWidth
       
       // compute current cell coordinates inside input block
-      coord_t cell_coord_in = index_to_coord(index_in, ghostWidth, by);
+      coord_t cell_coord_in = index_to_coord(index, ghostWidth, by);
       
       coord_t cell_coord_out = {cell_coord_in[IX],
-                                cell_coord_in[IY] + ghostWidth, 0};
+                                cell_coord_in[IY] + ghostWidth, 
+                                0};
       
       // compute corresponding index in the block with ghost data
       uint32_t index_out =
@@ -157,14 +162,21 @@ public:
       
       // shift input cell coords to access input cell data on the right
       cell_coord_in[IX] += (bx - ghostWidth);
+
+      uint32_t index_in = cell_coord_in[IX] + bx_g * cell_coord_in[IY];
+
+      if (is_ghost) {
+        Ugroup(index_out, fm[ID], iOct_neigh) = U_ghost(index_in, fm[ID], iOct);
+        Ugroup(index_out, fm[IP], iOct_neigh) = U_ghost(index_in, fm[IP], iOct);
+        Ugroup(index_out, fm[IU], iOct_neigh) = U_ghost(index_in, fm[IU], iOct);
+        Ugroup(index_out, fm[IV], iOct_neigh) = U_ghost(index_in, fm[IV], iOct);
+      } else {
+        Ugroup(index_out, fm[ID], iOct_neigh) = U(index_in, fm[ID], iOct);
+        Ugroup(index_out, fm[IP], iOct_neigh) = U(index_in, fm[IP], iOct);
+        Ugroup(index_out, fm[IU], iOct_neigh) = U(index_in, fm[IU], iOct);
+        Ugroup(index_out, fm[IV], iOct_neigh) = U(index_in, fm[IV], iOct);
+      }
     }
-    
-    // get local conservative variable
-    // Ugroup(index_g, fm[ID], iOct_g) = U(index, fm[ID], iOct);
-    // Ugroup(index_g, fm[IP], iOct_g) = U(index, fm[IP], iOct);
-    // Ugroup(index_g, fm[IU], iOct_g) = U(index, fm[IU], iOct);
-    // Ugroup(index_g, fm[IV], iOct_g) = U(index, fm[IV], iOct);
-    
   
 } // fill_ghost_face_2d_same_size
 
@@ -223,6 +235,9 @@ public:
      * there are 2 neighbors accross face, smaller than current octant
      */
     else if (neigh.size() == 2) {
+
+      // TODO
+
     }
 
   } // fill_ghost_face_2d
@@ -304,11 +319,13 @@ public:
   //! block sizes without ghosts
   blockSize_t blockSizes;
 
-  //! block sizes with    ghosts
-  // blockSize_t blockSizes_g;
-
   //! ghost width
   uint32_t ghostWidth;
+
+  //! block sizes with    ghosts
+  uint32_t bx_g;
+  uint32_t by_g;
+  uint32_t bz_g;
 
   //! number of octants per group
   uint32_t nbOctsPerGroup;
