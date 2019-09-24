@@ -42,14 +42,14 @@ int main(int argc, char *argv[])
   
   Kokkos::initialize(argc, argv);
 
-  int rank=0;
-  int nRanks=1;
-  
+  int rank = 0;
+  int nRanks = 1;
+
   {
     std::cout << "##########################\n";
     std::cout << "KOKKOS CONFIG             \n";
     std::cout << "##########################\n";
-    
+
     std::ostringstream msg;
     std::cout << "Kokkos configuration" << std::endl;
     if ( Kokkos::hwloc::available() ) {
@@ -85,10 +85,8 @@ int main(int argc, char *argv[])
     }
 # endif // KOKKOS_ENABLE_CUDA
 #endif // USE_MPI
+  }    // end kokkos config
 
-    
-  }
-  
   // banner
   //if (rank==0) print_version_info();
 
