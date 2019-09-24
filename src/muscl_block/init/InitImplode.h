@@ -114,6 +114,8 @@ public:
     const int& by = blockSizes[IY];
     const int& bz = blockSizes[IZ];
 
+    const bool debug = iParams.debug;
+
     uint32_t nbCells = params.dimType == TWO_D ? bx*by : bx*by*bz;
 
     while (iOct <  pmesh->getNumOctants() )
@@ -191,6 +193,16 @@ public:
               Udata(index, fm[IP], iOct) = p_in/(gamma0-1.0) +
                 0.5 * rho_in * (u_in*u_in + v_in*v_in + w_in*w_in);
             }
+          }
+
+          if (debug) {
+
+            // just add a gradient to density
+            real_t delta = params.dimType == TWO_D ?
+              (x+y)*0.05 :
+              (x+y+z)*0.05;
+            Udata(index, fm[ID], iOct) += delta;
+          
           }
 
         }); // end TeamVectorRange
