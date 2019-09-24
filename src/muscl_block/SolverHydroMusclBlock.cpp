@@ -256,7 +256,7 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
      */
     if ( !m_problem_name.compare("implode") ) {
       
-      //init_implode(this);
+      init_implode(this);
       
     } else if ( !m_problem_name.compare("sod") ) {
       
@@ -292,7 +292,7 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
 		<< " is not recognized / implemented."
 		<< std::endl;
       std::cout <<  "Use default - implode" << std::endl;
-      //init_implode(this);
+      init_implode(this);
       
     }
 
