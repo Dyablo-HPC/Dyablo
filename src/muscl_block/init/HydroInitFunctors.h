@@ -10,7 +10,7 @@ namespace muscl_block {
 class SolverHydroMusclBlock;
 
 // this is were actual initialization happens
-// void init_implode(SolverHydroMuscl *psolver);
+void init_implode(SolverHydroMusclBlock *psolver);
 // void init_sod(SolverHydroMuscl *psolver);
 void init_blast(SolverHydroMusclBlock *psolver);
 // void init_kelvin_helmholtz(SolverHydroMuscl *psolver);
