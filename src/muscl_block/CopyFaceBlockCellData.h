@@ -91,6 +91,12 @@ public:
     NEIGH_POS_3 = 3
   };
 
+  enum NEIGH_SIZE : uint8_t {
+    NEIGH_IS_SMALLER   = 0,
+    NEIGH_IS_LARGER    = 1,
+    NEIGH_IS_SAME_SIZE = 2
+  };
+
   /**
    *
    * \param[in] pmesh the main PABLO data structure with AMR connectivity information
@@ -177,7 +183,13 @@ public:
    * Identifies situations like this (assuming neighbor octant is on the left,
    * and current octant on the right) :
    *
-   * also assuming neighbor octant is LARGER than current octant
+   * \return eitheir NEIGH_POS_0 or NEIGH_POS_1 (see below)
+   *
+   * Algorithm to evaluate realtive position (see drawings below)
+   * just consists in comparing X or Y coordinate of the lower
+   * left corner of current octant and neighbor octant.
+   *
+   * assuming neighbor octant is LARGER than current octant
    *
    * ============================================
    * E.g. when dir = DIR_X and face = FACE_LEFT :
@@ -205,14 +217,30 @@ public:
    * |__|                     |__|
    *
    * 
+   * assuming neighbor octant is SMALLER than current octant
+   *
+   * ============================================
+   * E.g. when dir = DIR_X and face = FACE_LEFT :
+   *
+   * NEIGH_POS_0            NEIGH_POS_1
+   *        ______           __      ______ 
+   *       |      |         |  |    |      |
+   *  __   |      |     or  |__|    |      |
+   * |  |  |      |                 |      |
+   * |__|  |______|                 |______|
+   *
+   *
+   * \note Please note that the "if" branches are not divergent,
+   * all threads in a given team always follow the same
+   * branch.
    */
   KOKKOS_INLINE_FUNCTION
   NEIGH_LOC get_relative_position_2d(uint32_t iOct,
                                      uint32_t iOct_neigh,
                                      bool     is_ghost,
-                                     index_t  index,
                                      DIR_ID   dir,
-                                     FACE_ID  face) const
+                                     FACE_ID  face,
+                                     NEIGH_SIZE neigh_size) const
   {
 
     // default value
@@ -235,7 +263,10 @@ public:
         pmesh->getYghost(iOct_neigh) : 
         pmesh->getY     (iOct_neigh);
 
-      if (neigh_loc < cur_loc)
+      if (neigh_size == NEIGH_IS_LARGER  and (neigh_loc < cur_loc) )
+        res = NEIGH_POS_1;
+
+      if (neigh_size == NEIGH_IS_SMALLER and (neigh_loc > cur_loc) )
         res = NEIGH_POS_1;
 
     }
@@ -250,7 +281,10 @@ public:
         pmesh->getXghost(iOct_neigh) : 
         pmesh->getX     (iOct_neigh);
 
-      if (neigh_loc < cur_loc)
+      if ( neigh_size == NEIGH_IS_LARGER and (neigh_loc < cur_loc) )
+        res = NEIGH_POS_1;
+
+      if ( neigh_size == NEIGH_IS_SMALLER and (neigh_loc > cur_loc) )
         res = NEIGH_POS_1;
 
     }
@@ -351,11 +385,9 @@ public:
 
   // ==============================================================
   // ==============================================================
-  // ==============================================================
-  // ==============================================================
   /**
    * Fill (copy) ghost cell data of current octant (iOct) from
-   * a neighbor octant is case neighbor is larger (i.e.
+   * a neighbor octant is case neighbor is LARGER (i.e.
    * one level less than current octant's level).
    *
    * \param[in] iOct global index to current octant
@@ -373,7 +405,7 @@ public:
    * current  (small) cell on the right
    * neighbor (large) cell on the left
    *
-   * These 2 situations are labeled LOW / UP
+   * These 2 situations schematically are
    *  _______              ______    __
    * |      |             |      |  |  |
    * |      |   __    or  |      |  |__|
@@ -467,6 +499,119 @@ public:
   // ==============================================================
   // ==============================================================
   /**
+   * Fill (copy) ghost cell data of current octant (iOct) from
+   * a neighbor octant is case neighbor is SMALLER (i.e.
+   * one level more than current octant's level).
+   *
+   * \param[in] iOct global index to current octant
+   * \param[in] iOct_local local index (i.e. inside group) to current octant
+   * \param[in] iOct_neigh global index to neighbor octant
+   * \param[in] is_ghost boolean value, true if neighbor is MPI ghost octant
+   * \param[in] index integer used to map the ghost cell to fill
+   * \param[in] dir identifies direction of the face border to be filled
+   * \param[in] face are we dealing with a left or right interface (as seen from current cell)
+   * \param[in] loc identifies relative location of current octant and its larger neighbor
+   * 
+   * Remember that a left interface (for current octant) is a right interface for neighbor octant.
+   *
+   * Difficulty is to deal with these two possibilities:
+   * current  (small) cell on the right
+   * neighbor (large) cell on the left
+   *
+   * These 2 situations schematically are :
+   *        _______            __       ______ 
+   *       |      |           |  |     |      |
+   *  __   |      |      or   |__|     |      |
+   * |  |  |      |                    |      |
+   * |__|  |______|                    |______|
+   *
+   * NEIGH_POS_0              NEIGH_POS_1
+   *
+   */
+  KOKKOS_INLINE_FUNCTION
+  void fill_ghost_face_2d_smaller_size(uint32_t iOct,
+                                       uint32_t iOct_local,
+                                       uint32_t iOct_neigh,
+                                       bool     is_ghost,
+                                       index_t  index,
+                                       DIR_ID   dir,
+                                       FACE_ID  face,
+                                       NEIGH_LOC loc) const
+  {
+    
+    const int &bx = blockSizes[IX];
+    const int &by = blockSizes[IY];
+
+    // make sure index is valid, i.e. inside the range of admissible values
+    if ((index < ghostWidth * by and dir == DIR_X) or
+        (index < bx * ghostWidth and dir == DIR_Y)) {
+
+      // compute cell coordinates inside border
+      coord_t coord_border = dir == DIR_X ? 
+        index_to_coord(index, ghostWidth, by) :
+        index_to_coord(index, bx, ghostWidth) ;
+      
+      // compute cell coordinates inside ghosted block of the receiving octant (current)
+      coord_t coord_cur = {coord_border[IX],
+                           coord_border[IY], 
+                           0};
+
+    //   // shift coord to face center
+    //   if (dir == DIR_X)
+    //     coord_cur[IY] += ghostWidth;
+    //   if (dir == DIR_Y)
+    //     coord_cur[IX] += ghostWidth;
+
+    //   if ( face == FACE_RIGHT ) {
+    //     // if necessary shift coordinate to the right
+    //     if (dir == DIR_X)
+    //       coord_cur[IX] += (bx+ghostWidth);
+    //     if (dir == DIR_Y)
+    //       coord_cur[IY] += (by+ghostWidth);
+    //   }
+      
+    //   // compute corresponding index in the ghosted block (current octant) 
+    //   uint32_t index_cur = coord_cur[IX] + (bx+2*ghostWidth)*coord_cur[IY];
+
+    //   // if necessary, shift border coords to access input (neighbor octant) cell data
+    //   if ( face == FACE_LEFT ) {
+    //     if ( dir == DIR_X )
+    //       coord_border[IX] += (bx - ghostWidth);
+    //     if ( dir == DIR_Y )
+    //       coord_border[IY] += (by - ghostWidth);
+    //   }
+
+    //   // remap to take into account that neighbor is actually larger
+    //   coord_border[IX] /= 2;
+    //   coord_border[IY] /= 2;
+
+    //   if (loc == NEIGH_POS_1 and dir == DIR_X)
+    //     coord_border[IX] += bx/2;
+
+    //   if (loc == NEIGH_POS_1 and dir == DIR_Y)
+    //     coord_border[IY] += by/2;
+
+    //   uint32_t index_border = coord_border[IX] + bx * coord_border[IY];
+
+    //   if (is_ghost) {
+    //     Ugroup(index_cur, fm[ID], iOct_local) = U_ghost(index_border, fm[ID], iOct_neigh);
+    //     Ugroup(index_cur, fm[IP], iOct_local) = U_ghost(index_border, fm[IP], iOct_neigh);
+    //     Ugroup(index_cur, fm[IU], iOct_local) = U_ghost(index_border, fm[IU], iOct_neigh);
+    //     Ugroup(index_cur, fm[IV], iOct_local) = U_ghost(index_border, fm[IV], iOct_neigh);
+    //   } else {
+    //     Ugroup(index_cur, fm[ID], iOct_local) = U(index_border, fm[ID], iOct_neigh);
+    //     Ugroup(index_cur, fm[IP], iOct_local) = U(index_border, fm[IP], iOct_neigh);
+    //     Ugroup(index_cur, fm[IU], iOct_local) = U(index_border, fm[IU], iOct_neigh);
+    //     Ugroup(index_cur, fm[IV], iOct_local) = U(index_border, fm[IV], iOct_neigh);
+    //   }
+      
+    } // end if admissible values for index
+
+  } // fill_ghost_face_2d_smaller_size
+
+  // ==============================================================
+  // ==============================================================
+  /**
    * this routine is mainly a driver to safely call these three:
    * - fill_ghost_face_2d_same_size
    * - fill_ghost_face_2d_larger_size
@@ -524,7 +669,7 @@ public:
         if (index_in==0)
           printf("[neigh is larger] iOct_global=%d iOct_local=%2d iOct_neigh=%2d ---- \n",iOct, iOct_local, iOct_neigh);
 
-        NEIGH_LOC loc = get_relative_position_2d(iOct, iOct_neigh, isghost[0], index_in, dir, face);
+        NEIGH_LOC loc = get_relative_position_2d(iOct, iOct_neigh, isghost[0], dir, face, NEIGH_IS_LARGER);
 
         fill_ghost_face_2d_larger_size(iOct, iOct_local, iOct_neigh, isghost[0], index_in, dir, face, loc);
 
@@ -541,10 +686,29 @@ public:
 
     /*
      * there are 2 neighbors accross face, smaller than current octant
+     * here we average values read from the smaller octant before copying
+     * into ghost cells of the larger octant.
      */
     else if (neigh.size() == 2) {
 
-      // TODO
+      if (index_in==0)
+        printf("[neigh has smaller size] iOct_global=%d iOct_local=%2d iOct_neigh0=%2d iOct_neigh1=%2d \n",
+               iOct, iOct_local, neigh[0], neigh[1]);
+
+      // compute relative position of smaller octant versus current one
+      // we do that because I don't know if PABLO always returns the neighbor
+      // in that order. To be investigated, it is not clearly stated in PABLO
+      // doc (doxygen), it probably require a good reading of PABLO source code
+      // and reverse engineering to be sure. Maybe ask PABLO authors in a github issue ?
+      NEIGH_LOC loc;
+
+      // first sub face
+      loc = get_relative_position_2d (iOct, neigh[0], isghost[0], dir, face, NEIGH_IS_SMALLER);
+      fill_ghost_face_2d_smaller_size(iOct, iOct_local, neigh[0], isghost[0], index_in, dir, face, loc);
+
+      // second sub face
+      loc = get_relative_position_2d (iOct, neigh[1], isghost[1], dir, face, NEIGH_IS_SMALLER);
+      fill_ghost_face_2d_smaller_size(iOct, iOct_local, neigh[1], isghost[1], index_in, dir, face, loc);
 
     }
 
