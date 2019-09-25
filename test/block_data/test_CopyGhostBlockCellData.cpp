@@ -126,7 +126,13 @@ void run_test(int argc, char *argv[]) {
   DataArrayBlock Ugroup = DataArrayBlock("Ugroup", nbCellsPerOct_g, params.nbvar, nbOctsPerGroup);
 
   uint32_t iGroup = 1;
-  uint32_t iOct_local = 2;
+  
+  // chose an octant which should have a "same size" neighbor in all direction
+  //uint32_t iOct_local = 2;
+  
+  // chose an octant which should have at least
+  // a "larger size" neighbor in one direction
+  uint32_t iOct_local = 30;
 
   uint32_t iOct_global = iOct_local + iGroup * nbOctsPerGroup;
 
