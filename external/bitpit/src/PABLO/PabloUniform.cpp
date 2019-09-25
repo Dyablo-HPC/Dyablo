@@ -306,6 +306,42 @@ PabloUniform::getZ(uint32_t idx) const {
   return X;
 };
 
+/*! Get the coordinate X of a ghost octant, i.e. the coordinates of its node 0.
+ * \param[in] idx Local index of target octant.
+ * \return Coordinate X of node 0.
+ */
+double
+PabloUniform::getXghost(uint32_t idx) const {
+  double X, X_;
+  X_ = ParaTree::getXghost(idx);
+  X = m_origin[0] + m_L * X_;
+  return X;
+};
+
+/*! Get the coordinate Y of a ghost octant, i.e. the coordinates of its node 0.
+ * \param[in] idx Local index of target octant.
+ * \return Coordinate Y of node 0.
+ */
+double
+PabloUniform::getYghost(uint32_t idx) const {
+  double X, X_;
+  X_ = ParaTree::getYghost(idx);
+  X = m_origin[0] + m_L * X_;
+  return X;
+};
+
+/*! Get the coordinate Z of a ghost octant, i.e. the coordinates of its node 0.
+ * \param[in] idx Local index of target octant.
+ * \return Coordinate Z of node 0.
+ */
+double
+PabloUniform::getZghost(uint32_t idx) const {
+  double X, X_;
+  X_ = ParaTree::getZghost(idx);
+  X = m_origin[0] + m_L * X_;
+  return X;
+};
+
 /*! Get the size of an octant, i.e. the side length.
  * \param[in] idx Local index of target octant.
  * \return Size of octant.
@@ -313,6 +349,15 @@ PabloUniform::getZ(uint32_t idx) const {
 double
 PabloUniform::getSize(uint32_t idx) const {
   return m_L * ParaTree::getSize(idx);
+};
+
+/*! Get the size of an octant, i.e. the side length.
+ * \param[in] idx Local index of target octant.
+ * \return Size of octant.
+ */
+double
+PabloUniform::getSizeGhost(uint32_t idx) const {
+  return m_L * ParaTree::getSizeGhost(idx);
 };
 
 /*! Get the area of an octant (for 2D case the same value of getSize).
