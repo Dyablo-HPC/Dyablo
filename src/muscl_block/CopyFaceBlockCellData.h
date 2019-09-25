@@ -31,12 +31,25 @@ namespace muscl_block {
  * x x o      o x x x .
  *            . . . . .
  *
+ * The main difficulty here is to deploy the entire combinatorics of
+ * geometrical possibilities in terms of 
+ * - size of neighbor octant, i.e.
+ *   is neighbor octant small, same size or larger thant current octant,
+ * - direction : face along X, Y or Z behave slightly differently, need to
+ *   efficiently take symetries into account
+ * - 2d/3d
+ *
+ * So we need to be careful, have good testing code.
+ * See file test_CopyGhostBlockCellData.cpp
+ *
  * \note As always use the nested parallelism strategy:
  * - loop over octants              parallelized with Team policy,
  * - loop over cells inside a block paralellized with ThreadVectorRange policy.
  *
  *
- * In reality, to simplify things, we assume block sizes are even integers.
+ * In reality, to simplify things, we assume block sizes are even integers (TBC, maybe no needed).
+ *
+ * \sa functor CopyInnerBlockCellDataFunctor
  *
  */
 class CopyFaceBlockCellDataFunctor {
@@ -64,11 +77,20 @@ public:
 
   /**
    *
-   * \param[in] params
+   * \param[in] pmesh the main PABLO data structure with AMR connectivity information
+   * \param[in] params hydrodynamics parameters (geometry, ...)
+   * \param[in] fm field manager to access applicative/hydrodynamics variables
+   * \param[in] blockSizes x,y,z sizes of block of data per octant (no ghost)
+   * \param[in] ghostWidth number (width) of ghost cell arround block
+   * \param[in] number of octants per group
    * \param[in] U conservative variables - global block array data (no ghost)
-   * \param[in] iGroup identify the group of octant we want to copy
+   * \param[in] Ughost same as U but for MPI ghost octants
    * \param[out] Ugroup conservative var of a group of octants (block data with
-   *             ghosts)
+   *             ghosts) to be used later in application / numerical scheme
+   * \param[in] iGroup identify the group of octant we want to copy
+   *
+   * We probably could avoid passing a HydroParams object. // Refactor me ?
+   *
    */
   CopyFaceBlockCellDataFunctor(std::shared_ptr<AMRmesh> pmesh,
                                HydroParams params,
@@ -89,9 +111,13 @@ public:
     Ugroup(Ugroup), 
     iGroup(iGroup)
   {
-    bx_g = blockSizes[IX] + 2*ghostWidth;
-    by_g = blockSizes[IY] + 2*ghostWidth;
-    bz_g = blockSizes[IZ] + 2*ghostWidth;
+
+    // in 2d, bz and bz_g are not used
+
+    bx_g = blockSizes[IX] + 2 * ghostWidth;
+    by_g = blockSizes[IY] + 2 * ghostWidth;
+    bz_g = blockSizes[IZ] + 2 * ghostWidth;
+
   };
 
   // static method which does it all: create and execute functor
@@ -114,19 +140,38 @@ public:
                                          U, U_ghost, 
                                          Ugroup, iGroup);
 
-    // kokkos execution policy
+    /*
+     * using kokkos team execution policy
+     */
     uint32_t nbTeams_ = configMap.getInteger("amr", "nbTeams", 16);
     functor.setNbTeams(nbTeams_);
 
+    // create execution policy
     team_policy_t policy(nbTeams_,
                          Kokkos::AUTO() /* team size chosen by kokkos */);
 
+    // launch computation (parallel kernel)
     Kokkos::parallel_for("dyablo::muscl_block::CopyFaceBlockCellDataFunctor",
                          policy, functor);
   }
 
   // ==============================================================
   // ==============================================================
+  /**
+   * Fill (copy) ghost cell data of current octant (iOct) from
+   * a neighbor octant is case neighbor has the same size (i.e.
+   * same AMR level).
+   *
+   * \param[in] iOct global index to current octant
+   * \param[in] iOct_local local index (i.e. inside group) to current octant
+   * \param[in] iOct_neigh global index to neighbor octant
+   * \param[in] is_ghost boolean value, true if neighbor is MPI ghost octant
+   * \param[in] index integer used to map the ghost cell to fill
+   * \param[in] dir identifies direction of the face border to be filled
+   * \param[in] face are we dealing with a left or right interface (as seen from current cell)
+   * 
+   * Remember that a left interface (for current octant) is a right interface for neighbor octant.
+   */
   KOKKOS_INLINE_FUNCTION
   void fill_ghost_face_2d_same_size(uint32_t iOct,
                                     uint32_t iOct_local,
@@ -140,7 +185,7 @@ public:
     const int &bx = blockSizes[IX];
     const int &by = blockSizes[IY];
 
-    // current octant and neighbor are at same level (= same size)
+    // make sure index is valid, i.e. inside the range of admissible values
     if ( (index < ghostWidth*by and dir == DIR_X) or
          (index < bx*ghostWidth and dir == DIR_Y) ) {
             
@@ -201,6 +246,61 @@ public:
 
   // ==============================================================
   // ==============================================================
+  // ==============================================================
+  // ==============================================================
+  /**
+   * Fill (copy) ghost cell data of current octant (iOct) from
+   * a neighbor octant is case neighbor is larger (i.e.
+   * one level less than current octant's level).
+   *
+   * \param[in] iOct global index to current octant
+   * \param[in] iOct_local local index (i.e. inside group) to current octant
+   * \param[in] iOct_neigh global index to neighbor octant
+   * \param[in] is_ghost boolean value, true if neighbor is MPI ghost octant
+   * \param[in] index integer used to map the ghost cell to fill
+   * \param[in] dir identifies direction of the face border to be filled
+   * \param[in] face are we dealing with a left or right interface (as seen from current cell)
+   * 
+   * Remember that a left interface (for current octant) is a right interface for neighbor octant.
+   *
+   * Difficulty is to deal with these two possibilities:
+   * current  (small) cell on the right
+   * neighbor (large) cell on the left
+   *  _______              ______    __
+   * |      |             |      |  |  |
+   * |      |   __    or  |      |  |__|
+   * |      |  |  |       |      |
+   * |______|  |__|       |______|
+   *
+   */
+  KOKKOS_INLINE_FUNCTION
+  void fill_ghost_face_2d_larger_size(uint32_t iOct,
+                                      uint32_t iOct_local,
+                                      uint32_t iOct_neigh,
+                                      bool     is_ghost,
+                                      index_t  index,
+                                      DIR_ID   dir,
+                                      FACE_ID  face) const
+  {
+    
+    const int &bx = blockSizes[IX];
+    const int &by = blockSizes[IY];
+
+    // make sure index is valid, i.e. inside the range of admissible values
+    if ((index < ghostWidth * by and dir == DIR_X) or
+        (index < bx * ghostWidth and dir == DIR_Y)) {
+    }
+
+  } // fill_ghost_face_2d_larger_size
+
+  // ==============================================================
+  // ==============================================================
+  /**
+   * this routine is mainly a driver to safely call these three:
+   * - fill_ghost_face_2d_same_size
+   * - fill_ghost_face_2d_larger_size
+   * - fill_ghost_face_2d_smaller_size
+   */
   KOKKOS_INLINE_FUNCTION
   void fill_ghost_face_2d(uint32_t iOct, 
                           uint32_t iOct_local, 
@@ -237,15 +337,29 @@ public:
       // retrieve neighbor octant id
       uint32_t iOct_neigh = neigh[0];
 
-      // check if neighbor is larger
+      /* check if neighbor is larger, it means one of the corner of current octant
+       * is a hanging node, there are 2 distinct geometrical possibilities, 
+       * here illustrated with
+       * neighbor (large) octant on the left and current (small) octant on the right 
+       *
+       *  _______              ______    __
+       * |      |             |      |  |  |
+       * |      |   __    or  |      |  |__|
+       * |      |  |  |       |      |
+       * |______|  |__|       |______|  
+       */
       if ( pmesh->getLevel(iOct) > pmesh->getLevel(iOct_neigh) ) {
 
-        // TODO
+        if (index_in==0)
+          printf("[neigh is larger] iOct_global=%d iOct_local=%2d iOct_neigh=%2d \n",iOct, iOct_local, iOct_neigh);
+
+        fill_ghost_face_2d_larger_size(iOct, iOct_local, iOct_neigh, isghost[0], index_in, dir, face);
+
 
       } else {
 
         if (index_in==0)
-          printf("[same size] iOct_global=%d iOct_local=%2d iOct_neigh=%2d \n",iOct, iOct_local, iOct_neigh);
+          printf("[neigh has same size] iOct_global=%d iOct_local=%2d iOct_neigh=%2d \n",iOct, iOct_local, iOct_neigh);
 
         fill_ghost_face_2d_same_size(iOct, iOct_local, iOct_neigh, isghost[0], index_in, dir, face);
 
