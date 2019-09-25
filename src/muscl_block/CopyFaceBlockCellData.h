@@ -64,15 +64,31 @@ public:
 
   void setNbTeams(uint32_t nbTeams_) { nbTeams = nbTeams_; };
 
+  // TODO : evaluate if these enum should be moved in their own header 
+
   enum FACE_ID : uint8_t {
-    FACE_LEFT=0,
-    FACE_RIGHT=1
+    FACE_LEFT  = 0,
+    FACE_RIGHT = 1
   };
 
   enum DIR_ID : uint8_t {
-    DIR_X=0,
-    DIR_Y=1,
-    DIR_Z=2
+    DIR_X = 0,
+    DIR_Y = 1,
+    DIR_Z = 2
+  };
+
+  /**
+   * enum used to identify the relative position of an octant
+   * versus a face neighbor octant of larger or smaller size.
+   *
+   * In 2d, only 2 possibilities
+   * In 3d, there are 4 possibilities
+   */
+  enum NEIGH_LOC : uint8_t {
+    NEIGH_POS_0 = 0,
+    NEIGH_POS_1 = 1,
+    NEIGH_POS_2 = 2,
+    NEIGH_POS_3 = 3
   };
 
   /**
@@ -154,6 +170,53 @@ public:
     Kokkos::parallel_for("dyablo::muscl_block::CopyFaceBlockCellDataFunctor",
                          policy, functor);
   }
+
+  // ==============================================================
+  // ==============================================================
+  /**
+   * Identifies situations like this (neighbor octant on the left, current octant on the right)
+   * in case neighbor is LARGER than current cell
+   *
+   * ============================================
+   * E.g. when dir = DIR_X and face = FACE_LEFT :
+   *
+   * NEIGH_POS_0          NEIGH_POS_1
+   *  ______               ______    __
+   * |      |             |      |  |  |
+   * |      |   __    or  |      |  |__|
+   * |      |  |  |       |      |
+   * |______|  |__|       |______|
+   *
+   *
+   * ============================================
+   * E.g. when dir = DIR_Y and face = FACE_LEFT (i.e. below):
+   *
+   * NEIGH_POS_0          NEIGH_POS_1
+   *  ______               ______ 
+   * |      |             |      |
+   * |      |         or  |      |
+   * |      |             |      |
+   * |______|             |______|
+   *
+   *  __                       __
+   * |  |                     |  |
+   * |__|                     |__|
+   *
+   * 
+   */
+  KOKKOS_INLINE_FUNCTION
+  NEIGH_LOC_2D get_relative_position_2d(uint32_t iOct,
+                                        uint32_t iOct_neigh,
+                                        bool     is_ghost,
+                                        index_t  index,
+                                        DIR_ID   dir,
+                                        FACE_ID  face) const
+  {
+
+    // TODO !!!
+    return NEIGH_POS_0;
+
+  } // get_relative_position_2d
 
   // ==============================================================
   // ==============================================================
@@ -266,6 +329,8 @@ public:
    * Difficulty is to deal with these two possibilities:
    * current  (small) cell on the right
    * neighbor (large) cell on the left
+   *
+   * These 2 situations are labeled LOW / UP
    *  _______              ______    __
    * |      |             |      |  |  |
    * |      |   __    or  |      |  |__|
