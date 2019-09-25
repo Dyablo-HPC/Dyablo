@@ -141,28 +141,46 @@ public:
     const int &by = blockSizes[IY];
 
     // current octant and neighbor are at same level (= same size)
-    if (index < ghostWidth*by and 
-        dir == DIR_X          and 
-        face == FACE_LEFT) {
-      
-      
+    if ( (index < ghostWidth*by and dir == DIR_X) or
+         (index < bx*ghostWidth and dir == DIR_Y) ) {
+            
       // border sizes for input  cell are : ghostWidth,by
       // border sizes for output cell are : ghostWidth,by+2*ghostWidth
       
       // compute cell coordinates inside border
-      coord_t coord_border = index_to_coord(index, ghostWidth, by);
+      coord_t coord_border = dir == DIR_X ? 
+        index_to_coord(index, ghostWidth, by) :
+        index_to_coord(index, bx, ghostWidth) ;
       
-      // compute neighbor cell coordinates inside non-ghosted block
+      // compute cell coordinates inside ghosted block of the receiving octant (current)
       coord_t coord_cur = {coord_border[IX],
-                           coord_border[IY] + ghostWidth, 
+                           coord_border[IY], 
                            0};
+
+      // shift coord to face center
+      if (dir == DIR_X)
+        coord_cur[IY] += ghostWidth;
+      if (dir == DIR_Y)
+        coord_cur[IX] += ghostWidth;
+
+      if ( face == FACE_RIGHT ) {
+        // if necessary shift coordinate to the right
+        if (dir == DIR_X)
+          coord_cur[IX] += (bx+ghostWidth);
+        if (dir == DIR_Y)
+          coord_cur[IY] += (by+ghostWidth);
+      }
       
-      // compute corresponding index in the ghosted block 
+      // compute corresponding index in the ghosted block (current octant) 
       uint32_t index_cur = coord_cur[IX] + (bx+2*ghostWidth)*coord_cur[IY];
 
-      // shift border coords to access input (neighbor) cell data
-      // on the right
-      coord_border[IX] += (bx - ghostWidth);
+      // if necessary, shift border coords to access input (neighbor octant) cell data
+      if ( face == FACE_LEFT ) {
+        if ( dir == DIR_X )
+          coord_border[IX] += (bx - ghostWidth);
+        if ( dir == DIR_Y )
+          coord_border[IY] += (by - ghostWidth);
+      }
 
       uint32_t index_border = coord_border[IX] + bx * coord_border[IY];
 
@@ -283,13 +301,13 @@ public:
             fill_ghost_face_2d(iOct, iOct_g, index, DIR_X, FACE_LEFT);
 
             // compute face X,right
-            //fill_ghost_face_2d(iOct, index, DIR_X, FACE_RIGHT);
+            fill_ghost_face_2d(iOct, iOct_g, index, DIR_X, FACE_RIGHT);
 
             // compute face Y,left
-            //fill_ghost_face_2d(iOct, index, DIR_Y, FACE_LEFT);
+            fill_ghost_face_2d(iOct, iOct_g, index, DIR_Y, FACE_LEFT);
 
             // compute face Y,right
-            //fill_ghost_face_2d(iOct, index, DIR_Y, FACE_RIGHT);
+            fill_ghost_face_2d(iOct, iOct_g, index, DIR_Y, FACE_RIGHT);
             
           }); // end TeamVectorRange
 
