@@ -635,10 +635,10 @@ public:
       } // end for iy
 
       // copy back accumulated results
-      Ugroup(index_cur, fm[ID], iOct_local) = q[ID];
-      Ugroup(index_cur, fm[IP], iOct_local) = q[IP];
-      Ugroup(index_cur, fm[IU], iOct_local) = q[IU];
-      Ugroup(index_cur, fm[IV], iOct_local) = q[IV];
+      Ugroup(index_cur, fm[ID], iOct_local) = q[ID]/4;
+      Ugroup(index_cur, fm[IP], iOct_local) = q[IP]/4;
+      Ugroup(index_cur, fm[IU], iOct_local) = q[IU]/4;
+      Ugroup(index_cur, fm[IV], iOct_local) = q[IV]/4;
       
     } // end if admissible values for index
 
@@ -677,6 +677,10 @@ public:
      * first deal with external border -- TODO
      */
     if (neigh.size() == 0) {
+
+      if (index_in==0)
+        printf("[neigh is external] iOct_global=%d iOct_local=%2d ---- dir=%d face=%d \n",iOct, iOct_local, dir, face);
+
       // fill_ghost_face_2d_external_border(iOct, index_in, dir, face);
     } 
     
@@ -727,8 +731,8 @@ public:
     else if (neigh.size() == 2) {
 
       if (index_in==0)
-        printf("[neigh has smaller size] iOct_global=%d iOct_local=%2d iOct_neigh0=%2d iOct_neigh1=%2d \n",
-               iOct, iOct_local, neigh[0], neigh[1]);
+        printf("[neigh has smaller size] iOct_global=%d iOct_local=%2d iOct_neigh0=%2d iOct_neigh1=%2d -- dir=%d face=%d\n",
+               iOct, iOct_local, neigh[0], neigh[1],dir,face);
 
       // compute relative position of smaller octant versus current one
       // we do that because I don't know if PABLO always returns the neighbor

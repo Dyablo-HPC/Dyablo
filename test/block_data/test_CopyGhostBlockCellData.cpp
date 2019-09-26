@@ -68,23 +68,31 @@ void run_test(int argc, char *argv[]) {
     std::cerr << "  solver name must contain string \"Muscl_Block\"\n";
 
   }
+
   // anyway create the right solver
   SolverHydroMusclBlock* solver = new SolverHydroMusclBlock(params, configMap);
 
   // by now, init condition must have been called
 
+  // just retrieve a filed manager
   FieldManager fieldMgr;
   fieldMgr.setup(params, configMap);
 
   auto fm = fieldMgr.get_id2index();
 
-  // "geometry" setup
+  /*
+   * "geometry" setup
+   */
+
+  // block ghost width
   uint32_t ghostWidth = configMap.getInteger("amr", "ghostwidth", 2);
 
+  // block sizes
   uint32_t bx = configMap.getInteger("amr", "bx", 0);
   uint32_t by = configMap.getInteger("amr", "by", 0);
   uint32_t bz = configMap.getInteger("amr", "bz", 1);
 
+  // block sizes with ghosts
   uint32_t bx_g = bx + 2 * ghostWidth;
   uint32_t by_g = by + 2 * ghostWidth;
   uint32_t bz_g = bz + 2 * ghostWidth;
@@ -132,7 +140,11 @@ void run_test(int argc, char *argv[]) {
   
   // chose an octant which should have at least
   // a "larger size" neighbor in one direction
-  uint32_t iOct_local = 30;
+  //uint32_t iOct_local = 30;
+
+  // chose an octant which should have at least
+  // an interface with "smaller size" neighbor in one direction
+  uint32_t iOct_local = 26;
 
   uint32_t iOct_global = iOct_local + iGroup * nbOctsPerGroup;
 
