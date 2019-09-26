@@ -705,8 +705,8 @@ public:
        */
       if ( pmesh->getLevel(iOct) > pmesh->getLevel(iOct_neigh) ) {
 
-        if (index_in==0)
-          printf("[neigh is larger] iOct_global=%d iOct_local=%2d iOct_neigh=%2d ---- \n",iOct, iOct_local, iOct_neigh);
+        // if (index_in==0)
+        //   printf("[neigh is larger] iOct_global=%d iOct_local=%2d iOct_neigh=%2d ---- \n",iOct, iOct_local, iOct_neigh);
 
         NEIGH_LOC loc = get_relative_position_2d(iOct, iOct_neigh, isghost[0], dir, face, NEIGH_IS_LARGER);
 
@@ -714,8 +714,8 @@ public:
 
       } else {
 
-        if (index_in==0)
-          printf("[neigh has same size] iOct_global=%d iOct_local=%2d iOct_neigh=%2d \n",iOct, iOct_local, iOct_neigh);
+        // if (index_in==0)
+        //   printf("[neigh has same size] iOct_global=%d iOct_local=%2d iOct_neigh=%2d \n",iOct, iOct_local, iOct_neigh);
 
         fill_ghost_face_2d_same_size(iOct, iOct_local, iOct_neigh, isghost[0], index_in, dir, face);
 
@@ -730,9 +730,9 @@ public:
      */
     else if (neigh.size() == 2) {
 
-      if (index_in==0)
-        printf("[neigh has smaller size] iOct_global=%d iOct_local=%2d iOct_neigh0=%2d iOct_neigh1=%2d -- dir=%d face=%d\n",
-               iOct, iOct_local, neigh[0], neigh[1],dir,face);
+      // if (index_in==0)
+      //   printf("[neigh has smaller size] iOct_global=%d iOct_local=%2d iOct_neigh0=%2d iOct_neigh1=%2d -- dir=%d face=%d\n",
+      //          iOct, iOct_local, neigh[0], neigh[1],dir,face);
 
       // compute relative position of smaller octant versus current one
       // we do that because I don't know if PABLO always returns the neighbor
