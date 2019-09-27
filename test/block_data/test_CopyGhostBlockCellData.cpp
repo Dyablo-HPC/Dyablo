@@ -28,6 +28,7 @@
 
 #include "muscl_block/CopyInnerBlockCellData.h"
 #include "muscl_block/CopyFaceBlockCellData.h"
+#include "muscl_block/ConvertToPrimitivesHydroFunctor.h"
 
 using Device = Kokkos::DefaultExecutionSpace;
 
@@ -177,45 +178,78 @@ void run_test(int argc, char *argv[]) {
                                        ghostWidth, nbOctsPerGroup,
                                        solver->U, Ugroup, iGroup);
 
-
-  CopyFaceBlockCellDataFunctor::apply(solver->amr_mesh,
-                                      configMap,
-                                      params, 
-                                      fm,
-                                      blockSizes,
-                                      ghostWidth,
-                                      nbOctsPerGroup,
-                                      solver->U, 
-                                      solver->Ughost, 
-                                      Ugroup, 
-                                      iGroup);
-
-  // print data from from the chosen iGroup 
-  std::cout << "Printing Ugroup data from iOct = " << iOct_global << " | iOctLocal = " << iOct_local << " and iGroup = " << iGroup << "\n";
-  if (bz>1) {
+  std::cout << "==========================================";
+  std::cout << "Testing CopyFaceBlockCellDataFunctor....\n";
+  {
+    CopyFaceBlockCellDataFunctor::apply(solver->amr_mesh,
+                                        configMap,
+                                        params, 
+                                        fm,
+                                        blockSizes,
+                                        ghostWidth,
+                                        nbOctsPerGroup,
+                                        solver->U, 
+                                        solver->Ughost, 
+                                        Ugroup, 
+                                        iGroup);
     
-    for (uint32_t iz = 0; iz < bz_g; ++iz) {
-      for (uint32_t iy = 0; iy < by_g; ++iy) {
-        for (uint32_t ix = 0; ix < bx_g; ++ix) {
-          uint32_t index = ix + bx_g * (iy + by_g * iz);
-          printf("%5f ", Ugroup(index, fm[ID], iOct_local));
+    // print data from from the chosen iGroup 
+    std::cout << "Printing Ugroup data from iOct = " << iOct_global << " | iOctLocal = " << iOct_local << " and iGroup = " << iGroup << "\n";
+    if (bz>1) {
+      
+      for (uint32_t iz = 0; iz < bz_g; ++iz) {
+        for (uint32_t iy = 0; iy < by_g; ++iy) {
+          for (uint32_t ix = 0; ix < bx_g; ++ix) {
+            uint32_t index = ix + bx_g * (iy + by_g * iz);
+            printf("%5f ", Ugroup(index, fm[ID], iOct_local));
+          }
+          std::cout << "\n";
         }
         std::cout << "\n";
       }
-      std::cout << "\n";
-    }
+      
+    } else {
+      
+      for (uint32_t iy = 0; iy < by_g; ++iy) {
+        for (uint32_t ix = 0; ix < bx_g; ++ix) {
+          uint32_t index = ix + bx_g * iy;
+          printf("%5f ", Ugroup(index, fm[IP], iOct_local));
+        }
+        std::cout << "\n";
+      }
 
-  } else {
+    } // end if bz>1
+  }
+
+  // also testing ConvertToPrimitivesHydroFunctor
+  std::cout << "==========================================";
+  std::cout << "Testing ConvertToPrimitivesHydroFunctor \n";
+  {
+    DataArrayBlock Qgroup = DataArrayBlock("Qgroup", nbCellsPerOct_g, params.nbvar, nbOctsPerGroup);
+
+    uint32_t nbOcts = solver->amr_mesh->getNumOctants();
+
+    ConvertToPrimitivesHydroFunctor::apply(configMap,
+                                           params, 
+                                           fm,
+                                           blockSizes,
+                                           ghostWidth,
+                                           nbOcts,
+                                           nbOctsPerGroup,
+                                           iGroup,
+                                           Ugroup, 
+                                           Qgroup);
 
     for (uint32_t iy = 0; iy < by_g; ++iy) {
       for (uint32_t ix = 0; ix < bx_g; ++ix) {
         uint32_t index = ix + bx_g * iy;
-        printf("%5f ", Ugroup(index, fm[ID], iOct_local) );
+        printf("%5f ", Qgroup(index, fm[IP], iOct_local));
       }
       std::cout << "\n";
     }
-    
+
   }
+
 
   delete solver;
 

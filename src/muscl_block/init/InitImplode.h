@@ -202,6 +202,7 @@ public:
               (x+y)*0.05 :
               (x+y+z)*0.05;
             Udata(index, fm[ID], iOct) += delta;
+            Udata(index, fm[IP], iOct) += 2*delta;
           
           }
 
