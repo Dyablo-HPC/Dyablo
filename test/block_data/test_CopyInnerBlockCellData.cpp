@@ -170,7 +170,9 @@ void run_test(int argc, char *argv[], uint32_t bSize, uint32_t nbBlocks) {
 
   CopyInnerBlockCellDataFunctor::apply(configMap, params, fm, 
                                        blockSizes,
-                                       ghostWidth, nbOctsPerGroup,
+                                       ghostWidth, 
+                                       nbOcts,
+                                       nbOctsPerGroup,
                                        U, Ugroup, iGroup);
 
   // print data from from the chosen iGroup 

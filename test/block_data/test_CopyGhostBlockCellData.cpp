@@ -173,9 +173,13 @@ void run_test(int argc, char *argv[]) {
 
   // first copy inner cells
 
+  //uint32_t nbOcts = solver->amr_mesh->getNumOctants();
+
   CopyInnerBlockCellDataFunctor::apply(configMap, params, fm, 
                                        blockSizes,
-                                       ghostWidth, nbOctsPerGroup,
+                                       ghostWidth, 
+                                       nbOcts,
+                                       nbOctsPerGroup,
                                        solver->U, Ugroup, iGroup);
 
   std::cout << "==========================================";

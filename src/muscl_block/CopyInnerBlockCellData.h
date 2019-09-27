@@ -58,6 +58,7 @@ public:
                                 id2index_t     fm,
                                 blockSize_t    blockSizes,
                                 uint32_t       ghostWidth,
+                                uint32_t       nbOcts,
                                 uint32_t       nbOctsPerGroup,
                                 DataArrayBlock U,
                                 DataArrayBlock Ugroup,
@@ -65,7 +66,8 @@ public:
     params(params),
     fm(fm), 
     blockSizes(blockSizes),
-    ghostWidth(ghostWidth), 
+    ghostWidth(ghostWidth),
+    nbOcts(nbOcts),
     nbOctsPerGroup(nbOctsPerGroup),
     U(U), 
     Ugroup(Ugroup),
@@ -78,6 +80,7 @@ public:
 		    id2index_t     fm,
                     blockSize_t    blockSizes,
                     uint32_t       ghostWidth,
+                    uint32_t       nbOcts,
                     uint32_t       nbOctsPerGroup,
 		    DataArrayBlock U,
                     DataArrayBlock Ugroup,
@@ -88,6 +91,7 @@ public:
                                           fm,
                                           blockSizes,
                                           ghostWidth,
+                                          nbOcts,
                                           nbOctsPerGroup,
                                           U,
                                           Ugroup,
@@ -126,10 +130,12 @@ public:
     //const int& by_g = blockSizes_g[IY];
     //const int& bz_g = blockSizes_g[IZ];
     
-    uint32_t nbCells   = params.dimType == TWO_D ? bx  *by   : bx  *by  *bz;
+    uint32_t nbCells = params.dimType == TWO_D ? 
+      bx * by : 
+      bx * by * bz;
     //uint32_t nbCells_g = params.dimType == TWO_D ? bx_g*by_g : bx_g*by_g*bz_g;
 
-    while (iOct < iOctNextGroup)
+    while (iOct < iOctNextGroup and iOct < nbOcts)
     {
       
       // perform vectorized loop inside a given block data
@@ -181,6 +187,9 @@ public:
 
   //! ghost width
   uint32_t ghostWidth;
+
+  //! total number of octants in current MPI process
+  uint32_t nbOcts;
 
   //! number of octants per group
   uint32_t nbOctsPerGroup;
