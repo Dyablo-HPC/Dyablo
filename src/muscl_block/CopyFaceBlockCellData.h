@@ -297,6 +297,10 @@ public:
   // ==============================================================
   /**
    * Fill ghost cells for octant touching an external border.
+   *
+   * \note PERIODIC border condition if already taken into account
+   * when dealing with neighbor of same size.
+   *
    */
   KOKKOS_INLINE_FUNCTION
   void fill_ghost_face_2d_external_border(uint32_t iOct,
@@ -305,7 +309,124 @@ public:
                                           DIR_ID   dir,
                                           FACE_ID  face) const
   {
-  
+
+    const int &bx = blockSizes[IX];
+    const int &by = blockSizes[IY];
+
+    const index_t size_borderX = ghostWidth*by;
+    const index_t size_borderY = bx*ghostWidth; 
+    
+    // make sure index is valid, i.e. inside the range of admissible values
+    if ((index_in < size_borderX and dir == DIR_X) or
+        (index_in < size_borderY and dir == DIR_Y)) {
+
+      // in case of a X border
+      // border sizes for input  cell are : ghostWidth,by
+      // border sizes for output cell are : ghostWidth,by+2*ghostWidth
+
+      // in case of a Y border
+      // border sizes for input  cell are : bx             ,ghostWidth
+      // border sizes for output cell are : bx+2*ghostWidth,ghostWidth
+
+      // compute cell coordinates inside border
+      coord_t coord_cur = dir == DIR_X ? 
+        index_to_coord(index_in, ghostWidth, by) :
+        index_to_coord(index_in, bx, ghostWidth) ;
+      
+      // shift coord to face center
+      if (dir == DIR_X)
+        coord_cur[IY] += ghostWidth;
+      if (dir == DIR_Y)
+        coord_cur[IX] += ghostWidth;
+
+      if ( face == FACE_RIGHT ) {
+        // if necessary shift coordinate to the right
+        if (dir == DIR_X)
+          coord_cur[IX] += (bx+ghostWidth);
+        if (dir == DIR_Y)
+          coord_cur[IY] += (by+ghostWidth);
+      }
+      
+      // compute corresponding index in the ghosted block (current octant) 
+      uint32_t index_cur = coord_cur[IX] + (bx+2*ghostWidth)*coord_cur[IY];
+
+      // normal momentum sign
+      real_t sign_u = 1.0;
+      real_t sign_v = 1.0;
+      //real_t sign_w = 1.0;
+
+      coord_t coord_in = {coord_cur[IX],
+                          coord_cur[IY],
+                          0};
+
+      // absorbing border : we just copy/mirror data 
+      // from the last inner cells into ghost cells
+      if ( (params.boundary_type_xmin == BC_ABSORBING and face == FACE_LEFT) or
+           (params.boundary_type_xmax == BC_ABSORBING and face == FACE_RIGHT) or
+           (params.boundary_type_ymin == BC_ABSORBING and face == FACE_LEFT) or
+           (params.boundary_type_ymax == BC_ABSORBING and face == FACE_RIGHT) ) 
+      {
+
+        if (dir == DIR_X and face == FACE_LEFT)
+          coord_in[IX] = ghostWidth;
+        if (dir == DIR_X and face == FACE_RIGHT)
+          coord_in[IX] = bx + ghostWidth - 1;
+        if (dir == DIR_Y and face == FACE_LEFT)
+          coord_in[IY] = ghostWidth;
+        if (dir == DIR_Y and face == FACE_RIGHT)
+          coord_in[IY] = by + ghostWidth - 1;
+
+      } // end ABSORBING
+
+
+      // reflecting border : we just copy/mirror data 
+      // from inner cells into ghost cells, and invert
+      // normal momentum
+      if ( (params.boundary_type_xmin == BC_REFLECTING and face == FACE_LEFT) or
+           (params.boundary_type_xmax == BC_REFLECTING and face == FACE_RIGHT) or
+           (params.boundary_type_ymin == BC_REFLECTING and face == FACE_LEFT) or
+           (params.boundary_type_ymax == BC_REFLECTING and face == FACE_RIGHT) ) 
+      {
+
+        if (dir == DIR_X and face == FACE_LEFT) {
+          coord_in[IX] = 2 * ghostWidth - 1 - coord_cur[IX];
+          sign_u = -1.0;
+        }
+        if (dir == DIR_X and face == FACE_RIGHT) {
+          coord_in[IX] = 2 * bx + 2 * ghostWidth - 1 - coord_cur[IX];
+          sign_u = -1.0;
+        }
+        if (dir == DIR_Y and face == FACE_LEFT) {
+          coord_in[IY] = 2 * ghostWidth - 1 - coord_cur[IY];
+          sign_v = -1.0;
+        }
+        if (dir == DIR_Y and face == FACE_RIGHT) {
+          coord_in[IY] = 2 * by + 2 * ghostWidth - 1 - coord_cur[IY];
+          sign_v = -1.0;
+        }
+
+      } // end REFLECTING
+
+      // index from which data will be copied
+      // convert coord_in into an index
+
+      // version 1 : use global array U
+      // uint32_t index = (coord_in[IX]-ghostWidth) + bx*(coord_in[IY]-ghostWidth);
+      // Ugroup(index_cur, fm[ID], iOct_local) = U(index, fm[ID], iOct);
+      // Ugroup(index_cur, fm[IP], iOct_local) = U(index, fm[IP], iOct);
+      // Ugroup(index_cur, fm[IU], iOct_local) = U(index, fm[IU], iOct) * sign_u;
+      // Ugroup(index_cur, fm[IV], iOct_local) = U(index, fm[IV], iOct) * sign_v;
+
+      // version 2 : use array Ugroup and
+      // assume inner cells have already been copied 
+      uint32_t index = coord_in[IX] + (bx+2*ghostWidth)*coord_in[IY];
+      Ugroup(index_cur, fm[ID], iOct_local) = Ugroup(index, fm[ID], iOct_local);
+      Ugroup(index_cur, fm[IP], iOct_local) = Ugroup(index, fm[IP], iOct_local);
+      Ugroup(index_cur, fm[IU], iOct_local) = Ugroup(index, fm[IU], iOct_local) * sign_u;
+      Ugroup(index_cur, fm[IV], iOct_local) = Ugroup(index, fm[IV], iOct_local) * sign_v;
+      
+    } // end if admissible values
+
   } // fill_ghost_face_2d_external_border
 
   // ==============================================================
@@ -344,10 +465,15 @@ public:
     // make sure index is valid, i.e. inside the range of admissible values
     if ( (index < size_borderX and dir == DIR_X) or
          (index < size_borderY and dir == DIR_Y) ) {
-            
+
+      // in case of a X border
       // border sizes for input  cell are : ghostWidth,by
       // border sizes for output cell are : ghostWidth,by+2*ghostWidth
-      
+
+      // in case of a Y border
+      // border sizes for input  cell are : bx             ,ghostWidth
+      // border sizes for output cell are : bx+2*ghostWidth,ghostWidth
+
       // compute cell coordinates inside border
       coord_t coord_border = dir == DIR_X ? 
         index_to_coord(index, ghostWidth, by) :
@@ -697,12 +823,12 @@ public:
     pmesh->findNeighbours(iOct, iface, codim, neigh, isghost);
 
     /*
-     * first deal with external border -- TODO
+     * first deal with external border
      */
     if (neigh.size() == 0) {
 
-      if (index_in==0)
-        printf("[neigh is external] iOct_global=%d iOct_local=%2d ---- dir=%d face=%d \n",iOct, iOct_local, dir, face);
+      // if (index_in==0)
+      //   printf("[neigh is external] iOct_global=%d iOct_local=%2d ---- dir=%d face=%d \n",iOct, iOct_local, dir, face);
 
       fill_ghost_face_2d_external_border(iOct, iOct_local, index_in, dir, face);
     } 
