@@ -489,9 +489,9 @@ void SolverHydroMusclBlock::convertToPrimitives(DataArrayBlock Udata)
   Kokkos::resize(Q, Udata.extent(0), Udata.extent(1), Udata.extent(2));
 
   // call device functor
-  ConvertToPrimitivesHydroFunctor::apply(amr_mesh, configMap, params, fm, 
-                                         blockSizes,
-                                         Udata, Q);
+  // ConvertToPrimitivesHydroFunctor::apply(amr_mesh, configMap, params, fm, 
+  //                                        blockSizes,
+  //                                        Udata, Q);
   
 } // SolverHydroMusclBlock::convertToPrimitives
 

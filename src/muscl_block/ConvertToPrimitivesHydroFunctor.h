@@ -45,30 +45,46 @@ public:
    * \param[in] Udata conservative variables
    * \param[out] Qdata primitive variables
    */
-  ConvertToPrimitivesHydroFunctor(std::shared_ptr<AMRmesh> pmesh,
-				  HydroParams    params,
+  ConvertToPrimitivesHydroFunctor(HydroParams    params,
 				  id2index_t     fm,
                                   blockSize_t    blockSizes,
-				  DataArrayBlock Udata,
-				  DataArrayBlock Qdata) :
-    pmesh(pmesh), params(params),
-    fm(fm), blockSizes(blockSizes), 
-    Udata(Udata), Qdata(Qdata)
-  {};
-  
-  // static method which does it all: create and execute functor
-  static void apply(std::shared_ptr<AMRmesh> pmesh,
-                    ConfigMap      configMap,
-		    HydroParams    params,
-		    id2index_t     fm,
-                    blockSize_t    blockSizes,
-		    DataArrayBlock Udata,
-                    DataArrayBlock Qdata)
+                                  uint32_t       ghostWidth,
+                                  uint32_t       nbOcts,
+                                  uint32_t       nbOctsPerGroup,
+                                  uint32_t       iGroup,
+				  DataArrayBlock Ugroup,
+				  DataArrayBlock Qgroup) :
+    params(params), fm(fm), blockSizes(blockSizes), ghostWidth(ghostWidth),
+    nbOcts(nbOcts), nbOctsPerGroup(nbOctsPerGroup),
+    iGroup(iGroup), Ugroup(Ugroup), Qgroup(Qgroup)
   {
 
-    ConvertToPrimitivesHydroFunctor functor(pmesh, params, fm, 
-                                            blockSizes,
-                                            Udata, Qdata);
+    const int bx_g = blockSizes[IX] + 2 * ghostWidth;
+    const int by_g = blockSizes[IY] + 2 * ghostWidth;
+    const int bz_g = blockSizes[IZ] + 2 * ghostWidth;
+    
+    nbCellsPerBlock = params.dimType == TWO_D ? 
+      bx_g * by_g :
+      bx_g * by_g * bz_g;
+
+  };
+  
+  // static method which does it all: create and execute functor
+  static void apply(ConfigMap      configMap,
+                    HydroParams    params,
+                    id2index_t     fm,
+                    blockSize_t    blockSizes,
+                    uint32_t       ghostWidth,
+                    uint32_t       nbOcts,
+                    uint32_t       nbOctsPerGroup,
+                    uint32_t       iGroup,
+                    DataArrayBlock Ugroup,
+                    DataArrayBlock Qgroup)
+  {
+
+    ConvertToPrimitivesHydroFunctor functor(params, fm, blockSizes, ghostWidth, 
+                                            nbOcts, nbOctsPerGroup, iGroup,
+                                            Ugroup, Qgroup);
 
     // kokkos execution policy
     uint32_t nbTeams_ = configMap.getInteger("amr","nbTeams",16);
@@ -82,129 +98,131 @@ public:
                          policy, functor);
   }
 
+  // ========================================================================
+  // ========================================================================
   KOKKOS_INLINE_FUNCTION
-  void operator_2d(team_policy_t::member_type member) const
+  void cons2prim_2d(const int32_t index,
+                    const uint32_t iOct_local) const
   {
+  
+    HydroState2d uLoc; // conservative variables in current cell
+    HydroState2d qLoc; // primitive    variables in current cell
+    real_t c = 0.0;
     
-    uint32_t iOct = member.league_rank();
-
-    const int& bx = blockSizes[IX];
-    const int& by = blockSizes[IY];
-    const int& bz = blockSizes[IZ];
-
-    uint32_t nbCells = params.dimType == TWO_D ? bx*by : bx*by*bz;
-
-    while (iOct <  pmesh->getNumOctants() )
-    {
-
-      Kokkos::parallel_for(
-        Kokkos::TeamVectorRange(member, nbCells),
-        KOKKOS_LAMBDA(const int32_t index) {
-
-          HydroState2d uLoc; // conservative variables in current cell
-          HydroState2d qLoc; // primitive    variables in current cell
-          real_t c = 0.0;
-
-          // get local conservative variable
-          uLoc[ID] = Udata(index,fm[ID],iOct);
-          uLoc[IP] = Udata(index,fm[IP],iOct);
-          uLoc[IU] = Udata(index,fm[IU],iOct);
-          uLoc[IV] = Udata(index,fm[IV],iOct);
+    // get local conservative variable
+    uLoc[ID] = Ugroup(index,fm[ID],iOct_local);
+    uLoc[IP] = Ugroup(index,fm[IP],iOct_local);
+    uLoc[IU] = Ugroup(index,fm[IU],iOct_local);
+    uLoc[IV] = Ugroup(index,fm[IV],iOct_local);
     
-          // get primitive variables in current cell
-          computePrimitives(uLoc, &c, qLoc, params);
-          
-          // copy q state in q global
-          Qdata(index,fm[ID],iOct) = qLoc[ID];
-          Qdata(index,fm[IP],iOct) = qLoc[IP];
-          Qdata(index,fm[IU],iOct) = qLoc[IU];
-          Qdata(index,fm[IV],iOct) = qLoc[IV];
+    // get primitive variables in current cell
+    computePrimitives(uLoc, &c, qLoc, params);
+    
+    // copy q state in q global
+    Qgroup(index,fm[ID],iOct_local) = qLoc[ID];
+    Qgroup(index,fm[IP],iOct_local) = qLoc[IP];
+    Qgroup(index,fm[IU],iOct_local) = qLoc[IU];
+    Qgroup(index,fm[IV],iOct_local) = qLoc[IV];
+    
+  } // cons2prim_2d
 
-        }); // end TeamVectorRange
-
-      iOct += nbTeams;
-      
-    } // end while iOct < nbOct
-
-  } // operator_2d
-
+  // ========================================================================
+  // ========================================================================
   KOKKOS_INLINE_FUNCTION
-  void operator_3d(team_policy_t::member_type member) const
+  void cons2prim_3d(const int32_t index,
+                    const uint32_t iOct_local) const
   {
+  
+    HydroState3d uLoc; // conservative variables in current cell
+    HydroState3d qLoc; // primitive    variables in current cell
+    real_t c = 0.0;
     
-    uint32_t iOct = member.league_rank();
-
-    const int& bx = blockSizes[IX];
-    const int& by = blockSizes[IY];
-    const int& bz = blockSizes[IZ];
-
-    uint32_t nbCells = params.dimType == TWO_D ? bx*by : bx*by*bz;
-
-    while (iOct <  pmesh->getNumOctants() )
-    {
-
-      Kokkos::parallel_for(
-        Kokkos::TeamVectorRange(member, nbCells),
-        KOKKOS_LAMBDA(const int32_t index) {
+    // get local conservative variable
+    uLoc[ID] = Ugroup(index,fm[ID],iOct_local);
+    uLoc[IP] = Ugroup(index,fm[IP],iOct_local);
+    uLoc[IU] = Ugroup(index,fm[IU],iOct_local);
+    uLoc[IV] = Ugroup(index,fm[IV],iOct_local);
+    uLoc[IW] = Ugroup(index,fm[IW],iOct_local);
     
-          HydroState3d uLoc; // conservative variables in current cell
-          HydroState3d qLoc; // primitive    variables in current cell
-          real_t c = 0.0;
+    // get primitive variables in current cell
+    computePrimitives(uLoc, &c, qLoc, params);
     
-          // get local conservative variable
-          uLoc[ID] = Udata(index,fm[ID],iOct);
-          uLoc[IP] = Udata(index,fm[IP],iOct);
-          uLoc[IU] = Udata(index,fm[IU],iOct);
-          uLoc[IV] = Udata(index,fm[IV],iOct);
-          uLoc[IW] = Udata(index,fm[IW],iOct);
-          
-          // get primitive variables in current cell
-          computePrimitives(uLoc, &c, qLoc, params);
-          
-          // copy q state in q global
-          Qdata(index,fm[ID],iOct) = qLoc[ID];
-          Qdata(index,fm[IP],iOct) = qLoc[IP];
-          Qdata(index,fm[IU],iOct) = qLoc[IU];
-          Qdata(index,fm[IV],iOct) = qLoc[IV];
-          Qdata(index,fm[IW],iOct) = qLoc[IW];
-        
-        }); // end TeamVectorRange
+    // copy q state in q global
+    Qgroup(index,fm[ID],iOct_local) = qLoc[ID];
+    Qgroup(index,fm[IP],iOct_local) = qLoc[IP];
+    Qgroup(index,fm[IU],iOct_local) = qLoc[IU];
+    Qgroup(index,fm[IV],iOct_local) = qLoc[IV];
+    Qgroup(index,fm[IW],iOct_local) = qLoc[IW];
+    
+  } // cons2prim_3d
 
-      iOct += nbTeams;
-
-    } // end while iOct < nbOct
-
-  } // operator_3d
-
+  // ========================================================================
+  // ========================================================================
   KOKKOS_INLINE_FUNCTION
   void operator()(team_policy_t::member_type member) const
   {
-    
-    if (params.dimType == TWO_D)
-      operator_2d(member);
-    
-    if (params.dimType == THREE_D)
-      operator_3d(member);
-    
-  } // operator ()
+
+    // iOct must span the range [iGroup*nbOctsPerGroup ,
+    // (iGroup+1)*nbOctsPerGroup [
+    uint32_t iOct = member.league_rank() + iGroup * nbOctsPerGroup;
+
+    // octant id inside the Ugroup data array
+    uint32_t iOct_local = member.league_rank();
+
+    // compute first octant index after current group
+    uint32_t iOctNextGroup = (iGroup + 1) * nbOctsPerGroup;
+
+    while (iOct < iOctNextGroup and iOct < nbOcts)
+    {
+
+      Kokkos::parallel_for(
+        Kokkos::TeamVectorRange(member, nbCellsPerBlock),
+        KOKKOS_LAMBDA(const int32_t index) {
+
+          if (params.dimType == TWO_D)
+            cons2prim_2d(index, iOct_local);
+
+          else if (params.dimType == THREE_D)
+            cons2prim_3d(index, iOct_local);
   
-  //! AMR mesh
-  std::shared_ptr<AMRmesh> pmesh;
-    
+        }); // end TeamVectorRange
+
+      iOct       += nbTeams;
+      iOct_local += nbTeams;
+
+    } // end while iOct < nbOct
+
+  } // operator()
+
   //! general parameters
   HydroParams  params;
   
   //! field manager
   id2index_t   fm;
 
-  //! block sizes
+  //! block sizes (no ghost)
   blockSize_t blockSizes;
 
+  //! ghost width
+  uint32_t ghostWidth;
+
+  //! total number of octants in current MPI process
+  uint32_t nbOcts;
+
+  //! number of octant per group
+  uint32_t nbOctsPerGroup;
+
+  //! number of cells per block
+  uint32_t nbCellsPerBlock;
+
+  //! integer which identifies a group of octants
+  uint32_t iGroup;
+
   //! heavy data - conservative variables
-  DataArrayBlock    Udata;
+  DataArrayBlock    Ugroup;
 
   //! heavy data - primitive variables
-  DataArrayBlock    Qdata;
+  DataArrayBlock    Qgroup;
 
 }; // ConvertToPrimitivesHydroFunctor
 
