@@ -296,6 +296,21 @@ public:
   // ==============================================================
   // ==============================================================
   /**
+   * Fill ghost cells for octant touching an external border.
+   */
+  KOKKOS_INLINE_FUNCTION
+  void fill_ghost_face_2d_external_border(uint32_t iOct,
+                                          uint32_t iOct_local,
+                                          index_t  index_in,
+                                          DIR_ID   dir,
+                                          FACE_ID  face) const
+  {
+  
+  } // fill_ghost_face_2d_external_border
+
+  // ==============================================================
+  // ==============================================================
+  /**
    * Fill (copy) ghost cell data of current octant (iOct) from
    * a neighbor octant is case neighbor has the same size (i.e.
    * same AMR level).
@@ -323,9 +338,12 @@ public:
     const int &bx = blockSizes[IX];
     const int &by = blockSizes[IY];
 
+    const index_t size_borderX = ghostWidth*by;
+    const index_t size_borderY = bx*ghostWidth; 
+    
     // make sure index is valid, i.e. inside the range of admissible values
-    if ( (index < ghostWidth*by and dir == DIR_X) or
-         (index < bx*ghostWidth and dir == DIR_Y) ) {
+    if ( (index < size_borderX and dir == DIR_X) or
+         (index < size_borderY and dir == DIR_Y) ) {
             
       // border sizes for input  cell are : ghostWidth,by
       // border sizes for output cell are : ghostWidth,by+2*ghostWidth
@@ -429,9 +447,12 @@ public:
     const int &bx = blockSizes[IX];
     const int &by = blockSizes[IY];
 
+    const index_t size_borderX = ghostWidth*by;
+    const index_t size_borderY = bx*ghostWidth;
+
     // make sure index is valid, i.e. inside the range of admissible values
-    if ((index < ghostWidth * by and dir == DIR_X) or
-        (index < bx * ghostWidth and dir == DIR_Y)) {
+    if ((index < size_borderX and dir == DIR_X) or
+        (index < size_borderY and dir == DIR_Y)) {
 
       // compute cell coordinates inside border
       coord_t coord_border = dir == DIR_X ? 
@@ -548,10 +569,13 @@ public:
     // large octant ghost cells
     HydroState2d q = {0, 0, 0, 0};
 
+    const index_t size_borderX = ghostWidth*by;
+    const index_t size_borderY = bx*ghostWidth;
+
     // make sure index is valid, 
     // i.e. inside the range of admissible values
-    if ((index < ghostWidth * by and dir == DIR_X) or
-        (index < bx * ghostWidth and dir == DIR_Y)) {
+    if ((index < size_borderX and dir == DIR_X) or
+        (index < size_borderY and dir == DIR_Y)) {
 
       // compute cell coordinates inside border of current block,
       // ghost width not taken into account now
@@ -660,9 +684,6 @@ public:
                           FACE_ID  face) const
   {
 
-    const int &bx = blockSizes[IX];
-    const int &by = blockSizes[IY];
-
     // probe mesh neighbor information
     uint8_t iface = face + 2*dir;
     uint8_t codim = 1;
@@ -671,7 +692,9 @@ public:
     std::vector<uint32_t> neigh;
     std::vector<bool> isghost;
 
-    pmesh->findNeighbours(iOct,iface,codim,neigh,isghost);
+    // ask PABLO to find neighbor octant id accross a given face
+    // this fill fill vector neigh and isghost
+    pmesh->findNeighbours(iOct, iface, codim, neigh, isghost);
 
     /*
      * first deal with external border -- TODO
@@ -681,7 +704,7 @@ public:
       if (index_in==0)
         printf("[neigh is external] iOct_global=%d iOct_local=%2d ---- dir=%d face=%d \n",iOct, iOct_local, dir, face);
 
-      // fill_ghost_face_2d_external_border(iOct, index_in, dir, face);
+      fill_ghost_face_2d_external_border(iOct, iOct_local, index_in, dir, face);
     } 
     
     /*
