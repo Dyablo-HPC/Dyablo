@@ -219,7 +219,7 @@ void run_test(int argc, char *argv[]) {
       }
 
     } // end if bz>1
-  }
+  } // end testing CopyFaceBlockCellDataFunctor
 
   // also testing ConvertToPrimitivesHydroFunctor
   std::cout << "==========================================";
@@ -228,7 +228,7 @@ void run_test(int argc, char *argv[]) {
     DataArrayBlock Qgroup = DataArrayBlock("Qgroup", nbCellsPerOct_g, params.nbvar, nbOctsPerGroup);
 
     uint32_t nbOcts = solver->amr_mesh->getNumOctants();
-
+    
     ConvertToPrimitivesHydroFunctor::apply(configMap,
                                            params, 
                                            fm,
@@ -248,8 +248,7 @@ void run_test(int argc, char *argv[]) {
       std::cout << "\n";
     }
 
-  }
-
+  } // end testing ConvertToPrimitivesHydroFunctor
 
   delete solver;
 
