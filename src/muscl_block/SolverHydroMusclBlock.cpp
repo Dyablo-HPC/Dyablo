@@ -24,7 +24,7 @@
 #include "muscl_block/ConvertToPrimitivesHydroFunctor.h"
 // #include "muscl_block/ReconstructGradientsHydroFunctor.h"
 // #include "muscl_block/ComputeFluxesAndUpdateHydroFunctor.h"
-// #include "muscl_block/MarkCellsHydroFunctor.h"
+#include "muscl_block/MarkOctantsHydroFunctor.h"
 
 // // compute functor for low Mach flows
 // #include "muscl_block/UpdateRSSTHydroFunctor.h"

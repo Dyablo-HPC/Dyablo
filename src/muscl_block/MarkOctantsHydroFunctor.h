@@ -2,11 +2,11 @@
 // UNFINISHED
 // !!!!!!!!!!!!!!!!!!!!!!!!!!
 /**
- * \file MarkCellsHydroFunctor.h
+ * \file MarkOctantsHydroFunctor.h
  * \author Pierre Kestener
  */
-#ifndef DYABLO_MUSCL_BLOCK_MARK_CELLS_HYDRO_FUNCTOR_H_
-#define DYABLO_MUSCL_BLOCK_MARK_CELLS_HYDRO_FUNCTOR_H_
+#ifndef DYABLO_MUSCL_BLOCK_MARK_OCTANTS_HYDRO_FUNCTOR_H_
+#define DYABLO_MUSCL_BLOCK_MARK_OCTANTS_HYDRO_FUNCTOR_H_
 
 #include "shared/kokkos_shared.h"
 #include "shared/FieldManager.h"
@@ -24,56 +24,82 @@ namespace dyablo { namespace muscl_block {
 /*************************************************/
 /*************************************************/
 /**
- * Mark cells for refine or coarsen according to a
+ * Mark octants for refine or coarsen according to a
  * gradient-like conditions.
  *
- * We adopt here a different strategy from muscl (one cell per leaf):
- * we have adapted ideas from code AMUN, i.e. for each inner ce
+ * We adopt here a different strategy from muscl, here
+ * in muscl we have one block of cells per leaf (i.e. octant).
+ * 
+ * To mark an octant for refinement, we have adapted ideas 
+ * from code AMUN, i.e. for each inner cells, we apply the
+ * refinement criterium, then reduce the results to have a
+ * single indicator to decide whether or not the octant is
+ * flag for refinement.
+ *
+ * We do not use directly the global array U (of conservative variables
+ * in block, without ghost cells) but Ugroup containing a smaller 
+ * number of octants, but with ghost cells. This means the computation
+ * is organized in a piecewise fashion, i.e. this functor is aimed
+ * to be called inside a loop over all sub-groups of octants.
  *
  */
-class MarkCellsHydroFunctor {
+class MarkOctantsHydroFunctor {
   
 public:
   /**
    * Mark cells for refine/coarsen functor.
    *
-   * \param[in] pmesh AMRmesh Pablo data structure
+   * \param[in] pmesh AMR mesh Pablo data structure
    * \param[in] params
    * \param[in] fm field map to access user data
-   * \param[in] Udata conservative variables
-   * \param[in] Udata_ghost conservative variables in ghost cells (only meaningful when MPI activated)
+   * \param[in] Ugroup conservative variables (block data with ghost cells)
+   * \param[in] iGroup identifies a group of octants among all subgroup
+   * \param[in] epsilon_refine threshold value
+   * \param[in] epsilon_coarsen threshold value
+   *
+   *
+   * \todo refactor interface : there is no need to have a PabloUniform (pmesh)
+   * object here; it is only used to call setMarker. All we need is to make
+   * Pablo exposes the array of refinement flags (as Kokkos::View).
+   *
+   * \todo the total number of octants (for current MPI process) is retrieve from
+   * pmesh object; should be passed as an argument.
    *
    */
-  MarkCellsHydroFunctor(std::shared_ptr<AMRmesh> pmesh,
-                        HydroParams params,
-                        id2index_t  fm,
-                        DataArrayBlock   Udata,
-                        DataArray   Udata_ghost,
-                        real_t      eps_refine,
-                        real_t      eps_coarsen) :
+  MarkOctantsHydroFunctor(std::shared_ptr<AMRmesh> pmesh,
+                          HydroParams    params,
+                          id2index_t     fm,
+                          DataArrayBlock Ugroup,
+                          uint32_t       iGroup,
+                          real_t         eps_refine,
+                          real_t         eps_coarsen) :
     pmesh(pmesh),
     params(params),
     fm(fm),
-    Udata(Udata), 
-    Udata_ghost(Udata_ghost),
+    Ugroup(Ugroup), 
+    iGroup(iGroup), 
     epsilon_refine(eps_refine),
     epsilon_coarsen(eps_coarsen)
   {};
   
   // static method which does it all: create and execute functor
   static void apply(std::shared_ptr<AMRmesh> pmesh,
-		    HydroParams params,
-		    id2index_t  fm,
-                    DataArray   Udata,
-		    DataArray   Udata_ghost,
-                    real_t      eps_refine,
-                    real_t      eps_coarsen)
+		    HydroParams    params,
+		    id2index_t     fm,
+                    DataArrayBlock Ugroup,
+                    uint32_t       iGroup,
+                    real_t         eps_refine,
+                    real_t         eps_coarsen)
   {
-    MarkCellsHydroFunctor functor(pmesh, params, fm, 
-                                  Udata, Udata_ghost,
-                                  eps_refine, 
-                                  eps_coarsen);
-    Kokkos::parallel_for("dyablo::muscl::MarkCellsHydroFunctor", pmesh->getNumOctants(), functor);
+    MarkOctantsHydroFunctor functor(pmesh, params, fm, 
+                                    Ugroup, iGroup,
+                                    eps_refine, 
+                                    eps_coarsen);
+
+    // todo : change range policy into team policy
+    Kokkos::parallel_for("dyablo::muscl::MarkOctantsHydroFunctor",
+                         pmesh->getNumOctants(), 
+                         functor);
   } // apply
 
   /**
@@ -122,13 +148,13 @@ public:
     // default returned value
     real_t new_value = current_epsilon;
 
-    if (isghost_n) {
-      new_value = indicator_scalar_gradient (Udata(i,fm[ID]), 
-                                             Udata_ghost(i_n,fm[ID]));
-    } else {
-      new_value = indicator_scalar_gradient (Udata(i,fm[ID]), 
-                                             Udata(i_n,fm[ID]));    
-    }
+    // if (isghost_n) {
+    //   new_value = indicator_scalar_gradient (Udata(i,fm[ID]), 
+    //                                          Udata_ghost(i_n,fm[ID]));
+    // } else {
+    //   new_value = indicator_scalar_gradient (Udata(i,fm[ID]), 
+    //                                          Udata(i_n,fm[ID]));    
+    // }
 
     return fmax(new_value,current_epsilon);
 
@@ -148,37 +174,6 @@ public:
     uint8_t nfaces = 2*dim;
 
     real_t epsilon = 0.0;
-
-    // this vector contains quad ids
-    // corresponding to neighbors
-    std::vector<uint32_t> neigh; // through a given face
-    std::vector<uint32_t> neigh_all; // all neighbors
-
-    // this vector contains ghost status of each neighbors
-    std::vector<bool> isghost; // through a given face
-    std::vector<bool> isghost_all; // all neighbors
-
-    // only sweep neighbors through faces
-    for (uint8_t iface=0; iface<nfaces; ++iface) {
-      pmesh->findNeighbours(i,iface,codim,neigh,isghost);
-      
-      // insert data into all neighbor lists
-      neigh_all.insert(neigh_all.end(), neigh.begin(), neigh.end());
-      isghost_all.insert(isghost_all.end(), isghost.begin(), isghost.end());
-    }
-
-    // now that we have all neighbors, 
-    // we can start apply refinement criterium
-
-    // sweep neighbors to compute minmod limited gradient
-    for (uint16_t j = 0; j < neigh_all.size(); ++j) {
-      
-      // neighbor index
-      uint32_t i_n = neigh_all[j];
-            
-      epsilon = update_epsilon(epsilon, i, i_n, isghost_all[j]);  
-      
-    } // end update epsilon
     
     // now epsilon has been computed, we can mark / flag cells for 
     // refinement or coarsening
@@ -197,17 +192,17 @@ public:
   } // operator ()
   
   std::shared_ptr<AMRmesh> pmesh;
-  HydroParams  params;
-  id2index_t   fm;
-  DataArray    Udata;
-  DataArray    Udata_ghost;
-  real_t       epsilon_refine;
-  real_t       epsilon_coarsen;
+  HydroParams    params;
+  id2index_t     fm;
+  DataArrayBlock Ugroup;
+  uint32_t       iGroup;
+  real_t         epsilon_refine;
+  real_t         epsilon_coarsen;
 
-}; // MarkCellsHydroFunctor
+}; // MarkOctantsHydroFunctor
 
 } // namespace muscl_block
 
 } // namespace dyablo
 
-#endif // DYABLO_MUSCL_BLOCK_MARK_CELLS_HYDRO_FUNCTOR_H_
+#endif // DYABLO_MUSCL_BLOCK_MARK_OCTANTS_HYDRO_FUNCTOR_H_
