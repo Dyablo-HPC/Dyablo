@@ -83,11 +83,6 @@ public:
   DataArrayBlock Slopes_y; /*!< implementation 1 only */
   DataArrayBlock Slopes_z; /*!< implementation 1 only */
 
-  // we probably won't need those array anymore - TBD
-  DataArrayBlock Slopes_x_ghost; /*!< implementation 1 only */
-  DataArrayBlock Slopes_y_ghost; /*!< implementation 1 only */
-  DataArrayBlock Slopes_z_ghost; /*!< implementation 1 only */
-
   // fluxes - only usefull when low Mach RSST computation is activated
   DataArrayBlock Fluxes;
 
