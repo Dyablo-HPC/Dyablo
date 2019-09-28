@@ -586,7 +586,7 @@ void SolverHydroMusclBlock::save_solution_impl()
 void SolverHydroMusclBlock::save_solution_vtk() 
 {
 
-  std::cerr << "writeVTK for block AMR is not implemented - TODO\n";
+  std::cerr << "writeVTK for block AMR is not implemented - TODO - REALLY USEFUL ?\n";
 
   // // retrieve available / allowed names: fieldManager, and field map (fm)
   // auto fm = fieldMgr.get_id2index();
@@ -690,13 +690,13 @@ void SolverHydroMusclBlock::synchronize_ghost_data(UserDataCommType t)
 
   m_timers[TIMER_AMR_CYCLE_SYNC_GHOST]->start();
 
+#if BITPIT_ENABLE_MPI==1
+
   // retrieve available / allowed names: fieldManager, and field map (fm)
   auto fm = fieldMgr.get_id2index();
 
   // retrieve current number of ghost cells
   uint32_t nghosts = amr_mesh->getNumGhosts();
-
-#if BITPIT_ENABLE_MPI==1
 
   // select which data to exchange
 
@@ -715,7 +715,7 @@ void SolverHydroMusclBlock::synchronize_ghost_data(UserDataCommType t)
 
   } // end switch
   
-#endif
+#endif // BITPIT_ENABLE_MPI==1
 
   m_timers[TIMER_AMR_CYCLE_SYNC_GHOST]->stop();
 
