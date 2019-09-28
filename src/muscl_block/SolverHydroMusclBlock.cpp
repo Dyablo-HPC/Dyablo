@@ -54,9 +54,9 @@ namespace dyablo { namespace muscl_block {
 SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
                                              ConfigMap& configMap) :
   SolverBase(params, configMap),
-  U(), Uhost(), U2(), 
-  Ugroup(), Q(),
-  Ughost(), Qghost(),
+  U(), Uhost(), U2(), Ughost(), 
+  Ugroup(), 
+  Qgroup(),
   Slopes_x(), 
   Slopes_y(), 
   Slopes_z()
@@ -127,10 +127,10 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
 
 
   // block data array with ghost cells
-  Ugroup= DataArrayBlock("Ugroup", nbCellsPerOct_g, nbvar, nbOctsPerGroup);
-  Q     = DataArrayBlock("Q"     , nbCellsPerOct_g, nbvar, nbOctsPerGroup);
+  Ugroup = DataArrayBlock("Ugroup", nbCellsPerOct_g, nbvar, nbOctsPerGroup);
+  Qgroup = DataArrayBlock("Qgroup", nbCellsPerOct_g, nbvar, nbOctsPerGroup);
 
-  total_mem_size += nbCellsPerOct_g*nbOctsPerGroup*nbvar * sizeof(real_t) * 2 ;// 1+1 for Ugroup and Q
+  total_mem_size += nbCellsPerOct_g*nbOctsPerGroup*nbvar * sizeof(real_t) * 2 ;// 1+1 for Ugroup and Qgroup
 
 
   // all intermediate data array are sized upon nbOctsPerGroup
@@ -214,14 +214,7 @@ void SolverHydroMusclBlock::resize_solver_data()
   Kokkos::resize(U2, nbCellsPerOct, params.nbvar, amr_mesh->getNumOctants());
   Kokkos::resize(Uhost, nbCellsPerOct, params.nbvar, amr_mesh->getNumOctants());
 
-  // the following is TBD ....
-
-  Kokkos::resize(Q, nbCellsPerOct, params.nbvar, amr_mesh->getNumOctants());
-  
-  Kokkos::resize(Slopes_x, nbCellsPerOct, params.nbvar, amr_mesh->getNumOctants());
-  Kokkos::resize(Slopes_y, nbCellsPerOct, params.nbvar, amr_mesh->getNumOctants());
-  if (params.dimType==THREE_D)
-    Kokkos::resize(Slopes_z, nbCellsPerOct, params.nbvar, amr_mesh->getNumOctants());
+  // Remember that all other array are fixed sized - nbOctsPerGroup
 
 } // SolverHydroMusclBlock::resize_solver_data
 
@@ -458,10 +451,10 @@ void SolverHydroMusclBlock::godunov_unsplit_impl(DataArrayBlock data_in,
   m_timers[TIMER_NUM_SCHEME]->start();
 
   // convert conservative variable into primitives ones for the entire domain
-  convertToPrimitives(data_in);
+  // TODO convertToPrimitives(data_in);
 
   // sort of slopes computation adapted to unstructured local mesh
-  reconstruct_gradients(data_in);
+  // TODO reconstruct_gradients(data_in);
   
   // compute fluxes (finite volume) and update
   compute_fluxes_and_update(data_in, data_out, dt);
@@ -475,40 +468,38 @@ void SolverHydroMusclBlock::godunov_unsplit_impl(DataArrayBlock data_in,
 // ///////////////////////////////////////////////////////////////////
 // Convert conservative variables array U into primitive var array Q
 // ///////////////////////////////////////////////////////////////////
-void SolverHydroMusclBlock::convertToPrimitives(DataArrayBlock Udata)
+void SolverHydroMusclBlock::convertToPrimitives(uint32_t iGroup)
 {
 
   // retrieve available / allowed names: fieldManager, and field map (fm)
   // necessary to access user data
   auto fm = fieldMgr.get_id2index();
 
-  // resize output Q view to the same size as input Udata
-  Kokkos::resize(Q, Udata.extent(0), Udata.extent(1), Udata.extent(2));
+  uint32_t nbOcts = amr_mesh->getNumOctants();
 
   // call device functor
-  // ConvertToPrimitivesHydroFunctor::apply(amr_mesh, configMap, params, fm, 
-  //                                        blockSizes,
-  //                                        Udata, Q);
+  ConvertToPrimitivesHydroFunctor::apply(configMap,
+                                         params, 
+                                         fm,
+                                         blockSizes,
+                                         ghostWidth,
+                                         nbOcts,
+                                         nbOctsPerGroup,
+                                         iGroup,
+                                         Ugroup, 
+                                         Qgroup);
+
   
 } // SolverHydroMusclBlock::convertToPrimitives
 
 // =======================================================
 // =======================================================
-void SolverHydroMusclBlock::reconstruct_gradients(DataArrayBlock Udata)
+void SolverHydroMusclBlock::reconstruct_gradients(uint32_t iGroup)
 {
-
-  // we need primitive variables in ghost cell to be up to date
-  synchronize_ghost_data(UserDataCommType::QDATA);
 
   // retrieve available / allowed names: fieldManager, and field map (fm)
   // necessary to access user data
   auto fm = fieldMgr.get_id2index();
-
-  // resize slopes views to the same size as input Udata
-  Kokkos::resize(Slopes_x, Udata.extent(0), Udata.extent(1), Udata.extent(2));
-  Kokkos::resize(Slopes_y, Udata.extent(0), Udata.extent(1), Udata.extent(2));
-  if (params.dimType == THREE_D)
-    Kokkos::resize(Slopes_z, Udata.extent(0), Udata.extent(1), Udata.extent(2));  
 
   // call device functor
   // ReconstructGradientsHydroFunctor::apply(amr_mesh, params, fm, 
@@ -718,12 +709,6 @@ void SolverHydroMusclBlock::synchronize_ghost_data(UserDataCommType t)
   case UserDataCommType::UDATA: {
     Kokkos::resize(Ughost, U.extent(0), U.extent(1), nghosts);
     UserDataComm data_comm(U, Ughost, fm);
-    amr_mesh->communicate(data_comm);
-    break;
-  }
-  case UserDataCommType::QDATA : {
-    Kokkos::resize(Qghost, Q.extent(0), Q.extent(1), nghosts);
-    UserDataComm data_comm(Q, Qghost, fm);
     amr_mesh->communicate(data_comm);
     break;
   }

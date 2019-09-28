@@ -30,19 +30,26 @@
 namespace dyablo { namespace muscl_block {
 
 /**
- * Main hydrodynamics data structure for 2D/3D MUSCL-Hancock scheme for block AMR.
+ * Main hydrodynamics data structure for 2D/3D MUSCL-Hancock scheme
+ * for block AMR.
  *
- * See gitlab milestone page https://gitlab.maisondelasimulation.fr/pkestene/dyablo/-/milestones/4
- * for a discussion on "Should we include ghost cells on the leaves block data ?"
+ * See gitlab milestone page
+ * https://gitlab.maisondelasimulation.fr/pkestene/dyablo/-/milestones/4
+ * for a discussion on "Should we include ghost cells on the 
+ * leaves block data ?"
  *
- * The trade-off explored here is to design the main data array structure to hold block data without 
- * ghost cells, but then apply all operators in a piecewise way. More precisely each MPI task allocate
- * memory to hold a fixed amount of block data with ghost cells included and processes the complete list
- * of octree leaves block group by group.
+ * The trade-off explored here is to design the main data array 
+ * structure to hold block data without ghost cells, but then apply
+ * all operators in a piecewise way. More precisely each MPI task
+ * allocates memory to hold a fixed amount of block data with 
+ * ghost cells included and processes the complete list of octree
+ * leaves block group by group.
  *
  * Just for clarification:
- * - variables names suffix "_ghost" means variables in the MPI ghost octants
- * - variables names suffix "_g"     means variables in the block data ghost cells (from an octant to neighbor octant)
+ * - variables names suffix "_ghost" means variables in the MPI 
+ *   ghost octants
+ * - variables names suffix "_g"     means variables in the block
+ *   data ghost cells (from an octant to neighbor octant)
  * 
  */
 class SolverHydroMusclBlock : public dyablo::SolverBase
@@ -68,25 +75,43 @@ public:
     return solver;
   }
 
-  DataArrayBlock     U;     /*!< hydrodynamics conservative variables arrays at t_n - no ghost */
-  DataArrayBlockHost Uhost; /*!< mirror DataArrayBlock U on host memory space  - no ghost */
-  DataArrayBlock     U2;    /*!< hydrodynamics conservative variables arrays at t_{n+1} - no ghost */
+  //! hydrodynamics conservative variables arrays at t_n - no ghost
+  DataArrayBlock     U;
+  
+  //! mirror DataArrayBlock U on host memory space  - no ghost
+  DataArrayBlockHost Uhost;
+  
+  //! hydrodynamics conservative variables arrays at t_{n+1} - no ghost
+  DataArrayBlock     U2;
 
-  DataArrayBlock     Ugroup; /*!< fixed size array of block data with ghost replacing U and U2 when applying numerical scheme */
+  //! MPI ghost octant array
+  DataArrayBlock     Ughost;
 
-  DataArrayBlock     Q;     /*!< hydrodynamics primitive    variables array  */
+  /*
+   * arrays used for piece wise computation
+   */
 
-  DataArrayBlock     Ughost; /*!< ghost cell data */
-  DataArrayBlock     Qghost; /*!< ghost cell data for primitive variables */
+  //! fixed size array of block data with ghost replacing U 
+  //! and U2 when applying numerical scheme
+  DataArrayBlock Ugroup;
 
-  DataArrayBlock Slopes_x; /*!< implementation 1 only */
-  DataArrayBlock Slopes_y; /*!< implementation 1 only */
-  DataArrayBlock Slopes_z; /*!< implementation 1 only */
+  //! hydrodynamics primitive - array of octant's block data
+  DataArrayBlock Qgroup;
 
-  // fluxes - only usefull when low Mach RSST computation is activated
+  //! slopes along X dir - array of octant's block data
+  DataArrayBlock Slopes_x;
+
+  //! slopes along Y dir - array of octant's block data
+  DataArrayBlock Slopes_y;
+
+  //! slopes along Z dir - array of octant's block data
+  DataArrayBlock Slopes_z;
+
+  //! fluxes - only usefull when low Mach RSST computation is activated
+  //! flux accumulator - array of octant's block data
   DataArrayBlock Fluxes;
 
-  // Gravity field
+  //! Gravity field
   DataArrayBlock gravity;
 
   //! field manager for scalar variables mapping to memory index
@@ -124,10 +149,13 @@ public:
 			    real_t dt);
 
   //! convert conservative variables to primitive variables
-  void convertToPrimitives(DataArrayBlock Udata);
+  //! for all octant in iGroup'th group, from Ugroup to Qgroup
+  //! \todo we probably don't really need argument iGroup here - to be confirmed
+  void convertToPrimitives(uint32_t iGroup);
 
   //! reconstruct gradients / limited slopes
-  void reconstruct_gradients(DataArrayBlock Udata);
+  //! for all octant in iGroup'th group
+  void reconstruct_gradients(uint32_t iGroup);
 
   //! compute flux (Riemann solver) and perform time update
   void compute_fluxes_and_update(DataArrayBlock data_in, 
@@ -158,7 +186,7 @@ public:
   //! number of cells per octant with ghost
   uint32_t nbCellsPerOct_g;
 
-  //! number of octants (octre leaves) per group
+  //! number of octants (octree leaves) per group
   uint32_t nbOctsPerGroup;
 
 private:
