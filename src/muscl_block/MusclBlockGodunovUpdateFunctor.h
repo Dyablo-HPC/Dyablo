@@ -123,6 +123,83 @@ public:
   // =======================================================================
   // =======================================================================
   /**
+   * Compute primitive variables slopes (dq) for one component from q and its neighbors.
+   * 
+   * Only slope_type 1 and 2 are supported.
+   *
+   * \param[in] q scalar value in current cell
+   * \param[in] qPlus scalar value in right neighbor 
+   * \param[in] qMinus scalar value in left neighbor
+   *
+   * \return dq limited slope (scalar)
+   */
+  KOKKOS_INLINE_FUNCTION
+  real_t slope_unsplit_scalar(real_t q, 
+                              real_t qPlus,
+                              real_t qMinus) const
+  {
+    const real_t slope_type = params.settings.slope_type;
+
+    // slopes in first coordinate direction
+    const real_t dlft = slope_type*(q     - qMinus);
+    const real_t drgt = slope_type*(qPlus - q     );
+    const real_t dcen = HALF_F * (qPlus - qMinus);
+    const real_t dsgn = (dcen >= ZERO_F) ? ONE_F : -ONE_F;
+    const real_t slop = fmin( FABS(dlft), FABS(drgt) );
+    real_t dlim = slop;
+    if ( (dlft*drgt) <= ZERO_F )
+      dlim = ZERO_F;
+    real_t dq = dsgn * fmin( dlim, FABS(dcen) );
+
+    return dq;
+
+  } // slope_unsplit_scalar
+
+  // =======================================================================
+  // =======================================================================
+  /**
+   * Compute slope (vector value using minmod limiter).
+   */
+  template<class HydroState>
+  KOKKOS_INLINE_FUNCTION
+  HydroState slope_unsplit_hydro(const HydroState& q,
+                                 const HydroState& qPlus,
+                                 const HydroState& qMinus) const
+  {
+
+    const real_t slope_type = params.settings.slope_type;
+
+    HydroState dq;
+
+    if (slope_type==0) {
+
+      dq[ID] = ZERO_F;
+      dq[IP] = ZERO_F;
+      dq[IU] = ZERO_F;
+      dq[IV] = ZERO_F;
+
+      if (std::is_same<HydroState,HydroState3d>::value)
+        dq[IW] = ZERO_F;
+
+    } else if (slope_type==1 or
+               slope_type==2) {  // minmod or average
+
+      dq[IX] = slope_unsplit_scalar( q[ID], qPlus[ID], qMinus[ID] );
+      dq[IP] = slope_unsplit_scalar( q[IP], qPlus[IP], qMinus[IP] );
+      dq[IU] = slope_unsplit_scalar( q[IU], qPlus[IU], qMinus[IU] );
+      dq[IV] = slope_unsplit_scalar( q[IV], qPlus[IV], qMinus[IV] );
+      if (std::is_same<HydroState,HydroState3d>::value)
+        dq[IW] = slope_unsplit_scalar( q[IW], qPlus[IW], qMinus[IW] );
+
+    } // end slope_type == 1 or 2
+
+    return dq;
+
+  } // slope_unsplit_hydro
+
+  // =======================================================================
+  // =======================================================================
+  /**
    * Reconstruct an hydro state at a cell border location specified by offsets.
    *
    * This is equivalent to trace operation in Ramses.
