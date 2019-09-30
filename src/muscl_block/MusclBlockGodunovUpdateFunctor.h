@@ -17,9 +17,12 @@
 // utils hydro
 #include "shared/utils_hydro.h"
 
+// utils block
+#include "muscl_block/utils_block.h"
+
 namespace dyablo { 
 
-namespace muscl {
+namespace muscl_block {
 
 /*************************************************/
 /*************************************************/
@@ -65,6 +68,11 @@ public:
   MusclBlockGodunovUpdateFunctor(std::shared_ptr<AMRmesh> pmesh,
                                  HydroParams    params,
                                  id2index_t     fm,
+                                 blockSize_t    blockSizes,
+                                 uint32_t       ghostWidth,
+                                 uint32_t       nbOcts,
+                                 uint32_t       nbOctsPerGroup,
+                                 uint32_t       iGroup,
                                  DataArrayBlock Ugroup,
                                  DataArrayBlock U2,
                                  DataArrayBlock Qgroup,
@@ -72,6 +80,11 @@ public:
     pmesh(pmesh),
     params(params),
     fm(fm),
+    blockSizes(blockSizes),
+    ghostWidth(ghostWidth),
+    nbOcts(nbOcts),
+    nbOctsPerGroup(nbOctsPerGroup),
+    iGroup(iGroup),
     Ugroup(Ugroup),
     U2(U2),
     Qgroup(Qgroup),
@@ -83,6 +96,11 @@ public:
 		    ConfigMap      configMap,
                     HydroParams    params,
 		    id2index_t     fm,
+                    blockSize_t    blockSizes,
+                    uint32_t       ghostWidth,
+                    uint32_t       nbOcts,
+                    uint32_t       nbOctsPerGroup,
+                    uint32_t       iGroup,
 		    DataArrayBlock Ugroup,
 		    DataArrayBlock U2,
                     DataArrayBlock Qgroup,
@@ -91,6 +109,8 @@ public:
 
     // instantiate functor
     MusclBlockGodunovUpdateFunctor functor(pmesh, params, fm,
+                                           blockSizes, ghostWidth, 
+                                           nbOcts, nbOctsPerGroup, iGroup,
                                            Ugroup, U2,
                                            Qgroup,
                                            dt);
@@ -351,17 +371,49 @@ public:
       operator_3d(member);
     
   } // operator ()
-  
+
+  //! bitpit/PABLO amr mesh object
   std::shared_ptr<AMRmesh> pmesh;
+  
+  //! general parameters
   HydroParams    params;
+
+  //! field manager
   id2index_t     fm;
-  DataArrayBlock Ugroup, U2;
+
+  //! block sizes (no ghost)
+  blockSize_t blockSizes;
+
+  //! ghost width
+  uint32_t ghostWidth;
+
+  //! total number of octants in current MPI process
+  uint32_t nbOcts;
+
+  //! number of octant per group
+  uint32_t nbOctsPerGroup;
+
+  //! number of cells per block
+  uint32_t nbCellsPerBlock;
+
+  //! integer which identifies a group of octants
+  uint32_t iGroup;
+
+  //! user data for the ith group of octants
+  DataArrayBlock Ugroup;
+
+  //! user data for the entire mesh at the end of time step
+  DataArrayBlock U2;
+
+  //! user data (primitive variables) for the ith group of octants
   DataArrayBlock Qgroup;
+
+  //! time step
   real_t         dt;
   
 }; // MusclBlockGodunovUpdateFunctor
 
-} // namespace muscl
+} // namespace muscl_block
 
 } // namespace dyablo
 
