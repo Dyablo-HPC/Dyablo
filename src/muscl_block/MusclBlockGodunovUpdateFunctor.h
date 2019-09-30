@@ -111,18 +111,6 @@ public:
   // =======================================================================
   // =======================================================================
   /**
-   * a dummy swap device routine.
-   */
-  KOKKOS_INLINE_FUNCTION
-  void swap ( real_t& a, real_t& b ) const {
-
-    real_t tmp(a); a=b; b=tmp;
-
-  } // swap
-  
-  // =======================================================================
-  // =======================================================================
-  /**
    * Compute primitive variables slopes (dq) for one component from q and its neighbors.
    * 
    * Only slope_type 1 and 2 are supported.
