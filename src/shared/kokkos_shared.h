@@ -41,4 +41,16 @@ using DataArrayHost = DataArray::HostMirror;
 using DataArrayBlock = Kokkos::View<real_t***, Kokkos::LayoutLeft, Device>;
 using DataArrayBlockHost = DataArrayBlock::HostMirror;
 
+// =============================================================
+// =============================================================
+/**
+ * a dummy swap device routine.
+ */
+template <class T>
+KOKKOS_INLINE_FUNCTION void my_swap(T& a, T& b) {
+  T c{std::move(a)};
+  a = std::move(b);
+  b = std::move(c);
+} // my_swap
+
 #endif // KOKKOS_SHARED_H_
