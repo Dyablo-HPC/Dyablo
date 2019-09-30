@@ -22,7 +22,7 @@
 // Compute functors
 #include "muscl_block/ComputeDtHydroFunctor.h"
 #include "muscl_block/ConvertToPrimitivesHydroFunctor.h"
-// #include "muscl_block/ReconstructGradientsHydroFunctor.h"
+#include "muscl_block/MusclBlockGodunovUpdateFunctor.h"
 // #include "muscl_block/ComputeFluxesAndUpdateHydroFunctor.h"
 #include "muscl_block/MarkOctantsHydroFunctor.h"
 
