@@ -51,6 +51,10 @@ public:
   using team_policy_t = Kokkos::TeamPolicy<Kokkos::IndexType<int32_t>>;
   using thread_t = team_policy_t::member_type;
 
+  // scratch memory aliases
+  using shared_space = Kokkos::DefaultExecutionSpace::scratch_memory_space;
+  using shared_2d_t  = Kokkos::View<real_t**, shared_space, Kokkos::MemoryUnmanaged>;
+
   void setNbTeams(uint32_t nbTeams_) {nbTeams = nbTeams_;};
 
   /**
@@ -89,7 +93,23 @@ public:
     U2(U2),
     Qgroup(Qgroup),
     dt(dt)
-  {};
+  {
+
+    bx_g = blockSizes[IX] + 2 * (ghostWidth);
+    by_g = blockSizes[IY] + 2 * (ghostWidth);
+    bz_g = blockSizes[IZ] + 2 * (ghostWidth);
+
+    // here we remove 1 to ghostWidth, only the inner
+    // part need to compute limited slopes
+    bx1  = blockSizes[IX] + 2 * (ghostWidth-1);
+    by1  = blockSizes[IY] + 2 * (ghostWidth-1);
+    bz1  = blockSizes[IZ] + 2 * (ghostWidth-1);
+    
+    nbCellsPerBlock = params.dimType == TWO_D ? 
+      bx1 * by1 :
+      bx1 * by1 * bz1;
+
+  };
   
   // static method which does it all: create and execute functor
   static void apply(std::shared_ptr<AMRmesh> pmesh,
@@ -148,16 +168,69 @@ public:
   {
     const real_t slope_type = params.settings.slope_type;
 
-    // slopes in first coordinate direction
-    const real_t dlft = slope_type*(q     - qMinus);
-    const real_t drgt = slope_type*(qPlus - q     );
-    const real_t dcen = HALF_F * (qPlus - qMinus);
-    const real_t dsgn = (dcen >= ZERO_F) ? ONE_F : -ONE_F;
-    const real_t slop = fmin( FABS(dlft), FABS(drgt) );
-    real_t dlim = slop;
-    if ( (dlft*drgt) <= ZERO_F )
-      dlim = ZERO_F;
-    real_t dq = dsgn * fmin( dlim, FABS(dcen) );
+    real_t dq = 0;
+
+    if (slope_type == 1 or slope_type == 2) {
+
+      // slopes in first coordinate direction
+      const real_t dlft = slope_type * (q - qMinus);
+      const real_t drgt = slope_type * (qPlus - q);
+      const real_t dcen = HALF_F * (qPlus - qMinus);
+      const real_t dsgn = (dcen >= ZERO_F) ? ONE_F : -ONE_F;
+      const real_t slop = fmin(FABS(dlft), FABS(drgt));
+      real_t dlim = slop;
+      if ((dlft * drgt) <= ZERO_F)
+        dlim = ZERO_F;
+      dq = dsgn * fmin(dlim, FABS(dcen));
+    }
+
+    return dq;
+
+  } // slope_unsplit_scalar
+
+  // =======================================================================
+  // =======================================================================
+  /**
+   * Compute primitive variables slopes (dq) for one component from q and its neighbors.
+   * 
+   * Only slope_type 1 and 2 are supported.
+   *
+   * \param[in] ic index (ghosted block) to current cell
+   * \param[in] ip index (ghosted block) to next cell
+   * \param[in] im index (ghosted block) to previous block
+   * \param[in] ivar identifies which variables to read
+   * \param[in] iOct_local identifies octant inside current group of octants
+   *
+   * \return dq limited slope (scalar)
+   */
+  KOKKOS_INLINE_FUNCTION
+  real_t slope_unsplit_scalar(uint32_t ic, 
+                              uint32_t ip,
+                              uint32_t im,
+                              uint32_t ivar,
+                              uint32_t iOct_local) const
+  {
+    const real_t slope_type = params.settings.slope_type;
+
+    real_t dq = 0;
+
+    if (slope_type == 1 or slope_type == 2) {
+
+     const real_t q      = Qgroup(ic, ivar, iOct_local);
+     const real_t qPlus  = Qgroup(ip, ivar, iOct_local);
+     const real_t qMinus = Qgroup(im, ivar, iOct_local);
+
+      // slopes in first coordinate direction
+      const real_t dlft = slope_type * (q - qMinus);
+      const real_t drgt = slope_type * (qPlus - q);
+      const real_t dcen = HALF_F * (qPlus - qMinus);
+      const real_t dsgn = (dcen >= ZERO_F) ? ONE_F : -ONE_F;
+      const real_t slop = fmin(FABS(dlft), FABS(drgt));
+      real_t dlim = slop;
+      if ((dlft * drgt) <= ZERO_F)
+        dlim = ZERO_F;
+      dq = dsgn * fmin(dlim, FABS(dcen));
+    }
 
     return dq;
 
@@ -179,27 +252,12 @@ public:
 
     HydroState dq;
 
-    if (slope_type==0) {
-
-      dq[ID] = ZERO_F;
-      dq[IP] = ZERO_F;
-      dq[IU] = ZERO_F;
-      dq[IV] = ZERO_F;
-
-      if (std::is_same<HydroState,HydroState3d>::value)
-        dq[IW] = ZERO_F;
-
-    } else if (slope_type==1 or
-               slope_type==2) {  // minmod or average
-
-      dq[IX] = slope_unsplit_scalar( q[ID], qPlus[ID], qMinus[ID] );
-      dq[IP] = slope_unsplit_scalar( q[IP], qPlus[IP], qMinus[IP] );
-      dq[IU] = slope_unsplit_scalar( q[IU], qPlus[IU], qMinus[IU] );
-      dq[IV] = slope_unsplit_scalar( q[IV], qPlus[IV], qMinus[IV] );
-      if (std::is_same<HydroState,HydroState3d>::value)
-        dq[IW] = slope_unsplit_scalar( q[IW], qPlus[IW], qMinus[IW] );
-
-    } // end slope_type == 1 or 2
+    dq[IX] = slope_unsplit_scalar( q[ID], qPlus[ID], qMinus[ID] );
+    dq[IP] = slope_unsplit_scalar( q[IP], qPlus[IP], qMinus[IP] );
+    dq[IU] = slope_unsplit_scalar( q[IU], qPlus[IU], qMinus[IU] );
+    dq[IV] = slope_unsplit_scalar( q[IV], qPlus[IV], qMinus[IV] );
+    if (std::is_same<HydroState,HydroState3d>::value)
+      dq[IW] = slope_unsplit_scalar( q[IW], qPlus[IW], qMinus[IW] );
 
     return dq;
 
@@ -348,6 +406,64 @@ public:
   void operator_2d(team_policy_t::member_type member) const 
   {
 
+    const int nbvar = 2;
+
+    // iOct must span the range [iGroup*nbOctsPerGroup ,
+    // (iGroup+1)*nbOctsPerGroup [
+    uint32_t iOct = member.league_rank() + iGroup * nbOctsPerGroup;
+    
+    // octant id inside the Ugroup data array
+    uint32_t iOct_local = member.league_rank();
+    
+    // compute first octant index after current group
+    uint32_t iOctNextGroup = (iGroup + 1) * nbOctsPerGroup;
+
+    // Allocate a shared array for the team to computes slopes
+    shared_2d_t slopesX(member.team_shmem(), nbCellsPerBlock, nbvar);
+    shared_2d_t slopesY(member.team_shmem(), nbCellsPerBlock, nbvar);
+
+    while (iOct < iOctNextGroup and iOct < nbOcts)
+    {
+
+      // step 1 : compute limited slopes
+      Kokkos::parallel_for(
+        Kokkos::TeamVectorRange(member, nbCellsPerBlock),
+        KOKKOS_LAMBDA(const int32_t index) {
+
+          // convert index to coordinates in ghosted block (minus 1 !)
+          //index = i + bx1 * j
+          const int j = index / bx1;
+          const int i = index - j*bx1;
+
+          // corresponding index in the ghosted block
+          // i -> i+1
+          // j -> j+1
+          const uint32_t ib = (i+1) + bx_g * (j+1);
+          uint32_t ibp1 = ib + 1;
+          uint32_t ibm1 = ib - 1;
+
+          slopesX(index,fm[ID]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[ID], iOct_local);
+          slopesX(index,fm[IP]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IP], iOct_local);
+          slopesX(index,fm[IU]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IU], iOct_local);
+          slopesX(index,fm[IV]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IV], iOct_local);
+
+          ibp1 = ib + bx_g;
+          ibm1 = ib - bx_g;
+
+          slopesY(index,fm[ID]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[ID], iOct_local);
+          slopesY(index,fm[IP]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IP], iOct_local);
+          slopesY(index,fm[IU]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IU], iOct_local);
+          slopesY(index,fm[IV]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IV], iOct_local);
+
+        }); // end TeamVectorRange
+
+      // step 2 : reconstruct states on cells face and update
+
+      iOct       += nbTeams;
+      iOct_local += nbTeams;
+
+    } // end while iOct < nbOct
+
   } // operator_2d
 
   // =======================================================================
@@ -367,7 +483,7 @@ public:
     if (this->params.dimType == TWO_D)
       operator_2d(member);
     
-    if (this->params.dimType == THREE_D)
+    else if (this->params.dimType == THREE_D)
       operator_3d(member);
     
   } // operator ()
@@ -383,6 +499,16 @@ public:
 
   //! block sizes (no ghost)
   blockSize_t blockSizes;
+
+  //! blockSizes with ghost
+  uint32_t bx_g;
+  uint32_t by_g;
+  uint32_t bz_g;
+
+  //! blockSizes with ghost (minus 1)
+  uint32_t bx1;
+  uint32_t by1;
+  uint32_t bz1;
 
   //! ghost width
   uint32_t ghostWidth;
