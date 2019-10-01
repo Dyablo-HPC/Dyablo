@@ -213,13 +213,13 @@ public:
     const real_t slope_type = params.settings.slope_type;
 
     real_t dq = 0;
-
+    
     if (slope_type == 1 or slope_type == 2) {
-
-     const real_t q      = Qgroup(ic, ivar, iOct_local);
-     const real_t qPlus  = Qgroup(ip, ivar, iOct_local);
-     const real_t qMinus = Qgroup(im, ivar, iOct_local);
-
+      
+      const real_t q      = Qgroup(ic, ivar, iOct_local);
+      const real_t qPlus  = Qgroup(ip, ivar, iOct_local);
+      const real_t qMinus = Qgroup(im, ivar, iOct_local);
+      
       // slopes in first coordinate direction
       const real_t dlft = slope_type * (q - qMinus);
       const real_t drgt = slope_type * (qPlus - q);
@@ -230,6 +230,7 @@ public:
       if ((dlft * drgt) <= ZERO_F)
         dlim = ZERO_F;
       dq = dsgn * fmin(dlim, FABS(dcen));
+    
     }
 
     return dq;
@@ -439,21 +440,27 @@ public:
           // i -> i+1
           // j -> j+1
           const uint32_t ib = (i+1) + bx_g * (j+1);
+          
+          // neighbor along x axis
           uint32_t ibp1 = ib + 1;
           uint32_t ibm1 = ib - 1;
 
-          slopesX(index,fm[ID]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[ID], iOct_local);
-          slopesX(index,fm[IP]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IP], iOct_local);
-          slopesX(index,fm[IU]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IU], iOct_local);
-          slopesX(index,fm[IV]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IV], iOct_local);
+          slopesX(ib,fm[ID]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[ID], iOct_local);
+          slopesX(ib,fm[IP]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IP], iOct_local);
+          slopesX(ib,fm[IU]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IU], iOct_local);
+          slopesX(ib,fm[IV]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IV], iOct_local);
 
+          // neighbor along y axis
           ibp1 = ib + bx_g;
           ibm1 = ib - bx_g;
 
-          slopesY(index,fm[ID]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[ID], iOct_local);
-          slopesY(index,fm[IP]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IP], iOct_local);
-          slopesY(index,fm[IU]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IU], iOct_local);
-          slopesY(index,fm[IV]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IV], iOct_local);
+          slopesY(ib,fm[ID]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[ID], iOct_local);
+          slopesY(ib,fm[IP]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IP], iOct_local);
+          slopesY(ib,fm[IU]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IU], iOct_local);
+          slopesY(ib,fm[IV]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IV], iOct_local);
+
+          // DEBUG : write into Ugroup
+          //Ugroup(ib,fm[ID],iOct_local) = slopesX(ib,fm[ID]);
 
         }); // end TeamVectorRange
 
