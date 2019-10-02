@@ -578,6 +578,39 @@ void riemann_hydro(const HydroState2d& qleft,
 } // riemann_hydro
 
 /**
+ * Another wrapper function calling the actual riemann solver.
+ */
+KOKKOS_INLINE_FUNCTION
+HydroState2d riemann_hydro(const HydroState2d& qleft,
+                           const HydroState2d& qright,
+                           const HydroParams& params)
+{
+  
+  HydroState2d flux;
+
+  if        (params.riemannSolverType == RIEMANN_APPROX) {
+    
+    riemann_approx<HydroState2d>(qleft,qright,flux,params);
+    
+  } else if (params.riemannSolverType == RIEMANN_HLL) {
+    
+    riemann_hll<HydroState2d>  (qleft,qright,flux,params);
+
+  } else if (params.riemannSolverType == RIEMANN_HLLC) {
+    
+    riemann_hllc<HydroState2d>  (qleft,qright,flux,params);
+
+  } else if (params.riemannSolverType == RIEMANN_LLF) {
+    
+    riemann_llf<HydroState2d>  (qleft,qright,flux,params);
+
+  }
+
+  return flux;
+  
+} // riemann_hydro
+
+/**
  * Wrapper function calling the actual riemann solver.
  */
 KOKKOS_INLINE_FUNCTION
@@ -601,6 +634,34 @@ void riemann_hydro(const HydroState3d& qleft,
 
   }
   
+} // riemann_hydro
+
+/**
+ * Another Wrapper function calling the actual riemann solver.
+ */
+KOKKOS_INLINE_FUNCTION
+HydroState3d riemann_hydro(const HydroState3d& qleft,
+                           const HydroState3d& qright,
+                           const HydroParams& params)
+{
+  HydroState3d flux;
+
+  if        (params.riemannSolverType == RIEMANN_APPROX) {
+    
+    riemann_approx<HydroState3d>(qleft,qright,flux,params);
+    
+  } else if (params.riemannSolverType == RIEMANN_HLLC) {
+    
+    riemann_hllc<HydroState3d>  (qleft,qright,flux,params);
+
+  } else if (params.riemannSolverType == RIEMANN_LLF) {
+    
+    riemann_llf<HydroState3d>  (qleft,qright,flux,params);
+
+  }
+
+  return flux;
+
 } // riemann_hydro
 
 } // namespace dyablo
