@@ -38,7 +38,14 @@ namespace muscl_block {
  *
  * Then we compute fluxes (using Riemann solver) and perform
  * update directly in external array U2.
- * Loop through all cell (sub-)faces:
+ * Loop through all cell (sub-)faces.
+ *
+ * \note This functor actually assumes ghost width is 2.
+ * if you really need something else (larger than 2), please
+ * refactor.
+ *
+ * \todo routines like reconstruct_state_2d/3d could probably be
+ * moved outside to alleviate this class.
  *
  */
 class MusclBlockGodunovUpdateFunctor {
@@ -148,8 +155,64 @@ public:
 
   } // apply
 
-  // =======================================================================
-  // =======================================================================
+  // ====================================================================
+  // ====================================================================
+  /**
+   * Get conservative variables state vector.
+   *
+   * \param[in] index identifies location in the ghosted block
+   * \param[in] iOct_local identifies octant (local index relative to
+   *            a group of octant)
+   */
+  template<class HydroState>
+  KOKKOS_INLINE_FUNCTION
+  HydroState get_cons_variables(uint32_t index, 
+                                uint32_t iOct_local) const
+  {
+
+    HydroState q;
+
+    q[ID] = Ugroup(index, fm[ID], iOct_local);
+    q[IP] = Ugroup(index, fm[IP], iOct_local);
+    q[IU] = Ugroup(index, fm[IU], iOct_local);
+    q[IV] = Ugroup(index, fm[IV], iOct_local);
+    if (std::is_same<HydroState,HydroState3d>::value)
+      q[IW] = Ugroup(index, fm[IW], iOct_local);
+
+    return q;
+
+  } // get_cons_variables
+
+  // ====================================================================
+  // ====================================================================
+  /**
+   * Get primitive variables state vector.
+   *
+   * \param[in] index identifies location in the ghosted block
+   * \param[in] iOct_local identifies octant (local index relative to
+   *            a group of octant)
+   */
+  template<class HydroState>
+  KOKKOS_INLINE_FUNCTION
+  HydroState get_prim_variables(uint32_t index, 
+                                uint32_t iOct_local) const
+  {
+
+    HydroState q;
+
+    q[ID] = Qgroup(index, fm[ID], iOct_local);
+    q[IP] = Qgroup(index, fm[IP], iOct_local);
+    q[IU] = Qgroup(index, fm[IU], iOct_local);
+    q[IV] = Qgroup(index, fm[IV], iOct_local);
+    if (std::is_same<HydroState,HydroState3d>::value)
+      q[IW] = Qgroup(index, fm[IW], iOct_local);
+
+    return q;
+
+  } // get_prim_variables
+
+  // ====================================================================
+  // ====================================================================
   /**
    * Compute primitive variables slopes (dq) for one component from q and its neighbors.
    * 
@@ -188,8 +251,8 @@ public:
 
   } // slope_unsplit_scalar
 
-  // =======================================================================
-  // =======================================================================
+  // ====================================================================
+  // ====================================================================
   /**
    * Compute primitive variables slopes (dq) for one component from q and its neighbors.
    * 
@@ -237,8 +300,8 @@ public:
 
   } // slope_unsplit_scalar
 
-  // =======================================================================
-  // =======================================================================
+  // ====================================================================
+  // ====================================================================
   /**
    * Compute slope (vector value using minmod limiter).
    */
@@ -264,17 +327,8 @@ public:
 
   } // slope_unsplit_hydro
 
-  // =======================================================================
-  // =======================================================================
-  KOKKOS_INLINE_FUNCTION
-  HydroState2d get_slope_state_2d(uint32_t index slop) const
-  {
-    // TODO
-
-  }
-
-  // =======================================================================
-  // =======================================================================
+  // ====================================================================
+  // ====================================================================
   /**
    * Reconstruct an hydro state at a cell border location specified by offsets.
    *
@@ -294,7 +348,7 @@ public:
    * \return qr reconstructed state (primitive variables)
    */
   KOKKOS_INLINE_FUNCTION
-  HydroState2d reconstruct_state_2d(const HydroState2d& q, 
+  HydroState2d reconstruct_state_2d(const HydroState2d& q,
                                     const HydroState2d& dqX, 
                                     const HydroState2d& dqY, 
                                     offsets_t    offsets,
@@ -342,8 +396,78 @@ public:
     
   } // reconstruct_state_2d
 
-  // =======================================================================
-  // =======================================================================
+  // ====================================================================
+  // ====================================================================
+  /**
+   * Reconstruct an hydro state at a cell border location specified by offsets.
+   *
+   * This is equivalent to trace operation in Ramses.
+   * We just extrapolate primitive variables (at cell center) to border
+   * using limited slopes.
+   *
+   * \note offsets are given in units dx/2, i.e. a vector containing only 1.0 or -1.0
+   *
+   * \param[in] q primitive variables at cell center
+   * \param[in] dqX primitive variables slopes along X
+   * \param[in] dqY primitive variables slopes along Y
+   * \param[in] offsets identifies where to reconstruct
+   * \param[in] dtdx dt divided by dx
+   * \param[in] dtdy dt divided by dy
+   *
+   * \return qr reconstructed state (primitive variables)
+   */
+  KOKKOS_INLINE_FUNCTION
+  HydroState2d reconstruct_state_2d(const HydroState2d& q,
+                                    uint32_t     index,
+                                    shared_2d_t  slopesX, 
+                                    shared_2d_t  slopesY, 
+                                    offsets_t    offsets,
+                                    real_t       dtdx,
+                                    real_t       dtdy) const
+  {
+    const double gamma  = params.settings.gamma0;
+    const double smallr = params.settings.smallr;
+    
+    // retrieve primitive variables in current quadrant
+    const real_t r = q[ID];
+    const real_t p = q[IP];
+    const real_t u = q[IU];
+    const real_t v = q[IV];
+    //const real_t w = 0.0;
+
+    const real_t drx = slopesX(index,fm[ID]) * 0.5;
+    const real_t dpx = slopesX(index,fm[IP]) * 0.5;
+    const real_t dux = slopesX(index,fm[IU]) * 0.5;
+    const real_t dvx = slopesX(index,fm[IV]) * 0.5;
+    //const real_t dwx = 0.0;
+    
+    const real_t dry = slopesY(index,fm[ID]) * 0.5;
+    const real_t dpy = slopesY(index,fm[IP]) * 0.5;
+    const real_t duy = slopesY(index,fm[IU]) * 0.5;
+    const real_t dvy = slopesY(index,fm[IV]) * 0.5;
+    //const real_t dwy = 0.0;
+        
+    // source terms (with transverse derivatives)
+    const real_t sr0 = (-u*drx-dux*r      )*dtdx + (-v*dry-dvy*r      )*dtdy;
+    const real_t su0 = (-u*dux-dpx/r      )*dtdx + (-v*duy            )*dtdy;
+    const real_t sv0 = (-u*dvx            )*dtdx + (-v*dvy-dpy/r      )*dtdy;
+    const real_t sp0 = (-u*dpx-dux*gamma*p)*dtdx + (-v*dpy-dvy*gamma*p)*dtdy;
+    
+    // reconstruct state on interface
+    HydroState2d qr;
+    
+    qr[ID] = r + sr0 + offsets[IX] * drx + offsets[IY] * dry;
+    qr[IP] = p + sp0 + offsets[IX] * dpx + offsets[IY] * dpy;
+    qr[IU] = u + su0 + offsets[IX] * dux + offsets[IY] * duy ;
+    qr[IV] = v + sv0 + offsets[IX] * dvx + offsets[IY] * dvy ;
+    qr[ID] = fmax(smallr, qr[ID]);
+
+    return qr;
+    
+  } // reconstruct_state_2d
+
+  // ====================================================================
+  // ====================================================================
   /**
    * Reconstruct an hydro state at a cell border location specified by offsets (3d version).
    *
@@ -352,7 +476,7 @@ public:
   KOKKOS_INLINE_FUNCTION
   HydroState3d reconstruct_state_3d(HydroState3d q,  
                                     HydroState3d dqX,
-                                    HydroState3d dqY,                                   
+                                    HydroState3d dqY,
                                     HydroState3d dqZ,
                                     offsets_t offsets,
                                     real_t dtdx,
@@ -410,8 +534,8 @@ public:
     
   } // reconstruct_state_3d
 
-  // =======================================================================
-  // =======================================================================
+  // ====================================================================
+  // ====================================================================
   KOKKOS_INLINE_FUNCTION
   void operator_2d(team_policy_t::member_type member) const 
   {
@@ -431,6 +555,11 @@ public:
     // Allocate a shared array for the team to computes slopes
     shared_2d_t slopesX(member.team_shmem(), nbCellsPerBlock, nbvar);
     shared_2d_t slopesY(member.team_shmem(), nbCellsPerBlock, nbvar);
+
+    const real_t dtdx = 1.0;/* TODO */
+    const real_t dtdy = 1.0;/* TODO */
+
+    const uint32_t& bx = blockSizes[IX];
 
     while (iOct < iOctNextGroup and iOct < nbOcts)
     {
@@ -483,15 +612,74 @@ public:
           const int j = index / bx1;
           const int i = index - j*bx1;
 
-          // corresponding index in the ghosted block
+          // corresponding index in the full ghosted block
           // i -> i+1
           // j -> j+1
-          const uint32_t ib = (i+1) + bx_g * (j+1);
+          const uint32_t ig = (i+1) + bx_g * (j+1);
 
-          // left face along x dir
-          //HydroState2d qL = reconstruct_state_2d;
+          // the following condition makes sure we stay inside
+          // the inner block
+          if (i > 0 and i < bx1 - 1 and 
+              j > 0 and j < by1 - 1) {
+            // get current location primitive variables state
+            HydroState2d qprim = get_prim_variables<HydroState2d>(ig, iOct_local);
 
-          // need to refactor reconstruct_state_2d interface to take slopesdirectly where they are
+            // fluxes will be accumulated in qcons
+            HydroState2d qcons = get_cons_variables<HydroState2d>(ig, iOct_local);
+
+            /*
+             * left face along x dir
+             */
+            {
+              // step 1 : reconstruct state in the left neighbor
+
+              // get state in neighbor along X
+              HydroState2d qprim_n = get_prim_variables<HydroState2d>(ig-1, iOct_local);
+
+              // 
+              offsets_t offsets = {1.0, 0.0, 0.0};
+
+              // reconstruct "left" state
+              HydroState2d qL = reconstruct_state_2d(
+                  qprim_n, index-1, slopesX, slopesY, offsets, dtdx, dtdy);
+
+              // step 2 : reconstruct state in current cell
+              offsets = {-1.0, 0.0, 0.0};
+
+              HydroState2d qR = reconstruct_state_2d(
+                qprim, index, slopesX, slopesY, offsets, dtdx, dtdy);
+
+              // step 3 : compute flux (Riemann solver)
+              HydroState2d flux = riemann_hydro(qL,qR,params);
+
+              // step 4 : accumulate flux in current cell
+              // qcons += flux*dtdx; // TODO
+            }
+
+            /*
+             * right face along x dir
+             */
+            { /* TODO */ }
+
+            /*
+             * left face along y dir
+             */
+            { /* TODO */ }
+
+            /*
+             * right face along y dir
+             */
+            { /* TODO */ }
+
+            // lastly update conservative variable in U2
+            uint32_t index_non_ghosted = (i-1) + bx * (j-1);
+
+            U2(index_non_ghosted, fm[ID], iOct) = qcons[ID];
+            U2(index_non_ghosted, fm[IP], iOct) = qcons[IP];
+            U2(index_non_ghosted, fm[IU], iOct) = qcons[IU];
+            U2(index_non_ghosted, fm[IV], iOct) = qcons[IV];
+
+          } // end if inside inner block
 
         }); // end TeamVectorRange
 
@@ -503,16 +691,16 @@ public:
 
   } // operator_2d
 
-  // =======================================================================
-  // =======================================================================
+  // ====================================================================
+  // ====================================================================
   KOKKOS_INLINE_FUNCTION
   void operator_3d(team_policy_t::member_type member) const 
   {
 
   } // operator_3d
 
-  // =======================================================================
-  // =======================================================================
+  // ====================================================================
+  // ====================================================================
   KOKKOS_INLINE_FUNCTION
   void operator()(team_policy_t::member_type member) const
   {
