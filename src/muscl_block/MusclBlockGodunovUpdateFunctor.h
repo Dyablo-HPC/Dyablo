@@ -266,6 +266,15 @@ public:
 
   // =======================================================================
   // =======================================================================
+  KOKKOS_INLINE_FUNCTION
+  HydroState2d get_slope_state_2d(uint32_t index slop) const
+  {
+    // TODO
+
+  }
+
+  // =======================================================================
+  // =======================================================================
   /**
    * Reconstruct an hydro state at a cell border location specified by offsets.
    *
@@ -285,9 +294,9 @@ public:
    * \return qr reconstructed state (primitive variables)
    */
   KOKKOS_INLINE_FUNCTION
-  HydroState2d reconstruct_state_2d(HydroState2d q, 
-                                    HydroState2d dqX, 
-                                    HydroState2d dqY, 
+  HydroState2d reconstruct_state_2d(const HydroState2d& q, 
+                                    const HydroState2d& dqX, 
+                                    const HydroState2d& dqY, 
                                     offsets_t    offsets,
                                     real_t       dtdx,
                                     real_t       dtdy) const
@@ -465,6 +474,27 @@ public:
         }); // end TeamVectorRange
 
       // step 2 : reconstruct states on cells face and update
+      Kokkos::parallel_for(
+        Kokkos::TeamVectorRange(member, nbCellsPerBlock),
+        KOKKOS_LAMBDA(const int32_t index) {
+
+          // convert index to coordinates in ghosted block (minus 1 !)
+          //index = i + bx1 * j
+          const int j = index / bx1;
+          const int i = index - j*bx1;
+
+          // corresponding index in the ghosted block
+          // i -> i+1
+          // j -> j+1
+          const uint32_t ib = (i+1) + bx_g * (j+1);
+
+          // left face along x dir
+          //HydroState2d qL = reconstruct_state_2d;
+
+          // need to refactor reconstruct_state_2d interface to take slopesdirectly where they are
+
+        }); // end TeamVectorRange
+
 
       iOct       += nbTeams;
       iOct_local += nbTeams;
