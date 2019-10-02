@@ -628,7 +628,7 @@ public:
             HydroState2d qcons = get_cons_variables<HydroState2d>(ig, iOct_local);
 
             /*
-             * left face along x dir
+             * compute from left face along x dir
              */
             {
               // step 1 : reconstruct state in the left neighbor
@@ -657,19 +657,104 @@ public:
             }
 
             /*
-             * right face along x dir
+             * compute flux from right face along x dir
              */
-            { /* TODO */ }
+            {
+              // step 1 : reconstruct state in the left neighbor
+
+              // get state in neighbor along X
+              HydroState2d qprim_n = get_prim_variables<HydroState2d>(ig+1, iOct_local);
+
+              // 
+              offsets_t offsets = {-1.0, 0.0, 0.0};
+
+              // reconstruct "right" state
+              HydroState2d qR = reconstruct_state_2d(
+                  qprim_n, index+1, slopesX, slopesY, offsets, dtdx, dtdy);
+
+              // step 2 : reconstruct state in current cell
+              offsets = {1.0, 0.0, 0.0};
+
+              HydroState2d qL = reconstruct_state_2d(
+                qprim, index, slopesX, slopesY, offsets, dtdx, dtdy);
+
+              // step 3 : compute flux (Riemann solver)
+              HydroState2d flux = riemann_hydro(qL,qR,params);
+
+              // step 4 : accumulate flux in current cell
+              // qcons += flux*dtdx; // TODO
+            }
 
             /*
-             * left face along y dir
+             * compute flux from left face along y dir
              */
-            { /* TODO */ }
+            {
+              // step 1 : reconstruct state in the left neighbor
+              
+              // get state in neighbor along X
+              HydroState2d qprim_n = get_prim_variables<HydroState2d>(ig-bx_g, iOct_local);
+              
+              // 
+              offsets_t offsets = {0.0, 1.0, 0.0};
+              
+              // reconstruct "left" state
+              HydroState2d qL = reconstruct_state_2d(
+                  qprim_n, index-bx1, slopesX, slopesY, offsets, dtdx, dtdy);
+
+              // step 2 : reconstruct state in current cell
+              offsets = {0.0, -1.0, 0.0};
+
+              HydroState2d qR = reconstruct_state_2d(
+                qprim, index, slopesX, slopesY, offsets, dtdx, dtdy);
+
+              // swap IU / IV
+              my_swap(qL[IU], qL[IV]);
+              my_swap(qR[IU], qR[IV]);
+
+              // step 3 : compute flux (Riemann solver)
+              HydroState2d flux = riemann_hydro(qL,qR,params);
+
+              my_swap(flux[IU], flux[IV]);
+
+              // step 4 : accumulate flux in current cell
+              // qcons += flux*dtdx; // TODO
+            }
 
             /*
-             * right face along y dir
+             * compute flux from right face along y dir
              */
-            { /* TODO */ }
+            { 
+              // step 1 : reconstruct state in the left neighbor
+              
+              // get state in neighbor along X
+              HydroState2d qprim_n = get_prim_variables<HydroState2d>(ig+bx_g, iOct_local);
+              
+              // 
+              offsets_t offsets = {0.0, -1.0, 0.0};
+              
+              // reconstruct "left" state
+              HydroState2d qL = reconstruct_state_2d(
+                  qprim_n, index+bx1, slopesX, slopesY, offsets, dtdx, dtdy);
+
+              // step 2 : reconstruct state in current cell
+              offsets = {0.0, 1.0, 0.0};
+
+              HydroState2d qR = reconstruct_state_2d(
+                qprim, index, slopesX, slopesY, offsets, dtdx, dtdy);
+
+              // swap IU / IV
+              my_swap(qL[IU], qL[IV]);
+              my_swap(qR[IU], qR[IV]);
+
+              // step 3 : compute flux (Riemann solver)
+              HydroState2d flux = riemann_hydro(qL,qR,params);
+
+              my_swap(flux[IU], flux[IV]);
+
+              // step 4 : accumulate flux in current cell
+              // qcons += flux*dtdx; // TODO
+
+            }
 
             // lastly update conservative variable in U2
             uint32_t index_non_ghosted = (i-1) + bx * (j-1);
