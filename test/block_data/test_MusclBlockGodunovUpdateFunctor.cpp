@@ -149,7 +149,7 @@ void run_test(int argc, char *argv[]) {
   // // an interface with "smaller size" neighbor in one direction
   uint32_t iOct_local = 26;
 
-  // uint32_t iOct_global = iOct_local + iGroup * nbOctsPerGroup;
+  uint32_t iOct_global = iOct_local + iGroup * nbOctsPerGroup;
 
   // std::cout << "Looking at octant id = " << iOct_global << "\n";
 
@@ -249,10 +249,28 @@ void run_test(int argc, char *argv[]) {
     }
     std::cout << "\n";
 
-    for (uint32_t iy = 0; iy < by_g; ++iy) {
-      for (uint32_t ix = 0; ix < bx_g; ++ix) {
-        uint32_t index = ix + bx_g * iy;
-        printf("%5f ", Ugroup(index, fm[ID], iOct_local));
+    // for (uint32_t iy = 0; iy < by_g; ++iy) {
+    //   for (uint32_t ix = 0; ix < bx_g; ++ix) {
+    //     uint32_t index = ix + bx_g * iy;
+    //     printf("%5f ", Ugroup(index, fm[ID], iOct_local));
+    //   }
+    //   std::cout << "\n";
+    // }
+    // std::cout << "\n";
+
+    for (uint32_t iy = 0; iy < by; ++iy) {
+      for (uint32_t ix = 0; ix < bx; ++ix) {
+        uint32_t index = ix + bx * iy;
+        printf("%5f ", solver->U(index, fm[ID], iOct_global));
+      }
+      std::cout << "\n";
+    }
+    std::cout << "\n";
+
+    for (uint32_t iy = 0; iy < by; ++iy) {
+      for (uint32_t ix = 0; ix < bx; ++ix) {
+        uint32_t index = ix + bx * iy;
+        printf("%5f ", solver->U2(index, fm[ID], iOct_global));
       }
       std::cout << "\n";
     }
