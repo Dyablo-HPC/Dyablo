@@ -648,12 +648,12 @@ public:
 
               HydroState2d qR = reconstruct_state_2d(
                 qprim, index, slopesX, slopesY, offsets, dtdx, dtdy);
-
+              
               // step 3 : compute flux (Riemann solver)
               HydroState2d flux = riemann_hydro(qL,qR,params);
 
               // step 4 : accumulate flux in current cell
-              // qcons += flux*dtdx; // TODO
+              qcons += flux*dtdx;
             }
 
             /*
@@ -682,7 +682,7 @@ public:
               HydroState2d flux = riemann_hydro(qL,qR,params);
 
               // step 4 : accumulate flux in current cell
-              // qcons += flux*dtdx; // TODO
+              qcons += flux*dtdx;
             }
 
             /*
@@ -717,7 +717,7 @@ public:
               my_swap(flux[IU], flux[IV]);
 
               // step 4 : accumulate flux in current cell
-              // qcons += flux*dtdx; // TODO
+              qcons += flux*dtdy;
             }
 
             /*
@@ -752,7 +752,7 @@ public:
               my_swap(flux[IU], flux[IV]);
 
               // step 4 : accumulate flux in current cell
-              // qcons += flux*dtdx; // TODO
+              qcons += flux*dtdy;
 
             }
 
