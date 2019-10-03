@@ -556,10 +556,15 @@ public:
     shared_2d_t slopesX(member.team_shmem(), nbCellsPerBlock, nbvar);
     shared_2d_t slopesY(member.team_shmem(), nbCellsPerBlock, nbvar);
 
-    const real_t dtdx = 1.0;/* TODO */
-    const real_t dtdy = 1.0;/* TODO */
-
     const uint32_t& bx = blockSizes[IX];
+    const uint32_t& by = blockSizes[IY];
+
+    // compute dx / dy
+    const real_t dx = (iOct < nbOcts) ? pmesh->getSize(iOct)/bx : 1.0;
+    const real_t dy = (iOct < nbOcts) ? pmesh->getSize(iOct)/by : 1.0;
+
+    const real_t dtdx = dt/dx;
+    const real_t dtdy = dt/dy;
 
     while (iOct < iOctNextGroup and iOct < nbOcts)
     {
