@@ -30,6 +30,7 @@
 #include "muscl_block/CopyFaceBlockCellData.h"
 #include "muscl_block/ConvertToPrimitivesHydroFunctor.h"
 #include "muscl_block/MusclBlockGodunovUpdateFunctor.h"
+#include "muscl_block/ComputeDtHydroFunctor.h"
 
 using Device = Kokkos::DefaultExecutionSpace;
 
@@ -223,6 +224,21 @@ void run_test(int argc, char *argv[]) {
 
   } // end testing ConvertToPrimitivesHydroFunctor
 
+  // compute CFL constraint
+  real_t invDt;
+  ComputeDtHydroFunctor::apply(solver->amr_mesh,
+                               configMap,
+                               params,
+                               fm,
+                               blockSizes,
+                               solver->U,
+                               invDt);
+  
+  
+  real_t dt = params.settings.cfl / invDt;
+
+  printf("CFL dt = %f\n",dt);
+
   // testing MusclBlockGodunovUpdateFunctor
   {
 
@@ -238,7 +254,7 @@ void run_test(int argc, char *argv[]) {
                                           Ugroup,
                                           solver->U2,
                                           Qgroup, 
-                                          0.01);
+                                          dt);
 
     for (uint32_t iy = 0; iy < by_g; ++iy) {
       for (uint32_t ix = 0; ix < bx_g; ++ix) {
