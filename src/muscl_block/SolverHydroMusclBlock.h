@@ -224,11 +224,13 @@ private:
    * block data ghost cells related methods
    */
 
-  //! copy block data from U to Ugroup for the inner cells of the blocks of each octants belong to a given group
-  void fill_block_data_inner(uint32_t iGroup);
+  //! copy block data from U to Ugroup for the inner
+  //! cells of the blocks of each octants belong to a given group
+  void fill_block_data_inner(DataArrayBlock data_in, uint32_t iGroup);
   
-  //! copy block data ghost cells from U to Ugroup - take into account all faces, edges and corners.
-  void fill_block_data_ghost(uint32_t iGroup);
+  //! copy block data ghost cells from U to Ugroup -
+  //! take into account all faces, edges and corners.
+  void fill_block_data_ghost(DataArrayBlock data_in, uint32_t iGroup);
 
 }; // class SolverHydroMusclBlock
 

@@ -401,10 +401,11 @@ void SolverHydroMusclBlock::next_iteration_impl()
   //std::swap(U,U2);
 
   // mesh adaptation (perform refine / coarsen)
+  // at the end: most current data will be stored in U 
   if ( should_do_amr_cycle() ) {
 
-    // before do_amr_cycle, update to date data are in U2
-    // after  do_amr_cycle, update to date data are in U
+    // before do_amr_cycle, up to date data are in U2
+    // after  do_amr_cycle, up to date data are in U
     do_amr_cycle();
 
   } else {
@@ -428,7 +429,7 @@ void SolverHydroMusclBlock::next_iteration_impl()
 void SolverHydroMusclBlock::godunov_unsplit(real_t dt)
 {
   
-  //godunov_unsplit_impl(U , U2, dt);
+  godunov_unsplit_impl(U , U2, dt);
 
 } // SolverHydroMusclBlock::godunov_unsplit
 
@@ -461,25 +462,10 @@ void SolverHydroMusclBlock::godunov_unsplit_impl(DataArrayBlock data_in,
   for (int iGroup = 0; iGroup < nbGroup; ++iGroup) {
 
     // copy data_in (current group of octants) to Ugroup (inner cells)
-    CopyInnerBlockCellDataFunctor::apply(configMap, params, fm,
-                                         blockSizes,
-                                         ghostWidth,
-                                         nbOcts,
-                                         nbOctsPerGroup,
-                                         data_in, Ugroup, iGroup);
+    fill_block_data_inner(data_in, iGroup);
 
     // update ghost cells of all octant in current group of octants
-    CopyFaceBlockCellDataFunctor::apply(amr_mesh,
-                                        configMap,
-                                        params,
-                                        fm,
-                                        blockSizes,
-                                        ghostWidth,
-                                        nbOctsPerGroup,
-                                        U,
-                                        Ughost,
-                                        Ugroup, 
-                                        iGroup);
+    fill_block_data_ghost(data_in, iGroup);
 
     // now ghost cells in current group are ok
     // convert conservative variable into primitives ones for the entire domain
@@ -911,14 +897,48 @@ void SolverHydroMusclBlock::load_balance_userdata()
 
 // =======================================================
 // =======================================================
-void SolverHydroMusclBlock::fill_block_data_inner(uint32_t iGroup) {
+void SolverHydroMusclBlock::fill_block_data_inner(DataArrayBlock data_in,
+                                                  uint32_t iGroup)
+{
 
-  /*
-   *
-   */
+  // retrieve available / allowed names: fieldManager, and field map (fm)
+  // necessary to access user data
+  auto fm = fieldMgr.get_id2index();
+
+  uint32_t nbOcts = amr_mesh->getNumOctants();
   
+  CopyInnerBlockCellDataFunctor::apply(configMap, params, fm,
+                                       blockSizes,
+                                       ghostWidth,
+                                       nbOcts,
+                                       nbOctsPerGroup,
+                                       data_in, Ugroup, iGroup);
 
 } // SolverHydroMusclBlock::fill_block_data_inner
+
+// =======================================================
+// =======================================================
+void SolverHydroMusclBlock::fill_block_data_ghost(DataArrayBlock data_in,
+                                                  uint32_t iGroup)
+{
+  
+  // retrieve available / allowed names: fieldManager, and field map (fm)
+  // necessary to access user data
+  auto fm = fieldMgr.get_id2index();
+  
+  CopyFaceBlockCellDataFunctor::apply(amr_mesh,
+                                      configMap,
+                                      params,
+                                      fm,
+                                      blockSizes,
+                                      ghostWidth,
+                                      nbOctsPerGroup,
+                                      data_in,
+                                      Ughost,
+                                      Ugroup, 
+                                      iGroup);
+
+} // SolverHydroMusclBlock::fill_block_data_ghost
 
 } // namespace muscl_block
 
