@@ -23,7 +23,6 @@
 #include "muscl_block/ComputeDtHydroFunctor.h"
 #include "muscl_block/ConvertToPrimitivesHydroFunctor.h"
 #include "muscl_block/MusclBlockGodunovUpdateFunctor.h"
-// #include "muscl_block/ComputeFluxesAndUpdateHydroFunctor.h"
 #include "muscl_block/MarkOctantsHydroFunctor.h"
 
 // // compute functor for low Mach flows
@@ -429,8 +428,8 @@ void SolverHydroMusclBlock::next_iteration_impl()
 void SolverHydroMusclBlock::godunov_unsplit(real_t dt)
 {
   
-  godunov_unsplit_impl(U , U2, dt);
-  
+  //godunov_unsplit_impl(U , U2, dt);
+
 } // SolverHydroMusclBlock::godunov_unsplit
 
 // =======================================================
@@ -442,7 +441,11 @@ void SolverHydroMusclBlock::godunov_unsplit_impl(DataArrayBlock data_in,
                                                  DataArrayBlock data_out, 
                                                  real_t dt)
 {
-  
+
+  // retrieve available / allowed names: fieldManager, and field map (fm)
+  // necessary to access user data
+  auto fm = fieldMgr.get_id2index();
+
   // copy data_in into data_out (not necessary)
   // data_out = data_in;
   Kokkos::deep_copy(data_out, data_in);
@@ -450,14 +453,59 @@ void SolverHydroMusclBlock::godunov_unsplit_impl(DataArrayBlock data_in,
   // start main computation
   m_timers[TIMER_NUM_SCHEME]->start();
 
-  // convert conservative variable into primitives ones for the entire domain
-  // TODO convertToPrimitives(data_in);
+  uint32_t nbOcts = amr_mesh->getNumOctants();
 
-  // sort of slopes computation adapted to unstructured local mesh
-  // TODO reconstruct_gradients(data_in);
-  
-  // compute fluxes (finite volume) and update
-  compute_fluxes_and_update(data_in, data_out, dt);
+  // number of group of octants, rounding to upper value
+  uint32_t nbGroup = (nbOcts + nbOctsPerGroup - 1) / nbOctsPerGroup;
+
+  for (int iGroup = 0; iGroup < nbGroup; ++iGroup) {
+
+    // copy data_in (current group of octants) to Ugroup (inner cells)
+    CopyInnerBlockCellDataFunctor::apply(configMap, params, fm,
+                                         blockSizes,
+                                         ghostWidth,
+                                         nbOcts,
+                                         nbOctsPerGroup,
+                                         data_in, Ugroup, iGroup);
+
+    // update ghost cells of all octant in current group of octants
+    CopyFaceBlockCellDataFunctor::apply(amr_mesh,
+                                        configMap,
+                                        params,
+                                        fm,
+                                        blockSizes,
+                                        ghostWidth,
+                                        nbOctsPerGroup,
+                                        U,
+                                        Ughost,
+                                        Ugroup, 
+                                        iGroup);
+
+    // now ghost cells in current group are ok
+    // convert conservative variable into primitives ones for the entire domain
+    convertToPrimitives(iGroup);
+
+    // TODO reconstruct_gradients(data_in);
+
+    // perform time integration :
+    // - slopes computation 
+    // - compute fluxes (finite volume) and update
+    //compute_fluxes_and_update(data_in, data_out, dt);
+    MusclBlockGodunovUpdateFunctor::apply(amr_mesh,
+                                          configMap,
+                                          params,
+                                          fm,
+                                          blockSizes,
+                                          ghostWidth,
+                                          nbOcts,
+                                          nbOctsPerGroup,
+                                          iGroup,
+                                          Ugroup,
+                                          data_out,
+                                          Qgroup,
+                                          dt);
+
+  } // end for iGroup
 
   m_timers[TIMER_NUM_SCHEME]->stop();
   
@@ -497,6 +545,8 @@ void SolverHydroMusclBlock::convertToPrimitives(uint32_t iGroup)
 void SolverHydroMusclBlock::reconstruct_gradients(uint32_t iGroup)
 {
 
+  // TODO - NOT USED ANYMORE - TO BE REMOVED
+
   // retrieve available / allowed names: fieldManager, and field map (fm)
   // necessary to access user data
   auto fm = fieldMgr.get_id2index();
@@ -514,6 +564,8 @@ void SolverHydroMusclBlock::compute_fluxes_and_update(DataArrayBlock data_in,
                                                       DataArrayBlock data_out,
                                                       real_t dt)
 {
+
+  // TODO - NOT USED ANYMORE - TO BE REMOVED
 
   // we need Qdata in ghost update, but this has already been done in 
   // reconstruct_gradients
@@ -586,34 +638,7 @@ void SolverHydroMusclBlock::save_solution_impl()
 void SolverHydroMusclBlock::save_solution_vtk() 
 {
 
-  std::cerr << "writeVTK for block AMR is not implemented - TODO - REALLY USEFUL ?\n";
-
-  // // retrieve available / allowed names: fieldManager, and field map (fm)
-  // auto fm = fieldMgr.get_id2index();
-
-  // // number of macroscopic variables,
-  // // scalar fields : density, velocity, phase field, etc...
-  // //int nbVar = fieldMgr.numScalarField;
-
-  // // a map containing ID and name of the variable to write
-  // str2int_t names2index; // this is initially empty
-  // build_var_to_write_map(names2index, params, configMap);
-  
-  // // prepare suffix string
-  // std::ostringstream strsuf;
-  // strsuf << "iter";
-  // strsuf.width(7);
-  // strsuf.fill('0');
-  // strsuf << m_iteration;
-  
-  // writeVTK(*amr_mesh, strsuf.str(), U, fm, names2index, configMap);
-
-  // if (params.debug_output) {
-  //   writeVTK(*amr_mesh, strsuf.str(), Slopes_x, fm, names2index, configMap, "_slope_x");
-  //   writeVTK(*amr_mesh, strsuf.str(), Slopes_y, fm, names2index, configMap, "_slope_y");
-  //   if (params.dimType==THREE_D)
-  //     writeVTK(*amr_mesh, strsuf.str(), Slopes_z, fm, names2index, configMap, "_slope_z");
-  // }
+  std::cerr << "writeVTK for block AMR is not implemented - TODO / REALLY USEFUL ?\n";
 
 } // SolverHydroMusclBlock::save_solution_vtk
 
@@ -739,6 +764,7 @@ void SolverHydroMusclBlock::mark_cells()
 
   // Note: Ughost is up to date, update at the beginning of do_amr_cycle
 
+  // TODO
   // call device functor to flag for refine/coarsen
   // MarkCellsHydroFunctor::apply(amr_mesh, params, fm, Udata, Ughost,
   //                              eps_refine, eps_coarsen);
