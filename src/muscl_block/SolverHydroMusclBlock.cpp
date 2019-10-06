@@ -397,11 +397,9 @@ void SolverHydroMusclBlock::next_iteration_impl()
   // perform one step integration
   godunov_unsplit(m_dt);
 
-  // end of time step, U2 contains next time step data, swap U and U2
-  //std::swap(U,U2);
-
   // mesh adaptation (perform refine / coarsen)
-  // at the end: most current data will be stored in U 
+  // at the end: most current data will be stored in U
+  // amr cycle is automatically disabled when level_min == level_max
   if ( should_do_amr_cycle() ) {
 
     // before do_amr_cycle, up to date data are in U2
@@ -470,8 +468,6 @@ void SolverHydroMusclBlock::godunov_unsplit_impl(DataArrayBlock data_in,
     // now ghost cells in current group are ok
     // convert conservative variable into primitives ones for the entire domain
     convertToPrimitives(iGroup);
-
-    // TODO reconstruct_gradients(data_in);
 
     // perform time integration :
     // - slopes computation 
@@ -822,12 +818,12 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
    *  if it is new after a refinement.
    */
   // TODO : make this loop a parallel_for ?
-  for (uint32_t i=0; i<nocts; i++) {
+  for (uint32_t iOct=0; iOct<nocts; iOct++) {
     
-    amr_mesh->getMapping(i, mapper, isghost);
+    amr_mesh->getMapping(iOct, mapper, isghost);
 
     // test is current cell is new upon a coarsening operation
-    if ( amr_mesh->getIsNewC(i) ) {
+    if ( amr_mesh->getIsNewC(iOct) ) {
 
       for (int j=0; j<m_nbChildren; ++j) {
 
