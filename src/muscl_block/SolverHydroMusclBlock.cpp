@@ -261,7 +261,7 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
       
     } else if ( !m_problem_name.compare("gresho_vortex") ) {
       
-      //init_gresho_vortex(this);
+      init_gresho_vortex(this);
       
     } else if ( !m_problem_name.compare("four_quadrant") ) {
       
@@ -925,7 +925,7 @@ void SolverHydroMusclBlock::fill_block_data_ghost(DataArrayBlock data_in,
   // retrieve available / allowed names: fieldManager, and field map (fm)
   // necessary to access user data
   auto fm = fieldMgr.get_id2index();
-  
+
   CopyFaceBlockCellDataFunctor::apply(amr_mesh,
                                       configMap,
                                       params,

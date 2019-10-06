@@ -75,7 +75,11 @@ void init_gresho_vortex(SolverHydroMusclBlock *psolver)
     /*
      * perform user data initialization
      */
-    InitGreshoVortexDataFunctor::apply(amr_mesh, params, configMap, fm, psolver->U);
+    InitGreshoVortexDataFunctor::apply(amr_mesh, 
+                                       params, configMap, 
+                                       fm, 
+                                       psolver->blockSizes,
+                                       psolver->U);
 
   } else { // refine use regular refinement criterium
 
@@ -87,7 +91,9 @@ void init_gresho_vortex(SolverHydroMusclBlock *psolver)
     // initialize user data (U and U2) at level_min
     Kokkos::resize(psolver->U,amr_mesh->getNumOctants(),params.nbvar);
     Kokkos::resize(psolver->U2,amr_mesh->getNumOctants(),params.nbvar);
-    InitGreshoVortexDataFunctor::apply(amr_mesh, params, configMap, fm, psolver->U);
+    InitGreshoVortexDataFunctor::apply(amr_mesh, params, configMap, fm, 
+                                       psolver->blockSizes,
+                                       psolver->U);
     Kokkos::deep_copy(psolver->U2, psolver->U);
 
     // update mesh until we reach level_max
@@ -97,6 +103,7 @@ void init_gresho_vortex(SolverHydroMusclBlock *psolver)
 
       // re-compute U on the new mesh
       InitGreshoVortexDataFunctor::apply(amr_mesh, params, configMap, fm,
+                                         psolver->blockSizes,
                                          psolver->U);
       Kokkos::deep_copy(psolver->U2, psolver->U);
     }

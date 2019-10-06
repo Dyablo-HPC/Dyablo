@@ -4,7 +4,7 @@ set (muscl_block_SRCS
   #${CMAKE_CURRENT_SOURCE_DIR}/init/InitSod.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitBlast.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitImplode.cpp
-  #${CMAKE_CURRENT_SOURCE_DIR}/init/InitGreshoVortex.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/init/InitGreshoVortex.cpp
   #${CMAKE_CURRENT_SOURCE_DIR}/init/InitFourQuadrant.cpp
   #${CMAKE_CURRENT_SOURCE_DIR}/init/InitIsentropicVortex.cpp
   #${CMAKE_CURRENT_SOURCE_DIR}/init/InitKelvinHelmholtz.cpp

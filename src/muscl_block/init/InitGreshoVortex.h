@@ -12,6 +12,8 @@
 #include "shared/kokkos_shared.h"
 #include "shared/problems/GreshoVortexParams.h"
 
+#include "muscl_block/utils_block.h"
+
 #include "bitpit_PABLO.hpp"
 #include "shared/bitpit_common.h"
 
@@ -45,12 +47,14 @@ public:
   InitGreshoVortexDataFunctor(std::shared_ptr<AMRmesh> pmesh,
                               HydroParams        params, 
                               GreshoVortexParams gvParams,
-                              id2index_t         fm, 
+                              id2index_t         fm,
+                              blockSize_t        blockSizes,
                               DataArrayBlock     Udata) :
     pmesh(pmesh), 
     params(params),
     gvParams(gvParams),
     fm(fm),
+    blockSizes(blockSizes),
     Udata(Udata) {};
 
   // static method which does it all: create and execute functor
@@ -58,13 +62,14 @@ public:
                     HydroParams params,
                     ConfigMap configMap,
                     id2index_t fm,
-                    DataArray Udata) 
+                    blockSize_t    blockSizes,
+                    DataArrayBlock Udata) 
   {
     // gresho vortex specific parameters
     GreshoVortexParams gvParams = GreshoVortexParams(configMap);
 
     // data init functor
-    InitGreshoVortexDataFunctor functor(pmesh, params, gvParams, fm, Udata);
+    InitGreshoVortexDataFunctor functor(pmesh, params, gvParams, fm, blockSizes, Udata);
 
     // kokkos execution policy
     uint32_t nbTeams_ = configMap.getInteger("init","nbTeams",16);
@@ -75,7 +80,7 @@ public:
     
     Kokkos::parallel_for("dyablo::muscl_block::InitGreshoVortexDataFunctor",
                          policy, functor);
-  }
+  } // apply
 
   // ================================================
   // ================================================
@@ -107,6 +112,7 @@ public:
       const real_t z0 = pmesh->getNode(iOct, 0)[IZ];
 
       // gresho vortex parameters
+      const real_t gamma0  = params.settings.gamma0;
       const real_t rho0  = gvParams.rho0;
       const real_t Ma    = gvParams.Ma;
       const real_t p0    = rho0 / (gamma0 * Ma * Ma);
@@ -163,18 +169,18 @@ public:
               p = p0 - 2 + 4 * log(2.0);
             }
 
-            Udata(i, fm[ID]) = rho0;
-            Udata(i, fm[IU]) = rho0 * (-sinT * uphi);
-            Udata(i, fm[IV]) = rho0 * (cosT * uphi);
-            Udata(i, fm[IP]) =
+            Udata(index, fm[ID], iOct) = rho0;
+            Udata(index, fm[IU], iOct) = rho0 * (-sinT * uphi);
+            Udata(index, fm[IV], iOct) = rho0 * (cosT * uphi);
+            Udata(index, fm[IP], iOct) =
                 p / (gamma0 - 1.0) + 0.5 *
-                                         (Udata(i, fm[IU]) * Udata(i, fm[IU]) +
-                                          Udata(i, fm[IV]) * Udata(i, fm[IV])) /
-                                         Udata(i, fm[ID]);
+              (Udata(index, fm[IU], iOct) * Udata(index, fm[IU], iOct) +
+               Udata(index, fm[IV], iOct) * Udata(index, fm[IV], iOct)) /
+              Udata(index, fm[ID], iOct);
             ;
 
             if (params.dimType == THREE_D)
-              Udata(i, fm[IW]) = 0.0;
+              Udata(index, fm[IW], iOct) = 0.0;
           }); // end teamVectorRange
 
       iOct += nbTeams;
@@ -194,9 +200,12 @@ public:
   
   //! field manager
   id2index_t fm;
+
+  //! block sizes
+  blockSize_t    blockSizes;
   
   //! heavy data
-  DataArray Udata;
+  DataArrayBlock Udata;
 
 }; // InitGreshoVortexDataFunctor
 
@@ -249,14 +258,14 @@ public:
   {
 
     // get cell level
-    uint8_t level = pmesh->getLevel(i);
+    uint8_t level = pmesh->getLevel(iOct);
 
     // only look at level - 1
     if (level == level_refine) {
 
       // get cell center coordinate in the unit domain
       // FIXME : need to refactor AMRmesh interface to use Kokkos::Array
-      std::array<double, 3> center = pmesh->getCenter(i);
+      std::array<double, 3> center = pmesh->getCenter(iOct);
 
       real_t x = center[0];
       real_t y = center[1];
@@ -267,7 +276,7 @@ public:
       y -= 0.5;
       z -= 0.5;
 
-      double cellSize2 = pmesh->getSize(i) * 0.75;
+      double cellSize2 = pmesh->getSize(iOct) * 0.75;
 
       bool should_refine = false;
 
@@ -288,7 +297,7 @@ public:
         should_refine = true;
 
       if (should_refine)
-        pmesh->setMarker(i, 1);
+        pmesh->setMarker(iOct, 1);
 
     } // end if level == level_refine
 
