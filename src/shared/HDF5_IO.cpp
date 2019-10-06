@@ -81,6 +81,8 @@ HDF5_Writer::HDF5_Writer(std::shared_ptr<AMRmesh> amr_mesh,
   m_write_level = m_write_mesh_info;
   m_write_rank =  m_write_mesh_info;
 
+  m_write_iOct = m_configMap.getBool("output", "write_iOct", false);
+
   m_nbNodesPerCell = m_params.dimType==TWO_D ? 
     IO_NODES_PER_CELL_2D : 
     IO_NODES_PER_CELL_3D;
@@ -216,6 +218,7 @@ HDF5_Writer::write_header(double time)
   io_hdf5_write_connectivity();
   io_hdf5_write_level();
   io_hdf5_write_rank();
+  io_hdf5_write_iOct();
 
   return 0;
 
@@ -871,6 +874,34 @@ HDF5_Writer::io_hdf5_write_level()
 // =======================================================
 // =======================================================
 void
+HDF5_Writer::io_hdf5_write_iOct()
+{
+
+  if (!this->m_write_iOct) {
+    return;
+  }
+
+  uint32_t nbData = m_local_num_quads * m_nbCellsPerLeaf;
+
+  std::vector<uint32_t> data(nbData);
+
+  // gather level for each local quadrant
+  uint32_t i=0;
+  for (uint32_t iLeaf = 0; iLeaf < m_local_num_quads; ++iLeaf) {
+    for (uint32_t j = 0; j < m_nbCellsPerLeaf; ++j) {
+      data[i] = iLeaf;
+      ++i;
+    }
+  }
+
+  this->write_attribute("iOct", &(data)[0], 0, IO_CELL_SCALAR,
+        		H5T_NATIVE_UINT, H5T_NATIVE_UINT);
+
+} // HDF5_Writer::io_hdf5_write_iOct
+
+// =======================================================
+// =======================================================
+void
 HDF5_Writer::io_hdf5_write_rank()
 {
 
@@ -882,7 +913,7 @@ HDF5_Writer::io_hdf5_write_rank()
 
   std::vector<int> data(nbData);
 
-  // gather level for each local quadrant
+  // gather rank for each local quadrant
   for (uint32_t i = 0; i < nbData; ++i) {
     data[i] = m_mpiRank;
   }

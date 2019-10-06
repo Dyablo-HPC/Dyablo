@@ -181,8 +181,10 @@ public:
   FILE          *m_main_xdmf_file; //!< main XDMF file descriptor
 
   double         m_scale;            // default 1.0
-  bool           m_write_level;      // default 1
-  bool           m_write_rank;       // default 1
+  bool           m_write_level;      // default write_mesh_info (false)
+  bool           m_write_rank;       // default write_mesh_info (false) 
+
+  bool           m_write_iOct;       // default false
 
   int            m_mpiRank;
 
@@ -280,6 +282,12 @@ private:
    * \brief Compute and write the level for each quadrant.
    */
   void io_hdf5_write_level();
+
+  /**
+   * \brief Write local quadrant id (local to current MPI process).
+   * Purely for debug purpose.
+   */
+  void io_hdf5_write_iOct();
 
   /**
    * \brief Compute and write the MPI rank for each quadrant.
