@@ -19,6 +19,8 @@ using HydroState3d = StateNd<HYDRO_3D_NBVAR>;
 using MHDState = Kokkos::Array<real_t, MHD_NBVAR>;
 using BField = Kokkos::Array<real_t, 3>;
 
+// =================================================================
+// =================================================================
 template<size_t dim>
 KOKKOS_INLINE_FUNCTION
 StateNd<dim>& operator+=(StateNd<dim>& lhs, const StateNd<dim>& rhs)
@@ -31,6 +33,22 @@ StateNd<dim>& operator+=(StateNd<dim>& lhs, const StateNd<dim>& rhs)
 
 } // operator+=
 
+// =================================================================
+// =================================================================
+template<size_t dim>
+KOKKOS_INLINE_FUNCTION
+StateNd<dim>& operator-=(StateNd<dim>& lhs, const StateNd<dim>& rhs)
+{
+
+  for (size_t i=0; i<dim; ++i)
+    lhs[i] -= rhs[i];
+
+  return lhs;
+
+} // operator-=
+
+// =================================================================
+// =================================================================
 template<size_t dim>
 KOKKOS_INLINE_FUNCTION
 StateNd<dim>& operator*(StateNd<dim>& lhs, real_t rhs)

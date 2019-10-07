@@ -690,7 +690,7 @@ public:
               HydroState2d flux = riemann_hydro(qL,qR,params);
 
               // step 4 : accumulate flux in current cell
-              qcons += flux*dtdx;
+              qcons -= flux*dtdx;
             }
 
             /*
@@ -760,7 +760,7 @@ public:
               my_swap(flux[IU], flux[IV]);
 
               // step 4 : accumulate flux in current cell
-              qcons += flux*dtdy;
+              qcons -= flux*dtdy;
 
             }
 
