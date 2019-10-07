@@ -112,7 +112,7 @@ public:
     by1  = blockSizes[IY] + 2 * (ghostWidth-1);
     bz1  = blockSizes[IZ] + 2 * (ghostWidth-1);
     
-    nbCellsPerBlock = params.dimType == TWO_D ? 
+    nbCellsPerBlock1 = params.dimType == TWO_D ? 
       bx1 * by1 :
       bx1 * by1 * bz1;
 
@@ -257,6 +257,9 @@ public:
    * Compute primitive variables slopes (dq) for one component from q and its neighbors.
    * 
    * Only slope_type 1 and 2 are supported.
+   *
+   * Please note that indexes ic, ip and im refer to cell index
+   * computed in the full ghosted block.
    *
    * \param[in] ic index (ghosted block) to current cell
    * \param[in] ip index (ghosted block) to next cell
@@ -553,8 +556,8 @@ public:
     uint32_t iOctNextGroup = (iGroup + 1) * nbOctsPerGroup;
 
     // Allocate a shared array for the team to computes slopes
-    shared_2d_t slopesX(member.team_shmem(), nbCellsPerBlock, nbvar);
-    shared_2d_t slopesY(member.team_shmem(), nbCellsPerBlock, nbvar);
+    shared_2d_t slopesX(member.team_shmem(), nbCellsPerBlock1, nbvar);
+    shared_2d_t slopesY(member.team_shmem(), nbCellsPerBlock1, nbvar);
 
     const uint32_t& bx = blockSizes[IX];
     const uint32_t& by = blockSizes[IY];
@@ -571,7 +574,7 @@ public:
 
       // step 1 : compute limited slopes
       Kokkos::parallel_for(
-        Kokkos::TeamVectorRange(member, nbCellsPerBlock),
+        Kokkos::TeamVectorRange(member, nbCellsPerBlock1),
         KOKKOS_LAMBDA(const int32_t index) {
 
           // convert index to coordinates in ghosted block (minus 1 !)
@@ -579,7 +582,7 @@ public:
           const int j = index / bx1;
           const int i = index - j*bx1;
 
-          // corresponding index in the ghosted block
+          // corresponding index in the full ghosted block
           // i -> i+1
           // j -> j+1
           const uint32_t ib = (i+1) + bx_g * (j+1);
@@ -587,20 +590,20 @@ public:
           // neighbor along x axis
           uint32_t ibp1 = ib + 1;
           uint32_t ibm1 = ib - 1;
-
-          slopesX(ib,fm[ID]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[ID], iOct_local);
-          slopesX(ib,fm[IP]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IP], iOct_local);
-          slopesX(ib,fm[IU]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IU], iOct_local);
-          slopesX(ib,fm[IV]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IV], iOct_local);
+          
+          slopesX(index,fm[ID]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[ID], iOct_local);
+          slopesX(index,fm[IP]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IP], iOct_local);
+          slopesX(index,fm[IU]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IU], iOct_local);
+          slopesX(index,fm[IV]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IV], iOct_local);
 
           // neighbor along y axis
           ibp1 = ib + bx_g;
           ibm1 = ib - bx_g;
-
-          slopesY(ib,fm[ID]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[ID], iOct_local);
-          slopesY(ib,fm[IP]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IP], iOct_local);
-          slopesY(ib,fm[IU]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IU], iOct_local);
-          slopesY(ib,fm[IV]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IV], iOct_local);
+          
+          slopesY(index,fm[ID]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[ID], iOct_local);
+          slopesY(index,fm[IP]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IP], iOct_local);
+          slopesY(index,fm[IU]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IU], iOct_local);
+          slopesY(index,fm[IV]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IV], iOct_local);
 
           // DEBUG : write into Ugroup
           //Ugroup(ib,fm[ID],iOct_local) = slopesX(ib,fm[ID]);
@@ -609,7 +612,7 @@ public:
 
       // step 2 : reconstruct states on cells face and update
       Kokkos::parallel_for(
-        Kokkos::TeamVectorRange(member, nbCellsPerBlock),
+        Kokkos::TeamVectorRange(member, nbCellsPerBlock1),
         KOKKOS_LAMBDA(const int32_t index) {
 
           // convert index to coordinates in ghosted block (minus 1 !)
@@ -644,7 +647,7 @@ public:
               // 
               offsets_t offsets = {1.0, 0.0, 0.0};
 
-              // reconstruct "left" state
+              // reconstruct state in left neighbor
               HydroState2d qL = reconstruct_state_2d(
                   qprim_n, index-1, slopesX, slopesY, offsets, dtdx, dtdy);
 
@@ -673,7 +676,7 @@ public:
               // 
               offsets_t offsets = {-1.0, 0.0, 0.0};
 
-              // reconstruct "right" state
+              // reconstruct state in right neighbor
               HydroState2d qR = reconstruct_state_2d(
                   qprim_n, index+1, slopesX, slopesY, offsets, dtdx, dtdy);
 
@@ -820,7 +823,7 @@ public:
   uint32_t by_g;
   uint32_t bz_g;
 
-  //! blockSizes with ghost (minus 1)
+  //! blockSizes with one ghost cell 
   uint32_t bx1;
   uint32_t by1;
   uint32_t bz1;
@@ -834,8 +837,8 @@ public:
   //! number of octant per group
   uint32_t nbOctsPerGroup;
 
-  //! number of cells per block
-  uint32_t nbCellsPerBlock;
+  //! number of cells per block (used for slopes computations)
+  uint32_t nbCellsPerBlock1;
 
   //! integer which identifies a group of octants
   uint32_t iGroup;
