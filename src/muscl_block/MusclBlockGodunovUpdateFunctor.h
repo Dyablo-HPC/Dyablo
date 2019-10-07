@@ -741,13 +741,13 @@ public:
               offsets_t offsets = {0.0, -1.0, 0.0};
               
               // reconstruct "left" state
-              HydroState2d qL = reconstruct_state_2d(
+              HydroState2d qR = reconstruct_state_2d(
                   qprim_n, index+bx1, slopesX, slopesY, offsets, dtdx, dtdy);
 
               // step 2 : reconstruct state in current cell
               offsets = {0.0, 1.0, 0.0};
 
-              HydroState2d qR = reconstruct_state_2d(
+              HydroState2d qL = reconstruct_state_2d(
                 qprim, index, slopesX, slopesY, offsets, dtdx, dtdy);
 
               // swap IU / IV
