@@ -51,15 +51,17 @@ StateNd<dim>& operator-=(StateNd<dim>& lhs, const StateNd<dim>& rhs)
 // =================================================================
 template<size_t dim>
 KOKKOS_INLINE_FUNCTION
-StateNd<dim>& operator*(StateNd<dim>& lhs, real_t rhs)
+StateNd<dim> operator*(StateNd<dim>& lhs, real_t rhs)
 {
 
+  StateNd<dim> res;
+
   for (size_t i=0; i<dim; ++i)
-    lhs[i] *= rhs;
+    res[i] = lhs[i] * rhs;
 
-  return lhs;
+  return res;
 
-} // operator+=
+} // operator*
 
 } // namespace dyablo
 
