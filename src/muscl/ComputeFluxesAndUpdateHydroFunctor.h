@@ -677,6 +677,33 @@ public:
 
     }
 
+    if (i==51) {
+      printf("iOct=51 qcons=%f %f %f %f | qprim=%f %f %f %f\n",
+             qcons[ID], qcons[IP], qcons[IU], qcons[IV],
+             qprim[ID], qprim[IP], qprim[IU], qprim[IV] );
+    }
+    
+    if (i==51) {
+      printf("iOct=51 slopesX=%f %f %f %f | slopesY=%f %f %f %f | %f %f %f %f || %f %f %f %f\n",
+             Slopes_x(i,fm[ID])*dx,
+             Slopes_x(i,fm[IP])*dx,
+             Slopes_x(i,fm[IU])*dx,
+             Slopes_x(i,fm[IV])*dx,
+             Slopes_y(i,fm[ID])*dx,
+             Slopes_y(i,fm[IP])*dx,
+             Slopes_y(i,fm[IU])*dx,
+             Slopes_y(i,fm[IV])*dx,
+             Qdata(54,fm[ID]),
+             Qdata(54,fm[IP]),
+             Qdata(54,fm[IU]),
+             Qdata(54,fm[IV]),
+             Qdata(57,fm[ID]),
+             Qdata(57,fm[IP]),
+             Qdata(57,fm[IU]),
+             Qdata(57,fm[IV])
+        );
+    }
+
     // iterate neighbors through a given face
     for (uint8_t iface = 0; iface < nfaces; ++iface) {
       
@@ -867,6 +894,15 @@ public:
         real_t dS = dx*dx / neigh.size();
         real_t scale = dt*dS/dV;
 
+        if (i==51) {
+          printf("face=%d -- flux=%f %f %f %f | qprim=%f %f %f %f | qn=%f %f %f %f | qc=%f %f %f %f | %f\n",iface,
+                 flux[ID], flux[IP], flux[IU], flux[IV],
+                 qprim[ID], qprim[IP],qprim[IU],qprim[IV],
+                 qr_n[ID], qr_n[IP], qr_n[IU], qr_n[IV],
+                 qr_c[ID], qr_c[IP], qr_c[IU], qr_c[IV],
+                 scale);
+        }
+
         // iface = 0 or 2
         if ( (iface & 0x1) == 0 ) {
           qcons[ID] += flux[ID]*scale;
@@ -884,6 +920,19 @@ public:
 
     } // end for iface
 
+    if (i==49) {
+      printf("iOct=49 update=%f %f %f %f\n",
+             qcons[ID], qcons[IP], qcons[IU], qcons[IV]);
+    }
+    if (i==50) {
+      printf("iOct=50 update=%f %f %f %f\n",
+             qcons[ID], qcons[IP], qcons[IU], qcons[IV]);
+    }
+    if (i==51) {
+      printf("iOct=51 update=%f %f %f %f\n",
+             qcons[ID], qcons[IP], qcons[IU], qcons[IV]);
+    }
+    
     // Now we can update current cell (write qcons into Data_out)
     Data_out(i,fm[ID]) = qcons[ID];
     Data_out(i,fm[IE]) = qcons[IE];
