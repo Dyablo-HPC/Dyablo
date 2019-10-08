@@ -30,11 +30,14 @@ namespace muscl_block {
 /**
  * Perform time integration (MUSCL Godunov) update functor.
  *
- * This is tentative of all-in-one functor:
- * - input is Ugroup (containing ghosted block data)
+ * This functor contains actually two stages (parallel loops)
+ *  - one for slopes computations
+ *  - one for flux / update computations
+ *
+ * input data is Ugroup (containing ghosted block data)
  *
  * We start by computing slopes (along X,Y,Z directions) and
- * store results in shared array.
+ * store results in locally allocated array (sized upon Qgroup).
  *
  * Then we compute fluxes (using Riemann solver) and perform
  * update directly in external array U2.
@@ -54,13 +57,21 @@ private:
   using offsets_t = Kokkos::Array<real_t,3>;
   uint32_t nbTeams; //!< number of thread teams
 
-public:
-  using team_policy_t = Kokkos::TeamPolicy<Kokkos::IndexType<int32_t>>;
-  using thread_t = team_policy_t::member_type;
+  //! Tag structure for the 2 stages
+  struct Slopes {}; // stage 1
+  struct Fluxes {}; // stage 2
+
+  using team_policy1_t = Kokkos::TeamPolicy<Slopes, Kokkos::IndexType<int32_t>>;
+  using thread1_t = team_policy1_t::member_type;
+
+  using team_policy2_t = Kokkos::TeamPolicy<Fluxes, Kokkos::IndexType<int32_t>>;
+  using thread2_t = team_policy2_t::member_type;
 
   // scratch memory aliases
-  using shared_space = Kokkos::DefaultExecutionSpace::scratch_memory_space;
-  using shared_2d_t  = Kokkos::View<real_t**, shared_space, Kokkos::MemoryUnmanaged>;
+  //using shared_space = Kokkos::DefaultExecutionSpace::scratch_memory_space;
+  //using shared_2d_t  = Kokkos::View<real_t**, shared_space, Kokkos::MemoryUnmanaged>;
+
+public:
 
   void setNbTeams(uint32_t nbTeams_) {nbTeams = nbTeams_;};
 
@@ -116,7 +127,22 @@ public:
       bx1 * by1 :
       bx1 * by1 * bz1;
 
-  };
+    // memory allocation for slopes arrays
+    SlopesX = DataArrayBlock("SlopesX", 
+                             Qgroup.extent(0), 
+                             Qgroup.extent(1), 
+                             Qgroup.extent(2));
+    SlopesY = DataArrayBlock("SlopesY", 
+                             Qgroup.extent(0), 
+                             Qgroup.extent(1), 
+                             Qgroup.extent(2));
+    if (params.dimType == THREE_D)
+      SlopesZ = DataArrayBlock("SlopesZ", 
+                               Qgroup.extent(0), 
+                               Qgroup.extent(1), 
+                               Qgroup.extent(2));
+      
+  }; // constructor
   
   // static method which does it all: create and execute functor
   static void apply(std::shared_ptr<AMRmesh> pmesh,
@@ -142,16 +168,24 @@ public:
                                            Qgroup,
                                            dt);
 
-    // create kokkos execution policy
     uint32_t nbTeams_ = configMap.getInteger("amr","nbTeams",16);
     functor.setNbTeams ( nbTeams_ );
     
-    team_policy_t policy (nbTeams_,
-                          Kokkos::AUTO() /* team size chosen by kokkos */);
+    // create kokkos execution policy for slopes computation
+    team_policy1_t policy1 (nbTeams_,
+                            Kokkos::AUTO() /* team size */);
 
     // launch computation
-    Kokkos::parallel_for("dyablo::muscl::MusclBlockGodunovUpdateFunctor",
-                         policy, functor);
+    Kokkos::parallel_for("dyablo::muscl::MusclBlockGodunovUpdateFunctor - Slopes",
+                         policy1, functor);
+
+    // create kokkos execution policy for fluxes/update computation
+    team_policy1_t policy2 (nbTeams_,
+                            Kokkos::AUTO() /* team size */);
+
+    // launch computation
+    Kokkos::parallel_for("dyablo::muscl::MusclBlockGodunovUpdateFunctor - Fluxes/Update",
+                         policy2, functor);
 
   } // apply
 
@@ -854,7 +888,16 @@ public:
 
   //! time step
   real_t         dt;
-  
+
+  //! slopes along x for current group
+  DataArrayBlock SlopesX;
+
+  //! slopes along y for current group
+  DataArrayBlock SlopesY;
+
+  //! slopes along z for current group
+  DataArrayBlock SlopesZ;
+
 }; // MusclBlockGodunovUpdateFunctor
 
 } // namespace muscl_block
