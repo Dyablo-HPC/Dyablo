@@ -587,19 +587,6 @@ public:
           // j -> j+1
           const uint32_t ib = (i+1) + bx_g * (j+1);
           
-          if (iOct==3 and i==2 and j==2) {
-            printf("iOct=51 Ugroup=%f %f %f %f | Qgroup=%f %f %f %f\n",
-                   Ugroup(ib,fm[ID],iOct_local),
-                   Ugroup(ib,fm[IP],iOct_local),
-                   Ugroup(ib,fm[IU],iOct_local),
-                   Ugroup(ib,fm[IV],iOct_local),
-                   Qgroup(ib,fm[ID],iOct_local),
-                   Qgroup(ib,fm[IP],iOct_local),
-                   Qgroup(ib,fm[IU],iOct_local),
-                   Qgroup(ib,fm[IV],iOct_local) );
-          }
-
-
           // neighbor along x axis
           uint32_t ibp1 = ib + 1;
           uint32_t ibm1 = ib - 1;
@@ -618,37 +605,10 @@ public:
           slopesY(index,fm[IU]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IU], iOct_local);
           slopesY(index,fm[IV]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IV], iOct_local);
 
-          if (iOct==3 and i==2 and j==2) {
-            printf("iOct=51 slopesX=%f %f %f %f | slopesY=%f %f %f %f | %f %f %f %f || %f %f %f %f\n",
-                   slopesX(index,fm[ID]),
-                   slopesX(index,fm[IP]),
-                   slopesX(index,fm[IU]),
-                   slopesX(index,fm[IV]),
-                   slopesY(index,fm[ID]),
-                   slopesY(index,fm[IP]),
-                   slopesY(index,fm[IU]),
-                   slopesY(index,fm[IV]),
-                   // Qgroup(ib  ,fm[IP],iOct_local), 
-                   // Qgroup(ibp1,fm[IP],iOct_local),
-                   // Qgroup(ibm1,fm[IP],iOct_local)
-                   Qgroup(ib+1,fm[ID],iOct_local),
-                   Qgroup(ib+1,fm[IP],iOct_local),
-                   Qgroup(ib+1,fm[IU],iOct_local),
-                   Qgroup(ib+1,fm[IV],iOct_local),
-                   Qgroup(ib+bx_g,fm[ID],iOct_local),
-                   Qgroup(ib+bx_g,fm[IP],iOct_local),
-                   Qgroup(ib+bx_g,fm[IU],iOct_local),
-                   Qgroup(ib+bx_g,fm[IV],iOct_local)
-              );
-          }
-
-
           // DEBUG : write into Ugroup
           //Ugroup(ib,fm[ID],iOct_local) = slopesX(ib,fm[ID]);
 
         }); // end TeamVectorRange
-
-      //Kokkos::fence();
 
       // step 2 : reconstruct states on cells face and update
       Kokkos::parallel_for(
@@ -702,23 +662,6 @@ public:
 
               // step 4 : accumulate flux in current cell
               qcons += flux*dtdx;
-
-              if (iOct==3 and i==2 and j==2)
-                printf("iface=0 flux=%f %f %f %f | qprim=%f %f %f %f | slopesX=%f %f %f %f | slopesY=%f %f %f %f | qL=%f %f %f %f | qR=%f %f %f %f | %f\n",
-                       flux[ID], flux[IP], flux[IU], flux[IV],
-                       qprim[ID],qprim[IP],qprim[IU],qprim[IV],
-                       slopesX(index,fm[ID]),
-                       slopesX(index,fm[IP]),
-                       slopesX(index,fm[IU]),
-                       slopesX(index,fm[IV]),
-                       slopesY(index,fm[ID]),
-                       slopesY(index,fm[IP]),
-                       slopesY(index,fm[IU]),
-                       slopesY(index,fm[IV]),
-                       qL[ID],   qL[IP],   qL[IU],   qL[IV],
-                       qR[ID],   qR[IP],   qR[IU],   qR[IV],
-                       dtdx);
-
             }
 
             /*
@@ -748,14 +691,6 @@ public:
 
               // step 4 : accumulate flux in current cell
               qcons -= flux*dtdx;
-              
-              if (iOct==3 and i==2 and j==2)
-                printf("iface=1 flux=%f %f %f %f | qprim=%f %f %f %f | qL=%f %f %f %f | qR=%f %f %f %f | %f\n",
-                       flux[ID], flux[IP], flux[IU], flux[IV],
-                       qprim[ID],qprim[IP],qprim[IU],qprim[IV],
-                       qL[ID],   qL[IP],   qL[IU],   qL[IV],
-                       qR[ID],   qR[IP],   qR[IU],   qR[IV],
-                       dtdx);
             }
 
             /*
@@ -791,15 +726,6 @@ public:
 
               // step 4 : accumulate flux in current cell
               qcons += flux*dtdy;
-
-              if (iOct==3 and i==2 and j==2)
-                printf("iface=2 flux=%f %f %f %f | qprim=%f %f %f %f | qL=%f %f %f %f | qR=%f %f %f %f | %f\n",
-                       flux[ID], flux[IP], flux[IU], flux[IV],
-                       qprim[ID],qprim[IP],qprim[IU],qprim[IV],
-                       qL[ID],   qL[IP],   qL[IU],   qL[IV],
-                       qR[ID],   qR[IP],   qR[IU],   qR[IV],
-                       dtdy);
-
             }
 
             /*
@@ -836,13 +762,6 @@ public:
               // step 4 : accumulate flux in current cell
               qcons -= flux*dtdy;
 
-              if (iOct==3 and i==2 and j==2)
-                printf("iface=3 flux=%f %f %f %f | qprim=%f %f %f %f | qL=%f %f %f %f | qR=%f %f %f %f | %f\n",
-                       flux[ID], flux[IP], flux[IU], flux[IV],
-                       qprim[ID],qprim[IP],qprim[IU],qprim[IV],
-                       qL[ID],   qL[IP],   qL[IU],   qL[IV],
-                       qR[ID],   qR[IP],   qR[IU],   qR[IV],
-                       dtdy);
             }
 
             // lastly update conservative variable in U2
@@ -852,21 +771,6 @@ public:
             U2(index_non_ghosted, fm[IP], iOct) = qcons[IP];
             U2(index_non_ghosted, fm[IU], iOct) = qcons[IU];
             U2(index_non_ghosted, fm[IV], iOct) = qcons[IV];
-
-            // if (iOct==3 and i==2 and j==1) {
-            //   printf("iOct=49 update=%f %f %f %f\n",
-            //          qcons[ID], qcons[IP], qcons[IU], qcons[IV]);
-            // }
-            // if (iOct==3 and i==1 and j==2) {
-            //   printf("iOct=50 update=%f %f %f %f\n",
-            //          qcons[ID], qcons[IP], qcons[IU], qcons[IV]);
-            // }
-            if (iOct==3 and i==2 and j==2) {
-              printf("iOct=51 update=%f %f %f %f\n",
-                     qcons[ID], qcons[IP], qcons[IU], qcons[IV]);
-            }
-
-            
 
           } // end if inside inner block
 
