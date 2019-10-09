@@ -22,7 +22,7 @@
 // Compute functors
 #include "muscl_block/ComputeDtHydroFunctor.h"
 #include "muscl_block/ConvertToPrimitivesHydroFunctor.h"
-//#include "muscl_block/MusclBlockGodunovUpdateFunctor.h"
+#include "muscl_block/MusclBlockGodunovUpdateFunctor.h"
 #include "muscl_block/MusclBlockSharedGodunovUpdateFunctor.h"
 #include "muscl_block/MarkOctantsHydroFunctor.h"
 
@@ -474,19 +474,43 @@ void SolverHydroMusclBlock::godunov_unsplit_impl(DataArrayBlock data_in,
     // - slopes computation 
     // - compute fluxes (finite volume) and update
     //compute_fluxes_and_update(data_in, data_out, dt);
-    MusclBlockSharedGodunovUpdateFunctor::apply(amr_mesh,
-                                                configMap,
-                                                params,
-                                                fm,
-                                                blockSizes,
-                                                ghostWidth,
-                                                nbOcts,
-                                                nbOctsPerGroup,
-                                                iGroup,
-                                                Ugroup,
-                                                data_out,
-                                                Qgroup,
-                                                dt);
+
+    /*
+     * algorithmic variant using shared memory, but no extra
+     * heap memory
+     */
+    // MusclBlockSharedGodunovUpdateFunctor::apply(amr_mesh,
+    //                                             configMap,
+    //                                             params,
+    //                                             fm,
+    //                                             blockSizes,
+    //                                             ghostWidth,
+    //                                             nbOcts,
+    //                                             nbOctsPerGroup,
+    //                                             iGroup,
+    //                                             Ugroup,
+    //                                             data_out,
+    //                                             Qgroup,
+    //                                             dt);
+
+    /*
+     * algorithmic variant not using shared memory, so extra
+     * heap memory is required (array SlopesX, ... are regular
+     * Kokkos::View arrays sized upon the group of octant)
+     */
+    MusclBlockGodunovUpdateFunctor::apply(amr_mesh,
+                                          configMap,
+                                          params,
+                                          fm,
+                                          blockSizes,
+                                          ghostWidth,
+                                          nbOcts,
+                                          nbOctsPerGroup,
+                                          iGroup,
+                                          Ugroup,
+                                          data_out,
+                                          Qgroup,
+                                          dt);
 
   } // end for iGroup
 

@@ -180,7 +180,7 @@ public:
                          policy1, functor);
 
     // create kokkos execution policy for fluxes/update computation
-    team_policy1_t policy2 (nbTeams_,
+    team_policy2_t policy2 (nbTeams_,
                             Kokkos::AUTO() /* team size */);
 
     // launch computation
