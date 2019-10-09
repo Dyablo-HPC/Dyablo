@@ -456,8 +456,7 @@ public:
   KOKKOS_INLINE_FUNCTION
   HydroState2d reconstruct_state_2d(const HydroState2d& q,
                                     uint32_t     index,
-                                    shared_2d_t  slopesX, 
-                                    shared_2d_t  slopesY, 
+                                    uint32_t     iOct_local,
                                     offsets_t    offsets,
                                     real_t       dtdx,
                                     real_t       dtdy) const
@@ -472,16 +471,16 @@ public:
     const real_t v = q[IV];
     //const real_t w = 0.0;
 
-    const real_t drx = slopesX(index,fm[ID]) * 0.5;
-    const real_t dpx = slopesX(index,fm[IP]) * 0.5;
-    const real_t dux = slopesX(index,fm[IU]) * 0.5;
-    const real_t dvx = slopesX(index,fm[IV]) * 0.5;
+    const real_t drx = SlopesX(index,fm[ID],iOct_local) * 0.5;
+    const real_t dpx = SlopesX(index,fm[IP],iOct_local) * 0.5;
+    const real_t dux = SlopesX(index,fm[IU],iOct_local) * 0.5;
+    const real_t dvx = SlopesX(index,fm[IV],iOct_local) * 0.5;
     //const real_t dwx = 0.0;
     
-    const real_t dry = slopesY(index,fm[ID]) * 0.5;
-    const real_t dpy = slopesY(index,fm[IP]) * 0.5;
-    const real_t duy = slopesY(index,fm[IU]) * 0.5;
-    const real_t dvy = slopesY(index,fm[IV]) * 0.5;
+    const real_t dry = SlopesY(index,fm[ID],iOct_local) * 0.5;
+    const real_t dpy = SlopesY(index,fm[IP],iOct_local) * 0.5;
+    const real_t duy = SlopesY(index,fm[IU],iOct_local) * 0.5;
+    const real_t dvy = SlopesY(index,fm[IV],iOct_local) * 0.5;
     //const real_t dwy = 0.0;
         
     // source terms (with transverse derivatives)
@@ -574,7 +573,7 @@ public:
   // ====================================================================
   // ====================================================================
   KOKKOS_INLINE_FUNCTION
-  void operator_2d(team_policy_t::member_type member) const 
+  void compute_slopes_2d(thread1_t member) const 
   {
 
     const int nbvar = 2;
@@ -589,10 +588,6 @@ public:
     // compute first octant index after current group
     uint32_t iOctNextGroup = (iGroup + 1) * nbOctsPerGroup;
 
-    // Allocate a shared array for the team to computes slopes
-    shared_2d_t slopesX(member.team_shmem(), nbCellsPerBlock1, nbvar);
-    shared_2d_t slopesY(member.team_shmem(), nbCellsPerBlock1, nbvar);
-
     const uint32_t& bx = blockSizes[IX];
     const uint32_t& by = blockSizes[IY];
 
@@ -606,7 +601,9 @@ public:
       const real_t dtdx = dt/dx;
       const real_t dtdy = dt/dy;
 
-      // step 1 : compute limited slopes
+      /*
+       * compute limited slopes
+       */
       Kokkos::parallel_for(
         Kokkos::TeamVectorRange(member, nbCellsPerBlock1),
         KOKKOS_LAMBDA(const int32_t index) {
@@ -625,26 +622,75 @@ public:
           uint32_t ibp1 = ib + 1;
           uint32_t ibm1 = ib - 1;
           
-          slopesX(index,fm[ID]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[ID], iOct_local);
-          slopesX(index,fm[IP]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IP], iOct_local);
-          slopesX(index,fm[IU]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IU], iOct_local);
-          slopesX(index,fm[IV]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IV], iOct_local);
+          SlopesX(ib,fm[ID],iOct_local) = 
+            slope_unsplit_scalar(ib, ibp1, ibm1, fm[ID], iOct_local);
+          
+          SlopesX(ib,fm[IP],iOct_local) =
+            slope_unsplit_scalar(ib, ibp1, ibm1, fm[IP], iOct_local);
+          
+          SlopesX(ib,fm[IU],iOct_local) =
+            slope_unsplit_scalar(ib, ibp1, ibm1, fm[IU], iOct_local);
+          
+          SlopesX(ib,fm[IV],iOct_local) =
+            slope_unsplit_scalar(ib, ibp1, ibm1, fm[IV], iOct_local);
 
           // neighbor along y axis
           ibp1 = ib + bx_g;
           ibm1 = ib - bx_g;
           
-          slopesY(index,fm[ID]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[ID], iOct_local);
-          slopesY(index,fm[IP]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IP], iOct_local);
-          slopesY(index,fm[IU]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IU], iOct_local);
-          slopesY(index,fm[IV]) = slope_unsplit_scalar(ib, ibp1, ibm1, fm[IV], iOct_local);
+          SlopesY(ib,fm[ID],iOct_local) = 
+            slope_unsplit_scalar(ib, ibp1, ibm1, fm[ID], iOct_local);
+          SlopesY(ib,fm[IP],iOct_local) = 
+            slope_unsplit_scalar(ib, ibp1, ibm1, fm[IP], iOct_local);
+          SlopesY(ib,fm[IU],iOct_local) = 
+            slope_unsplit_scalar(ib, ibp1, ibm1, fm[IU], iOct_local);
+          SlopesY(ib,fm[IV],iOct_local) = 
+            slope_unsplit_scalar(ib, ibp1, ibm1, fm[IV], iOct_local);
 
           // DEBUG : write into Ugroup
           //Ugroup(ib,fm[ID],iOct_local) = slopesX(ib,fm[ID]);
 
         }); // end TeamVectorRange
 
-      // step 2 : reconstruct states on cells face and update
+      iOct       += nbTeams;
+      iOct_local += nbTeams;
+
+    } // end while iOct < nbOct
+
+  } // compute_slopes_2d
+
+  // ====================================================================
+  // ====================================================================
+  KOKKOS_INLINE_FUNCTION
+  void compute_fluxes_and_update_2d(thread2_t member) const 
+  {
+
+    // iOct must span the range [iGroup*nbOctsPerGroup ,
+    // (iGroup+1)*nbOctsPerGroup [
+    uint32_t iOct = member.league_rank() + iGroup * nbOctsPerGroup;
+    
+    // octant id inside the Ugroup data array
+    uint32_t iOct_local = member.league_rank();
+    
+    // compute first octant index after current group
+    uint32_t iOctNextGroup = (iGroup + 1) * nbOctsPerGroup;
+
+    const uint32_t& bx = blockSizes[IX];
+    const uint32_t& by = blockSizes[IY];
+
+    while (iOct < iOctNextGroup and iOct < nbOcts)
+    {
+
+      // compute dx / dy
+      const real_t dx = (iOct < nbOcts) ? pmesh->getSize(iOct)/bx : 1.0;
+      const real_t dy = (iOct < nbOcts) ? pmesh->getSize(iOct)/by : 1.0;
+      
+      const real_t dtdx = dt/dx;
+      const real_t dtdy = dt/dy;
+      
+      /*
+       * reconstruct states on cells face and update
+       */
       Kokkos::parallel_for(
         Kokkos::TeamVectorRange(member, nbCellsPerBlock1),
         KOKKOS_LAMBDA(const int32_t index) {
@@ -683,13 +729,13 @@ public:
 
               // reconstruct state in left neighbor
               HydroState2d qL = reconstruct_state_2d(
-                  qprim_n, index-1, slopesX, slopesY, offsets, dtdx, dtdy);
+                qprim_n, ig-1, iOct_local, offsets, dtdx, dtdy);
 
               // step 2 : reconstruct state in current cell
               offsets = {-1.0, 0.0, 0.0};
 
               HydroState2d qR = reconstruct_state_2d(
-                qprim, index, slopesX, slopesY, offsets, dtdx, dtdy);
+                qprim, ig, iOct_local, offsets, dtdx, dtdy);
               
               // step 3 : compute flux (Riemann solver)
               HydroState2d flux = riemann_hydro(qL,qR,params);
@@ -712,13 +758,13 @@ public:
 
               // reconstruct state in right neighbor
               HydroState2d qR = reconstruct_state_2d(
-                  qprim_n, index+1, slopesX, slopesY, offsets, dtdx, dtdy);
+                qprim_n, ig+1, iOct_local, offsets, dtdx, dtdy);
 
               // step 2 : reconstruct state in current cell
               offsets = {1.0, 0.0, 0.0};
 
               HydroState2d qL = reconstruct_state_2d(
-                qprim, index, slopesX, slopesY, offsets, dtdx, dtdy);
+                qprim, ig, iOct_local, offsets, dtdx, dtdy);
 
               // step 3 : compute flux (Riemann solver)
               HydroState2d flux = riemann_hydro(qL,qR,params);
@@ -741,13 +787,13 @@ public:
               
               // reconstruct "left" state
               HydroState2d qL = reconstruct_state_2d(
-                  qprim_n, index-bx1, slopesX, slopesY, offsets, dtdx, dtdy);
+                qprim_n, ig-bx_g, iOct_local, offsets, dtdx, dtdy);
 
               // step 2 : reconstruct state in current cell
               offsets = {0.0, -1.0, 0.0};
 
               HydroState2d qR = reconstruct_state_2d(
-                qprim, index, slopesX, slopesY, offsets, dtdx, dtdy);
+                qprim, ig, iOct_local, offsets, dtdx, dtdy);
 
               // swap IU / IV
               my_swap(qL[IU], qL[IV]);
@@ -776,13 +822,13 @@ public:
               
               // reconstruct "left" state
               HydroState2d qR = reconstruct_state_2d(
-                  qprim_n, index+bx1, slopesX, slopesY, offsets, dtdx, dtdy);
+                  qprim_n, ig+bx_g, iOct_local, offsets, dtdx, dtdy);
 
               // step 2 : reconstruct state in current cell
               offsets = {0.0, 1.0, 0.0};
 
               HydroState2d qL = reconstruct_state_2d(
-                qprim, index, slopesX, slopesY, offsets, dtdx, dtdy);
+                qprim, ig, iOct_local, offsets, dtdx, dtdy);
 
               // swap IU / IV
               my_swap(qL[IU], qL[IV]);
@@ -816,29 +862,51 @@ public:
 
     } // end while iOct < nbOct
 
-  } // operator_2d
+  } // compute_fluxes_and_update_2d
 
   // ====================================================================
   // ====================================================================
   KOKKOS_INLINE_FUNCTION
-  void operator_3d(team_policy_t::member_type member) const 
+  void compute_slopes_3d(thread1_t member) const 
   {
 
-  } // operator_3d
+  } // compute_slopes_3d
 
   // ====================================================================
   // ====================================================================
   KOKKOS_INLINE_FUNCTION
-  void operator()(team_policy_t::member_type member) const
+  void compute_fluxes_and_update_3d(thread2_t member) const 
+  {
+
+  } // compute_fluxes_and_update_3d
+
+  // ====================================================================
+  // ====================================================================
+  KOKKOS_INLINE_FUNCTION
+  void operator()(const Slopes&, thread1_t member) const
   {
     
     if (this->params.dimType == TWO_D)
-      operator_2d(member);
+      compute_slopes_2d(member);
     
     else if (this->params.dimType == THREE_D)
-      operator_3d(member);
+      compute_slopes_3d(member);
     
-  } // operator ()
+  } // operator () - slopes
+
+  // ====================================================================
+  // ====================================================================
+  KOKKOS_INLINE_FUNCTION
+  void operator()(const Fluxes&, thread2_t member) const
+  {
+    
+    if (this->params.dimType == TWO_D)
+      compute_fluxes_and_update_2d(member);
+    
+    else if (this->params.dimType == THREE_D)
+      compute_fluxes_and_update_3d(member);
+    
+  } // operator () - fluxes and update
 
   //! bitpit/PABLO amr mesh object
   std::shared_ptr<AMRmesh> pmesh;
