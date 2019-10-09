@@ -2,8 +2,8 @@
  * \file MusclBlockSharedGodunovUpdateFunctor.h
  * \author Pierre Kestener
  */
-#ifndef MUSCL_BLOCK_GODUNOV_UPDATE_HYDRO_FUNCTOR_H_
-#define MUSCL_BLOCK_GODUNOV_UPDATE_HYDRO_FUNCTOR_H_
+#ifndef MUSCL_BLOCK_SHARED_GODUNOV_UPDATE_HYDRO_FUNCTOR_H_
+#define MUSCL_BLOCK_SHARED_GODUNOV_UPDATE_HYDRO_FUNCTOR_H_
 
 #include "shared/FieldManager.h"
 #include "shared/HydroState.h"
@@ -849,4 +849,4 @@ public:
 
 } // namespace dyablo
 
-#endif // MUSCL_BLOCK_GODUNOV_UPDATE_HYDRO_FUNCTOR_H_
+#endif // MUSCL_BLOCK_SHARED_GODUNOV_UPDATE_HYDRO_FUNCTOR_H_
