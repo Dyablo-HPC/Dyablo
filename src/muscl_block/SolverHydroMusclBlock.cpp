@@ -22,7 +22,8 @@
 // Compute functors
 #include "muscl_block/ComputeDtHydroFunctor.h"
 #include "muscl_block/ConvertToPrimitivesHydroFunctor.h"
-#include "muscl_block/MusclBlockGodunovUpdateFunctor.h"
+//#include "muscl_block/MusclBlockGodunovUpdateFunctor.h"
+#include "muscl_block/MusclBlockSharedGodunovUpdateFunctor.h"
 #include "muscl_block/MarkOctantsHydroFunctor.h"
 
 // // compute functor for low Mach flows
@@ -473,19 +474,19 @@ void SolverHydroMusclBlock::godunov_unsplit_impl(DataArrayBlock data_in,
     // - slopes computation 
     // - compute fluxes (finite volume) and update
     //compute_fluxes_and_update(data_in, data_out, dt);
-    MusclBlockGodunovUpdateFunctor::apply(amr_mesh,
-                                          configMap,
-                                          params,
-                                          fm,
-                                          blockSizes,
-                                          ghostWidth,
-                                          nbOcts,
-                                          nbOctsPerGroup,
-                                          iGroup,
-                                          Ugroup,
-                                          data_out,
-                                          Qgroup,
-                                          dt);
+    MusclBlockSharedGodunovUpdateFunctor::apply(amr_mesh,
+                                                configMap,
+                                                params,
+                                                fm,
+                                                blockSizes,
+                                                ghostWidth,
+                                                nbOcts,
+                                                nbOctsPerGroup,
+                                                iGroup,
+                                                Ugroup,
+                                                data_out,
+                                                Qgroup,
+                                                dt);
 
   } // end for iGroup
 
