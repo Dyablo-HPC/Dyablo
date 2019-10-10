@@ -72,6 +72,23 @@ public:
   
   void setNbTeams(uint32_t nbTeams_) { nbTeams = nbTeams_; };
   
+  // Provide the shared memory capacity.
+  // This function takes the team_size as an argument,
+  // which allows team_size dependent allocations.
+  size_t team_shmem_size (int team_size) const {
+
+    uint32_t dim = params.dimType;
+
+    size_t nbvar = dim==2 ? 
+      HydroState2d::size() :
+      HydroState3d::size();
+
+    // requested memory to store "dim" slopes array
+    // each slope array is of size team_size, nbvar
+    return dim*shared_2d_t::shmem_size(team_size,nbvar); 
+
+  }
+
   /**
    * Perform time integration (MUSCL Godunov).
    *
@@ -384,8 +401,9 @@ public:
    * -1.0
    *
    * \param[in] q primitive variables at cell center
-   * \param[in] dqX primitive variables slopes along X
-   * \param[in] dqY primitive variables slopes along Y
+   * \param[in] index identifies a cells inside slopes arrays
+   * \param[in] slopesX primitive variables slopes along X in scratch mem
+   * \param[in] slopesY primitive variables slopes along Y in scratch mem
    * \param[in] offsets identifies where to reconstruct
    * \param[in] dtdx dt divided by dx
    * \param[in] dtdy dt divided by dy
@@ -393,9 +411,12 @@ public:
    * \return qr reconstructed state (primitive variables)
    */
   KOKKOS_INLINE_FUNCTION
-  HydroState2d reconstruct_state_2d(const HydroState2d &q, uint32_t index,
-                                    shared_2d_t slopesX, shared_2d_t slopesY,
-                                    offsets_t offsets, real_t dtdx,
+  HydroState2d reconstruct_state_2d(const HydroState2d &q, 
+                                    uint32_t index,
+                                    const shared_2d_t& slopesX, 
+                                    const shared_2d_t& slopesY,
+                                    offsets_t offsets, 
+                                    real_t dtdx,
                                     real_t dtdy) const {
     const double gamma = params.settings.gamma0;
     const double smallr = params.settings.smallr;
@@ -534,8 +555,8 @@ public:
     uint32_t iOctNextGroup = (iGroup + 1) * nbOctsPerGroup;
 
     // Allocate a shared array for the team to computes slopes
-    shared_2d_t slopesX(member.team_shmem(), nbCellsPerBlock1, nbvar);
-    shared_2d_t slopesY(member.team_shmem(), nbCellsPerBlock1, nbvar);
+    shared_2d_t slopesX = shared_2d_t(member.team_shmem(), nbCellsPerBlock1, nbvar);
+    shared_2d_t slopesY = shared_2d_t(member.team_shmem(), nbCellsPerBlock1, nbvar);
 
     const uint32_t &bx = blockSizes[IX];
     const uint32_t &by = blockSizes[IY];
