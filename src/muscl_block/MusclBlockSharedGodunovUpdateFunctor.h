@@ -68,7 +68,7 @@ public:
   // scratch memory aliases
   using shared_space = Kokkos::DefaultExecutionSpace::scratch_memory_space;
   using shared_2d_t =
-    Kokkos::View<real_t **, shared_space, Kokkos::MemoryUnmanaged>;
+    Kokkos::View<real_t **, Kokkos::MemoryUnmanaged>;
   
   void setNbTeams(uint32_t nbTeams_) { nbTeams = nbTeams_; };
   
@@ -85,7 +85,7 @@ public:
 
     // requested memory to store "dim" slopes array
     // each slope array is of size team_size, nbvar
-    return dim*shared_2d_t::shmem_size(team_size,nbvar); 
+    return dim*shared_2d_t::shmem_size(nbCellsPerBlock1,nbvar); 
 
   }
 
@@ -555,8 +555,8 @@ public:
     uint32_t iOctNextGroup = (iGroup + 1) * nbOctsPerGroup;
 
     // Allocate a shared array for the team to computes slopes
-    shared_2d_t slopesX = shared_2d_t(member.team_shmem(), nbCellsPerBlock1, nbvar);
-    shared_2d_t slopesY = shared_2d_t(member.team_shmem(), nbCellsPerBlock1, nbvar);
+    shared_2d_t slopesX = shared_2d_t(member.team_scratch(1), nbCellsPerBlock1, nbvar);
+    shared_2d_t slopesY = shared_2d_t(member.team_scratch(1), nbCellsPerBlock1, nbvar);
 
     const uint32_t &bx = blockSizes[IX];
     const uint32_t &by = blockSizes[IY];
@@ -573,7 +573,7 @@ public:
       // step 1 : compute limited slopes
       Kokkos::parallel_for(
           Kokkos::TeamVectorRange(member, nbCellsPerBlock1),
-          KOKKOS_LAMBDA(const int32_t index) {
+          [&](const int32_t index) {
             // convert index to coordinates in ghosted block (minus 1 !)
             // index = i + bx1 * j
             const int j = index / bx1;
@@ -619,7 +619,7 @@ public:
       // step 2 : reconstruct states on cells face and update
       Kokkos::parallel_for(
           Kokkos::TeamVectorRange(member, nbCellsPerBlock1),
-          KOKKOS_LAMBDA(const int32_t index) {
+          [&](const int32_t index) {
             // convert index to coordinates in ghosted block (minus 1 !)
             // index = i + bx1 * j
             const int j = index / bx1;
