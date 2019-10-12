@@ -96,16 +96,19 @@ public:
   void operator_2d(const thread_t& member, real_t &invDt) const
   {
     uint32_t iOct = member.league_rank();
-    uint32_t iCell = member.team_rank();
+    //uint32_t iCell = member.team_rank();
 
+    // total number of octants (of current MPI processor)
     uint32_t nbOct = pmesh->getNumOctants();
 
     const int& bx = blockSizes[IX];
     const int& by = blockSizes[IY];
     const int& bz = blockSizes[IZ];
 
+    // number of cells per octant
     uint32_t nbCells = params.dimType == TWO_D ? bx*by : bx*by*bz;
 
+    // initialize reduction variable
     real_t invDt_local = invDt;
 
     // 2D version
@@ -123,8 +126,10 @@ public:
       real_t dx = pmesh->levelToSize(level) / blockSizes[IX];
       real_t dy = pmesh->levelToSize(level) / blockSizes[IY];
 
+      // initialialize cell id
+      uint32_t iCell = member.team_rank();
       while (iCell < nbCells) {
-    
+        
         // get local conservative variable
         uLoc[ID] = Udata(iCell,fm[ID],iOct);
         uLoc[IP] = Udata(iCell,fm[IP],iOct);
