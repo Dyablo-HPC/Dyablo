@@ -460,11 +460,15 @@ void SolverHydroMusclBlock::godunov_unsplit_impl(DataArrayBlock data_in,
 
   for (int iGroup = 0; iGroup < nbGroup; ++iGroup) {
 
+    m_timers[TIMER_BLOCK_COPY]->start();
+
     // copy data_in (current group of octants) to Ugroup (inner cells)
     fill_block_data_inner(data_in, iGroup);
 
     // update ghost cells of all octant in current group of octants
     fill_block_data_ghost(data_in, iGroup);
+
+    m_timers[TIMER_BLOCK_COPY]->stop();
 
     // now ghost cells in current group are ok
     // convert conservative variable into primitives ones for the entire domain

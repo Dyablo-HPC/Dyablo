@@ -24,6 +24,8 @@ inline void print_solver_monitoring_info(SolverBase* solver)
   real_t t_amr_map_userdata = solver->m_timers[TIMER_AMR_CYCLE_MAP_USERDATA]->elapsed();
   real_t t_amr_load_balance = solver->m_timers[TIMER_AMR_CYCLE_LOAD_BALANCE]->elapsed();
 
+  real_t t_block_copy = solver->m_timers[TIMER_BLOCK_COPY]->elapsed();
+
   int myRank = 0;
   int nProcs = 1;
   UNUSED(nProcs);
@@ -41,6 +43,9 @@ inline void print_solver_monitoring_info(SolverBase* solver)
     printf("compute dt  time : %5.3f secondes %5.2f%%\n",t_dt,100*t_dt/t_tot);
     printf("boundaries  time : %5.3f secondes %5.2f%%\n",t_bound,100*t_bound/t_tot);
     printf("io          time : %5.3f secondes %5.2f%%\n",t_io,100*t_io/t_tot);
+
+    printf("block copy  time : %5.3f secondes %5.2f%%\n",t_block_copy,100*t_block_copy/t_tot);
+
     printf("amr cycle   time : %5.3f secondes %5.2f%%\n",t_amr,100*t_amr/t_tot);
 
     printf("amr cycle sync ghost    : %5.3f secondes %5.2f%%\n",t_amr_sync_ghost,100*t_amr_sync_ghost/t_tot);
