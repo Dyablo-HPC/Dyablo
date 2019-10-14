@@ -433,7 +433,7 @@ public:
   // ==============================================================
   /**
    * Fill (copy) ghost cell data of current octant (iOct) from
-   * a neighbor octant is case neighbor has the same size (i.e.
+   * a neighbor octant in case neighbor has the same size (i.e.
    * same AMR level).
    *
    * \param[in] iOct global index to current octant
@@ -531,12 +531,12 @@ public:
   // ==============================================================
   /**
    * Fill (copy) ghost cell data of current octant (iOct) from
-   * a neighbor octant is case neighbor is LARGER (i.e.
+   * a neighbor octant in case neighbor is LARGER (i.e.
    * one level less than current octant's level).
    *
-   * \param[in] iOct global index to current octant
-   * \param[in] iOct_local local index (i.e. inside group) to current octant
-   * \param[in] iOct_neigh global index to neighbor octant
+   * \param[in] iOct global index of current octant
+   * \param[in] iOct_local local index (i.e. inside group) of current octant
+   * \param[in] iOct_neigh global index of neighbor octant
    * \param[in] is_ghost boolean value, true if neighbor is MPI ghost octant
    * \param[in] index integer used to map the ghost cell to fill
    * \param[in] dir identifies direction of the face border to be filled
@@ -546,11 +546,11 @@ public:
    * Remember that a left interface (for current octant) is a right interface for neighbor octant.
    *
    * Difficulty is to deal with these two possibilities:
-   * current  (small) cell on the right
-   * neighbor (large) cell on the left
+   * - current  (small) cell on the right
+   * - neighbor (large) cell on the left
    *
    * These 2 situations schematically are
-   *  _______              ______    __
+   *  ______               ______    __
    * |      |             |      |  |  |
    * |      |   __    or  |      |  |__|
    * |      |  |  |       |      |
@@ -647,7 +647,7 @@ public:
   // ==============================================================
   /**
    * Fill (copy) ghost cell data of current octant (iOct) from
-   * a neighbor octant is case neighbor is SMALLER (i.e.
+   * a neighbor octant in case neighbor is SMALLER (i.e.
    * one level more than current octant's level).
    *
    * \param[in] iOct global index to current octant
