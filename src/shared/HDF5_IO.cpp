@@ -497,14 +497,19 @@ HDF5_Writer::write_quadrant_attribute(DataArrayBlock  data,
     // get variable id
     int iVar = iter.second;
 
-    // we need to gather data corresponding to the given variable
-    using DataArrayScalar = Kokkos::View<real_t*, Kokkos::HostSpace>;
-    
-    DataArrayScalar dataVar = DataArrayScalar("scalar_array_for_hdf5_io",data.extent(0)*data.extent(2));
-
     uint32_t nbCellsPerOct = data.extent(0);
+    uint32_t nbOcts = data.extent(2);
 
-    Kokkos::parallel_for(data.extent(2), KOKKOS_LAMBDA (uint32_t i) {
+    // we need to gather data corresponding to a given scalar variable
+    using DataArrayScalar = Kokkos::View<real_t*, Kokkos::HostSpace>;
+
+    // remember that
+    // - data.extent(0) is the number of cells per octant
+    // - data.extent(1) is the number of scalar fields
+    // - data.extent(2) is the total number of oct in current MPI process
+    DataArrayScalar dataVar = DataArrayScalar("scalar_array_for_hdf5_io", nbCellsPerOct*nbOcts);
+
+    Kokkos::parallel_for(nbOcts, KOKKOS_LAMBDA (uint32_t i) {
         for (uint32_t index=0; index<nbCellsPerOct; ++index)
           dataVar(index + nbCellsPerOct*i) = data(index,fm[iVar],i);
       });
@@ -519,6 +524,71 @@ HDF5_Writer::write_quadrant_attribute(DataArrayBlock  data,
   return 0;
 
 } // HDF5_Writer::write_quadrant_attribute
+
+// =======================================================
+// =======================================================
+int
+HDF5_Writer::write_quadrant_mach_number(DataArrayBlock data,
+                                        id2index_t fm)
+{
+  // copy data from device to host
+  DataArrayBlockHost datah = Kokkos::create_mirror(data);
+  
+  // copy device data to host
+  Kokkos::deep_copy(datah, data);
+  
+  {
+    
+    using DataArrayScalar = Kokkos::View<real_t*, Kokkos::HostSpace>;
+
+    uint32_t nbCellsPerOct = data.extent(0);
+    uint32_t nbOcts = data.extent(2);
+
+    DataArrayScalar mach_number = DataArrayScalar("mach_number", nbCellsPerOct*nbOcts);
+
+    Kokkos::parallel_for(
+      nbOcts, KOKKOS_LAMBDA(uint32_t iOct) {
+        for (uint32_t index = 0; index < nbCellsPerOct; ++index) {
+          
+          real_t d = datah(index, fm[ID], iOct);
+          real_t u = datah(index, fm[IU], iOct) / datah(index, fm[ID], iOct);
+          real_t v = datah(index, fm[IV], iOct) / datah(index, fm[ID], iOct);
+          real_t w = fm[IW] == -1 ? 0 : 
+            datah(index, fm[IW], iOct) / datah(index, fm[ID], iOct);
+          
+          // kinetic energy
+          real_t eken = 0.5 * d * (u * u + v * v + w * w);
+          
+          // internal energy
+          real_t eint = datah(index, fm[IE], iOct) - eken;
+          
+          // specific heat ratio
+          real_t gamma0 = m_params.settings.gamma0;
+          
+          // pressure
+          real_t p = (gamma0 - 1) * eint;
+          
+          // square speed of sound
+          real_t cs2 = p / d;
+          
+          // velocity square
+          real_t u2 = u * u + v * v + w * w;
+          
+          mach_number(index + nbCellsPerOct*iOct) = sqrt(u2 / cs2);
+          
+        } // end for index
+      });
+    
+    // actual data writing
+    write_attribute("Mach", mach_number.ptr_on_device(), 
+                    0, IO_CELL_SCALAR,
+                    H5T_NATIVE_DOUBLE, H5T_NATIVE_DOUBLE);
+
+  }
+    
+  return 0;
+
+} // HDF5_Writer::write_quadrant_mach_number
 
 // =======================================================
 // =======================================================

@@ -692,7 +692,7 @@ void SolverHydroMusclBlock::save_solution_hdf5()
       // we could have used primitive variables, but since here Q
       // may not have the same size, Q may need to be resized
       // and recomputed anyway.
-      //hdf5_writer->write_quadrant_mach_number(U, fm);
+      hdf5_writer->write_quadrant_mach_number(U, fm);
     }
 
     // close the file
