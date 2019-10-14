@@ -41,7 +41,8 @@ enum TimerIds {
   TIMER_AMR_CYCLE_ADAPT_MESH = 8,
   TIMER_AMR_CYCLE_MAP_USERDATA = 9,
   TIMER_AMR_CYCLE_LOAD_BALANCE = 10,
-  TIMER_BLOCK_COPY = 11
+  TIMER_BLOCK_COPY = 11,
+  TIMER_NB = 12 // number of TIMERs, do not remove
 }; // enum TimerIds
 
 namespace dyablo {
@@ -158,7 +159,10 @@ public:
   
   //! read restart data
   virtual void read_restart_file();
-  
+
+  //! print monitoring information
+  virtual void print_monitoring_info();
+
   /* IO related */
 
   //! counter incremented each time an output is written

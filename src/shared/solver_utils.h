@@ -31,8 +31,8 @@ inline void print_solver_monitoring_info(SolverBase* solver)
   UNUSED(nProcs);
 
 #ifdef USE_MPI
-  myRank = solver->params.myRank;
-  nProcs = solver->params.nProcs;
+  myRank = params.myRank;
+  nProcs = params.nProcs;
 #endif // USE_MPI
   
   // only print on master
