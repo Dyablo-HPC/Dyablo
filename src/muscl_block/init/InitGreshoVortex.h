@@ -109,7 +109,7 @@ public:
       // coordinates of the lower left corner
       const real_t x0 = pmesh->getNode(iOct, 0)[IX];
       const real_t y0 = pmesh->getNode(iOct, 0)[IY];
-      const real_t z0 = pmesh->getNode(iOct, 0)[IZ];
+      //const real_t z0 = pmesh->getNode(iOct, 0)[IZ];
 
       // gresho vortex parameters
       const real_t gamma0  = params.settings.gamma0;
@@ -125,7 +125,7 @@ public:
             coord_t iCoord;
             uint32_t &ix = iCoord[IX];
             uint32_t &iy = iCoord[IY];
-            uint32_t &iz = iCoord[IZ];
+            //uint32_t &iz = iCoord[IZ];
 
             if (params.dimType == TWO_D) {
               iCoord = index_to_coord<2>(index, blockSizes);
