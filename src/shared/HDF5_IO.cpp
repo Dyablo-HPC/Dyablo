@@ -342,8 +342,10 @@ HDF5_Writer::write_quadrant_attribute(DataArray  data,
       
       DataArrayScalar dataVar = DataArrayScalar("scalar_array_for_hdf5_io",data.extent(0));
 
-      Kokkos::parallel_for(data.extent(0), KOKKOS_LAMBDA (uint32_t i) {
-          dataVar(i) = data(i,fm[iVar]);
+      uint32_t nbOcts = data.extent(0);
+
+      Kokkos::parallel_for(nbOcts, KOKKOS_LAMBDA (uint32_t iOct) {
+          dataVar(iOct) = data(iOct,fm[iVar]);
         });
 
       // actual data writing
@@ -376,20 +378,22 @@ HDF5_Writer::write_quadrant_velocity(DataArray  data,
   
   int dim = fm[IW]==-1 ? 2 : 3;
 
-  DataArrayVector dataVector = DataArrayVector("temp_array_hdf5", data.extent(0)*3);
+  uint32_t nbOcts = data.extent(0);
+
+  DataArrayVector dataVector = DataArrayVector("temp_array_hdf5", nbOcts*3);
 
   Kokkos::parallel_for(
-      data.extent(0), KOKKOS_LAMBDA(uint32_t i) {
+    nbOcts, KOKKOS_LAMBDA(uint32_t iOct) {
         if (use_momentum) {
-          dataVector(3 * i + 0) = data(i, fm[IU]);
-          dataVector(3 * i + 1) = data(i, fm[IV]);
+          dataVector(3 * iOct + 0) = data(iOct, fm[IU]);
+          dataVector(3 * iOct + 1) = data(iOct, fm[IV]);
           //if (dim == 3)
-          dataVector(3 * i + 2) = dim==3 ? data(i, fm[IW]) : 0;
+          dataVector(3 * iOct + 2) = dim==3 ? data(iOct, fm[IW]) : 0;
         } else {
-          dataVector(3 * i + 0) = data(i, fm[IU])/data(i, fm[ID]);
-          dataVector(3 * i + 1) = data(i, fm[IV])/data(i, fm[ID]);
+          dataVector(3 * iOct + 0) = data(iOct, fm[IU])/data(iOct, fm[ID]);
+          dataVector(3 * iOct + 1) = data(iOct, fm[IV])/data(iOct, fm[ID]);
           //if (3 == 3)
-          dataVector(3 * i + 2) = dim==3 ? data(i, fm[IW])/data(i, fm[ID]) : 0;
+          dataVector(3 * iOct + 2) = dim==3 ? data(iOct, fm[IW])/data(iOct, fm[ID]) : 0;
         }
       });
 
