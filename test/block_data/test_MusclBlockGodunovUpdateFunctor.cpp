@@ -118,7 +118,7 @@ void run_test(int argc, char *argv[]) {
             << "bz_g=" << bz_g << " "
             << "ghostwidth=" << ghostWidth << "\n";
 
-  uint32_t nbCellsPerOct = params.dimType == TWO_D ? bx * by : bx * by * bz;
+  //uint32_t nbCellsPerOct = params.dimType == TWO_D ? bx * by : bx * by * bz;
   uint32_t nbCellsPerOct_g =
       params.dimType == TWO_D ? bx_g * by_g : bx_g * by_g * bz_g;
 

@@ -458,7 +458,7 @@ void SolverHydroMusclBlock::godunov_unsplit_impl(DataArrayBlock data_in,
   // number of group of octants, rounding to upper value
   uint32_t nbGroup = (nbOcts + nbOctsPerGroup - 1) / nbOctsPerGroup;
 
-  for (int iGroup = 0; iGroup < nbGroup; ++iGroup) {
+  for (uint32_t iGroup = 0; iGroup < nbGroup; ++iGroup) {
 
     m_timers[TIMER_BLOCK_COPY]->start();
 
@@ -475,9 +475,6 @@ void SolverHydroMusclBlock::godunov_unsplit_impl(DataArrayBlock data_in,
     convertToPrimitives(iGroup);
 
     // perform time integration :
-    // - slopes computation 
-    // - compute fluxes (finite volume) and update
-    //compute_fluxes_and_update(data_in, data_out, dt);
 
     /*
      * algorithmic variant using shared memory, but no extra
@@ -550,82 +547,6 @@ void SolverHydroMusclBlock::convertToPrimitives(uint32_t iGroup)
 
   
 } // SolverHydroMusclBlock::convertToPrimitives
-
-// =======================================================
-// =======================================================
-void SolverHydroMusclBlock::reconstruct_gradients(uint32_t iGroup)
-{
-
-  // TODO - NOT USED ANYMORE - TO BE REMOVED
-
-  // retrieve available / allowed names: fieldManager, and field map (fm)
-  // necessary to access user data
-  auto fm = fieldMgr.get_id2index();
-
-  // call device functor
-  // ReconstructGradientsHydroFunctor::apply(amr_mesh, params, fm, 
-  //                                         Q, Qghost, 
-  //                                         Slopes_x, Slopes_y, Slopes_z);
-  
-} // SolverHydroMusclBlock::reconstruct_gradients
-
-// =======================================================
-// =======================================================
-void SolverHydroMusclBlock::compute_fluxes_and_update(DataArrayBlock data_in,
-                                                      DataArrayBlock data_out,
-                                                      real_t dt)
-{
-
-  // TODO - NOT USED ANYMORE - TO BE REMOVED
-
-  // we need Qdata in ghost update, but this has already been done in 
-  // reconstruct_gradients
-  // we also need slopes in ghost up to date
-  synchronize_ghost_data(UserDataCommType::SLOPES);
-
-  // retrieve available / allowed names: fieldManager, and field map (fm)
-  // necessary to access user data
-  auto fm = fieldMgr.get_id2index();
-
-  // call device functor
-
-  if (params.rsst_enabled) {
-
-    Kokkos::resize(Fluxes, U.extent(0), U.extent(1), U.extent(2));
-    
-    // stored out fluxes in Fluxes
-    // ComputeFluxesAndUpdateHydroFunctor::apply(amr_mesh, params, fm,
-    //                                           data_in, Fluxes,
-    //                                           Q, Qghost,
-    //                                           Slopes_x,
-    //                                           Slopes_y,
-    //                                           Slopes_z,
-    //                                           Slopes_x_ghost,
-    //                                           Slopes_y_ghost,
-    //                                           Slopes_z_ghost,
-    //                                           dt);
-
-    // // then modify fluxes with RSST correction + update
-    // UpdateRSSTHydroFunctor::apply(amr_mesh, params, fm,
-    //                               data_in, data_out,
-    //                               Q,Fluxes);
-
-  } else {
-
-    // ComputeFluxesAndUpdateHydroFunctor::apply(amr_mesh, params, fm,
-    //                                           data_in, data_out,
-    //                                           Q, Qghost,
-    //                                           Slopes_x,
-    //                                           Slopes_y,
-    //                                           Slopes_z,
-    //                                           Slopes_x_ghost,
-    //                                           Slopes_y_ghost,
-    //                                           Slopes_z_ghost,
-    //                                           dt);
-
-  }
-
-} // SolverHydroMusclBlock::compute_fluxes_and_update
 
 // =======================================================
 // =======================================================
@@ -748,7 +669,8 @@ void SolverHydroMusclBlock::synchronize_ghost_data(UserDataCommType t)
     amr_mesh->communicate(data_comm);
     break;
   }
-
+  default:
+    break;
   } // end switch
   
 #endif // BITPIT_ENABLE_MPI==1
@@ -766,12 +688,12 @@ void SolverHydroMusclBlock::mark_cells()
 
   // retrieve available / allowed names: fieldManager, and field map (fm)
   // necessary to access user data
-  auto fm = fieldMgr.get_id2index();
+  //auto fm = fieldMgr.get_id2index();
 
-  real_t eps_refine  = configMap.getFloat("amr", "epsilon_refine", 0.001);
-  real_t eps_coarsen = configMap.getFloat("amr", "epsilon_coarsen", 0.002);
+  //real_t eps_refine  = configMap.getFloat("amr", "epsilon_refine", 0.001);
+  //real_t eps_coarsen = configMap.getFloat("amr", "epsilon_coarsen", 0.002);
 
-  DataArrayBlock Udata = U2;
+  //DataArrayBlock Udata = U2;
 
   // Note: Ughost is up to date, update at the beginning of do_amr_cycle
 

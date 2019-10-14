@@ -400,19 +400,16 @@ public:
     const real_t p = q[IP];
     const real_t u = q[IU];
     const real_t v = q[IV];
-    const real_t w = 0.0;
 
     const real_t drx = dqX[ID] * 0.5;
     const real_t dpx = dqX[IP] * 0.5;
     const real_t dux = dqX[IU] * 0.5;
     const real_t dvx = dqX[IV] * 0.5;
-    const real_t dwx = 0.0;
     
     const real_t dry = dqY[ID] * 0.5;
     const real_t dpy = dqY[IP] * 0.5;
     const real_t duy = dqY[IU] * 0.5;
     const real_t dvy = dqY[IV] * 0.5;
-    const real_t dwy = 0.0;
         
     // source terms (with transverse derivatives)
     const real_t sr0 = (-u*drx-dux*r      )*dtdx + (-v*dry-dvy*r      )*dtdy;
@@ -576,8 +573,6 @@ public:
   void compute_slopes_2d(thread1_t member) const 
   {
 
-    const int nbvar = 2;
-
     // iOct must span the range [iGroup*nbOctsPerGroup ,
     // (iGroup+1)*nbOctsPerGroup [
     uint32_t iOct = member.league_rank() + iGroup * nbOctsPerGroup;
@@ -588,18 +583,8 @@ public:
     // compute first octant index after current group
     uint32_t iOctNextGroup = (iGroup + 1) * nbOctsPerGroup;
 
-    const uint32_t& bx = blockSizes[IX];
-    const uint32_t& by = blockSizes[IY];
-
     while (iOct < iOctNextGroup and iOct < nbOcts)
     {
-
-      // compute dx / dy
-      const real_t dx = (iOct < nbOcts) ? pmesh->getSize(iOct)/bx : 1.0;
-      const real_t dy = (iOct < nbOcts) ? pmesh->getSize(iOct)/by : 1.0;
-      
-      const real_t dtdx = dt/dx;
-      const real_t dtdy = dt/dy;
 
       /*
        * compute limited slopes
@@ -926,9 +911,9 @@ public:
   uint32_t bz_g;
 
   //! blockSizes with one ghost cell 
-  uint32_t bx1;
-  uint32_t by1;
-  uint32_t bz1;
+  int32_t bx1;
+  int32_t by1;
+  int32_t bz1;
 
   //! ghost width
   uint32_t ghostWidth;

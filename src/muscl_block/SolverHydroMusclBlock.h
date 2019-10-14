@@ -153,15 +153,6 @@ public:
   //! \todo we probably don't really need argument iGroup here - to be confirmed
   void convertToPrimitives(uint32_t iGroup);
 
-  //! reconstruct gradients / limited slopes
-  //! for all octant in iGroup'th group
-  void reconstruct_gradients(uint32_t iGroup);
-
-  //! compute flux (Riemann solver) and perform time update
-  void compute_fluxes_and_update(DataArrayBlock data_in, 
-                                 DataArrayBlock data_out,
-                                 real_t dt);
-
   //! output
   void save_solution_impl();
 
