@@ -774,14 +774,15 @@ void SolverHydroMuscl::map_userdata_after_adapt()
   // so let's just resize U, and remap U2 to U after the mesh adaptation
 
   //amr_mesh->adapt(true);
-  uint32_t nocts = amr_mesh->getNumOctants();
-  Kokkos::resize(U, nocts, nbVars);
+  uint32_t nbOcts = amr_mesh->getNumOctants();
+  Kokkos::resize(U, nbOcts, nbVars);
   
   // reset U
-  Kokkos::parallel_for("dyablo::muscl::SolverHydroMuscl reset U",nocts, KOKKOS_LAMBDA(const size_t i) {
-      for (int ivar=0; ivar<nbVars; ++ivar)
-        U(i,fm[ivar])=0.0;
-    });
+  Kokkos::parallel_for("dyablo::muscl::SolverHydroMuscl reset U", nbOcts, 
+                       KOKKOS_LAMBDA(const size_t i) {
+                         for (int ivar=0; ivar<nbVars; ++ivar)
+                           U(i,fm[ivar])=0.0;
+                       });
   
   /*
    * Assign to the new octant the average of the old children
@@ -789,25 +790,27 @@ void SolverHydroMuscl::map_userdata_after_adapt()
    * while assign to the new octant the data of the old father
    *  if it is new after a refinement.
    */
+  // TODO
   // TODO : make this loop a parallel_for ?
-  for (uint32_t i=0; i<nocts; i++) {
+  // TODO
+  for (uint32_t iOct=0; iOct<nbOcts; ++iOct) {
     
-    amr_mesh->getMapping(i, mapper, isghost);
+    amr_mesh->getMapping(iOct, mapper, isghost);
 
     // test is current cell is new upon a coarsening operation
-    if ( amr_mesh->getIsNewC(i) ) {
+    if ( amr_mesh->getIsNewC(iOct) ) {
 
       for (int j=0; j<m_nbChildren; ++j) {
 
 	if (isghost[j]) {
 	  
           for (int ivar=0; ivar<nbVars; ++ivar)
-	    U(i,fm[ivar]) += Ughost(mapper[j],fm[ivar])/m_nbChildren;
+	    U(iOct, fm[ivar]) += Ughost(mapper[j],fm[ivar]) / m_nbChildren;
 
         } else {
 
           for (int ivar = 0; ivar < nbVars; ++ivar)
-            U(i, fm[ivar]) += U2(mapper[j], fm[ivar]) / m_nbChildren;
+            U(iOct, fm[ivar]) += U2(mapper[j], fm[ivar]) / m_nbChildren;
         }
 
       }
@@ -818,7 +821,7 @@ void SolverHydroMuscl::map_userdata_after_adapt()
       // so we just copy data
       
       for (int ivar = 0; ivar < nbVars; ++ivar)
-        U(i, fm[ivar]) = U2(mapper[0], fm[ivar]);
+        U(iOct, fm[ivar]) = U2(mapper[0], fm[ivar]);
     }
   }
 
