@@ -353,19 +353,16 @@ public:
     const real_t p = q[IP];
     const real_t u = q[IU];
     const real_t v = q[IV];
-    const real_t w = 0.0;
 
     const real_t drx = dqX[ID] * 0.5;
     const real_t dpx = dqX[IP] * 0.5;
     const real_t dux = dqX[IU] * 0.5;
     const real_t dvx = dqX[IV] * 0.5;
-    const real_t dwx = 0.0;
 
     const real_t dry = dqY[ID] * 0.5;
     const real_t dpy = dqY[IP] * 0.5;
     const real_t duy = dqY[IU] * 0.5;
     const real_t dvy = dqY[IV] * 0.5;
-    const real_t dwy = 0.0;
 
     // source terms (with transverse derivatives)
     const real_t sr0 =
@@ -833,9 +830,9 @@ public:
   uint32_t bz_g;
 
   //! blockSizes with one ghost cell
-  uint32_t bx1;
-  uint32_t by1;
-  uint32_t bz1;
+  int32_t bx1;
+  int32_t by1;
+  int32_t bz1;
 
   //! ghost width
   uint32_t ghostWidth;
