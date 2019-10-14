@@ -734,7 +734,9 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
 
   m_timers[TIMER_AMR_CYCLE_MAP_USERDATA]->start();
 
-  // TODO : make is mapper and isghost Kokkos::View's so that
+  // TODO : refactor
+  // turn mapper and isghost into Kokkos::View's (instead of
+  // std::vector) so that
   // one can make the rest of this routine parallel
   std::vector<uint32_t> mapper;
   std::vector<bool> isghost;
@@ -767,10 +769,15 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
    *  if it is new after a coarsening;
    * while assign to the new octant the data of the old father
    *  if it is new after a refinement.
+   *
+   * Important, here we assume mapper containts octant id in the Morton order.
+   * We actually need to know how the old cells are located
+   * relatively one to another to perform correct remapping.
    */
   // TODO : make this loop a parallel_for ?
   for (uint32_t iOct=0; iOct<nocts; iOct++) {
-    
+
+    // fill mapper and isghost for current octant
     amr_mesh->getMapping(iOct, mapper, isghost);
 
     // test is current cell is new upon a coarsening operation
@@ -781,7 +788,7 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
 	if (isghost[j]) {
 	  
           // for (int ivar=0; ivar<nbVars; ++ivar)
-	  //   U(i,fm[ivar]) += Ughost(mapper[j],fm[ivar])/m_nbChildren;
+	  //   U(i,fm[ivar]) += Ughost(mapper[j],ivar)/m_nbChildren;
 
         } else {
 
