@@ -417,35 +417,24 @@ HDF5_Writer::write_quadrant_mach_number(DataArray  data,
   
   {
     
+    uint32_t nbOcts = data.extent(0);
+
     using DataArrayScalar = Kokkos::View<real_t*, Kokkos::HostSpace>;
     
-    DataArrayScalar mach_number = DataArrayScalar("mach_number", data.extent(0));
+    DataArrayScalar mach_number = DataArrayScalar("mach_number", nbOcts);
     
-    Kokkos::parallel_for(datah.extent(0), KOKKOS_LAMBDA (uint32_t i) {
+    Kokkos::parallel_for(nbOcts, KOKKOS_LAMBDA (uint32_t iOct) {
         
-        // // compute square fluid velocity
-        // real_t u2 = 
-        //   datah(i,fm[IU])*datah(i,fm[IU]) +
-        //   datah(i,fm[IV])*datah(i,fm[IV]);
-        // if (fm[IW]!=-1)
-        //   u2 += datah(i,fm[IW])*datah(i,fm[IW]);
-        
-
-        // // compute speed of sound (square) : pressure/density
-        // real_t cs2 = datah(i,fm[IP]) / datah(i,fm[ID]);
-
-        // mach_number(i) = sqrt(u2/cs2);
-
-        real_t d = datah(i,fm[ID]);
-        real_t u = datah(i,fm[IU])/datah(i,fm[ID]);
-        real_t v = datah(i,fm[IV])/datah(i,fm[ID]);
-        real_t w = fm[IW]==-1 ? 0 : datah(i,fm[IW])/datah(i,fm[ID]);
+        real_t d = datah(iOct,fm[ID]);
+        real_t u = datah(iOct,fm[IU])/datah(iOct,fm[ID]);
+        real_t v = datah(iOct,fm[IV])/datah(iOct,fm[ID]);
+        real_t w = fm[IW]==-1 ? 0 : datah(iOct,fm[IW])/datah(iOct,fm[ID]);
 
         // kinetic energy
         real_t eken = 0.5*d*(u*u+v*v+w*w); 
 
         // internal energy
-        real_t eint = datah(i,fm[IE])-eken;
+        real_t eint = datah(iOct,fm[IE])-eken;
 
         // specific heat ratio
         real_t gamma0 = m_params.settings.gamma0;
@@ -459,7 +448,7 @@ HDF5_Writer::write_quadrant_mach_number(DataArray  data,
         // velocity square
         real_t u2 = u*u+v*v+w*w;
 
-        mach_number(i) = sqrt(u2/cs2);
+        mach_number(iOct) = sqrt(u2/cs2);
 
       });
 
@@ -509,9 +498,9 @@ HDF5_Writer::write_quadrant_attribute(DataArrayBlock  data,
     // - data.extent(2) is the total number of oct in current MPI process
     DataArrayScalar dataVar = DataArrayScalar("scalar_array_for_hdf5_io", nbCellsPerOct*nbOcts);
 
-    Kokkos::parallel_for(nbOcts, KOKKOS_LAMBDA (uint32_t i) {
-        for (uint32_t index=0; index<nbCellsPerOct; ++index)
-          dataVar(index + nbCellsPerOct*i) = data(index,fm[iVar],i);
+    Kokkos::parallel_for(nbOcts, KOKKOS_LAMBDA (uint32_t iOct) {
+        for (uint32_t iCell=0; iCell<nbCellsPerOct; ++iCell)
+          dataVar(iCell + nbCellsPerOct*iOct) = data(iCell,fm[iVar],iOct);
       });
     
     // actual data writing
@@ -548,19 +537,19 @@ HDF5_Writer::write_quadrant_mach_number(DataArrayBlock data,
 
     Kokkos::parallel_for(
       nbOcts, KOKKOS_LAMBDA(uint32_t iOct) {
-        for (uint32_t index = 0; index < nbCellsPerOct; ++index) {
+        for (uint32_t iCell = 0; iCell < nbCellsPerOct; ++iCell) {
           
-          real_t d = datah(index, fm[ID], iOct);
-          real_t u = datah(index, fm[IU], iOct) / datah(index, fm[ID], iOct);
-          real_t v = datah(index, fm[IV], iOct) / datah(index, fm[ID], iOct);
+          real_t d = datah(iCell, fm[ID], iOct);
+          real_t u = datah(iCell, fm[IU], iOct) / datah(iCell, fm[ID], iOct);
+          real_t v = datah(iCell, fm[IV], iOct) / datah(iCell, fm[ID], iOct);
           real_t w = fm[IW] == -1 ? 0 : 
-            datah(index, fm[IW], iOct) / datah(index, fm[ID], iOct);
+            datah(iCell, fm[IW], iOct) / datah(iCell, fm[ID], iOct);
           
           // kinetic energy
           real_t eken = 0.5 * d * (u * u + v * v + w * w);
           
           // internal energy
-          real_t eint = datah(index, fm[IE], iOct) - eken;
+          real_t eint = datah(iCell, fm[IE], iOct) - eken;
           
           // specific heat ratio
           real_t gamma0 = m_params.settings.gamma0;
@@ -574,9 +563,9 @@ HDF5_Writer::write_quadrant_mach_number(DataArrayBlock data,
           // velocity square
           real_t u2 = u * u + v * v + w * w;
           
-          mach_number(index + nbCellsPerOct*iOct) = sqrt(u2 / cs2);
+          mach_number(iCell + nbCellsPerOct*iOct) = sqrt(u2 / cs2);
           
-        } // end for index
+        } // end for iCell
       });
     
     // actual data writing
