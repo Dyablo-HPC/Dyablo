@@ -156,6 +156,9 @@ public:
   //! output
   void save_solution_impl();
 
+  //! redefine base class method
+  void print_monitoring_info();
+
   //! ghost width
   uint32_t ghostWidth;
 

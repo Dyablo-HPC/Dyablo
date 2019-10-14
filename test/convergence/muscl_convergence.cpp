@@ -259,7 +259,7 @@ errors_t test_isentropic_vortex(int level_min, int level_max, real_t tEnd)
 
   errors_t error = compute_error_versus_exact(solver);
   
-  print_solver_monitoring_info(solver);
+  solver->print_monitoring_info();
 
   printf("test isentropic vortex for level_min=%d, level_max=%d, error L1=%6.4e, error L2=%6.4e\n",level_min,level_max,error[NORM_L1],error[NORM_L2]);
   

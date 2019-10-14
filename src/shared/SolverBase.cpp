@@ -361,7 +361,7 @@ SolverBase::print_monitoring_info()
   real_t t_amr_map_userdata = m_timers[TIMER_AMR_CYCLE_MAP_USERDATA]->elapsed();
   real_t t_amr_load_balance = m_timers[TIMER_AMR_CYCLE_LOAD_BALANCE]->elapsed();
 
-  real_t t_block_copy = m_timers[TIMER_BLOCK_COPY]->elapsed();
+  //real_t t_block_copy = m_timers[TIMER_BLOCK_COPY]->elapsed();
 
   int myRank = 0;
   int nProcs = 1;
@@ -385,8 +385,8 @@ SolverBase::print_monitoring_info()
     printf("io          time : %5.3f secondes %5.2f%%\n", t_io,
            100 * t_io / t_tot);
 
-    printf("block copy  time : %5.3f secondes %5.2f%%\n", t_block_copy,
-           100 * t_block_copy / t_tot);
+    // printf("block copy  time : %5.3f secondes %5.2f%%\n", t_block_copy,
+    //        100 * t_block_copy / t_tot);
 
     printf("amr cycle   time : %5.3f secondes %5.2f%%\n", t_amr,
            100 * t_amr / t_tot);
