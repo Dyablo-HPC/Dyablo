@@ -137,7 +137,7 @@ void run(int dim)
       for (uint8_t icodim2=0; icodim2<ncodim2; ++icodim2){
 	amr_mesh.findNeighbours(i,icodim2,2,neigh_t,isghost_t);
 	printf("neighbors of %d through codim=2 %d are : ",i,icodim2);
-        printf("|| number=%d || ",neigh_t.size());
+        printf("|| number=%ld || ",neigh_t.size());
         for (size_t ineigh=0; ineigh<neigh_t.size(); ++ineigh) {
 	  printf(" %d ",neigh_t[ineigh]);
 	}
@@ -150,7 +150,7 @@ void run(int dim)
         for (uint8_t icodim3=0; icodim3<ncodim3; ++icodim3){
           amr_mesh.findNeighbours(i,icodim3,2,neigh_t,isghost_t);
           printf("neighbors of %d through codim=3 %d are : ",i,icodim3);
-          printf("|| number=%d || ",neigh_t.size());
+          printf("|| number=%ld || ",neigh_t.size());
           for (size_t ineigh=0; ineigh<neigh_t.size(); ++ineigh) {
             printf(" %d ",neigh_t[ineigh]);
           }
@@ -263,7 +263,7 @@ void run(int dim)
           for (uint8_t iedge=0; iedge<nedge; ++iedge) {
             amr_mesh.findNeighbours(i,iedge,codim,neigh_t,isghost_t);
             printf("neighbors of %d through edge %d are : ",i,iedge);
-            printf("|| number=%d || ",neigh_t.size());
+            printf("|| number=%ld || ",neigh_t.size());
             for (size_t ineigh=0; ineigh<neigh_t.size(); ++ineigh) {
               printf(" %d ",neigh_t[ineigh]);
             }
