@@ -852,9 +852,9 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
     // test is current cell is new upon a coarsening operation
     if ( amr_mesh->getIsNewC(iOct) ) {
 
-      for (int j=0; j<m_nbChildren; ++j) {
+      for (int iOctChild=0; iOctChild<m_nbChildren; ++iOctChild) {
 
-	if (isghost[j]) {
+	if (isghost[iOctChild]) {
 	  
           // for (int ivar=0; ivar<nbVars; ++ivar)
 	  //   U(i,fm[ivar]) += Ughost(mapper[j],ivar)/m_nbChildren;
