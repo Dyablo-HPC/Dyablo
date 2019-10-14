@@ -843,8 +843,10 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
    * We actually need to know how the old cells are located
    * relatively one to another to perform correct remapping.
    */
-  // TODO : make this loop a parallel_for ?
-  for (uint32_t iOct=0; iOct<nocts; iOct++) {
+  // TODO
+  // TODO : make this loop a parallel_for
+  // TODO
+  for (uint32_t iOct=0; iOct<nocts; ++iOct) {
 
     // fill mapper and isghost for current octant
     amr_mesh->getMapping(iOct, mapper, isghost);
@@ -852,32 +854,70 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
     // test is current cell is new upon a coarsening operation
     if ( amr_mesh->getIsNewC(iOct) ) {
 
-      for (int iOctChild=0; iOctChild<m_nbChildren; ++iOctChild) {
+      // UNFINISHED
 
-	if (isghost[iOctChild]) {
-	  
-          // for (int ivar=0; ivar<nbVars; ++ivar)
-	  //   U(i,fm[ivar]) += Ughost(mapper[j],ivar)/m_nbChildren;
+      // note : in 2d, bz should be 1
+      for (uint8_t k=0; k < bz; ++k)
+        for (uint8_t j=0; j < by; ++j)
+          for (uint8_t i=0; i < bx; ++i) {
 
-        } else {
+            uint8_t iCell = i + bx*j + bx*by*k;
 
-          // for (int ivar = 0; ivar < nbVars; ++ivar)
-          //   U(i, fm[ivar]) += U2(mapper[j], fm[ivar]) / m_nbChildren;
+            uint8_t iOctChild;
 
-        }
+            // extract coordinates for each child octant (morton order)
+            // a,b,c can only be 0 or 1 !!!
+            uint8_t a, b, c;
+            
+            // child cell coordinate inside block
+            uint8_t i2,j2,k2;
+            
 
-      }
+            i2 = 2*i;
+            j2 = 2*j;
+            k2 = 2*k;
 
+            a = i2 >= bx ? 1 : 0;
+            b = j2 >= by ? 1 : 0;
+            c = k2 >= bz ? 1 : 0;
+            //iOctChild =  a + 2*b + 4*c;
+            iOctChild = a | (b<<1) | (c<<2);
+
+            // bring back i2,j2,k2 in valid range
+            i2 = i2 - a*bx;
+            j2 = j2 - b*by;
+            k2 = k2 - c*bx;
+
+            uint iCellChild = i2 + bx*j2 + bx*by*k2; 
+            
+            for (int ivar=0; ivar<nbVars; ++ivar) {
+              
+              U(iCell, fm[ivar], iOct) += (isghost[iOctChild]) ?
+                Ughost(iCellChild, fm[ivar], mapper[iOctChild]) / m_nbChildren :
+                U2    (iCellChild, fm[ivar], mapper[iOctChild]) / m_nbChildren;
+              
+            } // end for ivar
+                                  
+          } // end for i,j,k
+      
     } else {
       
       // current cell is just an old cell or new upon a refinement,
       // so we just copy data
-      
-      // for (int ivar = 0; ivar < nbVars; ++ivar)
-      //   U(i, fm[ivar]) = U2(mapper[0], fm[ivar]);
 
-    }
-  }
+      for (int ivar = 0; ivar < nbVars; ++ivar) {
+
+        for (int iCell = 0; iCell < nbCellsPerOct; ++iCell) {
+
+          U(iCell, fm[ivar], iOct) = U2(iCell, fm[ivar], mapper[0]);
+
+        } // end for iCell 
+
+      } // end vor ivar
+
+    } // end if isNewC
+  
+  } // end for iOct
 
   // now U contains the most up to date data after mesh adaptation
   // we can resize U2 for the next time-step
