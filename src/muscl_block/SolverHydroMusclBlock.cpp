@@ -471,7 +471,9 @@ void SolverHydroMusclBlock::godunov_unsplit_impl(DataArrayBlock data_in,
     m_timers[TIMER_BLOCK_COPY]->stop();
 
     // now ghost cells in current group are ok
-    // convert conservative variable into primitives ones for the entire domain
+    // convert conservative variable into primitives ones for the given group
+    // input is  Ugroup
+    // output is Qgroup
     convertToPrimitives(iGroup);
 
     // perform time integration :
@@ -757,19 +759,47 @@ void SolverHydroMusclBlock::mark_cells()
 
   // retrieve available / allowed names: fieldManager, and field map (fm)
   // necessary to access user data
-  //auto fm = fieldMgr.get_id2index();
+  auto fm = fieldMgr.get_id2index();
 
-  //real_t eps_refine  = configMap.getFloat("amr", "epsilon_refine", 0.001);
-  //real_t eps_coarsen = configMap.getFloat("amr", "epsilon_coarsen", 0.002);
+  real_t error_min = configMap.getFloat("amr", "error_min", 0.2);
+  real_t error_max = configMap.getFloat("amr", "error_max", 0.8);
 
-  //DataArrayBlock Udata = U2;
+  DataArrayBlock Udata = U2;
 
-  // Note: Ughost is up to date, update at the beginning of do_amr_cycle
+  // apply refinement criterion by parts
+  
+  uint32_t nbOcts = amr_mesh->getNumOctants();
 
-  // TODO
-  // call device functor to flag for refine/coarsen
-  // MarkCellsHydroFunctor::apply(amr_mesh, params, fm, Udata, Ughost,
-  //                              eps_refine, eps_coarsen);
+  // number of group of octants, rounding to upper value
+  uint32_t nbGroup = (nbOcts + nbOctsPerGroup - 1) / nbOctsPerGroup;
+
+  for (uint32_t iGroup = 0; iGroup < nbGroup; ++iGroup) {
+
+    m_timers[TIMER_BLOCK_COPY]->start();
+
+    // copy data_in (current group of octants) to Ugroup (inner cells)
+    fill_block_data_inner(Udata, iGroup);
+
+    // update ghost cells of all octant in current group of octants
+    fill_block_data_ghost(Udata, iGroup);
+
+    m_timers[TIMER_BLOCK_COPY]->stop();
+
+    // now ghost cells in current group are ok
+    // convert conservative variable into primitives ones for the given group
+    // input is  Ugroup
+    // output is Qgroup
+    convertToPrimitives(iGroup);
+
+    // finaly apply refine criterion : 
+    // call device functor to flag for refine/coarsen
+    MarkOctantsHydroFunctor::apply(amr_mesh, configMap, params, fm,
+                                   blockSizes, ghostWidth,
+                                   nbOcts, nbOctsPerGroup,
+                                   Qgroup, iGroup,
+                                   error_min, error_max);
+
+  } // end for iGroup
 
   m_timers[TIMER_AMR_CYCLE_MARK_CELLS]->stop();
 
