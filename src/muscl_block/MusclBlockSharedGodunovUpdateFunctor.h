@@ -537,7 +537,7 @@ public:
   // ====================================================================
   // ====================================================================
   KOKKOS_INLINE_FUNCTION
-  void operator_2d(team_policy_t::member_type member) const {
+  void operator_2d(const thread_t& member) const {
 
     const int nbvar = HydroState2d::size();
 
@@ -797,12 +797,12 @@ public:
   // ====================================================================
   // ====================================================================
   KOKKOS_INLINE_FUNCTION
-  void operator_3d(team_policy_t::member_type member) const {} // operator_3d
+  void operator_3d(const thread_t& member) const {} // operator_3d
 
   // ====================================================================
   // ====================================================================
   KOKKOS_INLINE_FUNCTION
-  void operator()(team_policy_t::member_type member) const {
+  void operator()(const thread_t& member) const {
 
     if (this->params.dimType == TWO_D)
       operator_2d(member);
