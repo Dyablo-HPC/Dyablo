@@ -450,9 +450,6 @@ void SolverHydroMusclBlock::godunov_unsplit_impl(DataArrayBlock data_in,
   // data_out = data_in;
   Kokkos::deep_copy(data_out, data_in);
   
-  // start main computation
-  m_timers[TIMER_NUM_SCHEME]->start();
-
   uint32_t nbOcts = amr_mesh->getNumOctants();
 
   // number of group of octants, rounding to upper value
@@ -469,6 +466,9 @@ void SolverHydroMusclBlock::godunov_unsplit_impl(DataArrayBlock data_in,
     fill_block_data_ghost(data_in, iGroup);
 
     m_timers[TIMER_BLOCK_COPY]->stop();
+
+    // start main computation
+    m_timers[TIMER_NUM_SCHEME]->start();
 
     // now ghost cells in current group are ok
     // convert conservative variable into primitives ones for the given group
@@ -515,10 +515,10 @@ void SolverHydroMusclBlock::godunov_unsplit_impl(DataArrayBlock data_in,
                                           Qgroup,
                                           dt);
 
+    m_timers[TIMER_NUM_SCHEME]->stop();
+
   } // end for iGroup
 
-  m_timers[TIMER_NUM_SCHEME]->stop();
-  
 } // SolverHydroMusclBlock::godunov_unsplit_impl
 
 // =======================================================
@@ -755,8 +755,6 @@ void SolverHydroMusclBlock::synchronize_ghost_data(UserDataCommType t)
 void SolverHydroMusclBlock::mark_cells()
 {
 
-  m_timers[TIMER_AMR_CYCLE_MARK_CELLS]->start();
-
   // retrieve available / allowed names: fieldManager, and field map (fm)
   // necessary to access user data
   auto fm = fieldMgr.get_id2index();
@@ -785,6 +783,8 @@ void SolverHydroMusclBlock::mark_cells()
 
     m_timers[TIMER_BLOCK_COPY]->stop();
 
+    m_timers[TIMER_AMR_CYCLE_MARK_CELLS]->start();
+
     // now ghost cells in current group are ok
     // convert conservative variable into primitives ones for the given group
     // input is  Ugroup
@@ -799,9 +799,10 @@ void SolverHydroMusclBlock::mark_cells()
                                    Qgroup, iGroup,
                                    error_min, error_max);
 
+    m_timers[TIMER_AMR_CYCLE_MARK_CELLS]->stop();
+
   } // end for iGroup
 
-  m_timers[TIMER_AMR_CYCLE_MARK_CELLS]->stop();
 
 } // SolverHydroMusclBlock::mark_cells
 
