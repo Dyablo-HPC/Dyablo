@@ -827,11 +827,13 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
   Kokkos::resize(U, nbCellsPerOct, nbVars, nocts);
   
   // reset U
-  Kokkos::parallel_for("dyablo::muscl_block::SolverHydroMusclBlock reset U",nocts, KOKKOS_LAMBDA(const size_t iOct) {
-      for (int ivar=0; ivar<nbVars; ++ivar)
-        for (uint32_t index=0; index<nbCellsPerOct; ++index)
-          U(index,fm[ivar],iOct)=0.0;
-    });
+  Kokkos::parallel_for("dyablo::muscl_block::SolverHydroMusclBlock reset U",
+                       nocts, 
+                       KOKKOS_LAMBDA(const size_t iOct) {
+                         for (int ivar=0; ivar<nbVars; ++ivar)
+                           for (uint32_t index=0; index<nbCellsPerOct; ++index)
+                             U(index,fm[ivar],iOct)=0.0;
+                       });
   
   /*
    * Assign to the new octant the average of the old children
@@ -854,52 +856,121 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
     // test is current cell is new upon a coarsening operation
     if ( amr_mesh->getIsNewC(iOct) ) {
 
-      // UNFINISHED
-
-      // note : in 2d, bz should be 1
-      for (uint8_t k=0; k < bz; ++k)
-        for (uint8_t j=0; j < by; ++j)
-          for (uint8_t i=0; i < bx; ++i) {
-
-            uint8_t iCell = i + bx*j + bx*by*k;
-
+      if (params.dimType==TWO_D) {
+        
+        // 2D mapping data to a new coarsened cell
+        
+        // nested for loops to cover the child's blocks
+        for (uint8_t j=0; j < 2*by; ++j)
+          for (uint8_t i=0; i < 2*bx; ++i) {
+            
+            // cell coordinates in new octant
+            uint8_t i1 = i>>1;
+            uint8_t j1 = j>>1;
+            
+            // index of the receiving cell in new octant
+            uint8_t iCell = i1 + bx*j1;
+            
+            // octant id to one of the child (to average)
+            // iOctChild is in range [0, 2**dim-1]
             uint8_t iOctChild;
-
-            // extract coordinates for each child octant (morton order)
+            
+            // convert iOctChild  (morton order) into coordinates
             // a,b,c can only be 0 or 1 !!!
-            uint8_t a, b, c;
-            
+            uint8_t a, b;
+              
             // child cell coordinate inside block
-            uint8_t i2,j2,k2;
+            uint8_t i2,j2;
             
-
-            i2 = 2*i;
-            j2 = 2*j;
-            k2 = 2*k;
-
-            a = i2 >= bx ? 1 : 0;
-            b = j2 >= by ? 1 : 0;
-            c = k2 >= bz ? 1 : 0;
-            //iOctChild =  a + 2*b + 4*c;
-            iOctChild = a | (b<<1) | (c<<2);
-
-            // bring back i2,j2,k2 in valid range
-            i2 = i2 - a*bx;
-            j2 = j2 - b*by;
-            k2 = k2 - c*bx;
-
-            uint iCellChild = i2 + bx*j2 + bx*by*k2; 
+            // take into account in which child we will fetch data
+            a = (i >= bx) ? 1 : 0;
+            b = (j >= by) ? 1 : 0;
+              
+            // make sure i2,j2,k2 live in valid range
+            i2 = i - a*bx;
+            j2 = j - b*by;
             
-            for (int ivar=0; ivar<nbVars; ++ivar) {
+            // make sure i2,j2,k2 live in valid range
+            // i2 = (i >= bx) ? i-bx : i;
+            // j2 = (j >= by) ? j-by : j;
+              
+            // compute child octant id
+            //iOctChild =  a + 2*b;
+            iOctChild = a | (b<<1);
+            
+            uint32_t iCellChild = i2 + bx*j2;
+            
+            for (int ivar = 0; ivar < nbVars; ++ivar) {
               
               U(iCell, fm[ivar], iOct) += (isghost[iOctChild]) ?
-                Ughost(iCellChild, fm[ivar], mapper[iOctChild]) / m_nbChildren :
-                U2    (iCellChild, fm[ivar], mapper[iOctChild]) / m_nbChildren;
+                Ughost(iCellChild, fm[ivar], mapper[iOctChild])/m_nbChildren :
+                U2    (iCellChild, fm[ivar], mapper[iOctChild])/m_nbChildren ;
               
             } // end for ivar
-                                  
-          } // end for i,j,k
-      
+            
+          } // end for i,j
+        
+      } else {
+
+        // 3D mapping data to a new coarsened cell
+        
+        // nested for loops to cover the child's blocks
+        for (uint8_t k=0; k < 2*bz; ++k)
+          for (uint8_t j=0; j < 2*by; ++j)
+            for (uint8_t i=0; i < 2*bx; ++i) {
+              
+              // cell coordinates in new octant
+              uint8_t i1 = i>>1;
+              uint8_t j1 = j>>1;
+              uint8_t k1 = k>>1;
+              
+              // index of the receiving cell in new octant
+              uint8_t iCell = i1 + bx*j1 + bx*by*k1;
+              
+              // octant id to one of the child (to average)
+              // iOctChild is in range [0, 2**dim-1]
+              uint8_t iOctChild;
+              
+              // convert iOctChild  (morton order) into coordinates
+              // a,b,c can only be 0 or 1 !!!
+              uint8_t a, b, c;
+              
+              // child cell coordinate inside block
+              uint8_t i2,j2,k2;
+              
+              // take into account in which child we will fetch data
+              a = (i >= bx) ? 1 : 0;
+              b = (j >= by) ? 1 : 0;
+              c = (k >= bz) ? 1 : 0;
+              
+              // make sure i2,j2,k2 live in valid range
+              i2 = i - a*bx;
+              j2 = j - b*by;
+              k2 = k - c*bx;
+              
+              // make sure i2,j2,k2 live in valid range
+              // i2 = (i >= bx) ? i-bx : i;
+              // j2 = (j >= by) ? j-by : j;
+              // k2 = (k >= bz) ? k-bz : k;
+              
+              // compute child octant id
+              //iOctChild =  a + 2*b + 4*c;
+              iOctChild = a | (b<<1) | (c<<2);
+              
+              uint32_t iCellChild = i2 + bx*j2 + bx*by*k2;
+
+              for (int ivar = 0; ivar < nbVars; ++ivar) {
+
+                U(iCell, fm[ivar], iOct) += (isghost[iOctChild]) ?
+                  Ughost(iCellChild, fm[ivar], mapper[iOctChild])/m_nbChildren :
+                  U2    (iCellChild, fm[ivar], mapper[iOctChild])/m_nbChildren ;
+                
+              } // end for ivar
+              
+            } // end for i,j,k
+
+      } // end 2d/3d
+
     } else {
       
       // current cell is just an old cell or new upon a refinement,
@@ -907,7 +978,7 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
 
       for (int ivar = 0; ivar < nbVars; ++ivar) {
 
-        for (int iCell = 0; iCell < nbCellsPerOct; ++iCell) {
+        for (uint32_t iCell = 0; iCell < nbCellsPerOct; ++iCell) {
 
           U(iCell, fm[ivar], iOct) = U2(iCell, fm[ivar], mapper[0]);
 
