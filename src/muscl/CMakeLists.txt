@@ -9,6 +9,7 @@ set (muscl_SRCS
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitIsentropicVortex.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitKelvinHelmholtz.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitRayleighTaylor.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/init/InitShuOsher.cpp
   )
 
 # add MPI user data communication interface

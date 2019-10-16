@@ -14,7 +14,7 @@ Why did we chose BitPit/PABLO for this test ? What are the difference with [p4es
 
 # What is the plan ?
 
-1. Re-implement Hydro/Euler à la Ramses (as done in [Canop](https://gitlab.maisondelasimulation.fr/canoPdev/canoP), i.e. on cell per leaf of the octree); mesh is managed by PABLO, computational kernels are written in Kokkos. As the computational kernels need to access cell connectivity, the first milestone will be to target MPI + Kokkos/OpenMP only, so that we will enable the use of CPU-only routine (from PABLO) in Kokkos kernels.
+1. Re-implement Hydro/Euler à la Ramses (as done in [Canop](https://gitlab.maisondelasimulation.fr/canoPdev/canoP), i.e. one cell per leaf of the octree); mesh is managed by PABLO, computational kernels are written in Kokkos. As the computational kernels need to access cell connectivity, the first milestone will be to target MPI + Kokkos/OpenMP only, so that we will enable the use of CPU-only routine (from PABLO) in Kokkos kernels.
 2. Test the performance of Euler/Pablo in MPI + Kokkos/OpenMP on a large cluster (e.g. skylake) and compare with Ramses and CanoP to evaluate the cost of mesh management.
 3. If 1 and 2 are OK, evaluate how much work is needed to Kokkossify PABLO itself (or a sub-part). To start with, we could consider keeping most of PABLO on CPU, but at each mesh modification (refine + coarsen) export mesh connectivity in a Kokkos::View + hashmap to be used in the computational kernels (either OpenMP, or CUDA).
 
