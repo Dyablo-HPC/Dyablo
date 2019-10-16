@@ -35,6 +35,10 @@ struct ImplodeParams {
   // shape of regions: 0 - diagonal; 1 - curved
   int shape;
 
+  // if true slightly change init condition to be non trivial
+  // gradiant along domain diagonal
+  bool debug;
+
   ImplodeParams(ConfigMap& configMap)
   {
 
@@ -57,6 +61,8 @@ struct ImplodeParams {
     Bz_in  = configMap.getFloat("implode","Bz_inner", 0.0);
 
     shape = configMap.getInteger("implode", "shape_region",0);
+    
+    debug = configMap.getBool("implode", "debug", false);
   }
 
 }; // struct ImplodeParams

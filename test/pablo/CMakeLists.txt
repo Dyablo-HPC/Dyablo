@@ -34,6 +34,7 @@ set(KOKKOS_DISABLED FALSE)
 
 build_test_executable(PABLO_test0       ${KOKKOS_DISABLED})
 build_test_executable(PABLO_test1       ${KOKKOS_DISABLED})
+build_test_executable(PABLO_test2       ${KOKKOS_DISABLED})
 build_test_executable(mandelbrot        ${KOKKOS_DISABLED})
 build_test_executable(mandelbrot_kokkos ${KOKKOS_ENABLED})
 

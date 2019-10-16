@@ -22,6 +22,7 @@
 #endif // USE_MPI
 
 #include "muscl/SolverHydroMuscl.h"
+#include "muscl_block/SolverHydroMusclBlock.h"
 
 // banner
 //#include "dyablo_version.h"
@@ -41,14 +42,14 @@ int main(int argc, char *argv[])
   
   Kokkos::initialize(argc, argv);
 
-  int rank=0;
-  int nRanks=1;
-  
+  int rank = 0;
+  int nRanks = 1;
+
   {
     std::cout << "##########################\n";
     std::cout << "KOKKOS CONFIG             \n";
     std::cout << "##########################\n";
-    
+
     std::ostringstream msg;
     std::cout << "Kokkos configuration" << std::endl;
     if ( Kokkos::hwloc::available() ) {
@@ -84,10 +85,8 @@ int main(int argc, char *argv[])
     }
 # endif // KOKKOS_ENABLE_CUDA
 #endif // USE_MPI
+  }    // end kokkos config
 
-    
-  }
-  
   // banner
   //if (rank==0) print_version_info();
 
@@ -106,9 +105,13 @@ int main(int argc, char *argv[])
   const std::string solver_name = configMap.getString("run", "solver_name", "Unknown");
 
   // initialize workspace memory (U, U2, ...)
-  SolverBase *solver = muscl::SolverHydroMuscl::create(params,
-						       configMap);
-  
+  SolverBase *solver;
+  if (solver_name.find("Muscl_Block") != std::string::npos) {
+    solver = muscl_block::SolverHydroMusclBlock::create(params, configMap);
+  } else {
+    solver = muscl::SolverHydroMuscl::create(params, configMap);
+  }
+
   // start computation
   if (rank==0) std::cout << "Start computation....\n";
   solver->m_timers[TIMER_TOTAL]->start();
@@ -125,7 +128,7 @@ int main(int argc, char *argv[])
   
   if (rank==0) printf("final time is %f\n", solver->m_t);
   
-  print_solver_monitoring_info(solver);
+  solver->print_monitoring_info();
   
   delete solver;
 

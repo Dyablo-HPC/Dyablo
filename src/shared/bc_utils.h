@@ -4,6 +4,8 @@
  *
  * Border conditions utilities.
  */
+#ifndef DYABLO_BC_UTILS_H_
+#define DYABLO_BC_UTILS_H_
 
 #include "shared/enums.h"
 
@@ -35,3 +37,5 @@ bool is_at_border(real_t dx, real_t pos) {
 } // namespace muscl
 
 } // namespace dyablo
+
+#endif // DYABLO_BC_UTILS_H_

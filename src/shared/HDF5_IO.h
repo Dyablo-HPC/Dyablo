@@ -142,6 +142,28 @@ public:
   int            write_quadrant_mach_number(DataArray  data,
                                             id2index_t fm);
 
+  /**
+   * \brief Write all cell-centered scalar attributes when block amr is enabled.
+   *
+   * \param
+   * \param [in] data a Kokkos View with the user data
+   * \param [in] fm the field map
+   * \param [in] names2indes a std::map for names (string) to index(int) 
+   * \param [in] type_id The HDF5 type id of the data to be written (double, int, ...). 
+   *
+   */
+  int            write_quadrant_attribute (DataArrayBlock data,
+                                           id2index_t     fm,
+                                           str2int_t      names2index);
+
+  /**
+   * special variant of write_quadrant_attribute for Mach number.
+   *
+   * Input array is assumed to contain conservative variables.
+   */
+  int            write_quadrant_mach_number(DataArrayBlock data,
+                                            id2index_t     fm);
+
   std::shared_ptr<AMRmesh> m_amr_mesh; //!<
   std::string    m_basename; //!< the base name of the two files
   //id2index_t     m_fm; //!< field manager object
@@ -166,8 +188,10 @@ public:
   FILE          *m_main_xdmf_file; //!< main XDMF file descriptor
 
   double         m_scale;            // default 1.0
-  bool           m_write_level;      // default 1
-  bool           m_write_rank;       // default 1
+  bool           m_write_level;      // default write_mesh_info (false)
+  bool           m_write_rank;       // default write_mesh_info (false) 
+
+  bool           m_write_iOct;       // default false
 
   int            m_mpiRank;
 
@@ -265,6 +289,12 @@ private:
    * \brief Compute and write the level for each quadrant.
    */
   void io_hdf5_write_level();
+
+  /**
+   * \brief Write local quadrant id (local to current MPI process).
+   * Purely for debug purpose.
+   */
+  void io_hdf5_write_iOct();
 
   /**
    * \brief Compute and write the MPI rank for each quadrant.

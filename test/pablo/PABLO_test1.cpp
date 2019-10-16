@@ -59,6 +59,8 @@ void run(int dim)
 
   int iter = 0;
 
+  int niter = dim==2 ? 3 : 3;
+
   /**<Instantation of a nDimensional pablo uniform object.*/
   PabloUniform amr_mesh(dim);
 
@@ -70,7 +72,7 @@ void run(int dim)
 
   
   /**<Refine globally four level and write the octree.*/
-  for (iter=1; iter<3; iter++){
+  for (iter=1; iter<niter; ++iter){
 
     printf("===================================\n");
     printf("initial global refine iter %d\n",iter);
@@ -82,7 +84,7 @@ void run(int dim)
     vector<uint32_t> neigh, neigh_t;
     vector<bool> isghost, isghost_t;
 
-    for (uint32_t i=0; i<nocts; i++){
+    for (uint32_t i=0; i<nocts; ++i){
       // print cell nodes location
       vector<array<double,3> > nodes = amr_mesh.getNodes(i);
 
@@ -121,7 +123,7 @@ void run(int dim)
       uint8_t nfaces = 2*dim;
 
       // get neighbors octant id face per face
-      for (uint8_t iface=0; iface<nfaces; iface++){
+      for (uint8_t iface=0; iface<nfaces; ++iface){
 	amr_mesh.findNeighbours(i,iface,codim,neigh_t,isghost_t);
 	printf("neighbors of %d through face %d are : ",i,iface);
 	for (size_t ineigh=0; ineigh<neigh_t.size(); ++ineigh) {
@@ -130,7 +132,33 @@ void run(int dim)
 	printf("\n");
 	
       } // end for iface
-      
+
+      uint8_t ncodim2 = dim==2 ? 4 : 12;
+      for (uint8_t icodim2=0; icodim2<ncodim2; ++icodim2){
+	amr_mesh.findNeighbours(i,icodim2,2,neigh_t,isghost_t);
+	printf("neighbors of %d through codim=2 %d are : ",i,icodim2);
+        printf("|| number=%ld || ",neigh_t.size());
+        for (size_t ineigh=0; ineigh<neigh_t.size(); ++ineigh) {
+	  printf(" %d ",neigh_t[ineigh]);
+	}
+	printf("\n");
+	
+      } // end for icodim2
+
+      if (dim==3) {
+        uint8_t ncodim3 = 8;
+        for (uint8_t icodim3=0; icodim3<ncodim3; ++icodim3){
+          amr_mesh.findNeighbours(i,icodim3,2,neigh_t,isghost_t);
+          printf("neighbors of %d through codim=3 %d are : ",i,icodim3);
+          printf("|| number=%ld || ",neigh_t.size());
+          for (size_t ineigh=0; ineigh<neigh_t.size(); ++ineigh) {
+            printf(" %d ",neigh_t[ineigh]);
+          }
+          printf("\n");
+          
+        } // end for icodim3
+      }
+
     } // end for nocts
   } // end for iter
 
@@ -148,14 +176,16 @@ void run(int dim)
 
   amr_mesh.updateConnectivity();
 
-  // print again mesh connectivty information
+  /*
+   * print again mesh connectivty information
+   */
   {
     // print neighbors id
     vector<uint32_t> neigh_t;
     vector<bool> isghost_t;
 
     uint32_t nocts = amr_mesh.getNumOctants();
-    for (uint32_t i=0; i<nocts; i++) {
+    for (uint32_t i=0; i<nocts; ++i) {
 
       // print cell nodes location
       vector<array<double,3> > nodes = amr_mesh.getNodes(i);
@@ -179,22 +209,88 @@ void run(int dim)
 	       nodes[7][0],nodes[7][1],nodes[7][2]);
       }
       
-      // codim=1 ==> faces
-      // codim=2 ==> edges
-      int codim = 1;
+      /*
+       * codim=1 ==> faces
+       */
+      {
+        int codim = 1;
+        
+        // number of faces per cell
+        uint8_t nfaces = 2*dim;
 
-      // number of faces per cell
-      uint8_t nfaces = 2*dim;
+        // get neighbors octant id face per face
+        for (uint8_t iface=0; iface<nfaces; ++iface){
+          amr_mesh.findNeighbours(i,iface,codim,neigh_t,isghost_t);
+          printf("neighbors of %d through face %d are : ",i,iface);
+          for (size_t ineigh=0; ineigh<neigh_t.size(); ++ineigh) {
+            printf(" %d ",neigh_t[ineigh]);
+          }
+          printf("\n");
+        } // end for iface
 
-      // get neighbors octant id face per face
-      for (uint8_t iface=0; iface<nfaces; iface++){
-	amr_mesh.findNeighbours(i,iface,codim,neigh_t,isghost_t);
-	printf("neighbors of %d through face %d are : ",i,iface);
-	for (size_t ineigh=0; ineigh<neigh_t.size(); ++ineigh) {
-	  printf(" %d ",neigh_t[ineigh]);
-	}
-	printf("\n");
-      } // end for iface
+      } // end codim = 1
+
+      
+      /*
+       * codim=2 ==> edges in 3D or corners in 2D
+       */
+      {
+        int codim = 2;
+        
+        if (dim==2) {
+          // Be careful, if findNeighboours through a corner is empty, there
+          // are 2 possibilities:
+          // - corner is actually touching external border
+          // - one of the 2 faces (touching the corner) have a larger neighbor, i.e.
+          //   the corner is actually a hanging node (a la p4est)
+
+          // number of corners per cell
+          uint8_t ncorner = 4; // number of corners in 2D
+
+          for (uint8_t icorner=0; icorner<ncorner; ++icorner) {
+            amr_mesh.findNeighbours(i,icorner,codim,neigh_t,isghost_t);
+            printf("neighbors of %d through corner %d are : ",i,icorner);
+            for (size_t ineigh=0; ineigh<neigh_t.size(); ++ineigh) {
+              printf(" %d ",neigh_t[ineigh]);
+            }
+            printf("\n");
+          }
+            
+        }
+
+        if (dim==3) {
+          uint8_t nedge = 12; // number of edges in 3D
+          for (uint8_t iedge=0; iedge<nedge; ++iedge) {
+            amr_mesh.findNeighbours(i,iedge,codim,neigh_t,isghost_t);
+            printf("neighbors of %d through edge %d are : ",i,iedge);
+            printf("|| number=%ld || ",neigh_t.size());
+            for (size_t ineigh=0; ineigh<neigh_t.size(); ++ineigh) {
+              printf(" %d ",neigh_t[ineigh]);
+            }
+            printf("\n");
+          }
+        }
+
+      } // end codim = 2
+
+      /*
+       * codim=3 ==> only available in 3D, corners
+       */
+      if (dim==3) {
+        int codim = 3;
+
+        uint8_t ncorner = 8;
+        for (uint8_t icorner=0; icorner<ncorner; ++icorner) {
+          amr_mesh.findNeighbours(i,icorner,codim,neigh_t,isghost_t);
+          printf("neighbors of %d through corner %d are : ",i,icorner);
+          for (size_t ineigh=0; ineigh<neigh_t.size(); ++ineigh) {
+            printf(" %d ",neigh_t[ineigh]);
+          }
+          printf("\n");
+        }
+
+      } // end codim = 3
+
     } // end for i
   }
 
@@ -208,14 +304,14 @@ void run(int dim)
   vector<double> oct_data(nocts, 0.0);
 
   /**<Assign a data to the octants with at least one node inside the circle.*/
-  for (uint32_t i=0; i<nocts; i++) {
+  for (uint32_t i=0; i<nocts; ++i) {
 
     /**<Compute the nodes of the octant.*/
     vector<array<double,3> > nodes = amr_mesh.getNodes(i);
 
     /**<Sweep all corner nodes to assign geometry dependent data*/
     if (dim==2) {
-      for (int j=0; j<4; j++){
+      for (int j=0; j<4; ++j){
 	double x = nodes[j][0];
 	double y = nodes[j][1];
 	if ((pow((x-xc),2.0)+pow((y-yc),2.0) <= pow(radius,2.0))){
@@ -223,7 +319,7 @@ void run(int dim)
 	}
       }
     } else {
-      for (int j=0; j<8; j++){
+      for (int j=0; j<8; ++j){
 	double x = nodes[j][0];
 	double y = nodes[j][1];
 	double z = nodes[j][2];
@@ -241,18 +337,18 @@ void run(int dim)
 
   /**<Smoothing iterations on initial data*/
   int start = 1;
-  for (iter=start; iter<start+3; iter++){
+  for (iter=start; iter<start+3; ++iter){
     vector<double> oct_data_smooth(nocts, 0.0);
     vector<uint32_t> neigh, neigh_t;
     vector<bool> isghost, isghost_t;
     uint8_t iface, nfaces;
     int codim;
-    for (uint32_t i=0; i<nocts; i++){
+    for (uint32_t i=0; i<nocts; ++i){
       neigh.clear();
       isghost.clear();
 
       /**<Find neighbours through faces (codim=1) and edges (codim=2) of the octants*/
-      for (codim=1; codim<3; codim++){
+      for (codim=1; codim<3; ++codim){
 	if (codim == 1){
 	  nfaces = 2*dim;
 	}
@@ -261,7 +357,7 @@ void run(int dim)
 	}
 
 	/**<Merge all neighbors in a single vector */
-	for (iface=0; iface<nfaces; iface++){
+	for (iface=0; iface<nfaces; ++iface){
 	  amr_mesh.findNeighbours(i,iface,codim,neigh_t,isghost_t);
 	  neigh.insert(neigh.end(), neigh_t.begin(), neigh_t.end());
 	  isghost.insert(isghost.end(), isghost_t.begin(), isghost_t.end());
@@ -280,7 +376,7 @@ void run(int dim)
       
       /**<Smoothing data with the average over the one ring neighbours of octants*/
       oct_data_smooth[i] = oct_data[i]/(neigh.size()+1);
-      for (unsigned int j=0; j<neigh.size(); j++){
+      for (unsigned int j=0; j<neigh.size(); ++j){
 	if (isghost[j]){
 	  /**< Do nothing - No ghosts: is a serial test.*/
 	}

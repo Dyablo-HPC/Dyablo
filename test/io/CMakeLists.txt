@@ -39,6 +39,7 @@ set(KOKKOS_DISABLED FALSE)
 
 build_test_executable(test_vtk        ${KOKKOS_ENABLED})
 build_test_executable(test_hdf5       ${KOKKOS_ENABLED})
+build_test_executable(test_hdf5_block ${KOKKOS_ENABLED})
 
 configure_file(test_io_vtk.ini  test_io_vtk.ini  COPYONLY)
 configure_file(test_io_hdf5.ini test_io_hdf5.ini COPYONLY)

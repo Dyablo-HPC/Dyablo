@@ -81,6 +81,8 @@ HDF5_Writer::HDF5_Writer(std::shared_ptr<AMRmesh> amr_mesh,
   m_write_level = m_write_mesh_info;
   m_write_rank =  m_write_mesh_info;
 
+  m_write_iOct = m_configMap.getBool("output", "write_iOct", false);
+
   m_nbNodesPerCell = m_params.dimType==TWO_D ? 
     IO_NODES_PER_CELL_2D : 
     IO_NODES_PER_CELL_3D;
@@ -216,6 +218,7 @@ HDF5_Writer::write_header(double time)
   io_hdf5_write_connectivity();
   io_hdf5_write_level();
   io_hdf5_write_rank();
+  io_hdf5_write_iOct();
 
   return 0;
 
@@ -339,8 +342,10 @@ HDF5_Writer::write_quadrant_attribute(DataArray  data,
       
       DataArrayScalar dataVar = DataArrayScalar("scalar_array_for_hdf5_io",data.extent(0));
 
-      Kokkos::parallel_for(data.extent(0), KOKKOS_LAMBDA (uint32_t i) {
-          dataVar(i) = data(i,fm[iVar]);
+      uint32_t nbOcts = data.extent(0);
+
+      Kokkos::parallel_for(nbOcts, KOKKOS_LAMBDA (uint32_t iOct) {
+          dataVar(iOct) = data(iOct,fm[iVar]);
         });
 
       // actual data writing
@@ -373,20 +378,22 @@ HDF5_Writer::write_quadrant_velocity(DataArray  data,
   
   int dim = fm[IW]==-1 ? 2 : 3;
 
-  DataArrayVector dataVector = DataArrayVector("temp_array_hdf5", data.extent(0)*3);
+  uint32_t nbOcts = data.extent(0);
+
+  DataArrayVector dataVector = DataArrayVector("temp_array_hdf5", nbOcts*3);
 
   Kokkos::parallel_for(
-      data.extent(0), KOKKOS_LAMBDA(uint32_t i) {
+    nbOcts, KOKKOS_LAMBDA(uint32_t iOct) {
         if (use_momentum) {
-          dataVector(3 * i + 0) = data(i, fm[IU]);
-          dataVector(3 * i + 1) = data(i, fm[IV]);
+          dataVector(3 * iOct + 0) = data(iOct, fm[IU]);
+          dataVector(3 * iOct + 1) = data(iOct, fm[IV]);
           //if (dim == 3)
-          dataVector(3 * i + 2) = dim==3 ? data(i, fm[IW]) : 0;
+          dataVector(3 * iOct + 2) = dim==3 ? data(iOct, fm[IW]) : 0;
         } else {
-          dataVector(3 * i + 0) = data(i, fm[IU])/data(i, fm[ID]);
-          dataVector(3 * i + 1) = data(i, fm[IV])/data(i, fm[ID]);
+          dataVector(3 * iOct + 0) = data(iOct, fm[IU])/data(iOct, fm[ID]);
+          dataVector(3 * iOct + 1) = data(iOct, fm[IV])/data(iOct, fm[ID]);
           //if (3 == 3)
-          dataVector(3 * i + 2) = dim==3 ? data(i, fm[IW])/data(i, fm[ID]) : 0;
+          dataVector(3 * iOct + 2) = dim==3 ? data(iOct, fm[IW])/data(iOct, fm[ID]) : 0;
         }
       });
 
@@ -414,35 +421,24 @@ HDF5_Writer::write_quadrant_mach_number(DataArray  data,
   
   {
     
+    uint32_t nbOcts = data.extent(0);
+
     using DataArrayScalar = Kokkos::View<real_t*, Kokkos::HostSpace>;
     
-    DataArrayScalar mach_number = DataArrayScalar("mach_number", data.extent(0));
+    DataArrayScalar mach_number = DataArrayScalar("mach_number", nbOcts);
     
-    Kokkos::parallel_for(datah.extent(0), KOKKOS_LAMBDA (uint32_t i) {
+    Kokkos::parallel_for(nbOcts, KOKKOS_LAMBDA (uint32_t iOct) {
         
-        // // compute square fluid velocity
-        // real_t u2 = 
-        //   datah(i,fm[IU])*datah(i,fm[IU]) +
-        //   datah(i,fm[IV])*datah(i,fm[IV]);
-        // if (fm[IW]!=-1)
-        //   u2 += datah(i,fm[IW])*datah(i,fm[IW]);
-        
-
-        // // compute speed of sound (square) : pressure/density
-        // real_t cs2 = datah(i,fm[IP]) / datah(i,fm[ID]);
-
-        // mach_number(i) = sqrt(u2/cs2);
-
-        real_t d = datah(i,fm[ID]);
-        real_t u = datah(i,fm[IU])/datah(i,fm[ID]);
-        real_t v = datah(i,fm[IV])/datah(i,fm[ID]);
-        real_t w = fm[IW]==-1 ? 0 : datah(i,fm[IW])/datah(i,fm[ID]);
+        real_t d = datah(iOct,fm[ID]);
+        real_t u = datah(iOct,fm[IU])/datah(iOct,fm[ID]);
+        real_t v = datah(iOct,fm[IV])/datah(iOct,fm[ID]);
+        real_t w = fm[IW]==-1 ? 0 : datah(iOct,fm[IW])/datah(iOct,fm[ID]);
 
         // kinetic energy
         real_t eken = 0.5*d*(u*u+v*v+w*w); 
 
         // internal energy
-        real_t eint = datah(i,fm[IE])-eken;
+        real_t eint = datah(iOct,fm[IE])-eken;
 
         // specific heat ratio
         real_t gamma0 = m_params.settings.gamma0;
@@ -456,10 +452,126 @@ HDF5_Writer::write_quadrant_mach_number(DataArray  data,
         // velocity square
         real_t u2 = u*u+v*v+w*w;
 
-        mach_number(i) = sqrt(u2/cs2);
+        mach_number(iOct) = sqrt(u2/cs2);
 
       });
 
+    // actual data writing
+    write_attribute("Mach", mach_number.ptr_on_device(), 
+                    0, IO_CELL_SCALAR,
+                    H5T_NATIVE_DOUBLE, H5T_NATIVE_DOUBLE);
+
+  }
+    
+  return 0;
+
+} // HDF5_Writer::write_quadrant_mach_number
+
+// =======================================================
+// =======================================================
+int
+HDF5_Writer::write_quadrant_attribute(DataArrayBlock  data,
+                                      id2index_t      fm,
+                                      str2int_t       names2index)
+{
+
+  // copy data from device to host
+  DataArrayBlockHost datah = Kokkos::create_mirror(data);
+  
+  // copy device data to host
+  Kokkos::deep_copy(datah, data);
+  
+  // write data array scalar fields in ascii
+  for ( auto iter : names2index) {
+    
+    // get variables string name
+    const std::string varName = iter.first;
+    
+    // get variable id
+    int iVar = iter.second;
+
+    uint32_t nbCellsPerOct = data.extent(0);
+    uint32_t nbOcts = data.extent(2);
+
+    // we need to gather data corresponding to a given scalar variable
+    using DataArrayScalar = Kokkos::View<real_t*, Kokkos::HostSpace>;
+
+    // remember that
+    // - data.extent(0) is the number of cells per octant
+    // - data.extent(1) is the number of scalar fields
+    // - data.extent(2) is the total number of oct in current MPI process
+    DataArrayScalar dataVar = DataArrayScalar("scalar_array_for_hdf5_io", nbCellsPerOct*nbOcts);
+
+    Kokkos::parallel_for(nbOcts, KOKKOS_LAMBDA (uint32_t iOct) {
+        for (uint32_t iCell=0; iCell<nbCellsPerOct; ++iCell)
+          dataVar(iCell + nbCellsPerOct*iOct) = data(iCell,fm[iVar],iOct);
+      });
+    
+    // actual data writing
+    write_attribute(varName, dataVar.ptr_on_device(), 
+                    0, IO_CELL_SCALAR,
+                    H5T_NATIVE_DOUBLE, H5T_NATIVE_DOUBLE);
+
+  } // end for iter
+    
+  return 0;
+
+} // HDF5_Writer::write_quadrant_attribute
+
+// =======================================================
+// =======================================================
+int
+HDF5_Writer::write_quadrant_mach_number(DataArrayBlock data,
+                                        id2index_t fm)
+{
+  // copy data from device to host
+  DataArrayBlockHost datah = Kokkos::create_mirror(data);
+  
+  // copy device data to host
+  Kokkos::deep_copy(datah, data);
+  
+  {
+    
+    using DataArrayScalar = Kokkos::View<real_t*, Kokkos::HostSpace>;
+
+    uint32_t nbCellsPerOct = data.extent(0);
+    uint32_t nbOcts = data.extent(2);
+
+    DataArrayScalar mach_number = DataArrayScalar("mach_number", nbCellsPerOct*nbOcts);
+
+    Kokkos::parallel_for(
+      nbOcts, KOKKOS_LAMBDA(uint32_t iOct) {
+        for (uint32_t iCell = 0; iCell < nbCellsPerOct; ++iCell) {
+          
+          real_t d = datah(iCell, fm[ID], iOct);
+          real_t u = datah(iCell, fm[IU], iOct) / datah(iCell, fm[ID], iOct);
+          real_t v = datah(iCell, fm[IV], iOct) / datah(iCell, fm[ID], iOct);
+          real_t w = fm[IW] == -1 ? 0 : 
+            datah(iCell, fm[IW], iOct) / datah(iCell, fm[ID], iOct);
+          
+          // kinetic energy
+          real_t eken = 0.5 * d * (u * u + v * v + w * w);
+          
+          // internal energy
+          real_t eint = datah(iCell, fm[IE], iOct) - eken;
+          
+          // specific heat ratio
+          real_t gamma0 = m_params.settings.gamma0;
+          
+          // pressure
+          real_t p = (gamma0 - 1) * eint;
+          
+          // square speed of sound
+          real_t cs2 = p / d;
+          
+          // velocity square
+          real_t u2 = u * u + v * v + w * w;
+          
+          mach_number(iCell + nbCellsPerOct*iOct) = sqrt(u2 / cs2);
+          
+        } // end for iCell
+      });
+    
     // actual data writing
     write_attribute("Mach", mach_number.ptr_on_device(), 
                     0, IO_CELL_SCALAR,
@@ -825,6 +937,34 @@ HDF5_Writer::io_hdf5_write_level()
 // =======================================================
 // =======================================================
 void
+HDF5_Writer::io_hdf5_write_iOct()
+{
+
+  if (!this->m_write_iOct) {
+    return;
+  }
+
+  uint32_t nbData = m_local_num_quads * m_nbCellsPerLeaf;
+
+  std::vector<uint32_t> data(nbData);
+
+  // gather level for each local quadrant
+  uint32_t i=0;
+  for (uint32_t iLeaf = 0; iLeaf < m_local_num_quads; ++iLeaf) {
+    for (uint32_t j = 0; j < m_nbCellsPerLeaf; ++j) {
+      data[i] = iLeaf;
+      ++i;
+    }
+  }
+
+  this->write_attribute("iOct", &(data)[0], 0, IO_CELL_SCALAR,
+        		H5T_NATIVE_UINT, H5T_NATIVE_UINT);
+
+} // HDF5_Writer::io_hdf5_write_iOct
+
+// =======================================================
+// =======================================================
+void
 HDF5_Writer::io_hdf5_write_rank()
 {
 
@@ -836,7 +976,7 @@ HDF5_Writer::io_hdf5_write_rank()
 
   std::vector<int> data(nbData);
 
-  // gather level for each local quadrant
+  // gather rank for each local quadrant
   for (uint32_t i = 0; i < nbData; ++i) {
     data[i] = m_mpiRank;
   }
