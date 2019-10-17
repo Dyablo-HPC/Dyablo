@@ -179,8 +179,8 @@ void compute_and_save_mandelbrot(std::shared_ptr<AMRmesh> pmesh,
 {
   uint32_t nocts = pmesh->getNumOctants();
 
-  Kokkos::View<double*, Device> oct_data("oct_data",nocts);
-  Kokkos::View<double*, Device> oct_data_level("oct_data_level",nocts);
+  Kokkos::View<double*, dyablo::Device> oct_data("oct_data",nocts);
+  Kokkos::View<double*, dyablo::Device> oct_data_level("oct_data_level",nocts);
 
   Kokkos::parallel_for(nocts, KOKKOS_LAMBDA(const size_t &i) {
       
