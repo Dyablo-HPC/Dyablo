@@ -19,6 +19,8 @@
 
 using namespace bitpit;
 
+using DataArray = dyablo::DataArray;
+
 /**
  * Run the example.
  */

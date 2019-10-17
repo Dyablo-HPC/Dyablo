@@ -24,6 +24,8 @@
 
 using namespace bitpit;
 
+using DataArrayBlock = dyablo::DataArrayBlock;
+
 /**
  * Run the example.
  */

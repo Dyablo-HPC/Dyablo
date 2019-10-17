@@ -12,6 +12,8 @@
 #include "shared/real_type.h"
 #include "shared/utils.h"
 
+namespace dyablo {
+
 using Device = Kokkos::DefaultExecutionSpace;
 
 enum KokkosLayout {
@@ -52,5 +54,7 @@ KOKKOS_INLINE_FUNCTION void my_swap(T& a, T& b) {
   a = std::move(b);
   b = std::move(c);
 } // my_swap
+
+} // namespace dyablo
 
 #endif // KOKKOS_SHARED_H_
