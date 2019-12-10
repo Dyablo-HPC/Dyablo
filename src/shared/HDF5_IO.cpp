@@ -97,7 +97,10 @@ HDF5_Writer::HDF5_Writer(std::shared_ptr<AMRmesh> amr_mesh,
 
   m_mpiRank = m_amr_mesh->getRank();
 
-  if (m_mpiRank == 0) {
+  // is actually hdf5 enabled ?
+  bool hdf5_enabled = m_configMap.getBool("output", "hdf5_enabled", false);
+
+  if (m_mpiRank == 0 and hdf5_enabled) {
 
     std::string outputPrefix = configMap.getString("output", "outputPrefix", "output");
     
