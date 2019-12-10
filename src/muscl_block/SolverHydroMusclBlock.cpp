@@ -442,6 +442,9 @@ void SolverHydroMusclBlock::godunov_unsplit_impl(DataArrayBlock data_in,
                                                  real_t dt)
 {
 
+  // we need conservative variables in ghost cell to be up to date
+  synchronize_ghost_data(UserDataCommType::UDATA);
+
   // retrieve available / allowed names: fieldManager, and field map (fm)
   // necessary to access user data
   auto fm = fieldMgr.get_id2index();
