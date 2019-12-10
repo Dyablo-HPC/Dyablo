@@ -19,7 +19,7 @@ UserDataLB::UserDataLB(DataArray& data_,
   data(data_),
   ghostdata(ghostdata_),
   fm(fm_),
-  nbVars(data_.dimension(1))
+  nbVars(data_.extent(1))
 {
 }; // UserDataLB::UserDataLB
 

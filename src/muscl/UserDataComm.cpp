@@ -14,7 +14,7 @@ UserDataComm::UserDataComm(DataArray data_, DataArray ghostData_, id2index_t fm_
   data(data_),
   ghostData(ghostData_),
   fm(fm_),
-  nbVars(data_.dimension(1))
+  nbVars(data_.extent(1))
 {
 }; // UserDataComm::UserDataComm
 

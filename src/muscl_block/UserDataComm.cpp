@@ -14,8 +14,8 @@ UserDataComm::UserDataComm(DataArrayBlock data_, DataArrayBlock ghostData_, id2i
   data(data_),
   ghostData(ghostData_),
   fm(fm_),
-  nbVars(data_.dimension(1)),
-  nbCellsPerOct(data_.dimension(0))
+  nbVars(data_.extent(1)),
+  nbCellsPerOct(data_.extent(0))
 {
 }; // UserDataComm::UserDataComm
 
