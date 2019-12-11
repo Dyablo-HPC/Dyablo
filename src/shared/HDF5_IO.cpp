@@ -336,7 +336,7 @@ HDF5_Writer::write_quadrant_attribute(DataArray  data,
       auto dataVar = Kokkos::subview(data, Kokkos::ALL(), fm[iVar]);
 
       // actual data writing
-      write_attribute(varName, dataVar.ptr_on_device(),
+      write_attribute(varName, dataVar.data(),
                       0, IO_CELL_SCALAR,
                       H5T_NATIVE_DOUBLE, H5T_NATIVE_DOUBLE);
     } else {
@@ -352,7 +352,7 @@ HDF5_Writer::write_quadrant_attribute(DataArray  data,
         });
 
       // actual data writing
-      write_attribute(varName, dataVar.ptr_on_device(), 
+      write_attribute(varName, dataVar.data(), 
                       0, IO_CELL_SCALAR,
                       H5T_NATIVE_DOUBLE, H5T_NATIVE_DOUBLE);
 
@@ -402,7 +402,7 @@ HDF5_Writer::write_quadrant_velocity(DataArray  data,
 
   // actual data writing
   const std::string varName = use_momentum ? "rhoV" : "velocity";
-  write_attribute(varName, dataVector.ptr_on_device(),
+  write_attribute(varName, dataVector.data(),
                   3 /*dim*/, IO_CELL_VECTOR,
                   H5T_NATIVE_DOUBLE, H5T_NATIVE_DOUBLE);
   
@@ -460,7 +460,7 @@ HDF5_Writer::write_quadrant_mach_number(DataArray  data,
       });
 
     // actual data writing
-    write_attribute("Mach", mach_number.ptr_on_device(), 
+    write_attribute("Mach", mach_number.data(), 
                     0, IO_CELL_SCALAR,
                     H5T_NATIVE_DOUBLE, H5T_NATIVE_DOUBLE);
 
@@ -511,7 +511,7 @@ HDF5_Writer::write_quadrant_attribute(DataArrayBlock  data,
       });
     
     // actual data writing
-    write_attribute(varName, dataVar.ptr_on_device(), 
+    write_attribute(varName, dataVar.data(), 
                     0, IO_CELL_SCALAR,
                     H5T_NATIVE_DOUBLE, H5T_NATIVE_DOUBLE);
 
@@ -576,7 +576,7 @@ HDF5_Writer::write_quadrant_mach_number(DataArrayBlock data,
       });
     
     // actual data writing
-    write_attribute("Mach", mach_number.ptr_on_device(), 
+    write_attribute("Mach", mach_number.data(), 
                     0, IO_CELL_SCALAR,
                     H5T_NATIVE_DOUBLE, H5T_NATIVE_DOUBLE);
 
