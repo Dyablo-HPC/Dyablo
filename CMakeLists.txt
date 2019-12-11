@@ -143,7 +143,7 @@ endif(USE_MPI)
 # common flags
 #
 
-if (KOKKOS_ENABLE_CUDA)
+if (Kokkos_ENABLE_CUDA)
   add_compile_options(-DCUDA)
 endif()
 

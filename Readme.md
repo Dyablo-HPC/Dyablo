@@ -48,11 +48,11 @@ To build kokkos/OpenMP backend
 
 ```bash
 mkdir build_openmp; cd build_openmp
-ccmake -DKOKKOS_ENABLE_OPENMP=ON ..
+ccmake -DKokkos_ENABLE_OPENMP=ON ..
 make
 ```
 
-Optionally, you can (recommended) activate HWLOC support by turning ON the flag KOKKOS_ENABLE_HWLOC.
+Optionally, you can (recommended) activate HWLOC support by turning ON the flag Kokkos_ENABLE_HWLOC.
 
 
 ### build for Kokkos/Cuda (not supported yet)
@@ -67,13 +67,13 @@ Then you need to
     ```
     
  2. activate CUDA backend in the ccmake interface. 
-    * Just turn on KOKKOS_ENABLE_CUDA 
-    * select cuda architecture, e.g. set KOKKOS_ARCH to Kepler37 (for Nvidia K80 boards)
+    * Just turn on Kokkos_ENABLE_CUDA 
+    * select cuda architecture, e.g. set Kokkos_ARCH_KEPLER37=ON (for Nvidia K80 boards)
     
     ```bash
     # example build for cuda
     mkdir build_cuda; cd build_cuda
-    ccmake -DKOKKOS_ENABLE_CUDA=ON -DKOKKOS_ARCK=Kepler37 -DKOKKOS_ENABLE_CUDA_LAMBDA=ON -DKOKKOS_ENABLE_HWLOC=ON ..
+    ccmake -DKokkos_ENABLE_CUDA=ON -DKokkos_ARCH_KEPLER37 -DKokkos_ENABLE_CUDA_LAMBDA=ON -DKokkos_ENABLE_HWLOC=ON ..
     make
     ```
 
@@ -85,7 +85,7 @@ For now, just visit the wiki page https://gitlab.maisondelasimulation.fr/pkesten
 
 - AMR on FPGA : FP-AMR: A Reconfigurable Fabric Framework for Adaptive Mesh Refinement Applications,  Tianqi Wang ; Tong Geng ; Xi Jin ; Martin Herbordt , https://ieeexplore.ieee.org/document/8735523
 
-## Other codes (same as in khamr Readme)
+## Other codes (same as in [khamr](https://gitlab.maisondelasimulation.fr/pkestene/khamr/) Readme)
 
 In no particular order, interesting codes implementing parallel AMR algorithms, either standalone, either
 by using external libraries (e.g. HPX, ...):
