@@ -620,10 +620,10 @@ public:
       coord_border[IY] /= 2;
 
       if (loc == NEIGH_POS_1 and dir == DIR_X)
-        coord_border[IX] += bx/2;
+        coord_border[IY] += by/2;
 
       if (loc == NEIGH_POS_1 and dir == DIR_Y)
-        coord_border[IY] += by/2;
+        coord_border[IX] += bx/2;
 
       uint32_t index_border = coord_border[IX] + bx * coord_border[IY];
 
