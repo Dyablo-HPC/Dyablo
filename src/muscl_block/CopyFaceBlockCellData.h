@@ -546,16 +546,18 @@ public:
    * Remember that a left interface (for current octant) is a right interface for neighbor octant.
    *
    * Difficulty is to deal with these two possibilities:
-   * - current  (small) cell on the right
-   * - neighbor (large) cell on the left
+   * - current  (small) octant on the right
+   * - neighbor (large) octant on the left
    *
    * These 2 situations schematically are
    *  ______               ______    __
-   * |      |             |      |  |  |
-   * |      |   __    or  |      |  |__|
-   * |      |  |  |       |      |
-   * |______|  |__|       |______|
+   * |      |             |      |  X  |
+   * |      |   __    or  |      |  X__|
+   * |      |  X  |       |      |
+   * |______|  X__|       |______|
    *
+   * In this function, we want to fill the "X" ghost cells using data from
+   * the (larger) neighbor octant.
    *
    * TODO : do something about hanging nodes, and filling corner ghost cells...
    */
@@ -662,17 +664,17 @@ public:
    * Remember that a left interface (for current octant) is a right interface for neighbor octant.
    *
    * Difficulty is to deal with these two possibilities:
-   * current  (small) cell on the right
-   * neighbor (large) cell on the left
+   * current  (large) octant on the right
+   * neighbor (small) octant on the left
    *
    * These 2 situations schematically are :
-   *        _______            __       ______ 
-   *       |      |           |  |     |      |
-   *  __   |      |      or   |__|     |      |
-   * |  |  |      |                    |      |
-   * |__|  |______|                    |______|
+   *        _______             __      _______ 
+   *       |       |           |  |    X       |
+   *  __   |       |      or   |__|    X       |
+   * |  |  X       |                   |       |
+   * |__|  x_______|                   |_______|
    *
-   * NEIGH_POS_0              NEIGH_POS_1
+   * NEIGH_POS_0               NEIGH_POS_1
    *
    *
    */
