@@ -43,6 +43,17 @@ using DataArrayHost = DataArray::HostMirror;
 using DataArrayBlock = Kokkos::View<real_t***, Kokkos::LayoutLeft, Device>;
 using DataArrayBlockHost = DataArrayBlock::HostMirror;
 
+/**
+ * FlagArrayBlock used for flagging faces or block related content
+ * First index identifies an element of the block (generally a face or a corner)
+ * Second index is the lead id (curvilinear index along the Morton curve)
+ * 
+ * Note that we enforce Left layout here, since we plan to the Kokkos TeamPolicy with one team per leaf, so we favor memory locality inside a block.
+ * Note 2: Should the flag system be uint8_t instead of bool ?
+ */
+
+using FlagArrayBlock = Kokkos::View<bool**, Kokkos::LayoutLeft, Device>;
+using FlagArrayBlockHost = FlagArrayBlock::HostMirror;
 // =============================================================
 // =============================================================
 /**

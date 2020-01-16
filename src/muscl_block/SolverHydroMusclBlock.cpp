@@ -57,6 +57,7 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   U(), Uhost(), U2(), Ughost(), 
   Ugroup(), 
   Qgroup(),
+  Interface_flags(),
   Slopes_x(), 
   Slopes_y(), 
   Slopes_z()
@@ -130,8 +131,13 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   Ugroup = DataArrayBlock("Ugroup", nbCellsPerOct_g, nbvar, nbOctsPerGroup);
   Qgroup = DataArrayBlock("Qgroup", nbCellsPerOct_g, nbvar, nbOctsPerGroup);
 
+
   total_mem_size += nbCellsPerOct_g*nbOctsPerGroup*nbvar * sizeof(real_t) * 2 ;// 1+1 for Ugroup and Qgroup
 
+  // flags data array for faces on 2:1 borders
+  uint8_t nfaces = (m_dim == 2 ? 4 : 6);
+  Interface_flags = FlagArrayBlock("Flags", nfaces, nbOctsPerGroup);
+  total_mem_size += nfaces*nbOctsPerGroup*sizeof(bool);
 
   // all intermediate data array are sized upon nbOctsPerGroup
 
@@ -1195,7 +1201,8 @@ void SolverHydroMusclBlock::fill_block_data_ghost(DataArrayBlock data_in,
                                       data_in,
                                       Ughost,
                                       Ugroup, 
-                                      iGroup);
+                                      iGroup,
+                                      Interface_flags);
 
 } // SolverHydroMusclBlock::fill_block_data_ghost
 

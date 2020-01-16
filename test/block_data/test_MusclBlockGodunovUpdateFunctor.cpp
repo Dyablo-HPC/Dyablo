@@ -138,6 +138,9 @@ void run_test(int argc, char *argv[]) {
   DataArrayBlock Qgroup = DataArrayBlock("Qgroup", nbCellsPerOct_g, params.nbvar, nbOctsPerGroup);
   
   uint32_t iGroup = 1;
+
+  uint8_t nfaces = (params.dimType == TWO_D ? 4 : 6);
+  FlagArrayBlock Interface_flags = FlagArrayBlock("Interface Flags", nfaces, nbOctsPerGroup);
   
   // // chose an octant which should have a "same size" neighbor in all direction
   // //uint32_t iOct_local = 2;
@@ -196,7 +199,8 @@ void run_test(int argc, char *argv[]) {
                                         solver->U, 
                                         solver->Ughost, 
                                         Ugroup, 
-                                        iGroup);
+                                        iGroup,
+                                        Interface_flags);
     
   } // end testing CopyFaceBlockCellDataFunctor
 

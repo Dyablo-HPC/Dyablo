@@ -146,16 +146,16 @@ public:
   
   // static method which does it all: create and execute functor
   static void apply(std::shared_ptr<AMRmesh> pmesh,
-		    ConfigMap      configMap,
+		                ConfigMap      configMap,
                     HydroParams    params,
-		    id2index_t     fm,
+		                id2index_t     fm,
                     blockSize_t    blockSizes,
                     uint32_t       ghostWidth,
                     uint32_t       nbOcts,
                     uint32_t       nbOctsPerGroup,
                     uint32_t       iGroup,
-		    DataArrayBlock Ugroup,
-		    DataArrayBlock U2,
+		                DataArrayBlock Ugroup,
+		                DataArrayBlock U2,
                     DataArrayBlock Qgroup,
                     real_t         dt)
   {
