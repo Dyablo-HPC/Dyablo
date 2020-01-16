@@ -52,7 +52,7 @@ using DataArrayBlockHost = DataArrayBlock::HostMirror;
  * Note 2: Should the flag system be uint8_t instead of bool ?
  */
 
-using FlagArrayBlock = Kokkos::View<bool**, Kokkos::LayoutLeft, Device>;
+using FlagArrayBlock = Kokkos::View<uint8_t*, Kokkos::LayoutLeft, Device>;
 using FlagArrayBlockHost = FlagArrayBlock::HostMirror;
 // =============================================================
 // =============================================================

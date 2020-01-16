@@ -760,6 +760,14 @@ public:
   KOKKOS_INLINE_FUNCTION
   void compute_fluxes_and_update_2d_non_conformal(thread2_t member) const 
   {
+
+  } // compute_fluxes_and_update_2d_non_conformal
+
+  // ====================================================================
+  // ====================================================================
+  KOKKOS_INLINE_FUNCTION
+  void compute_fluxes_and_update_2d_conformal(thread2_t member) const 
+  {
     // iOct must span the range [iGroup*nbOctsPerGroup ,
     // (iGroup+1)*nbOctsPerGroup [
     uint32_t iOct = member.league_rank() + iGroup * nbOctsPerGroup;
@@ -1340,7 +1348,7 @@ public:
             /*
              * compute from left face along x dir
              */
-	    {
+            if (!(Interface_flags(iOct_local) & TWO_TO_ONE_LEFT)) {
               // step 1 : reconstruct state in the left neighbor
 
               // get state in neighbor along X
@@ -1369,7 +1377,7 @@ public:
             /*
              * compute flux from right face along x dir
              */
-	    {
+            if (!(Interface_flags(iOct_local) & TWO_TO_ONE_RIGHT)) {
               // step 1 : reconstruct state in the left neighbor
 
               // get state in neighbor along X
@@ -1398,7 +1406,7 @@ public:
             /*
              * compute flux from left face along y dir
              */
-	    {
+            if (!(Interface_flags(iOct_local) & TWO_TO_ONE_DOWN)) {
               // step 1 : reconstruct state in the left neighbor
               
               // get state in neighbor along X
@@ -1433,7 +1441,7 @@ public:
             /*
              * compute flux from right face along y dir
              */
-	    {
+            if (!(Interface_flags(iOct_local) & TWO_TO_ONE_UP)) {
               // step 1 : reconstruct state in the left neighbor
               
               // get state in neighbor along X
@@ -1482,20 +1490,15 @@ public:
 
     } // end while iOct < nbOct
 
-  } // compute_fluxes_and_update_2d_non_conservative
+  } // compute_fluxes_and_update_2d_conformal
 
   // ====================================================================
   // ====================================================================
   KOKKOS_INLINE_FUNCTION
   void compute_fluxes_and_update_2d(thread2_t member) const 
   {
-    if (params.updateType == UPDATE_CONSERVATIVE_SUM) {
-      compute_fluxes_and_update_2d_conformal(member);
-      compute_fluxes_and_update_2d_non_conformal(member);
-    }
-    else {
-      compute_fluxes_and_update_2d_non_conservative(member);
-    }
+    compute_fluxes_and_update_2d_conformal(member);
+    compute_fluxes_and_update_2d_non_conformal(member);
   } // compute_fluxes_and_update_2d
 
   // ====================================================================
