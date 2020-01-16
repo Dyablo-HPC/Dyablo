@@ -169,10 +169,8 @@ public:
                     uint32_t       nbOcts,
                     uint32_t       nbOctsPerGroup,
                     uint32_t       iGroup,
-		    DataArrayBlock Ugroup,
-		    DataArrayBlock U,
-		    DataArrayBlock U_ghost,
-		    DataArrayBlock U2,
+		                DataArrayBlock Ugroup,
+		                DataArrayBlock U2,
                     DataArrayBlock Qgroup,
                     FlagArrayBlock Interface_flags,
                     real_t         dt)
