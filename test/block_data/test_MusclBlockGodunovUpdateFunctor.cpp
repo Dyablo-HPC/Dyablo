@@ -258,6 +258,7 @@ void run_test(int argc, char *argv[]) {
                                           Ugroup,
                                           solver->U2,
                                           Qgroup, 
+                                          Interface_flags,
                                           dt);
 
     for (uint32_t iy = 0; iy < by_g; ++iy) {
