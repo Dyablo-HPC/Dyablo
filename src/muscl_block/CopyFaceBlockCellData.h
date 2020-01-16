@@ -319,8 +319,6 @@ public:
 
     const index_t size_borderX = ghostWidth*by;
     const index_t size_borderY = bx*ghostWidth; 
-
-    uint8_t iface = face + 2*dir;
     
     // make sure index is valid, i.e. inside the range of admissible values
     if ((index_in < size_borderX and dir == DIR_X) or
@@ -381,10 +379,6 @@ public:
           coord_in[IY] = ghostWidth;
         if (dir == DIR_Y and face == FACE_RIGHT)
           coord_in[IY] = by + ghostWidth - 1;
-
-        // Absorbing condition => same size cells
-        Interface_flags(iface, iOct_local) = false;
-
       } // end ABSORBING
 
 
@@ -413,10 +407,6 @@ public:
           coord_in[IY] = 2 * by + 2 * ghostWidth - 1 - coord_cur[IY];
           sign_v = -1.0;
         }
-
-        // Reflecting condition => same size cells
-        Interface_flags(iface, iOct_local) = false;
-
       } // end REFLECTING
 
       // index from which data will be copied
@@ -870,17 +860,13 @@ public:
         //   printf("[neigh is larger] iOct_global=%d iOct_local=%2d iOct_neigh=%2d ---- \n",iOct, iOct_local, iOct_neigh);
 
         // Setting interface flag
-        Interface_flags(iface, iOct_local) = true;
+        Interface_flags(iOct_local) |= (1<<iface);
 
         NEIGH_LOC loc = get_relative_position_2d(iOct, iOct_neigh, isghost[0], dir, face, NEIGH_IS_LARGER);
 
         fill_ghost_face_2d_larger_size(iOct, iOct_local, iOct_neigh, isghost[0], index_in, dir, face, loc);
 
       } else {
-
-        // Setting interface flag
-        Interface_flags(iface, iOct_local) = false;
-
         // if (index_in==0)
         //   printf("[neigh has same size] iOct_global=%d iOct_local=%2d iOct_neigh=%2d \n",iOct, iOct_local, iOct_neigh);
 
@@ -898,7 +884,7 @@ public:
     else if (neigh.size() == 2) {
 
       // Setting interface flag
-      Interface_flags(iface, iOct_local) = true;
+      Interface_flags(iOct_local) |= (1<<iface);
 
       // if (index_in==0)
       //   printf("[neigh has smaller size] iOct_global=%d iOct_local=%2d iOct_neigh0=%2d iOct_neigh1=%2d -- dir=%d face=%d\n",
@@ -956,6 +942,8 @@ public:
       Kokkos::parallel_for(
           Kokkos::TeamVectorRange(member, nbCells),
           KOKKOS_LAMBDA(const index_t index) {
+            // Resetting conformality flag
+            Interface_flags(iOct_g) = 0;
 
             // compute face X,left
             fill_ghost_face_2d(iOct, iOct_g, index, DIR_X, FACE_LEFT);

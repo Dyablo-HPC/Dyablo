@@ -98,6 +98,7 @@ public:
                                  DataArrayBlock Ugroup,
                                  DataArrayBlock U2,
                                  DataArrayBlock Qgroup,
+                                 FlagArrayBlock Interface_flags,
                                  real_t         dt) :
     pmesh(pmesh),
     params(params),
@@ -110,6 +111,7 @@ public:
     Ugroup(Ugroup),
     U2(U2),
     Qgroup(Qgroup),
+    Interface_flags(Interface_flags),
     dt(dt)
   {
 
@@ -157,6 +159,7 @@ public:
 		                DataArrayBlock Ugroup,
 		                DataArrayBlock U2,
                     DataArrayBlock Qgroup,
+                    FlagArrayBlock Interface_flags,
                     real_t         dt)
   {
 
@@ -166,6 +169,7 @@ public:
                                            nbOcts, nbOctsPerGroup, iGroup,
                                            Ugroup, U2,
                                            Qgroup,
+                                           Interface_flags,
                                            dt);
 
     uint32_t nbTeams_ = configMap.getInteger("amr","nbTeams",16);
@@ -647,7 +651,15 @@ public:
   // ====================================================================
   // ====================================================================
   KOKKOS_INLINE_FUNCTION
-  void compute_fluxes_and_update_2d(thread2_t member) const 
+  void compute_fluxes_and_update_2d_non_conformal(thread2_t member) const 
+  {
+
+  } // compute_fluxes_and_update_2d_non_conformal
+
+  // ====================================================================
+  // ====================================================================
+  KOKKOS_INLINE_FUNCTION
+  void compute_fluxes_and_update_2d_conformal(thread2_t member) const 
   {
 
     // iOct must span the range [iGroup*nbOctsPerGroup ,
@@ -703,7 +715,7 @@ public:
             /*
              * compute from left face along x dir
              */
-            {
+            if (!(Interface_flags(iOct_local) & TWO_TO_ONE_LEFT)) {
               // step 1 : reconstruct state in the left neighbor
 
               // get state in neighbor along X
@@ -732,7 +744,7 @@ public:
             /*
              * compute flux from right face along x dir
              */
-            {
+            if (!(Interface_flags(iOct_local) & TWO_TO_ONE_RIGHT)) {
               // step 1 : reconstruct state in the left neighbor
 
               // get state in neighbor along X
@@ -761,7 +773,7 @@ public:
             /*
              * compute flux from left face along y dir
              */
-            {
+            if (!(Interface_flags(iOct_local) & TWO_TO_ONE_DOWN)) {
               // step 1 : reconstruct state in the left neighbor
               
               // get state in neighbor along X
@@ -796,7 +808,7 @@ public:
             /*
              * compute flux from right face along y dir
              */
-            { 
+            if (!(Interface_flags(iOct_local) & TWO_TO_ONE_UP)) {
               // step 1 : reconstruct state in the left neighbor
               
               // get state in neighbor along X
@@ -847,6 +859,15 @@ public:
 
     } // end while iOct < nbOct
 
+  } // compute_fluxes_and_update_2d_conformal
+
+  // ====================================================================
+  // ====================================================================
+  KOKKOS_INLINE_FUNCTION
+  void compute_fluxes_and_update_2d(thread2_t member) const 
+  {
+    compute_fluxes_and_update_2d_conformal(member);
+    compute_fluxes_and_update_2d_non_conformal(member);
   } // compute_fluxes_and_update_2d
 
   // ====================================================================
@@ -938,6 +959,9 @@ public:
 
   //! user data (primitive variables) for the ith group of octants
   DataArrayBlock Qgroup;
+
+  //! flags at interface for 2:1 ratio
+  FlagArrayBlock Interface_flags;
 
   //! time step
   real_t         dt;
