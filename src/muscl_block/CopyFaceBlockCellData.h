@@ -123,7 +123,8 @@ public:
                                DataArrayBlock U,
                                DataArrayBlock U_ghost,
                                DataArrayBlock Ugroup,
-                               uint32_t iGroup) :
+                               uint32_t iGroup,
+                               FlagArrayBlock Interface_flags) :
     pmesh(pmesh), params(params), 
     fm(fm), blockSizes(blockSizes), 
     ghostWidth(ghostWidth),
@@ -131,7 +132,8 @@ public:
     U(U), 
     U_ghost(U_ghost),
     Ugroup(Ugroup), 
-    iGroup(iGroup)
+    iGroup(iGroup),
+    Interface_flags(Interface_flags)
   {
 
     // in 2d, bz and bz_g are not used
@@ -153,14 +155,16 @@ public:
                     DataArrayBlock U,
                     DataArrayBlock U_ghost,
                     DataArrayBlock Ugroup,
-                    uint32_t iGroup)
+                    uint32_t iGroup,
+                    FlagArrayBlock Interface_flags)
   {
 
     CopyFaceBlockCellDataFunctor functor(pmesh, params, fm, 
                                          blockSizes, ghostWidth,
                                          nbOctsPerGroup, 
                                          U, U_ghost, 
-                                         Ugroup, iGroup);
+                                         Ugroup, iGroup,
+                                         Interface_flags);
 
     /*
      * using kokkos team execution policy
@@ -315,6 +319,8 @@ public:
 
     const index_t size_borderX = ghostWidth*by;
     const index_t size_borderY = bx*ghostWidth; 
+
+    uint8_t iface = face + 2*dir;
     
     // make sure index is valid, i.e. inside the range of admissible values
     if ((index_in < size_borderX and dir == DIR_X) or
@@ -376,6 +382,9 @@ public:
         if (dir == DIR_Y and face == FACE_RIGHT)
           coord_in[IY] = by + ghostWidth - 1;
 
+        // Absorbing condition => same size cells
+        Interface_flags(iface, iOct_local) = false;
+
       } // end ABSORBING
 
 
@@ -404,6 +413,9 @@ public:
           coord_in[IY] = 2 * by + 2 * ghostWidth - 1 - coord_cur[IY];
           sign_v = -1.0;
         }
+
+        // Reflecting condition => same size cells
+        Interface_flags(iface, iOct_local) = false;
 
       } // end REFLECTING
 
@@ -859,11 +871,17 @@ public:
         // if (index_in==0)
         //   printf("[neigh is larger] iOct_global=%d iOct_local=%2d iOct_neigh=%2d ---- \n",iOct, iOct_local, iOct_neigh);
 
+        // Setting interface flag
+        Interface_flags(iface, iOct_local) = true;
+
         NEIGH_LOC loc = get_relative_position_2d(iOct, iOct_neigh, isghost[0], dir, face, NEIGH_IS_LARGER);
 
         fill_ghost_face_2d_larger_size(iOct, iOct_local, iOct_neigh, isghost[0], index_in, dir, face, loc);
 
       } else {
+
+        // Setting interface flag
+        Interface_flags(iface, iOct_local) = false;
 
         // if (index_in==0)
         //   printf("[neigh has same size] iOct_global=%d iOct_local=%2d iOct_neigh=%2d \n",iOct, iOct_local, iOct_neigh);
@@ -880,6 +898,9 @@ public:
      * into ghost cells of the larger octant.
      */
     else if (neigh.size() == 2) {
+
+      // Setting interface flag
+      Interface_flags(iface, iOct_local) = true;
 
       // if (index_in==0)
       //   printf("[neigh has smaller size] iOct_global=%d iOct_local=%2d iOct_neigh0=%2d iOct_neigh1=%2d -- dir=%d face=%d\n",
@@ -1007,6 +1028,9 @@ public:
 
   //! id of group of octants to be copied
   uint32_t iGroup;
+
+  //! 2:1 flagging mechanism
+  FlagArrayBlock Interface_flags;
 
 }; // CopyFaceBlockCellDataFunctor
 
