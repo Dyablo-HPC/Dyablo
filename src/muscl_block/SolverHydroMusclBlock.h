@@ -98,6 +98,9 @@ public:
   //! hydrodynamics primitive - array of octant's block data
   DataArrayBlock Qgroup;
 
+  //! 2:1 intereface flags
+  FlagArrayBlock Interface_flags;
+
   //! slopes along X dir - array of octant's block data
   DataArrayBlock Slopes_x;
 

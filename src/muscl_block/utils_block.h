@@ -9,8 +9,9 @@
 
 namespace dyablo { namespace muscl_block {
 
-using coord_t     = Kokkos::Array<uint32_t, 3>;
-using blockSize_t = Kokkos::Array<uint32_t, 3>;
+using coord_t        = Kokkos::Array<uint32_t, 3>;
+using blockSize_t    = Kokkos::Array<uint32_t, 3>;
+using twoToOneFlag_t = Kokkos::Array<bool, 6>;
 
 // =======================================================
 // =======================================================
