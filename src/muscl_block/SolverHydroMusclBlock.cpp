@@ -148,9 +148,8 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   total_mem_size += nbCellsPerOct_g*nbOctsPerGroup*nbvar * sizeof(real_t) * 2 ;// 1+1 for Ugroup and Qgroup
 
   // flags data array for faces on 2:1 borders
-  uint8_t nfaces = (m_dim == 2 ? 4 : 6);
-  Interface_flags = FlagArrayBlock("Flags", nfaces, nbOctsPerGroup);
-  total_mem_size += nfaces*nbOctsPerGroup*sizeof(bool);
+  Interface_flags = FlagArrayBlock("Flags", nbOctsPerGroup);
+  total_mem_size += nbOctsPerGroup*sizeof(uint8_t);
 
   // all intermediate data array are sized upon nbOctsPerGroup
 
@@ -552,6 +551,7 @@ void SolverHydroMusclBlock::godunov_unsplit_impl(DataArrayBlock data_in,
                                           Ugroup,
                                           data_out,
                                           Qgroup,
+                                          Interface_flags,
                                           dt);
 
     m_timers[TIMER_NUM_SCHEME]->stop();
