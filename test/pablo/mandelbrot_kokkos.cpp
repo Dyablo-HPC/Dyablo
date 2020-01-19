@@ -130,7 +130,7 @@ public:
       nbiter_center = compute_nb_iters(x,y);
       
       // get cell corner nodes
-      vector<array<double,3> > nodes = pmesh->getNodes(i);
+      std::vector<std::array<double,3> > nodes = pmesh->getNodes(i);
       
       double interpol = 0.0;
       for (int ic=0; ic<4; ++ic) {
@@ -201,16 +201,16 @@ void compute_and_save_mandelbrot(std::shared_ptr<AMRmesh> pmesh,
 
   // FIXME : make writeTest accept a DataArray, or
   // convert DataArray to std::vector before calling writeTest
-  vector<double> oct_data_v(nocts, 0.0);
-  vector<double> oct_data_level_v(nocts, 0.0);
+  std::vector<double> oct_data_v(nocts, 0.0);
+  std::vector<double> oct_data_level_v(nocts, 0.0);
 
   for (size_t i=0; i<nocts; ++i) {
     oct_data_v[i]       = oct_data(i);
     oct_data_level_v[i] = oct_data_level(i);
   }
 
-  pmesh->writeTest("mandelbrot_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data_v);
-  pmesh->writeTest("mandelbrot_level"+to_string(static_cast<unsigned long long>(iter)), oct_data_level_v);
+  pmesh->writeTest("mandelbrot_iter"+std::to_string(static_cast<unsigned long long>(iter)), oct_data_v);
+  pmesh->writeTest("mandelbrot_level"+std::to_string(static_cast<unsigned long long>(iter)), oct_data_level_v);
 
 #if BITPIT_ENABLE_MPI==1
   // save MPI rank
@@ -222,7 +222,7 @@ void compute_and_save_mandelbrot(std::shared_ptr<AMRmesh> pmesh,
       oct_data_v[i]       = rank;
     }
 
-    pmesh->writeTest("mandelbrot_rank"+to_string(static_cast<unsigned long long>(iter)), oct_data_v);
+    pmesh->writeTest("mandelbrot_rank"+std::to_string(static_cast<unsigned long long>(iter)), oct_data_v);
     
   }
 #endif

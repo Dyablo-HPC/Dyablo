@@ -84,14 +84,14 @@ void run()
    */
   {
     // print neighbors id
-    vector<uint32_t> neigh_t;
-    vector<bool> isghost_t;
+    std::vector<uint32_t> neigh_t;
+    std::vector<bool> isghost_t;
 
     uint32_t nocts = amr_mesh.getNumOctants();
     for (uint32_t i=0; i<nocts; ++i) {
 
       // print cell nodes location
-      vector<array<double,3> > nodes = amr_mesh.getNodes(i);
+      std::vector<std::array<double,3> > nodes = amr_mesh.getNodes(i);
       printf("rank %d octant %d (Morton = %lu): %f %f %f | %f %f %f | %f %f %f | %f %f %f\n           %f %f %f | %f %f %f | %f %f %f | %f %f %f\n",
              rank, i, amr_mesh.getMorton(i),
              nodes[0][0],nodes[0][1],nodes[0][2],
