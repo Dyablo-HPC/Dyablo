@@ -28,7 +28,7 @@ target_link_libraries(test_CopyGhostBlockCellData PUBLIC
   muscl_block
   shared
   monitoring
-  ${BITPIT_LIBRARY})
+  BITPIT::BITPIT)
 if (USE_MPI)
   target_link_libraries(test_CopyGhostBlockCellData
     PUBLIC 
@@ -46,7 +46,7 @@ target_link_libraries(test_MusclBlockGodunovUpdateFunctor PUBLIC
   muscl_block
   shared
   monitoring
-  ${BITPIT_LIBRARY})
+  BITPIT::BITPIT)
 if (USE_MPI)
   target_link_libraries(test_MusclBlockGodunovUpdateFunctor
     PUBLIC 
