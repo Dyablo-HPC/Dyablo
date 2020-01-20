@@ -11,7 +11,7 @@ cmake_minimum_required(VERSION 3.9)
 option (USE_SUPERBUILD "Whether or not a superbuild should be invoked" ON)
 
 if (USE_SUPERBUILD)
-  project (SUPERBUILD NONE)
+  project (SUPERBUILD LANGUAGES C CXX)
   # execute the superbuild (this script will be invoked again without the
   # USE_SUPERBUILD option this time)
   include (cmake/SuperBuild.cmake)
