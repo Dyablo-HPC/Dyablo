@@ -1,26 +1,9 @@
 # set minimal version the one requested by kokkos
 cmake_minimum_required(VERSION 3.9)
 
-###################################################################
-#
-# Handle superbuild first for building 
-# required dependencies (here only bitpit)
-# adapted from https://github.com/Sarcasm/cmake-superbuild
-#
-###################################################################
-option (USE_SUPERBUILD "Whether or not a superbuild should be invoked" ON)
-
-if (USE_SUPERBUILD)
-  project (SUPERBUILD NONE)
-  # execute the superbuild (this script will be invoked again without the
-  # USE_SUPERBUILD option this time)
-  include (cmake/SuperBuild.cmake)
-  return() # stop processing this file further
-else()
-  set(PROJECT_LANGUAGES ${PROJECT_LANGUAGES} C CXX)
-  project(dyablo
-    LANGUAGES ${PROJECT_LANGUAGES})
-endif()
+set(PROJECT_LANGUAGES ${PROJECT_LANGUAGES} C CXX)
+project(dyablo
+  LANGUAGES ${PROJECT_LANGUAGES})
 
 #
 # default local cmake macro repository
@@ -45,8 +28,7 @@ include(initBuildType)
 # always export compile commands database
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# dyablo options
-
+# options
 #option (BUILD_CODE "Enable / disable project build" ON)
 option (BUILD_DOC  "Enable / disable documentation build" OFF)
 option (USE_SPHINX_EXHALE "Enable / disable building API documentation (very long)" OFF)
@@ -190,7 +172,7 @@ add_definitions( -Wall )
 #
 add_subdirectory(external/backward-cpp)
 add_subdirectory(external/kokkos)
-#add_subdirectory(external/bitpit)
+add_subdirectory(external/bitpit)
 
 # pass Kokkos include directories to our target application
 include_directories(${Kokkos_INCLUDE_DIRS_RET})
