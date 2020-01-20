@@ -66,6 +66,35 @@ make
 
 BITPIT_DIR should to your bitpit install subdirectory where the BITPITConfig.cmake resides.
 
+## build only bitpit
+
+1. get [bitpit sources](https://github.com/pkestene/bitpit/archive/bitpit-1.7.0-devel-dyablo.tar.gz)
+2. ```shell
+   tar zxf bitpit-1.7.0-devel-dyablo.tar.gz
+   cd bitpit-1.7.0-devel-dyablo
+   mkdir build; cd build
+   ccmake -DCMAKE_INSTALL_PREFIX=/home/pkestene/local/bitpit-1.7.0-devel \
+       -DCMAKE_BUILD_TYPE=Release \
+       -DENABLE_MPI=ON \
+       -DBITPIT_MODULE_LA=OFF \
+       -DBITPIT_MODULE_CG=OFF \
+       -DBITPIT_MODULE_DISCRETIZATION=OFF \
+       -DBITPIT_MODULE_LEVELSET=OFF \
+       -DBITPIT_MODULE_PATCHKERNEL=OFF \
+       -DBITPIT_MODULE_POD=OFF \
+       -DBITPIT_MODULE_RBF=OFF \
+       -DBITPIT_MODULE_SA=OFF \
+       -DBITPIT_MODULE_SURFUNSTRUCTURED=OFF \
+       -DBITPIT_MODULE_VOLCARTESIAN=OFF \
+       -DBITPIT_MODULE_VOLOCTREE=OFF \
+       -DBITPIT_MODULE_VOLUNSTRUCTURED=OFF \ 
+      ..
+   make
+   make install
+   ```
+This installed version of bitpit can be used to build dyablo (see above).
+
+
 # More information
 
 For now, just visit the wiki page https://gitlab.maisondelasimulation.fr/pkestene/dyablo/wikis/home
