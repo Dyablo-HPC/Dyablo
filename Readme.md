@@ -42,11 +42,11 @@ Kokkos and BitPit/PABLO are built as part of dyablo with the cmake build system.
 
 ## build dyablo
 
-## **NEW January 2020** superbuild
+## !! **NEW January 2020** !! superbuild
 
-We removed the local modified copy of [BitPit/PABLO](https://github.com/optimad/bitpit), we use instead the following archive [bitpit-1.7.0-devel-dyablo.tar.gz](https://github.com/pkestene/bitpit/archive/bitpit-1.7.0-devel-dyablo.tar.gz). BitPit source code archive is downloaded and built as part of dyablo (using the cmake super-build pattern). 
+We removed the local modified copy of [BitPit/PABLO](https://github.com/optimad/bitpit); we use instead the following archive [bitpit-1.7.0-devel-dyablo.tar.gz](https://github.com/pkestene/bitpit/archive/bitpit-1.7.0-devel-dyablo.tar.gz). BitPit source code archive is downloaded and built as part of dyablo (using the cmake super-build pattern). 
 
-To build dyablo for Kokkos/OpenMP backend (default)
+To build bitpit and dyablo (for Kokkos/OpenMP backend which is default)
 
 ```bash
 mkdir build_openmp; cd build_openmp
@@ -54,18 +54,17 @@ ccmake ..
 make
 ```
 
-### build for Kokkos/OpenMP (not supported anymore)
+## build only dyablo for Kokkos/OpenMP
 
-To build kokkos/OpenMP backend
+To build dyablo for kokkos/OpenMP backend, assuming bitpit is already installed :
 
 ```bash
 mkdir build_openmp; cd build_openmp
-ccmake -DKokkos_ENABLE_OPENMP=ON ..
+ccmake -DBITPIT_DIR=/home/pkestene/local/bitpit-1.7.0-devel-dyablo/lib/cmake/bitpit-1.7 ..
 make
 ```
 
-Optionally, you can (recommended) activate HWLOC support by turning ON the flag Kokkos_ENABLE_HWLOC.
-
+BITPIT_DIR should to your bitpit install subdirectory where the BITPITConfig.cmake resides.
 
 # More information
 
