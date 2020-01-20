@@ -23,10 +23,7 @@ include (ExternalProject)
 # then use our custom BITPIT_DIR to build dyablo
 #
 ####################################################
-message("KK bitpit_found : ${BITPIT_FOUND}")
 if (NOT BITPIT_FOUND)
-
-  message("KK bitpit NOT found")
 
   list (APPEND DEPENDENCIES bitpit_external)
 
