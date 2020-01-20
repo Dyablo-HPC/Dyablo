@@ -1,7 +1,5 @@
 include (ExternalProject)
   
-set_property (DIRECTORY PROPERTY EP_BASE Dependencies)
-
 # list of dependencies to dyablo; currently only bitpit external project
 set (DEPENDENCIES)
 list (APPEND DEPENDENCIES bitpit_external)
