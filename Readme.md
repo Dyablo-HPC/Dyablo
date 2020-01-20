@@ -44,9 +44,11 @@ Kokkos and BitPit/PABLO are built as part of dyablo with the cmake build system.
 
 ## !! **NEW January 2020** !! superbuild
 
-We removed the local modified copy of [BitPit/PABLO](https://github.com/optimad/bitpit); we use instead the following archive [bitpit-1.7.0-devel-dyablo.tar.gz](https://github.com/pkestene/bitpit/archive/bitpit-1.7.0-devel-dyablo.tar.gz). BitPit source code archive is downloaded and built as part of dyablo (using the cmake super-build pattern). 
+The super-build pattern build both dyablo and its depency (bitpit) using cmake command [ExternalProject_Add](https://cmake.org/cmake/help/latest/module/ExternalProject.html).
 
-To build bitpit and dyablo (for Kokkos/OpenMP backend which is default)
+We removed the local modified copy of [BitPit/PABLO](https://github.com/optimad/bitpit) introduced in December 2018; we use instead the following archive [bitpit-1.7.0-devel-dyablo.tar.gz](https://github.com/pkestene/bitpit/archive/bitpit-1.7.0-devel-dyablo.tar.gz). BitPit source code archive is downloaded and built as part of dyablo (using the cmake super-build pattern). 
+
+To build bitpit and dyablo (for Kokkos/OpenMP backend which is the default)
 
 ```bash
 mkdir build_openmp; cd build_openmp
@@ -54,7 +56,7 @@ ccmake ..
 make
 ```
 
-## build only dyablo for Kokkos/OpenMP
+## build only dyablo for Kokkos/OpenMP (when bitpit is already installed)
 
 To build dyablo for kokkos/OpenMP backend, assuming bitpit is already installed :
 
