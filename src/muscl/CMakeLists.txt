@@ -25,19 +25,10 @@ add_library(muscl
 target_include_directories(muscl
   PUBLIC
   ${CMAKE_SOURCE_DIR}/src
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/PABLO
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/common
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/containers
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/IO
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/operators
   ) 
-target_link_libraries(muscl PUBLIC kokkos)
+target_link_libraries(muscl PUBLIC kokkos BITPIT::BITPIT)
 
 if (USE_MPI)
-  
-  target_include_directories(muscl
-    PUBLIC
-    ${CMAKE_SOURCE_DIR}/external/bitpit/src/communications)
  
   target_compile_definitions(muscl PUBLIC BITPIT_ENABLE_MPI)
 

@@ -306,16 +306,16 @@ void run()
   /**<Define vectors of data.*/
   uint32_t nocts = pablo7.getNumOctants();
   uint32_t nghosts = pablo7.getNumGhosts();
-  //vector<double> oct_data(nocts, 0.0), ghost_data(nghosts, 0.0);
+  //std::vector<double> oct_data(nocts, 0.0), ghost_data(nghosts, 0.0);
   AppData oct_data("oct_data", nocts);
   AppData ghost_data("ghost_data", nghosts);
 
   /**<Assign a data (distance from center of a circle) to the octants with at least one node inside the circle.*/
   for (unsigned int i=0; i<nocts; i++){
     /**<Compute the nodes of the octant.*/
-    vector<array<double,3> > nodes = pablo7.getNodes(i);
+    std::vector<std::array<double,3> > nodes = pablo7.getNodes(i);
     /**<Compute the center of the octant.*/
-    array<double,3> center = pablo7.getCenter(i);
+    std::array<double,3> center = pablo7.getCenter(i);
     for (int j=0; j<4; j++){
       double x = nodes[j][0];
       double y = nodes[j][1];
@@ -329,19 +329,19 @@ void run()
   iter = 0;
   pablo7.updateConnectivity();
   {
-    dyablo::writeTest(pablo7,"pablo00007_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data);
+    dyablo::writeTest(pablo7,"pablo00007_iter"+std::to_string(static_cast<unsigned long long>(iter)), oct_data);
   }
   
   /**<Adapt two times with data injection on new octants.*/
   int start = 1;
   /**<Weight.*/
-  vector<double> weight(nocts, 1.0),weightGhost;
+  std::vector<double> weight(nocts, 1.0),weightGhost;
   for (iter=start; iter<start+2; iter++){
     for (unsigned int i=0; i<nocts; i++){
       /**<Compute the nodes of the octant.*/
-      vector<array<double,3> > nodes = pablo7.getNodes(i);
+      std::vector<std::array<double,3> > nodes = pablo7.getNodes(i);
       /**<Compute the center of the octant.*/
-      array<double,3> center = pablo7.getCenter(i);
+      std::array<double,3> center = pablo7.getCenter(i);
       for (int j=0; j<4; j++){
 	weight[i] = 2.0;
 	double x = nodes[j][0];
@@ -365,9 +365,9 @@ void run()
 
     /**<Adapt the octree and map the data in the new octants.*/
     AppData oct_data_new;
-    vector<double> weight_new;
-    vector<uint32_t> mapper;
-    vector<bool> isghost;
+    std::vector<double> weight_new;
+    std::vector<uint32_t> mapper;
+    std::vector<bool> isghost;
     pablo7.adapt(true);
     nocts = pablo7.getNumOctants();
     Kokkos::resize(oct_data_new, nocts);
@@ -399,7 +399,7 @@ void run()
     /**<Update the connectivity and write the octree.*/
     pablo7.updateConnectivity();
     {
-      dyablo::writeTest(pablo7,"pablo00007_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data_new);
+      dyablo::writeTest(pablo7,"pablo00007_iter"+std::to_string(static_cast<unsigned long long>(iter)), oct_data_new);
     }
 
     oct_data = oct_data_new;
@@ -420,7 +420,7 @@ void run()
   /**<Update the connectivity and write the octree.*/
   pablo7.updateConnectivity();
   {
-    dyablo::writeTest(pablo7,"pablo00007_iter"+to_string(static_cast<unsigned long long>(iter)), weight);
+    dyablo::writeTest(pablo7,"pablo00007_iter"+std::to_string(static_cast<unsigned long long>(iter)), weight);
   }
 }
 

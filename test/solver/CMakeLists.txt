@@ -9,11 +9,6 @@ add_executable(${EXE_NAME}
 
 target_include_directories(${EXE_NAME}
   PUBLIC
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/common
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/containers
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/IO
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/operators
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/PABLO
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_BINARY_DIR}/src
   )
@@ -26,13 +21,9 @@ target_link_libraries(${EXE_NAME}
   muscl_block
   shared
   monitoring
-  ${BITPIT_LIBRARY})
+  BITPIT::BITPIT)
 
-if (USE_MPI)
-  target_include_directories(${EXE_NAME}
-    PUBLIC
-    ${CMAKE_SOURCE_DIR}/external/bitpit/src/communications)
-  
+if (USE_MPI)  
   target_compile_definitions(${EXE_NAME} PUBLIC BITPIT_ENABLE_MPI)
 
   target_link_libraries(${EXE_NAME} mpiUtils)

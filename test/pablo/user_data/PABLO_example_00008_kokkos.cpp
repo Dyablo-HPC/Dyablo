@@ -90,16 +90,16 @@ void run()
   /**<Define vectors of data.*/
   uint32_t nocts = pablo8.getNumOctants();
   uint32_t nghosts = pablo8.getNumGhosts();
-  //vector<double> oct_data(nocts, 0.0), ghost_data(nghosts, 0.0);
+  //std::vector<double> oct_data(nocts, 0.0), ghost_data(nghosts, 0.0);
   AppData oct_data("oct_data", nocts);
   AppData ghost_data("ghost_data", nghosts);
   
   /**<Assign a data (distance from center of a circle) to the octants with at least one node inside the circle.*/
   for (unsigned int i=0; i<nocts; i++){
     /**<Compute the nodes of the octant.*/
-    vector<array<double,3> > nodes = pablo8.getNodes(i);
+    std::vector<std::array<double,3> > nodes = pablo8.getNodes(i);
     /**<Compute the center of the octant.*/
-    array<double,3> center = pablo8.getCenter(i);
+    std::array<double,3> center = pablo8.getCenter(i);
     for (int j=0; j<4; j++){
       double x = nodes[j][0];
       double y = nodes[j][1];
@@ -113,7 +113,7 @@ void run()
   iter = 0;
   pablo8.updateConnectivity();
   {
-    dyablo::writeTest(pablo8, "pablo00008_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data);
+    dyablo::writeTest(pablo8, "pablo00008_iter"+std::to_string(static_cast<unsigned long long>(iter)), oct_data);
   }
 
   /**<Adapt two times with data injection on new octants.*/
@@ -121,9 +121,9 @@ void run()
   for (iter=start; iter<start+2; iter++){
     for (unsigned int i=0; i<nocts; i++){
       /**<Compute the nodes of the octant.*/
-      vector<array<double,3> > nodes = pablo8.getNodes(i);
+      std::vector<std::array<double,3> > nodes = pablo8.getNodes(i);
       /**<Compute the center of the octant.*/
-      array<double,3> center = pablo8.getCenter(i);
+      std::array<double,3> center = pablo8.getCenter(i);
       for (int j=0; j<4; j++){
 	double x = nodes[j][0];
 	double y = nodes[j][1];
@@ -143,10 +143,10 @@ void run()
     }
 
     /**<Adapt the octree and map the data in the new octants.*/
-    //vector<double> oct_data_new;
+    //std::vector<double> oct_data_new;
     AppData oct_data_new("oct_data_new");
-    vector<uint32_t> mapper;
-    vector<bool> isghost;
+    std::vector<uint32_t> mapper;
+    std::vector<bool> isghost;
     pablo8.adapt(true);
     nocts = pablo8.getNumOctants();
     Kokkos::resize(oct_data_new,nocts);
@@ -173,7 +173,7 @@ void run()
     /**<Update the connectivity and write the octree.*/
     pablo8.updateConnectivity();
     {
-      dyablo::writeTest(pablo8,"pablo00008_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data_new);
+      dyablo::writeTest(pablo8,"pablo00008_iter"+std::to_string(static_cast<unsigned long long>(iter)), oct_data_new);
     }
 
     oct_data = oct_data_new;
@@ -189,7 +189,7 @@ void run()
   /**<Update the connectivity and write the octree.*/
   pablo8.updateConnectivity();
   {
-    dyablo::writeTest(pablo8,"pablo00008_iter"+to_string(static_cast<unsigned long long>(iter)), data_lb.data);
+    dyablo::writeTest(pablo8,"pablo00008_iter"+std::to_string(static_cast<unsigned long long>(iter)), data_lb.data);
   }
 #endif // BITPIT_ENABLE_MPI
 

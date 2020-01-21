@@ -38,44 +38,64 @@ Kokkos and BitPit/PABLO are built as part of dyablo with the cmake build system.
 ## prerequisites
 
 - [kokkos](https://github.com/kokkos/kokkos) : preconfigured as a git submodule
-- [BitPit/PABLO](https://github.com/optimad/bitpit) : a local copy (slightly refactored) is included in dyablo
+- [BitPit/PABLO](https://github.com/optimad/bitpit) : a local copy (slightly refactored** is included in dyablo
 
 ## build dyablo
 
-### build for Kokkos/OpenMP
+## !! **NEW January 2020** !! superbuild
 
-To build kokkos/OpenMP backend
+The super-build pattern build both dyablo and its depency (bitpit) using cmake command [ExternalProject_Add](https://cmake.org/cmake/help/latest/module/ExternalProject.html).
+
+We removed the local modified copy of [BitPit/PABLO](https://github.com/optimad/bitpit) introduced in December 2018; we use instead the following archive [bitpit-1.7.0-devel-dyablo.tar.gz](https://github.com/pkestene/bitpit/archive/bitpit-1.7.0-devel-dyablo.tar.gz). BitPit source code archive is downloaded and built as part of dyablo (using the cmake super-build pattern). 
+
+To build bitpit and dyablo (for Kokkos/OpenMP backend which is the default)
 
 ```bash
 mkdir build_openmp; cd build_openmp
-ccmake -DKokkos_ENABLE_OPENMP=ON ..
+ccmake ..
 make
 ```
 
-Optionally, you can (recommended) activate HWLOC support by turning ON the flag Kokkos_ENABLE_HWLOC.
+## build only dyablo for Kokkos/OpenMP (when bitpit is already installed)
 
+To build dyablo for kokkos/OpenMP backend, assuming bitpit is already installed :
 
-### build for Kokkos/Cuda (not supported yet)
+```bash
+mkdir build_openmp; cd build_openmp
+ccmake -DBITPIT_DIR=/home/pkestene/local/bitpit-1.7.0-devel-dyablo/lib/cmake/bitpit-1.7 ..
+make
+```
 
-You need to have Nvidia/CUDA driver and toolkit installed on your platform.
-Then you need to
+BITPIT_DIR should to your bitpit install subdirectory where the BITPITConfig.cmake resides.
 
- 1. tell cmake to use kokkos compiler wrapper for cuda:
- 
-    ```shell
-    export CXX=/complete/path/to/kokos/bin/nvcc_wrapper
-    ```
-    
- 2. activate CUDA backend in the ccmake interface. 
-    * Just turn on Kokkos_ENABLE_CUDA 
-    * select cuda architecture, e.g. set Kokkos_ARCH_KEPLER37=ON (for Nvidia K80 boards)
-    
-    ```bash
-    # example build for cuda
-    mkdir build_cuda; cd build_cuda
-    ccmake -DKokkos_ENABLE_CUDA=ON -DKokkos_ARCH_KEPLER37 -DKokkos_ENABLE_CUDA_LAMBDA=ON -DKokkos_ENABLE_HWLOC=ON ..
-    make
-    ```
+## build only bitpit
+
+1. get [bitpit sources](https://github.com/pkestene/bitpit/archive/bitpit-1.7.0-devel-dyablo.tar.gz)
+2. ```shell
+   tar zxf bitpit-1.7.0-devel-dyablo.tar.gz
+   cd bitpit-1.7.0-devel-dyablo
+   mkdir build; cd build
+   ccmake -DCMAKE_INSTALL_PREFIX=/home/pkestene/local/bitpit-1.7.0-devel \
+       -DCMAKE_BUILD_TYPE=Release \
+       -DENABLE_MPI=ON \
+       -DBITPIT_MODULE_LA=OFF \
+       -DBITPIT_MODULE_CG=OFF \
+       -DBITPIT_MODULE_DISCRETIZATION=OFF \
+       -DBITPIT_MODULE_LEVELSET=OFF \
+       -DBITPIT_MODULE_PATCHKERNEL=OFF \
+       -DBITPIT_MODULE_POD=OFF \
+       -DBITPIT_MODULE_RBF=OFF \
+       -DBITPIT_MODULE_SA=OFF \
+       -DBITPIT_MODULE_SURFUNSTRUCTURED=OFF \
+       -DBITPIT_MODULE_VOLCARTESIAN=OFF \
+       -DBITPIT_MODULE_VOLOCTREE=OFF \
+       -DBITPIT_MODULE_VOLUNSTRUCTURED=OFF \ 
+      ..
+   make
+   make install
+   ```
+This installed version of bitpit can be used to build dyablo (see above).
+
 
 # More information
 
