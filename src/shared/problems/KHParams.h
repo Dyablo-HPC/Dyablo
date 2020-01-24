@@ -25,6 +25,7 @@ struct KHParams {
   bool p_sine; //! sinus perturbation
   bool p_sine_rob; //! sinus perturbation "a la Robertson"
   bool p_rand; //! random perturbation
+  bool p_sharp; //! sharp perturbation
 
   real_t vflow_in;
   real_t vflow_out;
@@ -43,7 +44,7 @@ struct KHParams {
   {
 
     d_in  = configMap.getFloat("KH", "d_in", 1.0);
-    d_out = configMap.getFloat("KH", "d_out", 1.0);
+    d_out = configMap.getFloat("KH", "d_out", 2.0);
 
     pressure = configMap.getFloat("KH", "pressure", 10.0);
 

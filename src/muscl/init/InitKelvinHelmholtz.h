@@ -172,8 +172,39 @@ public:
         Udata(i,fm[IW]) = d * w;
       Udata(i,fm[IP]) = pressure / (gamma0-1.0) + 0.5*d*(u*u+v*v+w*w);
       
-    }
+    } else if (khParams.p_sine) {
+      const int    n     = khParams.mode;
+      const real_t w0    = khParams.w0;
 
+      const double rho1 = d_in;
+      const double rho2 = d_out;
+      
+      const double tmp = params.dimType == TWO_D ? y : z;
+
+      const double v1 = vflow_in;
+      const double v2 = vflow_out;
+
+      real_t d, u, v;
+      if (tmp < 0.25 or tmp > 0.75) {
+	d = rho2;
+	u = v2;
+      }
+      else {
+	d = rho1;
+	u = v1;
+      }
+      
+      v = w0 * sin(n*2.0*M_PI*x);
+
+      const real_t w = 0.0;
+
+      Udata(i,fm[ID]) = d;
+      Udata(i,fm[IU]) = d * u;
+      Udata(i,fm[IV]) = d * v;
+      if (params.dimType == THREE_D)
+        Udata(i,fm[IW]) = d * w;
+      Udata(i,fm[IP]) = pressure / (gamma0-1.0) + 0.5*d*(u*u+v*v+w*w);
+    }
   } // end operator ()
 
   std::shared_ptr<AMRmesh> pmesh;
