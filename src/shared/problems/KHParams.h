@@ -25,7 +25,6 @@ struct KHParams {
   bool p_sine; //! sinus perturbation
   bool p_sine_rob; //! sinus perturbation "a la Robertson"
   bool p_rand; //! random perturbation
-  bool p_sharp; //! sharp perturbation
 
   real_t vflow_in;
   real_t vflow_out;
