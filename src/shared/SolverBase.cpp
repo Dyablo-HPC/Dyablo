@@ -122,9 +122,21 @@ SolverBase::do_amr_cycle()
 
   // 2. mark cell for refinement / coarsening
 
-  // 3. adapt mesh + load balance
+  // 3. adapt mesh
+
+  // 4. user data repping
   
 } // SolverBase::do_amr_cycle
+
+// =======================================================
+// =======================================================
+void
+SolverBase::do_load_balancing()
+{
+
+  // perform MPI load balancing (mesh + user data)
+
+} // SolverBase::do_load_balancing
 
 // =======================================================
 // =======================================================
@@ -226,6 +238,19 @@ SolverBase::should_do_amr_cycle()
   return params.amr_cycle_enabled;
 
 } // SolverBase::should_do_amr_cycle
+
+// =======================================================
+// =======================================================
+bool
+SolverBase::should_do_load_balancing(int timeStep)
+{
+
+  UNUSED(timeStep);
+
+  // default behavior : true at every time step
+  return true;
+
+} // SolverBase::should_do_load_balancing
 
 // =======================================================
 // =======================================================

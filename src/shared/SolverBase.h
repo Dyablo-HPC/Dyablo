@@ -116,9 +116,12 @@ public:
    *
    */
 
-  //! perform AMR cycle (mark cells, adapt = refine/coarsen, load balance)
+  //! perform AMR cycle (mark cells, adapt = refine/coarsen, remap user data)
   virtual void do_amr_cycle();
-  
+
+  //! do MPI load balancing
+  virtual void do_load_balancing();
+
   //! Read and parse the configuration file (ini format).
   virtual void read_config();
 
@@ -133,7 +136,10 @@ public:
 
   //! Check if AMR cycle is required
   virtual bool should_do_amr_cycle();
-  
+
+  //! Check if Load Balancing is required
+  virtual bool should_do_load_balancing(int timeStep);
+
   //! This is where action takes place. Wrapper arround next_iteration_impl.
   virtual void next_iteration();
 
