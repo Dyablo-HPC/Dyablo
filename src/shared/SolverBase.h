@@ -41,8 +41,9 @@ enum TimerIds {
   TIMER_AMR_CYCLE_ADAPT_MESH = 8,
   TIMER_AMR_CYCLE_MAP_USERDATA = 9,
   TIMER_AMR_CYCLE_LOAD_BALANCE = 10,
-  TIMER_BLOCK_COPY = 11,
-  TIMER_NB = 12 // number of TIMERs, do not remove
+  TIMER_AMR_BLOCK_COPY = 11,
+  TIMER_BLOCK_COPY = 12,
+  TIMER_NB = 13 // number of TIMERs, do not remove
 }; // enum TimerIds
 
 namespace dyablo {
