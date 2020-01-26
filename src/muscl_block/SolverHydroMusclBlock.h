@@ -230,25 +230,6 @@ private:
   //! take into account all faces, edges and corners.
   void fill_block_data_ghost(DataArrayBlock data_in, uint32_t iGroup);
 
-  /*
-   * more control over AMR refine/coarsen and load balancing
-   */
-
-  /**
-   * specify how often load balancing must be done.
-   * Load balancing is performed once every amr_load_balancing_frequency
-   * This value must be strictly larger than 0.
-   */
-  int amr_load_balancing_frequency;
-  
-  //! override base class default
-  bool should_do_load_balancing(int timeStep) override;
-
-  //! control how often AMR cycle is done (how many time steps between two AMR cycles)
-  int amr_cycle_frequency;
-
-  bool should_do_amr_cycle() override;
-
 }; // class SolverHydroMusclBlock
 
 } // namespace muscl_block
