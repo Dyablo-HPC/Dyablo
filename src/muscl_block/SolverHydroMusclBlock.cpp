@@ -339,7 +339,7 @@ void SolverHydroMusclBlock::do_load_balancing()
 
   m_timers[TIMER_AMR_CYCLE]->stop();
 
-} // SolverHydromusclblock::do_load_balancing
+} // SolverHydroMusclBlock::do_load_balancing
 
 // =======================================================
 // =======================================================
