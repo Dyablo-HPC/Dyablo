@@ -115,6 +115,11 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
 
   nbOctsPerGroup = configMap.getInteger("amr", "nbOctsPerGroup", 32);
 
+  amr_load_balancing_frequency = configMap.getInteger("amr", "load_balancing_frequency", 1);
+  if (amr_load_balancing_frequency < 1) {
+    amr_load_balancing_frequency = 1;
+  }
+
   /*
    * main data array memory allocation
    */
@@ -323,12 +328,23 @@ void SolverHydroMusclBlock::do_amr_cycle()
   // 4. map data to new data array
   map_userdata_after_adapt();
 
-  // 5. load balance
+  m_timers[TIMER_AMR_CYCLE]->stop();
+
+} // SolverHydroMusclBlock::do_amr_cycle
+
+// =======================================================
+// =======================================================
+void SolverHydroMusclBlock::do_load_balancing()
+{
+
+  m_timers[TIMER_AMR_CYCLE]->start();
+  
+  // load balance
   load_balance_userdata();
 
   m_timers[TIMER_AMR_CYCLE]->stop();
 
-} // SolverHydroMusclBlock::do_amr_cycle
+} // SolverHydromusclblock::do_load_balancing
 
 // =======================================================
 // =======================================================
@@ -411,6 +427,12 @@ void SolverHydroMusclBlock::next_iteration_impl()
     
     // just deep copy U2 into U 
     Kokkos::deep_copy(U,U2);
+
+  }
+
+  if ( should_do_load_balancing(m_iteration) ) {
+
+    do_load_balancing();
 
   }
 
@@ -1110,6 +1132,15 @@ void SolverHydroMusclBlock::fill_block_data_ghost(DataArrayBlock data_in,
                                       iGroup);
 
 } // SolverHydroMusclBlock::fill_block_data_ghost
+
+// =======================================================
+// =======================================================
+bool SolverHydroMusclBlock::should_do_load_balancing(int timeStep)
+{
+
+  return (timeStep % amr_load_balancing_frequency) == 0;
+
+} // SolverHydromusclblock::should_do_load_balancing
 
 } // namespace muscl_block
 
