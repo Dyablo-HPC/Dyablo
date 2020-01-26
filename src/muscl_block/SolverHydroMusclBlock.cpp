@@ -115,10 +115,22 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
 
   nbOctsPerGroup = configMap.getInteger("amr", "nbOctsPerGroup", 32);
 
+  // Load balancing control
   amr_load_balancing_frequency = configMap.getInteger("amr", "load_balancing_frequency", 1);
   if (amr_load_balancing_frequency < 1) {
     amr_load_balancing_frequency = 1;
   }
+
+  // AMR cycle control
+  amr_cycle_frequency = configMap.getInteger("amr", "cycle_frequency", 1);
+  if (amr_cycle_frequency < 1) {
+    amr_cycle_frequency = 1;
+  }
+
+  // TODO : analyze if amr_cycle_frequency and 
+  // amr_load_balancing_frequency can be completely independent, or
+  // should we restrict / enforce e.g. load balacing frequency to be
+  // multiple of amr cycle frequency ?
 
   /*
    * main data array memory allocation
@@ -1141,6 +1153,15 @@ bool SolverHydroMusclBlock::should_do_load_balancing(int timeStep)
   return (timeStep % amr_load_balancing_frequency) == 0;
 
 } // SolverHydromusclblock::should_do_load_balancing
+
+// =======================================================
+// =======================================================
+bool SolverHydroMusclBlock::should_do_amr_cycle()
+{
+
+  return params.amr_cycle_enabled and ( (m_iteration % amr_cycle_frequency) == 0);
+
+} // SolverHydromusclblock::should_do_amr_cycle
 
 } // namespace muscl_block
 

@@ -244,6 +244,11 @@ private:
   //! override base class default
   bool should_do_load_balancing(int timeStep) override;
 
+  //! control how often AMR cycle is done (how many time steps between two AMR cycles)
+  int amr_cycle_frequency;
+
+  bool should_do_amr_cycle() override;
+
 }; // class SolverHydroMusclBlock
 
 } // namespace muscl_block
