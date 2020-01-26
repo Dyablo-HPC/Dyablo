@@ -588,6 +588,7 @@ void SolverHydroMusclBlock::print_monitoring_info()
   real_t t_amr_map_userdata = m_timers[TIMER_AMR_CYCLE_MAP_USERDATA]->elapsed();
   real_t t_amr_load_balance = m_timers[TIMER_AMR_CYCLE_LOAD_BALANCE]->elapsed();
 
+  real_t t_amr_block_copy = m_timers[TIMER_AMR_BLOCK_COPY]->elapsed();
   real_t t_block_copy = m_timers[TIMER_BLOCK_COPY]->elapsed();
 
   int myRank = 0;
@@ -622,6 +623,8 @@ void SolverHydroMusclBlock::print_monitoring_info()
            t_amr_sync_ghost, 100 * t_amr_sync_ghost / t_tot);
     printf("amr cycle mark cells    : %5.3f secondes %5.2f%%\n",
            t_amr_mark_cells, 100 * t_amr_mark_cells / t_tot);
+    printf("amr block copy          : %5.3f secondes %5.2f%%\n",
+           t_amr_mark_cells, 100 * t_amr_block_copy / t_tot);
     printf("amr cycle adapt mesh    : %5.3f secondes %5.2f%%\n",
            t_amr_adapt_mesh, 100 * t_amr_adapt_mesh / t_tot);
     printf("amr cycle map user data : %5.3f secondes %5.2f%%\n",
@@ -776,7 +779,7 @@ void SolverHydroMusclBlock::mark_cells()
 
   for (uint32_t iGroup = 0; iGroup < nbGroup; ++iGroup) {
 
-    m_timers[TIMER_BLOCK_COPY]->start();
+    m_timers[TIMER_AMR_BLOCK_COPY]->start();
 
     // copy data_in (current group of octants) to Ugroup (inner cells)
     fill_block_data_inner(Udata, iGroup);
@@ -784,7 +787,7 @@ void SolverHydroMusclBlock::mark_cells()
     // update ghost cells of all octant in current group of octants
     fill_block_data_ghost(Udata, iGroup);
 
-    m_timers[TIMER_BLOCK_COPY]->stop();
+    m_timers[TIMER_AMR_BLOCK_COPY]->stop();
 
     m_timers[TIMER_AMR_CYCLE_MARK_CELLS]->start();
 
