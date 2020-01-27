@@ -152,9 +152,6 @@ enum Direction {
   XDIR=1, 
   YDIR=2,
   ZDIR=3,
-  DIR_X = 0,
-  DIR_Y = 1,
-  DIR_Z = 2
 };
 
 //! location of the outside boundary
@@ -209,5 +206,43 @@ enum ProblemType {
   PROBLEM_BLAST,
   PROBLEM_ORSZAG_TANG
 };
+
+//! 2:1 ratios
+//  Indicates if the neighbor is bigger or smaller
+enum InterfaceType {
+  INTERFACE_NONE         =    0,
+  INTERFACE_XMIN_SMALLER =    1,
+  INTERFACE_XMAX_SMALLER =    2,
+  INTERFACE_YMIN_SMALLER =    4,
+  INTERFACE_YMAX_SMALLER =    8,
+  INTERFACE_ZMIN_SMALLER =   16,
+  INTERFACE_ZMAX_SMALLER =   32,
+  INTERFACE_XMIN_BIGGER  =   64,
+  INTERFACE_XMAX_BIGGER  =  128,
+  INTERFACE_YMIN_BIGGER  =  256,
+  INTERFACE_YMAX_BIGGER  =  512,
+  INTERFACE_ZMIN_BIGGER  = 1024,
+  INTERFACE_ZMAX_BIGGER  = 2048,
+  
+  // Combinations: Non conformal interfaces
+  INTERFACE_XMIN_NC = 65,
+  INTERFACE_XMAX_NC = 130,
+  INTERFACE_YMIN_NC = 260,
+  INTERFACE_YMAX_NC = 520,
+  INTERFACE_ZMIN_NC = 1040,
+  INTERFACE_ZMAX_NC = 2080
+};
+
+  enum FACE_ID : uint8_t {
+    FACE_LEFT  = 0,
+    FACE_RIGHT = 1
+  };
+
+  enum DIR_ID : uint8_t {
+    DIR_X = 0,
+    DIR_Y = 1,
+    DIR_Z = 2
+  };
+
 
 #endif // SHARED_ENUMS_H_
