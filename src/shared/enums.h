@@ -233,21 +233,16 @@ enum InterfaceType {
   INTERFACE_ZMAX_NC = 2080
 };
 
-enum FACE_ID : uint8_t {
-  FACE_LEFT  = 0,
-  FACE_RIGHT = 1
-};
+  enum FACE_ID : uint8_t {
+    FACE_LEFT  = 0,
+    FACE_RIGHT = 1
+  };
 
-enum DIR_ID : uint8_t {
-  DIR_X = 0,
-  DIR_Y = 1,
-  DIR_Z = 2
-};
-
-enum UPDATE_TYPE : uint8_t {
-  UPDATE_NON_CONSERVATIVE = 0,
-  UPDATE_CONSERVATIVE_SUM = 1
-};
+  enum DIR_ID : uint8_t {
+    DIR_X = 0,
+    DIR_Y = 1,
+    DIR_Z = 2
+  };
 
 
 #endif // SHARED_ENUMS_H_
