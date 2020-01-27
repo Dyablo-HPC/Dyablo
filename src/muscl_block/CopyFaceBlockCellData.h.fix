@@ -254,12 +254,11 @@ public:
         pmesh->getYghost(iOct_neigh) : 
         pmesh->getY     (iOct_neigh);
 
-      if (neigh_size == NEIGH_IS_LARGER  and (neigh_loc < cur_loc) )
+      if (neigh_size == NEIGH_IS_LARGER  and (neigh_loc < cur_loc) ) 
         res = NEIGH_POS_1;
 
       if (neigh_size == NEIGH_IS_SMALLER and (neigh_loc > cur_loc) )
         res = NEIGH_POS_1;
-
     }
 
     if (dir == DIR_Y) {
@@ -601,9 +600,9 @@ public:
       // if necessary, shift border coords to access input (neighbor octant) cell data
       if ( face == FACE_LEFT ) {
         if ( dir == DIR_X )
-          coord_border[IX] = (coord_border[IX] + 2*bx - ghostWidth);
+          coord_border[IX] = (bx*2 - ghostWidth + coord_border[IX]);
         if ( dir == DIR_Y )
-          coord_border[IY] = (coord_border[IY] + 2*by - ghostWidth);
+          coord_border[IY] = (by*2 - ghostWidth + coord_border[IY]);
       }
 
       // remap to take into account that neighbor is actually larger
@@ -677,7 +676,6 @@ public:
                                        FACE_ID  face,
                                        NEIGH_LOC loc[2]) const
   {
-    
     const int &bx = blockSizes[IX];
     const int &by = blockSizes[IY];
 
@@ -721,6 +719,7 @@ public:
         if (dir == DIR_Y)
           coord_cur[IY] += (by+ghostWidth);
       }
+
       
       // compute corresponding index in the ghosted block
       // i.e. current octant
@@ -780,7 +779,6 @@ public:
       Ugroup(index_cur, fm[IP], iOct_local) = q[IP]/4;
       Ugroup(index_cur, fm[IU], iOct_local) = q[IU]/4;
       Ugroup(index_cur, fm[IV], iOct_local) = q[IV]/4;
-      
     } // end if admissible values for index
 
   } // fill_ghost_face_2d_smaller_size
@@ -849,17 +847,8 @@ public:
         //   printf("[neigh is larger] iOct_global=%d iOct_local=%2d iOct_neigh=%2d ---- \n",iOct, iOct_local, iOct_neigh);
 
         // Setting interface flag to "bigger"
-	Interface_flags(iOct) |= (1 << (iface + 6));
+	Interface_flags(iOct_local) |= (1 << (iface + 6));
 	
-	/*switch(iface) {
-	case FACE_XMIN: InterfaceFlag(iOct) |= FACE_RATIO_XMIN_BIGGER; break;
-	case FACE_XMAX: InterfaceFlag(iOct) |= FACE_RATIO_XMAX_BIGGER; break;
-	case FACE_YMIN: InterfaceFlag(iOct) |= FACE_RATIO_YMIN_BIGGER; break;
-	case FACE_YMAX: InterfaceFlag(iOct) |= FACE_RATIO_YMAX_BIGGER; break;
-	case FACE_ZMIN: InterfaceFlag(iOct) |= FACE_RATIO_ZMIN_BIGGER; break;
-	case FACE_ZMAX: InterfaceFlag(iOct) |= FACE_RATIO_ZMAX_BIGGER; break;
-	}*/
-
         NEIGH_LOC loc = get_relative_position_2d(iOct, iOct_neigh, isghost[0], dir, face, NEIGH_IS_LARGER);
 
         fill_ghost_face_2d_larger_size(iOct, iOct_local, iOct_neigh, isghost[0], index_in, dir, face, loc);
@@ -935,14 +924,12 @@ public:
     uint32_t nbCells = bmax*ghostWidth;
 
     while (iOct < iOctNextGroup and iOct < nbOcts) {
+      Interface_flags(iOct_g) = INTERFACE_NONE;
 
       // perform "vectorized" loop inside a given block data
       Kokkos::parallel_for(
           Kokkos::TeamVectorRange(member, nbCells),
           KOKKOS_LAMBDA(const index_t index) {
-            // Resetting conformality flag
-            Interface_flags(iOct_g) = INTERFACE_NONE;
-
             // compute face X,left
             fill_ghost_face_2d(iOct, iOct_g, index, DIR_X, FACE_LEFT);
 
