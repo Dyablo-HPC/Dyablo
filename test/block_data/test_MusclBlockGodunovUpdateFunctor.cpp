@@ -255,6 +255,8 @@ void run_test(int argc, char *argv[]) {
                                           nbOcts,
                                           nbOctsPerGroup,
                                           iGroup,
+					  solver->U,
+					  solver->Ughost,
                                           Ugroup,
                                           solver->U2,
                                           Qgroup, 
