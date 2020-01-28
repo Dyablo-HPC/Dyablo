@@ -9,6 +9,14 @@ find_package(BITPIT CONFIG QUIET)
 # retrieve BITPIT_DIR as given on the command line
 set(MY_BITPIT_DIR ${BITPIT_DIR})
 
+# enforce a CPU build of BITPIT/PABLO
+# anyway PABLO is a CPU library
+# anyway PABLO is not a all in a shape to pass nvcc_wrapper compilation
+# anyway we won't use PABLO internal structure in tge core Kokkos
+# computing functors
+set(BITPIT_COMPILER  "g++" CACHE STRING "compiler used to build bitpit")
+
+
 # list of dependencies to dyablo; currently only bitpit external project
 # initialized as empty, but in case BITPIT_FOUND is false, we add bitpit
 # to DEPENDENCIES
@@ -36,6 +44,7 @@ if (NOT BITPIT_FOUND)
     URL_MD5 496d20de8966d5dd03756e18c2351d41
     UPDATE_COMMAND ""
     CMAKE_ARGS
+      -DCMAKE_CXX_COMPILER=${BITPIT_COMPILER}
       -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
       -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
       -DENABLE_MPI=ON
@@ -70,14 +79,40 @@ endif()
 # prepare cmake arguments list
 #
 set (DYABLO_CMAKE_ARGS)
-list (APPEND DYABLO_CMAKE_ARGS
-  -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-  -DKokkos_ENABLE_HWLOC=ON
-  -DKokkos_ENABLE_OPENMP=ON
-  -DUSE_HDF5=ON
-  -DUSE_MPI=ON
-  -DBITPIT_DIR=${MY_BITPIT_DIR}
-  )
+
+option(Kokkos_ENABLE_HWLOC  "enable HWLOC in Kokkos" ON)
+option(Kokkos_ENABLE_OPENMP "enable Kokkos::OpenMP backend" ON)
+option(Kokkos_ENABLE_CUDA   "enable Kokkos::Cuda backend" OFF)
+
+# only usefull when building for Kokkos::Cuda backend 
+set(Kokkos_ARCH  "" CACHE STRING "Kokkos arch (KEPLER37, PASCAL60, ...)")
+
+if (Kokkos_ENABLE_CUDA)
+
+  list (APPEND DYABLO_CMAKE_ARGS
+    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+    -DKokkos_ENABLE_HWLOC=${Kokkos_ENABLE_HWLOC}
+    -DKokkos_ENABLE_OPENMP=${Kokkos_ENABLE_OPENMP}
+    -DKokkos_ENABLE_CUDA=${Kokkos_ENABLE_CUDA}
+    -DKokkos_ENABLE_CUDA_LAMBDA=ON
+    -DKokkos_ARCH_${Kokkos_ARCH}=ON
+    -DUSE_HDF5=ON
+    -DUSE_MPI=ON
+    -DBITPIT_DIR=${MY_BITPIT_DIR}
+    )
+
+else()
+
+  list (APPEND DYABLO_CMAKE_ARGS
+    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+    -DKokkos_ENABLE_HWLOC=${Kokkos_ENABLE_HWLOC}
+    -DKokkos_ENABLE_OPENMP=${Kokkos_ENABLE_OPENMP}
+    -DUSE_HDF5=ON
+    -DUSE_MPI=ON
+    -DBITPIT_DIR=${MY_BITPIT_DIR}
+    )
+
+endif()
 
 #
 # build dyablo
