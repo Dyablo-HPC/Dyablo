@@ -49,10 +49,9 @@ using DataArrayBlockHost = DataArrayBlock::HostMirror;
  * Second index is the lead id (curvilinear index along the Morton curve)
  * 
  * Note that we enforce Left layout here, since we plan to the Kokkos TeamPolicy with one team per leaf, so we favor memory locality inside a block.
- * Note 2: Should the flag system be uint8_t instead of bool ?
  */
 
-using FlagArrayBlock = Kokkos::View<uint8_t*, Kokkos::LayoutLeft, Device>;
+using FlagArrayBlock = Kokkos::View<uint16_t*, Kokkos::LayoutLeft, Device>;
 using FlagArrayBlockHost = FlagArrayBlock::HostMirror;
 // =============================================================
 // =============================================================

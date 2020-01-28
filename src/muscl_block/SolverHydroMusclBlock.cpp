@@ -1113,7 +1113,7 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
       for (int ivar = 0; ivar < nbVars; ++ivar) {
 
         for (uint32_t iCell = 0; iCell < nbCellsPerOct; ++iCell) {
-
+	  
           U(iCell, fm[ivar], iOct) = U2(iCell, fm[ivar], mapper[0]);
 
         } // end for iCell 
