@@ -19,7 +19,8 @@
 
 using namespace bitpit;
 
-using DataArray = dyablo::DataArray;
+using DataArray     = dyablo::DataArray;
+using DataArrayHost = dyablo::DataArrayHost;
 
 /**
  * Run the example.
@@ -99,8 +100,16 @@ void run(std::string input_filename)
 
     // create some fake data - 2 scalar value but only one initialized
     DataArray userdata = DataArray("fake_data",amr_mesh->getNumOctants(),2);
+    DataArrayHost userdatah = Kokkos::create_mirror(userdata);
     
-    Kokkos::parallel_for(amr_mesh->getNumOctants(), KOKKOS_LAMBDA (int i) {userdata(i,fm[ID])=amr_mesh->getGlobalIdx((uint32_t) 0)+i;});
+    Kokkos::parallel_for(
+      Kokkos::RangePolicy<Kokkos::OpenMP>(0, amr_mesh->getNumOctants()), 
+      [=] (int i) {
+        userdatah(i,fm[ID])=amr_mesh->getGlobalIdx((uint32_t) 0)+i;
+      });
+
+    Kokkos::OpenMP().fence();
+    Kokkos::deep_copy(userdata, userdatah);
 
     // save vtk data
     {
