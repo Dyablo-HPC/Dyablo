@@ -160,7 +160,8 @@ public:
       int32_t diff = sum - (bSize-1)*bSize/2 - iBlock*bSize*bSize;
       bool valid = diff==0 ? true : false;
 
-      std::cout << iBlock << ": res=" << sum << " results valid ? " << valid << "\n";
+      //std::cout << iBlock << ": res=" << sum << " results valid ? " << valid << "\n";
+      printf("%d: res=%d results valid ? %d\n",iBlock,sum,valid);
 
       iBlock += nbTeams;
 
@@ -337,7 +338,8 @@ void run_test(uint32_t bSize, uint32_t nbBlocks) {
 
     Kokkos::parallel_for(
         "print_results", dataSize, KOKKOS_LAMBDA(uint32_t i) {
-          std::cout << i << " " << data(i) << "\n";
+          //std::cout << i << " " << data(i) << "\n";
+          printf("%d %d\n",i,data(i));
         });
   }
 
