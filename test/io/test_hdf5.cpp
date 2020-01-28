@@ -19,7 +19,12 @@
 
 using namespace bitpit;
 
-using DataArray = dyablo::DataArray;
+/*
+ * This test is meant to run entirely on CPU (not GPU)
+ * so we define and enforce a data array type on host memory space
+ */
+using DataArray     = dyablo::DataArray;
+using DataArrayHost = dyablo::DataArrayHost;
 
 /**
  * Run the example.
@@ -113,16 +118,22 @@ void run(std::string input_filename)
     // out Hdf5 writer does something different whether data has
     // left or right layout
     DataArray userdata = DataArray("fake_data",amr_mesh->getNumOctants()*nbCellsPerLeaf,2);
+    DataArrayHost userdatah = Kokkos::create_mirror(userdata);
 
+    // initialize on host (to enable the use of PABLO amr_mesh)
     Kokkos::parallel_for(
-        amr_mesh->getNumOctants(), KOKKOS_LAMBDA(int i) {
-          for (int j = 0; j < nbCellsPerLeaf; ++j) {
-            userdata(i * nbCellsPerLeaf + j, fm[ID]) =
-                amr_mesh->getGlobalIdx((uint32_t)0) + i;
-            userdata(i * nbCellsPerLeaf + j, fm[IP]) =
-                (amr_mesh->getGlobalIdx((uint32_t)0) + i) * nbCellsPerLeaf + j;
-          }
-        });
+      Kokkos::RangePolicy<Kokkos::OpenMP>(0, amr_mesh->getNumOctants()),
+      [=](int i) {
+        for (int j = 0; j < nbCellsPerLeaf; ++j) {
+          userdatah(i * nbCellsPerLeaf + j, fm[ID]) =
+            amr_mesh->getGlobalIdx((uint32_t)0) + i;
+          userdatah(i * nbCellsPerLeaf + j, fm[IP]) =
+            (amr_mesh->getGlobalIdx((uint32_t)0) + i) * nbCellsPerLeaf + j;
+        }
+      });
+
+    Kokkos::OpenMP().fence();
+    Kokkos::deep_copy(userdata, userdatah);
 
     // save hdf5 data
     {

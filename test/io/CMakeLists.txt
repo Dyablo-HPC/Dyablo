@@ -29,9 +29,19 @@ endmacro(build_test_executable)
 set(KOKKOS_ENABLED TRUE)
 set(KOKKOS_DISABLED FALSE)
 
-build_test_executable(test_vtk        ${KOKKOS_ENABLED})
-build_test_executable(test_hdf5       ${KOKKOS_ENABLED})
-build_test_executable(test_hdf5_block ${KOKKOS_ENABLED})
+# all the tests are only meant to run on host but we
+# should later be able to run them when Kokkos::Cuda
+# execution space is enable - TODO
+
+# these not ready for building with Kokkos::Cuda
+# not because of dyablo, only because some bitpit headers
+# (from container module) are not parsable by nvcc
+# ==> some refactoring are required inside bitpit itself
+if (NOT Kokkos_ENABLE_CUDA)
+  build_test_executable(test_vtk        ${KOKKOS_ENABLED})
+  build_test_executable(test_hdf5       ${KOKKOS_ENABLED})
+  build_test_executable(test_hdf5_block ${KOKKOS_ENABLED})
+endif()
 
 configure_file(test_io_vtk.ini  test_io_vtk.ini  COPYONLY)
 configure_file(test_io_hdf5.ini test_io_hdf5.ini COPYONLY)
