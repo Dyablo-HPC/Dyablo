@@ -190,6 +190,9 @@ public:
   //! number of octants (octree leaves) per group
   uint32_t nbOctsPerGroup;
 
+  //! Update type
+  UpdateType updateType;
+
 private:
 
 #ifdef USE_HDF5

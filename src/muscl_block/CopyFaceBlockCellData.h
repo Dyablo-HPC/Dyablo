@@ -849,17 +849,8 @@ public:
         //   printf("[neigh is larger] iOct_global=%d iOct_local=%2d iOct_neigh=%2d ---- \n",iOct, iOct_local, iOct_neigh);
 
         // Setting interface flag to "bigger"
-	Interface_flags(iOct) |= (1 << (iface + 6));
+	Interface_flags(iOct_local) |= (1 << (iface + 6));
 	
-	/*switch(iface) {
-	case FACE_XMIN: InterfaceFlag(iOct) |= FACE_RATIO_XMIN_BIGGER; break;
-	case FACE_XMAX: InterfaceFlag(iOct) |= FACE_RATIO_XMAX_BIGGER; break;
-	case FACE_YMIN: InterfaceFlag(iOct) |= FACE_RATIO_YMIN_BIGGER; break;
-	case FACE_YMAX: InterfaceFlag(iOct) |= FACE_RATIO_YMAX_BIGGER; break;
-	case FACE_ZMIN: InterfaceFlag(iOct) |= FACE_RATIO_ZMIN_BIGGER; break;
-	case FACE_ZMAX: InterfaceFlag(iOct) |= FACE_RATIO_ZMAX_BIGGER; break;
-	}*/
-
         NEIGH_LOC loc = get_relative_position_2d(iOct, iOct_neigh, isghost[0], dir, face, NEIGH_IS_LARGER);
 
         fill_ghost_face_2d_larger_size(iOct, iOct_local, iOct_neigh, isghost[0], index_in, dir, face, loc);
