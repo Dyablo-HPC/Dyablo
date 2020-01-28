@@ -49,6 +49,9 @@ struct HydroSettings {
   
 }; // struct HydroSettings
 
+// Used by the HydroParams in Muscl_Block
+enum UpdateType {NON_CONSERVATIVE, CONSERVATIVE_SUM};
+
 /**
  * Hydro Parameters (declaration).
  */
@@ -98,6 +101,9 @@ struct HydroParams {
   BoundaryConditionType boundary_type_zmin; /*!< boundary condition */
   BoundaryConditionType boundary_type_zmax; /*!< boundary condition */
 
+  // Update type for the hydro solver
+  
+
   // AMR related parameter
   int level_min;
   int level_max;
@@ -115,6 +121,8 @@ struct HydroParams {
   
   int niter_riemann;  /*!< number of iteration usd in quasi-exact riemann solver*/
   int riemannSolverType;
+
+  int updateType;
     
   // other parameters
   int implementationVersion=0; /*!< triggers which implementation to use (currently 3 versions)*/

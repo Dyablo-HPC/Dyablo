@@ -14,6 +14,22 @@ using blockSize_t    = Kokkos::Array<uint32_t, 3>;
 
 // =======================================================
 // =======================================================
+/** 
+ * Ordering of coordinates. Used in non-conformal interface update
+ **/
+struct CoordComparator {
+  bool operator()(const coord_t &a, const coord_t &b) {
+    if (a[0] < b[0])
+      return true;
+    else if (a[1] < b[1])
+      return true;
+    else
+      return a[2] < b[2];
+  }
+};
+
+// =======================================================
+// =======================================================
 /**
  * Flagging of faces, looking for non conformal neighbours
  * Storing result as bit mask on a 8 bits integer

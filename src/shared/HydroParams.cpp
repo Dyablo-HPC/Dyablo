@@ -141,6 +141,12 @@ void HydroParams::setup(ConfigMap &configMap)
     implementationVersion = 0;
   }
 
+  std::string utype = configMap.getString("hydro", "updateType", "conservative_sum");
+  if (utype == "conservative_sum")
+    updateType = UPDATE_CONSERVATIVE_SUM;
+  else
+    updateType = UPDATE_NON_CONSERVATIVE;
+
   // low Mach correction
   rsst_enabled = configMap.getBool("low_mach", "rsst_enabled", false);
   rsst_cfl_enabled = configMap.getBool("low_mach", "rsst_cfl_enabled", false);
