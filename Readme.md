@@ -42,7 +42,7 @@ Kokkos and BitPit/PABLO are built as part of dyablo with the cmake build system.
 
 ## build dyablo
 
-## !! **NEW January 2020** !! superbuild
+## superbuild : build bitpit/PABLO and dyablo together
 
 The super-build pattern build both dyablo and its depency (bitpit) using cmake command [ExternalProject_Add](https://cmake.org/cmake/help/latest/module/ExternalProject.html).
 
@@ -53,6 +53,15 @@ To build bitpit and dyablo (for Kokkos/OpenMP backend which is the default)
 ```bash
 mkdir build_openmp; cd build_openmp
 ccmake ..
+make
+```
+
+The same for Kokkos/CUDA (e.g. for latest Turing CUDA architecture):
+```bash
+mkdir build_cuda; cd build_cuda
+# use nvcc_wrapper compiler from kokkos source directory
+export CXX=/full/absolute/path/to/nvcc_wrapper
+ccmake -DKokkos_ENABLE_CUDA=ON -DKokkos_ARCH=TURING75 ..
 make
 ```
 
