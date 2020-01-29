@@ -66,7 +66,28 @@ SolverBase::SolverBase (HydroParams& params, ConfigMap& configMap) :
 
   // set the number of children upon refinement
   m_nbChildren = m_dim == 2 ? 4 : 8;
-  
+
+  /*
+   * Load balancing control
+   */
+  m_amr_load_balancing_frequency = configMap.getInteger("amr", "load_balancing_frequency", 1);
+  if (m_amr_load_balancing_frequency < 1) {
+    m_amr_load_balancing_frequency = 1;
+  }
+
+  /*
+   * AMR cycle control
+   */
+  m_amr_cycle_frequency = configMap.getInteger("amr", "cycle_frequency", 1);
+  if (m_amr_cycle_frequency < 1) {
+    m_amr_cycle_frequency = 1;
+  }
+
+  // TODO : analyze if amr_cycle_frequency and 
+  // amr_load_balancing_frequency can be completely independent, or
+  // should we restrict / enforce e.g. load balacing frequency to be
+  // multiple of amr cycle frequency ?
+
   /*
    * other variables initialization.
    */  
@@ -122,9 +143,21 @@ SolverBase::do_amr_cycle()
 
   // 2. mark cell for refinement / coarsening
 
-  // 3. adapt mesh + load balance
+  // 3. adapt mesh
+
+  // 4. user data repping
   
 } // SolverBase::do_amr_cycle
+
+// =======================================================
+// =======================================================
+void
+SolverBase::do_load_balancing()
+{
+
+  // perform MPI load balancing (mesh + user data)
+
+} // SolverBase::do_load_balancing
 
 // =======================================================
 // =======================================================
@@ -223,9 +256,21 @@ bool
 SolverBase::should_do_amr_cycle()
 {
 
-  return params.amr_cycle_enabled;
+  // default behavior : once every amr_cycle_frequency time steps 
+  return params.amr_cycle_enabled and ( (m_iteration % m_amr_cycle_frequency) == 0);
 
 } // SolverBase::should_do_amr_cycle
+
+// =======================================================
+// =======================================================
+bool
+SolverBase::should_do_load_balancing()
+{
+
+  // default behavior : true once every amr_load_balancing_frequency
+  return (m_iteration % m_amr_load_balancing_frequency) == 0;
+
+} // SolverBase::should_do_load_balancing
 
 // =======================================================
 // =======================================================

@@ -95,7 +95,11 @@ public:
   //! override base class, do_amr_cycle is supposed to be called after
   //! the numerical scheme (godunov_unsplit)
   void do_amr_cycle();
-  
+
+  //! override base class, do_load_balancing can be called less often than
+  //! do_amr_cycle
+  void do_load_balancing();
+
   //! compute time step inside an MPI process, at shared memory level.
   double compute_dt_local();
 

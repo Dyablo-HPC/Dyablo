@@ -323,12 +323,23 @@ void SolverHydroMusclBlock::do_amr_cycle()
   // 4. map data to new data array
   map_userdata_after_adapt();
 
-  // 5. load balance
+  m_timers[TIMER_AMR_CYCLE]->stop();
+
+} // SolverHydroMusclBlock::do_amr_cycle
+
+// =======================================================
+// =======================================================
+void SolverHydroMusclBlock::do_load_balancing()
+{
+
+  m_timers[TIMER_AMR_CYCLE]->start();
+  
+  // load balance
   load_balance_userdata();
 
   m_timers[TIMER_AMR_CYCLE]->stop();
 
-} // SolverHydroMusclBlock::do_amr_cycle
+} // SolverHydroMusclBlock::do_load_balancing
 
 // =======================================================
 // =======================================================
@@ -411,6 +422,12 @@ void SolverHydroMusclBlock::next_iteration_impl()
     
     // just deep copy U2 into U 
     Kokkos::deep_copy(U,U2);
+
+  }
+
+  if ( should_do_load_balancing() ) {
+
+    do_load_balancing();
 
   }
 
