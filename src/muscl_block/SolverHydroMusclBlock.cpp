@@ -908,7 +908,8 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
   // TODO
   // TODO : make this loop a parallel_for
   // TODO
-  for (uint32_t iOct=0; iOct<nocts; ++iOct) {
+  uint8_t child_id = 0; // Id of the child if we're refining
+  for (uint32_t iOct=0; iOct < nocts; ++iOct) {
 
     // fill mapper and isghost for current octant
     amr_mesh->getMapping(iOct, mapper, isghost);
@@ -1031,11 +1032,72 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
 
       } // end 2d/3d
 
-    } else {
-      
-      // current cell is just an old cell or new upon a refinement,
-      // so we just copy data
+    }
+    else if (amr_mesh->getIsNewR(iOct)) {
+      if (params.dimType==TWO_D) {
+	for (int ivar = 0; ivar < nbVars; ++ivar) {
+	  for (uint32_t iCell = 0; iCell < nbCellsPerOct; ++iCell) {
+	    // We compute the position of the cell in the block
+	    uint32_t j = iCell / bx;
+	    uint32_t i = iCell - j*bx;
+	    
+	    // Depending on the child we shift the actual position
+	    if (child_id & 1)
+	      i += bx;
+	    if (child_id > 1)
+	      j += by;
 
+	    // Indices corresponding to the parents
+	    uint32_t ii = i / 2;
+	    uint32_t jj = j / 2;
+
+	    uint32_t parent_id = ii + jj*bx;
+	    U(iCell, fm[ivar], iOct) = U2(parent_id, fm[ivar], mapper[0]);
+	  }
+	}
+
+	// Increase the child counter by 1
+	// If we reach 4, we reset the counter
+	child_id++;
+	if (child_id == 4)
+	  child_id = 0;
+      }
+      else { // in 3D
+	// TO BE THOROUGHLY TESTED !
+	const uint32_t bxby = bx*by;
+	for (int ivar = 0; ivar < nbVars; ++ivar) {
+	  for (uint32_t iCell = 0; iCell < nbCellsPerOct; ++iCell) {
+	    // We compute the position of the cell in the block
+	    uint32_t k = iCell / bxby; 
+	    uint32_t j = (iCell-k*bxby) / bx;
+	    uint32_t i = iCell - j*bx - k*bxby;
+	    
+	    // Depending on the child we shift the actual position
+	    if (child_id & 1)
+	      i += bx;
+	    if (child_id > 1)
+	      j += by;
+	    if (child_id > 3)
+	      k += bz;
+	    
+	    // Indices corresponding to the parents
+	    uint32_t ii = i / 2;
+	    uint32_t jj = j / 2;
+	    uint32_t kk = k / 2;
+
+	    uint32_t parent_id = ii + jj*bx + kk*bxby;
+	    U(iCell, fm[ivar], iOct) = U2(parent_id, fm[ivar], mapper[0]);
+	  }
+	}
+
+	child_id++;
+	if (child_id == 8)
+	  child_id = 0;
+      }
+    }
+    else {
+      
+      // current cell is just an old cell so we just copy data
       for (int ivar = 0; ivar < nbVars; ++ivar) {
 
         for (uint32_t iCell = 0; iCell < nbCellsPerOct; ++iCell) {
@@ -1046,8 +1108,7 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
 
       } // end vor ivar
 
-    } // end if isNewC
-  
+    } // end if isNewC/isNewR
   } // end for iOct
 
   // now U contains the most up to date data after mesh adaptation
