@@ -17,7 +17,8 @@
 #include "shared/HDF5_IO.h"
 #include "shared/io_utils.h"
 
-using namespace bitpit;
+// don't you dare calling "using namespace" ever again !
+//using namespace bitpit;
 
 /*
  * This test is meant to run entirely on CPU (not GPU)
@@ -132,7 +133,7 @@ void run(std::string input_filename)
         }
       });
 
-    Kokkos::OpenMP().fence();
+    //Kokkos::OpenMP().fence();
     Kokkos::deep_copy(userdata, userdatah);
 
     // save hdf5 data
@@ -201,9 +202,9 @@ int main(int argc, char *argv[])
   }
 
   // Initialize the logger
-  log::manager().initialize(log::SEPARATE, false, nProcs, rank);
-  log::cout() << fileVerbosity(log::NORMAL);
-  log::cout() << consoleVerbosity(log::QUIET);
+  bitpit::log::manager().initialize(bitpit::log::SEPARATE, false, nProcs, rank);
+  bitpit::log::cout() << fileVerbosity(bitpit::log::NORMAL);
+  bitpit::log::cout() << consoleVerbosity(bitpit::log::QUIET);
 
   // Run the example
   try {
@@ -214,9 +215,11 @@ int main(int argc, char *argv[])
       std::cerr << "argc must be larger than 1. Please provide ini input parameter file.\n";
     }
   } catch (const std::exception &exception) {
-    log::cout() << exception.what();
+    bitpit::log::cout() << exception.what();
     exit(1);
   }
+
+  Kokkos::finalize();
 
 #if BITPIT_ENABLE_MPI==1
   MPI_Finalize();

@@ -16,6 +16,8 @@ set(MY_BITPIT_DIR ${BITPIT_DIR})
 # computing functors
 set(BITPIT_COMPILER  "g++" CACHE STRING "compiler used to build bitpit")
 
+# Enforce rebuilding bitpit
+option(FORCE_BITPIT_BUILD "Enforce rebuilding bitpit" OFF)
 
 # list of dependencies to dyablo; currently only bitpit external project
 # initialized as empty, but in case BITPIT_FOUND is false, we add bitpit
@@ -31,7 +33,7 @@ include (ExternalProject)
 # then use our custom BITPIT_DIR to build dyablo
 #
 ####################################################
-if (NOT BITPIT_FOUND)
+if ( (NOT BITPIT_FOUND) OR FORCE_BITPIT_BUILD)
 
   list (APPEND DEPENDENCIES bitpit_external)
 

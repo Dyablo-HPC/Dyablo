@@ -17,7 +17,7 @@
 #include "shared/SimpleVTKIO.h"
 #include "shared/io_utils.h"
 
-using namespace bitpit;
+//using namespace bitpit;
 
 using DataArray     = dyablo::DataArray;
 using DataArrayHost = dyablo::DataArrayHost;
@@ -166,9 +166,9 @@ int main(int argc, char *argv[])
   }
 
   // Initialize the logger
-  log::manager().initialize(log::SEPARATE, false, nProcs, rank);
-  log::cout() << fileVerbosity(log::NORMAL);
-  log::cout() << consoleVerbosity(log::QUIET);
+  bitpit::log::manager().initialize(bitpit::log::SEPARATE, false, nProcs, rank);
+  bitpit::log::cout() << fileVerbosity(bitpit::log::NORMAL);
+  bitpit::log::cout() << consoleVerbosity(bitpit::log::QUIET);
 
   // Run the example
   try {
@@ -179,9 +179,11 @@ int main(int argc, char *argv[])
       std::cerr << "argc must be larger than 1. Please provide ini input parameter file.\n";
     }
   } catch (const std::exception &exception) {
-    log::cout() << exception.what();
+    bitpit::log::cout() << exception.what();
     exit(1);
   }
+
+  Kokkos::finalize();
 
 #if BITPIT_ENABLE_MPI==1
   MPI_Finalize();
