@@ -22,9 +22,14 @@
 // testing muscl_block functor for initialization
 #include "muscl_block/init/InitBlast.h"
 
-using namespace bitpit;
+//using namespace bitpit;
 
-using DataArrayBlock = dyablo::DataArrayBlock;
+/*
+ * This test is meant to run entirely on CPU (not GPU)
+ * so we define and enforce a data array type on host memory space
+ */
+using DataArrayBlock     = dyablo::DataArrayBlock;
+using DataArrayBlockHost = dyablo::DataArrayBlockHost;
 
 /**
  * Run the example.
@@ -140,6 +145,11 @@ void run(std::string input_filename)
                                                      blockSizes,
                                                      userdataBlock);
 
+    DataArrayBlockHost userdataBlock_h = Kokkos::create_mirror(userdataBlock);
+    
+    // copy device data into host
+    Kokkos::deep_copy(userdataBlock_h, userdataBlock);
+
     // DataArray userdata = DataArray("fake_data",
     //                                amr_mesh->getNumOctants()*nbCellsPerLeaf,nbvar);
 
@@ -225,9 +235,9 @@ int main(int argc, char *argv[])
   }
 
   // Initialize the logger
-  log::manager().initialize(log::SEPARATE, false, nProcs, rank);
-  log::cout() << fileVerbosity(log::NORMAL);
-  log::cout() << consoleVerbosity(log::QUIET);
+  bitpit::log::manager().initialize(bitpit::log::SEPARATE, false, nProcs, rank);
+  bitpit::log::cout() << fileVerbosity(bitpit::log::NORMAL);
+  bitpit::log::cout() << consoleVerbosity(bitpit::log::QUIET);
 
   // Run the example
   try {
@@ -238,9 +248,11 @@ int main(int argc, char *argv[])
       std::cerr << "argc must be larger than 1. Please provide ini input parameter file.\n";
     }
   } catch (const std::exception &exception) {
-    log::cout() << exception.what();
+    bitpit::log::cout() << exception.what();
     exit(1);
   }
+
+  Kokkos::finalize();
 
 #if BITPIT_ENABLE_MPI==1
   MPI_Finalize();

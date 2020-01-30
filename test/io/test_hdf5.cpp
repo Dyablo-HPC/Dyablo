@@ -219,6 +219,8 @@ int main(int argc, char *argv[])
     exit(1);
   }
 
+  Kokkos::finalize();
+
 #if BITPIT_ENABLE_MPI==1
   MPI_Finalize();
 #endif
