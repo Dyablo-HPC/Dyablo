@@ -14,7 +14,7 @@
 
 #include "bitpit_PABLO.hpp"
 
-using namespace bitpit;
+//using namespace bitpit;
 
 // maximum number of iterations
 static const int NMAX=100;
@@ -84,7 +84,7 @@ compute_nb_iters (double cx, double cy)
  * \param[in] iter number used to suffix output file name
  *
  */
-void compute_and_save_mandelbrot(PabloUniform& amr_mesh, 
+void compute_and_save_mandelbrot(bitpit::PabloUniform& amr_mesh, 
                                  size_t iter)
 {
   uint32_t nocts = amr_mesh.getNumOctants();
@@ -144,7 +144,7 @@ void run()
 {
 
   /**<Instantation of a 2D pablo uniform object.*/
-  PabloUniform amr_mesh(2);
+  bitpit::PabloUniform amr_mesh(2);
 
   // start with a 32x32 array
   for (int i=0; i<5; ++i)
@@ -253,15 +253,15 @@ int main(int argc, char *argv[])
 #endif
 
   // Initialize the logger
-  log::manager().initialize(log::SEPARATE, false, nProcs, rank);
-  log::cout() << fileVerbosity(log::NORMAL);
-  log::cout() << consoleVerbosity(log::QUIET);
+  bitpit::log::manager().initialize(bitpit::log::SEPARATE, false, nProcs, rank);
+  bitpit::log::cout() << fileVerbosity(bitpit::log::NORMAL);
+  bitpit::log::cout() << consoleVerbosity(bitpit::log::QUIET);
 
   // Run the example
   try {
     run();
   } catch (const std::exception &exception) {
-    log::cout() << exception.what();
+    bitpit::log::cout() << exception.what();
     exit(1);
   }
 

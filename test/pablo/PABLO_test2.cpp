@@ -4,7 +4,7 @@
 
 #include "bitpit_PABLO.hpp"
 
-using namespace bitpit;
+//using namespace bitpit;
 
 // ======================================================================== //
 /**
@@ -39,7 +39,7 @@ void run()
   int niter = 2;
 
   /**<Instantation of a nDimensional pablo uniform object.*/
-  PabloUniform amr_mesh(dim);
+  bitpit::PabloUniform amr_mesh(dim);
 
   /**<set periodic border condition */
   amr_mesh.setPeriodic(0);
@@ -213,15 +213,15 @@ int main(int argc, char *argv[])
 #endif
 
   // Initialize the logger
-  log::manager().initialize(log::SEPARATE, false, nProcs, rank);
-  log::cout() << fileVerbosity(log::NORMAL);
-  log::cout() << consoleVerbosity(log::QUIET);
+  bitpit::log::manager().initialize(bitpit::log::SEPARATE, false, nProcs, rank);
+  bitpit::log::cout() << fileVerbosity(bitpit::log::NORMAL);
+  bitpit::log::cout() << consoleVerbosity(bitpit::log::QUIET);
 
   // Run the example
   try {
     run();
   } catch (const std::exception &exception) {
-    log::cout() << exception.what();
+    bitpit::log::cout() << exception.what();
     exit(1);
   }
 

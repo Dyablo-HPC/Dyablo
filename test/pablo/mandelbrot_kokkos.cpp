@@ -22,7 +22,7 @@
 //#include "shared/bitpit_common.h" // for AMRmesh type
 using AMRmesh = bitpit::PabloUniform;
 
-using namespace bitpit;
+//using namespace bitpit;
 
 // maximum number of iterations
 static const int NMAX=100;
@@ -326,15 +326,15 @@ int main(int argc, char *argv[])
   }
   
   // Initialize the logger
-  log::manager().initialize(log::SEPARATE, false, nRanks, rank);
-  log::cout() << fileVerbosity(log::NORMAL);
-  log::cout() << consoleVerbosity(log::QUIET);
+  bitpit::log::manager().initialize(bitpit::log::SEPARATE, false, nRanks, rank);
+  bitpit::log::cout() << fileVerbosity(bitpit::log::NORMAL);
+  bitpit::log::cout() << consoleVerbosity(bitpit::log::QUIET);
 
   // Run the example
   try {
     run();
   } catch (const std::exception &exception) {
-    log::cout() << exception.what();
+    bitpit::log::cout() << exception.what();
     exit(1);
   }
 

@@ -35,7 +35,7 @@
 #include "PABLO_userDataComm.hpp"
 #endif
 
-using namespace bitpit;
+//using namespace bitpit;
 
 // ======================================================================== //
 /*!
@@ -216,7 +216,7 @@ void run()
   int dim = 2;
 
   /**<Instantation of a 2D pablo uniform object.*/
-  PabloUniform pablo6(2);
+  bitpit::PabloUniform pablo6(2);
 
   /**<Refine globally four level and write the octree.*/
   for (iter=1; iter<5; iter++){
@@ -423,15 +423,15 @@ int main(int argc, char *argv[])
   }
   
   // Initialize the logger
-  log::manager().initialize(log::SEPARATE, false, nProcs, rank);
-  log::cout() << fileVerbosity(log::NORMAL);
-  log::cout() << consoleVerbosity(log::QUIET);
+  bitpit::log::manager().initialize(bitpit::log::SEPARATE, false, nProcs, rank);
+  bitpit::log::cout() << fileVerbosity(bitpit::log::NORMAL);
+  bitpit::log::cout() << consoleVerbosity(bitpit::log::QUIET);
 
   // Run the example
   try {
     run();
   } catch (const std::exception &exception) {
-    log::cout() << exception.what();
+    bitpit::log::cout() << exception.what();
     //exit(1);
   }
 

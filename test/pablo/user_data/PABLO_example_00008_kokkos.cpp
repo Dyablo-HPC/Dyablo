@@ -36,7 +36,7 @@
 #include "PABLO_userDataLB.hpp"
 #endif
 
-using namespace bitpit;
+//using namespace bitpit;
 
 using AppData = Kokkos::View<double*>;
 
@@ -71,7 +71,7 @@ void run()
   int iter = 0;
 
   /**<Instantation of a 2D pablo uniform object.*/
-  PabloUniform pablo8(2);
+  bitpit::PabloUniform pablo8(2);
 
   /**<Set NO 2:1 balance for the octree.*/
   int idx = 0;
@@ -241,15 +241,15 @@ int main(int argc, char *argv[])
   }
 
   // Initialize the logger
-  log::manager().initialize(log::SEPARATE, false, nProcs, rank);
-  log::cout() << fileVerbosity(log::NORMAL);
-  log::cout() << consoleVerbosity(log::QUIET);
+  bitpit::log::manager().initialize(bitpit::log::SEPARATE, false, nProcs, rank);
+  bitpit::log::cout() << fileVerbosity(bitpit::log::NORMAL);
+  bitpit::log::cout() << consoleVerbosity(bitpit::log::QUIET);
 
   // Run the example
   try {
     run();
   } catch (const std::exception &exception) {
-    log::cout() << exception.what();
+    bitpit::log::cout() << exception.what();
     //exit(1);
   }
 

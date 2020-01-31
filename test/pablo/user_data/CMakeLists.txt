@@ -27,4 +27,6 @@ endmacro(build_test_executable)
 
 build_test_executable(PABLO_example_00006_kokkos)
 build_test_executable(PABLO_example_00007_kokkos)
-build_test_executable(PABLO_example_00008_kokkos)
+if (NOT Kokkos_ENABLE_CUDA)
+  build_test_executable(PABLO_example_00008_kokkos)
+endif()
