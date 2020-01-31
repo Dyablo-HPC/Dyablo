@@ -248,28 +248,30 @@ public:
     if (dir == DIR_X) {
       ii = bx-i-1;
       jj = j*2;
-      if (jj >= by) {
-	iNeigh = 1;
-	jj -= by;
-      }
     }
     else {
-      ii = i*2;
       jj = by-j-1;
-      if (ii >= bx) {
-	iNeigh = 1;
-	ii -= bx;
-      }
+      ii = i*2;
     }
 
     // We go through the two sub-cells
     for (uint8_t ip=0; ip < 2; ++ip) {
-      if (dir == DIR_X)
+      if (dir == DIR_X) {
 	jj += ip;
-      else
+	if (jj >= by) {
+	  iNeigh = 1;
+	  jj -= by;
+	}
+      }
+      else {
 	ii += ip;
+	if (ii >= bx) {
+	  iNeigh = 1;
+	  ii -= bx;
+	}
+      }
 
-      uint32_t index = i + bx * j;
+      //uint32_t index = i + bx * j;
       /*
       std::cout << "Cell corresponding to (" << i << "; " << j
 		<< "); For Dir=" << (int)dir << " and Face=" << (int)face
@@ -281,17 +283,22 @@ public:
 
       //std::cout << " SUMMARY: " << index << "(" << (int)ip << ") -> " << index_border << std::endl;
 
+      HydroState2d u;
       if (is_ghost[iNeigh]) {
-	q[ID] = U_ghost(index_border, fm[ID], neigh[iNeigh]);
-	q[IP] = U_ghost(index_border, fm[IP], neigh[iNeigh]);
-	q[IU] = U_ghost(index_border, fm[IU], neigh[iNeigh]);
-	q[IV] = U_ghost(index_border, fm[IV], neigh[iNeigh]);
+	u[ID] = U_ghost(index_border, fm[ID], neigh[iNeigh]);
+	u[IP] = U_ghost(index_border, fm[IP], neigh[iNeigh]);
+	u[IU] = U_ghost(index_border, fm[IU], neigh[iNeigh]);
+	u[IV] = U_ghost(index_border, fm[IV], neigh[iNeigh]);
       } else {
-	q[ID] += U(index_border, fm[ID], neigh[iNeigh]);
-	q[IP] += U(index_border, fm[IP], neigh[iNeigh]);
-	q[IU] += U(index_border, fm[IU], neigh[iNeigh]);
-	q[IV] += U(index_border, fm[IV], neigh[iNeigh]);
+	u[ID] += U(index_border, fm[ID], neigh[iNeigh]);
+	u[IP] += U(index_border, fm[IP], neigh[iNeigh]);
+	u[IU] += U(index_border, fm[IU], neigh[iNeigh]);
+	u[IV] += U(index_border, fm[IV], neigh[iNeigh]);
       }
+
+      // Converting to primitives
+      real_t c = 0.0;
+      computePrimitives(u, &c, q, params);
     } // end for ip
   }
 
@@ -776,50 +783,59 @@ public:
       
       const real_t dtdx = dt/dx;
       const real_t dtdy = dt/dy;
+      const real_t hdtdx = 0.5*dtdx;
+      const real_t hdtdy = 0.5*dtdy;
+
+      // For non conformal update (taken from muscl/ComputeFluxesAndUpdateHydroFunctor.h)
 
       // Building a list of cells to update
       std::set<coord_t, CoordComparator> cells_to_update;
 
-      // We add the relevant cells to the set
-      // On xmin
-      uint32_t off = ghostWidth-1; // Offset to be in the same space as the ghosted blocks minus 1
+      // We add the relevant cells to the set, these are indexed based on the original block
       if (Interface_flags(iOct_local) & INTERFACE_XMIN_NC)
 	for (uint32_t j=0; j < by; ++j)
-	  cells_to_update.insert(coord_t{off, j+off, 0});
+	  cells_to_update.insert(coord_t{0, j, 0});
       if (Interface_flags(iOct_local) & INTERFACE_XMAX_NC)
 	for (uint32_t j=0; j < by; ++j)
-	  cells_to_update.insert(coord_t{bx1-ghostWidth, j+off, 0});
+	  cells_to_update.insert(coord_t{bx-1, j, 0});
+      
       if (Interface_flags(iOct_local) & INTERFACE_YMIN_NC)
 	for (uint32_t i=0; i < bx; ++i)
-	  cells_to_update.insert(coord_t{i+off, off, 0});
+	  cells_to_update.insert(coord_t{i, 0, 0});
       if (Interface_flags(iOct_local) & INTERFACE_YMAX_NC)
 	for (uint32_t i=0; i < bx; ++i)
-	  cells_to_update.insert(coord_t{i+off, by1-ghostWidth, 0});
+	  cells_to_update.insert(coord_t{i, by-1, 0});
 
       // We convert the active cells to an ordered data structure for the Kokkos threads
       const int32_t nb_active_cells = cells_to_update.size();
       std::vector<coord_t> active_cells(nb_active_cells);
       std::copy(cells_to_update.begin(), cells_to_update.end(), active_cells.begin());
+
+      // DEBUG TEST: Forcing non conservative update
+      /*uint16_t new_interface = 0;
+      if (Interface_flags(iOct_local) & (INTERFACE_XMIN_NC))
+	new_interface |= INTERFACE_XMIN_BIGGER;
+      if (Interface_flags(iOct_local) & (INTERFACE_YMIN_NC))
+	new_interface |= INTERFACE_YMIN_BIGGER;
+      if (Interface_flags(iOct_local) & (INTERFACE_XMAX_NC))
+	new_interface |= INTERFACE_XMAX_BIGGER;
+      if (Interface_flags(iOct_local) & (INTERFACE_YMAX_NC))
+      new_interface |= INTERFACE_YMAX_BIGGER;
+
+      Interface_flags(iOct_local) = new_interface;*/
       
       Kokkos::parallel_for(
 	Kokkos::TeamVectorRange(member, nb_active_cells),
         KOKKOS_LAMBDA(const int32_t index) {
           // convert index to coordinates in ghosted block (minus 1 !)
           //index = i + bx1 * j
-          const uint32_t i = active_cells[index][0];
-	  const uint32_t j = active_cells[index][1];
+          const uint32_t ii = active_cells[index][0];
+	  const uint32_t jj = active_cells[index][1];
 
 	  // Position in the original block
-	  const uint32_t ii = i - (ghostWidth-1);
-	  const uint32_t jj = j - (ghostWidth-1);
-
           // corresponding index in the full ghosted block
-          // i -> i+1
-          // j -> j+1
-          const uint32_t ig = (i+1) + bx_g * (j+1);
+          const uint32_t ig = (ii+ghostWidth) + bx_g * (jj+ghostWidth);
 	  
-	  //std::cout << "INTERFACE = " << (uint32_t)Interface_flags(iOct_local) << std::endl;
-	    
 	  // get current location primitive variables state
 	  HydroState2d qprim = get_prim_variables<HydroState2d>(ig, iOct_local);
 	  
@@ -835,10 +851,10 @@ public:
 	   * compute from left face along x dir
 	   * if we are smaller than the neighbor, we update as before
 	   */
-	  /*if (i==ghostWidth-1 and (Interface_flags(iOct_local) & INTERFACE_XMIN_BIGGER)) {
+	  if (ii==0 and (Interface_flags(iOct_local) & INTERFACE_XMIN_BIGGER)) {
 	    // step 1 : reconstruct state in the left neighbor
 	    
-	    std::cout << "  . X left non conformal bigger" << std::endl;
+	    //std::cout << "  . X left non conformal bigger" << std::endl;
 	    
 	    // get state in neighbor along X
 	    HydroState2d qprim_n = get_prim_variables<HydroState2d>(ig-1, iOct_local);
@@ -860,27 +876,27 @@ public:
 	    qcons += flux*dtdx;
 	  }
 	  // If we are bigger than the neighbors we sum two fluxes coming from the small cells
-	  else if (i==ghostWidth-1 and (Interface_flags(iOct_local) & INTERFACE_XMIN_SMALLER)) {
+	  else if (ii==0 and (Interface_flags(iOct_local) & INTERFACE_XMIN_SMALLER)) {
 	    // step 1 : Get the states of both neighbour cell
 	    //std::cout << "  . X left non conformal smaller" << std::endl;
 	    get_non_conformal_neighbors_2d(iOct, ii, jj, DIR_X, FACE_LEFT, qm, qp);
 	    
 	    // step 2 : Reconstruct state in current cell
 	    offsets_t offsets = {-1.0, 0.0, 0.0};
-	    HydroState2d qR = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
+	    HydroState2d qR = qprim; //reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
 	    
 	    // step 3 : Solver is called directly on average states, no reconstruction is done
 	    //          Warning: Should something be done here for the difference in size ?
 	    HydroState2d flux_m = riemann_hydro(qm, qR, params);
-	    //HydroState2d flux_p = riemann_hydro(qp, qR, params);
-	    qcons += flux_m*dtdx;
-	    //qcons += flux_p*dtdx;
-	    }*/
+	    HydroState2d flux_p = riemann_hydro(qp, qR, params);
+	    qcons += flux_m*hdtdx;
+	    qcons += flux_p*hdtdx;
+	  }
 	  
 	  /*
 	   * compute flux from right face along x dir
 	   */
-	  /*if (i==bx1-ghostWidth and (Interface_flags(iOct_local) & INTERFACE_XMAX_BIGGER)) {
+	  if (ii==bx-1 and (Interface_flags(iOct_local) & INTERFACE_XMAX_BIGGER)) {
 	    // step 1 : reconstruct state in the left neighbor
 	    
 	    // get state in neighbor along X
@@ -903,27 +919,27 @@ public:
 	    // step 4 : accumulate flux in current cell
 	    qcons -= flux*dtdx;
 	  }
-	  else if (i==bx1-ghostWidth and (Interface_flags(iOct_local) & INTERFACE_XMAX_SMALLER)) {
+	  else if (ii==bx-1 and (Interface_flags(iOct_local) & INTERFACE_XMAX_SMALLER)) {
 	    //std::cout << "  . X right non conformal smaller" << std::endl;
 	    // step 1 : Get the states of both neighbour cells
 	    get_non_conformal_neighbors_2d(iOct, ii, jj, DIR_X, FACE_RIGHT, qm, qp);
 	    
 	    // step 2 : Reconstruct state in current cell
 	    offsets_t offsets = {1.0, 0.0, 0.0};
-	    HydroState2d qL = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
+	    HydroState2d qL = qprim; //reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
 	    
 	    // step 3 : Solver is called directly on average states, no reconstruction is done
 	    //          Warning: Should something be done here for the difference in size ?
 	    HydroState2d flux_m = riemann_hydro(qL, qm, params);
 	    HydroState2d flux_p = riemann_hydro(qL, qp, params);
-	    qcons -= flux_m*dtdx;
-	    //qcons -= flux_p*dtdx;
+	    qcons -= flux_m*hdtdx;
+	    qcons -= flux_p*hdtdx;
 	  }
 	  
 	  /*
 	   * compute flux from left face along y dir
 	   */
-	  /*if (j==ghostWidth-1 and (Interface_flags(iOct_local) & INTERFACE_YMIN_BIGGER)) {
+	  if (jj==0 and (Interface_flags(iOct_local) & INTERFACE_YMIN_BIGGER)) {
 	    // step 1 : reconstruct state in the left neighbor
 	    
 	    //std::cout << "  . Y left non conformal bigger" << std::endl;
@@ -954,7 +970,7 @@ public:
 	    // step 4 : accumulate flux in current cell
 	    qcons += flux*dtdy;
 	  }
-	  else if (j==ghostWidth-1 and (Interface_flags(iOct_local) & INTERFACE_YMIN_SMALLER)) {
+	  else if (jj==0 and (Interface_flags(iOct_local) & INTERFACE_YMIN_SMALLER)) {
 	    //std::cout << "  . Y left non conformal smaller" << std::endl;
 
 	    // step 1 : Get the states of both neighbour cells
@@ -962,7 +978,7 @@ public:
 
 	    // step 2 : Reconstruct state in current cell
 	    offsets_t offsets = {0.0, -1.0, 0.0};
-	    HydroState2d qR = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
+	    HydroState2d qR = qprim; //reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
 
 	    // swap IU / IV
 	    my_swap(qp[IU], qp[IV]);
@@ -977,14 +993,14 @@ public:
 	    my_swap(flux_p[IU], flux_p[IV]);
 	    my_swap(flux_m[IU], flux_m[IV]);
 
-	    qcons += flux_m*dtdy;
-	    //qcons += flux_p*dtdx;
+	    qcons += flux_m*hdtdy;
+	    qcons += flux_p*hdtdy;
 	  }
 	  
 	  /*
 	   * compute flux from right face along y dir
 	   */
-	  /*if (j==by1-ghostWidth and (Interface_flags(iOct_local) & INTERFACE_YMAX_BIGGER)) {
+	  if (jj==by-1 and (Interface_flags(iOct_local) & INTERFACE_YMAX_BIGGER)) {
 	    // step 1 : reconstruct state in the left neighbor
 	    //std::cout << "  . Y right non conformal bigger" << std::endl;
 	    
@@ -1014,14 +1030,14 @@ public:
 	    // step 4 : accumulate flux in current cell
 	    qcons -= flux*dtdy;
 	  }
-	  else if (j==by1-ghostWidth and (Interface_flags(iOct_local) & INTERFACE_YMAX_SMALLER)) {
+	  else if (jj==by-1 and (Interface_flags(iOct_local) & INTERFACE_YMAX_SMALLER)) {
 	    //std::cout << "  . Y right non conformal smaller" << std::endl;
 	    // step 1 : Get the states of both neighbour cells
 	    get_non_conformal_neighbors_2d(iOct, ii, jj, DIR_Y, FACE_RIGHT, qm, qp);
 	    
 	    // step 2 : Reconstruct state in current cell
 	    offsets_t offsets = {0.0, 1.0, 0.0};
-	    HydroState2d qL = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
+	    HydroState2d qL = qprim; //reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
 	    
 	    // swap IU / IV
 	    my_swap(qL[IU], qL[IV]);
@@ -1037,14 +1053,14 @@ public:
 	    my_swap(flux_m[IU], flux_m[IV]);
 	    my_swap(flux_p[IU], flux_p[IV]);
 	    
-	    qcons -= flux_m*dtdy;
-	    //qcons -= flux_p*dtdx;
-	    }*/
+	    qcons -= flux_m*hdtdy;
+	    qcons -= flux_p*hdtdy;
+	  }
 	  
 	  //std::cout << "qcons (end) : " << qcons[ID] << " " << qcons[IP] << " " << qcons[IU] << " " << qcons[IV] << std::endl;
 	  
 	  // lastly update conservative variable in U2
-	  uint32_t index_non_ghosted = (i-1) + bx * (j-1);
+	  uint32_t index_non_ghosted = ii + bx * jj;
 	  //std::cout << "index non ghosted = " << index_non_ghosted << " " << i << " " << j << " "
 	  //	    << bx << " " << ghostWidth << std::endl;
 	  
@@ -1089,6 +1105,8 @@ public:
       
       const real_t dtdx = dt/dx;
       const real_t dtdy = dt/dy;
+      const uint32_t bxm1 = bx-1;
+      const uint32_t bym1 = by-1;
       
       /*
        * reconstruct states on cells face and update
@@ -1098,8 +1116,8 @@ public:
         KOKKOS_LAMBDA(const int32_t index) {
           // convert index to coordinates in ghosted block (minus 1 !)
           //index = i + bx1 * j
-          const int j = index / bx1;
-          const int i = index - j*bx1;
+          const uint32_t j = index / bx1;
+          const uint32_t i = index - j*bx1;
 
           // corresponding index in the full ghosted block
           // i -> i+1
@@ -1119,7 +1137,8 @@ public:
             /*
              * compute from left face along x dir
              */
-            if (i > ghostWidth-1 or !(Interface_flags(iOct_local) & INTERFACE_XMIN_NC)) {
+            if (i > ghostWidth-1 or !(Interface_flags(iOct_local) & INTERFACE_XMIN_NC))
+	    {
               // step 1 : reconstruct state in the left neighbor
 
               // get state in neighbor along X
@@ -1148,7 +1167,8 @@ public:
             /*
              * compute flux from right face along x dir
              */
-            if (i < bx1-ghostWidth or !(Interface_flags(iOct_local) & INTERFACE_XMAX_NC)) {
+	    if (i < bx1-ghostWidth or !(Interface_flags(iOct_local) & INTERFACE_XMAX_NC))
+	      {
               // step 1 : reconstruct state in the left neighbor
 
               // get state in neighbor along X
@@ -1177,7 +1197,8 @@ public:
             /*
              * compute flux from left face along y dir
              */
-            if (j > ghostWidth or !(Interface_flags(iOct_local) & INTERFACE_YMIN_NC)) {
+            if (j > ghostWidth-1 or !(Interface_flags(iOct_local) & INTERFACE_YMIN_NC))
+	      {
               // step 1 : reconstruct state in the left neighbor
               
               // get state in neighbor along X
@@ -1212,7 +1233,8 @@ public:
             /*
              * compute flux from right face along y dir
              */
-            if (j < by1-ghostWidth or !(Interface_flags(iOct_local) & INTERFACE_YMAX_NC)) {
+	    if (j < by1-ghostWidth or !(Interface_flags(iOct_local) & INTERFACE_YMAX_NC))
+	      {
               // step 1 : reconstruct state in the left neighbor
               
               // get state in neighbor along X
@@ -1565,7 +1587,7 @@ public:
   //! user data for the ith group of octants
   DataArrayBlock Ugroup;
 
-  //! user data for the local tree
+  //! user data for the entire mesh
   DataArrayBlock U;
   
   //! user data for the neighbours
