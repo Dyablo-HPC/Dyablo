@@ -691,9 +691,15 @@ void SolverHydroMusclBlock::save_solution_hdf5()
   strsuffix.width(7);
   strsuffix.fill('0');
   strsuffix << m_iteration;
-  
+
   // actual writing
   {
+
+    // resize Uhost upon U
+    Kokkos::resize(Uhost, nbCellsPerOct, params.nbvar, amr_mesh->getNumOctants());
+
+    // copy device data to host
+    Kokkos::deep_copy(Uhost, U);
 
     hdf5_writer->update_mesh_info();
 
