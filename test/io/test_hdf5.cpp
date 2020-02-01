@@ -134,7 +134,7 @@ void run(std::string input_filename)
       });
 
     //Kokkos::OpenMP().fence();
-    Kokkos::deep_copy(userdata, userdatah);
+    //Kokkos::deep_copy(userdata, userdatah);
 
     // save hdf5 data
     {
@@ -148,7 +148,7 @@ void run(std::string input_filename)
       writer.write_header(1.0*iter);
 
       // write user the fake data (all scalar fields, here only one)
-      writer.write_quadrant_attribute(userdata, fm, names2index);
+      writer.write_quadrant_attribute(userdatah, fm, names2index);
 
       // close the file
       writer.write_footer();
