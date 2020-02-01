@@ -306,16 +306,11 @@ HDF5_Writer::write_attribute(const std::string &name,
 // =======================================================
 // =======================================================
 int
-HDF5_Writer::write_quadrant_attribute(DataArray  data,
+HDF5_Writer::write_quadrant_attribute(DataArrayHost  datah,
                                       id2index_t fm,
                                       str2int_t  names2index)
 {
 
-  // copy data from device to host
-  DataArrayHost datah = Kokkos::create_mirror(data);
-  // copy device data to host
-  Kokkos::deep_copy(datah, data);
-  
   // write data array scalar fields in ascii
   for ( auto iter : names2index) {
     
@@ -327,13 +322,13 @@ HDF5_Writer::write_quadrant_attribute(DataArray  data,
 
     // if DataArray has a left layout, we only need to define
     // a slice to actual scalar data
-    // if DataArray has right layout, we need to actually extract
+    // if DataArrayHost has right layout, we need to actually extract
     // the slide so that it is memory contiguous
     if ( std::is_same< 
-         DataArray::array_layout,
+         DataArrayHost::array_layout,
          Kokkos::LayoutLeft >::value) {
 
-      auto dataVar = Kokkos::subview(data, Kokkos::ALL(), fm[iVar]);
+      auto dataVar = Kokkos::subview(datah, Kokkos::ALL(), fm[iVar]);
 
       // actual data writing
       write_attribute(varName, dataVar.data(),
@@ -343,12 +338,12 @@ HDF5_Writer::write_quadrant_attribute(DataArray  data,
 
       using DataArrayScalar = Kokkos::View<real_t*, Kokkos::HostSpace>;
       
-      DataArrayScalar dataVar = DataArrayScalar("scalar_array_for_hdf5_io",data.extent(0));
+      DataArrayScalar dataVar = DataArrayScalar("scalar_array_for_hdf5_io",datah.extent(0));
 
-      uint32_t nbOcts = data.extent(0);
+      uint32_t nbOcts = datah.extent(0);
 
       Kokkos::parallel_for(nbOcts, KOKKOS_LAMBDA (uint32_t iOct) {
-          dataVar(iOct) = data(iOct,fm[iVar]);
+          dataVar(iOct) = datah(iOct,fm[iVar]);
         });
 
       // actual data writing
@@ -367,36 +362,31 @@ HDF5_Writer::write_quadrant_attribute(DataArray  data,
 // =======================================================
 // =======================================================
 int
-HDF5_Writer::write_quadrant_velocity(DataArray  data,
-                                     id2index_t fm,
-                                     bool use_momentum)
+HDF5_Writer::write_quadrant_velocity(DataArrayHost  datah,
+                                     id2index_t     fm,
+                                     bool           use_momentum)
 {
 
   using DataArrayVector = Kokkos::View<real_t*, Kokkos::HostSpace>;    
 
-  // copy data from device to host
-  DataArrayHost datah = Kokkos::create_mirror(data);
-  // copy device data to host
-  Kokkos::deep_copy(datah, data);
-  
   int dim = fm[IW]==-1 ? 2 : 3;
 
-  uint32_t nbOcts = data.extent(0);
+  uint32_t nbOcts = datah.extent(0);
 
   DataArrayVector dataVector = DataArrayVector("temp_array_hdf5", nbOcts*3);
 
   Kokkos::parallel_for(
     nbOcts, KOKKOS_LAMBDA(uint32_t iOct) {
         if (use_momentum) {
-          dataVector(3 * iOct + 0) = data(iOct, fm[IU]);
-          dataVector(3 * iOct + 1) = data(iOct, fm[IV]);
+          dataVector(3 * iOct + 0) = datah(iOct, fm[IU]);
+          dataVector(3 * iOct + 1) = datah(iOct, fm[IV]);
           //if (dim == 3)
-          dataVector(3 * iOct + 2) = dim==3 ? data(iOct, fm[IW]) : 0;
+          dataVector(3 * iOct + 2) = dim==3 ? datah(iOct, fm[IW]) : 0;
         } else {
-          dataVector(3 * iOct + 0) = data(iOct, fm[IU])/data(iOct, fm[ID]);
-          dataVector(3 * iOct + 1) = data(iOct, fm[IV])/data(iOct, fm[ID]);
+          dataVector(3 * iOct + 0) = datah(iOct, fm[IU])/datah(iOct, fm[ID]);
+          dataVector(3 * iOct + 1) = datah(iOct, fm[IV])/datah(iOct, fm[ID]);
           //if (3 == 3)
-          dataVector(3 * iOct + 2) = dim==3 ? data(iOct, fm[IW])/data(iOct, fm[ID]) : 0;
+          dataVector(3 * iOct + 2) = dim==3 ? datah(iOct, fm[IW])/datah(iOct, fm[ID]) : 0;
         }
       });
 
@@ -413,18 +403,13 @@ HDF5_Writer::write_quadrant_velocity(DataArray  data,
 // =======================================================
 // =======================================================
 int
-HDF5_Writer::write_quadrant_mach_number(DataArray  data,
-                                        id2index_t fm)
+HDF5_Writer::write_quadrant_mach_number(DataArrayHost datah,
+                                        id2index_t    fm)
 {
-  // copy data from device to host
-  DataArrayHost datah = Kokkos::create_mirror(data);
-  
-  // copy device data to host
-  Kokkos::deep_copy(datah, data);
-  
+
   {
     
-    uint32_t nbOcts = data.extent(0);
+    uint32_t nbOcts = datah.extent(0);
 
     using DataArrayScalar = Kokkos::View<real_t*, Kokkos::HostSpace>;
     
@@ -473,17 +458,11 @@ HDF5_Writer::write_quadrant_mach_number(DataArray  data,
 // =======================================================
 // =======================================================
 int
-HDF5_Writer::write_quadrant_attribute(DataArrayBlock  data,
-                                      id2index_t      fm,
-                                      str2int_t       names2index)
+HDF5_Writer::write_quadrant_attribute(DataArrayBlockHost  datah,
+                                      id2index_t          fm,
+                                      str2int_t           names2index)
 {
 
-  // copy data from device to host
-  DataArrayBlockHost datah = Kokkos::create_mirror(data);
-  
-  // copy device data to host
-  Kokkos::deep_copy(datah, data);
-  
   // write data array scalar fields in ascii
   for ( auto iter : names2index) {
     
@@ -493,8 +472,8 @@ HDF5_Writer::write_quadrant_attribute(DataArrayBlock  data,
     // get variable id
     int iVar = iter.second;
 
-    uint32_t nbCellsPerOct = data.extent(0);
-    uint32_t nbOcts = data.extent(2);
+    uint32_t nbCellsPerOct = datah.extent(0);
+    uint32_t nbOcts = datah.extent(2);
 
     // we need to gather data corresponding to a given scalar variable
     using DataArrayScalar = Kokkos::View<real_t*, Kokkos::HostSpace>;
@@ -507,7 +486,7 @@ HDF5_Writer::write_quadrant_attribute(DataArrayBlock  data,
 
     Kokkos::parallel_for(nbOcts, KOKKOS_LAMBDA (uint32_t iOct) {
         for (uint32_t iCell=0; iCell<nbCellsPerOct; ++iCell)
-          dataVar(iCell + nbCellsPerOct*iOct) = data(iCell,fm[iVar],iOct);
+          dataVar(iCell + nbCellsPerOct*iOct) = datah(iCell,fm[iVar],iOct);
       });
     
     // actual data writing
@@ -524,21 +503,16 @@ HDF5_Writer::write_quadrant_attribute(DataArrayBlock  data,
 // =======================================================
 // =======================================================
 int
-HDF5_Writer::write_quadrant_mach_number(DataArrayBlock data,
+HDF5_Writer::write_quadrant_mach_number(DataArrayBlockHost datah,
                                         id2index_t fm)
 {
-  // copy data from device to host
-  DataArrayBlockHost datah = Kokkos::create_mirror(data);
-  
-  // copy device data to host
-  Kokkos::deep_copy(datah, data);
-  
+
   {
     
     using DataArrayScalar = Kokkos::View<real_t*, Kokkos::HostSpace>;
 
-    uint32_t nbCellsPerOct = data.extent(0);
-    uint32_t nbOcts = data.extent(2);
+    uint32_t nbCellsPerOct = datah.extent(0);
+    uint32_t nbOcts = datah.extent(2);
 
     DataArrayScalar mach_number = DataArrayScalar("mach_number", nbCellsPerOct*nbOcts);
 

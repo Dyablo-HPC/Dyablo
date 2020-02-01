@@ -9,7 +9,7 @@
 #include "shared/kokkos_shared.h"
 #include "shared/FieldManager.h"
 
-#include "shared/kokkos_shared.h" // for DataArray
+#include "shared/kokkos_shared.h" // for DataArray, DataArrayHost
 
 #include "shared/bitpit_common.h"
 
@@ -122,25 +122,25 @@ public:
    * \param [in] type_id The HDF5 type id of the data to be written (double, int, ...). 
    *
    */
-  int            write_quadrant_attribute (DataArray data,
-                                           id2index_t  fm,
-                                           str2int_t   names2index);
+  int            write_quadrant_attribute (DataArrayHost datah,
+                                           id2index_t    fm,
+                                           str2int_t     names2index);
 
   /**
    * special variant of write_quadrant_attribute for velocity
    * vector field.
    */
-  int            write_quadrant_velocity(DataArray  data,
-                                         id2index_t fm,
-                                         bool use_momentum);
+  int            write_quadrant_velocity(DataArrayHost  datah,
+                                         id2index_t     fm,
+                                         bool           use_momentum);
 
   /**
    * special variant of write_quadrant_attribute for Mach number.
    *
    * Input array is assumed to contain conservative variables.
    */
-  int            write_quadrant_mach_number(DataArray  data,
-                                            id2index_t fm);
+  int            write_quadrant_mach_number(DataArrayHost datah,
+                                            id2index_t    fm);
 
   /**
    * \brief Write all cell-centered scalar attributes when block amr is enabled.
@@ -152,17 +152,17 @@ public:
    * \param [in] type_id The HDF5 type id of the data to be written (double, int, ...). 
    *
    */
-  int            write_quadrant_attribute (DataArrayBlock data,
-                                           id2index_t     fm,
-                                           str2int_t      names2index);
+  int            write_quadrant_attribute (DataArrayBlockHost data,
+                                           id2index_t         fm,
+                                           str2int_t          names2index);
 
   /**
    * special variant of write_quadrant_attribute for Mach number.
    *
    * Input array is assumed to contain conservative variables.
    */
-  int            write_quadrant_mach_number(DataArrayBlock data,
-                                            id2index_t     fm);
+  int            write_quadrant_mach_number(DataArrayBlockHost data,
+                                            id2index_t         fm);
 
   std::shared_ptr<AMRmesh> m_amr_mesh; //!<
   std::string    m_basename; //!< the base name of the two files

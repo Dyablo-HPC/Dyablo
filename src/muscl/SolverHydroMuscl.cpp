@@ -622,6 +622,9 @@ void SolverHydroMuscl::save_solution_hdf5()
   // actual writing
   {
 
+    // copy data from device to host
+    Kokkos::deep_copy(Uhost, U);
+
     hdf5_writer->update_mesh_info();
 
     // open the new file and write our stuff
@@ -629,14 +632,14 @@ void SolverHydroMuscl::save_solution_hdf5()
     hdf5_writer->write_header(m_t);
 
     // write user the fake data (all scalar fields, here only one)
-    hdf5_writer->write_quadrant_attribute(U, fm, names2index);
+    hdf5_writer->write_quadrant_attribute(Uhost, fm, names2index);
 
     // check if we want to write velocity or rhoV vector fields
     std::string write_variables = configMap.getString("output", "write_variables", "");
     if (write_variables.find("velocity") != std::string::npos) {
-      hdf5_writer->write_quadrant_velocity(U, fm, false);
+      hdf5_writer->write_quadrant_velocity(Uhost, fm, false);
     } else if (write_variables.find("rhoV") != std::string::npos) {
-      hdf5_writer->write_quadrant_velocity(U, fm, true);
+      hdf5_writer->write_quadrant_velocity(Uhost, fm, true);
     } 
     
     if (write_variables.find("Mach") != std::string::npos) {
@@ -644,7 +647,7 @@ void SolverHydroMuscl::save_solution_hdf5()
       // we could have used primitive variables, but since here Q
       // may not have the same size, Q may need to be resized
       // and recomputed anyway.
-      hdf5_writer->write_quadrant_mach_number(U, fm);
+      hdf5_writer->write_quadrant_mach_number(Uhost, fm);
     }
 
     // close the file

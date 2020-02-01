@@ -181,7 +181,7 @@ void run(std::string input_filename)
       writer.write_header(1.0*iter);
 
       // write user the fake data (all scalar fields, here only one)
-      writer.write_quadrant_attribute(userdataBlock, fm, names2index);
+      writer.write_quadrant_attribute(userdataBlock_h, fm, names2index);
 
       // close the file
       writer.write_footer();
