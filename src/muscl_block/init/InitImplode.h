@@ -26,7 +26,8 @@ namespace dyablo { namespace muscl_block {
  * Implement initialization functor to solve implode problem.
  *
  * This functor takes as input a mesh, already refined, and initializes
- * user data.
+ * user data on host. Copying data from host to device, should be 
+ * done outside.
  * 
  *
  * Initial conditions is refined near strong density gradients.
@@ -40,7 +41,7 @@ private:
   uint32_t nbTeams; //!< number of thread teams
 
 public:
-  using team_policy_t = Kokkos::TeamPolicy<Kokkos::IndexType<int32_t>>;
+  using team_policy_t = Kokkos::TeamPolicy<Kokkos::OpenMP, Kokkos::IndexType<int32_t>>;
   using thread_t = team_policy_t::member_type;
 
   void setNbTeams(uint32_t nbTeams_) {nbTeams = nbTeams_;}; 
@@ -50,9 +51,9 @@ public:
                          ImplodeParams  iParams,
                          id2index_t     fm,
                          blockSize_t    blockSizes,
-                         DataArrayBlock Udata) :
+                         DataArrayBlockHost Udata_h) :
     pmesh(pmesh), params(params), iParams(iParams),
-    fm(fm), blockSizes(blockSizes), Udata(Udata)
+    fm(fm), blockSizes(blockSizes), Udata_h(Udata_h)
   {
   };
   
@@ -62,25 +63,28 @@ public:
                     ConfigMap      configMap,
 		    id2index_t     fm,
                     blockSize_t    blockSizes,
-                    DataArrayBlock Udata)
+                    DataArrayBlockHost Udata_h)
   {
     ImplodeParams implodeParams = ImplodeParams(configMap);
     
     // data init functor
-    InitImplodeDataFunctor functor(pmesh, params, implodeParams, fm, blockSizes, Udata);
+    InitImplodeDataFunctor functor(pmesh, params, implodeParams, fm, blockSizes, Udata_h);
 
     // kokkos execution policy
     uint32_t nbTeams_ = configMap.getInteger("init","nbTeams",16);
     functor.setNbTeams ( nbTeams_  );
 
-    team_policy_t policy (nbTeams_,
+    // perform initialization on host
+    team_policy_t policy (Kokkos::OpenMP(),
+                          nbTeams_,
                           Kokkos::AUTO() /* team size chosen by kokkos */);
 
     Kokkos::parallel_for("dyablo::muscl_block::InitImplodeDataFunctor",
                          policy, functor);
   }
   
-  KOKKOS_INLINE_FUNCTION
+  //KOKKOS_INLINE_FUNCTION
+  inline
   void operator()(thread_t member) const
   {
 
@@ -170,27 +174,27 @@ public:
           }
 
           if (tmp) {
-            Udata(index, fm[ID], iOct) = rho_out;
-            Udata(index, fm[IP], iOct) = p_out/(gamma0-1.0) +
+            Udata_h(index, fm[ID], iOct) = rho_out;
+            Udata_h(index, fm[IP], iOct) = p_out/(gamma0-1.0) +
               0.5 * rho_out * (u_out*u_out + v_out*v_out);
-            Udata(index, fm[IU], iOct) = u_out;
-            Udata(index, fm[IV], iOct) = v_out;
+            Udata_h(index, fm[IU], iOct) = u_out;
+            Udata_h(index, fm[IV], iOct) = v_out;
           } else {
-            Udata(index, fm[ID], iOct) = rho_in;
-            Udata(index, fm[IP], iOct) = p_in/(gamma0-1.0) +
+            Udata_h(index, fm[ID], iOct) = rho_in;
+            Udata_h(index, fm[IP], iOct) = p_in/(gamma0-1.0) +
               0.5 * rho_in * (u_in*u_in + v_in*v_in);
-            Udata(index, fm[IU], iOct) = u_in;
-            Udata(index, fm[IV], iOct) = v_in;
+            Udata_h(index, fm[IU], iOct) = u_in;
+            Udata_h(index, fm[IV], iOct) = v_in;
           }
 
           if (params.dimType == THREE_D) {
             if (tmp) {
-              Udata(index, fm[IW], iOct) = w_out;
-              Udata(index, fm[IP], iOct) = p_out/(gamma0-1.0) +
+              Udata_h(index, fm[IW], iOct) = w_out;
+              Udata_h(index, fm[IP], iOct) = p_out/(gamma0-1.0) +
                 0.5 * rho_out * (u_out*u_out + v_out*v_out + w_out*w_out);
             } else {
-              Udata(index, fm[IW], iOct) = w_in;
-              Udata(index, fm[IP], iOct) = p_in/(gamma0-1.0) +
+              Udata_h(index, fm[IW], iOct) = w_in;
+              Udata_h(index, fm[IP], iOct) = p_in/(gamma0-1.0) +
                 0.5 * rho_in * (u_in*u_in + v_in*v_in + w_in*w_in);
             }
           }
@@ -201,8 +205,8 @@ public:
             real_t delta = params.dimType == TWO_D ?
               (x+y)*0.05 :
               (x+y+z)*0.05;
-            Udata(index, fm[ID], iOct) += delta;
-            Udata(index, fm[IP], iOct) += 2*delta;
+            Udata_h(index, fm[ID], iOct) += delta;
+            Udata_h(index, fm[IP], iOct) += 2*delta;
           
           }
 
@@ -229,8 +233,8 @@ public:
   //! block sizes
   blockSize_t    blockSizes;
 
-  //! heavy data
-  DataArrayBlock Udata;
+  //! heavy data on host
+  DataArrayBlockHost Udata_h;
 
 }; // InitImplodeDataFunctor
 
@@ -257,6 +261,8 @@ public:
 class InitImplodeRefineFunctor {
   
 public:
+  using range_policy_t = Kokkos::RangePolicy<Kokkos::OpenMP>;
+
   InitImplodeRefineFunctor(std::shared_ptr<AMRmesh> pmesh,
                            HydroParams   params,
                            ImplodeParams iParams,
@@ -280,11 +286,16 @@ public:
                                      params,
                                      implodeParams,
                                      level_refine);
-    Kokkos::parallel_for(pmesh->getNumOctants(), functor);
+
+    range_policy_t policy(Kokkos::OpenMP(), 0, pmesh->getNumOctants());
+
+    Kokkos::parallel_for("dyablo::muscl_block::InitImplodeRefineFunctor",
+                         policy, functor);
     
-  }
+  } // apply
   
-  KOKKOS_INLINE_FUNCTION
+  //KOKKOS_INLINE_FUNCTION
+  inline
   void operator()(const size_t& iOct) const
   {
 

@@ -21,6 +21,9 @@
 
 // testing muscl_block functor for initialization
 #include "muscl_block/init/InitBlast.h"
+#include "muscl_block/init/InitImplode.h"
+#include "muscl_block/init/InitGreshoVortex.h"
+
 
 //using namespace bitpit;
 
@@ -55,7 +58,7 @@ void run(std::string input_filename)
   int nbvar = params.nbvar;
 
   // should we write multiple cell per octree leaf ?
-  bool write_block_data = configMap.getBool("amr", "use_block_data", false);
+  //bool write_block_data = configMap.getBool("amr", "use_block_data", false);
   uint32_t bx = (uint32_t) configMap.getInteger("amr", "bx", 0);
   uint32_t by = (uint32_t) configMap.getInteger("amr", "by", 0);
   uint32_t bz = (uint32_t) configMap.getInteger("amr", "bz", 0);
@@ -65,13 +68,13 @@ void run(std::string input_filename)
   blockSizes[IY] = by;
   blockSizes[IZ] = bz;
 
-  int nbCellsPerLeaf = 1;
+  //int nbCellsPerLeaf = 1;
 
-  if (write_block_data) {
-    nbCellsPerLeaf = params.dimType == TWO_D ? 
-      bx * by : 
-      bx * by * bz;
-  }
+  // if (write_block_data) {
+  //   nbCellsPerLeaf = params.dimType == TWO_D ? 
+  //     bx * by : 
+  //     bx * by * bz;
+  // }
 
   // variable map
   str2int_t names2index; // this is initially empty
@@ -125,7 +128,7 @@ void run(std::string input_filename)
     amr_mesh->updateConnectivity();
     //amr_mesh->writeTest("PABLO_test0_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data);
 
-    printf("local  num octants : %ld\n",amr_mesh->getNumOctants());
+    printf("local  num octants : %u\n",amr_mesh->getNumOctants());
     printf("global num octants : %ld\n",amr_mesh->getGlobalNumOctants());
 
     // create some fake data - 2 scalar value but only one initialized
@@ -138,56 +141,38 @@ void run(std::string input_filename)
                                                   nbvar,
                                                   amr_mesh->getNumOctants());
 
+    DataArrayBlockHost userdataBlock_h = Kokkos::create_mirror(userdataBlock);
+
     dyablo::muscl_block::InitBlastDataFunctor::apply(amr_mesh, 
                                                      params, 
                                                      configMap, 
                                                      fm, 
                                                      blockSizes,
-                                                     userdataBlock);
-
-    DataArrayBlockHost userdataBlock_h = Kokkos::create_mirror(userdataBlock);
+                                                     userdataBlock_h);
     
-    // copy device data into host
-    Kokkos::deep_copy(userdataBlock_h, userdataBlock);
+    // copy device data into host - not needed for this test
+    //Kokkos::deep_copy(userdataBlock_h, userdataBlock);
 
-    // DataArray userdata = DataArray("fake_data",
-    //                                amr_mesh->getNumOctants()*nbCellsPerLeaf,nbvar);
-
-    // Kokkos::parallel_for(
-    //   amr_mesh->getNumOctants(), KOKKOS_LAMBDA(int i) {
-    //     for (int iy = 0; iy < by; ++iy) {
-    //       for (int ix = 0; ix < bx; ++ix) {
-    //         uint32_t j = ix + bx * iy;
-
-    //         userdata(i * nbCellsPerLeaf + j, fm[ID]) =
-    //           userdataBlock(j,fm[ID],i);
-              
-    //         userdata(i * nbCellsPerLeaf + j, fm[IP]) =
-    //           userdataBlock(j,fm[IP],i);
-
-    //       } // end for ix
-    //     } // end for iy
-    //   });
 
     // save hdf5 data
-    {
-      hid_t output_type = H5T_NATIVE_DOUBLE;
+    // {
+    //   //hid_t output_type = H5T_NATIVE_DOUBLE;
 
-      writer.update_mesh_info();
+    //   writer.update_mesh_info();
 
-      // open the new file and write our stuff
-      std::string prefix = configMap.getString("output", "outputPrefix", "output");
-      writer.open(prefix+"_iter"+std::to_string(iter));
-      writer.write_header(1.0*iter);
+    //   // open the new file and write our stuff
+    //   std::string prefix = configMap.getString("output", "outputPrefix", "output");
+    //   writer.open(prefix+"_iter"+std::to_string(iter));
+    //   writer.write_header(1.0*iter);
 
-      // write user the fake data (all scalar fields, here only one)
-      writer.write_quadrant_attribute(userdataBlock_h, fm, names2index);
+    //   // write user the fake data (all scalar fields, here only one)
+    //   writer.write_quadrant_attribute(userdataBlock_h, fm, names2index);
 
-      // close the file
-      writer.write_footer();
-      writer.close();
+    //   // close the file
+    //   writer.write_footer();
+    //   writer.close();
 
-    }
+    // }
 
   } // end for iter
 } // end run
