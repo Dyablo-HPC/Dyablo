@@ -14,6 +14,10 @@ namespace muscl_block {
 /**
  * Hydrodynamical blast Test.
  * http://www.astro.princeton.edu/~jstone/Athena/tests/blast/blast.html
+ *
+ * Initial condition is mostly done on host, the final refined initial
+ * condition data are uploaded to kokkos device.
+ *
  */
 void init_blast(SolverHydroMusclBlock *psolver)
 {
@@ -40,7 +44,7 @@ void init_blast(SolverHydroMusclBlock *psolver)
 
   // after the global refine stages, all cells are at level = level_min
 
-  // genuine initial refinement
+  // genuine initial refinement - mesh only, no heavy data
   for (int level=level_min; level<level_max; ++level) {
 
     // mark cells for refinement
@@ -62,6 +66,8 @@ void init_blast(SolverHydroMusclBlock *psolver)
   // field manager index array
   auto fm = psolver->fieldMgr.get_id2index();
 
+  // now we know the size of the mesh, we can allocate memory for
+  // heavy data (U, U2, Uhost, ...)
   psolver->resize_solver_data();
 
   /*
@@ -69,7 +75,10 @@ void init_blast(SolverHydroMusclBlock *psolver)
    */
   InitBlastDataFunctor::apply(amr_mesh, params, configMap, fm, 
                               psolver->blockSizes,
-                              psolver->U);
+                              psolver->Uhost);
+
+  // upload data on device
+  Kokkos::deep_copy(psolver->U, psolver->Uhost);
 
 } // init_blast
 

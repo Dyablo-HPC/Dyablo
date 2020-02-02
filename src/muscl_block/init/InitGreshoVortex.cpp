@@ -14,6 +14,9 @@ namespace muscl_block {
 /**
  * Hydrodynamical Gresho vortex Test.
  *
+ * Initial condition is mostly done on host, the final refined initial
+ * condition data are uploaded to kokkos device.
+*
  * \sa https://www.cfd-online.com/Wiki/Gresho_vortex
  * \sa https://arxiv.org/abs/1409.7395 - section 4.2.3
  * \sa https://arxiv.org/abs/1612.03910
@@ -70,6 +73,8 @@ void init_gresho_vortex(SolverHydroMusclBlock *psolver)
       
     } // end for level
 
+    // now we know the size of the mesh, we can allocate memory for
+    // heavy data (U, U2, Uhost, ...)
     psolver->resize_solver_data();
     
     /*
@@ -79,7 +84,7 @@ void init_gresho_vortex(SolverHydroMusclBlock *psolver)
                                        params, configMap, 
                                        fm, 
                                        psolver->blockSizes,
-                                       psolver->U);
+                                       psolver->Uhost);
 
   } else { // refine use regular refinement criterium
 
@@ -93,8 +98,10 @@ void init_gresho_vortex(SolverHydroMusclBlock *psolver)
     Kokkos::resize(psolver->U2,amr_mesh->getNumOctants(),params.nbvar);
     InitGreshoVortexDataFunctor::apply(amr_mesh, params, configMap, fm, 
                                        psolver->blockSizes,
-                                       psolver->U);
-    Kokkos::deep_copy(psolver->U2, psolver->U);
+                                       psolver->Uhost);
+    
+    Kokkos::deep_copy(psolver->U,  psolver->Uhost);
+    Kokkos::deep_copy(psolver->U2, psolver->Uhost);
 
     // update mesh until we reach level_max
     for (int level = level_min; level < level_max; ++level) {
@@ -104,8 +111,9 @@ void init_gresho_vortex(SolverHydroMusclBlock *psolver)
       // re-compute U on the new mesh
       InitGreshoVortexDataFunctor::apply(amr_mesh, params, configMap, fm,
                                          psolver->blockSizes,
-                                         psolver->U);
-      Kokkos::deep_copy(psolver->U2, psolver->U);
+                                         psolver->Uhost);
+      Kokkos::deep_copy(psolver->U,  psolver->Uhost);
+      Kokkos::deep_copy(psolver->U2, psolver->Uhost);
     }
   }
 

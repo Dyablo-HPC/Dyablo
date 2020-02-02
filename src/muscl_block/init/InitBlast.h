@@ -26,7 +26,8 @@ namespace dyablo { namespace muscl_block {
  * Implement initialization functor to solve blast problem.
  *
  * This functor takes as input a mesh, already refined, and initializes
- * user data.
+ * user data on host. Copying data from host to device, should be 
+ * done outside.
  * 
  *
  * Initial conditions is refined near strong density gradients.
@@ -40,7 +41,7 @@ private:
   uint32_t nbTeams; //!< number of thread teams
 
 public:
-  using team_policy_t = Kokkos::TeamPolicy<Kokkos::IndexType<int32_t>>;
+  using team_policy_t = Kokkos::TeamPolicy<Kokkos::OpenMP, Kokkos::IndexType<int32_t>>;
   using thread_t = team_policy_t::member_type;
 
   void setNbTeams(uint32_t nbTeams_) {nbTeams = nbTeams_;}; 
@@ -50,9 +51,9 @@ public:
                        BlastParams    bParams,
                        id2index_t     fm,
                        blockSize_t    blockSizes,
-                       DataArrayBlock Udata) :
+                       DataArrayBlockHost Udata_h) :
     pmesh(pmesh), params(params), bParams(bParams),
-    fm(fm), blockSizes(blockSizes), Udata(Udata)
+    fm(fm), blockSizes(blockSizes), Udata_h(Udata_h)
   {
   };
   
@@ -62,25 +63,28 @@ public:
                     ConfigMap      configMap,
 		    id2index_t     fm,
                     blockSize_t    blockSizes,
-                    DataArrayBlock Udata)
+                    DataArrayBlockHost Udata_h)
   {
     BlastParams blastParams = BlastParams(configMap);
     
     // data init functor
-    InitBlastDataFunctor functor(pmesh, params, blastParams, fm, blockSizes, Udata);
+    InitBlastDataFunctor functor(pmesh, params, blastParams, fm, blockSizes, Udata_h);
 
     // kokkos execution policy
     uint32_t nbTeams_ = configMap.getInteger("init","nbTeams",16);
     functor.setNbTeams ( nbTeams_  );
 
-    team_policy_t policy (nbTeams_,
+    // perform initialization on host
+    team_policy_t policy (Kokkos::OpenMP(),
+                          nbTeams_,
                           Kokkos::AUTO() /* team size chosen by kokkos */);
 
     Kokkos::parallel_for("dyablo::muscl_block::InitBlastDataFunctor",
                          policy, functor);
   }
   
-  KOKKOS_INLINE_FUNCTION
+  //KOKKOS_INLINE_FUNCTION
+  inline
   void operator()(thread_t member) const
   {
 
@@ -159,19 +163,19 @@ public:
             d2 += (z-blast_center_z)*(z-blast_center_z);
           
           if (d2 < radius2) {
-            Udata(index, fm[ID], iOct) = blast_density_in;
-            Udata(index, fm[IP], iOct) = blast_pressure_in/(gamma0-1.0);
-            Udata(index, fm[IU], iOct) = 0.0;
-            Udata(index, fm[IV], iOct) = 0.0;
+            Udata_h(index, fm[ID], iOct) = blast_density_in;
+            Udata_h(index, fm[IP], iOct) = blast_pressure_in/(gamma0-1.0);
+            Udata_h(index, fm[IU], iOct) = 0.0;
+            Udata_h(index, fm[IV], iOct) = 0.0;
           } else {
-            Udata(index, fm[ID], iOct) = blast_density_out;
-            Udata(index, fm[IP], iOct) = blast_pressure_out/(gamma0-1.0);
-            Udata(index, fm[IU], iOct) = 0.0;
-            Udata(index, fm[IV], iOct) = 0.0;
+            Udata_h(index, fm[ID], iOct) = blast_density_out;
+            Udata_h(index, fm[IP], iOct) = blast_pressure_out/(gamma0-1.0);
+            Udata_h(index, fm[IU], iOct) = 0.0;
+            Udata_h(index, fm[IV], iOct) = 0.0;
           }
 
           if (params.dimType == THREE_D)
-            Udata(index, fm[IW], iOct) = 0.0;
+            Udata_h(index, fm[IW], iOct) = 0.0;
 
         }); // end TeamVectorRange
 
@@ -185,19 +189,19 @@ public:
   std::shared_ptr<AMRmesh> pmesh;
 
   //! general parameters
-  HydroParams    params;
+  HydroParams        params;
 
   //! Blast problem specific parameters
-  BlastParams    bParams;
+  BlastParams        bParams;
 
   //! field manager
-  id2index_t     fm;
+  id2index_t         fm;
 
   //! block sizes
-  blockSize_t    blockSizes;
+  blockSize_t        blockSizes;
 
-  //! heavy data
-  DataArrayBlock Udata;
+  //! heavy data on host
+  DataArrayBlockHost Udata_h;
 
 }; // InitBlastDataFunctor
 
@@ -217,6 +221,8 @@ public:
 class InitBlastRefineFunctor {
   
 public:
+  using range_policy_t = Kokkos::RangePolicy<Kokkos::OpenMP>;
+
   InitBlastRefineFunctor(std::shared_ptr<AMRmesh> pmesh,
                          HydroParams  params,
                          BlastParams bParams,
@@ -236,12 +242,15 @@ public:
     // iterate functor for refinement
     InitBlastRefineFunctor functor(pmesh, params, blastParams, 
                                    level_refine);
-    Kokkos::parallel_for(pmesh->getNumOctants(), functor);
     
-  }
+    range_policy_t policy(Kokkos::OpenMP(), 0, pmesh->getNumOctants());
+    Kokkos::parallel_for("dyablo::muscl_block::InitBlastRefineFunctor",
+                         policy, functor);
+    
+  } // apply
   
   KOKKOS_INLINE_FUNCTION
-  void operator()(const size_t& i) const
+  void operator()(const size_t& iOct) const
   {
 
     // blast problem parameters
@@ -254,20 +263,20 @@ public:
     //constexpr double eps = 0.005;
     
     // get cell level
-    uint8_t level = pmesh->getLevel(i);
+    uint8_t level = pmesh->getLevel(iOct);
     
     // only look at level - 1
     if (level == level_refine) {
 
       // get cell center coordinate in the unit domain
       // FIXME : need to refactor AMRmesh interface to use Kokkos::Array
-      std::array<double,3> center = pmesh->getCenter(i);
+      std::array<double,3> center = pmesh->getCenter(iOct);
       
       const real_t x = center[0];
       const real_t y = center[1];
       const real_t z = center[2];
 
-      double cellSize2 = pmesh->getSize(i)*0.75;
+      double cellSize2 = pmesh->getSize(iOct)*0.75;
       
       bool should_refine = false;
 
@@ -282,7 +291,7 @@ public:
 	should_refine = true;
       
       if (should_refine)
-	pmesh->setMarker(i, 1);
+	pmesh->setMarker(iOct, 1);
 
     } // end if level == level_refine
     

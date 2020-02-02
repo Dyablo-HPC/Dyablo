@@ -14,6 +14,9 @@ namespace muscl_block {
 /**
  * Hydrodynamical implosion Test.
  * http://www.astro.princeton.edu/~jstone/Athena/tests/implode/Implode.html
+ *
+ * Initial condition is mostly done on host, the final refined initial
+ * condition data are uploaded to kokkos device.
  */
 void init_implode(SolverHydroMusclBlock *psolver)
 {
@@ -62,6 +65,8 @@ void init_implode(SolverHydroMusclBlock *psolver)
   // field manager index array
   auto fm = psolver->fieldMgr.get_id2index();
 
+  // now we know the size of the mesh, we can allocate memory for
+  // heavy data (U, U2, Uhost, ...)
   psolver->resize_solver_data();
 
   /*
@@ -69,7 +74,10 @@ void init_implode(SolverHydroMusclBlock *psolver)
    */
   InitImplodeDataFunctor::apply(amr_mesh, params, configMap, fm, 
                                 psolver->blockSizes,
-                                psolver->U);
+                                psolver->Uhost);
+
+  // upload data on device
+  Kokkos::deep_copy(psolver->U, psolver->Uhost);
 
 } // init_implode
 

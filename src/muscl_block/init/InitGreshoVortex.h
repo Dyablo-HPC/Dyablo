@@ -39,7 +39,7 @@ private:
   uint32_t nbTeams; //!< number of thread teams
 
 public:
-  using team_policy_t = Kokkos::TeamPolicy<Kokkos::IndexType<int32_t>>;
+  using team_policy_t = Kokkos::TeamPolicy<Kokkos::OpenMP,Kokkos::IndexType<int32_t>>;
   using thread_t = team_policy_t::member_type;
 
   void setNbTeams(uint32_t nbTeams_) {nbTeams = nbTeams_;}; 
@@ -49,13 +49,13 @@ public:
                               GreshoVortexParams gvParams,
                               id2index_t         fm,
                               blockSize_t        blockSizes,
-                              DataArrayBlock     Udata) :
+                              DataArrayBlockHost Udata_h) :
     pmesh(pmesh), 
     params(params),
     gvParams(gvParams),
     fm(fm),
     blockSizes(blockSizes),
-    Udata(Udata) {};
+    Udata_h(Udata_h) {};
 
   // static method which does it all: create and execute functor
   static void apply(std::shared_ptr<AMRmesh> pmesh,
@@ -63,13 +63,13 @@ public:
                     ConfigMap configMap,
                     id2index_t fm,
                     blockSize_t    blockSizes,
-                    DataArrayBlock Udata) 
+                    DataArrayBlockHost Udata_h) 
   {
     // gresho vortex specific parameters
     GreshoVortexParams gvParams = GreshoVortexParams(configMap);
 
     // data init functor
-    InitGreshoVortexDataFunctor functor(pmesh, params, gvParams, fm, blockSizes, Udata);
+    InitGreshoVortexDataFunctor functor(pmesh, params, gvParams, fm, blockSizes, Udata_h);
 
     // kokkos execution policy
     uint32_t nbTeams_ = configMap.getInteger("init","nbTeams",16);
@@ -84,7 +84,8 @@ public:
 
   // ================================================
   // ================================================
-  KOKKOS_INLINE_FUNCTION
+  //KOKKOS_INLINE_FUNCTION
+  inline
   void operator()(thread_t member) const
   {
 
@@ -169,18 +170,18 @@ public:
               p = p0 - 2 + 4 * log(2.0);
             }
 
-            Udata(index, fm[ID], iOct) = rho0;
-            Udata(index, fm[IU], iOct) = rho0 * (-sinT * uphi);
-            Udata(index, fm[IV], iOct) = rho0 * (cosT * uphi);
-            Udata(index, fm[IP], iOct) =
+            Udata_h(index, fm[ID], iOct) = rho0;
+            Udata_h(index, fm[IU], iOct) = rho0 * (-sinT * uphi);
+            Udata_h(index, fm[IV], iOct) = rho0 * (cosT * uphi);
+            Udata_h(index, fm[IP], iOct) =
                 p / (gamma0 - 1.0) + 0.5 *
-              (Udata(index, fm[IU], iOct) * Udata(index, fm[IU], iOct) +
-               Udata(index, fm[IV], iOct) * Udata(index, fm[IV], iOct)) /
-              Udata(index, fm[ID], iOct);
+              (Udata_h(index, fm[IU], iOct) * Udata_h(index, fm[IU], iOct) +
+               Udata_h(index, fm[IV], iOct) * Udata_h(index, fm[IV], iOct)) /
+              Udata_h(index, fm[ID], iOct);
             ;
 
             if (params.dimType == THREE_D)
-              Udata(index, fm[IW], iOct) = 0.0;
+              Udata_h(index, fm[IW], iOct) = 0.0;
           }); // end teamVectorRange
 
       iOct += nbTeams;
@@ -205,7 +206,7 @@ public:
   blockSize_t    blockSizes;
   
   //! heavy data
-  DataArrayBlock Udata;
+  DataArrayBlockHost Udata_h;
 
 }; // InitGreshoVortexDataFunctor
 
@@ -225,6 +226,8 @@ public:
 class InitGreshoVortexRefineFunctor {
 
 public:
+  using range_policy_t = Kokkos::RangePolicy<Kokkos::OpenMP>;
+
   InitGreshoVortexRefineFunctor(std::shared_ptr<AMRmesh> pmesh,
                                 HydroParams params,
                                 GreshoVortexParams gvParams,
@@ -249,11 +252,15 @@ public:
                                           params,
                                           gvParams,
                                           level_refine);
+
+    range_policy_t policy(Kokkos::OpenMP(), 0, pmesh->getNumOctants());
+
     Kokkos::parallel_for("dyablo::muscl::InitGreshoVortexRefineFunctor",
-                         pmesh->getNumOctants(), functor);
+                         policy, functor);
   }
 
-  KOKKOS_INLINE_FUNCTION
+  //KOKKOS_INLINE_FUNCTION
+  inline
   void operator()(const size_t &iOct) const
   {
 
