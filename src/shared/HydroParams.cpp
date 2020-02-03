@@ -270,6 +270,7 @@ void HydroParams::print()
   printf( "iorder     : %d\n", settings.iorder);
   printf( "slope_type : %f\n", settings.slope_type);
   printf( "riemann    : %d\n", riemannSolverType);
+  printf( "update type: %d\n", updateType);
   //printf( "problem    : %d\n", problemStr);
   printf( "implementation version : %d\n",implementationVersion);
   printf( "##########################\n");
