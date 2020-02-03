@@ -290,10 +290,10 @@ public:
 	u[IU] = U_ghost(index_border, fm[IU], neigh[iNeigh]);
 	u[IV] = U_ghost(index_border, fm[IV], neigh[iNeigh]);
       } else {
-	u[ID] += U(index_border, fm[ID], neigh[iNeigh]);
-	u[IP] += U(index_border, fm[IP], neigh[iNeigh]);
-	u[IU] += U(index_border, fm[IU], neigh[iNeigh]);
-	u[IV] += U(index_border, fm[IV], neigh[iNeigh]);
+	u[ID] = U(index_border, fm[ID], neigh[iNeigh]);
+	u[IP] = U(index_border, fm[IP], neigh[iNeigh]);
+	u[IU] = U(index_border, fm[IU], neigh[iNeigh]);
+	u[IV] = U(index_border, fm[IV], neigh[iNeigh]);
       }
 
       // Converting to primitives
@@ -780,11 +780,11 @@ public:
       // compute dx / dy
       const real_t dx = (iOct < nbOcts) ? pmesh->getSize(iOct)/bx : 1.0;
       const real_t dy = (iOct < nbOcts) ? pmesh->getSize(iOct)/by : 1.0;
-      
+
       const real_t dtdx = dt/dx;
       const real_t dtdy = dt/dy;
-      const real_t hdtdx = 0.5*dtdx;
-      const real_t hdtdy = 0.5*dtdy;
+      const real_t dt2dx = 0.5*dtdx;
+      const real_t dt2dy = 0.5*dtdy;
 
       // For non conformal update (taken from muscl/ComputeFluxesAndUpdateHydroFunctor.h)
 
@@ -792,6 +792,9 @@ public:
       std::set<coord_t, CoordComparator> cells_to_update;
 
       // We add the relevant cells to the set, these are indexed based on the original block
+      // TODO:
+      // This list can be hardcoded at startup instead of rebuiling it every time !
+
       if (Interface_flags(iOct_local) & INTERFACE_XMIN_NC)
 	for (uint32_t j=0; j < by; ++j)
 	  cells_to_update.insert(coord_t{0, j, 0});
@@ -840,13 +843,10 @@ public:
 	  HydroState2d qprim = get_prim_variables<HydroState2d>(ig, iOct_local);
 	  
 	  // fluxes will be accumulated in qcons
-	  HydroState2d qcons = {0.0, 0.0, 0.0, 0.0}; //get_cons_variables<HydroState2d>(ig, iOct_local);
-	  
-	  //std::cout << "qcons (start) : " << qcons[ID] << " " << qcons[IP] << " " << qcons[IU] << " " << qcons[IV] << std::endl;
-	  
+	  HydroState2d qcons = {0.0, 0.0, 0.0, 0.0}; 
 	  // Neighbour states for non conformal update
 	  HydroState2d qm, qp;
-	  
+
 	  /*
 	   * compute from left face along x dir
 	   * if we are smaller than the neighbor, we update as before
@@ -883,14 +883,15 @@ public:
 	    
 	    // step 2 : Reconstruct state in current cell
 	    offsets_t offsets = {-1.0, 0.0, 0.0};
-	    HydroState2d qR = qprim; //reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
+	    HydroState2d qR = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
 	    
 	    // step 3 : Solver is called directly on average states, no reconstruction is done
 	    //          Warning: Should something be done here for the difference in size ?
 	    HydroState2d flux_m = riemann_hydro(qm, qR, params);
 	    HydroState2d flux_p = riemann_hydro(qp, qR, params);
-	    qcons += flux_m*hdtdx;
-	    qcons += flux_p*hdtdx;
+
+	    qcons += flux_m * dt2dx;
+	    qcons += flux_p * dt2dx;
 	  }
 	  
 	  /*
@@ -926,14 +927,15 @@ public:
 	    
 	    // step 2 : Reconstruct state in current cell
 	    offsets_t offsets = {1.0, 0.0, 0.0};
-	    HydroState2d qL = qprim; //reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
+	    HydroState2d qL = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
 	    
 	    // step 3 : Solver is called directly on average states, no reconstruction is done
 	    //          Warning: Should something be done here for the difference in size ?
 	    HydroState2d flux_m = riemann_hydro(qL, qm, params);
 	    HydroState2d flux_p = riemann_hydro(qL, qp, params);
-	    qcons -= flux_m*hdtdx;
-	    qcons -= flux_p*hdtdx;
+
+	    qcons -= flux_m * dt2dx;
+	    qcons -= flux_p * dt2dx;
 	  }
 	  
 	  /*
@@ -978,7 +980,7 @@ public:
 
 	    // step 2 : Reconstruct state in current cell
 	    offsets_t offsets = {0.0, -1.0, 0.0};
-	    HydroState2d qR = qprim; //reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
+	    HydroState2d qR = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
 
 	    // swap IU / IV
 	    my_swap(qp[IU], qp[IV]);
@@ -992,9 +994,9 @@ public:
 
 	    my_swap(flux_p[IU], flux_p[IV]);
 	    my_swap(flux_m[IU], flux_m[IV]);
-
-	    qcons += flux_m*hdtdy;
-	    qcons += flux_p*hdtdy;
+	    
+	    qcons += flux_m * dt2dy;
+	    qcons += flux_p * dt2dy;
 	  }
 	  
 	  /*
@@ -1037,7 +1039,7 @@ public:
 	    
 	    // step 2 : Reconstruct state in current cell
 	    offsets_t offsets = {0.0, 1.0, 0.0};
-	    HydroState2d qL = qprim; //reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
+	    HydroState2d qL = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
 	    
 	    // swap IU / IV
 	    my_swap(qL[IU], qL[IV]);
@@ -1052,9 +1054,9 @@ public:
 	    // Swap IU/IV
 	    my_swap(flux_m[IU], flux_m[IV]);
 	    my_swap(flux_p[IU], flux_p[IV]);
-	    
-	    qcons -= flux_m*hdtdy;
-	    qcons -= flux_p*hdtdy;
+
+	    qcons -= flux_m * dt2dy;
+	    qcons -= flux_p * dt2dy;
 	  }
 	  
 	  //std::cout << "qcons (end) : " << qcons[ID] << " " << qcons[IP] << " " << qcons[IU] << " " << qcons[IV] << std::endl;
@@ -1105,29 +1107,27 @@ public:
       
       const real_t dtdx = dt/dx;
       const real_t dtdy = dt/dy;
-      const uint32_t bxm1 = bx-1;
-      const uint32_t bym1 = by-1;
       
       /*
        * reconstruct states on cells face and update
        */
       Kokkos::parallel_for(
-        Kokkos::TeamVectorRange(member, nbCellsPerBlock1),
+        Kokkos::TeamVectorRange(member, nbCellsPerBlock),
         KOKKOS_LAMBDA(const int32_t index) {
           // convert index to coordinates in ghosted block (minus 1 !)
           //index = i + bx1 * j
-          const uint32_t j = index / bx1;
-          const uint32_t i = index - j*bx1;
+          const uint32_t j = index / bx;
+          const uint32_t i = index - j*bx;
 
           // corresponding index in the full ghosted block
           // i -> i+1
           // j -> j+1
-          const uint32_t ig = (i+1) + bx_g * (j+1);
+          const uint32_t ig = (i+ghostWidth) + bx_g * (j+ghostWidth);
 
           // the following condition makes sure we stay inside
           // the inner block
-          if (i > 0 and i < bx1 - 1 and 
-              j > 0 and j < by1 - 1) {
+          if (i >= 0 and i < bx and 
+              j >= 0 and j < by) {
             // get current location primitive variables state
             HydroState2d qprim = get_prim_variables<HydroState2d>(ig, iOct_local);
 
@@ -1137,7 +1137,7 @@ public:
             /*
              * compute from left face along x dir
              */
-            if (i > ghostWidth-1 or !(Interface_flags(iOct_local) & INTERFACE_XMIN_NC))
+            if (i > 0 or !(Interface_flags(iOct_local) & INTERFACE_XMIN_NC))
 	    {
               // step 1 : reconstruct state in the left neighbor
 
@@ -1167,7 +1167,7 @@ public:
             /*
              * compute flux from right face along x dir
              */
-	    if (i < bx1-ghostWidth or !(Interface_flags(iOct_local) & INTERFACE_XMAX_NC))
+	    if (i < bx-1 or !(Interface_flags(iOct_local) & INTERFACE_XMAX_NC))
 	      {
               // step 1 : reconstruct state in the left neighbor
 
@@ -1197,7 +1197,7 @@ public:
             /*
              * compute flux from left face along y dir
              */
-            if (j > ghostWidth-1 or !(Interface_flags(iOct_local) & INTERFACE_YMIN_NC))
+            if (j > 0 or !(Interface_flags(iOct_local) & INTERFACE_YMIN_NC))
 	      {
               // step 1 : reconstruct state in the left neighbor
               
@@ -1233,7 +1233,7 @@ public:
             /*
              * compute flux from right face along y dir
              */
-	    if (j < by1-ghostWidth or !(Interface_flags(iOct_local) & INTERFACE_YMAX_NC))
+	    if (j < by-1 or !(Interface_flags(iOct_local) & INTERFACE_YMAX_NC))
 	      {
               // step 1 : reconstruct state in the left neighbor
               
@@ -1268,7 +1268,7 @@ public:
             }
 
             // lastly update conservative variable in U2
-            uint32_t index_non_ghosted = (i-1) + bx * (j-1);
+            uint32_t index_non_ghosted = i+bx*j;//(i-1) + bx * (j-1);
 
             U2(index_non_ghosted, fm[ID], iOct) = qcons[ID];
             U2(index_non_ghosted, fm[IP], iOct) = qcons[IP];
