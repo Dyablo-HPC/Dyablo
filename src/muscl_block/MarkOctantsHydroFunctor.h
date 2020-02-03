@@ -167,7 +167,7 @@ public:
    * \param[in] iOct_local octant local id (local to current group)
    *
    */
-  /*KOKKOS_INLINE_FUNCTION
+  KOKKOS_INLINE_FUNCTION
   real_t compute_second_derivative_error(uint8_t  ivar, 
 					 uint32_t i,
 					 uint32_t j,
@@ -205,7 +205,7 @@ public:
       
     return res;
 
-    } // compute_second_derivative*/
+  } // compute_second_derivative
   
   /**
    * compute second derivative of a given primitive variable at a given
@@ -235,22 +235,24 @@ public:
 
     const uint32_t iCell = i+1+ghostWidth + bx_g * (j+1+ghostWidth);
 
-    uint32_t iCellxm, iCellxp, iCellym, iCellyp, iCellxym, iCellxyp;
+    const uint32_t iCellxm   = i-1+ghostWidth + bx_g * (j  +ghostWidth);
+    const uint32_t iCellxp   = i+1+ghostWidth + bx_g * (j  +ghostWidth);
+    const uint32_t iCellym   = i  +ghostWidth + bx_g * (j-1+ghostWidth);
+    const uint32_t iCellyp   = i  +ghostWidth + bx_g * (j+1+ghostWidth);
+    const uint32_t iCellxym  = i-1+ghostWidth + bx_g * (j-1+ghostWidth);
+    const uint32_t iCellxyp  = i+1+ghostWidth + bx_g * (j+1+ghostWidth);
+    const uint32_t iCellxmyp = i-1+ghostWidth + bx_g * (j+1+ghostWidth);
+    const uint32_t iCellxpym = i+1+ghostWidth + bx_g * (j-1+ghostWidth);
 
-    iCellxm  = i-1+ghostWidth + bx_g * (j  +ghostWidth);
-    iCellxp  = i+1+ghostWidth + bx_g * (j  +ghostWidth);
-    iCellym  = i  +ghostWidth + bx_g * (j-1+ghostWidth);
-    iCellyp  = i  +ghostWidth + bx_g * (j+1+ghostWidth);
-    iCellxym = i-1+ghostWidth + bx_g * (j-1+ghostWidth);
-    iCellxyp = i+1+ghostWidth + bx_g * (j+1+ghostWidth);
-
-    const real_t q    = Qgroup(iCell  , fm[ivar],iOct_local);
-    const real_t qxm  = Qgroup(iCellxm, fm[ivar],iOct_local);
-    const real_t qxp  = Qgroup(iCellxp, fm[ivar],iOct_local);
-    const real_t qym  = Qgroup(iCellym, fm[ivar],iOct_local);
-    const real_t qyp  = Qgroup(iCellyp, fm[ivar],iOct_local);
-    const real_t qxym = Qgroup(iCellxym,fm[ivar],iOct_local);
-    const real_t qxyp = Qgroup(iCellxyp,fm[ivar],iOct_local);
+    const real_t q     = Qgroup(iCell  ,  fm[ivar],iOct_local);
+    const real_t qxm   = Qgroup(iCellxm,  fm[ivar],iOct_local);
+    const real_t qxp   = Qgroup(iCellxp,  fm[ivar],iOct_local);
+    const real_t qym   = Qgroup(iCellym,  fm[ivar],iOct_local);
+    const real_t qyp   = Qgroup(iCellyp,  fm[ivar],iOct_local);
+    const real_t qxym  = Qgroup(iCellxym, fm[ivar],iOct_local);
+    const real_t qxyp  = Qgroup(iCellxyp, fm[ivar],iOct_local);
+    const real_t qxmyp = Qgroup(iCellxmyp,fm[ivar],iOct_local);
+    const real_t qxpym = Qgroup(iCellxpym,fm[ivar],iOct_local);
 
     // 1st derivatives
     const real_t fxm = qxp - q;
@@ -261,13 +263,13 @@ public:
     // 2nd derivatives
     const real_t fxx = FABS(qxp) + FABS(qxm) + 2 * FABS(q);
     const real_t fyy = FABS(qyp) + FABS(qym) + 2 * FABS(q);
-    const real_t fxy = FABS(qxyp) - FABS(qxp) - FABS(qyp) + 2*FABS(q) - FABS(qxm) - FABS(qym) + FABS(qxym);
+    const real_t fxy = 0.25 * (FABS(qxyp) - FABS(qxpym) - FABS(qxmyp) + FABS(qxym));
 
     // Error calculations 
     const real_t Exx = FABS(fxm + fxp) / (FABS(fxm) + FABS(fxp) + epsref * fxx + eps);
     const real_t Eyy = FABS(fym + fyp) / (FABS(fym) + FABS(fyp) + epsref * fyy + eps);
-    const real_t Exy = FABS(qxyp - qxp - qyp + 2*q - qxm - qym + qxym) / (FABS(fxm) + FABS(fxp) + epsref*fxy + eps);
-    const real_t Eyx = FABS(qxyp - qxp - qyp + 2*q - qxm - qym + qxym) / (FABS(fym) + FABS(fyp) + epsref*fxy + eps);
+    const real_t Exy = 0.25*FABS(qxyp - qxmyp - qxpym + qxym) / (FABS(fxm) + FABS(fxp) + epsref*fxy + eps);
+    const real_t Eyx = 0.25*FABS(qxyp - qxmyp - qxpym + qxym) / (FABS(fym) + FABS(fyp) + epsref*fxy + eps);
 
     // Return the norm of the error
     res = sqrt(Exx*Exx+Eyy*Eyy+Exy*Exy+Eyx*Eyx);
@@ -297,34 +299,56 @@ public:
 
       real_t error = 0.0;
 
+      constexpr bool new_method = false;
+
       // TEST !
-      uint32_t nbInnerCellsPerBlock = (bx-2)*(by-2);
+      if (new_method) {
+	uint32_t nbInnerCellsPerBlock = (bx-2)*(by-2);
 
-      // parallelize computation of the maximun second derivative error
-      // scanning all cells in current block (all directions)
-      Kokkos::parallel_reduce(
-			      //        Kokkos::TeamVectorRange(member, nbCellsPerBlock),
-			      Kokkos::TeamVectorRange(member, nbInnerCellsPerBlock),
-			      [=](const int32_t iCellInner, real_t& local_error) {
-
-          // convert iCellInner to coordinates (i,j) in non-ghosted block
-          // iCellInner = i + bx * j
-				const int j = iCellInner / (bx-2) + 1;
-				const int i = iCellInner - j*(bx-2) + 1;
-
-          // compute second derivative error per direction
-          // using density only; multiple variables could be used
-          // TODO
-	  local_error = compute_second_derivative_error_2d(ID, i, j, iOct_local);
-	  
-	  //real_t fx, fy, fmax;
-          //fx = compute_second_derivative_error(IP,i,j,IX,iOct_local);
-          //fy = compute_second_derivative_error(IP,i,j,IY,iOct_local);
-          //fmax = fx > fy ? fx : fy;
-          //local_error = local_error > fmax ? local_error : fmax;
-
-        }, Kokkos::Max<real_t>(error)); // end TeamVectorRange
-      
+	// parallelize computation of the maximun second derivative error
+	// scanning all cells in current block (all directions)
+	Kokkos::parallel_reduce(
+				//        Kokkos::TeamVectorRange(member, nbCellsPerBlock),
+				Kokkos::TeamVectorRange(member, nbInnerCellsPerBlock),
+				[=](const int32_t iCellInner, real_t& local_error) {
+				  
+				  // convert iCellInner to coordinates (i,j) in non-ghosted block
+				  // iCellInner = i + bx * j
+				  const int j = iCellInner / (bx-2) + 1;
+				  const int i = iCellInner - j*(bx-2) + 1;
+				  
+				  // compute second derivative error per direction
+				  // using density only; multiple variables could be used
+				  // TODO
+				  local_error = compute_second_derivative_error_2d(ID, i, j, iOct_local);
+				  
+				  //real_t fx, fy, fmax;
+				  //fx = compute_second_derivative_error(IP,i,j,IX,iOct_local);
+				  //fy = compute_second_derivative_error(IP,i,j,IY,iOct_local);
+				  //fmax = fx > fy ? fx : fy;
+				  //local_error = local_error > fmax ? local_error : fmax;
+				  
+				}, Kokkos::Max<real_t>(error)); // end TeamVectorRange
+      }
+      else {
+	Kokkos::parallel_reduce(
+				Kokkos::TeamVectorRange(member, nbCellsPerBlock),
+				[=](const int32_t iCellInner, real_t& local_error) {
+				  
+				  // convert iCellInner to coordinates (i,j) in non-ghosted block
+				  // iCellInner = i + bx * j
+				  const int j = iCellInner / bx;
+				  const int i = iCellInner - j*bx;
+				  
+				  real_t fx, fy, fmax;
+				  fx = compute_second_derivative_error(IP,i,j,IX,iOct_local);
+				  fy = compute_second_derivative_error(IP,i,j,IY,iOct_local);
+				  fmax = fx > fy ? fx : fy;
+				  local_error = local_error > fmax ? local_error : fmax;
+				  
+				}, Kokkos::Max<real_t>(error)); // end TeamVectorRange
+      }
+	
       // now error has been computed, we can mark / flag octant for 
       // refinement or coarsening
 
