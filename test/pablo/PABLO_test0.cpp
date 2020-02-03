@@ -52,7 +52,7 @@ void run()
     
     /**<Define vectors of data.*/
     uint32_t nocts2 = amr_mesh.getNumOctants();
-    vector<double> oct_data(nocts2, 0.0);
+    std::vector<double> oct_data(nocts2, 0.0);
     
     /**<Assign a data to the octants with at least one node inside the circle.*/
     for (unsigned int i=0; i<nocts2; i++){
@@ -60,7 +60,7 @@ void run()
     }
     
     amr_mesh.updateConnectivity();
-    amr_mesh.writeTest("PABLO_test0_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data);
+    amr_mesh.writeTest("PABLO_test0_iter"+std::to_string(static_cast<unsigned long long>(iter)), oct_data);
 
   } // end for iter
 } // end run

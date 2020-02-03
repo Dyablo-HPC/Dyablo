@@ -263,12 +263,12 @@ void run()
   /**<Define vectors of data.*/
   uint32_t nocts = pablo6.getNumOctants();
   uint32_t nghosts = pablo6.getNumGhosts();
-  //vector<double> oct_data(nocts, 0.0), ghost_data(nghosts, 0.0);
+  //std::vector<double> oct_data(nocts, 0.0), ghost_data(nghosts, 0.0);
   AppData octdata(nocts), ghostdata(nghosts);
 
   /**<Assign a data to the octants with at least one node inside the circle.*/
   for (unsigned int i=0; i<nocts; i++){
-    vector<array<double,3> > nodes = pablo6.getNodes(i);
+    std::vector<std::array<double,3> > nodes = pablo6.getNodes(i);
     for (int j=0; j<4; j++){
       double x = nodes[j][0];
       double y = nodes[j][1];
@@ -284,7 +284,7 @@ void run()
   // for (unsigned int i=0; i<nghosts; i++){
   //   /**<Compute the nodes of the octant (Use pointer for ghost).*/
   //   Octant *oct = pablo6.getGhostOctant(i);
-  //   vector<array<double,3> > nodes = pablo6.getNodes(oct);
+  //   std::vector<std::array<double,3> > nodes = pablo6.getNodes(oct);
   //   for (int j=0; j<4; j++){
   //     double x = nodes[j][0];
   //     double y = nodes[j][1];
@@ -312,16 +312,16 @@ void run()
   iter = 0;
   pablo6.updateConnectivity();
   {
-    dyablo::writeTest(pablo6,"pablo00006_double_iter"+to_string(static_cast<unsigned long long>(iter)), octdata.doubleData);
+    dyablo::writeTest(pablo6,"pablo00006_double_iter"+std::to_string(static_cast<unsigned long long>(iter)), octdata.doubleData);
   }
 
   /**<Smoothing iterations on initial data*/
   int start = iter + 1;
   for (iter=start; iter<start+25; iter++){
-    //vector<double> oct_data_smooth(nocts, 0.0);
+    //std::vector<double> oct_data_smooth(nocts, 0.0);
     AppData octdatasmooth(nocts);
-    vector<uint32_t> neigh, neigh_t;
-    vector<bool> isghost, isghost_t;
+    std::vector<uint32_t> neigh, neigh_t;
+    std::vector<bool> isghost, isghost_t;
     uint8_t iface, nfaces, codim;
     for (unsigned int i=0; i<nocts; i++){
       neigh.clear();
@@ -363,7 +363,7 @@ void run()
     /**<Update the connectivity and write the para_tree.*/
     pablo6.updateConnectivity();
     {
-      dyablo::writeTest(pablo6,"pablo00006_iter"+to_string(static_cast<unsigned long long>(iter)), octdatasmooth.doubleData);
+      dyablo::writeTest(pablo6,"pablo00006_iter"+std::to_string(static_cast<unsigned long long>(iter)), octdatasmooth.doubleData);
     }
 
 #if BITPIT_ENABLE_MPI==1

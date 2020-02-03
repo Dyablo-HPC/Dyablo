@@ -1,9 +1,26 @@
 # set minimal version the one requested by kokkos
 cmake_minimum_required(VERSION 3.9)
 
-set(PROJECT_LANGUAGES ${PROJECT_LANGUAGES} C CXX)
-project(dyablo
-  LANGUAGES ${PROJECT_LANGUAGES})
+###################################################################
+#
+# Handle superbuild first for building 
+# required dependencies (here only bitpit)
+# adapted from https://github.com/Sarcasm/cmake-superbuild
+#
+###################################################################
+option (USE_SUPERBUILD "Whether or not a superbuild should be invoked" ON)
+
+if (USE_SUPERBUILD)
+  project (SUPERBUILD LANGUAGES C CXX)
+  # execute the superbuild (this script will be invoked again without the
+  # USE_SUPERBUILD option this time)
+  include (cmake/SuperBuild.cmake)
+  return() # stop processing this file further
+else()
+  set(PROJECT_LANGUAGES ${PROJECT_LANGUAGES} C CXX)
+  project(dyablo
+    LANGUAGES ${PROJECT_LANGUAGES})
+endif()
 
 #
 # default local cmake macro repository
@@ -28,7 +45,8 @@ include(initBuildType)
 # always export compile commands database
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# options
+# dyablo options
+
 #option (BUILD_CODE "Enable / disable project build" ON)
 option (BUILD_DOC  "Enable / disable documentation build" OFF)
 option (USE_SPHINX_EXHALE "Enable / disable building API documentation (very long)" OFF)
@@ -51,7 +69,32 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 #####################################################################
 
 #####################################################################
-#find_package(MPI REQUIRED)
+# BitPit
+#####################################################################
+find_package(BITPIT REQUIRED)
+# create imported target for bitpit library
+if (BITPIT_FOUND)
+  if(NOT TARGET BITPIT::BITPIT)
+    get_filename_component(LIB_EXT "${BITPIT_LIBRARY}" EXT)
+    if(LIB_EXT STREQUAL ".a" OR LIB_EXT STREQUAL ".lib")
+      set(LIB_TYPE STATIC)
+    else()
+      set(LIB_TYPE SHARED)
+    endif()
+    add_library(BITPIT::BITPIT ${LIB_TYPE} IMPORTED GLOBAL)
+    set(_tmp_dep_libs "${BITPIT_LIBRARIES}")
+    list(REMOVE_DUPLICATES _tmp_dep_libs)
+    set_target_properties(BITPIT::BITPIT
+      PROPERTIES
+      IMPORTED_LOCATION "${BITPIT_LIBRARY}"
+      INTERFACE_INCLUDE_DIRECTORIES "${BITPIT_INCLUDE_DIRS}"
+      INTERFACE_LINK_LIBRARIES "${_tmp_dep_libs}")
+  endif()
+endif(BITPIT_FOUND)
+
+#####################################################################
+# MPI
+#####################################################################
 find_package(MPI)
 if (USE_MPI)
   if(MPI_CXX_FOUND)
@@ -172,7 +215,7 @@ add_definitions( -Wall )
 #
 add_subdirectory(external/backward-cpp)
 add_subdirectory(external/kokkos)
-add_subdirectory(external/bitpit)
+#add_subdirectory(external/bitpit)
 
 # pass Kokkos include directories to our target application
 include_directories(${Kokkos_INCLUDE_DIRS_RET})

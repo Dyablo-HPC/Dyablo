@@ -35,6 +35,8 @@ public:
    * \param[in] fm field map to access user data
    * \param[in] Udata conservative variables
    * \param[in] Udata_ghost conservative variables in ghost cells (only meaningful when MPI activated)
+   * \param[in] eps_refine is a threshold, we do refine when criterium is larger than this value
+   * \param[in] eps_coarsen is a threshold, we do unrefine when criterium is smaller than this value
    *
    */
   MarkCellsHydroFunctor(std::shared_ptr<AMRmesh> pmesh,
@@ -53,7 +55,7 @@ public:
     epsilon_coarsen(eps_coarsen)
   {};
   
-  // static method which does it all: create and execute functor
+  //! static method which does it all: create and execute functor
   static void apply(std::shared_ptr<AMRmesh> pmesh,
 		    HydroParams params,
 		    id2index_t  fm,
@@ -96,13 +98,10 @@ public:
   /**
    * Update epsilon with information from a given neighbor.
    *
-   * \param[in] current_gradient is the current value (to be updated)
-   * \param[in] cellId_c is current cell id
-   * \param[in] cellId_n is neighbor cell id
+   * \param[in] current_epsilon is the current value (to be updated)
+   * \param[in] i is current cell id
+   * \param[in] i_n is neighbor cell id
    * \param[in] isghost_n boolean specifying is neighbor is a ghost
-   * \param[in] dx is current cell size
-   * \param[in] pos_c is current  cell coordinates (either x,y or z)
-   * \param[in] pos_n is neighbor cell coordinates (either x,y or z)
    * \return updated limiter gradient
    */
   KOKKOS_INLINE_FUNCTION

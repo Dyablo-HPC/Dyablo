@@ -9,22 +9,14 @@ macro(build_test_executable name with_kokkos)
   # define how to build and link
   target_include_directories(${name}
     PUBLIC
-    ${CMAKE_SOURCE_DIR}/src
-    ${CMAKE_SOURCE_DIR}/external/bitpit/src/common
-    ${CMAKE_SOURCE_DIR}/external/bitpit/src/containers
-    ${CMAKE_SOURCE_DIR}/external/bitpit/src/IO
-    ${CMAKE_SOURCE_DIR}/external/bitpit/src/operators
-    ${CMAKE_SOURCE_DIR}/external/bitpit/src/PABLO)
+    ${CMAKE_SOURCE_DIR}/src)
   if(USE_MPI)
-    target_include_directories(${name}
-      PUBLIC
-      ${CMAKE_SOURCE_DIR}/external/bitpit/src/communications)
     target_compile_definitions(${name} PUBLIC BITPIT_ENABLE_MPI)
   endif(USE_MPI)
-  target_link_libraries(${name} PUBLIC ${BITPIT_LIBRARY})
+  target_link_libraries(${name} PUBLIC BITPIT::BITPIT)
 
   if (${with_kokkos})
-    target_link_libraries(${name} PUBLIC kokkos ${BITPIT_LIBRARY})
+    target_link_libraries(${name} PUBLIC kokkos)
   endif()
   
 endmacro(build_test_executable)

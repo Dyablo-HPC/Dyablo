@@ -81,12 +81,12 @@ void run(int dim)
     amr_mesh.adaptGlobalRefine();
     uint32_t nocts = amr_mesh.getNumOctants();
 
-    vector<uint32_t> neigh, neigh_t;
-    vector<bool> isghost, isghost_t;
+    std::vector<uint32_t> neigh, neigh_t;
+    std::vector<bool> isghost, isghost_t;
 
     for (uint32_t i=0; i<nocts; ++i){
       // print cell nodes location
-      vector<array<double,3> > nodes = amr_mesh.getNodes(i);
+      std::vector<std::array<double,3> > nodes = amr_mesh.getNodes(i);
 
       if (dim==2) {
 	printf("rank %d octant %d (Morton = %lu): %f %f | %f %f | %f %f | %f %f \n",
@@ -181,14 +181,14 @@ void run(int dim)
    */
   {
     // print neighbors id
-    vector<uint32_t> neigh_t;
-    vector<bool> isghost_t;
+    std::vector<uint32_t> neigh_t;
+    std::vector<bool> isghost_t;
 
     uint32_t nocts = amr_mesh.getNumOctants();
     for (uint32_t i=0; i<nocts; ++i) {
 
       // print cell nodes location
-      vector<array<double,3> > nodes = amr_mesh.getNodes(i);
+      std::vector<std::array<double,3> > nodes = amr_mesh.getNodes(i);
       if (dim==2) {
 	printf("rank %d octant %d (Morton = %lu): %f %f | %f %f | %f %f | %f %f \n",
 	       rank, i, amr_mesh.getMorton(i),
@@ -301,13 +301,13 @@ void run(int dim)
 
   /**<Define vector of data, one item per octant.*/
   uint32_t nocts = amr_mesh.getNumOctants();
-  vector<double> oct_data(nocts, 0.0);
+  std::vector<double> oct_data(nocts, 0.0);
 
   /**<Assign a data to the octants with at least one node inside the circle.*/
   for (uint32_t i=0; i<nocts; ++i) {
 
     /**<Compute the nodes of the octant.*/
-    vector<array<double,3> > nodes = amr_mesh.getNodes(i);
+    std::vector<std::array<double,3> > nodes = amr_mesh.getNodes(i);
 
     /**<Sweep all corner nodes to assign geometry dependent data*/
     if (dim==2) {
@@ -333,14 +333,14 @@ void run(int dim)
   /**<Update the connectivity and write the octree.*/
   iter = 0;
   amr_mesh.updateConnectivity();
-  amr_mesh.writeTest("PABLO_test1_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data);
+  amr_mesh.writeTest("PABLO_test1_iter"+std::to_string(static_cast<unsigned long long>(iter)), oct_data);
 
   /**<Smoothing iterations on initial data*/
   int start = 1;
   for (iter=start; iter<start+3; ++iter){
-    vector<double> oct_data_smooth(nocts, 0.0);
-    vector<uint32_t> neigh, neigh_t;
-    vector<bool> isghost, isghost_t;
+    std::vector<double> oct_data_smooth(nocts, 0.0);
+    std::vector<uint32_t> neigh, neigh_t;
+    std::vector<bool> isghost, isghost_t;
     uint8_t iface, nfaces;
     int codim;
     for (uint32_t i=0; i<nocts; ++i){
@@ -388,7 +388,7 @@ void run(int dim)
 
     /**<Update the connectivity and write the octree.*/
     amr_mesh.updateConnectivity();
-    amr_mesh.writeTest("PABLO_test11_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data_smooth);
+    amr_mesh.writeTest("PABLO_test11_iter"+std::to_string(static_cast<unsigned long long>(iter)), oct_data_smooth);
 
     oct_data = oct_data_smooth;
     

@@ -94,7 +94,7 @@ void run(std::string input_filename)
     
     /**<Define vectors of data.*/
     uint32_t nocts2 = amr_mesh->getNumOctants();
-    vector<double> oct_data(nocts2, 0.0);
+    std::vector<double> oct_data(nocts2, 0.0);
     
     /**<Assign a data to the octants with at least one node inside the circle.*/
     for (unsigned int i=0; i<nocts2; i++){

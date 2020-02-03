@@ -3,9 +3,9 @@
 #
 macro(build_test_executable name)
 
-  set(EXE_NAME "${name}")
-
-  set (EXE_NAME_SRC
+  add_executable(${name} "")
+  target_sources(${name}
+    PUBLIC
     PABLO_userDataComm.hpp
     PABLO_userDataComm.tpp
     PABLO_userDataLB.hpp
@@ -14,22 +14,13 @@ macro(build_test_executable name)
     )
 
   # define how to build and link
-  add_executable(${EXE_NAME} ${EXE_NAME_SRC})
-  target_include_directories(${EXE_NAME}
+  target_include_directories(${name}
     PUBLIC
-    ${CMAKE_SOURCE_DIR}/src
-    ${CMAKE_SOURCE_DIR}/external/bitpit/src/common
-    ${CMAKE_SOURCE_DIR}/external/bitpit/src/containers
-    ${CMAKE_SOURCE_DIR}/external/bitpit/src/IO
-    ${CMAKE_SOURCE_DIR}/external/bitpit/src/operators
-    ${CMAKE_SOURCE_DIR}/external/bitpit/src/PABLO)
+    ${CMAKE_SOURCE_DIR}/src)
   if(USE_MPI)
-    target_include_directories(${EXE_NAME}
-      PUBLIC
-      ${CMAKE_SOURCE_DIR}/external/bitpit/src/communications)
-    target_compile_definitions(${EXE_NAME} PUBLIC BITPIT_ENABLE_MPI)
+    target_compile_definitions(${name} PUBLIC BITPIT_ENABLE_MPI)
   endif(USE_MPI)
-  target_link_libraries(${EXE_NAME} kokkos shared ${BITPIT_LIBRARY})
+  target_link_libraries(${name} kokkos shared BITPIT::BITPIT)
 
 endmacro(build_test_executable)
 

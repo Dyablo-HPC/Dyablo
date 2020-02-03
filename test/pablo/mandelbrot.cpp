@@ -88,8 +88,8 @@ void compute_and_save_mandelbrot(PabloUniform& amr_mesh,
                                  size_t iter)
 {
   uint32_t nocts = amr_mesh.getNumOctants();
-  vector<double> oct_data(nocts, 0.0);
-  vector<double> oct_data_level(nocts, 0.0);
+  std::vector<double> oct_data(nocts, 0.0);
+  std::vector<double> oct_data_level(nocts, 0.0);
 
   for (size_t i=0; i<nocts; ++i) {
     
@@ -106,8 +106,8 @@ void compute_and_save_mandelbrot(PabloUniform& amr_mesh,
     oct_data_level[i] = amr_mesh.getLevel(i);
   }
   
-  amr_mesh.writeTest("mandelbrot_iter"+to_string(static_cast<unsigned long long>(iter)), oct_data);
-  amr_mesh.writeTest("mandelbrot_level"+to_string(static_cast<unsigned long long>(iter)), oct_data_level);
+  amr_mesh.writeTest("mandelbrot_iter"+std::to_string(static_cast<unsigned long long>(iter)), oct_data);
+  amr_mesh.writeTest("mandelbrot_level"+std::to_string(static_cast<unsigned long long>(iter)), oct_data_level);
 
 #if BITPIT_ENABLE_MPI==1
   // save MPI rank
@@ -119,7 +119,7 @@ void compute_and_save_mandelbrot(PabloUniform& amr_mesh,
       oct_data[i]       = rank;
     }
 
-    amr_mesh.writeTest("mandelbrot_rank"+to_string(static_cast<unsigned long long>(iter)), oct_data);
+    amr_mesh.writeTest("mandelbrot_rank"+std::to_string(static_cast<unsigned long long>(iter)), oct_data);
     
   }
 #endif
@@ -188,7 +188,7 @@ void run()
 	nbiter_center = compute_nb_iters(x,y);
 	
 	// get cell corner nodes
-	vector<array<double,3> > nodes = amr_mesh.getNodes(i);
+	std::vector<std::array<double,3> > nodes = amr_mesh.getNodes(i);
 
 	double interpol = 0.0;
 	for (int ic=0; ic<4; ++ic) {

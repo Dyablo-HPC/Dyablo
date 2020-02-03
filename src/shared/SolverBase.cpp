@@ -91,6 +91,7 @@ SolverBase::SolverBase (HydroParams& params, ConfigMap& configMap) :
   m_timers[TIMER_AMR_CYCLE_ADAPT_MESH]  = std::make_shared<Timer>();
   m_timers[TIMER_AMR_CYCLE_MAP_USERDATA]  = std::make_shared<Timer>();
   m_timers[TIMER_AMR_CYCLE_LOAD_BALANCE]  = std::make_shared<Timer>();
+  m_timers[TIMER_AMR_BLOCK_COPY] = std::make_shared<Timer>();
   m_timers[TIMER_BLOCK_COPY] = std::make_shared<Timer>();
 
 #ifdef USE_MPI

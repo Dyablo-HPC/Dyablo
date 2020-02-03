@@ -43,7 +43,7 @@ struct KHParams {
   {
 
     d_in  = configMap.getFloat("KH", "d_in", 1.0);
-    d_out = configMap.getFloat("KH", "d_out", 1.0);
+    d_out = configMap.getFloat("KH", "d_out", 2.0);
 
     pressure = configMap.getFloat("KH", "pressure", 10.0);
 

@@ -596,6 +596,7 @@ void SolverHydroMusclBlock::print_monitoring_info()
   real_t t_amr_map_userdata = m_timers[TIMER_AMR_CYCLE_MAP_USERDATA]->elapsed();
   real_t t_amr_load_balance = m_timers[TIMER_AMR_CYCLE_LOAD_BALANCE]->elapsed();
 
+  real_t t_amr_block_copy = m_timers[TIMER_AMR_BLOCK_COPY]->elapsed();
   real_t t_block_copy = m_timers[TIMER_BLOCK_COPY]->elapsed();
 
   int myRank = 0;
@@ -630,6 +631,8 @@ void SolverHydroMusclBlock::print_monitoring_info()
            t_amr_sync_ghost, 100 * t_amr_sync_ghost / t_tot);
     printf("amr cycle mark cells    : %5.3f secondes %5.2f%%\n",
            t_amr_mark_cells, 100 * t_amr_mark_cells / t_tot);
+    printf("amr block copy          : %5.3f secondes %5.2f%%\n",
+           t_amr_mark_cells, 100 * t_amr_block_copy / t_tot);
     printf("amr cycle adapt mesh    : %5.3f secondes %5.2f%%\n",
            t_amr_adapt_mesh, 100 * t_amr_adapt_mesh / t_tot);
     printf("amr cycle map user data : %5.3f secondes %5.2f%%\n",
@@ -784,7 +787,7 @@ void SolverHydroMusclBlock::mark_cells()
 
   for (uint32_t iGroup = 0; iGroup < nbGroup; ++iGroup) {
 
-    m_timers[TIMER_BLOCK_COPY]->start();
+    m_timers[TIMER_AMR_BLOCK_COPY]->start();
 
     // copy data_in (current group of octants) to Ugroup (inner cells)
     fill_block_data_inner(Udata, iGroup);
@@ -792,7 +795,7 @@ void SolverHydroMusclBlock::mark_cells()
     // update ghost cells of all octant in current group of octants
     fill_block_data_ghost(Udata, iGroup);
 
-    m_timers[TIMER_BLOCK_COPY]->stop();
+    m_timers[TIMER_AMR_BLOCK_COPY]->stop();
 
     m_timers[TIMER_AMR_CYCLE_MARK_CELLS]->start();
 
@@ -890,7 +893,8 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
   // TODO
   // TODO : make this loop a parallel_for
   // TODO
-  for (uint32_t iOct=0; iOct<nocts; ++iOct) {
+  uint8_t child_id = 0; // Id of the child if we're refining
+  for (uint32_t iOct=0; iOct < nocts; ++iOct) {
 
     // fill mapper and isghost for current octant
     amr_mesh->getMapping(iOct, mapper, isghost);
@@ -1013,11 +1017,72 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
 
       } // end 2d/3d
 
-    } else {
-      
-      // current cell is just an old cell or new upon a refinement,
-      // so we just copy data
+    }
+    else if (amr_mesh->getIsNewR(iOct)) {
+      if (params.dimType==TWO_D) {
+	for (int ivar = 0; ivar < nbVars; ++ivar) {
+	  for (uint32_t iCell = 0; iCell < nbCellsPerOct; ++iCell) {
+	    // We compute the position of the cell in the block
+	    uint32_t j = iCell / bx;
+	    uint32_t i = iCell - j*bx;
+	    
+	    // Depending on the child we shift the actual position
+	    if (child_id & 1)
+	      i += bx;
+	    if (child_id > 1)
+	      j += by;
 
+	    // Indices corresponding to the parents
+	    uint32_t ii = i / 2;
+	    uint32_t jj = j / 2;
+
+	    uint32_t parent_id = ii + jj*bx;
+	    U(iCell, fm[ivar], iOct) = U2(parent_id, fm[ivar], mapper[0]);
+	  }
+	}
+
+	// Increase the child counter by 1
+	// If we reach 4, we reset the counter
+	child_id++;
+	if (child_id == 4)
+	  child_id = 0;
+      }
+      else { // in 3D
+	// TO BE THOROUGHLY TESTED !
+	const uint32_t bxby = bx*by;
+	for (int ivar = 0; ivar < nbVars; ++ivar) {
+	  for (uint32_t iCell = 0; iCell < nbCellsPerOct; ++iCell) {
+	    // We compute the position of the cell in the block
+	    uint32_t k = iCell / bxby; 
+	    uint32_t j = (iCell-k*bxby) / bx;
+	    uint32_t i = iCell - j*bx - k*bxby;
+	    
+	    // Depending on the child we shift the actual position
+	    if (child_id & 1)
+	      i += bx;
+	    if (child_id > 1)
+	      j += by;
+	    if (child_id > 3)
+	      k += bz;
+	    
+	    // Indices corresponding to the parents
+	    uint32_t ii = i / 2;
+	    uint32_t jj = j / 2;
+	    uint32_t kk = k / 2;
+
+	    uint32_t parent_id = ii + jj*bx + kk*bxby;
+	    U(iCell, fm[ivar], iOct) = U2(parent_id, fm[ivar], mapper[0]);
+	  }
+	}
+
+	child_id++;
+	if (child_id == 8)
+	  child_id = 0;
+      }
+    }
+    else {
+      
+      // current cell is just an old cell so we just copy data
       for (int ivar = 0; ivar < nbVars; ++ivar) {
 
         for (uint32_t iCell = 0; iCell < nbCellsPerOct; ++iCell) {
@@ -1028,8 +1093,7 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
 
       } // end vor ivar
 
-    } // end if isNewC
-  
+    } // end if isNewC/isNewR
   } // end for iOct
 
   // now U contains the most up to date data after mesh adaptation

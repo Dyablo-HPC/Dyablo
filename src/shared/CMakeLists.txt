@@ -20,10 +20,6 @@ if (USE_HDF5)
 endif(USE_HDF5)
 
 if (USE_MPI)
-  target_include_directories(shared
-    PUBLIC
-    ${CMAKE_SOURCE_DIR}/external/bitpit/src/communications)
- 
   target_compile_definitions(shared PUBLIC BITPIT_ENABLE_MPI)
 endif (USE_MPI)
 
@@ -32,16 +28,11 @@ target_include_directories(shared
   ${CMAKE_SOURCE_DIR}/src
   ${CMAKE_SOURCE_DIR}/src/utils
   ${CMAKE_SOURCE_DIR}/src/utils/time
-  ${CMAKE_SOURCE_DIR}/src/utils/io
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/PABLO
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/common
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/containers
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/IO
-  ${CMAKE_SOURCE_DIR}/external/bitpit/src/operators
-  )
+  ${CMAKE_SOURCE_DIR}/src/utils/io)
 
-target_link_libraries(shared PUBLIC
-  kokkos
+target_link_libraries(shared 
+  PUBLIC
+    kokkos BITPIT::BITPIT
   )
 if (USE_MPI)
   target_link_libraries(shared PUBLIC
