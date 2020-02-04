@@ -218,8 +218,8 @@ public:
    * \param[in]  j index on dir_y of the current cell in the original block (non ghosted) 
    * \param[in]  dir direction along which neighbors should be retrieved
    * \param[in]  face face along which neighbors should be retrieved
-   * \param[out] qm first neighboring state to be retrieved
-   * \param[out] qp second neighboring state
+   * \param[out] q0 first neighboring state to be retrieved
+   * \param[out] q1 second neighboring state
    */
   KOKKOS_INLINE_FUNCTION
   void get_non_conformal_neighbors_2d(uint32_t iOct,
@@ -227,8 +227,8 @@ public:
 				      uint32_t j,
 				      DIR_ID  dir,
 				      FACE_ID face,
-				      HydroState2d &qm,
-				      HydroState2d &qp) const {
+				      HydroState2d &q0,
+				      HydroState2d &q1) const {
 
     uint8_t codim = 1;
     
@@ -271,17 +271,8 @@ public:
 	}
       }
 
-      //uint32_t index = i + bx * j;
-      /*
-      std::cout << "Cell corresponding to (" << i << "; " << j
-		<< "); For Dir=" << (int)dir << " and Face=" << (int)face
-		<< " with ip=" << (int)ip
-		<< " is (" << ii << "; " << jj << "; " << (int)iNeigh << ")" << std::endl;*/
-      
       uint32_t index_border = ii + bx * jj;
-      HydroState2d &q = (ip == 0 ? qm : qp);
-
-      //std::cout << " SUMMARY: " << index << "(" << (int)ip << ") -> " << index_border << std::endl;
+      HydroState2d &q = (ip == 0 ? q0 : q1);
 
       HydroState2d u;
       if (is_ghost[iNeigh]) {
@@ -845,7 +836,7 @@ public:
 	  // fluxes will be accumulated in qcons
 	  HydroState2d qcons = {0.0, 0.0, 0.0, 0.0}; 
 	  // Neighbour states for non conformal update
-	  HydroState2d qm, qp;
+	  HydroState2d q0, q1;
 
 	  /*
 	   * compute from left face along x dir
@@ -879,7 +870,7 @@ public:
 	  else if (ii==0 and (Interface_flags(iOct_local) & INTERFACE_XMIN_SMALLER)) {
 	    // step 1 : Get the states of both neighbour cell
 	    //std::cout << "  . X left non conformal smaller" << std::endl;
-	    get_non_conformal_neighbors_2d(iOct, ii, jj, DIR_X, FACE_LEFT, qm, qp);
+	    get_non_conformal_neighbors_2d(iOct, ii, jj, DIR_X, FACE_LEFT, q0, q1);
 	    
 	    // step 2 : Reconstruct state in current cell
 	    offsets_t offsets = {-1.0, 0.0, 0.0};
@@ -887,11 +878,11 @@ public:
 	    
 	    // step 3 : Solver is called directly on average states, no reconstruction is done
 	    //          Warning: Should something be done here for the difference in size ?
-	    HydroState2d flux_m = riemann_hydro(qm, qR, params);
-	    HydroState2d flux_p = riemann_hydro(qp, qR, params);
+	    HydroState2d flux_0 = riemann_hydro(q0, qR, params);
+	    HydroState2d flux_1 = riemann_hydro(q1, qR, params);
 
-	    qcons += flux_m * dt2dx;
-	    qcons += flux_p * dt2dx;
+	    qcons += flux_0 * dt2dx;
+	    qcons += flux_1 * dt2dx;
 	  }
 	  
 	  /*
@@ -923,7 +914,7 @@ public:
 	  else if (ii==bx-1 and (Interface_flags(iOct_local) & INTERFACE_XMAX_SMALLER)) {
 	    //std::cout << "  . X right non conformal smaller" << std::endl;
 	    // step 1 : Get the states of both neighbour cells
-	    get_non_conformal_neighbors_2d(iOct, ii, jj, DIR_X, FACE_RIGHT, qm, qp);
+	    get_non_conformal_neighbors_2d(iOct, ii, jj, DIR_X, FACE_RIGHT, q0, q1);
 	    
 	    // step 2 : Reconstruct state in current cell
 	    offsets_t offsets = {1.0, 0.0, 0.0};
@@ -931,11 +922,11 @@ public:
 	    
 	    // step 3 : Solver is called directly on average states, no reconstruction is done
 	    //          Warning: Should something be done here for the difference in size ?
-	    HydroState2d flux_m = riemann_hydro(qL, qm, params);
-	    HydroState2d flux_p = riemann_hydro(qL, qp, params);
+	    HydroState2d flux_0 = riemann_hydro(qL, q0, params);
+	    HydroState2d flux_1 = riemann_hydro(qL, q1, params);
 
-	    qcons -= flux_m * dt2dx;
-	    qcons -= flux_p * dt2dx;
+	    qcons -= flux_0 * dt2dx;
+	    qcons -= flux_1 * dt2dx;
 	  }
 	  
 	  /*
@@ -976,27 +967,27 @@ public:
 	    //std::cout << "  . Y left non conformal smaller" << std::endl;
 
 	    // step 1 : Get the states of both neighbour cells
-	    get_non_conformal_neighbors_2d(iOct, ii, jj, DIR_Y, FACE_LEFT, qm, qp);
+	    get_non_conformal_neighbors_2d(iOct, ii, jj, DIR_Y, FACE_LEFT, q0, q1);
 
 	    // step 2 : Reconstruct state in current cell
 	    offsets_t offsets = {0.0, -1.0, 0.0};
 	    HydroState2d qR = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
 
 	    // swap IU / IV
-	    my_swap(qp[IU], qp[IV]);
-	    my_swap(qm[IU], qm[IV]);
+	    my_swap(q0[IU], q0[IV]);
+	    my_swap(q1[IU], q1[IV]);
 	    my_swap(qR[IU], qR[IV]);
 
 	    // step 3 : Solver is called directly on average states, no reconstruction is done
 	    //          Warning: Should something be done here for the difference in size ?
-	    HydroState2d flux_m = riemann_hydro(qm, qR, params);
-	    HydroState2d flux_p = riemann_hydro(qp, qR, params);
+	    HydroState2d flux_0 = riemann_hydro(q0, qR, params);
+	    HydroState2d flux_1 = riemann_hydro(q1, qR, params);
 
-	    my_swap(flux_p[IU], flux_p[IV]);
-	    my_swap(flux_m[IU], flux_m[IV]);
+	    my_swap(flux_0[IU], flux_0[IV]);
+	    my_swap(flux_1[IU], flux_1[IV]);
 	    
-	    qcons += flux_m * dt2dy;
-	    qcons += flux_p * dt2dy;
+	    qcons += flux_0 * dt2dy;
+	    qcons += flux_1 * dt2dy;
 	  }
 	  
 	  /*
@@ -1035,7 +1026,7 @@ public:
 	  else if (jj==by-1 and (Interface_flags(iOct_local) & INTERFACE_YMAX_SMALLER)) {
 	    //std::cout << "  . Y right non conformal smaller" << std::endl;
 	    // step 1 : Get the states of both neighbour cells
-	    get_non_conformal_neighbors_2d(iOct, ii, jj, DIR_Y, FACE_RIGHT, qm, qp);
+	    get_non_conformal_neighbors_2d(iOct, ii, jj, DIR_Y, FACE_RIGHT, q0, q1);
 	    
 	    // step 2 : Reconstruct state in current cell
 	    offsets_t offsets = {0.0, 1.0, 0.0};
@@ -1043,20 +1034,20 @@ public:
 	    
 	    // swap IU / IV
 	    my_swap(qL[IU], qL[IV]);
-	    my_swap(qm[IU], qm[IV]);
-	    my_swap(qp[IU], qp[IV]);
+	    my_swap(q0[IU], q0[IV]);
+	    my_swap(q1[IU], q1[IV]);
 	    
 	    // step 3 : Solver is called directly on average states, no reconstruction is done
 	    //          Warning: Should something be done here for the difference in size ?
-	    HydroState2d flux_m = riemann_hydro(qL, qm, params);
-	    HydroState2d flux_p = riemann_hydro(qL, qp, params);
+	    HydroState2d flux_0 = riemann_hydro(qL, q0, params);
+	    HydroState2d flux_1 = riemann_hydro(qL, q1, params);
 
 	    // Swap IU/IV
-	    my_swap(flux_m[IU], flux_m[IV]);
-	    my_swap(flux_p[IU], flux_p[IV]);
+	    my_swap(flux_0[IU], flux_0[IV]);
+	    my_swap(flux_1[IU], flux_1[IV]);
 
-	    qcons -= flux_m * dt2dy;
-	    qcons -= flux_p * dt2dy;
+	    qcons -= flux_0 * dt2dy;
+	    qcons -= flux_1 * dt2dy;
 	  }
 	  
 	  //std::cout << "qcons (end) : " << qcons[ID] << " " << qcons[IP] << " " << qcons[IU] << " " << qcons[IV] << std::endl;
