@@ -771,12 +771,25 @@ public:
       const real_t dx = (iOct < nbOcts) ? pmesh->getSize(iOct)/bx : 1.0;
       const real_t dy = (iOct < nbOcts) ? pmesh->getSize(iOct)/by : 1.0;
 
-      const real_t dtdx = dt/dx;
-      const real_t dtdy = dt/dy;
-      const real_t dt2dx = 0.5*dtdx;
-      const real_t dt2dy = 0.5*dtdy;
+      // TODO : Factor the update of U2 in an inline function instea of repeating the same block
+      // of code again and again
 
-      // TODO : Factor the update of U2 in an inline function instea of repeating the same block of code again and again
+      // Conformal interface area
+      const real_t dSx_c = dy; // Interface when computing x flux is of length dy
+      const real_t dSy_c = dx;
+
+      // Non conformal interface area: divided by the number of neighbours
+      const real_t dSx_nc = dy * 0.5;
+      const real_t dSy_nc = dx * 0.5;
+
+      // Volume
+      const real_t dV = dx*dy;
+
+      // Scaling for the flux in conformal and non conformal cases
+      const real_t scale_x_c = dt*dSx_c / dV;
+      const real_t scale_y_c = dt*dSy_c / dV;
+      const real_t scale_x_nc = dt*dSx_nc / dV;
+      const real_t scale_y_nc = dt*dSy_nc / dV;
 
       // We update the cells at the LEFT border if they have non-conformal neighbours
       if (Interface_flags(iOct_local) & INTERFACE_XMIN_NC) {
@@ -800,7 +813,7 @@ public:
 	      HydroState2d flux = riemann_hydro(qL,qR,params);
 	      
 	      // step 2: accumulate flux in current cell
-	      qcons += flux*dtdx;
+	      qcons += flux*scale_x_c;
 	    }
 	    // If we are bigger than the neighbors we sum two fluxes coming from the small cells
 	    else if (Interface_flags(iOct_local) & INTERFACE_XMIN_SMALLER) {
@@ -813,8 +826,8 @@ public:
 	      HydroState2d flux_0 = riemann_hydro(q0,qR,params);
 	      HydroState2d flux_1 = riemann_hydro(q1,qR,params);
 	      
-	      qcons += flux_0 * dt2dx;
-	      qcons += flux_1 * dt2dx;
+	      qcons += flux_0 * scale_x_nc;
+	      qcons += flux_1 * scale_x_nc;
 	    }
 
 	    // finally, update conservative variable in U2
@@ -849,7 +862,7 @@ public:
 	      HydroState2d flux = riemann_hydro(qL,qR,params);
 	      
 	      // step 2: accumulate flux in current cell
-	      qcons -= flux*dtdx;
+	      qcons -= flux*scale_x_c;
 	    }
 	    else if (Interface_flags(iOct_local) & INTERFACE_XMAX_SMALLER) {
 	      // step 1: get the states of both neighbour cells
@@ -862,8 +875,8 @@ public:
 	      HydroState2d flux_1 = riemann_hydro(qL, q1, params);
 
 	      // step 3: accumulate
-	      qcons -= flux_0 * dt2dx;
-	      qcons -= flux_1 * dt2dx;
+	      qcons -= flux_0 * scale_x_nc;
+	      qcons -= flux_1 * scale_x_nc;
 	    }
 	    
 	    // finally, update conservative variable in U2
@@ -904,7 +917,7 @@ public:
 
 	      // step 3: swap back and accumulate flux
 	      my_swap(flux[IU], flux[IV]);
-	      qcons += flux*dtdy;
+	      qcons += flux*scale_y_c;
 	    }
 	    else if (Interface_flags(iOct_local) & INTERFACE_YMIN_SMALLER) {
 	      // step 1: get the states of both neighbour cells
@@ -925,8 +938,8 @@ public:
 	      my_swap(flux_0[IU], flux_0[IV]);
 	      my_swap(flux_1[IU], flux_1[IV]);
 	    
-	      qcons += flux_0 * dt2dy;
-	      qcons += flux_1 * dt2dy;
+	      qcons += flux_0 * scale_y_nc;
+	      qcons += flux_1 * scale_y_nc;
 	    }
 
 	    // finally, update conservative variable in U2
@@ -967,7 +980,7 @@ public:
 
 	      // step 3: swap back and accumulate flux
 	      my_swap(flux[IU], flux[IV]);
-	      qcons -= flux*dtdy;
+	      qcons -= flux*scale_y_c;
 	    }
 	    else if (Interface_flags(iOct_local) & INTERFACE_YMAX_SMALLER) {
 	      // step1: get the states of both neighbour cells
@@ -988,8 +1001,8 @@ public:
 	      my_swap(flux_0[IU], flux_0[IV]);
 	      my_swap(flux_1[IU], flux_1[IV]);
 
-	      qcons -= flux_0 * dt2dy;
-	      qcons -= flux_1 * dt2dy;
+	      qcons -= flux_0 * scale_y_nc;
+	      qcons -= flux_1 * scale_y_nc;
 	    }
 	    
 	    // finally, update conservative variable in U2
