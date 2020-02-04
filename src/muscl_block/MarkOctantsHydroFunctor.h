@@ -223,26 +223,31 @@ public:
    * \param[in] i integer x-coordinate in non-ghosted block
    * \param[in] j integer y-coordinate in non-ghosted block
    * \param[in] iOct_local octant local id (local to current group)
+   * \param[in] iOct octant id in global tree
    **/
   KOKKOS_INLINE_FUNCTION
   real_t compute_second_derivative_error_2d(uint8_t  ivar, 
 					    uint32_t i,
 					    uint32_t j,
-					    uint32_t iOct_local) const
+					    uint32_t iOct_local,
+					    uint32_t iOct) const
   {
 
     real_t res = 0;
 
+    const real_t invdx = 1.0 / (iOct < nbOcts) ? pmesh->getSize(iOct)/bx : 1.0;
+    const real_t invdy = 1.0 / (iOct < nbOcts) ? pmesh->getSize(iOct)/by : 1.0;
+
     const uint32_t iCell = i+1+ghostWidth + bx_g * (j+1+ghostWidth);
 
-    const uint32_t iCellxm   = i-1+ghostWidth + bx_g * (j  +ghostWidth);
-    const uint32_t iCellxp   = i+1+ghostWidth + bx_g * (j  +ghostWidth);
-    const uint32_t iCellym   = i  +ghostWidth + bx_g * (j-1+ghostWidth);
-    const uint32_t iCellyp   = i  +ghostWidth + bx_g * (j+1+ghostWidth);
-    const uint32_t iCellxym  = i-1+ghostWidth + bx_g * (j-1+ghostWidth);
-    const uint32_t iCellxyp  = i+1+ghostWidth + bx_g * (j+1+ghostWidth);
-    const uint32_t iCellxmyp = i-1+ghostWidth + bx_g * (j+1+ghostWidth);
-    const uint32_t iCellxpym = i+1+ghostWidth + bx_g * (j-1+ghostWidth);
+    const uint32_t iCellxm   = iCell-1; 
+    const uint32_t iCellxp   = iCell+1; 
+    const uint32_t iCellym   = iCell-bx_g; 
+    const uint32_t iCellyp   = iCell+bx_g; 
+    const uint32_t iCellxym  = iCell-bx_g-1;
+    const uint32_t iCellxyp  = iCell+bx_g+1;
+    const uint32_t iCellxmyp = iCell+bx_g-1;
+    const uint32_t iCellxpym = iCell-bx_g+1;
 
     const real_t q     = Qgroup(iCell  ,  fm[ivar],iOct_local);
     const real_t qxm   = Qgroup(iCellxm,  fm[ivar],iOct_local);
@@ -263,13 +268,13 @@ public:
     // 2nd derivatives
     const real_t fxx = FABS(qxp) + FABS(qxm) + 2 * FABS(q);
     const real_t fyy = FABS(qyp) + FABS(qym) + 2 * FABS(q);
-    const real_t fxy = 0.25 * (FABS(qxyp) - FABS(qxpym) - FABS(qxmyp) + FABS(qxym));
+    const real_t fxy = 0.25 * (FABS(qxyp) - FABS(qxpym) - FABS(qxmyp) + FABS(qxym))*invdx*invdy;
 
     // Error calculations 
     const real_t Exx = FABS(fxm + fxp) / (FABS(fxm) + FABS(fxp) + epsref * fxx + eps);
     const real_t Eyy = FABS(fym + fyp) / (FABS(fym) + FABS(fyp) + epsref * fyy + eps);
-    const real_t Exy = 0.25*FABS(qxyp - qxmyp - qxpym + qxym) / (FABS(fxm) + FABS(fxp) + epsref*fxy + eps);
-    const real_t Eyx = 0.25*FABS(qxyp - qxmyp - qxpym + qxym) / (FABS(fym) + FABS(fyp) + epsref*fxy + eps);
+    const real_t Exy = 0.25*FABS(qxyp-qxmyp-qxpym+qxym)*invdx*invdy / (0.5*FABS(fxm)*invdy+0.5*FABS(fxp)*invdy+epsref*fxy+eps);
+    const real_t Eyx = 0.25*FABS(qxyp-qxmyp-qxpym+qxym)*invdx*invdy / (0.5*FABS(fym)*invdx+0.5*FABS(fyp)*invdx+epsref*fxy+eps);
 
     // Return the norm of the error
     res = sqrt(Exx*Exx+Eyy*Eyy+Exy*Exy+Eyx*Eyx);
@@ -299,7 +304,7 @@ public:
 
       real_t error = 0.0;
 
-      constexpr bool new_method = false;
+      constexpr bool new_method = true;
 
       // TEST !
       if (new_method) {
@@ -320,7 +325,7 @@ public:
 				  // compute second derivative error per direction
 				  // using density only; multiple variables could be used
 				  // TODO
-				  local_error = compute_second_derivative_error_2d(ID, i, j, iOct_local);
+				  local_error = compute_second_derivative_error_2d(ID, i, j, iOct_local, iOct);
 				  
 				  //real_t fx, fy, fmax;
 				  //fx = compute_second_derivative_error(IP,i,j,IX,iOct_local);
