@@ -1042,9 +1042,9 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
 	    uint32_t i = iCell - j*bx;
 	    
 	    // Depending on the child we shift the actual position
-	    if (child_id & 1)
+	    if (child_id & 0x1)
 	      i += bx;
-	    if (child_id > 1)
+	    if (child_id & 0x2)
 	      j += by;
 
 	    // Indices corresponding to the parents
@@ -1073,11 +1073,11 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
 	    uint32_t i = iCell - j*bx - k*bxby;
 	    
 	    // Depending on the child we shift the actual position
-	    if (child_id & 1)
+	    if (child_id & 0x1)
 	      i += bx;
-	    if (child_id > 1)
+	    if (child_id & 0x2)
 	      j += by;
-	    if (child_id > 3)
+	    if (child_id & 0x4)
 	      k += bz;
 	    
 	    // Indices corresponding to the parents
