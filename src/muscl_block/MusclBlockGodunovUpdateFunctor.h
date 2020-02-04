@@ -804,19 +804,6 @@ public:
       const int32_t nb_active_cells = cells_to_update.size();
       std::vector<coord_t> active_cells(nb_active_cells);
       std::copy(cells_to_update.begin(), cells_to_update.end(), active_cells.begin());
-
-      // DEBUG TEST: Forcing non conservative update
-      /*uint16_t new_interface = 0;
-      if (Interface_flags(iOct_local) & (INTERFACE_XMIN_NC))
-	new_interface |= INTERFACE_XMIN_BIGGER;
-      if (Interface_flags(iOct_local) & (INTERFACE_YMIN_NC))
-	new_interface |= INTERFACE_YMIN_BIGGER;
-      if (Interface_flags(iOct_local) & (INTERFACE_XMAX_NC))
-	new_interface |= INTERFACE_XMAX_BIGGER;
-      if (Interface_flags(iOct_local) & (INTERFACE_YMAX_NC))
-      new_interface |= INTERFACE_YMAX_BIGGER;
-
-      Interface_flags(iOct_local) = new_interface;*/
       
       Kokkos::parallel_for(
 	Kokkos::TeamVectorRange(member, nb_active_cells),
@@ -842,220 +829,144 @@ public:
 	   * compute from left face along x dir
 	   * if we are smaller than the neighbor, we update as before
 	   */
-	  if (ii==0 and (Interface_flags(iOct_local) & INTERFACE_XMIN_BIGGER)) {
-	    // step 1 : reconstruct state in the left neighbor
-	    
-	    //std::cout << "  . X left non conformal bigger" << std::endl;
-	    
-	    // get state in neighbor along X
-	    HydroState2d qprim_n = get_prim_variables<HydroState2d>(ig-1, iOct_local);
-	    
-	    offsets_t offsets = {1.0, 0.0, 0.0};
-	    
-	    // reconstruct state in left neighbor
-	    HydroState2d qL = reconstruct_state_2d(qprim_n, ig-1, iOct_local, offsets, dtdx, dtdy);
-	    
-	    // step 2 : reconstruct state in current cell
-	    offsets = {-1.0, 0.0, 0.0};
-	    
-	    HydroState2d qR = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
-	    
-	    // step 3 : compute flux (Riemann solver)
-	    HydroState2d flux = riemann_hydro(qL,qR,params);
-	    
-	    // step 4 : accumulate flux in current cell
-	    qcons += flux*dtdx;
-	  }
-	  // If we are bigger than the neighbors we sum two fluxes coming from the small cells
-	  else if (ii==0 and (Interface_flags(iOct_local) & INTERFACE_XMIN_SMALLER)) {
-	    // step 1 : Get the states of both neighbour cell
-	    //std::cout << "  . X left non conformal smaller" << std::endl;
-	    get_non_conformal_neighbors_2d(iOct, ii, jj, DIR_X, FACE_LEFT, q0, q1);
-	    
-	    // step 2 : Reconstruct state in current cell
-	    offsets_t offsets = {-1.0, 0.0, 0.0};
-	    HydroState2d qR = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
-	    
-	    // step 3 : Solver is called directly on average states, no reconstruction is done
-	    //          Warning: Should something be done here for the difference in size ?
-	    HydroState2d flux_0 = riemann_hydro(q0, qR, params);
-	    HydroState2d flux_1 = riemann_hydro(q1, qR, params);
-
-	    qcons += flux_0 * dt2dx;
-	    qcons += flux_1 * dt2dx;
+	  if (ii==0) {
+	    if (Interface_flags(iOct_local) & INTERFACE_XMIN_BIGGER) {
+	      // step 1: compute flux (Riemann solver) with centered values
+	      HydroState2d qR = qprim;
+	      HydroState2d qL = get_prim_variables<HydroState2d>(ig-1, iOct_local);
+	      HydroState2d flux = riemann_hydro(qL,qR,params);
+	      
+	      // step 2: accumulate flux in current cell
+	      qcons += flux*dtdx;
+	    }
+	    // If we are bigger than the neighbors we sum two fluxes coming from the small cells
+	    else if (Interface_flags(iOct_local) & INTERFACE_XMIN_SMALLER) {
+	      // step 1: get the states of both neighbour cell
+	      HydroState2d qR = qprim;
+	      get_non_conformal_neighbors_2d(iOct, ii, jj, DIR_X, FACE_LEFT, q0, q1);
+	      
+	      // step 2: solver is called directly on average states, no reconstruction is done
+	      HydroState2d flux_0 = riemann_hydro(q0,qR,params);
+	      HydroState2d flux_1 = riemann_hydro(q1,qR,params);
+	      
+	      qcons += flux_0 * dt2dx;
+	      qcons += flux_1 * dt2dx;
+	    }
 	  }
 	  
 	  /*
 	   * compute flux from right face along x dir
 	   */
-	  if (ii==bx-1 and (Interface_flags(iOct_local) & INTERFACE_XMAX_BIGGER)) {
-	    // step 1 : reconstruct state in the left neighbor
-	    
-	    // get state in neighbor along X
-	    HydroState2d qprim_n = get_prim_variables<HydroState2d>(ig+1, iOct_local);
-	    
-	    // 
-	    offsets_t offsets = {-1.0, 0.0, 0.0};
-	    
-	    // reconstruct state in right neighbor
-	    HydroState2d qR = reconstruct_state_2d(qprim_n, ig+1, iOct_local, offsets, dtdx, dtdy);
-	    
-	    // step 2 : reconstruct state in current cell
-	    offsets = {1.0, 0.0, 0.0};
-	    
-	    HydroState2d qL = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
-	    
-	    // step 3 : compute flux (Riemann solver)
-	    HydroState2d flux = riemann_hydro(qL,qR,params);
-	    
-	    // step 4 : accumulate flux in current cell
-	    qcons -= flux*dtdx;
-	  }
-	  else if (ii==bx-1 and (Interface_flags(iOct_local) & INTERFACE_XMAX_SMALLER)) {
-	    //std::cout << "  . X right non conformal smaller" << std::endl;
-	    // step 1 : Get the states of both neighbour cells
-	    get_non_conformal_neighbors_2d(iOct, ii, jj, DIR_X, FACE_RIGHT, q0, q1);
-	    
-	    // step 2 : Reconstruct state in current cell
-	    offsets_t offsets = {1.0, 0.0, 0.0};
-	    HydroState2d qL = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
-	    
-	    // step 3 : Solver is called directly on average states, no reconstruction is done
-	    //          Warning: Should something be done here for the difference in size ?
-	    HydroState2d flux_0 = riemann_hydro(qL, q0, params);
-	    HydroState2d flux_1 = riemann_hydro(qL, q1, params);
+	  
+	  if (ii==bx-1) {
+	    if (Interface_flags(iOct_local) & INTERFACE_XMAX_BIGGER) {
+	      // step 1: compute flux (Riemann solver) with centered values
+	      HydroState2d qL = qprim;
+	      HydroState2d qR = get_prim_variables<HydroState2d>(ig+1, iOct_local);
+	      HydroState2d flux = riemann_hydro(qL,qR,params);
+	      
+	      // step 2: accumulate flux in current cell
+	      qcons -= flux*dtdx;
+	    }
+	    else if (Interface_flags(iOct_local) & INTERFACE_XMAX_SMALLER) {
+	      // step 1: get the states of both neighbour cells
+	      HydroState2d qL = qprim;
+	      get_non_conformal_neighbors_2d(iOct, ii, jj, DIR_X, FACE_RIGHT, q0, q1);
+	      
+	      // step 2: solver is called directly on average states, no reconstruction is done
+	      HydroState2d flux_0 = riemann_hydro(qL, q0, params);
+	      HydroState2d flux_1 = riemann_hydro(qL, q1, params);
 
-	    qcons -= flux_0 * dt2dx;
-	    qcons -= flux_1 * dt2dx;
+	      // step 3: accumulate
+	      qcons -= flux_0 * dt2dx;
+	      qcons -= flux_1 * dt2dx;
+	    }
 	  }
 	  
 	  /*
 	   * compute flux from left face along y dir
 	   */
-	  if (jj==0 and (Interface_flags(iOct_local) & INTERFACE_YMIN_BIGGER)) {
-	    // step 1 : reconstruct state in the left neighbor
-	    
-	    //std::cout << "  . Y left non conformal bigger" << std::endl;
-	    
-	    // get state in neighbor along X
-	    HydroState2d qprim_n = get_prim_variables<HydroState2d>(ig-bx_g, iOct_local);
-	    
-	    // 
-	    offsets_t offsets = {0.0, 1.0, 0.0};
-	    
-	    // reconstruct "left" state
-	    HydroState2d qL = reconstruct_state_2d(qprim_n, ig-bx_g, iOct_local, offsets, dtdx, dtdy);
-	    
-	    // step 2 : reconstruct state in current cell
-	    offsets = {0.0, -1.0, 0.0};
+	  if (jj==0) {
+	    if (Interface_flags(iOct_local) & INTERFACE_YMIN_BIGGER) {
+	      // step 1: Swap u and v in states
+	      HydroState2d qL = get_prim_variables<HydroState2d>(ig-bx_g, iOct_local);
+	      HydroState2d qR = qprim;
+	      my_swap(qL[IU], qL[IV]);
+	      my_swap(qR[IU], qR[IV]);
+	      
+	      // step 2: compute flux (Riemann solver) with centered values
+	      HydroState2d flux = riemann_hydro(qL,qR,params);
 
-	    HydroState2d qR = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
+	      // step 3: swap back and accumulate flux
+	      my_swap(flux[IU], flux[IV]);
+	      qcons += flux*dtdy;
+	    }
+	    else if (Interface_flags(iOct_local) & INTERFACE_YMIN_SMALLER) {
+	      // step 1: get the states of both neighbour cells
+	      HydroState2d qR = qprim;
+	      get_non_conformal_neighbors_2d(iOct, ii, jj, DIR_Y, FACE_LEFT, q0, q1);
+	      
+	      // step 2: u and v in states
+	      my_swap(q0[IU], q0[IV]);
+	      my_swap(q1[IU], q1[IV]);
+	      my_swap(qR[IU], qR[IV]);
+
+	      // step 3: solver is called directly on average states, no reconstruction is done
+	      HydroState2d flux_0 = riemann_hydro(q0, qR, params);
+	      HydroState2d flux_1 = riemann_hydro(q1, qR, params);
+
+	      // step 4: swap back and accumulate
+	      my_swap(flux_0[IU], flux_0[IV]);
+	      my_swap(flux_1[IU], flux_1[IV]);
 	    
-	    // swap IU / IV
-	    my_swap(qL[IU], qL[IV]);
-	    my_swap(qR[IU], qR[IV]);
-	    
-	    // step 3 : compute flux (Riemann solver)
-	    HydroState2d flux = riemann_hydro(qL,qR,params);
-	    
-	    my_swap(flux[IU], flux[IV]);
-
-	    // step 4 : accumulate flux in current cell
-	    qcons += flux*dtdy;
-	  }
-	  else if (jj==0 and (Interface_flags(iOct_local) & INTERFACE_YMIN_SMALLER)) {
-	    //std::cout << "  . Y left non conformal smaller" << std::endl;
-
-	    // step 1 : Get the states of both neighbour cells
-	    get_non_conformal_neighbors_2d(iOct, ii, jj, DIR_Y, FACE_LEFT, q0, q1);
-
-	    // step 2 : Reconstruct state in current cell
-	    offsets_t offsets = {0.0, -1.0, 0.0};
-	    HydroState2d qR = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
-
-	    // swap IU / IV
-	    my_swap(q0[IU], q0[IV]);
-	    my_swap(q1[IU], q1[IV]);
-	    my_swap(qR[IU], qR[IV]);
-
-	    // step 3 : Solver is called directly on average states, no reconstruction is done
-	    //          Warning: Should something be done here for the difference in size ?
-	    HydroState2d flux_0 = riemann_hydro(q0, qR, params);
-	    HydroState2d flux_1 = riemann_hydro(q1, qR, params);
-
-	    my_swap(flux_0[IU], flux_0[IV]);
-	    my_swap(flux_1[IU], flux_1[IV]);
-	    
-	    qcons += flux_0 * dt2dy;
-	    qcons += flux_1 * dt2dy;
+	      qcons += flux_0 * dt2dy;
+	      qcons += flux_1 * dt2dy;
+	    }
 	  }
 	  
 	  /*
 	   * compute flux from right face along y dir
 	   */
-	  if (jj==by-1 and (Interface_flags(iOct_local) & INTERFACE_YMAX_BIGGER)) {
-	    // step 1 : reconstruct state in the left neighbor
-	    //std::cout << "  . Y right non conformal bigger" << std::endl;
+	  if (jj==by-1) {
+	    if (Interface_flags(iOct_local) & INTERFACE_YMAX_BIGGER) {
+	      // step 1: Swap u and v in states
+	      HydroState2d qR = get_prim_variables<HydroState2d>(ig+bx_g, iOct_local);
+	      HydroState2d qL = qprim;
+	      my_swap(qL[IU], qL[IV]);
+	      my_swap(qR[IU], qR[IV]);
 	    
-	    // get state in neighbor along X
-	    HydroState2d qprim_n = get_prim_variables<HydroState2d>(ig+bx_g, iOct_local);
-	    
-	    // 
-	    offsets_t offsets = {0.0, -1.0, 0.0};
-	    
-	    // reconstruct "left" state
-	    HydroState2d qR = reconstruct_state_2d(qprim_n, ig+bx_g, iOct_local, offsets, dtdx, dtdy);
-	    
-	    // step 2 : reconstruct state in current cell
-	    offsets = {0.0, 1.0, 0.0};
-	    
-	    HydroState2d qL = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
-	    
-	    // swap IU / IV
-	    my_swap(qL[IU], qL[IV]);
-	    my_swap(qR[IU], qR[IV]);
-	    
-	    // step 3 : compute flux (Riemann solver)
-	    HydroState2d flux = riemann_hydro(qL,qR,params);
-	    
-	    my_swap(flux[IU], flux[IV]);
-	    
-	    // step 4 : accumulate flux in current cell
-	    qcons -= flux*dtdy;
-	  }
-	  else if (jj==by-1 and (Interface_flags(iOct_local) & INTERFACE_YMAX_SMALLER)) {
-	    //std::cout << "  . Y right non conformal smaller" << std::endl;
-	    // step 1 : Get the states of both neighbour cells
-	    get_non_conformal_neighbors_2d(iOct, ii, jj, DIR_Y, FACE_RIGHT, q0, q1);
-	    
-	    // step 2 : Reconstruct state in current cell
-	    offsets_t offsets = {0.0, 1.0, 0.0};
-	    HydroState2d qL = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
-	    
-	    // swap IU / IV
-	    my_swap(qL[IU], qL[IV]);
-	    my_swap(q0[IU], q0[IV]);
-	    my_swap(q1[IU], q1[IV]);
-	    
-	    // step 3 : Solver is called directly on average states, no reconstruction is done
-	    //          Warning: Should something be done here for the difference in size ?
-	    HydroState2d flux_0 = riemann_hydro(qL, q0, params);
-	    HydroState2d flux_1 = riemann_hydro(qL, q1, params);
+	      // step 2: compute flux (Riemann solver) with centered values
+	      HydroState2d flux = riemann_hydro(qL,qR,params);
 
-	    // Swap IU/IV
-	    my_swap(flux_0[IU], flux_0[IV]);
-	    my_swap(flux_1[IU], flux_1[IV]);
+	      // step 3: swap back and accumulate flux
+	      my_swap(flux[IU], flux[IV]);
+	      qcons -= flux*dtdy;
+	    }
+	    else if (Interface_flags(iOct_local) & INTERFACE_YMAX_SMALLER) {
+	      // step1: get the states of both neighbour cells
+	      HydroState2d qL = qprim;
+	      get_non_conformal_neighbors_2d(iOct, ii, jj, DIR_Y, FACE_RIGHT, q0, q1);
+	    
+	      // step 2: swap u and v in states
+	      my_swap(qL[IU], qL[IV]);
+	      my_swap(q0[IU], q0[IV]);
+	      my_swap(q1[IU], q1[IV]);
+	      
+	      // step 3 : solver is called directly on average states, no reconstruction is done
+	      HydroState2d flux_0 = riemann_hydro(qL, q0, params);
+	      HydroState2d flux_1 = riemann_hydro(qL, q1, params);
 
-	    qcons -= flux_0 * dt2dy;
-	    qcons -= flux_1 * dt2dy;
+	      // step 4: swap back and accumulate
+	      my_swap(flux_0[IU], flux_0[IV]);
+	      my_swap(flux_1[IU], flux_1[IV]);
+
+	      qcons -= flux_0 * dt2dy;
+	      qcons -= flux_1 * dt2dy;
+	    }
 	  }
 	  
-	  //std::cout << "qcons (end) : " << qcons[ID] << " " << qcons[IP] << " " << qcons[IU] << " " << qcons[IV] << std::endl;
-	  
-	  // lastly update conservative variable in U2
+	  // finally, update conservative variable in U2
 	  uint32_t index_non_ghosted = ii + bx * jj;
-	  //std::cout << "index non ghosted = " << index_non_ghosted << " " << i << " " << j << " "
-	  //	    << bx << " " << ghostWidth << std::endl;
 	  
 	  U2(index_non_ghosted, fm[ID], iOct) += qcons[ID];
 	  U2(index_non_ghosted, fm[IP], iOct) += qcons[IP];
