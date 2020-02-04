@@ -304,7 +304,7 @@ public:
 
       real_t error = 0.0;
 
-      constexpr bool new_method = true;
+      constexpr bool new_method = false;
 
       // TEST !
       if (new_method) {
@@ -346,8 +346,8 @@ public:
 				  const int i = iCellInner - j*bx;
 				  
 				  real_t fx, fy, fmax;
-				  fx = compute_second_derivative_error(IP,i,j,IX,iOct_local);
-				  fy = compute_second_derivative_error(IP,i,j,IY,iOct_local);
+				  fx = compute_second_derivative_error(ID,i,j,IX,iOct_local);
+				  fy = compute_second_derivative_error(ID,i,j,IY,iOct_local);
 				  fmax = fx > fy ? fx : fy;
 				  local_error = local_error > fmax ? local_error : fmax;
 				  
