@@ -161,9 +161,9 @@ public:
   
   // static method which does it all: create and execute functor
   static void apply(std::shared_ptr<AMRmesh> pmesh,
-		                ConfigMap      configMap,
+		    ConfigMap      configMap,
                     HydroParams    params,
-		                id2index_t     fm,
+		    id2index_t     fm,
                     blockSize_t    blockSizes,
                     uint32_t       ghostWidth,
                     uint32_t       nbOcts,
@@ -241,6 +241,11 @@ public:
     std::vector<bool> is_ghost;
 
     pmesh->findNeighbours(iOct, iface, codim, neigh, is_ghost);
+
+    if (neigh.size() != 2) {
+      std::cout << "ARG !" << std::endl;
+      assert(false);
+    }
     
     uint32_t ii, jj; // Coords of the first neighbour
     uint8_t iNeigh = 0;
