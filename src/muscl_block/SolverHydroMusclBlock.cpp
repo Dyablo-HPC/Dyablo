@@ -136,7 +136,7 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
 
   // flags data array for faces on 2:1 borders
   Interface_flags = FlagArrayBlock("Flags", nbOctsPerGroup);
-  total_mem_size += nbOctsPerGroup*sizeof(uint8_t);
+  total_mem_size += nbOctsPerGroup*sizeof(uint16_t);
 
   // all intermediate data array are sized upon nbOctsPerGroup
 
