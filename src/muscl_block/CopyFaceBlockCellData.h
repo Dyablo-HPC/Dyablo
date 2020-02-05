@@ -677,7 +677,6 @@ public:
                                        FACE_ID  face,
                                        NEIGH_LOC loc[2]) const
   {
-    
     const int &bx = blockSizes[IX];
     const int &by = blockSizes[IY];
 
@@ -721,6 +720,7 @@ public:
         if (dir == DIR_Y)
           coord_cur[IY] += (by+ghostWidth);
       }
+
       
       // compute corresponding index in the ghosted block
       // i.e. current octant
@@ -780,7 +780,6 @@ public:
       Ugroup(index_cur, fm[IP], iOct_local) = q[IP]/4;
       Ugroup(index_cur, fm[IU], iOct_local) = q[IU]/4;
       Ugroup(index_cur, fm[IV], iOct_local) = q[IV]/4;
-      
     } // end if admissible values for index
 
   } // fill_ghost_face_2d_smaller_size
@@ -926,14 +925,12 @@ public:
     uint32_t nbCells = bmax*ghostWidth;
 
     while (iOct < iOctNextGroup and iOct < nbOcts) {
+      Interface_flags(iOct_g) = INTERFACE_NONE;
 
       // perform "vectorized" loop inside a given block data
       Kokkos::parallel_for(
           Kokkos::TeamVectorRange(member, nbCells),
           KOKKOS_LAMBDA(const index_t index) {
-            // Resetting conformality flag
-            Interface_flags(iOct_g) = INTERFACE_NONE;
-
             // compute face X,left
             fill_ghost_face_2d(iOct, iOct_g, index, DIR_X, FACE_LEFT);
 
