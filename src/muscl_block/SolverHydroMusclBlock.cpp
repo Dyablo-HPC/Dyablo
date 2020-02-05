@@ -280,7 +280,8 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
     } else if ( !m_problem_name.compare("rayleigh_taylor") ) {
       
       //init_rayleigh_taylor(this);
-      
+    } else if ( !m_problem_name.compare("custom") ) {
+      // Don't do anything here, let the user setup their own problem
     } else {
       
       std::cout << "Problem : " << m_problem_name
