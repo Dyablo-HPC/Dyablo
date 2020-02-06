@@ -157,6 +157,12 @@ public:
                                            str2int_t          names2index);
 
   /**
+   * \brief Special variant of write_quadrant_attribute for Pressure
+   */
+  int            write_quadrant_pressure(DataArrayBlockHost data,
+  					 id2index_t         fm);
+
+  /**
    * special variant of write_quadrant_attribute for Mach number.
    *
    * Input array is assumed to contain conservative variables.
