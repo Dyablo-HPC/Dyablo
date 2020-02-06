@@ -241,11 +241,6 @@ public:
     std::vector<bool> is_ghost;
 
     pmesh->findNeighbours(iOct, iface, codim, neigh, is_ghost);
-
-    if (neigh.size() != 2) {
-      std::cout << "ARG !" << std::endl;
-      assert(false);
-    }
     
     uint32_t ii, jj; // Coords of the first neighbour
     uint8_t iNeigh = 0;

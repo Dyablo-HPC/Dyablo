@@ -804,6 +804,7 @@ void SolverHydroMusclBlock::mark_cells()
   real_t error_min = configMap.getFloat("amr", "error_min", 0.2);
   real_t error_max = configMap.getFloat("amr", "error_max", 0.8);
 
+  // TEST HERE !
   DataArrayBlock Udata = U2;
 
   // apply refinement criterion by parts
