@@ -562,6 +562,59 @@ HDF5_Writer::write_quadrant_mach_number(DataArrayBlockHost datah,
 
 // =======================================================
 // =======================================================
+int
+HDF5_Writer::write_quadrant_pressure(DataArrayBlockHost datah,
+				     id2index_t fm)
+{
+
+  {
+    
+    using DataArrayScalar = Kokkos::View<real_t*, Kokkos::HostSpace>;
+
+    uint32_t nbCellsPerOct = datah.extent(0);
+    uint32_t nbOcts = datah.extent(2);
+
+    DataArrayScalar pressure = DataArrayScalar("P", nbCellsPerOct*nbOcts);
+
+    Kokkos::parallel_for(
+      nbOcts, KOKKOS_LAMBDA(uint32_t iOct) {
+        for (uint32_t iCell = 0; iCell < nbCellsPerOct; ++iCell) {
+          
+          real_t d = datah(iCell, fm[ID], iOct);
+          real_t u = datah(iCell, fm[IU], iOct) / datah(iCell, fm[ID], iOct);
+          real_t v = datah(iCell, fm[IV], iOct) / datah(iCell, fm[ID], iOct);
+          real_t w = fm[IW] == -1 ? 0 : 
+            datah(iCell, fm[IW], iOct) / datah(iCell, fm[ID], iOct);
+          
+          // kinetic energy
+          real_t eken = 0.5 * d * (u * u + v * v + w * w);
+          
+          // internal energy
+          real_t eint = datah(iCell, fm[IE], iOct) - eken;
+          
+          // specific heat ratio
+          real_t gamma0 = m_params.settings.gamma0;
+          
+          // pressure
+          pressure(iCell + nbCellsPerOct*iOct) = (gamma0 - 1) * eint;
+	  
+        } // end for iCell
+      });
+    
+    // actual data writing
+    write_attribute("P", pressure.data(), 
+                    0, IO_CELL_SCALAR,
+                    H5T_NATIVE_DOUBLE, H5T_NATIVE_DOUBLE);
+
+  }
+    
+  return 0;
+
+} // HDF5_Writer::write_quadrant_pressure
+
+
+// =======================================================
+// =======================================================
 void
 HDF5_Writer::io_hdf5_writev(hid_t fd, 
                             const std::string &name, 

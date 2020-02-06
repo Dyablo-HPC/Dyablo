@@ -726,6 +726,10 @@ void SolverHydroMusclBlock::save_solution_hdf5()
       hdf5_writer->write_quadrant_mach_number(U, fm);
     }
 
+    if (write_variables.find("P") != std::string::npos) {
+      hdf5_writer->write_quadrant_pressure(U, fm);
+    }
+
     // close the file
     hdf5_writer->write_footer();
     hdf5_writer->close();
