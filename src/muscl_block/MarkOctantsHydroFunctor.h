@@ -182,10 +182,8 @@ public:
     uint32_t iCellm1, iCellp1;
 
     if (dir == IX) {
-      
       iCellm1 = i-1+ghostWidth + bx_g * (j+ghostWidth);
       iCellp1 = i+1+ghostWidth + bx_g * (j+ghostWidth);
-
     } else if (dir == IY) {
     
       iCellm1 = i+ghostWidth + bx_g * (j-1+ghostWidth);
@@ -207,82 +205,6 @@ public:
 
   } // compute_second_derivative
   
-  /**
-   * compute second derivative of a given primitive variable at a given
-   * cell from a block.
-   *
-   * this is the 2d version. Computed along two directions.
-   * The formulae are based on Frexyll 2000.
-   * More refinement criteria can be found in Shengtai Li 2010
-   *
-   * WARNING: The criterion uses corner cells, which means either those
-   *          must be filled in before, or this should only be applied to
-   *          innermost part of the block [1, bx-1]
-   *
-   * \param[in] ivar integer id (which primitive variable ?)
-   * \param[in] i integer x-coordinate in non-ghosted block
-   * \param[in] j integer y-coordinate in non-ghosted block
-   * \param[in] iOct_local octant local id (local to current group)
-   * \param[in] iOct octant id in global tree
-   **/
-  KOKKOS_INLINE_FUNCTION
-  real_t compute_second_derivative_error_2d(uint8_t  ivar, 
-					    uint32_t i,
-					    uint32_t j,
-					    uint32_t iOct_local,
-					    uint32_t iOct) const
-  {
-
-    real_t res = 0;
-
-    const real_t invdx = 1.0 / (iOct < nbOcts) ? pmesh->getSize(iOct)/bx : 1.0;
-    const real_t invdy = 1.0 / (iOct < nbOcts) ? pmesh->getSize(iOct)/by : 1.0;
-
-    const uint32_t iCell = i+1+ghostWidth + bx_g * (j+1+ghostWidth);
-
-    const uint32_t iCellxm   = iCell-1; 
-    const uint32_t iCellxp   = iCell+1; 
-    const uint32_t iCellym   = iCell-bx_g; 
-    const uint32_t iCellyp   = iCell+bx_g; 
-    const uint32_t iCellxym  = iCell-bx_g-1;
-    const uint32_t iCellxyp  = iCell+bx_g+1;
-    const uint32_t iCellxmyp = iCell+bx_g-1;
-    const uint32_t iCellxpym = iCell-bx_g+1;
-
-    const real_t q     = Qgroup(iCell  ,  fm[ivar],iOct_local);
-    const real_t qxm   = Qgroup(iCellxm,  fm[ivar],iOct_local);
-    const real_t qxp   = Qgroup(iCellxp,  fm[ivar],iOct_local);
-    const real_t qym   = Qgroup(iCellym,  fm[ivar],iOct_local);
-    const real_t qyp   = Qgroup(iCellyp,  fm[ivar],iOct_local);
-    const real_t qxym  = Qgroup(iCellxym, fm[ivar],iOct_local);
-    const real_t qxyp  = Qgroup(iCellxyp, fm[ivar],iOct_local);
-    const real_t qxmyp = Qgroup(iCellxmyp,fm[ivar],iOct_local);
-    const real_t qxpym = Qgroup(iCellxpym,fm[ivar],iOct_local);
-
-    // 1st derivatives
-    const real_t fxm = qxp - q;
-    const real_t fxp = qxm - q;
-    const real_t fym = qym - q;
-    const real_t fyp = qyp - q;
-
-    // 2nd derivatives
-    const real_t fxx = FABS(qxp) + FABS(qxm) + 2 * FABS(q);
-    const real_t fyy = FABS(qyp) + FABS(qym) + 2 * FABS(q);
-    const real_t fxy = 0.25 * (FABS(qxyp) - FABS(qxpym) - FABS(qxmyp) + FABS(qxym))*invdx*invdy;
-
-    // Error calculations 
-    const real_t Exx = FABS(fxm + fxp) / (FABS(fxm) + FABS(fxp) + epsref * fxx + eps);
-    const real_t Eyy = FABS(fym + fyp) / (FABS(fym) + FABS(fyp) + epsref * fyy + eps);
-    const real_t Exy = 0.25*FABS(qxyp-qxmyp-qxpym+qxym)*invdx*invdy / (0.5*FABS(fxm)*invdy+0.5*FABS(fxp)*invdy+epsref*fxy+eps);
-    const real_t Eyx = 0.25*FABS(qxyp-qxmyp-qxpym+qxym)*invdx*invdy / (0.5*FABS(fym)*invdx+0.5*FABS(fyp)*invdx+epsref*fxy+eps);
-
-    // Return the norm of the error
-    res = sqrt(Exx*Exx+Eyy*Eyy+Exy*Exy+Eyx*Eyx);
-      
-    return res;
-
-  }
-
   // ======================================================
   // ======================================================
   KOKKOS_INLINE_FUNCTION
@@ -300,92 +222,65 @@ public:
     uint32_t iOctNextGroup = (iGroup + 1) * nbOctsPerGroup;
     
     while (iOct < iOctNextGroup and iOct < nbOcts)
-    {
+      {
 
-      real_t error = 0.0;
+	const int nrefvar=2;
+	uint8_t ref_var[nrefvar] {ID, IP};
 
-      constexpr bool new_method = false;
+      
+	real_t error = 0.0;
 
-      // TEST !
-      if (new_method) {
-	uint32_t nbInnerCellsPerBlock = (bx-2)*(by-2);
-
-	// parallelize computation of the maximun second derivative error
-	// scanning all cells in current block (all directions)
-	Kokkos::parallel_reduce(
-				//        Kokkos::TeamVectorRange(member, nbCellsPerBlock),
-				Kokkos::TeamVectorRange(member, nbInnerCellsPerBlock),
-				[=](const int32_t iCellInner, real_t& local_error) {
-				  
-				  // convert iCellInner to coordinates (i,j) in non-ghosted block
-				  // iCellInner = i + bx * j
-				  const int j = iCellInner / (bx-2) + 1;
-				  const int i = iCellInner - j*(bx-2) + 1;
-				  
-				  // compute second derivative error per direction
-				  // using density only; multiple variables could be used
-				  // TODO
-				  local_error = compute_second_derivative_error_2d(ID, i, j, iOct_local, iOct);
-				  
-				  //real_t fx, fy, fmax;
-				  //fx = compute_second_derivative_error(IP,i,j,IX,iOct_local);
-				  //fy = compute_second_derivative_error(IP,i,j,IY,iOct_local);
-				  //fmax = fx > fy ? fx : fy;
-				  //local_error = local_error > fmax ? local_error : fmax;
-				  
-				}, Kokkos::Max<real_t>(error)); // end TeamVectorRange
-      }
-      else {
 	Kokkos::parallel_reduce(
 				Kokkos::TeamVectorRange(member, nbCellsPerBlock),
 				[=](const int32_t iCellInner, real_t& local_error) {
-				  
+
 				  // convert iCellInner to coordinates (i,j) in non-ghosted block
 				  // iCellInner = i + bx * j
 				  const int j = iCellInner / bx;
 				  const int i = iCellInner - j*bx;
-				  
-				  real_t fx, fy, fmax;
-				  fx = compute_second_derivative_error(ID,i,j,IX,iOct_local);
-				  fy = compute_second_derivative_error(ID,i,j,IY,iOct_local);
-				  fmax = fx > fy ? fx : fy;
-				  local_error = local_error > fmax ? local_error : fmax;
+
+				  for (int ivar=0; ivar<nrefvar; ++ivar) {
+				    real_t fx, fy, fmax;
+				    fx = compute_second_derivative_error(ref_var[ivar],i,j,IX,iOct_local);
+				    fy = compute_second_derivative_error(ref_var[ivar],i,j,IY,iOct_local);
+				    fmax = fx > fy ? fx : fy;
+				    local_error = local_error > fmax ? local_error : fmax;
+				  }
 				  
 				}, Kokkos::Max<real_t>(error)); // end TeamVectorRange
-      }
-	
       // now error has been computed, we can mark / flag octant for 
       // refinement or coarsening
-
+      
       // get current cell level
       uint8_t level = pmesh->getLevel(iOct);
-
+      
       // -1 means coarsen
       //  0 means don't modify
       // +1 means refine
       int criterion = -1;
 
       if (error > error_min)
-        criterion = criterion < 0 ? 0 : criterion;
-
+	criterion = criterion < 0 ? 0 : criterion;
+      
       if (error > error_max)
-        criterion = criterion < 1 ? 1 : criterion;
-
+	criterion = criterion < 1 ? 1 : criterion;
+      
       if ( level < params.level_max and criterion==1 )
-        pmesh->setMarker(iOct,1);
+	pmesh->setMarker(iOct,1);
       
       else if ( level > params.level_min and criterion==-1)
-        pmesh->setMarker(iOct,-1);
-
+	pmesh->setMarker(iOct,-1);
+      
       else
-        pmesh->setMarker(iOct,0);
+	pmesh->setMarker(iOct,0);
+      
       iOct       += nbTeams;
       iOct_local += nbTeams;
       
     } // end while iOct < nbOct
   } // operator ()
   
-  //! bitpit/PABLO amr mesh object
+//! bitpit/PABLO amr mesh object
   std::shared_ptr<AMRmesh> pmesh;
 
   //! general parameters
