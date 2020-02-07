@@ -622,6 +622,9 @@ void SolverHydroMuscl::save_solution_hdf5()
   // actual writing
   {
 
+    // resize Uhost upon U
+    Kokkos::resize(Uhost, U.extent(0), U.extent(1));
+
     // copy data from device to host
     Kokkos::deep_copy(Uhost, U);
 
