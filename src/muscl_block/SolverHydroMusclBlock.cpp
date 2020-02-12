@@ -98,6 +98,19 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   by = configMap.getInteger("amr", "by", 0);
   bz = configMap.getInteger("amr", "bz", 1);
 
+  if (bx < 2*ghostWidth) {
+    bx = 2*ghostWidth;
+    std::cout << "WARNING: bx should be >= 2*ghostWidth. Setting bx=" << bx << std::endl;
+  }
+  if (by < 2*ghostWidth) {
+    by = 2*ghostWidth;
+    std::cout << "WARNING: by should be >= 2*ghostWidth. Setting by=" << by << std::endl;
+  }
+  if (params.dimType == THREE_D and bz < 2*ghostWidth) {
+    bz = 2*ghostWidth;
+    std::cout << "WARNING: bz should be >= 2*ghostWidth. Setting bz=" << bz << std::endl;
+  }
+
   bx_g = bx+2*ghostWidth;
   by_g = bx+2*ghostWidth;
   bz_g = bx+2*ghostWidth;
