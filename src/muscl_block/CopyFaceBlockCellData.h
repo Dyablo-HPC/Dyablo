@@ -612,9 +612,9 @@ public:
       // if necessary, shift border coords to access input (neighbor octant) cell data
       if ( face == FACE_LEFT ) {
         if ( dir == DIR_X )
-          coord_border[IX] += (bx - ghostWidth);
+          coord_border[IX] = (coord_border[IX] + 2*bx - ghostWidth);
         if ( dir == DIR_Y )
-          coord_border[IY] += (by - ghostWidth);
+          coord_border[IY] = (coord_border[IY] + 2*by - ghostWidth);
       }
 
       // remap to take into account that neighbor is actually larger
