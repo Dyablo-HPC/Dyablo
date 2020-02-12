@@ -161,9 +161,9 @@ public:
   
   // static method which does it all: create and execute functor
   static void apply(std::shared_ptr<AMRmesh> pmesh,
-		    ConfigMap      configMap,
+		                ConfigMap      configMap,
                     HydroParams    params,
-		    id2index_t     fm,
+		                id2index_t     fm,
                     blockSize_t    blockSizes,
                     uint32_t       ghostWidth,
                     uint32_t       nbOcts,
@@ -244,60 +244,62 @@ public:
 
     for (uint8_t ip=0; ip < 2; ++ip) {
       HydroState2d &q = (ip == 0 ? q0 : q1);
+      HydroState2d u;      
+    
+    uint32_t ii, jj; // Coords of the first neighbour
+    uint8_t iNeigh = 0;
+    
+    if (dir == DIR_X) {
+      ii = bx-i-1;
+      jj = j*2;
+    }
+    else {
+      jj = by-j-1;
+      ii = i*2;
+    }
+
+    // We go through the two sub-cells
+    for (uint8_t ip=0; ip < 2; ++ip) {
+      if (dir == DIR_X) {
+	jj += ip;
+	if (jj >= by) {
+	  iNeigh = 1;
+	  jj -= by;
+	}
+      }
+      else {
+	ii += ip;
+	if (ii >= bx) {
+	  iNeigh = 1;
+	  ii -= bx;
+	}
+      }
+
+      //uint32_t index = i + bx * j;
+      /*
+      std::cout << "Cell corresponding to (" << i << "; " << j
+		<< "); For Dir=" << (int)dir << " and Face=" << (int)face
+		<< " with ip=" << (int)ip
+		<< " is (" << ii << "; " << jj << "; " << (int)iNeigh << ")" << std::endl;*/
+      
+      uint32_t index_border = ii + bx * jj;
+      HydroState2d &q = (ip == 0 ? qm : qp);
+
+      //std::cout << " SUMMARY: " << index << "(" << (int)ip << ") -> " << index_border << std::endl;
+
       HydroState2d u;
-      
-      if (neigh.size() == 0) {
-	uint32_t full_index = (i+ghostWidth) + bx_g * (j+ghostWidth);
-	
-	u[ID] = U(full_index, fm[ID], iOct);
-	u[IP] = U(full_index, fm[ID], iOct);
-	u[IU] = U(full_index, fm[ID], iOct);
-	u[IV] = U(full_index, fm[ID], iOct);
-	
-	if (face == FACE_LEFT and dir == DIR_X and params.boundary_type_xmin == BC_REFLECTING)
-	  u[IU] *= -1;
-	if (face == FACE_RIGHT and dir == DIR_X and params.boundary_type_xmax == BC_REFLECTING)
-	  u[IU] *= -1;
-	if (face == FACE_LEFT and dir == DIR_Y and params.boundary_type_ymin == BC_REFLECTING)
-	  u[IV] *= -1;
-	if (face == FACE_RIGHT and dir == DIR_Y and params.boundary_type_ymax == BC_REFLECTING)
-	  u[IV] *= -1;
+      if (is_ghost[iNeigh]) {
+	u[ID] = U_ghost(index_border, fm[ID], neigh[iNeigh]);
+	u[IP] = U_ghost(index_border, fm[IP], neigh[iNeigh]);
+	u[IU] = U_ghost(index_border, fm[IU], neigh[iNeigh]);
+	u[IV] = U_ghost(index_border, fm[IV], neigh[iNeigh]);
+      } else {
+	u[ID] = U(index_border, fm[ID], neigh[iNeigh]);
+	u[IP] = U(index_border, fm[IP], neigh[iNeigh]);
+	u[IU] = U(index_border, fm[IU], neigh[iNeigh]);
+	u[IV] = U(index_border, fm[IV], neigh[iNeigh]);
       }
-      else { // Periodic or inside the domain
-	uint32_t ii, jj; // Coords of the first neighbour
-	uint8_t iNeigh = 0;
-	
-	if (dir == DIR_X) {
-	  ii = bx-i-1;
-	  jj = j*2 + ip;
-	  if (jj >= by) {
-	    iNeigh = 1;
-	    jj -= by;
-	  }
-	}
-	else {
-	  jj = by-j-1;
-	  ii = i*2 + ip;
-	  if (ii >= bx) {
-	    iNeigh = 1;
-	    ii -= bx;
-	  }
-	}
-	
-	uint32_t index_border = ii + bx * jj;
-	if (is_ghost[iNeigh]) {
-	  u[ID] = U_ghost(index_border, fm[ID], neigh[iNeigh]);
-	  u[IP] = U_ghost(index_border, fm[IP], neigh[iNeigh]);
-	  u[IU] = U_ghost(index_border, fm[IU], neigh[iNeigh]);
-	  u[IV] = U_ghost(index_border, fm[IV], neigh[iNeigh]);
-	} else {
-	  u[ID] = U(index_border, fm[ID], neigh[iNeigh]);
-	  u[IP] = U(index_border, fm[IP], neigh[iNeigh]);
-	  u[IU] = U(index_border, fm[IU], neigh[iNeigh]);
-	  u[IV] = U(index_border, fm[IV], neigh[iNeigh]);
-	}
-      }
-      
+
       // Converting to primitives
       real_t c = 0.0;
       computePrimitives(u, &c, q, params);
@@ -1093,7 +1095,7 @@ public:
             if (i > 0 or !(Interface_flags(iOct_local) & INTERFACE_XMIN_NC))
 	    {
               // step 1 : reconstruct state in the left neighbor
-
+	      
               // get state in neighbor along X
               HydroState2d qprim_n = get_prim_variables<HydroState2d>(ig-1, iOct_local);
 
@@ -1103,6 +1105,7 @@ public:
               // reconstruct state in left neighbor
               HydroState2d qL = reconstruct_state_2d(
                 qprim_n, ig-1, iOct_local, offsets, dtdx, dtdy);
+
 
               // step 2 : reconstruct state in current cell
               offsets = {-1.0, 0.0, 0.0};
@@ -1150,9 +1153,8 @@ public:
             /*
              * compute flux from left face along y dir
              */
-            if (j > 0 or !(Interface_flags(iOct_local) & INTERFACE_YMIN_NC))
-	      {
-              // step 1 : reconstruct state in the left neighbor
+            if (j > 0 or !(Interface_flags(iOct_local) & INTERFACE_YMIN_NC)) {
+	      // step 1 : reconstruct state in the left neighbor
               
               // get state in neighbor along X
               HydroState2d qprim_n = get_prim_variables<HydroState2d>(ig-bx_g, iOct_local);
@@ -1166,7 +1168,7 @@ public:
 
               // step 2 : reconstruct state in current cell
               offsets = {0.0, -1.0, 0.0};
-
+	      
               HydroState2d qR = reconstruct_state_2d(
                 qprim, ig, iOct_local, offsets, dtdx, dtdy);
 
@@ -1181,13 +1183,12 @@ public:
 
               // step 4 : accumulate flux in current cell
               qcons += flux*dtdy;
-            }
+	    }
 
             /*
              * compute flux from right face along y dir
              */
-	    if (j < by-1 or !(Interface_flags(iOct_local) & INTERFACE_YMAX_NC))
-	      {
+	    if (j < by-1 or !(Interface_flags(iOct_local) & INTERFACE_YMAX_NC)) {
               // step 1 : reconstruct state in the left neighbor
               
               // get state in neighbor along X
@@ -1217,28 +1218,28 @@ public:
 
               // step 4 : accumulate flux in current cell
               qcons -= flux*dtdy;
-
-            }
-
+	      
+	    }
+	    
             // lastly update conservative variable in U2
             uint32_t index_non_ghosted = i+bx*j;//(i-1) + bx * (j-1);
-
+	    
             U2(index_non_ghosted, fm[ID], iOct) = qcons[ID];
             U2(index_non_ghosted, fm[IP], iOct) = qcons[IP];
             U2(index_non_ghosted, fm[IU], iOct) = qcons[IU];
             U2(index_non_ghosted, fm[IV], iOct) = qcons[IV];
-
+	    
           } // end if inside inner block
         }); // end TeamVectorRange
-
+      
       iOct       += nbTeams;
       iOct_local += nbTeams;
-
+      
     } // end while iOct < nbOct
-
+    
   } // compute_fluxes_and_update_2d_conformal
-
-    // ====================================================================
+  
+  // ====================================================================
   // ====================================================================
   KOKKOS_INLINE_FUNCTION
   void compute_fluxes_and_update_2d_non_conservative(thread2_t member) const 
@@ -1423,7 +1424,7 @@ public:
 
             // lastly update conservative variable in U2
             uint32_t index_non_ghosted = (i-1) + bx * (j-1);
-
+	    
             U2(index_non_ghosted, fm[ID], iOct) = qcons[ID];
             U2(index_non_ghosted, fm[IP], iOct) = qcons[IP];
             U2(index_non_ghosted, fm[IU], iOct) = qcons[IU];
@@ -1567,7 +1568,7 @@ public:
   //! slopes along z for current group
   DataArrayBlock SlopesZ;
 
-}; // MusclBlockGodunovUpdateFunctor
+  }; // MusclBlockGodunovUpdateFunctor
 
 } // namespace muscl_block
 

@@ -233,12 +233,9 @@ public:
 	Kokkos::parallel_reduce(
 				Kokkos::TeamVectorRange(member, nbCellsPerBlock),
 				[=](const int32_t iCellInner, real_t& local_error) {
-
-				  // convert iCellInner to coordinates (i,j) in non-ghosted block
-				  // iCellInner = i + bx * j
-				  const int j = iCellInner / bx;
-				  const int i = iCellInner - j*bx;
-
+				  int32_t j = iCellInner / bx;
+				  int32_t i = iCellInner - j*bx;
+				  
 				  for (int ivar=0; ivar<nrefvar; ++ivar) {
 				    real_t fx, fy, fmax;
 				    fx = compute_second_derivative_error(ref_var[ivar],i,j,IX,iOct_local);
