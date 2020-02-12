@@ -242,10 +242,6 @@ public:
 
     pmesh->findNeighbours(iOct, iface, codim, neigh, is_ghost);
 
-    for (uint8_t ip=0; ip < 2; ++ip) {
-      HydroState2d &q = (ip == 0 ? q0 : q1);
-      HydroState2d u;      
-    
     uint32_t ii, jj; // Coords of the first neighbour
     uint8_t iNeigh = 0;
     
@@ -274,19 +270,9 @@ public:
 	  ii -= bx;
 	}
       }
-
-      //uint32_t index = i + bx * j;
-      /*
-      std::cout << "Cell corresponding to (" << i << "; " << j
-		<< "); For Dir=" << (int)dir << " and Face=" << (int)face
-		<< " with ip=" << (int)ip
-		<< " is (" << ii << "; " << jj << "; " << (int)iNeigh << ")" << std::endl;*/
       
       uint32_t index_border = ii + bx * jj;
-      HydroState2d &q = (ip == 0 ? qm : qp);
-
-      //std::cout << " SUMMARY: " << index << "(" << (int)ip << ") -> " << index_border << std::endl;
-
+      HydroState2d &q = (ip == 0 ? q0 : q1);
       HydroState2d u;
       if (is_ghost[iNeigh]) {
 	u[ID] = U_ghost(index_border, fm[ID], neigh[iNeigh]);
@@ -299,7 +285,7 @@ public:
 	u[IU] = U(index_border, fm[IU], neigh[iNeigh]);
 	u[IV] = U(index_border, fm[IV], neigh[iNeigh]);
       }
-
+      
       // Converting to primitives
       real_t c = 0.0;
       computePrimitives(u, &c, q, params);
@@ -1103,15 +1089,13 @@ public:
               offsets_t offsets = {1.0, 0.0, 0.0};
 
               // reconstruct state in left neighbor
-              HydroState2d qL = reconstruct_state_2d(
-                qprim_n, ig-1, iOct_local, offsets, dtdx, dtdy);
+              HydroState2d qL = reconstruct_state_2d(qprim_n, ig-1, iOct_local, offsets, dtdx, dtdy);
 
 
               // step 2 : reconstruct state in current cell
               offsets = {-1.0, 0.0, 0.0};
 
-              HydroState2d qR = reconstruct_state_2d(
-                qprim, ig, iOct_local, offsets, dtdx, dtdy);
+              HydroState2d qR = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
               
               // step 3 : compute flux (Riemann solver)
               HydroState2d flux = riemann_hydro(qL,qR,params);
@@ -1134,14 +1118,13 @@ public:
               offsets_t offsets = {-1.0, 0.0, 0.0};
 
               // reconstruct state in right neighbor
-              HydroState2d qR = reconstruct_state_2d(
-                qprim_n, ig+1, iOct_local, offsets, dtdx, dtdy);
+              HydroState2d qR = reconstruct_state_2d(qprim_n, ig+1, iOct_local, offsets, dtdx, dtdy);
 
               // step 2 : reconstruct state in current cell
               offsets = {1.0, 0.0, 0.0};
 
-              HydroState2d qL = reconstruct_state_2d(
-                qprim, ig, iOct_local, offsets, dtdx, dtdy);
+              HydroState2d qL =
+	        reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
 
               // step 3 : compute flux (Riemann solver)
               HydroState2d flux = riemann_hydro(qL,qR,params);
@@ -1163,14 +1146,13 @@ public:
               offsets_t offsets = {0.0, 1.0, 0.0};
               
               // reconstruct "left" state
-              HydroState2d qL = reconstruct_state_2d(
-                qprim_n, ig-bx_g, iOct_local, offsets, dtdx, dtdy);
+              HydroState2d qL =
+		reconstruct_state_2d(qprim_n, ig-bx_g, iOct_local, offsets, dtdx, dtdy);
 
               // step 2 : reconstruct state in current cell
               offsets = {0.0, -1.0, 0.0};
 	      
-              HydroState2d qR = reconstruct_state_2d(
-                qprim, ig, iOct_local, offsets, dtdx, dtdy);
+              HydroState2d qR = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
 
               // swap IU / IV
               my_swap(qL[IU], qL[IV]);
@@ -1198,14 +1180,13 @@ public:
               offsets_t offsets = {0.0, -1.0, 0.0};
               
               // reconstruct "left" state
-              HydroState2d qR = reconstruct_state_2d(
-                  qprim_n, ig+bx_g, iOct_local, offsets, dtdx, dtdy);
+              HydroState2d qR = reconstruct_state_2d(qprim_n, ig+bx_g, iOct_local, offsets, dtdx, dtdy);
 
               // step 2 : reconstruct state in current cell
               offsets = {0.0, 1.0, 0.0};
 
-              HydroState2d qL = reconstruct_state_2d(
-                qprim, ig, iOct_local, offsets, dtdx, dtdy);
+              HydroState2d qL =
+		reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
 
               // swap IU / IV
               my_swap(qL[IU], qL[IV]);
@@ -1306,14 +1287,12 @@ public:
               offsets_t offsets = {1.0, 0.0, 0.0};
 
               // reconstruct state in left neighbor
-              HydroState2d qL = reconstruct_state_2d(
-                qprim_n, ig-1, iOct_local, offsets, dtdx, dtdy);
+              HydroState2d qL = reconstruct_state_2d(qprim_n, ig-1, iOct_local, offsets, dtdx, dtdy);
 
               // step 2 : reconstruct state in current cell
               offsets = {-1.0, 0.0, 0.0};
 
-              HydroState2d qR = reconstruct_state_2d(
-                qprim, ig, iOct_local, offsets, dtdx, dtdy);
+              HydroState2d qR = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
               
               // step 3 : compute flux (Riemann solver)
               HydroState2d flux = riemann_hydro(qL,qR,params);
@@ -1335,14 +1314,12 @@ public:
               offsets_t offsets = {-1.0, 0.0, 0.0};
 
               // reconstruct state in right neighbor
-              HydroState2d qR = reconstruct_state_2d(
-                qprim_n, ig+1, iOct_local, offsets, dtdx, dtdy);
+              HydroState2d qR = reconstruct_state_2d(qprim_n, ig+1, iOct_local, offsets, dtdx, dtdy);
 
               // step 2 : reconstruct state in current cell
               offsets = {1.0, 0.0, 0.0};
 
-              HydroState2d qL = reconstruct_state_2d(
-                qprim, ig, iOct_local, offsets, dtdx, dtdy);
+              HydroState2d qL = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
 
               // step 3 : compute flux (Riemann solver)
               HydroState2d flux = riemann_hydro(qL,qR,params);
@@ -1364,14 +1341,12 @@ public:
               offsets_t offsets = {0.0, 1.0, 0.0};
               
               // reconstruct "left" state
-              HydroState2d qL = reconstruct_state_2d(
-                qprim_n, ig-bx_g, iOct_local, offsets, dtdx, dtdy);
+              HydroState2d qL = reconstruct_state_2d(qprim_n, ig-bx_g, iOct_local, offsets, dtdx, dtdy);
 
               // step 2 : reconstruct state in current cell
               offsets = {0.0, -1.0, 0.0};
 
-              HydroState2d qR = reconstruct_state_2d(
-                qprim, ig, iOct_local, offsets, dtdx, dtdy);
+              HydroState2d qR = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
 
               // swap IU / IV
               my_swap(qL[IU], qL[IV]);
@@ -1399,14 +1374,12 @@ public:
               offsets_t offsets = {0.0, -1.0, 0.0};
               
               // reconstruct "left" state
-              HydroState2d qR = reconstruct_state_2d(
-                  qprim_n, ig+bx_g, iOct_local, offsets, dtdx, dtdy);
+              HydroState2d qR = reconstruct_state_2d(qprim_n, ig+bx_g, iOct_local, offsets, dtdx, dtdy);
 
               // step 2 : reconstruct state in current cell
               offsets = {0.0, 1.0, 0.0};
 
-              HydroState2d qL = reconstruct_state_2d(
-                qprim, ig, iOct_local, offsets, dtdx, dtdy);
+              HydroState2d qL = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
 
               // swap IU / IV
               my_swap(qL[IU], qL[IV]);
