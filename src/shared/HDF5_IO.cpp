@@ -615,6 +615,42 @@ HDF5_Writer::write_quadrant_pressure(DataArrayBlockHost datah,
 
 // =======================================================
 // =======================================================
+int
+HDF5_Writer::write_quadrant_id(DataArrayBlockHost datah)
+{
+
+  {
+    using DataArrayScalar = Kokkos::View<int32_t*, Kokkos::HostSpace>;
+
+    uint32_t nbCellsPerOct = datah.extent(0);
+    uint32_t nbOcts = datah.extent(2);
+
+    DataArrayScalar id_table = DataArrayScalar("iOct", nbCellsPerOct*nbOcts);
+
+    Kokkos::parallel_for(
+      nbOcts, KOKKOS_LAMBDA(uint32_t iOct) {
+        for (uint32_t iCell = 0; iCell < nbCellsPerOct; ++iCell) {
+          
+          // pressure
+	  id_table(iCell + nbCellsPerOct*iOct) = iOct;
+	  
+        } // end for iCell
+      });
+    
+    // actual data writing
+    write_attribute("iOct", id_table.data(), 
+                    0, IO_CELL_SCALAR,
+                    H5T_NATIVE_INT, H5T_NATIVE_INT);
+
+  }
+    
+  return 0;
+
+} // HDF5_Writer::write_quadrant_id
+
+
+// =======================================================
+// =======================================================
 void
 HDF5_Writer::io_hdf5_writev(hid_t fd, 
                             const std::string &name, 

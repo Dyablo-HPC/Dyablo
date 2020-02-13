@@ -72,7 +72,8 @@ private:
   //using shared_2d_t  = Kokkos::View<real_t**, shared_space, Kokkos::MemoryUnmanaged>;
 
 public:
-
+  using index_t = int32_t;
+  
   void setNbTeams(uint32_t nbTeams_) {nbTeams = nbTeams_;};
 
   /**
@@ -96,8 +97,11 @@ public:
                                  uint32_t       nbOctsPerGroup,
                                  uint32_t       iGroup,
                                  DataArrayBlock Ugroup,
+				 DataArrayBlock U,
+				 DataArrayBlock U_ghost,
                                  DataArrayBlock U2,
                                  DataArrayBlock Qgroup,
+                                 FlagArrayBlock Interface_flags,
                                  real_t         dt) :
     pmesh(pmesh),
     params(params),
@@ -108,8 +112,11 @@ public:
     nbOctsPerGroup(nbOctsPerGroup),
     iGroup(iGroup),
     Ugroup(Ugroup),
+    U(U),
+    U_ghost(U_ghost),
     U2(U2),
     Qgroup(Qgroup),
+    Interface_flags(Interface_flags),
     dt(dt)
   {
 
@@ -126,6 +133,14 @@ public:
     nbCellsPerBlock1 = params.dimType == TWO_D ? 
       bx1 * by1 :
       bx1 * by1 * bz1;
+
+    
+    const uint32_t& bx = blockSizes[IX];
+    const uint32_t& by = blockSizes[IY];
+    const uint32_t& bz = blockSizes[IZ];
+    nbCellsPerBlock  = params.dimType == TWO_D ?
+      bx*by :
+      bx*by*bz;
 
     // memory allocation for slopes arrays
     SlopesX = DataArrayBlock("SlopesX", 
@@ -146,26 +161,30 @@ public:
   
   // static method which does it all: create and execute functor
   static void apply(std::shared_ptr<AMRmesh> pmesh,
-		    ConfigMap      configMap,
+		                ConfigMap      configMap,
                     HydroParams    params,
-		    id2index_t     fm,
+		                id2index_t     fm,
                     blockSize_t    blockSizes,
                     uint32_t       ghostWidth,
                     uint32_t       nbOcts,
                     uint32_t       nbOctsPerGroup,
                     uint32_t       iGroup,
 		    DataArrayBlock Ugroup,
+		    DataArrayBlock U,
+		    DataArrayBlock U_ghost,
 		    DataArrayBlock U2,
                     DataArrayBlock Qgroup,
+                    FlagArrayBlock Interface_flags,
                     real_t         dt)
-  {
+    {
 
     // instantiate functor
     MusclBlockGodunovUpdateFunctor functor(pmesh, params, fm,
                                            blockSizes, ghostWidth, 
                                            nbOcts, nbOctsPerGroup, iGroup,
-                                           Ugroup, U2,
+                                           Ugroup, U, U_ghost, U2,
                                            Qgroup,
+                                           Interface_flags,
                                            dt);
 
     uint32_t nbTeams_ = configMap.getInteger("amr","nbTeams",16);
@@ -188,6 +207,90 @@ public:
                          policy2, functor);
 
   } // apply
+
+  // ====================================================================
+  // ====================================================================
+  /** 
+   * Extracts non conformal neighbor states
+   * 
+   * \param[in]  iOct index of the current oct in the entire mesh
+   * \param[in]  i index on dir_x of the current cell in the original block (non ghosted)
+   * \param[in]  j index on dir_y of the current cell in the original block (non ghosted) 
+   * \param[in]  dir direction along which neighbors should be retrieved
+   * \param[in]  face face along which neighbors should be retrieved
+   * \param[out] q0 first neighboring state to be retrieved
+   * \param[out] q1 second neighboring state
+   */
+  KOKKOS_INLINE_FUNCTION
+  void get_non_conformal_neighbors_2d(uint32_t iOct,
+				      uint32_t i,
+				      uint32_t j,
+				      DIR_ID  dir,
+				      FACE_ID face,
+				      HydroState2d &q0,
+				      HydroState2d &q1) const {
+
+    uint8_t codim = 1;
+    
+    const uint32_t &bx = blockSizes[IX];
+    const uint32_t &by = blockSizes[IY];
+    
+    uint8_t iface = face + 2*dir;
+
+    std::vector<uint32_t> neigh;
+    std::vector<bool> is_ghost;
+
+    pmesh->findNeighbours(iOct, iface, codim, neigh, is_ghost);
+
+    uint32_t ii, jj; // Coords of the first neighbour
+    uint8_t iNeigh = 0;
+    
+    if (dir == DIR_X) {
+      ii = bx-i-1;
+      jj = j*2;
+    }
+    else {
+      jj = by-j-1;
+      ii = i*2;
+    }
+
+    // We go through the two sub-cells
+    for (uint8_t ip=0; ip < 2; ++ip) {
+      if (dir == DIR_X) {
+	jj += ip;
+	if (jj >= by) {
+	  iNeigh = 1;
+	  jj -= by;
+	}
+      }
+      else {
+	ii += ip;
+	if (ii >= bx) {
+	  iNeigh = 1;
+	  ii -= bx;
+	}
+      }
+      
+      uint32_t index_border = ii + bx * jj;
+      HydroState2d &q = (ip == 0 ? q0 : q1);
+      HydroState2d u;
+      if (is_ghost[iNeigh]) {
+	u[ID] = U_ghost(index_border, fm[ID], neigh[iNeigh]);
+	u[IP] = U_ghost(index_border, fm[IP], neigh[iNeigh]);
+	u[IU] = U_ghost(index_border, fm[IU], neigh[iNeigh]);
+	u[IV] = U_ghost(index_border, fm[IV], neigh[iNeigh]);
+      } else {
+	u[ID] = U(index_border, fm[ID], neigh[iNeigh]);
+	u[IP] = U(index_border, fm[IP], neigh[iNeigh]);
+	u[IU] = U(index_border, fm[IU], neigh[iNeigh]);
+	u[IV] = U(index_border, fm[IV], neigh[iNeigh]);
+      }
+      
+      // Converting to primitives
+      real_t c = 0.0;
+      computePrimitives(u, &c, q, params);
+    } // end for ip
+  }
 
   // ====================================================================
   // ====================================================================
@@ -647,9 +750,481 @@ public:
   // ====================================================================
   // ====================================================================
   KOKKOS_INLINE_FUNCTION
-  void compute_fluxes_and_update_2d(thread2_t member) const 
+  void compute_fluxes_and_update_2d_non_conformal(thread2_t member) const 
   {
+    // iOct must span the range [iGroup*nbOctsPerGroup ,
+    // (iGroup+1)*nbOctsPerGroup [
+    uint32_t iOct = member.league_rank() + iGroup * nbOctsPerGroup;
+    
+    // octant id inside the Ugroup data array
+    uint32_t iOct_local = member.league_rank();
+    
+    // compute first octant index after current group
+    uint32_t iOctNextGroup = (iGroup + 1) * nbOctsPerGroup;
 
+    const uint32_t& bx = blockSizes[IX];
+    const uint32_t& by = blockSizes[IY];
+    
+    while (iOct < iOctNextGroup and iOct < nbOcts) {
+      // compute dx / dy
+      const real_t dx = (iOct < nbOcts) ? pmesh->getSize(iOct)/bx : 1.0;
+      const real_t dy = (iOct < nbOcts) ? pmesh->getSize(iOct)/by : 1.0;
+
+      // TODO : Factor the update of U2 in an inline function instea of repeating the same block
+      // of code again and again
+
+      // Conformal interface area
+      const real_t dSx_c = dy; // Interface when computing x flux is of length dy
+      const real_t dSy_c = dx;
+
+      // Non conformal interface area: divided by the number of neighbours
+      const real_t dSx_nc = dy * 0.5;
+      const real_t dSy_nc = dx * 0.5;
+
+      // Volume
+      const real_t dV = dx*dy;
+
+      // Scaling for the flux in conformal and non conformal cases
+      const real_t scale_x_c = dt*dSx_c / dV;
+      const real_t scale_y_c = dt*dSy_c / dV;
+      const real_t scale_x_nc = dt*dSx_nc / dV;
+      const real_t scale_y_nc = dt*dSy_nc / dV;
+
+      // We update the cells at the LEFT border if they have non-conformal neighbours
+      if (Interface_flags(iOct_local) & INTERFACE_XMIN_NC) {
+	const uint32_t ii = 0;
+	Kokkos::parallel_for(
+	  Kokkos::TeamVectorRange(member, by),
+	  KOKKOS_LAMBDA(const int32_t jj) {
+	    // Position in the original block
+	    // corresponding index in the full ghosted block
+	    const uint32_t ig = (ii+ghostWidth) + bx_g * (jj+ghostWidth);
+	    
+	    // get current location primitive variables state
+	    HydroState2d qprim = get_prim_variables<HydroState2d>(ig, iOct_local);
+	    
+	    // fluxes will be accumulated in qcons
+	    HydroState2d qcons = {0.0, 0.0, 0.0, 0.0};
+	    if (Interface_flags(iOct_local) & INTERFACE_XMIN_BIGGER) {
+	      // step 1: compute flux (Riemann solver) with centered values
+	      HydroState2d qR = qprim;
+	      HydroState2d qL = get_prim_variables<HydroState2d>(ig-1, iOct_local);
+	      HydroState2d flux = riemann_hydro(qL,qR,params);
+	      
+	      // step 2: accumulate flux in current cell
+	      qcons += flux*scale_x_c;
+	    }
+	    // If we are bigger than the neighbors we sum two fluxes coming from the small cells
+	    else if (Interface_flags(iOct_local) & INTERFACE_XMIN_SMALLER) {
+	      // step 1: get the states of both neighbour cell
+	      HydroState2d qR = qprim;
+	      HydroState2d q0, q1;
+	      get_non_conformal_neighbors_2d(iOct, ii, jj, DIR_X, FACE_LEFT, q0, q1);
+	      
+	      // step 2: solver is called directly on average states, no reconstruction is done
+	      HydroState2d flux_0 = riemann_hydro(q0,qR,params);
+	      HydroState2d flux_1 = riemann_hydro(q1,qR,params);
+	      
+	      qcons += flux_0 * scale_x_nc;
+	      qcons += flux_1 * scale_x_nc;
+	    }
+
+	    // finally, update conservative variable in U2
+	    uint32_t index_non_ghosted = ii + bx * jj;
+	    
+	    U2(index_non_ghosted, fm[ID], iOct) += qcons[ID];
+	    U2(index_non_ghosted, fm[IP], iOct) += qcons[IP];
+	    U2(index_non_ghosted, fm[IU], iOct) += qcons[IU];
+	    U2(index_non_ghosted, fm[IV], iOct) += qcons[IV];
+	  });
+      }
+      
+      // We update the cells at the RIGHT border if they have non-conformal neighbours
+      if (Interface_flags(iOct_local) & INTERFACE_XMAX_NC) {
+	const uint32_t ii = bx-1;
+	Kokkos::parallel_for(
+	  Kokkos::TeamVectorRange(member, by),
+	  KOKKOS_LAMBDA(const int32_t jj) {
+	    // Position in the original block
+	    // corresponding index in the full ghosted block
+	    const uint32_t ig = (ii+ghostWidth) + bx_g * (jj+ghostWidth);
+	    
+	    // get current location primitive variables state
+	    HydroState2d qprim = get_prim_variables<HydroState2d>(ig, iOct_local);
+	    
+	    // fluxes will be accumulated in qcons
+	    HydroState2d qcons = {0.0, 0.0, 0.0, 0.0};
+	    if (Interface_flags(iOct_local) & INTERFACE_XMAX_BIGGER) {
+	      // step 1: compute flux (Riemann solver) with centered values
+	      HydroState2d qL = qprim;
+	      HydroState2d qR = get_prim_variables<HydroState2d>(ig+1, iOct_local);
+	      HydroState2d flux = riemann_hydro(qL,qR,params);
+	      
+	      // step 2: accumulate flux in current cell
+	      qcons -= flux*scale_x_c;
+	    }
+	    else if (Interface_flags(iOct_local) & INTERFACE_XMAX_SMALLER) {
+	      // step 1: get the states of both neighbour cells
+	      HydroState2d qL = qprim;
+	      HydroState2d q0, q1;
+	      get_non_conformal_neighbors_2d(iOct, ii, jj, DIR_X, FACE_RIGHT, q0, q1);
+	      
+	      // step 2: solver is called directly on average states, no reconstruction is done
+	      HydroState2d flux_0 = riemann_hydro(qL, q0, params);
+	      HydroState2d flux_1 = riemann_hydro(qL, q1, params);
+
+	      // step 3: accumulate
+	      qcons -= flux_0 * scale_x_nc;
+	      qcons -= flux_1 * scale_x_nc;
+	    }
+	    
+	    // finally, update conservative variable in U2
+	    uint32_t index_non_ghosted = ii + bx * jj;
+	    
+	    U2(index_non_ghosted, fm[ID], iOct) += qcons[ID];
+	    U2(index_non_ghosted, fm[IP], iOct) += qcons[IP];
+	    U2(index_non_ghosted, fm[IU], iOct) += qcons[IU];
+	    U2(index_non_ghosted, fm[IV], iOct) += qcons[IV];
+	  });
+      }
+      
+      // We update the cells at the BOTTOM border if they have non-conformal neighbours
+      if (Interface_flags(iOct_local) & INTERFACE_YMIN_NC) {
+	const uint32_t jj = 0;
+	Kokkos::parallel_for(
+	  Kokkos::TeamVectorRange(member, bx),
+	  KOKKOS_LAMBDA(const int32_t ii) {
+	    // Position in the original block
+	    // corresponding index in the full ghosted block
+	    const uint32_t ig = (ii+ghostWidth) + bx_g * (jj+ghostWidth);
+	    
+	    // get current location primitive variables state
+	    HydroState2d qprim = get_prim_variables<HydroState2d>(ig, iOct_local);
+	    
+	    // fluxes will be accumulated in qcons
+	    HydroState2d qcons = {0.0, 0.0, 0.0, 0.0};
+
+	    if (Interface_flags(iOct_local) & INTERFACE_YMIN_BIGGER) {
+	      // step 1: Swap u and v in states
+	      HydroState2d qL = get_prim_variables<HydroState2d>(ig-bx_g, iOct_local);
+	      HydroState2d qR = qprim;
+	      my_swap(qL[IU], qL[IV]);
+	      my_swap(qR[IU], qR[IV]);
+	      
+	      // step 2: compute flux (Riemann solver) with centered values
+	      HydroState2d flux = riemann_hydro(qL,qR,params);
+
+	      // step 3: swap back and accumulate flux
+	      my_swap(flux[IU], flux[IV]);
+	      qcons += flux*scale_y_c;
+	    }
+	    else if (Interface_flags(iOct_local) & INTERFACE_YMIN_SMALLER) {
+	      // step 1: get the states of both neighbour cells
+	      HydroState2d qR = qprim;
+	      HydroState2d q0, q1;
+	      get_non_conformal_neighbors_2d(iOct, ii, jj, DIR_Y, FACE_LEFT, q0, q1);
+	      
+	      // step 2: u and v in states
+	      my_swap(q0[IU], q0[IV]);
+	      my_swap(q1[IU], q1[IV]);
+	      my_swap(qR[IU], qR[IV]);
+
+	      // step 3: solver is called directly on average states, no reconstruction is done
+	      HydroState2d flux_0 = riemann_hydro(q0, qR, params);
+	      HydroState2d flux_1 = riemann_hydro(q1, qR, params);
+
+	      // step 4: swap back and accumulate
+	      my_swap(flux_0[IU], flux_0[IV]);
+	      my_swap(flux_1[IU], flux_1[IV]);
+	    
+	      qcons += flux_0 * scale_y_nc;
+	      qcons += flux_1 * scale_y_nc;
+	    }
+
+	    // finally, update conservative variable in U2
+	    uint32_t index_non_ghosted = ii + bx * jj;
+	    
+	    U2(index_non_ghosted, fm[ID], iOct) += qcons[ID];
+	    U2(index_non_ghosted, fm[IP], iOct) += qcons[IP];
+	    U2(index_non_ghosted, fm[IU], iOct) += qcons[IU];
+	    U2(index_non_ghosted, fm[IV], iOct) += qcons[IV];
+	  });
+      }
+
+      // We update the cells at the TOP border if they have non-conformal neighbours
+      if (Interface_flags(iOct_local) & INTERFACE_YMAX_NC) {
+	const uint32_t jj = by-1;
+	Kokkos::parallel_for(
+	  Kokkos::TeamVectorRange(member, bx),
+	  KOKKOS_LAMBDA(const int32_t ii) {
+	    // Position in the original block
+	    // corresponding index in the full ghosted block
+	    const uint32_t ig = (ii+ghostWidth) + bx_g * (jj+ghostWidth);
+	    
+	    // get current location primitive variables state
+	    HydroState2d qprim = get_prim_variables<HydroState2d>(ig, iOct_local);
+	    
+	    // fluxes will be accumulated in qcons
+	    HydroState2d qcons = {0.0, 0.0, 0.0, 0.0};
+
+	    if (Interface_flags(iOct_local) & INTERFACE_YMAX_BIGGER) {
+	      // step 1: Swap u and v in states
+	      HydroState2d qR = get_prim_variables<HydroState2d>(ig+bx_g, iOct_local);
+	      HydroState2d qL = qprim;
+	      my_swap(qL[IU], qL[IV]);
+	      my_swap(qR[IU], qR[IV]);
+	    
+	      // step 2: compute flux (Riemann solver) with centered values
+	      HydroState2d flux = riemann_hydro(qL,qR,params);
+
+	      // step 3: swap back and accumulate flux
+	      my_swap(flux[IU], flux[IV]);
+	      qcons -= flux*scale_y_c;
+	    }
+	    else if (Interface_flags(iOct_local) & INTERFACE_YMAX_SMALLER) {
+	      // step1: get the states of both neighbour cells
+	      HydroState2d qL = qprim;
+	      HydroState2d q0, q1;
+	      get_non_conformal_neighbors_2d(iOct, ii, jj, DIR_Y, FACE_RIGHT, q0, q1);
+	    
+	      // step 2: swap u and v in states
+	      my_swap(qL[IU], qL[IV]);
+	      my_swap(q0[IU], q0[IV]);
+	      my_swap(q1[IU], q1[IV]);
+	      
+	      // step 3 : solver is called directly on average states, no reconstruction is done
+	      HydroState2d flux_0 = riemann_hydro(qL, q0, params);
+	      HydroState2d flux_1 = riemann_hydro(qL, q1, params);
+
+	      // step 4: swap back and accumulate
+	      my_swap(flux_0[IU], flux_0[IV]);
+	      my_swap(flux_1[IU], flux_1[IV]);
+
+	      qcons -= flux_0 * scale_y_nc;
+	      qcons -= flux_1 * scale_y_nc;
+	    }
+	    
+	    // finally, update conservative variable in U2
+	    uint32_t index_non_ghosted = ii + bx * jj;
+	    
+	    U2(index_non_ghosted, fm[ID], iOct) += qcons[ID];
+	    U2(index_non_ghosted, fm[IP], iOct) += qcons[IP];
+	    U2(index_non_ghosted, fm[IU], iOct) += qcons[IU];
+	    U2(index_non_ghosted, fm[IV], iOct) += qcons[IV];
+	  });
+      }
+      
+      iOct       += nbTeams;
+      iOct_local += nbTeams;
+      
+    }// end while iOct < nbOct
+	
+  } // compute_fluxes_and_update_2d_non_conformal
+    
+  // ====================================================================
+  // ====================================================================
+  KOKKOS_INLINE_FUNCTION
+  void compute_fluxes_and_update_2d_conformal(thread2_t member) const 
+  {
+    // iOct must span the range [iGroup*nbOctsPerGroup ,
+    // (iGroup+1)*nbOctsPerGroup [
+    uint32_t iOct = member.league_rank() + iGroup * nbOctsPerGroup;
+    
+    // octant id inside the Ugroup data array
+    uint32_t iOct_local = member.league_rank();
+    
+    // compute first octant index after current group
+    uint32_t iOctNextGroup = (iGroup + 1) * nbOctsPerGroup;
+
+    const uint32_t& bx = blockSizes[IX];
+    const uint32_t& by = blockSizes[IY];
+
+    while (iOct < iOctNextGroup and iOct < nbOcts)
+    {
+
+      // compute dx / dy
+      const real_t dx = (iOct < nbOcts) ? pmesh->getSize(iOct)/bx : 1.0;
+      const real_t dy = (iOct < nbOcts) ? pmesh->getSize(iOct)/by : 1.0;
+      
+      const real_t dtdx = dt/dx;
+      const real_t dtdy = dt/dy;
+      
+      /*
+       * reconstruct states on cells face and update
+       */
+      Kokkos::parallel_for(
+        Kokkos::TeamVectorRange(member, nbCellsPerBlock),
+        KOKKOS_LAMBDA(const int32_t index) {
+          // convert index to coordinates in ghosted block (minus 1 !)
+          //index = i + bx1 * j
+          const uint32_t j = index / bx;
+          const uint32_t i = index - j*bx;
+
+          // corresponding index in the full ghosted block
+          // i -> i+1
+          // j -> j+1
+          const uint32_t ig = (i+ghostWidth) + bx_g * (j+ghostWidth);
+
+          // the following condition makes sure we stay inside
+          // the inner block
+          if (i >= 0 and i < bx and 
+              j >= 0 and j < by) {
+            // get current location primitive variables state
+            HydroState2d qprim = get_prim_variables<HydroState2d>(ig, iOct_local);
+
+            // fluxes will be accumulated in qcons
+            HydroState2d qcons = get_cons_variables<HydroState2d>(ig, iOct_local);
+
+            /*
+             * compute from left face along x dir
+             */
+            if (i > 0 or !(Interface_flags(iOct_local) & INTERFACE_XMIN_NC))
+	    {
+              // step 1 : reconstruct state in the left neighbor
+	      
+              // get state in neighbor along X
+              HydroState2d qprim_n = get_prim_variables<HydroState2d>(ig-1, iOct_local);
+
+              // 
+              offsets_t offsets = {1.0, 0.0, 0.0};
+
+              // reconstruct state in left neighbor
+              HydroState2d qL = reconstruct_state_2d(qprim_n, ig-1, iOct_local, offsets, dtdx, dtdy);
+
+
+              // step 2 : reconstruct state in current cell
+              offsets = {-1.0, 0.0, 0.0};
+
+              HydroState2d qR = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
+              
+              // step 3 : compute flux (Riemann solver)
+              HydroState2d flux = riemann_hydro(qL,qR,params);
+
+              // step 4 : accumulate flux in current cell
+              qcons += flux*dtdx;
+            }
+
+            /*
+             * compute flux from right face along x dir
+             */
+	    if (i < bx-1 or !(Interface_flags(iOct_local) & INTERFACE_XMAX_NC))
+	      {
+              // step 1 : reconstruct state in the left neighbor
+
+              // get state in neighbor along X
+              HydroState2d qprim_n = get_prim_variables<HydroState2d>(ig+1, iOct_local);
+
+              // 
+              offsets_t offsets = {-1.0, 0.0, 0.0};
+
+              // reconstruct state in right neighbor
+              HydroState2d qR = reconstruct_state_2d(qprim_n, ig+1, iOct_local, offsets, dtdx, dtdy);
+
+              // step 2 : reconstruct state in current cell
+              offsets = {1.0, 0.0, 0.0};
+
+              HydroState2d qL =
+	        reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
+
+              // step 3 : compute flux (Riemann solver)
+              HydroState2d flux = riemann_hydro(qL,qR,params);
+
+              // step 4 : accumulate flux in current cell
+              qcons -= flux*dtdx;
+            }
+
+            /*
+             * compute flux from left face along y dir
+             */
+            if (j > 0 or !(Interface_flags(iOct_local) & INTERFACE_YMIN_NC)) {
+	      // step 1 : reconstruct state in the left neighbor
+              
+              // get state in neighbor along X
+              HydroState2d qprim_n = get_prim_variables<HydroState2d>(ig-bx_g, iOct_local);
+              
+              // 
+              offsets_t offsets = {0.0, 1.0, 0.0};
+              
+              // reconstruct "left" state
+              HydroState2d qL =
+		reconstruct_state_2d(qprim_n, ig-bx_g, iOct_local, offsets, dtdx, dtdy);
+
+              // step 2 : reconstruct state in current cell
+              offsets = {0.0, -1.0, 0.0};
+	      
+              HydroState2d qR = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
+
+              // swap IU / IV
+              my_swap(qL[IU], qL[IV]);
+              my_swap(qR[IU], qR[IV]);
+
+              // step 3 : compute flux (Riemann solver)
+              HydroState2d flux = riemann_hydro(qL,qR,params);
+
+              my_swap(flux[IU], flux[IV]);
+
+              // step 4 : accumulate flux in current cell
+              qcons += flux*dtdy;
+	    }
+
+            /*
+             * compute flux from right face along y dir
+             */
+	    if (j < by-1 or !(Interface_flags(iOct_local) & INTERFACE_YMAX_NC)) {
+              // step 1 : reconstruct state in the left neighbor
+              
+              // get state in neighbor along X
+              HydroState2d qprim_n = get_prim_variables<HydroState2d>(ig+bx_g, iOct_local);
+              
+              // 
+              offsets_t offsets = {0.0, -1.0, 0.0};
+              
+              // reconstruct "left" state
+              HydroState2d qR = reconstruct_state_2d(qprim_n, ig+bx_g, iOct_local, offsets, dtdx, dtdy);
+
+              // step 2 : reconstruct state in current cell
+              offsets = {0.0, 1.0, 0.0};
+
+              HydroState2d qL =
+		reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
+
+              // swap IU / IV
+              my_swap(qL[IU], qL[IV]);
+              my_swap(qR[IU], qR[IV]);
+
+              // step 3 : compute flux (Riemann solver)
+              HydroState2d flux = riemann_hydro(qL,qR,params);
+
+              my_swap(flux[IU], flux[IV]);
+
+              // step 4 : accumulate flux in current cell
+              qcons -= flux*dtdy;
+	      
+	    }
+	    
+            // lastly update conservative variable in U2
+            uint32_t index_non_ghosted = i+bx*j;//(i-1) + bx * (j-1);
+	    
+            U2(index_non_ghosted, fm[ID], iOct) = qcons[ID];
+            U2(index_non_ghosted, fm[IP], iOct) = qcons[IP];
+            U2(index_non_ghosted, fm[IU], iOct) = qcons[IU];
+            U2(index_non_ghosted, fm[IV], iOct) = qcons[IV];
+	    
+          } // end if inside inner block
+        }); // end TeamVectorRange
+      
+      iOct       += nbTeams;
+      iOct_local += nbTeams;
+      
+    } // end while iOct < nbOct
+    
+  } // compute_fluxes_and_update_2d_conformal
+  
+  // ====================================================================
+  // ====================================================================
+  KOKKOS_INLINE_FUNCTION
+  void compute_fluxes_and_update_2d_non_conservative(thread2_t member) const 
+  {
     // iOct must span the range [iGroup*nbOctsPerGroup ,
     // (iGroup+1)*nbOctsPerGroup [
     uint32_t iOct = member.league_rank() + iGroup * nbOctsPerGroup;
@@ -679,7 +1254,6 @@ public:
       Kokkos::parallel_for(
         Kokkos::TeamVectorRange(member, nbCellsPerBlock1),
         KOKKOS_LAMBDA(const int32_t index) {
-
           // convert index to coordinates in ghosted block (minus 1 !)
           //index = i + bx1 * j
           const int j = index / bx1;
@@ -703,7 +1277,7 @@ public:
             /*
              * compute from left face along x dir
              */
-            {
+	    {
               // step 1 : reconstruct state in the left neighbor
 
               // get state in neighbor along X
@@ -713,14 +1287,12 @@ public:
               offsets_t offsets = {1.0, 0.0, 0.0};
 
               // reconstruct state in left neighbor
-              HydroState2d qL = reconstruct_state_2d(
-                qprim_n, ig-1, iOct_local, offsets, dtdx, dtdy);
+              HydroState2d qL = reconstruct_state_2d(qprim_n, ig-1, iOct_local, offsets, dtdx, dtdy);
 
               // step 2 : reconstruct state in current cell
               offsets = {-1.0, 0.0, 0.0};
 
-              HydroState2d qR = reconstruct_state_2d(
-                qprim, ig, iOct_local, offsets, dtdx, dtdy);
+              HydroState2d qR = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
               
               // step 3 : compute flux (Riemann solver)
               HydroState2d flux = riemann_hydro(qL,qR,params);
@@ -732,7 +1304,7 @@ public:
             /*
              * compute flux from right face along x dir
              */
-            {
+	    {
               // step 1 : reconstruct state in the left neighbor
 
               // get state in neighbor along X
@@ -742,14 +1314,12 @@ public:
               offsets_t offsets = {-1.0, 0.0, 0.0};
 
               // reconstruct state in right neighbor
-              HydroState2d qR = reconstruct_state_2d(
-                qprim_n, ig+1, iOct_local, offsets, dtdx, dtdy);
+              HydroState2d qR = reconstruct_state_2d(qprim_n, ig+1, iOct_local, offsets, dtdx, dtdy);
 
               // step 2 : reconstruct state in current cell
               offsets = {1.0, 0.0, 0.0};
 
-              HydroState2d qL = reconstruct_state_2d(
-                qprim, ig, iOct_local, offsets, dtdx, dtdy);
+              HydroState2d qL = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
 
               // step 3 : compute flux (Riemann solver)
               HydroState2d flux = riemann_hydro(qL,qR,params);
@@ -761,7 +1331,7 @@ public:
             /*
              * compute flux from left face along y dir
              */
-            {
+	    {
               // step 1 : reconstruct state in the left neighbor
               
               // get state in neighbor along X
@@ -771,14 +1341,12 @@ public:
               offsets_t offsets = {0.0, 1.0, 0.0};
               
               // reconstruct "left" state
-              HydroState2d qL = reconstruct_state_2d(
-                qprim_n, ig-bx_g, iOct_local, offsets, dtdx, dtdy);
+              HydroState2d qL = reconstruct_state_2d(qprim_n, ig-bx_g, iOct_local, offsets, dtdx, dtdy);
 
               // step 2 : reconstruct state in current cell
               offsets = {0.0, -1.0, 0.0};
 
-              HydroState2d qR = reconstruct_state_2d(
-                qprim, ig, iOct_local, offsets, dtdx, dtdy);
+              HydroState2d qR = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
 
               // swap IU / IV
               my_swap(qL[IU], qL[IV]);
@@ -796,7 +1364,7 @@ public:
             /*
              * compute flux from right face along y dir
              */
-            { 
+	    {
               // step 1 : reconstruct state in the left neighbor
               
               // get state in neighbor along X
@@ -806,14 +1374,12 @@ public:
               offsets_t offsets = {0.0, -1.0, 0.0};
               
               // reconstruct "left" state
-              HydroState2d qR = reconstruct_state_2d(
-                  qprim_n, ig+bx_g, iOct_local, offsets, dtdx, dtdy);
+              HydroState2d qR = reconstruct_state_2d(qprim_n, ig+bx_g, iOct_local, offsets, dtdx, dtdy);
 
               // step 2 : reconstruct state in current cell
               offsets = {0.0, 1.0, 0.0};
 
-              HydroState2d qL = reconstruct_state_2d(
-                qprim, ig, iOct_local, offsets, dtdx, dtdy);
+              HydroState2d qL = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
 
               // swap IU / IV
               my_swap(qL[IU], qL[IV]);
@@ -831,22 +1397,34 @@ public:
 
             // lastly update conservative variable in U2
             uint32_t index_non_ghosted = (i-1) + bx * (j-1);
-
+	    
             U2(index_non_ghosted, fm[ID], iOct) = qcons[ID];
             U2(index_non_ghosted, fm[IP], iOct) = qcons[IP];
             U2(index_non_ghosted, fm[IU], iOct) = qcons[IU];
             U2(index_non_ghosted, fm[IV], iOct) = qcons[IV];
 
           } // end if inside inner block
-
         }); // end TeamVectorRange
-
 
       iOct       += nbTeams;
       iOct_local += nbTeams;
 
     } // end while iOct < nbOct
 
+  } // compute_fluxes_and_update_2d_non_conservative
+
+  // ====================================================================
+  // ====================================================================
+  KOKKOS_INLINE_FUNCTION
+  void compute_fluxes_and_update_2d(thread2_t member) const 
+  {
+    if (params.updateType == UPDATE_CONSERVATIVE_SUM) {
+      compute_fluxes_and_update_2d_conformal(member);
+      compute_fluxes_and_update_2d_non_conformal(member);
+    }
+    else {
+      compute_fluxes_and_update_2d_non_conservative(member);
+    }
   } // compute_fluxes_and_update_2d
 
   // ====================================================================
@@ -924,6 +1502,9 @@ public:
   //! number of octant per group
   uint32_t nbOctsPerGroup;
 
+  //! number of cells per block (used for conservative update)
+  uint32_t nbCellsPerBlock;
+
   //! number of cells per block (used for slopes computations)
   uint32_t nbCellsPerBlock1;
 
@@ -933,11 +1514,20 @@ public:
   //! user data for the ith group of octants
   DataArrayBlock Ugroup;
 
+  //! user data for the entire mesh
+  DataArrayBlock U;
+  
+  //! user data for the neighbours
+  DataArrayBlock U_ghost;
+
   //! user data for the entire mesh at the end of time step
   DataArrayBlock U2;
 
   //! user data (primitive variables) for the ith group of octants
   DataArrayBlock Qgroup;
+
+  //! flags at interface for 2:1 ratio
+  FlagArrayBlock Interface_flags;
 
   //! time step
   real_t         dt;
@@ -951,7 +1541,7 @@ public:
   //! slopes along z for current group
   DataArrayBlock SlopesZ;
 
-}; // MusclBlockGodunovUpdateFunctor
+  }; // MusclBlockGodunovUpdateFunctor
 
 } // namespace muscl_block
 

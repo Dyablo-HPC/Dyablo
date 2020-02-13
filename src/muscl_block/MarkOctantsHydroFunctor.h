@@ -169,10 +169,10 @@ public:
    */
   KOKKOS_INLINE_FUNCTION
   real_t compute_second_derivative_error(uint8_t  ivar, 
-                                         uint32_t i,
-                                         uint32_t j,
-                                         uint8_t  dir,
-                                         uint32_t iOct_local) const
+					 uint32_t i,
+					 uint32_t j,
+					 uint8_t  dir,
+					 uint32_t iOct_local) const
   {
 
     real_t res = 0;
@@ -182,10 +182,8 @@ public:
     uint32_t iCellm1, iCellp1;
 
     if (dir == IX) {
-      
       iCellm1 = i-1+ghostWidth + bx_g * (j+ghostWidth);
       iCellp1 = i+1+ghostWidth + bx_g * (j+ghostWidth);
-
     } else if (dir == IY) {
     
       iCellm1 = i+ghostWidth + bx_g * (j-1+ghostWidth);
@@ -206,7 +204,7 @@ public:
     return res;
 
   } // compute_second_derivative
-
+  
   // ======================================================
   // ======================================================
   KOKKOS_INLINE_FUNCTION
@@ -222,68 +220,64 @@ public:
 
     // compute first octant index after current group
     uint32_t iOctNextGroup = (iGroup + 1) * nbOctsPerGroup;
-
+    
     while (iOct < iOctNextGroup and iOct < nbOcts)
-    {
+      {
 
-      real_t error = 0.0;
+	const int nrefvar=2;
+	uint8_t ref_var[nrefvar] {ID, IP};
 
-      // parallelize computation of the maximun second derivative error
-      // scanning all cells in current block (all directions)
-      Kokkos::parallel_reduce(
-        Kokkos::TeamVectorRange(member, nbCellsPerBlock),
-        [=](const int32_t iCellInner, real_t& local_error) {
-
-          // convert iCellInner to coordinates (i,j) in non-ghosted block
-          // iCellInner = i + bx * j
-          const int j = iCellInner / bx;
-          const int i = iCellInner - j*bx;
-
-          // compute second derivative error per direction
-          // using density only; multiple variables could be used
-          // TODO
-          real_t fx, fy, fmax;
-          fx = compute_second_derivative_error(ID,i,j,IX,iOct_local);
-          fy = compute_second_derivative_error(ID,i,j,IY,iOct_local);
-          fmax = fx > fy ? fx : fy;
-          local_error = local_error > fmax ? local_error : fmax;
-
-        }, Kokkos::Max<real_t>(error)); // end TeamVectorRange
       
+	real_t error = 0.0;
+
+	Kokkos::parallel_reduce(
+				Kokkos::TeamVectorRange(member, nbCellsPerBlock),
+				[=](const int32_t iCellInner, real_t& local_error) {
+				  int32_t j = iCellInner / bx;
+				  int32_t i = iCellInner - j*bx;
+				  
+				  for (int ivar=0; ivar<nrefvar; ++ivar) {
+				    real_t fx, fy, fmax;
+				    fx = compute_second_derivative_error(ref_var[ivar],i,j,IX,iOct_local);
+				    fy = compute_second_derivative_error(ref_var[ivar],i,j,IY,iOct_local);
+				    fmax = fx > fy ? fx : fy;
+				    local_error = local_error > fmax ? local_error : fmax;
+				  }
+				  
+				}, Kokkos::Max<real_t>(error)); // end TeamVectorRange
       // now error has been computed, we can mark / flag octant for 
       // refinement or coarsening
-
+      
       // get current cell level
       uint8_t level = pmesh->getLevel(iOct);
-
+      
       // -1 means coarsen
       //  0 means don't modify
       // +1 means refine
       int criterion = -1;
 
       if (error > error_min)
-        criterion = criterion < 0 ? 0 : criterion;
-
+	criterion = criterion < 0 ? 0 : criterion;
+      
       if (error > error_max)
-        criterion = criterion < 1 ? 1 : criterion;
-
+	criterion = criterion < 1 ? 1 : criterion;
+      
       if ( level < params.level_max and criterion==1 )
-        pmesh->setMarker(iOct,1);
+	pmesh->setMarker(iOct,1);
       
       else if ( level > params.level_min and criterion==-1)
-        pmesh->setMarker(iOct,-1);
-
+	pmesh->setMarker(iOct,-1);
+      
       else
-        pmesh->setMarker(iOct,0);
-
+	pmesh->setMarker(iOct,0);
+      
       iOct       += nbTeams;
       iOct_local += nbTeams;
       
     } // end while iOct < nbOct
-
   } // operator ()
   
-  //! bitpit/PABLO amr mesh object
+//! bitpit/PABLO amr mesh object
   std::shared_ptr<AMRmesh> pmesh;
 
   //! general parameters

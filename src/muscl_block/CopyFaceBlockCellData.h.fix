@@ -254,12 +254,11 @@ public:
         pmesh->getYghost(iOct_neigh) : 
         pmesh->getY     (iOct_neigh);
 
-      if (neigh_size == NEIGH_IS_LARGER  and (neigh_loc < cur_loc) )
+      if (neigh_size == NEIGH_IS_LARGER  and (neigh_loc < cur_loc) ) 
         res = NEIGH_POS_1;
 
       if (neigh_size == NEIGH_IS_SMALLER and (neigh_loc > cur_loc) )
         res = NEIGH_POS_1;
-
     }
 
     if (dir == DIR_Y) {
@@ -601,9 +600,9 @@ public:
       // if necessary, shift border coords to access input (neighbor octant) cell data
       if ( face == FACE_LEFT ) {
         if ( dir == DIR_X )
-          coord_border[IX] = (coord_border[IX] + 2*bx - ghostWidth);
+          coord_border[IX] = (bx*2 - ghostWidth + coord_border[IX]);
         if ( dir == DIR_Y )
-          coord_border[IY] = (coord_border[IY] + 2*by - ghostWidth);
+          coord_border[IY] = (by*2 - ghostWidth + coord_border[IY]);
       }
 
       // remap to take into account that neighbor is actually larger

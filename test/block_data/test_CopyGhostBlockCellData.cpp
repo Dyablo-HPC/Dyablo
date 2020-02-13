@@ -133,8 +133,10 @@ void run_test(int argc, char *argv[]) {
   std::cout << "Using nbOctsPerGroup (number of octant per group) = " << nbOctsPerGroup << "\n";
 
   DataArrayBlock Ugroup = DataArrayBlock("Ugroup", nbCellsPerOct_g, params.nbvar, nbOctsPerGroup);
-
   uint32_t iGroup = 1;
+
+  uint8_t nfaces = (params.dimType == TWO_D ? 4 : 6);
+  FlagArrayBlock Interface_flags = FlagArrayBlock("Interface Flags", nfaces, nbOctsPerGroup);
   
   // chose an octant which should have a "same size" neighbor in all direction
   //uint32_t iOct_local = 2;
@@ -195,7 +197,8 @@ void run_test(int argc, char *argv[]) {
                                         solver->U, 
                                         solver->Ughost, 
                                         Ugroup, 
-                                        iGroup);
+                                        iGroup,
+                                        Interface_flags);
     
     // print data from from the chosen iGroup 
     std::cout << "Printing Ugroup data from iOct = " << iOct_global << " | iOctLocal = " << iOct_local << " and iGroup = " << iGroup << "\n";

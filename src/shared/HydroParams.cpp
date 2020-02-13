@@ -141,6 +141,12 @@ void HydroParams::setup(ConfigMap &configMap)
     implementationVersion = 0;
   }
 
+  std::string utype = configMap.getString("hydro", "updateType", "conservative_sum");
+  if (utype == "conservative_sum")
+    updateType = UPDATE_CONSERVATIVE_SUM;
+  else
+    updateType = UPDATE_NON_CONSERVATIVE;
+
   // low Mach correction
   rsst_enabled = configMap.getBool("low_mach", "rsst_enabled", false);
   rsst_cfl_enabled = configMap.getBool("low_mach", "rsst_cfl_enabled", false);
@@ -264,6 +270,7 @@ void HydroParams::print()
   printf( "iorder     : %d\n", settings.iorder);
   printf( "slope_type : %f\n", settings.slope_type);
   printf( "riemann    : %d\n", riemannSolverType);
+  printf( "update type: %d\n", updateType);
   //printf( "problem    : %d\n", problemStr);
   printf( "implementation version : %d\n",implementationVersion);
   printf( "##########################\n");

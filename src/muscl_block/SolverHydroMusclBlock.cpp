@@ -57,6 +57,7 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   U(), Uhost(), U2(), Ughost(), 
   Ugroup(), 
   Qgroup(),
+  Interface_flags(),
   Slopes_x(), 
   Slopes_y(), 
   Slopes_z()
@@ -143,8 +144,12 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   Ugroup = DataArrayBlock("Ugroup", nbCellsPerOct_g, nbvar, nbOctsPerGroup);
   Qgroup = DataArrayBlock("Qgroup", nbCellsPerOct_g, nbvar, nbOctsPerGroup);
 
+
   total_mem_size += nbCellsPerOct_g*nbOctsPerGroup*nbvar * sizeof(real_t) * 2 ;// 1+1 for Ugroup and Qgroup
 
+  // flags data array for faces on 2:1 borders
+  Interface_flags = FlagArrayBlock("Flags", nbOctsPerGroup);
+  total_mem_size += nbOctsPerGroup*sizeof(uint16_t);
 
   // all intermediate data array are sized upon nbOctsPerGroup
 
@@ -288,7 +293,8 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
     } else if ( !m_problem_name.compare("rayleigh_taylor") ) {
       
       //init_rayleigh_taylor(this);
-      
+    } else if ( !m_problem_name.compare("custom") ) {
+      // Don't do anything here, let the user setup their own problem
     } else {
       
       std::cout << "Problem : " << m_problem_name
@@ -544,8 +550,11 @@ void SolverHydroMusclBlock::godunov_unsplit_impl(DataArrayBlock data_in,
                                           nbOctsPerGroup,
                                           iGroup,
                                           Ugroup,
+					  U,
+					  Ughost,
                                           data_out,
                                           Qgroup,
+                                          Interface_flags,
                                           dt);
 
     m_timers[TIMER_NUM_SCHEME]->stop();
@@ -743,6 +752,9 @@ void SolverHydroMusclBlock::save_solution_hdf5()
       hdf5_writer->write_quadrant_pressure(U, fm);
     }
 
+    if (write_variables.find("iOct") != std::string::npos)
+      hdf5_writer->write_quadrant_id(U);
+
     // close the file
     hdf5_writer->write_footer();
     hdf5_writer->close();
@@ -808,6 +820,7 @@ void SolverHydroMusclBlock::mark_cells()
   real_t error_min = configMap.getFloat("amr", "error_min", 0.2);
   real_t error_max = configMap.getFloat("amr", "error_max", 0.8);
 
+  // TEST HERE !
   DataArrayBlock Udata = U2;
 
   // apply refinement criterion by parts
@@ -1118,7 +1131,7 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
       for (int ivar = 0; ivar < nbVars; ++ivar) {
 
         for (uint32_t iCell = 0; iCell < nbCellsPerOct; ++iCell) {
-
+	  
           U(iCell, fm[ivar], iOct) = U2(iCell, fm[ivar], mapper[0]);
 
         } // end for iCell 
@@ -1208,7 +1221,8 @@ void SolverHydroMusclBlock::fill_block_data_ghost(DataArrayBlock data_in,
                                       data_in,
                                       Ughost,
                                       Ugroup, 
-                                      iGroup);
+                                      iGroup,
+                                      Interface_flags);
 
 } // SolverHydroMusclBlock::fill_block_data_ghost
 

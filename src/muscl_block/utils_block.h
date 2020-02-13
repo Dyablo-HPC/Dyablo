@@ -9,8 +9,41 @@
 
 namespace dyablo { namespace muscl_block {
 
-using coord_t     = Kokkos::Array<uint32_t, 3>;
-using blockSize_t = Kokkos::Array<uint32_t, 3>;
+using coord_t        = Kokkos::Array<uint32_t, 3>;
+using blockSize_t    = Kokkos::Array<uint32_t, 3>;
+
+// =======================================================
+// =======================================================
+/** 
+ * Ordering of coordinates. Used in non-conformal interface update
+ **/
+struct CoordComparator {
+  bool operator()(const coord_t &a, const coord_t &b) {
+    if (a[0] < b[0])
+      return true;
+    else if (a[1] < b[1])
+      return true;
+    else
+      return a[2] < b[2];
+  }
+};
+
+// =======================================================
+// =======================================================
+/**
+ * Flagging of faces, looking for non conformal neighbours
+ * Storing result as bit mask on a 8 bits integer
+ * If necessary to do the same with corners, then we will have
+ * to switch to a 32 bits integer (26 possibilities in 3D)
+ **/
+enum ConformalStatus {
+  TWO_TO_ONE_LEFT   = 0x01,
+  TWO_TO_ONE_RIGHT  = 0x02,
+  TWO_TO_ONE_DOWN   = 0x04,
+  TWO_TO_ONE_UP     = 0x08,
+  TWO_TO_ONE_FRONT  = 0x0F,
+  TWO_TO_ONE_BACK   = 0x20
+};
 
 // =======================================================
 // =======================================================
