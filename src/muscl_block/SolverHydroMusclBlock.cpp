@@ -284,7 +284,7 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
       
     } else if ( !m_problem_name.compare("four_quadrant") ) {
       
-      //init_four_quadrant(this);
+      init_four_quadrant(this);
       
     } else if ( !m_problem_name.compare("isentropic_vortex") ) {
       
