@@ -32,6 +32,7 @@
 // Block data related functors
 #include "muscl_block/CopyInnerBlockCellData.h"
 #include "muscl_block/CopyFaceBlockCellData.h"
+#include "muscl_block/CopyCornerBlockCellData.h"
 
 #if BITPIT_ENABLE_MPI==1
 #include "muscl_block/UserDataComm.h"
@@ -1211,6 +1212,7 @@ void SolverHydroMusclBlock::fill_block_data_ghost(DataArrayBlock data_in,
   // necessary to access user data
   auto fm = fieldMgr.get_id2index();
 
+  // Faces
   CopyFaceBlockCellDataFunctor::apply(amr_mesh,
                                       configMap,
                                       params,
@@ -1223,6 +1225,19 @@ void SolverHydroMusclBlock::fill_block_data_ghost(DataArrayBlock data_in,
                                       Ugroup, 
                                       iGroup,
                                       Interface_flags);
+
+  // And corners
+  CopyCornerBlockCellDataFunctor::apply(amr_mesh,
+					configMap,
+					params,
+					fm,
+					blockSizes,
+					ghostWidth,
+					nbOctsPerGroup,
+					data_in,
+					Ughost,
+					Ugroup,
+					iGroup);
 
 } // SolverHydroMusclBlock::fill_block_data_ghost
 

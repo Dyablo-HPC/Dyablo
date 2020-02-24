@@ -8,7 +8,7 @@
 #include "shared/FieldManager.h"
 #include "shared/kokkos_shared.h"
 #include "shared/utils_hydro.h"
-#include "muscl_blolck/utils_block.h"
+#include "muscl_block/utils_block.h"
 
 namespace dyablo {
 namespace muscl_block {
@@ -30,26 +30,33 @@ public:
   void setNbTeams(uint32_t nbTeams_) { nbTeams = nbTeams_; };
 
   CopyCornerBlockCellDataFunctor(std::shared_ptr<AMRmesh> pmesh,
-				 HydroParams parms,
+				 HydroParams params,
 				 id2index_t fm,
 				 blockSize_t blockSizes,
 				 uint32_t ghostWidth,
 				 uint32_t nbOctsPerGroup,
 				 DataArrayBlock U,
+				 DataArrayBlock U_ghost,
 				 DataArrayBlock Ugroup,
 				 uint32_t iGroup) :
     pmesh(pmesh),
     params(params),
-    fm(fm)
+    fm(fm),
     blockSizes(blockSizes),
-    ghosstWidth(ghosstWidth),
+    ghostWidth(ghostWidth),
     nbOctsPerGroup(nbOctsPerGroup),
     U(U),
     U_ghost(U_ghost),
     Ugroup(Ugroup),
     iGroup(iGroup)
   {
+    bx   = blockSizes[IX];
+    by   = blockSizes[IY];
+    bz   = blockSizes[IZ];
     
+    bx_g = blockSizes[IX] + 2 * ghostWidth;
+    by_g = blockSizes[IY] + 2 * ghostWidth;
+    bz_g = blockSizes[IZ] + 2 * ghostWidth;
   }
 
   // static method that does everything: creates and executes the functor
@@ -63,16 +70,14 @@ public:
                     DataArrayBlock U,
                     DataArrayBlock U_ghost,
                     DataArrayBlock Ugroup,
-                    uint32_t iGroup,
-                    FlagArrayBlock Interface_flags)
+                    uint32_t iGroup)
   {
 
     CopyCornerBlockCellDataFunctor functor(pmesh, params, fm, 
 					   blockSizes, ghostWidth,
 					   nbOctsPerGroup, 
 					   U, U_ghost, 
-					   Ugroup, iGroup,
-					   Interface_flags);
+					   Ugroup, iGroup);
 
     /*
      * using kokkos team execution policy
@@ -89,6 +94,149 @@ public:
                          policy, functor);
   }
 
+  // ==============================================================
+  // ==============================================================
+  KOKKOS_INLINE_FUNCTION
+  void fill_ghost_corner_larger_2d(uint32_t iOct_local, uint32_t index, uint8_t corner, uint32_t iOct_neigh,
+				   bool isGhost) const {
+
+  } // fill_ghost_corner_larger_2d
+
+  // ==============================================================
+  // ==============================================================
+  KOKKOS_INLINE_FUNCTION
+  void fill_ghost_corner_smaller_2d(uint32_t iOct_local, uint32_t index, uint8_t corner, uint32_t iOct_neigh,
+				    bool isGhost) const {
+
+  } // fill_ghost_corner_smaller_2d
+
+  // ==============================================================
+  // ==============================================================
+  KOKKOS_INLINE_FUNCTION
+  void fill_ghost_corner_same_size_2d(uint32_t iOct_local, uint32_t index, uint8_t corner, uint32_t iOct_neigh,
+				      bool isGhost) const {
+    // We have a neighbour of the same size, we copy its values into the ghost blocks
+    uint32_t x_offset = bx-ghostWidth;
+    uint32_t y_offset = by-ghostWidth;
+    uint32_t gx_offset = bx + ghostWidth;
+    uint32_t gy_offset = by + ghostWidth;
+    
+    coord_t coord_neigh = index_to_coord(index, ghostWidth, ghostWidth);
+    coord_t coord_ghost = index_to_coord(index, ghostWidth, ghostWidth);
+
+    // Shifting the positions to the correct ids
+    if (corner & CORNER_RIGHT) // Right side
+      coord_ghost[IX] += gx_offset;
+    else // Left side
+      coord_neigh[IX] += x_offset;
+    
+    if (corner & CORNER_TOP) // Top side
+      coord_ghost[IY] += gy_offset;
+    else  // Bottom side
+      coord_neigh[IY] += y_offset;
+
+    // We convert to linear ids
+    uint32_t neigh_index = coord_neigh[IX] + bx*coord_neigh[IY];
+    uint32_t ghost_index = coord_ghost[IX] + bx_g*coord_ghost[IY];
+
+    //std::cerr << "CORNER : " << neigh_index << " (" << coord_neigh[IX] << "; " << coord_neigh[IY] << ") -> " << ghost_index << " (" << coord_ghost[IX] << "; " << coord_ghost[IY] << ")" << std::endl;
+
+    if (isGhost) {
+      Ugroup(ghost_index, fm[ID], iOct_local) = U_ghost(neigh_index, fm[ID], iOct_neigh);
+      Ugroup(ghost_index, fm[IU], iOct_local) = U_ghost(neigh_index, fm[IU], iOct_neigh);
+      Ugroup(ghost_index, fm[IV], iOct_local) = U_ghost(neigh_index, fm[IV], iOct_neigh);
+      Ugroup(ghost_index, fm[IP], iOct_local) = U_ghost(neigh_index, fm[IP], iOct_neigh);
+    }
+    else {
+      Ugroup(ghost_index, fm[ID], iOct_local) = U(neigh_index, fm[ID], iOct_neigh);
+      Ugroup(ghost_index, fm[IU], iOct_local) = U(neigh_index, fm[IU], iOct_neigh);
+      Ugroup(ghost_index, fm[IV], iOct_local) = U(neigh_index, fm[IV], iOct_neigh);
+      Ugroup(ghost_index, fm[IP], iOct_local) = U(neigh_index, fm[IP], iOct_neigh);
+    }
+
+  } // fill_ghost_corner_same_size_2d
+
+  // ==============================================================
+  // ==============================================================
+  KOKKOS_INLINE_FUNCTION
+  void fill_ghost_corner_2d(uint32_t iOct, uint32_t iOct_local, uint32_t index, uint8_t corner) const {
+    uint8_t codim = 2;
+
+    std::vector<uint32_t> neigh;
+    std::vector<bool> isGhost;
+
+    pmesh->findNeighbours(iOct, corner, codim, neigh, isGhost);
+
+    // Boundary condition ! TODO !
+    if (neigh.size() == 0) {
+
+    }
+    else if (neigh.size() == 1) {
+      uint32_t cur_level, neigh_level;
+
+      cur_level   = pmesh->getLevel(iOct);
+      neigh_level = pmesh->getLevel(neigh[0]);
+
+      if (cur_level == neigh_level)     // Same level
+	fill_ghost_corner_same_size_2d(iOct_local, index, corner, neigh[0], isGhost[0]);
+      else if (cur_level > neigh_level) // Larger neighbour
+	fill_ghost_corner_larger_2d(iOct_local, index, corner, neigh[0], isGhost[0]);
+      else                              // Smaller neighbour
+	fill_ghost_corner_smaller_2d(iOct_local, index, corner, neigh[0], isGhost[0]);
+    } // end if neigh.size() == 1
+    
+  } // fill_ghost_corner_2d
+  
+  // ==============================================================
+  // ==============================================================
+  KOKKOS_INLINE_FUNCTION
+  void functor2d(team_policy_t::member_type member) const {
+
+    // iOct must span the range [iGroup*nbOctsPerGroup ,
+    // (iGroup+1)*nbOctsPerGroup [
+    uint32_t iOct = member.league_rank() + iGroup * nbOctsPerGroup;
+
+    // octant id inside the Ugroup data array
+    uint32_t iOct_g = member.league_rank();
+
+    // total number of octants
+    uint32_t nbOcts = pmesh->getNumOctants();
+
+    // compute first octant index after current group
+    uint32_t iOctNextGroup = (iGroup + 1) * nbOctsPerGroup;
+
+    // Number of cells to fill : ghostWidth^2
+    uint32_t nbCells = ghostWidth*ghostWidth;
+
+    while (iOct < iOctNextGroup and iOct < nbOcts) {
+
+      // should we do this here ? retrieving the neighbours and everything will be done multiple times
+      Kokkos::parallel_for(
+	 Kokkos::TeamVectorRange(member, nbCells),
+	 KOKKOS_LAMBDA(const index_t index) {
+	   // Compute all four corners
+	   fill_ghost_corner_2d(iOct, iOct_g, index, CORNER_TOP_LEFT);
+	   fill_ghost_corner_2d(iOct, iOct_g, index, CORNER_TOP_RIGHT);
+	   fill_ghost_corner_2d(iOct, iOct_g, index, CORNER_BOTTOM_LEFT);
+	   fill_ghost_corner_2d(iOct, iOct_g, index, CORNER_BOTTOM_RIGHT);
+	 }); // end parallel_for
+	   
+      // increase current octant location both in U and Ugroup
+      iOct += nbTeams;
+      iOct_g += nbTeams;
+
+    } // end while iOct inside current group of octants
+
+  } // functor2d()
+
+  // ==============================================================
+  // ==============================================================
+  KOKKOS_INLINE_FUNCTION
+  void operator()(team_policy_t::member_type member) const {
+    if (params.dimType == TWO_D)
+      functor2d(member);
+  } // operator()
+
     //! AMR mesh
   std::shared_ptr<AMRmesh> pmesh;
 
@@ -103,6 +251,11 @@ public:
 
   //! ghost width
   uint32_t ghostWidth;
+
+  //! block sizes
+  uint32_t bx;
+  uint32_t by;
+  uint32_t bz;
 
   //! block sizes with    ghosts
   uint32_t bx_g;

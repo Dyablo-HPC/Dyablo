@@ -244,6 +244,20 @@ enum DIR_ID : uint8_t {
   DIR_Z = 2
 };
 
+// TODO: refactor this for 3d: Clearer names for enum ?
+// Corners extraction require codim = mdim, order is Z-order
+enum CORNER_DIR : uint8_t {
+  CORNER_BOTTOM_LEFT   = 0,
+  CORNER_BOTTOM_RIGHT  = 1,
+  CORNER_TOP_LEFT      = 2,
+  CORNER_TOP_RIGHT     = 3,
+
+  // Masks for fast testing
+  CORNER_RIGHT = 1,
+  CORNER_TOP   = 2
+};
+
+
 enum UPDATE_TYPE : uint8_t {
   UPDATE_NON_CONSERVATIVE = 0,
   UPDATE_CONSERVATIVE_SUM = 1
