@@ -97,6 +97,28 @@ public:
   // ==============================================================
   // ==============================================================
   KOKKOS_INLINE_FUNCTION
+  void fill_ghost_corner_bc_2d(uint32_t iOct_local, uint32_t index, uint8_t corner) const {
+    coord_t coord_ghost = index_to_coord(index, ghostWidth, ghostWidth);
+    coord_t coord_cell  = coord_ghost;
+    
+    // How to solve boundary conditions in corners ?
+    if (corner & CORNER_RIGHT) {
+      
+    }
+    else {
+
+    }
+    if (corner & CORNER_TOP) {
+
+    }
+    else {
+
+    }
+  } // fill_ghost_corner_bc_2d
+
+  // ==============================================================
+  // ==============================================================
+  KOKKOS_INLINE_FUNCTION
   void fill_ghost_corner_larger_2d(uint32_t iOct_local, uint32_t index, uint8_t corner, uint32_t iOct_neigh,
 				   bool isGhost) const {
 
@@ -108,39 +130,108 @@ public:
   void fill_ghost_corner_smaller_2d(uint32_t iOct_local, uint32_t index, uint8_t corner, uint32_t iOct_neigh,
 				    bool isGhost) const {
 
+    // Pre-computed offsets for shifting coordinates in the right reference frame
+    // x/y_offsets are for the neighbour cell
+    // gx/gy_offsets aree for the ghosted block
+    uint32_t x_offset  = bx-ghostWidth*2;
+    uint32_t y_offset  = by-ghostWidth*2;
+    uint32_t gx_offset = bx+ghostWidth;
+    uint32_t gy_offset = by+ghostWidth;
+
+    // Coordinates in the neighbour and in the ghosted block
+    coord_t coord_neigh = index_to_coord(index, ghostWidth, ghostWidth);
+    coord_t coord_ghost = coord_neigh;
+
+    // We multiply by two to shift to smaller cells
+    coord_neigh[IX] *= 2;
+    coord_neigh[IY] *= 2;
+
+    // Shifting the positions to the correct ids
+    if (corner & CORNER_RIGHT) // Right side
+      coord_ghost[IX] += gx_offset;
+    else                       // Left side
+      coord_neigh[IX] += x_offset;
+    if (corner & CORNER_TOP)   // Top side
+      coord_ghost[IY] += gy_offset;
+    else
+      coord_neigh[IY] += y_offset;
+
+    // We accumulate the results in this variable
+    HydroState2d u = {0.0, 0.0, 0.0, 0.0};
+
+    uint32_t ghost_index = coord_ghost[IX] + bx_g*coord_ghost[IY];
+
+    //std::cerr << ghost_index << " (" << coord_ghost[IX] << "; " << coord_ghost[IY] << ") is receiving from :" << std::endl;
+
+    // Summing all the sub-cells
+    for (int ix=0; ix < 2; ++ix) {
+      for (int iy=0; iy < 2; ++iy) {
+	coord_t coord_sub = coord_neigh;
+	coord_sub[IX] += ix;
+	coord_sub[IY] += iy;
+
+	uint32_t neigh_index = coord_sub[IX] + bx*coord_sub[IY];
+	//	std::cerr << " . " << neigh_index << " (" << coord_sub[IX] << "; " << coord_sub[IY] << ")" << std::endl;
+
+	if (isGhost) {
+	  u[ID] += U_ghost(neigh_index, fm[ID], iOct_neigh);
+	  u[IU] += U_ghost(neigh_index, fm[IU], iOct_neigh);
+	  u[IV] += U_ghost(neigh_index, fm[IV], iOct_neigh);
+	  u[IP] += U_ghost(neigh_index, fm[IP], iOct_neigh);
+	}
+	else {
+	  u[ID] += U(neigh_index, fm[ID], iOct_neigh);
+	  u[IU] += U(neigh_index, fm[IU], iOct_neigh);
+	  u[IV] += U(neigh_index, fm[IV], iOct_neigh);
+	  u[IP] += U(neigh_index, fm[IP], iOct_neigh);
+	} // end isGhost
+      } // end for iy
+    } // end for ix
+
+    // And averaging
+    Ugroup(ghost_index, fm[ID], iOct_local) = 0.25 * u[ID];
+    Ugroup(ghost_index, fm[IU], iOct_local) = 0.25 * u[IU];
+    Ugroup(ghost_index, fm[IV], iOct_local) = 0.25 * u[IV];
+    Ugroup(ghost_index, fm[IP], iOct_local) = 0.25 * u[IP];
+
   } // fill_ghost_corner_smaller_2d
 
   // ==============================================================
   // ==============================================================
   KOKKOS_INLINE_FUNCTION
   void fill_ghost_corner_same_size_2d(uint32_t iOct_local, uint32_t index, uint8_t corner, uint32_t iOct_neigh,
-				      bool isGhost) const {
-    // We have a neighbour of the same size, we copy its values into the ghost blocks
-    uint32_t x_offset = bx-ghostWidth;
-    uint32_t y_offset = by-ghostWidth;
-    uint32_t gx_offset = bx + ghostWidth;
-    uint32_t gy_offset = by + ghostWidth;
-    
+				      bool isGhost) const  {
+    // Pre-computed offsets for shifting coordinates in the right reference frame
+    // x/y_offsets are for the neighbour cell
+    // gx/gy_offsets aree for the ghosted block
+    uint32_t x_offset  = bx-ghostWidth;
+    uint32_t y_offset  = by-ghostWidth;
+    uint32_t gx_offset = bx+ghostWidth;
+    uint32_t gy_offset = by+ghostWidth;
+
+    // Coordinates in the neighbour and in the ghosted block
     coord_t coord_neigh = index_to_coord(index, ghostWidth, ghostWidth);
-    coord_t coord_ghost = index_to_coord(index, ghostWidth, ghostWidth);
+    coord_t coord_ghost = coord_neigh;
 
     // Shifting the positions to the correct ids
     if (corner & CORNER_RIGHT) // Right side
       coord_ghost[IX] += gx_offset;
-    else // Left side
+    else                       // Left side
       coord_neigh[IX] += x_offset;
     
-    if (corner & CORNER_TOP) // Top side
+    if (corner & CORNER_TOP)   // Top side
       coord_ghost[IY] += gy_offset;
-    else  // Bottom side
+    else                       // Bottom side
       coord_neigh[IY] += y_offset;
 
     // We convert to linear ids
     uint32_t neigh_index = coord_neigh[IX] + bx*coord_neigh[IY];
     uint32_t ghost_index = coord_ghost[IX] + bx_g*coord_ghost[IY];
 
-    //std::cerr << "CORNER : " << neigh_index << " (" << coord_neigh[IX] << "; " << coord_neigh[IY] << ") -> " << ghost_index << " (" << coord_ghost[IX] << "; " << coord_ghost[IY] << ")" << std::endl;
+    //std::cerr << "copying : " << neigh_index << " (" << coord_neigh[IX] << "; " << coord_neigh[IY] << ") -> "
+    //	      << ghost_index << " (" << coord_ghost[IX] << "; " << coord_ghost[IY] << ")" << std::endl;
 
+    // And we copy the data
     if (isGhost) {
       Ugroup(ghost_index, fm[ID], iOct_local) = U_ghost(neigh_index, fm[ID], iOct_neigh);
       Ugroup(ghost_index, fm[IU], iOct_local) = U_ghost(neigh_index, fm[IU], iOct_neigh);
@@ -167,11 +258,10 @@ public:
 
     pmesh->findNeighbours(iOct, corner, codim, neigh, isGhost);
 
-    // Boundary condition ! TODO !
-    if (neigh.size() == 0) {
-
-    }
-    else if (neigh.size() == 1) {
+    // We treat boundary conditions differently
+    if (neigh.size() == 0)
+      fill_ghost_corner_bc_2d(iOct_local, index, corner);
+    else if (neigh.size() == 1) {  // If we have a neighbour, we disjunct cases
       uint32_t cur_level, neigh_level;
 
       cur_level   = pmesh->getLevel(iOct);
