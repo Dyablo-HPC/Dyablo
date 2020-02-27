@@ -15,7 +15,16 @@ namespace muscl_block {
 
   /***************************************/
   /**
-   * TODO : Documentation
+   * This functor copies in a full ghosted block the corners
+   * There are several cases to take into account : 
+   *   . Same size neighbours are treated in fill_ghost_corner_same_size_Xd
+   *   . Larger neighbours are treated in fill_ghost_corner_larger_Xd
+   *   . Smaller neighbours are treated in fill_ghost_corner_smaller_Xd
+   *   . Face boundary conditions are treated in fill_ghost_corner_bc_face_Xd
+   *   . Corner boundary conditions are treated in fill_ghost_corner_bc_corner_Xd
+   *
+   * \note The copy for face boundary conditions relies on filled ghost faces
+   * hence this kernel should strictly be used AFTER CopyFaceBlockCellDataFunctor
    **/
 
 class CopyCornerBlockCellDataFunctor {
@@ -96,16 +105,35 @@ public:
 
   // ==============================================================
   // ==============================================================
+  /**
+   * This routine fills in the corners of the ghosted block in case the said corner is also a corner of
+   * the domain.
+   * 
+   * \param[in] iOct_local id of the current octant in the active group to be filled
+   * \param[in] index id of the current corner cell to be modified (between 0 and ghostWidth^2-1)
+   * \param[in] corner to be filled here
+   **/
   KOKKOS_INLINE_FUNCTION
   void fill_ghost_corner_bc_corner_2d(uint32_t iOct_local, uint32_t index, uint8_t corner) const {
     coord_t coord_ghost = index_to_coord(index, ghostWidth, ghostWidth);
     coord_t coord_cell  = coord_ghost;
     
-    // TODO : Do this properly !
+    // TODO : How do we implement this ?
   } // fill_ghost_corner_bc_corner_2d
 
   // ==============================================================
   // ==============================================================
+  /**
+   * This routine fills in the corners of the ghosted block in case one of the edges is a boundary of 
+   * the domain. This routine solely used already copied data and hence does not require any neighbour
+   * information
+   *
+   * \param[in] iOct_local id of the current octant in the active group to be filled
+   * \param[in] index id of the current corner cell to be modified (between 0 and ghostWidth^2-1)
+   * \param[in] corner to be filled here
+   * \param[in] dir direction aong which the boundary is
+   * \param[in] face the boundary's corresponding face
+   **/
   KOKKOS_INLINE_FUNCTION
   void fill_ghost_corner_bc_face_2d(uint32_t iOct_local, uint32_t index, uint8_t corner, uint8_t dir, uint8_t face) const {
     // Pre-computed offsets for shifting the coordinates in the right reference frame :
@@ -145,10 +173,20 @@ public:
     Ugroup(index_ghost, fm[IU], iOct_local) = Ugroup(index_copy, fm[IU], iOct_local);
     Ugroup(index_ghost, fm[IV], iOct_local) = Ugroup(index_copy, fm[IV], iOct_local);
     Ugroup(index_ghost, fm[IP], iOct_local) = Ugroup(index_copy, fm[IP], iOct_local);
-  } // fill_ghost_corner_bc_corner_2d
+  } // fill_ghost_corner_bc_face_2d
 
   // ==============================================================
   // ==============================================================
+  /**
+   * This routine fills in the corners of a ghosted block if the corresponding neighbour is one level
+   * coarser than the current block.
+   *
+   * \param[in] iOct_local id of the current octant in the active group to be filled
+   * \param[in] index id of the current corner cell to be modified (between 0 and ghostWidth^2-1)
+   * \param[in] corner to be filled here
+   * \param[in] iOct_neigh id of the neighbouring octant corresponding to the corner
+   * \param[in] isGhost indicates if the neighbour has to be copied from the U_ghost
+   **/
   KOKKOS_INLINE_FUNCTION
   void fill_ghost_corner_larger_2d(uint32_t iOct_local, uint32_t index, uint8_t corner, uint32_t iOct_neigh,
 				   bool isGhost) const {
@@ -197,10 +235,19 @@ public:
 
   // ==============================================================
   // ==============================================================
+  /**
+   * This routine fills in the corners of a ghosted block if the corresponding neighbour is one level
+   * finer than the current block.
+   *
+   * \param[in] iOct_local id of the current octant in the active group to be filled
+   * \param[in] index id of the current corner cell to be modified (between 0 and ghostWidth^2-1)
+   * \param[in] corner to be filled here
+   * \param[in] iOct_neigh id of the neighbouring octant corresponding to the corner
+   * \param[in] isGhost indicates if the neighbour has to be copied from the U_ghost
+   **/
   KOKKOS_INLINE_FUNCTION
   void fill_ghost_corner_smaller_2d(uint32_t iOct_local, uint32_t index, uint8_t corner, uint32_t iOct_neigh,
 				    bool isGhost) const {
-
     // Pre-computed offsets for shifting coordinates in the right reference frame
     // x/y_offsets are for the neighbour cell
     // gx/gy_offsets aree for the ghosted block
@@ -269,6 +316,16 @@ public:
 
   // ==============================================================
   // ==============================================================
+  /**
+   * This routine fills in the corners of a ghosted block if the corresponding neighbour is on the same
+   * level.
+   *
+   * \param[in] iOct_local id of the current octant in the active group to be filled
+   * \param[in] index id of the current corner cell to be modified (between 0 and ghostWidth^2-1)
+   * \param[in] corner to be filled here
+   * \param[in] iOct_neigh id of the neighbouring octant corresponding to the corner
+   * \param[in] isGhost indicates if the neighbour has to be copied from the U_ghost
+   **/
   KOKKOS_INLINE_FUNCTION
   void fill_ghost_corner_same_size_2d(uint32_t iOct_local, uint32_t index, uint8_t corner, uint32_t iOct_neigh,
 				      bool isGhost) const  {
@@ -320,6 +377,18 @@ public:
 
   // ==============================================================
   // ==============================================================
+  /** 
+   * This routine is a proxy that finds in which of the following routines has to be called :
+   *  . fill_ghost_corner_same_size_2d
+   *  . fill_ghost_corner_larger_2d
+   *  . fill_ghost_corner_smaller_2d
+   *  . fill_ghost_corner_bc_face_2d
+   *  . fill_ghost_corner_bc_corner_2d   
+   *
+   * \param[in] iOct_local id of the current octant in the active group to be filled
+   * \param[in] index id of the current corner cell to be modified (between 0 and ghostWidth^2-1)
+   * \param[in] corner to be filled here
+   **/
   KOKKOS_INLINE_FUNCTION
   void fill_ghost_corner_2d(uint32_t iOct, uint32_t iOct_local, uint32_t index, uint8_t corner) const {
     const uint8_t corner_codim = 2;
