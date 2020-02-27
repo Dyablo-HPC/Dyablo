@@ -152,26 +152,48 @@ public:
       coord_ghost[IY] += gy_offset;
 
     coord_t coord_copy  = coord_ghost;
-    
+    real_t sign_u = 1.0;
+    real_t sign_v = 1.0;
+
     if (dir == DIR_X) {
+      // Absorbing conditions
       if (params.boundary_type_xmin == BC_ABSORBING and face == FACE_LEFT)
 	coord_copy[IX] = ghostWidth;
       else if (params.boundary_type_xmax == BC_ABSORBING and face == FACE_RIGHT)
 	coord_copy[IX] = gx_offset-1;
+      // Reflexive conditions
+      else if (params.boundary_type_xmin == BC_REFLECTING and face == FACE_LEFT) {
+	coord_copy[IX] = 2*ghostWidth - coord_copy[IX] - 1;
+	sign_u = -1.0;
+      }
+      else if (params.boundary_type_xmax == BC_REFLECTING and face == FACE_RIGHT) {
+	coord_copy[IX] = 2*(ghostWidth+bx) - coord_copy[IX] - 1;
+	sign_u = -1.0;
+      }
     }
     else { // DIR_Y
+      // Absorbing conditions
       if (params.boundary_type_ymin == BC_ABSORBING and face == FACE_LEFT)
 	coord_copy[IY] = ghostWidth;
       else if (params.boundary_type_ymax == BC_ABSORBING and face == FACE_RIGHT)
 	coord_copy[IY] = gy_offset-1;
+      // Reflexive conditions
+      else if (params.boundary_type_ymin == BC_REFLECTING and face == FACE_LEFT) {
+	coord_copy[IY] = 2*ghostWidth - coord_copy[IY] - 1;
+	sign_v = -1.0;
+      }
+      else if (params.boundary_type_ymax == BC_REFLECTING and face == FACE_RIGHT) {
+	coord_copy[IY] = 2*(ghostWidth+by) - coord_copy[IY] - 1;
+	sign_v = -1.0;
+      }
     } // end if dir
 
     uint32_t index_ghost = coord_ghost[IX] + (bx_g)*coord_ghost[IY];
     uint32_t index_copy  = coord_copy[IX]  + (bx_g)*coord_copy[IY];
 
     Ugroup(index_ghost, fm[ID], iOct_local) = Ugroup(index_copy, fm[ID], iOct_local);
-    Ugroup(index_ghost, fm[IU], iOct_local) = Ugroup(index_copy, fm[IU], iOct_local);
-    Ugroup(index_ghost, fm[IV], iOct_local) = Ugroup(index_copy, fm[IV], iOct_local);
+    Ugroup(index_ghost, fm[IU], iOct_local) = Ugroup(index_copy, fm[IU], iOct_local) * sign_u;
+    Ugroup(index_ghost, fm[IV], iOct_local) = Ugroup(index_copy, fm[IV], iOct_local) * sign_v;
     Ugroup(index_ghost, fm[IP], iOct_local) = Ugroup(index_copy, fm[IP], iOct_local);
   } // fill_ghost_corner_bc_face_2d
 
