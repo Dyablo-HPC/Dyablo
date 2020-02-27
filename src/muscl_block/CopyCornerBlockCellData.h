@@ -97,31 +97,102 @@ public:
   // ==============================================================
   // ==============================================================
   KOKKOS_INLINE_FUNCTION
-  void fill_ghost_corner_bc_2d(uint32_t iOct_local, uint32_t index, uint8_t corner) const {
+  void fill_ghost_corner_bc_corner_2d(uint32_t iOct_local, uint32_t index, uint8_t corner) const {
     coord_t coord_ghost = index_to_coord(index, ghostWidth, ghostWidth);
     coord_t coord_cell  = coord_ghost;
     
-    // How to solve boundary conditions in corners ?
-    if (corner & CORNER_RIGHT) {
-      
-    }
-    else {
+    // TODO : Do this properly !
+  } // fill_ghost_corner_bc_corner_2d
 
-    }
-    if (corner & CORNER_TOP) {
+  // ==============================================================
+  // ==============================================================
+  KOKKOS_INLINE_FUNCTION
+  void fill_ghost_corner_bc_face_2d(uint32_t iOct_local, uint32_t index, uint8_t corner, uint8_t dir, uint8_t face) const {
+    // Pre-computed offsets for shifting the coordinates in the right reference frame :
+    // x/y_offset are for the neighbour block
+    // gx/gy_offset are for the ghosted block
+    const uint32_t gx_offset = bx+ghostWidth;
+    const uint32_t gy_offset = by+ghostWidth;
 
-    }
-    else {
+    // Coordinates in the ghosted block and in the neighbour
+    coord_t coord_ghost = index_to_coord(index, ghostWidth, ghostWidth);
 
+    // Shifting ghosted index to correct position
+    if (corner & 1)
+      coord_ghost[IX] += gx_offset;
+    if (corner & 2)
+      coord_ghost[IY] += gy_offset;
+
+    coord_t coord_copy  = coord_ghost;
+    
+    if (dir == DIR_X) {
+      if (params.boundary_type_xmin == BC_ABSORBING and face == FACE_LEFT)
+	coord_copy[IX] = ghostWidth;
+      else if (params.boundary_type_xmax == BC_ABSORBING and face == FACE_RIGHT)
+	coord_copy[IX] = gx_offset-1;
     }
-  } // fill_ghost_corner_bc_2d
+    else { // DIR_Y
+      if (params.boundary_type_ymin == BC_ABSORBING and face == FACE_LEFT)
+	coord_copy[IY] = ghostWidth;
+      else if (params.boundary_type_ymax == BC_ABSORBING and face == FACE_RIGHT)
+	coord_copy[IY] = gy_offset-1;
+    } // end if dir
+
+    uint32_t index_ghost = coord_ghost[IX] + (bx_g)*coord_ghost[IY];
+    uint32_t index_copy  = coord_copy[IX]  + (bx_g)*coord_copy[IY];
+
+    Ugroup(index_ghost, fm[ID], iOct_local) = Ugroup(index_copy, fm[ID], iOct_local);
+    Ugroup(index_ghost, fm[IU], iOct_local) = Ugroup(index_copy, fm[IU], iOct_local);
+    Ugroup(index_ghost, fm[IV], iOct_local) = Ugroup(index_copy, fm[IV], iOct_local);
+    Ugroup(index_ghost, fm[IP], iOct_local) = Ugroup(index_copy, fm[IP], iOct_local);
+  } // fill_ghost_corner_bc_corner_2d
 
   // ==============================================================
   // ==============================================================
   KOKKOS_INLINE_FUNCTION
   void fill_ghost_corner_larger_2d(uint32_t iOct_local, uint32_t index, uint8_t corner, uint32_t iOct_neigh,
 				   bool isGhost) const {
+    // Pre-computed offsets for shifting coordinates in the right reference frame
+    // x/y_offset are for the neighbour cell
+    // gx/gy_offset are for the ghosted block
+    uint32_t x_offset  = bx-ghostWidth/2;
+    uint32_t y_offset  = by-ghostWidth/2;
+    uint32_t gx_offset = bx+ghostWidth;
+    uint32_t gy_offset = by+ghostWidth;
 
+    // Cordinates in the neighbour and in the ghosted block
+    coord_t coord_neigh = index_to_coord(index, ghostWidth, ghostWidth);
+    coord_t coord_ghost = coord_neigh;
+
+    // We divide by two to shift to larger cells
+    coord_neigh[IX] /= 2;
+    coord_neigh[IY] /= 2;
+
+    // Shifting the positions to the correct ids
+    if (corner & CORNER_RIGHT) // Right side
+      coord_ghost[IX] += gx_offset;
+    else                       // Left side
+      coord_neigh[IX] += x_offset;
+    if (corner & CORNER_TOP)   // Top side
+      coord_ghost[IY] += gy_offset;
+    else
+      coord_neigh[IY] += y_offset;
+
+    uint32_t ghost_index = coord_ghost[IX] + bx_g*coord_ghost[IY];
+    uint32_t neigh_index = coord_neigh[IX] + bx*coord_neigh[IY];
+
+    if (isGhost) {
+      Ugroup(ghost_index, fm[ID], iOct_local) = U_ghost(neigh_index, fm[ID], iOct_neigh);
+      Ugroup(ghost_index, fm[IU], iOct_local) = U_ghost(neigh_index, fm[IU], iOct_neigh);
+      Ugroup(ghost_index, fm[IV], iOct_local) = U_ghost(neigh_index, fm[IV], iOct_neigh);
+      Ugroup(ghost_index, fm[IP], iOct_local) = U_ghost(neigh_index, fm[IP], iOct_neigh);
+    }
+    else {
+      Ugroup(ghost_index, fm[ID], iOct_local) = U(neigh_index, fm[ID], iOct_neigh);
+      Ugroup(ghost_index, fm[IU], iOct_local) = U(neigh_index, fm[IU], iOct_neigh);
+      Ugroup(ghost_index, fm[IV], iOct_local) = U(neigh_index, fm[IV], iOct_neigh);
+      Ugroup(ghost_index, fm[IP], iOct_local) = U(neigh_index, fm[IP], iOct_neigh);
+    } // end ifGhost
   } // fill_ghost_corner_larger_2d
 
   // ==============================================================
@@ -153,7 +224,7 @@ public:
       coord_neigh[IX] += x_offset;
     if (corner & CORNER_TOP)   // Top side
       coord_ghost[IY] += gy_offset;
-    else
+    else                       // Bottom side
       coord_neigh[IY] += y_offset;
 
     // We accumulate the results in this variable
@@ -251,17 +322,42 @@ public:
   // ==============================================================
   KOKKOS_INLINE_FUNCTION
   void fill_ghost_corner_2d(uint32_t iOct, uint32_t iOct_local, uint32_t index, uint8_t corner) const {
-    uint8_t codim = 2;
+    const uint8_t corner_codim = 2;
 
     std::vector<uint32_t> neigh;
     std::vector<bool> isGhost;
 
-    pmesh->findNeighbours(iOct, corner, codim, neigh, isGhost);
+    pmesh->findNeighbours(iOct, corner, corner_codim, neigh, isGhost);
 
     // We treat boundary conditions differently
-    if (neigh.size() == 0)
-      fill_ghost_corner_bc_2d(iOct_local, index, corner);
-    else if (neigh.size() == 1) {  // If we have a neighbour, we disjunct cases
+    if (neigh.size() == 0) {
+      // We check if we have one or two boundaries
+      const uint8_t face_codim = 1;
+      std::vector<uint32_t> n1, n2;
+      std::vector<bool> ig1, ig2;
+
+      // Extracting the two faces of the corner
+      // iface1 is along the X direction
+      // iface2 along the Y direction
+      const uint8_t iface1 = (corner & 1 ? FACE_XMAX : FACE_XMIN);
+      const uint8_t iface2 = (corner & 2 ? FACE_YMAX : FACE_YMIN);
+
+      // We extract the neighbours to find if the corner is crossing one or two boundaries
+      pmesh->findNeighbours(iOct, iface1, face_codim, n1, ig1);
+      pmesh->findNeighbours(iOct, iface2, face_codim, n2, ig2);
+
+      // Faces of copy
+      const uint8_t f1 = (corner & 1 ? FACE_RIGHT : FACE_LEFT);
+      const uint8_t f2 = (corner & 2 ? FACE_RIGHT : FACE_LEFT);
+      
+      if (n2.size() > 0)      // X face is boundary
+	fill_ghost_corner_bc_face_2d(iOct_local, index, corner, DIR_X, f1);
+      else if (n1.size() > 0) // Y face is boundary
+	fill_ghost_corner_bc_face_2d(iOct_local, index, corner, DIR_Y, f2);
+      else                    // X and Y are boundaries
+	fill_ghost_corner_bc_corner_2d(iOct_local, index, corner);
+    }
+    else if (neigh.size() == 1) {  // If we have a neighbour, we treat the different AMR cases separately
       uint32_t cur_level, neigh_level;
 
       cur_level   = pmesh->getLevel(iOct);
