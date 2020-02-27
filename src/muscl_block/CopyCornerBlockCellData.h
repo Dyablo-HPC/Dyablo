@@ -115,10 +115,7 @@ public:
    **/
   KOKKOS_INLINE_FUNCTION
   void fill_ghost_corner_bc_corner_2d(uint32_t iOct_local, uint32_t index, uint8_t corner) const {
-    coord_t coord_ghost = index_to_coord(index, ghostWidth, ghostWidth);
-    coord_t coord_cell  = coord_ghost;
-    
-    // TODO : How do we implement this ?
+    // TODO : Nothing is done here yet
   } // fill_ghost_corner_bc_corner_2d
 
   // ==============================================================
