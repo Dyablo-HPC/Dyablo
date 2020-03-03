@@ -1237,7 +1237,8 @@ void SolverHydroMusclBlock::fill_block_data_ghost(DataArrayBlock data_in,
 					data_in,
 					Ughost,
 					Ugroup,
-					iGroup);
+					iGroup,
+					Interface_flags);
 
 } // SolverHydroMusclBlock::fill_block_data_ghost
 
