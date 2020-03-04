@@ -236,8 +236,8 @@ enum InterfaceType {
 enum FACE_ID : uint8_t {
   FACE_LEFT   = 0,
   FACE_RIGHT  = 1,
-  FACE_TOP    = 2,
-  FACE_BOTTOM = 3,
+  FACE_BOTTOM = 2,
+  FACE_TOP    = 3,
   FACE_FRONT  = 4,
   FACE_REAR   = 5
 };
