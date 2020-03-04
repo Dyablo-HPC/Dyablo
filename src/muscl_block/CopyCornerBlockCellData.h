@@ -60,7 +60,8 @@ public:
     U_ghost(U_ghost),
     Ugroup(Ugroup),
     iGroup(iGroup),
-    Interface_flags(Interface_flags)
+    Interface_flags(Interface_flags),
+    eps(std::numeric_limits<real_t>::epsilon())
   {
     bx   = blockSizes[IX];
     by   = blockSizes[IY];
@@ -114,11 +115,14 @@ public:
    * This is trickier than expected since PABLO does not return a corner neighbour
    * in the case where the corner of the block is currently in the middle of a larger
    * face. e.g:
-   *     +-----+
-   *     |     |
-   *  +--X     |
-   *  |  |     |
-   *  +--+-----+
+   *      +------+
+   *      |      |
+   *  +---X      |
+   *  |   |      |
+   *  +---+------+
+   *
+   * For the calculation of coordinates, please refer to the design doc "corners_larger_neighbours.pdf" for 
+   * a description of the cases referred to in the comments.
    *
    * \param[in] iOct is of the current octant in the global tree
    * \param[in] iOct_local id of the current octant in the active group to be filled
@@ -126,32 +130,56 @@ public:
    * \param[out] isBoundary if we're hitting a non-periodic boundary
    * \param[out] neigh the id of the neighbour if we're not at a boundary
    * \param[out] isGhost if the neighbour is in the ghost cells of the current process
-   * \param[out] off the position of the current corner wrt the neighbour 
+   * \param[out] coord_neigh the position in the neighbouring block from where we want to start to copy
    **/
   KOKKOS_INLINE_FUNCTION
-  void get_corner_neighbours(uint32_t iOct, uint32_t iOct_local, uint8_t corner, bool &isBoundary, uint32_t &neigh, bool &isGhost, offset_t &off) const {
+  void get_corner_neighbours(uint32_t iOct, uint32_t iOct_local, uint8_t corner, bool &isBoundary, uint32_t &neigh, bool &isGhost, coord_t &coord_neigh) const {
     // Temp struct to communicate with PABLO
     std::vector<uint32_t> neigh_v;
     std::vector<bool> isGhost_v;
-    
-    // By default, the neighbour is the first in the Morton order
-    off = offset_t{0, 0, 0};
-
-    // We first try to get the neighbour using PABLO
     const uint8_t corner_codim = 2;
     const uint8_t face_codim   = 1;
 
+    // We have to test manually first if we're at the edge of the domain
+    real_t x    = pmesh->getX(iOct);
+    real_t y    = pmesh->getY(iOct);
+    real_t size = pmesh->getSize(iOct);
+    if (corner & CORNER_RIGHT)
+      x += size;
+    if (corner & CORNER_TOP)
+      y += size;
+
+    if (fabs(x - params.xmin) < eps
+	or fabs(y - params.ymin) < eps
+	or fabs(x - params.xmax) < eps
+	or fabs(y - params.ymax) < eps) {
+      isBoundary = true;
+      return;
+    }
+    
+    isBoundary = false;
+
+    // If we're not, we check the neighbours using PABLO
     pmesh->findNeighbours(iOct, corner, corner_codim, neigh_v, isGhost_v);
 
     // All good, we have a neighbour in PABLO, we return it
     if (neigh_v.size() > 0) {
-      isBoundary = false;
       neigh      = neigh_v[0];
       isGhost    = isGhost_v[0];
-    } 
+
+      // Finding coordinates from where to copy
+      if (corner & CORNER_RIGHT)  // Right face  -> Cases 1 and 9
+	coord_neigh[IX] = 0;
+      else                        // Left face   -> Cases 4 and 12
+	coord_neigh[IX] = bx - ghostWidth/2;
+
+      if (corner & CORNER_TOP)    // Top face    -> Cases 9 and 12
+	coord_neigh[IY] = 0;
+      else                        // Bottom face -> Cases 1 and 4
+	coord_neigh[IY] = by - ghostWidth/2;
+    }
     else {
       // No neighbour, all is not lost yet we check if we have a non conformal boundary on one of the corner faces
-      isBoundary = true;
       
       // X interface
       uint8_t iface;
@@ -169,11 +197,22 @@ public:
       if (Interface_flags(iOct_local) & nc_flag) {
 	pmesh->findNeighbours(iOct, iface, face_codim, neigh_v, isGhost_v);
 
+	// X interface has a larger neighbour, that means we are in cases 5, 6, 7 or 8
 	if (neigh_v.size() > 0) {
 	  isBoundary = false;
 	  neigh      = neigh_v[0];
 	  isGhost    = isGhost_v[0];
-	  off[IY]    = bx/2;
+
+	  if (corner & CORNER_RIGHT) // Corner on the right side;  Cases 5 and 7
+	    coord_neigh[IX] = 0;
+	  else                       // Corner on the left side;   Cases 6 and 8
+	    coord_neigh[IX] = bx-ghostWidth/2;
+
+	  if (corner & CORNER_TOP)   // Corner on the top side;    Cases 7 and 8
+	    coord_neigh[IY] = by/2;
+	  else                       // Corner on the bottom side; Cases 5 and 6
+	    coord_neigh[IY] = (by-ghostWidth)/2;
+	  
 	  // No need to stay here
 	  return; // Dunno if it's wise to use a return. Maybe encapsulate the Y part in a else ?
 	}
@@ -186,18 +225,29 @@ public:
       }
       else {
 	iface = FACE_BOTTOM;
-	nc_flag = INTERFACE_XMIN_BIGGER;
+	nc_flag = INTERFACE_YMIN_BIGGER;
       }
 
       // If the corresponding neighbour is bigger, we return it
       if (Interface_flags(iOct_local) & nc_flag) {
 	pmesh->findNeighbours(iOct, iface, face_codim, neigh_v, isGhost_v);
 
+	// Y interface has a larger neighbour, that means we are in cases 2, 3, 10 or 11
 	if (neigh_v.size() > 0) {
 	  isBoundary = false;
 	  neigh      = neigh_v[0];
 	  isGhost    = isGhost_v[0];
-	  off[IX]    = by/2;
+
+	  if (corner & CORNER_RIGHT) // Corner on the right side;  Cases 2 and 10
+	    coord_neigh[IX] = bx/2;
+	  else                       // Corner on the left side;   Cases 3 and 11
+	    coord_neigh[IX] = (bx-ghostWidth)/2;
+
+	  if (corner & CORNER_TOP)   // Corner on the top side;    Cases 10 and 11
+	    coord_neigh[IY] = 0;
+	  else                       // Corner on the bottom side; Cases 2 and 3
+	    coord_neigh[IY] = by-ghostWidth/2;
+	  
 	  // We exit
 	  return;
 	}
@@ -311,44 +361,35 @@ public:
    * \param[in] corner to be filled here
    * \param[in] iOct_neigh id of the neighbouring octant corresponding to the corner
    * \param[in] isGhost indicates if the neighbour has to be copied from the U_ghost
+   * \param[in] coord_neigh the coordinates in the neighbour, that have already been returned by get_corner_neighbours
    **/
   KOKKOS_INLINE_FUNCTION
   void fill_ghost_corner_larger_2d(uint32_t iOct_local, uint32_t index, uint8_t corner, uint32_t iOct_neigh,
-				   bool isGhost, offset_t off) const {
+				   bool isGhost, coord_t base_neigh) const {
     // Pre-computed offsets for shifting coordinates in the right reference frame
-    // x/y_offset are for the neighbour cell
     // gx/gy_offset are for the ghosted block
-    uint32_t x_offset  = bx-ghostWidth/2;
-    uint32_t y_offset  = by-ghostWidth/2;
     uint32_t gx_offset = bx+ghostWidth;
     uint32_t gy_offset = by+ghostWidth;
 
     // Cordinates in the neighbour and in the ghosted block
-    coord_t coord_neigh = index_to_coord(index, ghostWidth, ghostWidth);
-    coord_t coord_ghost = coord_neigh;
-
-    // We divide by two to shift to larger cells
-    coord_neigh[IX] /= 2;
-    coord_neigh[IY] /= 2;
-
-    // We shift according to given offset
-    coord_neigh[IX] += off[IX];
-    coord_neigh[IY] += off[IY];
+    coord_t coord_ghost = index_to_coord(index, ghostWidth, ghostWidth);
+    coord_t coord_neigh = base_neigh;
     
+    // We offset the neighbour coords by the current position in the corner block
+    // WARNING ! Check that this is correct with bx % 2 = 1 !!!
+    coord_neigh[IX] += coord_ghost[IX] / 2;
+    coord_neigh[IY] += coord_ghost[IY] / 2;
+
     // Shifting the positions to the correct ids
     if (corner & CORNER_RIGHT) // Right side
       coord_ghost[IX] += gx_offset;
-    else                       // Left side
-      coord_neigh[IX] += x_offset;
     if (corner & CORNER_TOP)   // Top side
       coord_ghost[IY] += gy_offset;
-    else
-      coord_neigh[IY] += y_offset;
 
     uint32_t ghost_index = coord_ghost[IX] + bx_g*coord_ghost[IY];
     uint32_t neigh_index = coord_neigh[IX] + bx*coord_neigh[IY];
 
-    //std::cerr << ghost_index << " <- " << neigh_index << std::endl;
+    //std::cerr << "   " << ghost_index << " <- " << neigh_index << "(" << base_neigh[IX] << "; " << base_neigh[IY] << ")" << std::endl;
 
     if (isGhost) {
       Ugroup(ghost_index, fm[ID], iOct_local) = U_ghost(neigh_index, fm[ID], iOct_neigh);
@@ -491,10 +532,10 @@ public:
 
     // And we copy the data
     if (isGhost) {
-      /*Ugroup(ghost_index, fm[ID], iOct_local) = U_ghost(neigh_index, fm[ID], iOct_neigh);
+      Ugroup(ghost_index, fm[ID], iOct_local) = U_ghost(neigh_index, fm[ID], iOct_neigh);
       Ugroup(ghost_index, fm[IU], iOct_local) = U_ghost(neigh_index, fm[IU], iOct_neigh);
       Ugroup(ghost_index, fm[IV], iOct_local) = U_ghost(neigh_index, fm[IV], iOct_neigh);
-      Ugroup(ghost_index, fm[IP], iOct_local) = U_ghost(neigh_index, fm[IP], iOct_neigh);*/
+      Ugroup(ghost_index, fm[IP], iOct_local) = U_ghost(neigh_index, fm[IP], iOct_neigh);
     }
     else {
       Ugroup(ghost_index, fm[ID], iOct_local) = U(neigh_index, fm[ID], iOct_neigh);
@@ -523,10 +564,12 @@ public:
   void fill_ghost_corner_2d(uint32_t iOct, uint32_t iOct_local, uint32_t index, uint8_t corner) const {
     uint32_t neigh;
     bool isGhost, isBoundary;
-    offset_t off;
+    coord_t neigh_coords;
 
     // We retrieve the corner ids, wether we're hitting a boundary, and if the location is shifted
-    get_corner_neighbours(iOct, iOct_local, corner, isBoundary, neigh, isGhost, off);
+    neigh=0;
+    isGhost=false;
+    get_corner_neighbours(iOct, iOct_local, corner, isBoundary, neigh, isGhost, neigh_coords);
 
     // We treat boundary conditions differently
     if (isBoundary) {
@@ -559,15 +602,15 @@ public:
     else {  // If we have a neighbour, we treat the different AMR cases separately
       uint32_t cur_level, neigh_level;
 
-      //std::cerr << "iOct " << iOct << "; for corner " << (int)corner << "; Neigh = " << neigh << std::endl;
-
       cur_level   = pmesh->getLevel(iOct);
       neigh_level = pmesh->getLevel(neigh);
 
       if (cur_level == neigh_level)     // Same level
 	fill_ghost_corner_same_size_2d(iOct_local, index, corner, neigh, isGhost);
-      else if (cur_level > neigh_level) // Larger neighbour
-	fill_ghost_corner_larger_2d(iOct_local, index, corner, neigh, isGhost, off);
+      else if (cur_level > neigh_level) { // Larger neighbour
+	//std::cerr << "iOct " << iOct << "; for corner " << (int)corner << "; Neigh = " << neigh << std::endl;
+	fill_ghost_corner_larger_2d(iOct_local, index, corner, neigh, isGhost, neigh_coords);
+      }
       else                              // Smaller neighbour
 	fill_ghost_corner_smaller_2d(iOct_local, index, corner, neigh, isGhost);
     } // end if neigh.size() == 
@@ -665,6 +708,9 @@ public:
 
   // ! flag array to keep track of which side is non-conformal 
   FlagArrayBlock Interface_flags;
+
+  // ! epsilon value to test equality between reals
+  real_t eps;
 
 }; // CopyCornerBlockCellDataFunctor
 
