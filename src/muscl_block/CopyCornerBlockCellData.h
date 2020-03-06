@@ -139,23 +139,6 @@ public:
     std::vector<bool> isGhost_v;
     const uint8_t corner_codim = 2;
     const uint8_t face_codim   = 1;
-
-    // We have to test manually first if we're at the edge of the domain
-    real_t x    = pmesh->getX(iOct);
-    real_t y    = pmesh->getY(iOct);
-    real_t size = pmesh->getSize(iOct);
-    if (corner & CORNER_RIGHT)
-      x += size;
-    if (corner & CORNER_TOP)
-      y += size;
-
-    if (fabs(x - params.xmin) < eps
-	or fabs(y - params.ymin) < eps
-	or fabs(x - params.xmax) < eps
-	or fabs(y - params.ymax) < eps) {
-      isBoundary = true;
-      return;
-    }
     
     isBoundary = false;
 
@@ -179,7 +162,24 @@ public:
 	coord_neigh[IY] = by - ghostWidth/2;
     }
     else {
-      // No neighbour, all is not lost yet we check if we have a non conformal boundary on one of the corner faces
+      // No neighbour, we check if we're at a boundary if not, we're at a non conformal edge
+      // We have to test manually first if we're at the edge of the domain
+      real_t x    = pmesh->getX(iOct);
+      real_t y    = pmesh->getY(iOct);
+      real_t size = pmesh->getSize(iOct);
+      if (corner & CORNER_RIGHT)
+	x += size;
+      if (corner & CORNER_TOP)
+	y += size;
+      
+      if ((fabs(x - params.xmin) < eps and params.boundary_type_xmin != BC_PERIODIC)
+	  or (fabs(y - params.ymin) < eps and params.boundary_type_ymin != BC_PERIODIC)
+	  or (fabs(x - params.xmax) < eps and params.boundary_type_xmax != BC_PERIODIC)
+	  or (fabs(y - params.ymax) < eps and params.boundary_type_ymax != BC_PERIODIC)) {
+	isBoundary = true;
+
+	return;
+      }
       
       // X interface
       uint8_t iface;
@@ -271,7 +271,27 @@ public:
    **/
   KOKKOS_INLINE_FUNCTION
   void fill_ghost_corner_bc_corner_2d(uint32_t iOct_local, uint32_t index, uint8_t corner) const {
-    // TODO : Nothing is done here yet
+    // Pre-computed offsets for shifting the coordinates in the right reference frame :
+    // x/y_offset are for the neighbour block
+    // gx/gy_offset are for the ghosted block
+    const uint32_t gx_offset = bx+ghostWidth;
+    const uint32_t gy_offset = by+ghostWidth;
+
+    // Coordinates in the ghosted block and in the neighbour
+    coord_t coord_ghost = index_to_coord(index, ghostWidth, ghostWidth);
+
+    // Shifting ghosted index to correct position
+    if (corner & 1)
+      coord_ghost[IX] += gx_offset;
+    if (corner & 2)
+      coord_ghost[IY] += gy_offset;
+
+    uint32_t ighost = coord_ghost[IX] + coord_ghost[IY] * bx_g;
+    
+    Ugroup(ighost, fm[ID], iOct_local) = 0.0;
+    Ugroup(ighost, fm[IU], iOct_local) = 0.0;
+    Ugroup(ighost, fm[IV], iOct_local) = 0.0;
+    Ugroup(ighost, fm[IP], iOct_local) = 0.0;
   } // fill_ghost_corner_bc_corner_2d
 
   // ==============================================================
@@ -418,7 +438,7 @@ public:
    * \param[in] isGhost indicates if the neighbour has to be copied from the U_ghost
    **/
   KOKKOS_INLINE_FUNCTION
-  void fill_ghost_corner_smaller_2d(uint32_t iOct_local, uint32_t index, uint8_t corner, uint32_t iOct_neigh,
+    void fill_ghost_corner_smaller_2d(uint32_t iOct_local, uint32_t iOct, uint32_t index, uint8_t corner, uint32_t iOct_neigh,
 				    bool isGhost) const {
     // Pre-computed offsets for shifting coordinates in the right reference frame
     // x/y_offsets are for the neighbour cell
@@ -451,6 +471,7 @@ public:
 
     uint32_t ghost_index = coord_ghost[IX] + bx_g*coord_ghost[IY];
 
+    //std::cerr << "In oct " << iOct << std::endl;
     //std::cerr << ghost_index << " (" << coord_ghost[IX] << "; " << coord_ghost[IY] << ") is receiving from :" << std::endl;
 
     // Summing all the sub-cells
@@ -461,7 +482,7 @@ public:
 	coord_sub[IY] += iy;
 
 	uint32_t neigh_index = coord_sub[IX] + bx*coord_sub[IY];
-	//std::cerr << " . " << neigh_index << " (" << coord_sub[IX] << "; " << coord_sub[IY] << ")" << std::endl;
+	//std::cerr << " . " << iOct_neigh << "; " << neigh_index << " (" << coord_sub[IX] << "; " << coord_sub[IY] << ")" << std::endl;
 
 	if (isGhost) {
 	  u[ID] += U_ghost(neigh_index, fm[ID], iOct_neigh);
@@ -598,6 +619,7 @@ public:
 	fill_ghost_corner_bc_face_2d(iOct_local, index, corner, DIR_Y, f2);
       else                    // X and Y are boundaries
 	fill_ghost_corner_bc_corner_2d(iOct_local, index, corner);
+      
     }
     else {  // If we have a neighbour, we treat the different AMR cases separately
       uint32_t cur_level, neigh_level;
@@ -605,14 +627,36 @@ public:
       cur_level   = pmesh->getLevel(iOct);
       neigh_level = pmesh->getLevel(neigh);
 
+      /*
+      // Putting everything to 0 : DEBUG
+      // Pre-computed offsets for shifting the coordinates in the right reference frame :
+      // x/y_offset are for the neighbour block
+      // gx/gy_offset are for the ghosted block
+      const uint32_t gx_offset = bx+ghostWidth;
+      const uint32_t gy_offset = by+ghostWidth;
+      
+      // Coordinates in the ghosted block and in the neighbour
+      coord_t coord_ghost = index_to_coord(index, ghostWidth, ghostWidth);
+      
+      // Shifting ghosted index to correct position
+      if (corner & 1)
+	coord_ghost[IX] += gx_offset;
+      if (corner & 2)
+	coord_ghost[IY] += gy_offset;
+      uint32_t ighost = coord_ghost[IX] + coord_ghost[IY] * bx_g;
+      
+      Ugroup(ighost, fm[ID], iOct_local) = 0.0;
+      Ugroup(ighost, fm[IU], iOct_local) = 0.0;
+      Ugroup(ighost, fm[IV], iOct_local) = 0.0;
+      Ugroup(ighost, fm[IP], iOct_local) = 0.0;
+      */
+      
       if (cur_level == neigh_level)     // Same level
 	fill_ghost_corner_same_size_2d(iOct_local, index, corner, neigh, isGhost);
-      else if (cur_level > neigh_level) { // Larger neighbour
-	//std::cerr << "iOct " << iOct << "; for corner " << (int)corner << "; Neigh = " << neigh << std::endl;
+      else if (cur_level > neigh_level) // Larger neighbour
 	fill_ghost_corner_larger_2d(iOct_local, index, corner, neigh, isGhost, neigh_coords);
-      }
       else                              // Smaller neighbour
-	fill_ghost_corner_smaller_2d(iOct_local, index, corner, neigh, isGhost);
+      fill_ghost_corner_smaller_2d(iOct_local, iOct, index, corner, neigh, isGhost);
     } // end if neigh.size() == 
   } // fill_ghost_corner_2d
   
