@@ -234,8 +234,12 @@ enum InterfaceType {
 };
 
 enum FACE_ID : uint8_t {
-  FACE_LEFT  = 0,
-  FACE_RIGHT = 1
+  FACE_LEFT   = 0,
+  FACE_RIGHT  = 1,
+  FACE_BOTTOM = 2,
+  FACE_TOP    = 3,
+  FACE_FRONT  = 4,
+  FACE_REAR   = 5
 };
 
 enum DIR_ID : uint8_t {
@@ -243,6 +247,20 @@ enum DIR_ID : uint8_t {
   DIR_Y = 1,
   DIR_Z = 2
 };
+
+// TODO: refactor this for 3d: Clearer names for enum ?
+// Corners extraction require codim = mdim, order is Z-order
+enum CORNER_DIR : uint8_t {
+  CORNER_BOTTOM_LEFT   = 0,
+  CORNER_BOTTOM_RIGHT  = 1,
+  CORNER_TOP_LEFT      = 2,
+  CORNER_TOP_RIGHT     = 3,
+
+  // Masks for fast testing
+  CORNER_RIGHT = 1,
+  CORNER_TOP   = 2
+};
+
 
 enum UPDATE_TYPE : uint8_t {
   UPDATE_NON_CONSERVATIVE = 0,
