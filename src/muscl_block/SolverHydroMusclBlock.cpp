@@ -268,7 +268,7 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
       
     } else if ( !m_problem_name.compare("sod") ) {
       
-      //init_sod(this);
+      init_sod(this);
       
     } else if ( !m_problem_name.compare("blast") ) {
       
