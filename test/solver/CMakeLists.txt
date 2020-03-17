@@ -43,6 +43,7 @@ configure_file(test_gresho_vortex_2D.ini test_gresho_vortex_2D.ini COPYONLY)
 configure_file(test_gresho_vortex_2D_low_mach.ini test_gresho_vortex_2D_low_mach.ini COPYONLY)
 configure_file(test_gresho_vortex_2D_block.ini test_gresho_vortex_2D_block.ini COPYONLY)
 configure_file(test_kelvin_helmholtz_2D.ini test_kelvin_helmholtz_2D.ini COPYONLY)
+configure_file(test_kelvin_helmholtz_2D_block.ini test_kelvin_helmholtz_2D.ini COPYONLY)
 configure_file(test_implode_2D.ini test_implode_2D.ini COPYONLY)
 configure_file(test_implode_3D.ini test_implode_3D.ini COPYONLY)
 
