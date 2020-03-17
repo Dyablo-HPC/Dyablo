@@ -277,7 +277,7 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
       
     } else if ( !m_problem_name.compare("kelvin_helmholtz") ) {
       
-      //init_kelvin_helmholtz(this);
+      init_kelvin_helmholtz(this);
       
     } else if ( !m_problem_name.compare("gresho_vortex") ) {
       
