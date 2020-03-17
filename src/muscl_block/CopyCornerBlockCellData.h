@@ -162,20 +162,79 @@ public:
 	coord_neigh[IY] = by - ghostWidth/2;
     }
     else {
-      // No neighbour, we check if we're at a boundary if not, we're at a non conformal edge
-      // We have to test manually first if we're at the edge of the domain
       real_t x    = pmesh->getX(iOct);
       real_t y    = pmesh->getY(iOct);
       real_t size = pmesh->getSize(iOct);
+      
+      if (corner & CORNER_RIGHT)
+	x += size*1.25;
+      else
+	x -= size*0.25;
+      if (corner & CORNER_TOP)
+	y += size*1.25;
+      else
+	y -= size*0.25;
+
+      // Periodic boundary fix :
+      // This is a very violent fix using the actual position of the nodes !
+      // TODO : Remove this when PABLO has been fixed !!!
+      bool x_periodic = ((x < params.xmin and params.boundary_type_xmin == BC_PERIODIC and !(corner & CORNER_RIGHT))
+			 or (x > params.xmax and params.boundary_type_xmax == BC_PERIODIC and (corner & CORNER_RIGHT)));
+      bool y_periodic = ((y < params.ymin and params.boundary_type_ymin == BC_PERIODIC and !(corner & CORNER_TOP))
+			  or (y > params.ymax and params.boundary_type_ymax == BC_PERIODIC and (corner & CORNER_TOP)));
+
+      // For this fix to be needed, we require
+      if (x_periodic or y_periodic) {
+	const real_t dom_dx = params.xmax - params.xmin;
+	const real_t dom_dy = params.ymax - params.ymin;
+	
+	if (x_periodic) {
+	  if (corner & CORNER_RIGHT)
+	    x += size*0.25 - dom_dx;
+	  else
+	    x += -size*0.25 + dom_dx;
+	}
+	if (y_periodic) {
+	  if (corner & CORNER_TOP)
+	    y += size*0.25 - dom_dy;
+	  else
+	    y += -size*0.25 + dom_dx;
+	}
+
+	bitpit::darray3 pos{x, y, 0.0};
+	neigh = pmesh->getPointOwnerIdx(pos, isGhost);
+
+	// Level of the neighbour
+	uint8_t neigh_level = pmesh->getLevel(neigh);
+	uint8_t cur_level   = pmesh->getLevel(iOct);
+
+	// We need to set coord_neigh if neigh_level > cur_level
+	if (neigh_level < cur_level) {
+	   if (corner & CORNER_RIGHT)  // Right face  -> Cases 1 and 9
+	     coord_neigh[IX] = 0;
+	   else                        // Left face   -> Cases 4 and 12
+	     coord_neigh[IX] = bx - ghostWidth/2;
+	   
+	   if (corner & CORNER_TOP)    // Top face    -> Cases 9 and 12
+	     coord_neigh[IY] = 0;
+	   else                        // Bottom face -> Cases 1 and 4
+	     coord_neigh[IY] = by - ghostWidth/2;
+	}
+
+	return;
+      }
+
+      // No neighbour, we check if we're at a boundary if not, we're at a non conformal edge
+      // We have to test manually first if we're at the edge of the domain
       if (corner & CORNER_RIGHT)
 	x += size;
       if (corner & CORNER_TOP)
 	y += size;
       
-      if ((fabs(x - params.xmin) < eps and params.boundary_type_xmin != BC_PERIODIC)
-	  or (fabs(y - params.ymin) < eps and params.boundary_type_ymin != BC_PERIODIC)
-	  or (fabs(x - params.xmax) < eps and params.boundary_type_xmax != BC_PERIODIC)
-	  or (fabs(y - params.ymax) < eps and params.boundary_type_ymax != BC_PERIODIC)) {
+      if ((x < params.xmin and params.boundary_type_xmin != BC_PERIODIC)
+	  or (y < params.ymin and params.boundary_type_ymin != BC_PERIODIC)
+	  or (x > params.xmax and params.boundary_type_xmax != BC_PERIODIC)
+	  or (y > params.ymax and params.boundary_type_ymax != BC_PERIODIC)) {
 	isBoundary = true;
 
 	return;
@@ -212,7 +271,7 @@ public:
 	    coord_neigh[IY] = by/2;
 	  else                       // Corner on the bottom side; Cases 5 and 6
 	    coord_neigh[IY] = (by-ghostWidth)/2;
-	  
+
 	  // No need to stay here
 	  return; // Dunno if it's wise to use a return. Maybe encapsulate the Y part in a else ?
 	}
@@ -251,7 +310,9 @@ public:
 	  // We exit
 	  return;
 	}
-      } // if Interface_glags(iOct_local) & nc_flag
+      } // if Interface_flags(iOct_local) & nc_flag
+      
+      
 
       // TODO : 3d here !
     } // if neigh_v.size = 0
@@ -409,8 +470,6 @@ public:
     uint32_t ghost_index = coord_ghost[IX] + bx_g*coord_ghost[IY];
     uint32_t neigh_index = coord_neigh[IX] + bx*coord_neigh[IY];
 
-    //std::cerr << "   " << ghost_index << " <- " << neigh_index << "(" << base_neigh[IX] << "; " << base_neigh[IY] << ")" << std::endl;
-
     if (isGhost) {
       Ugroup(ghost_index, fm[ID], iOct_local) = U_ghost(neigh_index, fm[ID], iOct_neigh);
       Ugroup(ghost_index, fm[IU], iOct_local) = U_ghost(neigh_index, fm[IU], iOct_neigh);
@@ -471,9 +530,6 @@ public:
 
     uint32_t ghost_index = coord_ghost[IX] + bx_g*coord_ghost[IY];
 
-    //std::cerr << "In oct " << iOct << std::endl;
-    //std::cerr << ghost_index << " (" << coord_ghost[IX] << "; " << coord_ghost[IY] << ") is receiving from :" << std::endl;
-
     // Summing all the sub-cells
     for (int ix=0; ix < 2; ++ix) {
       for (int iy=0; iy < 2; ++iy) {
@@ -482,7 +538,6 @@ public:
 	coord_sub[IY] += iy;
 
 	uint32_t neigh_index = coord_sub[IX] + bx*coord_sub[IY];
-	//std::cerr << " . " << iOct_neigh << "; " << neigh_index << " (" << coord_sub[IX] << "; " << coord_sub[IY] << ")" << std::endl;
 
 	if (isGhost) {
 	  u[ID] += U_ghost(neigh_index, fm[ID], iOct_neigh);
@@ -549,8 +604,6 @@ public:
     uint32_t neigh_index = coord_neigh[IX] + bx*coord_neigh[IY];
     uint32_t ghost_index = coord_ghost[IX] + bx_g*coord_ghost[IY];
 
-    //std::cerr << ghost_index << " <- " << neigh_index << std::endl;
-
     // And we copy the data
     if (isGhost) {
       Ugroup(ghost_index, fm[ID], iOct_local) = U_ghost(neigh_index, fm[ID], iOct_neigh);
@@ -591,7 +644,7 @@ public:
     neigh=0;
     isGhost=false;
     get_corner_neighbours(iOct, iOct_local, corner, isBoundary, neigh, isGhost, neigh_coords);
-
+    
     // We treat boundary conditions differently
     if (isBoundary) {
       // We check if we have one or two boundaries
@@ -627,36 +680,12 @@ public:
       cur_level   = pmesh->getLevel(iOct);
       neigh_level = pmesh->getLevel(neigh);
 
-      /*
-      // Putting everything to 0 : DEBUG
-      // Pre-computed offsets for shifting the coordinates in the right reference frame :
-      // x/y_offset are for the neighbour block
-      // gx/gy_offset are for the ghosted block
-      const uint32_t gx_offset = bx+ghostWidth;
-      const uint32_t gy_offset = by+ghostWidth;
-      
-      // Coordinates in the ghosted block and in the neighbour
-      coord_t coord_ghost = index_to_coord(index, ghostWidth, ghostWidth);
-      
-      // Shifting ghosted index to correct position
-      if (corner & 1)
-	coord_ghost[IX] += gx_offset;
-      if (corner & 2)
-	coord_ghost[IY] += gy_offset;
-      uint32_t ighost = coord_ghost[IX] + coord_ghost[IY] * bx_g;
-      
-      Ugroup(ighost, fm[ID], iOct_local) = 0.0;
-      Ugroup(ighost, fm[IU], iOct_local) = 0.0;
-      Ugroup(ighost, fm[IV], iOct_local) = 0.0;
-      Ugroup(ighost, fm[IP], iOct_local) = 0.0;
-      */
-      
       if (cur_level == neigh_level)     // Same level
 	fill_ghost_corner_same_size_2d(iOct_local, index, corner, neigh, isGhost);
       else if (cur_level > neigh_level) // Larger neighbour
 	fill_ghost_corner_larger_2d(iOct_local, index, corner, neigh, isGhost, neigh_coords);
       else                              // Smaller neighbour
-      fill_ghost_corner_smaller_2d(iOct_local, iOct, index, corner, neigh, isGhost);
+	fill_ghost_corner_smaller_2d(iOct_local, iOct, index, corner, neigh, isGhost);
     } // end if neigh.size() == 
   } // fill_ghost_corner_2d
   
