@@ -85,6 +85,9 @@ void init_gresho_vortex(SolverHydroMusclBlock *psolver)
                                        fm, 
                                        psolver->blockSizes,
                                        psolver->Uhost);
+    
+    Kokkos::deep_copy(psolver->U,  psolver->Uhost);
+    Kokkos::deep_copy(psolver->U2, psolver->Uhost);
 
   } else { // refine use regular refinement criterium
 
