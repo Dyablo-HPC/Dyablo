@@ -16,7 +16,7 @@ void init_blast(SolverHydroMusclBlock *psolver);
 void init_kelvin_helmholtz(SolverHydroMusclBlock *psolver);
 void init_gresho_vortex(SolverHydroMusclBlock *psolver);
 void init_four_quadrant(SolverHydroMusclBlock *psolver);
-// void init_isentropic_vortex(SolverHydroMusclBlock *psolver);
+void init_isentropic_vortex(SolverHydroMusclBlock *psolver);
 // void init_rayleigh_taylor(SolverHydroMusclBlock *psolver);
 
 } // namespace muscl_block

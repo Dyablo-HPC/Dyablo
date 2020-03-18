@@ -288,7 +288,7 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
       
     } else if ( !m_problem_name.compare("isentropic_vortex") ) {
       
-      //init_isentropic_vortex(this);
+      init_isentropic_vortex(this);
       
     } else if ( !m_problem_name.compare("rayleigh_taylor") ) {
       
@@ -304,9 +304,10 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
       init_implode(this);
       
     }
-
+    
     // initialize U2
     Kokkos::deep_copy(U2,U);
+
 
   } // end regular initialization
 
