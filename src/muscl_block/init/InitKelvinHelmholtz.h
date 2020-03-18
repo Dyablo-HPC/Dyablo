@@ -60,7 +60,7 @@ public:
 		    DataArrayBlockHost      Udata_h) {
     
     // Looking up the specific parameters
-    KHParams khParams{configMap};
+    KHParams khParams(configMap);
 
     // Instantiation of the functor
     InitKelvinHelmholtzDataFunctor functor(pmesh, params, khParams, fm, blockSizes, Udata_h);
@@ -283,21 +283,21 @@ public:
   InitKelvinHelmholtzRefineFunctor(std::shared_ptr<AMRmesh> pmesh,
 				   HydroParams              params,
 				   KHParams                 khParams,
-				   int                      level_refine)
+				   uint8_t                  level_refine)
     : pmesh(pmesh), params(params), khParams(khParams), level_refine(level_refine){};
 
   // Applying the functor to the mesh
   static void apply(std::shared_ptr<AMRmesh> pmesh,
 		    ConfigMap                configMap,
 		    HydroParams              params,
-		    int level_refine) {
-    KHParams khParams = KHParams(configMap);
+		    uint8_t level_refine) {
+    KHParams khParams(configMap);
 
     // iterate functor for refinement
     InitKelvinHelmholtzRefineFunctor functor(pmesh, params, khParams, level_refine);
 
     range_policy_t policy(Kokkos::OpenMP(), 0, pmesh->getNumOctants());	
-    Kokkos::parallel_for("dyablo::muscl::InitKelvinHelmholtzRefineFunctor", policy, functor);
+    Kokkos::parallel_for("dyablo::muscl_block::InitKelvinHelmholtzRefineFunctor", policy, functor);
   }
 
   KOKKOS_INLINE_FUNCTION
@@ -344,7 +344,7 @@ public:
   KHParams khParams;
 
   //! Level to refine
-  int level_refine;
+  uint8_t level_refine;
 };
 
 } // namespace dyablo
