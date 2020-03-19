@@ -94,7 +94,7 @@ public:
     InitXXXXXDataFunctor functor(pmesh, params, xxParams, fm, blockSizes, Udata_h);
 
     // And applying it to the mesh
-    uin32_t nbTeams = configMap.getInteger("init", "nbTeams", 16);
+    uint32_t nbTeams = configMap.getInteger("init", "nbTeams", 16);
     functor.setNbTeams(nbTeams);
 
     team_policy_t policy(Kokkos::OpenMP(),
@@ -114,7 +114,7 @@ public:
     const int& by = blockSizes[IY];
     const int& bz = blockSizes[IZ];
 
-    const bool twoD   = (param.dimType==TWO_D);
+    const bool twoD   = (params.dimType==TWO_D);
     const bool threeD = !twoD;
 
     uint32_t nbCells = twoD ? bx*by : bx*by*bz;
