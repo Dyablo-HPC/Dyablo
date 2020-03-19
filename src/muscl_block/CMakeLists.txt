@@ -1,6 +1,5 @@
 set (muscl_block_SRCS
   ${CMAKE_CURRENT_SOURCE_DIR}/SolverHydroMusclBlock.cpp
-  #${CMAKE_CURRENT_SOURCE_DIR}/init/InitImplode.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitSod.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitBlast.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitImplode.cpp
@@ -8,6 +7,7 @@ set (muscl_block_SRCS
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitFourQuadrant.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitIsentropicVortex.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitKelvinHelmholtz.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/init/InitShuOsher.cpp
   #${CMAKE_CURRENT_SOURCE_DIR}/init/InitRayleighTaylor.cpp
   )
 
