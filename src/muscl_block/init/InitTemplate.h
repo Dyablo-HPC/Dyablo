@@ -25,6 +25,7 @@
  * (4-) If not already done, copy and adapt the InitTemplate.cpp file as well !  
  *  5-  Update the HydroInitFunctors.h to add the function defined in InitTemplate.cpp
  *  6-  Update the init method in SolverHydroMusclBlock.cpp to include your init function
+ *  7-  Update the CMakeLists.txt in src/muscl_block to account for the new .cpp file
  **/
 
 #ifndef MUSCL_BLOCK_XXXXX_H_
@@ -267,3 +268,4 @@ public:
 } // end namespace muscl_block
 } // end namespace dyablo
 
+#endif
