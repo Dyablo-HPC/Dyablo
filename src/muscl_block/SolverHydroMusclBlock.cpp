@@ -289,6 +289,10 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
     } else if ( !m_problem_name.compare("isentropic_vortex") ) {
       
       init_isentropic_vortex(this);
+
+    } else if ( !m_problem_name.compare("shu_osher") ) {
+      
+      init_shu_osher(this);
       
     } else if ( !m_problem_name.compare("rayleigh_taylor") ) {
       
