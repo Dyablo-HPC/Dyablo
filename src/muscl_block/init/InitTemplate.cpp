@@ -47,7 +47,7 @@ void init_XXXXX(SolverHydroMusclBlock *psolver) {
   /* Initial local refinement, mesh only */
   for (uint8_t level=level_min; level<level_max; ++level) {
     // Mark cells for refinement
-    DataFunctor::apply(amr_mesh, configMap, params, level);
+    RefineFunctor::apply(amr_mesh, configMap, params, level);
 
     // Refine the mesh according to marking
     amr_mesh->adapt();
@@ -69,8 +69,7 @@ void init_XXXXX(SolverHydroMusclBlock *psolver) {
   psolver->resize_solver_data();
 
   // And data init
-  
-  RefineFunctor::apply(amr_mesh, params, configMap, fm, psolver->blockSizes, psolver->Uhost);
+  DataFunctor::apply(amr_mesh, params, configMap, fm, psolver->blockSizes, psolver->Uhost);
   // Upload data on device
   Kokkos::deep_copy(psolver->U, psolver->Uhost);
 } // init_XXXXX
