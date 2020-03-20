@@ -295,6 +295,10 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
       
       init_shu_osher(this);
       
+    } else if ( !m_problem_name.compare("double_mach_reflection") ) {
+
+      init_double_mach_reflection(this);
+      
     } else if ( !m_problem_name.compare("rayleigh_taylor") ) {
       
       //init_rayleigh_taylor(this);
