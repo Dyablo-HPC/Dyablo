@@ -50,3 +50,4 @@ configure_file(test_implode_3D.ini test_implode_3D.ini COPYONLY)
 
 configure_file(test_blast_2D_block.ini test_blast_2D_block.ini COPYONLY)
 configure_file(test_implode_2D_block.ini test_implode_2D_block.ini COPYONLY)
+configure_file(test_double_mach_reflection_2D_block.ini test_double_mach_reflection_2D_block COPYONLY)
