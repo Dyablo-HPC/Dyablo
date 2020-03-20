@@ -9,7 +9,6 @@ set (muscl_block_SRCS
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitKelvinHelmholtz.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitShuOsher.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitDoubleMachReflection.cpp
-  
   #${CMAKE_CURRENT_SOURCE_DIR}/init/InitRayleighTaylor.cpp
   )
 
