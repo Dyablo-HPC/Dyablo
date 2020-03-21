@@ -269,7 +269,7 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
       
     } else if ( !m_problem_name.compare("sod") ) {
       
-      //init_sod(this);
+      init_sod(this);
       
     } else if ( !m_problem_name.compare("blast") ) {
       
@@ -277,7 +277,7 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
       
     } else if ( !m_problem_name.compare("kelvin_helmholtz") ) {
       
-      //init_kelvin_helmholtz(this);
+      init_kelvin_helmholtz(this);
       
     } else if ( !m_problem_name.compare("gresho_vortex") ) {
       
@@ -289,7 +289,15 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
       
     } else if ( !m_problem_name.compare("isentropic_vortex") ) {
       
-      //init_isentropic_vortex(this);
+      init_isentropic_vortex(this);
+
+    } else if ( !m_problem_name.compare("shu_osher") ) {
+      
+      init_shu_osher(this);
+      
+    } else if ( !m_problem_name.compare("double_mach_reflection") ) {
+
+      init_double_mach_reflection(this);
       
     } else if ( !m_problem_name.compare("rayleigh_taylor") ) {
       
@@ -305,9 +313,10 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
       init_implode(this);
       
     }
-
+    
     // initialize U2
     Kokkos::deep_copy(U2,U);
+
 
   } // end regular initialization
 
