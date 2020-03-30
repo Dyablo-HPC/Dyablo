@@ -22,6 +22,10 @@ build_openmp:
     - cd build_openmp
     - cmake ..
     - make
+  artifacts:
+    path:
+      build_openmp
+    expire_in: 1 week
   after_script:
     - date
 
