@@ -29,5 +29,7 @@ build_openmp:
 # run some interesting tests here
 test:
   stage: test
+  tags:
+    - kokkos-openmp, kokkos-cuda
   script:
     - date
