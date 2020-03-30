@@ -1,0 +1,26 @@
+stages:
+  - build_openmp
+  - test
+
+.pre-build:
+  - git submodule sync --recursive
+  - git submodule update --init --recursive
+
+
+build_openmp:
+  extends: .pre-build
+  before_script:
+    - date
+    - lscpu
+  script:
+    - mkdir build_openmp
+    - cd build_openmp
+    - cmake ..
+    - make
+  after_script:
+    - date
+
+
+# run some interesting tests here
+test:
+  - date
