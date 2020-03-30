@@ -737,7 +737,9 @@ void SolverHydroMusclBlock::save_solution_hdf5()
     hdf5_writer->update_mesh_info();
 
     // open the new file and write our stuff
-    hdf5_writer->open(outputDir + "/" + outputPrefix + "_" + strsuffix.str());
+    std::string basename = outputPrefix + "_" + strsuffix.str();
+    
+    hdf5_writer->open(basename, outputDir);
     hdf5_writer->write_header(m_t);
 
     // write user the fake data (all scalar fields, here only one)
