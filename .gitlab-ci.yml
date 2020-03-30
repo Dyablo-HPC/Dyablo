@@ -1,14 +1,17 @@
+#
+# validate this script with :
+# https://gitlab.maisondelasimulation.fr/pkestene/dyablo/-/ci/lint
+#
+
 stages:
   - build_openmp
   - test
 
-.pre-build:
-  - git submodule sync --recursive
-  - git submodule update --init --recursive
-
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
 
 build_openmp:
-  extends: .pre-build
+  stage: build_openmp
   before_script:
     - date
     - lscpu
@@ -23,4 +26,6 @@ build_openmp:
 
 # run some interesting tests here
 test:
-  - date
+  stage: test
+  script:
+    - date
