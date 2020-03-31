@@ -103,9 +103,10 @@ HDF5_Writer::HDF5_Writer(std::shared_ptr<AMRmesh> amr_mesh,
   if (m_mpiRank == 0 and hdf5_enabled) {
 
     std::string outputPrefix = configMap.getString("output", "outputPrefix", "output");
+    std::string outputDir = configMap.getString("output", "outputDir", "output");
     
     std::string filename;
-    filename = outputPrefix + "_main.xmf";
+    filename = outputDir + "/" + outputPrefix + "_main.xmf";
     
     // INFOF("Writing main XMDF file \"%s\".\n", filename.c_str());
     m_main_xdmf_file = fopen(filename.c_str(), "w");
@@ -154,10 +155,11 @@ HDF5_Writer::update_mesh_info()
 // =======================================================
 // =======================================================
 void
-HDF5_Writer::open(std::string basename)
+HDF5_Writer::open(std::string basename, std::string outDir)
 {
   hid_t               plist;
   std::string         filename;
+  std::string         full_path;
 
   /*
    * Open parallel HDF5 resources.
@@ -166,15 +168,17 @@ HDF5_Writer::open(std::string basename)
   H5Pset_fapl_mpio(plist, m_amr_mesh->getComm(), MPI_INFO_NULL);
 
   filename = basename + ".h5";
+  full_path = outDir + "/" + filename;
   m_basename = basename;
-  m_hdf5_file = H5Fcreate(filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, plist);
+  m_hdf5_file = H5Fcreate(full_path.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, plist);
   H5Pclose(plist);
 
   // open xdmf files (one for each hdf5, a main xdmf file)
   if (m_amr_mesh->getRank() == 0) {
 
     filename = basename + ".xmf";
-    m_xdmf_file = fopen(filename.c_str(), "w");
+    full_path = outDir + "/" + filename;
+    m_xdmf_file = fopen(full_path.c_str(), "w");
 
     if (m_main_xdmf_file) {
       io_xdmf_write_main_include(filename);

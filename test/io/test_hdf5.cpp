@@ -144,7 +144,7 @@ void run(std::string input_filename)
 
       // open the new file and write our stuff
       std::string prefix = configMap.getString("output", "outputPrefix", "output");
-      writer.open(prefix+"_iter"+std::to_string(iter));
+      writer.open(prefix+"_iter"+std::to_string(iter), "./");
       writer.write_header(1.0*iter);
 
       // write user the fake data (all scalar fields, here only one)

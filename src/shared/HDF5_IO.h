@@ -61,7 +61,7 @@ public:
    *
    * Also includes this file inside the main xmf file, if needed.
    */
-  void                open (std::string basename);
+  void                open (std::string basename, std::string outDir);
 
   /**
    * \brief Close the HDF5 and XMF files.
