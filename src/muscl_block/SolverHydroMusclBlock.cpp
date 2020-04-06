@@ -301,7 +301,8 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
       
     } else if ( !m_problem_name.compare("rayleigh_taylor") ) {
       
-      //init_rayleigh_taylor(this);
+      init_rayleigh_taylor(this);
+      
     } else if ( !m_problem_name.compare("custom") ) {
       // Don't do anything here, let the user setup their own problem
     } else {
@@ -316,6 +317,8 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
     
     // initialize U2
     Kokkos::deep_copy(U2,U);
+
+    save_solution();
 
 
   } // end regular initialization
