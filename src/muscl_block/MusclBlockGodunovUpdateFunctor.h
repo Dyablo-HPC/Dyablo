@@ -175,7 +175,7 @@ public:
 		    DataArrayBlock U2,
                     DataArrayBlock Qgroup,
                     FlagArrayBlock Interface_flags,
-                    real_t         dt)
+                    real_t         dt) 
     {
 
     // instantiate functor
@@ -466,6 +466,85 @@ public:
     return dq;
 
   } // slope_unsplit_hydro
+  
+  // ====================================================================
+  // ====================================================================
+  KOKKOS_INLINE_FUNCTION
+  void apply_gravity_prediction(HydroState2d &q) const {
+    if (params.gravity_type == GRAVITY_CONSTANT) {
+      q[IU] += 0.5 * dt * params.gx; 
+      q[IV] += 0.5 * dt * params.gy;
+      if (params.dimType == THREE_D)
+	q[IW] += 0.5 * dt * params.gz;
+    }
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void apply_gravity_correction(uint32_t iOct_g, uint32_t index_g,
+				uint32_t iOct,   uint32_t index) const {
+    if (params.gravity_type == GRAVITY_NONE)
+      return;
+
+    real_t rhoOld = Ugroup(index_g, fm[ID], iOct_g);
+    real_t rhoNew = fmax(params.settings.smallr, U2(index, fm[ID], iOct));
+
+    real_t rhou = U2(index, fm[IU], iOct);
+    real_t rhov = U2(index, fm[IV], iOct);
+    real_t rhow = (params.dimType == THREE_D ? U2(index, fm[IW], iOct) : 0.0);
+
+    real_t ekin_old = 0.5 * (rhou*rhou + rhov*rhov + rhow*rhow) / rhoNew;
+
+    real_t gx, gy;
+    if (params.gravity_type == GRAVITY_CONSTANT) {
+      gx = params.gx;
+      gy = params.gy;
+    }
+    
+    rhou += 0.5 * dt * gx * (rhoOld + rhoNew);
+    rhov += 0.5 * dt * gy * (rhoOld + rhoNew);
+    U2(index, fm[IU], iOct) = rhou;
+    U2(index, fm[IV], iOct) = rhov;
+
+    if (params.dimType == THREE_D) {
+      real_t gz = params.gz;
+      
+      rhow += 0.5 * dt * gz * (rhoOld + rhoNew);
+      U2(index, fm[IW], iOct) = rhow;
+    }
+
+    real_t ekin_new = 0.5 * (rhou*rhou + rhov*rhov + rhow*rhow) / rhoNew;
+    U2(index, fm[IP], iOct) += (ekin_new - ekin_old);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void apply_gravity_correction_2d(thread2_t member) const {
+    // iOct must span the range [iGroup*nbOctsPerGroup ,
+    // (iGroup+1)*nbOctsPerGroup [
+    uint32_t iOct = member.league_rank() + iGroup * nbOctsPerGroup;
+    
+    // octant id inside the Ugroup data array
+    uint32_t iOct_local = member.league_rank();
+
+    // compute first octant index after current group
+    uint32_t iOctNextGroup = (iGroup + 1) * nbOctsPerGroup;
+
+    const uint32_t& bx = blockSizes[IX];
+    
+    while (iOct < iOctNextGroup and iOct < nbOcts) {
+      Kokkos::parallel_for(
+	Kokkos::TeamVectorRange(member, nbCellsPerBlock),
+	KOKKOS_LAMBDA(const int32_t index) {
+	  const uint32_t j = index / bx;
+	  const uint32_t i = index - j*bx;
+	  const uint32_t ig = (i+ghostWidth) + bx_g * (j+ghostWidth);
+
+	  apply_gravity_correction(iOct_local, ig, iOct, index);
+	});
+      iOct       += nbTeams;
+      iOct_local += nbTeams;
+    }
+    
+  }
 
   // ====================================================================
   // ====================================================================
@@ -525,9 +604,10 @@ public:
     
     qr[ID] = r + sr0 + offsets[IX] * drx + offsets[IY] * dry;
     qr[IP] = p + sp0 + offsets[IX] * dpx + offsets[IY] * dpy;
-    qr[IU] = u + su0 + offsets[IX] * dux + offsets[IY] * duy ;
-    qr[IV] = v + sv0 + offsets[IX] * dvx + offsets[IY] * dvy ;
+    qr[IU] = u + su0 + offsets[IX] * dux + offsets[IY] * duy;
+    qr[IV] = v + sv0 + offsets[IX] * dvx + offsets[IY] * dvy;
     qr[ID] = fmax(smallr, qr[ID]);
+
 
     return qr;
     
@@ -803,12 +883,17 @@ public:
 	    // get current location primitive variables state
 	    HydroState2d qprim = get_prim_variables<HydroState2d>(ig, iOct_local);
 	    
+	    // applying gravity on the primitive variable
+	    apply_gravity_prediction(qprim);
+	    
 	    // fluxes will be accumulated in qcons
 	    HydroState2d qcons = {0.0, 0.0, 0.0, 0.0};
 	    if (Interface_flags(iOct_local) & INTERFACE_XMIN_BIGGER) {
 	      // step 1: compute flux (Riemann solver) with centered values
 	      HydroState2d qR = qprim;
 	      HydroState2d qL = get_prim_variables<HydroState2d>(ig-1, iOct_local);
+	      apply_gravity_prediction(qL);
+	      
 	      HydroState2d flux = riemann_hydro(qL,qR,params);
 	      
 	      // step 2: accumulate flux in current cell
@@ -820,6 +905,8 @@ public:
 	      HydroState2d qR = qprim;
 	      HydroState2d q0, q1;
 	      get_non_conformal_neighbors_2d(iOct, ii, jj, DIR_X, FACE_LEFT, q0, q1);
+	      apply_gravity_prediction(q0);
+	      apply_gravity_prediction(q1);
 	      
 	      // step 2: solver is called directly on average states, no reconstruction is done
 	      HydroState2d flux_0 = riemann_hydro(q0,qR,params);
@@ -852,12 +939,16 @@ public:
 	    // get current location primitive variables state
 	    HydroState2d qprim = get_prim_variables<HydroState2d>(ig, iOct_local);
 	    
+	    // applying gravity on the primitive variable
+	    apply_gravity_prediction(qprim);
+	    
 	    // fluxes will be accumulated in qcons
 	    HydroState2d qcons = {0.0, 0.0, 0.0, 0.0};
 	    if (Interface_flags(iOct_local) & INTERFACE_XMAX_BIGGER) {
 	      // step 1: compute flux (Riemann solver) with centered values
 	      HydroState2d qL = qprim;
 	      HydroState2d qR = get_prim_variables<HydroState2d>(ig+1, iOct_local);
+	      apply_gravity_prediction(qR);
 	      HydroState2d flux = riemann_hydro(qL,qR,params);
 	      
 	      // step 2: accumulate flux in current cell
@@ -868,6 +959,8 @@ public:
 	      HydroState2d qL = qprim;
 	      HydroState2d q0, q1;
 	      get_non_conformal_neighbors_2d(iOct, ii, jj, DIR_X, FACE_RIGHT, q0, q1);
+	      apply_gravity_prediction(q0);
+	      apply_gravity_prediction(q1);
 	      
 	      // step 2: solver is called directly on average states, no reconstruction is done
 	      HydroState2d flux_0 = riemann_hydro(qL, q0, params);
@@ -901,6 +994,9 @@ public:
 	    // get current location primitive variables state
 	    HydroState2d qprim = get_prim_variables<HydroState2d>(ig, iOct_local);
 	    
+	    // applying gravity on the primitive variable
+	    apply_gravity_prediction(qprim);
+	    
 	    // fluxes will be accumulated in qcons
 	    HydroState2d qcons = {0.0, 0.0, 0.0, 0.0};
 
@@ -908,6 +1004,8 @@ public:
 	      // step 1: Swap u and v in states
 	      HydroState2d qL = get_prim_variables<HydroState2d>(ig-bx_g, iOct_local);
 	      HydroState2d qR = qprim;
+	      apply_gravity_prediction(qL);
+	      
 	      my_swap(qL[IU], qL[IV]);
 	      my_swap(qR[IU], qR[IV]);
 	      
@@ -923,6 +1021,8 @@ public:
 	      HydroState2d qR = qprim;
 	      HydroState2d q0, q1;
 	      get_non_conformal_neighbors_2d(iOct, ii, jj, DIR_Y, FACE_LEFT, q0, q1);
+	      apply_gravity_prediction(q0);
+	      apply_gravity_prediction(q1);
 	      
 	      // step 2: u and v in states
 	      my_swap(q0[IU], q0[IV]);
@@ -964,6 +1064,9 @@ public:
 	    // get current location primitive variables state
 	    HydroState2d qprim = get_prim_variables<HydroState2d>(ig, iOct_local);
 	    
+	    // applying gravity on the primitive variable
+	    apply_gravity_prediction(qprim);
+	    
 	    // fluxes will be accumulated in qcons
 	    HydroState2d qcons = {0.0, 0.0, 0.0, 0.0};
 
@@ -971,6 +1074,7 @@ public:
 	      // step 1: Swap u and v in states
 	      HydroState2d qR = get_prim_variables<HydroState2d>(ig+bx_g, iOct_local);
 	      HydroState2d qL = qprim;
+	      apply_gravity_prediction(qR);
 	      my_swap(qL[IU], qL[IV]);
 	      my_swap(qR[IU], qR[IV]);
 	    
@@ -986,6 +1090,9 @@ public:
 	      HydroState2d qL = qprim;
 	      HydroState2d q0, q1;
 	      get_non_conformal_neighbors_2d(iOct, ii, jj, DIR_Y, FACE_RIGHT, q0, q1);
+	      
+	      apply_gravity_prediction(q0);
+	      apply_gravity_prediction(q1);
 	    
 	      // step 2: swap u and v in states
 	      my_swap(qL[IU], qL[IV]);
@@ -1071,6 +1178,7 @@ public:
               j >= 0 and j < by) {
             // get current location primitive variables state
             HydroState2d qprim = get_prim_variables<HydroState2d>(ig, iOct_local);
+	    apply_gravity_prediction(qprim);
 
             // fluxes will be accumulated in qcons
             HydroState2d qcons = get_cons_variables<HydroState2d>(ig, iOct_local);
@@ -1090,12 +1198,14 @@ public:
 
               // reconstruct state in left neighbor
               HydroState2d qL = reconstruct_state_2d(qprim_n, ig-1, iOct_local, offsets, dtdx, dtdy);
-
+	      apply_gravity_prediction(qL);
 
               // step 2 : reconstruct state in current cell
               offsets = {-1.0, 0.0, 0.0};
 
               HydroState2d qR = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
+
+
               
               // step 3 : compute flux (Riemann solver)
               HydroState2d flux = riemann_hydro(qL,qR,params);
@@ -1119,6 +1229,7 @@ public:
 
               // reconstruct state in right neighbor
               HydroState2d qR = reconstruct_state_2d(qprim_n, ig+1, iOct_local, offsets, dtdx, dtdy);
+	      apply_gravity_prediction(qR);
 
               // step 2 : reconstruct state in current cell
               offsets = {1.0, 0.0, 0.0};
@@ -1148,6 +1259,7 @@ public:
               // reconstruct "left" state
               HydroState2d qL =
 		reconstruct_state_2d(qprim_n, ig-bx_g, iOct_local, offsets, dtdx, dtdy);
+	      apply_gravity_prediction(qL);
 
               // step 2 : reconstruct state in current cell
               offsets = {0.0, -1.0, 0.0};
@@ -1181,6 +1293,7 @@ public:
               
               // reconstruct "left" state
               HydroState2d qR = reconstruct_state_2d(qprim_n, ig+bx_g, iOct_local, offsets, dtdx, dtdy);
+	      apply_gravity_prediction(qR);
 
               // step 2 : reconstruct state in current cell
               offsets = {0.0, 1.0, 0.0};
@@ -1425,6 +1538,8 @@ public:
     else {
       compute_fluxes_and_update_2d_non_conservative(member);
     }
+
+    apply_gravity_correction_2d(member);
   } // compute_fluxes_and_update_2d
 
   // ====================================================================

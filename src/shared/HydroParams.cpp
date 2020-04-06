@@ -152,6 +152,15 @@ void HydroParams::setup(ConfigMap &configMap)
   rsst_cfl_enabled = configMap.getBool("low_mach", "rsst_cfl_enabled", false);
   rsst_ksi = configMap.getFloat("low_mach", "rsst_ksi", 10.0);
 
+  // Gravity
+  gravity_type = static_cast<GravityType>(configMap.getInteger("gravity", "gravity_type", GRAVITY_NONE));
+  std::cerr << "GTYPE = " << gravity_type << std::endl;
+  if (gravity_type == GRAVITY_CONSTANT) {
+    gx = configMap.getFloat("gravity", "gx",  0.0);
+    gy = configMap.getFloat("gravity", "gy", -1.0);
+    gz = configMap.getFloat("gravity", "gz",  0.0);
+  }
+
   debug_output = configMap.getBool("output", "debug", false);
 
   init();
