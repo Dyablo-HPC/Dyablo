@@ -136,6 +136,12 @@ struct HydroParams {
   //! reduce speed of sound parameter
   real_t rsst_ksi;
 
+  //! gravity type
+  GravityType gravity_type;
+
+  //! constant scalar gravity
+  real_t gx, gy, gz;
+
 #ifdef USE_MPI
 //! MPI communicator in a cartesian virtual topology
   hydroSimu::MpiComm *communicator;
