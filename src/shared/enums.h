@@ -267,5 +267,10 @@ enum UPDATE_TYPE : uint8_t {
   UPDATE_CONSERVATIVE_SUM = 1
 };
 
+enum GravityType : uint8_t {
+  GRAVITY_NONE     = 0,
+  GRAVITY_CONSTANT = 1
+};
+
 
 #endif // SHARED_ENUMS_H_
