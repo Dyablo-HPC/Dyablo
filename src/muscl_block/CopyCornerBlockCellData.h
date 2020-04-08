@@ -162,10 +162,12 @@ public:
 	coord_neigh[IY] = by - ghostWidth/2;
     }
     else {
+      // No neighbour, we check if we're at a boundary if not, we're at a non conformal edge
+      // We have to test manually first if we're at the edge of the domain
       real_t x    = pmesh->getX(iOct);
       real_t y    = pmesh->getY(iOct);
       real_t size = pmesh->getSize(iOct);
-      
+
       if (corner & CORNER_RIGHT)
 	x += size*1.25;
       else
@@ -175,57 +177,6 @@ public:
       else
 	y -= size*0.25;
 
-      // Periodic boundary fix :
-      // This is a very violent fix using the actual position of the nodes !
-      // TODO : Remove this when PABLO has been fixed !!!
-      bool x_periodic = ((x < params.xmin and params.boundary_type_xmin == BC_PERIODIC and !(corner & CORNER_RIGHT))
-			 or (x > params.xmax and params.boundary_type_xmax == BC_PERIODIC and (corner & CORNER_RIGHT)));
-      bool y_periodic = ((y < params.ymin and params.boundary_type_ymin == BC_PERIODIC and !(corner & CORNER_TOP))
-			  or (y > params.ymax and params.boundary_type_ymax == BC_PERIODIC and (corner & CORNER_TOP)));
-
-      // For this fix to be needed, we require
-      if (x_periodic or y_periodic) {
-	const real_t dom_dx = params.xmax - params.xmin;
-	const real_t dom_dy = params.ymax - params.ymin;
-	
-	if (x_periodic) {
-	  if (corner & CORNER_RIGHT)
-	    x += size*0.25 - dom_dx;
-	  else
-	    x += -size*0.25 + dom_dx;
-	}
-	if (y_periodic) {
-	  if (corner & CORNER_TOP)
-	    y += size*0.25 - dom_dy;
-	  else
-	    y += -size*0.25 + dom_dx;
-	}
-
-	bitpit::darray3 pos{x, y, 0.0};
-	neigh = pmesh->getPointOwnerIdx(pos, isGhost);
-
-	// Level of the neighbour
-	uint8_t neigh_level = pmesh->getLevel(neigh);
-	uint8_t cur_level   = pmesh->getLevel(iOct);
-
-	// We need to set coord_neigh if neigh_level > cur_level
-	if (neigh_level < cur_level) {
-	   if (corner & CORNER_RIGHT)  // Right face  -> Cases 1 and 9
-	     coord_neigh[IX] = 0;
-	   else                        // Left face   -> Cases 4 and 12
-	     coord_neigh[IX] = bx - ghostWidth/2;
-	   
-	   if (corner & CORNER_TOP)    // Top face    -> Cases 9 and 12
-	     coord_neigh[IY] = 0;
-	   else                        // Bottom face -> Cases 1 and 4
-	     coord_neigh[IY] = by - ghostWidth/2;
-	}
-
-	return;
-      }
-
-      // No neighbour, we check if we're at a boundary if not, we're at a non conformal edge
-      // We have to test manually first if we're at the edge of the domain
       if (corner & CORNER_RIGHT)
 	x += size;
       if (corner & CORNER_TOP)
