@@ -471,7 +471,7 @@ public:
   // ====================================================================
   KOKKOS_INLINE_FUNCTION
   void apply_gravity_prediction(HydroState2d &q) const {
-    if (params.gravity_type == GRAVITY_CONSTANT) {
+    if (params.gravity_type == GRAVITY_CST_SCALAR) {
       q[IU] += 0.5 * dt * params.gx; 
       q[IV] += 0.5 * dt * params.gy;
       if (params.dimType == THREE_D)
@@ -495,7 +495,7 @@ public:
     real_t ekin_old = 0.5 * (rhou*rhou + rhov*rhov + rhow*rhow) / rhoNew;
 
     real_t gx, gy;
-    if (params.gravity_type == GRAVITY_CONSTANT) {
+    if (params.gravity_type == GRAVITY_CST_SCALAR) {
       gx = params.gx;
       gy = params.gy;
     }

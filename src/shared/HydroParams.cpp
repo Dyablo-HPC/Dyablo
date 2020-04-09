@@ -155,7 +155,7 @@ void HydroParams::setup(ConfigMap &configMap)
   // Gravity
   gravity_type = static_cast<GravityType>(configMap.getInteger("gravity", "gravity_type", GRAVITY_NONE));
   std::cerr << "GTYPE = " << gravity_type << std::endl;
-  if (gravity_type == GRAVITY_CONSTANT) {
+  if (gravity_type == GRAVITY_CST_SCALAR) {
     gx = configMap.getFloat("gravity", "gx",  0.0);
     gy = configMap.getFloat("gravity", "gy", -1.0);
     gz = configMap.getFloat("gravity", "gz",  0.0);

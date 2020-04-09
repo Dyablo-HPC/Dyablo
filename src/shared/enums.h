@@ -268,8 +268,9 @@ enum UPDATE_TYPE : uint8_t {
 };
 
 enum GravityType : uint8_t {
-  GRAVITY_NONE     = 0,
-  GRAVITY_CONSTANT = 1
+  GRAVITY_NONE       = 0,
+  GRAVITY_CST_SCALAR = 1,
+  GRAVITY_CST_FIELD  = 2
 };
 
 
