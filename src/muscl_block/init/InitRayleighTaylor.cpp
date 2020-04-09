@@ -29,7 +29,7 @@ void init_rayleigh_taylor(SolverHydroMusclBlock *psolver) {
   int level_min = params.level_min;
   int level_max = params.level_max;
 
-  if (params.gravity_type != GRAVITY_CONSTANT) {
+  if (params.gravity_type != GRAVITY_CST_SCALAR) {
     std::cerr << "ERROR: Gravity type should be set to constant for Rayleigh-Taylor instability" << std::endl;
     // HERE do something like std::exit(1);
   }
