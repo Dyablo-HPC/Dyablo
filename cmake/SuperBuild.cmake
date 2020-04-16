@@ -1,6 +1,6 @@
 ##############################################################
-# let try first to detect bitpit
-# this will only worked if option -DBITPIT_DIR=/some/where
+# let's try first to detect bitpit
+# this will only work if option -DBITPIT_DIR=/some/where
 # was given on the command line
 # the path should contain file BITPITConfig.cmake
 ##############################################################
@@ -12,16 +12,18 @@ set(MY_BITPIT_DIR ${BITPIT_DIR})
 # enforce a CPU build of BITPIT/PABLO
 # anyway PABLO is a CPU library
 # anyway PABLO is not a all in a shape to pass nvcc_wrapper compilation
-# anyway we won't use PABLO internal structure in tge core Kokkos
+# anyway we won't use PABLO internal structure in the core Kokkos
 # computing functors
 set(BITPIT_COMPILER  "g++" CACHE STRING "compiler used to build bitpit")
 
 # Enforce rebuilding bitpit
 option(FORCE_BITPIT_BUILD "Enforce rebuilding bitpit" OFF)
 
-# list of dependencies to dyablo; currently only bitpit external project
-# initialized as empty, but in case BITPIT_FOUND is false, we add bitpit
-# to DEPENDENCIES
+# list of dependencies to build before dyablo itself;
+# currently the only dependency is bitpit external project;
+# kokkos is still built inline
+# DEPENDENCIES is initialized as empty, but in case BITPIT_FOUND
+# is false, we add bitpit to DEPENDENCIES
 set (DEPENDENCIES)
 
 # dyablo will for sure be built as an external project
@@ -82,6 +84,7 @@ endif()
 #
 set (DYABLO_CMAKE_ARGS)
 
+# some top-level cmake option (super-build)
 option(Kokkos_ENABLE_HWLOC  "enable HWLOC in Kokkos" ON)
 option(Kokkos_ENABLE_OPENMP "enable Kokkos::OpenMP backend" ON)
 option(Kokkos_ENABLE_CUDA   "enable Kokkos::Cuda backend" OFF)

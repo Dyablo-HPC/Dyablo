@@ -1,11 +1,24 @@
 # set minimal version the one requested by kokkos
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.10)
 
 ###################################################################
 #
 # Handle superbuild first for building 
 # required dependencies (here only bitpit)
 # adapted from https://github.com/Sarcasm/cmake-superbuild
+#
+# To clarify : the superbuild drives the build of
+# - bitpit
+# - dyablo + kokkos
+# both using the cmake ExternalProject_add macro.
+#
+# The main reason behind this design is that it allows to separate in a 
+# clean way those two builds, espacially regarding GPU builds. Indeed
+# bitpit can't build with nvcc (too many parsing errors from nvcc front 
+# end), so bitpit is build with a regular CPU compiler (defaults to g++)
+# and dyablo+kokkos with a compiler adapted to the target architecture :
+# - g++ or clang++ or icpc for Kokkos/OpenMP
+# - nvcc_wrapper Kokkos/CUDA
 #
 ###################################################################
 option (USE_SUPERBUILD "Whether or not a superbuild should be invoked" ON)
