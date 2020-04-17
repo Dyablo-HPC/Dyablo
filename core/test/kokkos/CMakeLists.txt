@@ -34,7 +34,6 @@ target_include_directories(test_morton_key
   )
 target_link_libraries(test_morton_key kokkos hwloc dl)
 
-
 ##############################################
 add_executable(compute_mandelbrot_amr
   compute_mandelbrot_amr.cpp)
@@ -44,7 +43,7 @@ target_include_directories(compute_mandelbrot_amr
   ${CMAKE_CURRENT_SOURCE_DIR}
   )
 target_link_libraries(compute_mandelbrot_amr kokkos io hwloc dl)
-if(USE_MPI)
+if(DYABLO_USE_MPI)
   target_link_libraries(compute_mandelbrot_amr
     mpiUtils)
-endif(USE_MPI)
+endif(DYABLO_USE_MPI)
