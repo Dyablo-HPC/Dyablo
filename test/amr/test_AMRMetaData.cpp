@@ -10,10 +10,10 @@
 
 #include <impl/Kokkos_Error.hpp>
 
-#ifdef USE_MPI
+#ifdef DYABLO_USE_MPI
 #include "utils/mpiUtils/GlobalMpiSession.h"
 #include <mpi.h>
-#endif // USE_MPI
+#endif // DYABLO_USE_MPI
 
 #include "shared/AMRMetaData.h"
 
