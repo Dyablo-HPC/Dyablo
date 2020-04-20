@@ -1,0 +1,97 @@
+#include "shared/AMRMetaData.h"
+
+#include "shared/morton_utils.h"
+
+namespace dyablo
+{
+
+// =============================================
+// ==== CLASS AMRMetaData IMPL =================
+// =============================================
+
+
+// =============================================
+// =============================================
+AMRMetaData::AMRMetaData(uint64_t capacity) :
+  m_hashmap(capacity),
+  m_capacity(capacity)
+{
+
+} // AMRMetaData::AMRMetaData
+
+// =============================================
+// =============================================
+AMRMetaData::~AMRMetaData()
+{
+} // AMRMetaData::~AMRMetaData
+
+// =============================================
+// =============================================
+void AMRMetaData::update(const AMRmesh& mesh)
+{
+
+  // check if hashmap needs a rehash
+  uint64_t nbOctants = mesh.getNumOctants();
+  if (nbOctants > 0.75*m_capacity)
+  {
+    // increase capacity
+    m_capacity = m_capacity * 2;
+
+    m_hashmap.rehash(m_capacity);
+
+    std::cout << "hashmap needs to be rehashed.\n";
+    std::cout << "hashmap new capacity is " << m_hashmap.capacity() << ".\n";
+  }
+
+  // create a mirror on host
+  hashmap_t::HostMirror hashmap_host(m_hashmap.capacity());
+
+  // insert data from pablo mesh object, do that on host, with OpenMP
+  {
+    Kokkos::RangePolicy<Kokkos::OpenMP> policy(0, nbOctants);
+    Kokkos::parallel_for(
+      policy,
+      KOKKOS_LAMBDA(const uint64_t iOct)
+      {
+        uint8_t dim = mesh.getDim();
+
+        amr_key_t key;
+
+        // the following way of computing Morton index
+        // is exactly identical to bitpit
+        uint32_t x,y,z;
+        x = mesh.getOctant(iOct)->getLogicalX();
+        y = mesh.getOctant(iOct)->getLogicalY();
+        z = mesh.getOctant(iOct)->getLogicalZ();
+        uint64_t morton_key = compute_morton_key(x,y,z);
+
+        // Morton index a la bitpit
+        //key[0] = mesh.getMorton(iOct); /* octant's morton index */
+
+        // Morton index a la dyablo
+        key[0] = morton_key; 
+        key[1] = mesh.getLevel(iOct);  /* octant's level */
+
+        value_t value = iOct;
+
+        hashmap_host.insert( key, value );
+
+      });
+  }
+
+  // finaly update the new hashmap on device
+  Kokkos::deep_copy(m_hashmap, hashmap_host);
+
+} // AMRMetaData::update
+
+// =============================================
+// =============================================
+void AMRMetaData::report()
+{
+
+  std::cout << "AMRMetaData hashmap size     = " << m_hashmap.size() << std::endl;
+  std::cout << "AMRMetaData hashmap capacity = " << m_hashmap.capacity() << " (max size)" << std::endl;
+
+} // AMRMetaData::update
+
+} // namespace dyablo
