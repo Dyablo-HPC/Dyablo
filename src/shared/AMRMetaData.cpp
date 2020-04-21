@@ -1,5 +1,7 @@
 #include "shared/AMRMetaData.h"
 
+#include <iostream>
+
 namespace dyablo
 {
 
@@ -13,6 +15,10 @@ namespace dyablo
 template<>
 void AMRMetaData<2>::update_neighbor_status(const AMRmesh& mesh)
 {
+
+  const uint8_t nbFaces = 2*m_dim;
+  
+  const uint8_t nbCorners = m_dim == 2 ? 4 : 8;
 
   // resize to current number of regular octants
   Kokkos::resize(m_neigh_level_status, m_nbOctants);
@@ -35,7 +41,7 @@ void AMRMetaData<2>::update_neighbor_status(const AMRmesh& mesh)
          */
         const uint8_t codim = 1;
 
-        for (int iface=0; iface<2*m_dim; ++iface)
+        for (int iface=0; iface<nbFaces; ++iface)
         {
           
           // list of neighbors octant id, neighbor through a given face
@@ -91,9 +97,7 @@ void AMRMetaData<2>::update_neighbor_status(const AMRmesh& mesh)
          */
         const uint8_t corner_codim = 2;
 
-        const uint8_t nbFaces = 2*m_dim;
-
-        for (int icorner=0; icorner<2*m_dim; ++icorner)
+        for (int icorner=0; icorner<nbCorners; ++icorner)
         {
 
           // icorner is used when bit shifting is involved
@@ -179,6 +183,10 @@ template<>
 void AMRMetaData<3>::update_neighbor_status(const AMRmesh& mesh)
 {
 
+  const uint8_t nbFaces = 2*m_dim;
+  
+  const uint8_t nbCorners = m_dim == 2 ? 4 : 8;
+
   // resize to current number of regular octants
   Kokkos::resize(m_neigh_level_status, m_nbOctants);
   
@@ -201,7 +209,7 @@ void AMRMetaData<3>::update_neighbor_status(const AMRmesh& mesh)
          */
         const uint8_t codim = 1;
 
-        for (int iface=0; iface<2*m_dim; ++iface)
+        for (int iface=0; iface<nbFaces; ++iface)
         {
           
           // list of neighbors octant id, neighbor through a given face
@@ -252,15 +260,12 @@ void AMRMetaData<3>::update_neighbor_status(const AMRmesh& mesh)
           
         } // end for iface
 
-        // 2. corner neighbors
-                /*
+        /*
          * 2. corner neighbors
          */
         const uint8_t corner_codim = 2;
 
-        const uint8_t nbFaces = 2*m_dim;
-
-        for (int icorner=0; icorner<2*m_dim; ++icorner)
+        for (int icorner=0; icorner<nbCorners; ++icorner)
         {
 
           // icorner is used when bit shifting is involved
@@ -322,7 +327,7 @@ void AMRMetaData<3>::update_neighbor_status(const AMRmesh& mesh)
         // TODO
         // TODO
 
-        status = status;
+        neigh_level_status_host(iOct) = status;
 
       }); // end Kokkos parallel_for
       

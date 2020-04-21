@@ -152,10 +152,9 @@ void run_test()
     std::bitset<16> status_binary(status);
 
     std::cout << "iOct " << iOct << " | " << status << " | " << status_binary << "\n" ;
+    amrMetadata.decode_neighbor_status(iOct);
   }
   
-
-
 } // run_test
 
 } // dyablo
@@ -219,11 +218,10 @@ int main(int argc, char* argv[])
   dyablo::run_test<2>();
 
   // dim3
-  //dyablo::run_test<3>();
+  dyablo::run_test<3>();
   
   Kokkos::finalize();
 
   return EXIT_SUCCESS;
-
 
 } // main

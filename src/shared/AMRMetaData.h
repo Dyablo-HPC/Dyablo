@@ -69,6 +69,18 @@ public:
     NEIGH_IS_LARGER          = 0x3  /* at level-1 using 2's complement notation */
   };
 
+  std::string neighbor_level_to_string(neighbor_level nl)
+  {
+    if(nl == 0x0) 
+      return "NEIGH_IS_SAME";
+    else if (nl == 0x1)
+      return "NEIGH_IS_SMALLER";
+    else if (nl == 0x2)
+      return "NEIGH_NONE";
+    else
+      return "NEIGH_IS_LARGER";
+  }
+
   //! number of bits required to stored neighbor level status
   static constexpr int NEIGH_BIT_WIDTH = 2; 
 
@@ -138,6 +150,9 @@ public:
 
   //! get neighborlevel_status array
   const neighbor_level_status_t& neigh_level_status() { return m_neigh_level_status; }
+
+  //! helper for debug / testing : decode neigh status
+  void decode_neighbor_status(uint64_t iOct);
 
 private:
   //! main metadata container, an unordered map 
@@ -282,6 +297,46 @@ template<>
 void AMRMetaData<2>::update_neighbor_status(const AMRmesh& mesh);
 template<>
 void AMRMetaData<3>::update_neighbor_status(const AMRmesh& mesh);
+
+// =============================================
+// =============================================
+template<int dim>
+void AMRMetaData<dim>::decode_neighbor_status(uint64_t iOct) 
+{
+
+  const uint8_t nbFaces   = 2*m_dim;
+  const uint8_t nbCorners = dim==2 ? 4 : 8;
+
+  neigh_status_t status = m_neigh_level_status(iOct);
+  
+  std::cout << "Neigh status of iOct = " << iOct << " :\n";
+  for (int iface=0; iface<nbFaces; ++iface)
+  {
+    neighbor_level nl = static_cast<neighbor_level>( (status >> (2*iface)) & 0x3 );
+
+    std::cout << "face = " << iface << " status is "
+              << neighbor_level_to_string(nl) << "\n";
+
+  }
+
+  for (int icorner=0; icorner<nbCorners; ++icorner)
+  {
+    int icorner2 = icorner + nbFaces;
+
+    neighbor_level nl = static_cast<neighbor_level>( (status >> (2*icorner2)) & 0x3 );
+
+    std::cout << "corner = " << icorner << " status is "
+              << neighbor_level_to_string(nl) << "\n";
+
+  }
+
+  if (m_dim==3)
+  {
+    // TODO : print something about edges
+  }
+
+}; // AMRMetaData<dim>::decode_neighbor_status
+
 
 // =============================================
 // =============================================
