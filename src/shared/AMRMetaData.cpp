@@ -1,7 +1,5 @@
 #include "shared/AMRMetaData.h"
 
-#include "shared/morton_utils.h"
-
 namespace dyablo
 {
 
@@ -9,119 +7,330 @@ namespace dyablo
 // ==== CLASS AMRMetaData IMPL =================
 // =============================================
 
-
 // =============================================
 // =============================================
-AMRMetaData::AMRMetaData(uint64_t capacity) :
-  m_hashmap(capacity),
-  m_capacity(capacity)
+// template specialization for 2D
+template<>
+void AMRMetaData<2>::update_neighbor_status(const AMRmesh& mesh)
 {
 
-} // AMRMetaData::AMRMetaData
-
-// =============================================
-// =============================================
-AMRMetaData::~AMRMetaData()
-{
-} // AMRMetaData::~AMRMetaData
-
-// =============================================
-// =============================================
-void AMRMetaData::update(const AMRmesh& mesh)
-{
-
-  m_nbOctants = mesh.getNumOctants();
-  m_nbGhosts  = mesh.getNumGhosts();
-
-  // check if hashmap needs a rehash
-  if (m_nbOctants + m_nbGhosts > 0.75*m_capacity)
-  {
-    // increase capacity
-    m_capacity = m_capacity * 2;
-
-    m_hashmap.rehash(m_capacity);
-
-    std::cout << "hashmap needs to be rehashed.\n";
-    std::cout << "hashmap new capacity is " << m_hashmap.capacity() << ".\n";
-  }
+  // resize to current number of regular octants
+  Kokkos::resize(m_neigh_level_status, m_nbOctants);
 
   // create a mirror on host
-  hashmap_t::HostMirror hashmap_host(m_hashmap.capacity());
+  neighbor_level_status_t::HostMirror neigh_level_status_host = 
+    Kokkos::create_mirror_view(m_neigh_level_status);
 
-  // insert data from pablo mesh object, do that on host, with OpenMP
+  // fill the mirrored array on host with OpenMP exec space
   {
-    Kokkos::RangePolicy<Kokkos::OpenMP> policy(0, m_nbOctants+m_nbGhosts);
+    Kokkos::RangePolicy<Kokkos::OpenMP> policy(0, m_nbOctants);
     Kokkos::parallel_for(
       policy,
       [&](const uint64_t iOct)
       {
-        uint8_t dim = mesh.getDim();
+        neigh_status_t status = 0;
 
-        amr_key_t key;
+        /*
+         * 1. face neighbors
+         */
+        const uint8_t codim = 1;
 
-        // the following way of computing Morton index
-        // is exactly identical to bitpit
-        uint32_t x,y,z;
-
-        if (iOct < m_nbOctants)
+        for (int iface=0; iface<2*m_dim; ++iface)
         {
-          // we have a regular octant
-
-          x = mesh.getOctant(iOct)->getLogicalX();
-          y = mesh.getOctant(iOct)->getLogicalY();
-          z = mesh.getOctant(iOct)->getLogicalZ();
-
-        }
-        else
-        {
-          // we have a ghost octant
-
-          int64_t iOctG = iOct-m_nbOctants;
-          x = mesh.getGhostOctant(iOctG)->getLogicalX();
-          y = mesh.getGhostOctant(iOctG)->getLogicalY();
-          z = mesh.getGhostOctant(iOctG)->getLogicalZ();
           
-        }
+          // list of neighbors octant id, neighbor through a given face
+          std::vector<uint32_t> neigh;
+          std::vector<bool> isghost;
+          
+          // ask PABLO to find neighbor octant id accross a given face
+          // this fill vector neigh and isghost
+          mesh.findNeighbours(iOct, iface, codim, neigh, isghost);
+          
+          // no neighbors means current octant is touching external border 
+          if (neigh.size() == 0)
+          {
+            status |= (NEIGH_IS_EXTERNAL_BORDER << (2*iface) );
+          }
 
-        uint64_t morton_key = compute_morton_key(x,y,z);
+          // 1 neighbor means neighbor is larger or same size
+          else if (neigh.size() == 1) // neighbor is larger or same size
+          {
+            
+            // retrieve neighbor octant id
+            uint32_t iOct_neigh = neigh[0];
 
-        // Morton index a la bitpit
-        //key[0] = mesh.getMorton(iOct); /* octant's morton index */
+            uint8_t level = mesh.getLevel(iOct);
+            uint8_t level_neigh = isghost[0] ?
+              mesh.getGhostOctant(iOct_neigh)->getLevel() : // neigh is a MPI ghost
+              mesh.getLevel(iOct_neigh);                    // neigh is a regular oct
 
-        // Morton index a la dyablo
-        key[0] = morton_key;
+            // neighbor is larger
+            if ( level_neigh < level )
+            {
+              status |= (NEIGH_IS_LARGER << 2*iface);
+            }
 
-        if (iOct < m_nbOctants)
+            // neighbor has same size
+            else
+            {
+              status |= (NEIGH_IS_SAME_SIZE << 2*iface);
+            }
+            
+          }
+
+          // more neighbors means neighbors are smaller
+          else if (neigh.size() > 1)
+          {
+            status |= (NEIGH_IS_SMALLER << 2*iface);
+          }
+          
+        } // end for iface
+        
+        /*
+         * 2. corner neighbors
+         */
+        const uint8_t corner_codim = 2;
+
+        const uint8_t nbFaces = 2*m_dim;
+
+        for (int icorner=0; icorner<2*m_dim; ++icorner)
         {
-          key[1] = mesh.getLevel(iOct);  /* octant's level */
-        }
-        else
-        {
-          int64_t iOctG = iOct-m_nbOctants;
 
-          key[1] = mesh.getGhostOctant(iOctG)->getLevel();
-        }
+          // icorner is used when bit shifting is involved
+          int icorner2 = icorner + nbFaces;
 
-        value_t value = iOct;
+          // list of neighbors octant id, neighbor through a given face
+          std::vector<uint32_t> neigh;
+          std::vector<bool> isghost;
+          
+          // ask PABLO to find neighbor octant id across a given corner
+          // this fill vector neigh and isghost
+          mesh.findNeighbours(iOct, icorner, corner_codim, neigh, isghost);
 
-        hashmap_host.insert( key, value );
+          // no neighbors means 2 things : current octant is
+          // either touching external border
+          // either the corner is at hanging face (meaning neighbor is larger)
+          // still in both case, we use the same "code" NEIGH_NONE
+          //
+          // if you want to really know if a corner is "touching" external border
+          // you just need to test status with the corresponding 2 adjacent faces
+          // corner2  face 3  corner 3
+          //        +-------+
+          //        |       |
+          // face 0 |       | face 1
+          //        |       |
+          //        +-------+
+          // corner0  face 2  corner 1
+          //
+          if (neigh.size() == 0)
+          {
+            status |= (NEIGH_NONE << 2*icorner2);
+          }
 
-      });
-  }
+          // 1 neighbor 
+          else if (neigh.size() == 1)
+          {
+            
+            // retrieve neighbor octant id
+            uint32_t iOct_neigh = neigh[0];
 
-  // finaly update the new hashmap on device
-  Kokkos::deep_copy(m_hashmap, hashmap_host);
+            uint8_t level       = mesh.getLevel(iOct);
+            uint8_t level_neigh = isghost[0] ?
+              mesh.getGhostOctant(iOct_neigh)->getLevel() : // neigh is a MPI ghost
+              mesh.getLevel(iOct_neigh);                    // neigh is a regular oct
 
-} // AMRMetaData::update
+            // neighbor is larger
+            if ( level_neigh < level )
+            {
+              status |= (NEIGH_IS_LARGER << 2*icorner2);
+            }
+
+            // neighbor has same size
+            else if ( level_neigh == level )
+            {
+              status |= (NEIGH_IS_SAME_SIZE << 2*icorner2);
+            }
+
+            // neighbor is smaller
+            else
+            {
+              status |= (NEIGH_IS_SMALLER << 2*icorner2);
+            }
+            
+          }
+                    
+        } // end for icorner
+
+        neigh_level_status_host(iOct) = status;
+
+      }); // end Kokkos parallel_for
+
+  } // end fill the mirrored array
+
+  // copy array on device
+  Kokkos::deep_copy (m_neigh_level_status, neigh_level_status_host);
+
+} // AMRMetaData<2>::update_neighbor_status
 
 // =============================================
 // =============================================
-void AMRMetaData::report()
+// template specialization for 3D
+template<>
+void AMRMetaData<3>::update_neighbor_status(const AMRmesh& mesh)
 {
 
-  std::cout << "AMRMetaData hashmap size     = " << m_hashmap.size() << std::endl;
-  std::cout << "AMRMetaData hashmap capacity = " << m_hashmap.capacity() << " (max size)" << std::endl;
+  // resize to current number of regular octants
+  Kokkos::resize(m_neigh_level_status, m_nbOctants);
+  
+  // create a mirror on host
+  neighbor_level_status_t::HostMirror neigh_level_status_host = 
+    Kokkos::create_mirror_view(m_neigh_level_status);
 
-} // AMRMetaData::update
+  // fill the mirrored array on host with OpenMP exec space
+  {
+    Kokkos::RangePolicy<Kokkos::OpenMP> policy(0, m_nbOctants);
+    Kokkos::parallel_for(
+      policy,
+      [&](const uint64_t iOct)
+      {
+
+        neigh_status_t status = 0;
+
+        /*
+         * 1. face neighbors
+         */
+        const uint8_t codim = 1;
+
+        for (int iface=0; iface<2*m_dim; ++iface)
+        {
+          
+          // list of neighbors octant id, neighbor through a given face
+          std::vector<uint32_t> neigh;
+          std::vector<bool> isghost;
+          
+          // ask PABLO to find neighbor octant id accross a given face
+          // this fill vector neigh and isghost
+          mesh.findNeighbours(iOct, iface, codim, neigh, isghost);
+          
+          // no neighbors means current octant is touching external border 
+          if (neigh.size() == 0)
+          {
+            status |= (NEIGH_IS_EXTERNAL_BORDER << 2*iface);
+          }
+          
+          // 1 neighbor means neighbor is larger or same size
+          else if (neigh.size() == 1) // neighbor is larger or same size
+          {
+            
+            // retrieve neighbor octant id
+            uint32_t iOct_neigh = neigh[0];
+            
+            uint8_t level = mesh.getLevel(iOct);
+            uint8_t level_neigh = isghost[0] ?
+              mesh.getGhostOctant(iOct_neigh)->getLevel() : // neigh is a MPI ghost
+              mesh.getLevel(iOct_neigh);                    // neigh is a regular oct
+            
+            // neighbor is larger
+            if ( level_neigh < level )
+            {
+              status |= (NEIGH_IS_LARGER << 2*iface);
+            }
+            
+            // neighbor has same size
+            else
+            {
+              status |= (NEIGH_IS_SAME_SIZE << 2*iface);
+            }
+            
+          }
+          
+          // more neighbors means neighbors are smaller
+          else if (neigh.size() > 1)
+          {
+            status |= (NEIGH_IS_SMALLER << 2*iface);
+          }
+          
+        } // end for iface
+
+        // 2. corner neighbors
+                /*
+         * 2. corner neighbors
+         */
+        const uint8_t corner_codim = 2;
+
+        const uint8_t nbFaces = 2*m_dim;
+
+        for (int icorner=0; icorner<2*m_dim; ++icorner)
+        {
+
+          // icorner is used when bit shifting is involved
+          int icorner2 = icorner + nbFaces;
+
+          // list of neighbors octant id, neighbor through a given face
+          std::vector<uint32_t> neigh;
+          std::vector<bool> isghost;
+          
+          // ask PABLO to find neighbor octant id across a given corner
+          // this fill vector neigh and isghost
+          mesh.findNeighbours(iOct, icorner, corner_codim, neigh, isghost);
+
+          // no neighbors means 2 things : current octant is
+          // either touching external border
+          // either the corner is at hanging face (meaning neighbor is larger)
+          // still in both case, we use the same "code"
+          if (neigh.size() == 0)
+          {
+            status |= (NEIGH_NONE << 2*icorner2);
+          }
+
+          // 1 neighbor 
+          else if (neigh.size() == 1)
+          {
+            
+            // retrieve neighbor octant id
+            uint32_t iOct_neigh = neigh[0];
+
+            uint8_t level = mesh.getLevel(iOct);
+            uint8_t level_neigh = isghost[0] ?
+              mesh.getGhostOctant(iOct_neigh)->getLevel() : // neigh is a MPI ghost
+              mesh.getLevel(iOct_neigh);                    // neigh is a regular oct
+
+            // neighbor is larger
+            if ( level_neigh < level )
+            {
+              status |= (NEIGH_IS_LARGER << 2*icorner2);
+            }
+
+            // neighbor has same size
+            else if ( level_neigh == level )
+            {
+              status |= (NEIGH_IS_SAME_SIZE << 2*icorner2);
+            }
+
+            // neighbor is smaller
+            else
+            {
+              status |= (NEIGH_IS_SMALLER << 2*icorner2);
+            }
+            
+          }
+                    
+        } // end for icorner
+
+        // 3. edge neighbors - evaluate if really needed
+        // TODO
+        // TODO
+        // TODO
+
+        status = status;
+
+      }); // end Kokkos parallel_for
+      
+  } // end fill the mirrored array
+
+  // copy array on device
+  Kokkos::deep_copy (m_neigh_level_status, neigh_level_status_host);
+
+} // AMRMetaData<3>::update_neighbor_status
 
 } // namespace dyablo

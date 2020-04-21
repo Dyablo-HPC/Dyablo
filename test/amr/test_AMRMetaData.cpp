@@ -27,9 +27,11 @@ namespace dyablo
 
 // ==========================================================
 // ==========================================================
-void run_test(int dim)
+template<int dim>
+void run_test()
 {
 
+  std::cout << "\n\n\n";
   std::cout << "==================================\n";
   std::cout << "AMRMetaData test in dim : " << dim << "\n";
   std::cout << "==================================\n";
@@ -41,6 +43,16 @@ void run_test(int dim)
   /**<Instantation of a nDimensional pablo uniform object.*/
   bitpit::PabloUniform amr_mesh(dim);
 
+  // Set 2:1 balance
+  // codim 1 ==> balance through faces
+  // codim 2 ==> balance through faces and corner
+  // codim 3 ==> balance through faces, edges and corner (3D only)
+  int codim = 1; 
+  amr_mesh.setBalanceCodimension(codim);
+  
+  uint32_t idx=0;
+  amr_mesh.setBalance(idx,true);
+
   /**<set periodic border condition */
   amr_mesh.setPeriodic(0);
   amr_mesh.setPeriodic(1);
@@ -49,37 +61,54 @@ void run_test(int dim)
   amr_mesh.setPeriodic(4);
   amr_mesh.setPeriodic(5);
 
+  // stage 1
+  amr_mesh.adaptGlobalRefine();
+  amr_mesh.updateConnectivity();
 
-  /**<Refine globally four level and write the octree.*/
-  for (int iter=1; iter<niter; ++iter)
-  {
-    
-    amr_mesh.adaptGlobalRefine();
+  // stage 2
+  amr_mesh.setMarker(1,1);
+  amr_mesh.adapt(true);
+  amr_mesh.updateConnectivity();
 
-    amr_mesh.setMarker(3,1);
-    amr_mesh.setMarker(5,1);
-    //amr_mesh.setMarker(8,1);
-    amr_mesh.adapt();
-    
+  // stage 3
+  amr_mesh.setMarker(3,1);
+  amr_mesh.adapt(true);
+  amr_mesh.updateConnectivity();
+  std::cout << "Mesh size is " << amr_mesh.getNumOctants() << "\n";
+
 #if BITPIT_ENABLE_MPI==1
-    /**<(Load)Balance the octree over the processes.*/
-    amr_mesh.loadBalance();
+  /**<(Load)Balance the octree over the processes.*/
+  amr_mesh.loadBalance();
 #endif
 
-    amr_mesh.updateConnectivity();
 
-  }  
-  amr_mesh.updateConnectivity();
+  /* 
+   * 2d mesh should be exactly like this : 16 octants
+   *
+   *   ___________ __________
+   *  |           |     |    |
+   *  |           |  14 | 15 |
+   *  |    11     |-----+----|
+   *  |           |  12 | 13 |
+   *  |___________|_____|____|
+   *  |     |     | 8|9 |    |
+   *  |  2  |  3  | 6|7 | 10 |
+   *  |-----+-----|-----+----|
+   *  |  0  |  1  |  4  | 5  |
+   *  |_____|_____|_____|____|
+   *  
+   *
+   */
 
   std::cout << "Number of octants :" << amr_mesh.getNumOctants() <<  "\n";
 
   // stage 2 : create a AMRMetaData ovject
 
   uint64_t capacity = 1024*1024;
-  AMRMetaData amrMetadata(capacity);
+  AMRMetaData<dim> amrMetadata(capacity);
 
   amrMetadata.report();
-  amrMetadata.update(amr_mesh);
+  amrMetadata.update_hashmap(amr_mesh);
   amrMetadata.report();
 
   {
@@ -88,7 +117,8 @@ void run_test(int dim)
     auto map_device = amrMetadata.hashmap();
 
     // host mirror
-    AMRMetaData::hashmap_t::HostMirror map_host(map_device.capacity());
+    using hashmap_host_t = typename AMRMetaData<dim>::hashmap_t::HostMirror;
+    hashmap_host_t map_host(map_device.capacity());
 
     // copy on host before printing
     Kokkos::deep_copy(map_host, map_device);
@@ -109,13 +139,26 @@ void run_test(int dim)
                   << "\n";
       }
     }
-
   }
+
+  std::cout << "update neighbor status\n";
+  amrMetadata.update_neighbor_status(amr_mesh);
+
+  const auto neigh_level_status = amrMetadata.neigh_level_status();
+  
+  for (std::size_t iOct=0; iOct<amr_mesh.getNumOctants(); ++iOct)
+  {
+    auto status = neigh_level_status(iOct);
+    std::bitset<16> status_binary(status);
+
+    std::cout << "iOct " << iOct << " | " << status << " | " << status_binary << "\n" ;
+  }
+  
+
 
 } // run_test
 
 } // dyablo
-
 
 // ==========================================================
 // ==========================================================
@@ -173,11 +216,11 @@ int main(int argc, char* argv[])
   }    // end kokkos config
 
   // dim 2
-  dyablo::run_test(2);
+  dyablo::run_test<2>();
 
   // dim3
-  dyablo::run_test(3);
-
+  //dyablo::run_test<3>();
+  
   Kokkos::finalize();
 
   return EXIT_SUCCESS;
