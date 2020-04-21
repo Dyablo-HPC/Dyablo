@@ -59,6 +59,14 @@ private:
   //! hashmap capacity
   uint64_t m_capacity;
 
+  //! AMR number of regular octants (current MPI process)
+  //! changed each time update() method is called
+  uint64_t m_nbOctants;
+
+  //! AMR number of ghosts octants (current MPI process)
+  //! changed each time update() method is called
+  uint64_t m_nbGhosts;
+
 }; // class AMRMetaData
 
 } // namespace dyablo

@@ -30,9 +30,11 @@ AMRMetaData::~AMRMetaData()
 void AMRMetaData::update(const AMRmesh& mesh)
 {
 
+  m_nbOctants = mesh.getNumOctants();
+  m_nbGhosts  = mesh.getNumGhosts();
+
   // check if hashmap needs a rehash
-  uint64_t nbOctants = mesh.getNumOctants();
-  if (nbOctants > 0.75*m_capacity)
+  if (m_nbOctants + m_nbGhosts > 0.75*m_capacity)
   {
     // increase capacity
     m_capacity = m_capacity * 2;
@@ -48,10 +50,10 @@ void AMRMetaData::update(const AMRmesh& mesh)
 
   // insert data from pablo mesh object, do that on host, with OpenMP
   {
-    Kokkos::RangePolicy<Kokkos::OpenMP> policy(0, nbOctants);
+    Kokkos::RangePolicy<Kokkos::OpenMP> policy(0, m_nbOctants+m_nbGhosts);
     Kokkos::parallel_for(
       policy,
-      KOKKOS_LAMBDA(const uint64_t iOct)
+      [&](const uint64_t iOct)
       {
         uint8_t dim = mesh.getDim();
 
@@ -60,17 +62,45 @@ void AMRMetaData::update(const AMRmesh& mesh)
         // the following way of computing Morton index
         // is exactly identical to bitpit
         uint32_t x,y,z;
-        x = mesh.getOctant(iOct)->getLogicalX();
-        y = mesh.getOctant(iOct)->getLogicalY();
-        z = mesh.getOctant(iOct)->getLogicalZ();
+
+        if (iOct < m_nbOctants)
+        {
+          // we have a regular octant
+
+          x = mesh.getOctant(iOct)->getLogicalX();
+          y = mesh.getOctant(iOct)->getLogicalY();
+          z = mesh.getOctant(iOct)->getLogicalZ();
+
+        }
+        else
+        {
+          // we have a ghost octant
+
+          int64_t iOctG = iOct-m_nbOctants;
+          x = mesh.getGhostOctant(iOctG)->getLogicalX();
+          y = mesh.getGhostOctant(iOctG)->getLogicalY();
+          z = mesh.getGhostOctant(iOctG)->getLogicalZ();
+          
+        }
+
         uint64_t morton_key = compute_morton_key(x,y,z);
 
         // Morton index a la bitpit
         //key[0] = mesh.getMorton(iOct); /* octant's morton index */
 
         // Morton index a la dyablo
-        key[0] = morton_key; 
-        key[1] = mesh.getLevel(iOct);  /* octant's level */
+        key[0] = morton_key;
+
+        if (iOct < m_nbOctants)
+        {
+          key[1] = mesh.getLevel(iOct);  /* octant's level */
+        }
+        else
+        {
+          int64_t iOctG = iOct-m_nbOctants;
+
+          key[1] = mesh.getGhostOctant(iOctG)->getLevel();
+        }
 
         value_t value = iOct;
 
