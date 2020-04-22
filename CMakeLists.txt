@@ -74,7 +74,7 @@ option (USE_FPE_DEBUG "build with floating point Nan tracing (signal handler)" O
 option (USE_MPI_CUDA_AWARE_ENFORCED "Some MPI cuda-aware implementation are not well detected; use this to enforce" OFF)
 
 # C++11 is for Kokkos
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 #####################################################################
