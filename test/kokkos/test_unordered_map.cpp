@@ -39,7 +39,7 @@ struct fill_map
   //! functor for 2d 
   template<int dim_ = dim>
   KOKKOS_INLINE_FUNCTION
-  void operator()(const typename Kokkos::Impl::enable_if<dim_==2, int>::type& i) const
+  void operator()(const typename std::enable_if<dim_==2, int>::type& i) const
   {
     uint64_t key = (uint64_t) i;
     uint64_t value = 2*key;
@@ -52,7 +52,7 @@ struct fill_map
   //! functor for 3d 
   template<int dim_ = dim>
   KOKKOS_INLINE_FUNCTION
-  void operator()(const typename Kokkos::Impl::enable_if<dim_==3, int>::type& i) const
+  void operator()(const typename std::enable_if<dim_==3, int>::type& i) const
   {
     uint64_t key = (uint64_t) i;
     uint64_t value = 3*key;
