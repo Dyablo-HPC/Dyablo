@@ -38,8 +38,6 @@ void run_test()
 
   // stage 1 : create a PABLO mesh
 
-  int niter = 3;
-
   /**<Instantation of a nDimensional pablo uniform object.*/
   bitpit::PabloUniform amr_mesh(dim);
 
@@ -141,10 +139,26 @@ void run_test()
     }
   }
 
-  std::cout << "update neighbor status\n";
-  amrMetadata.update_neighbor_status(amr_mesh);
+  if (dim==2) {
+    // print mesh
+    std::cout << "   ___________ __________     \n";
+    std::cout << "  |           |     |    |    \n";
+    std::cout << "  |           |  14 | 15 |    \n";
+    std::cout << "  |    11     |-----+----|    \n";
+    std::cout << "  |           |  12 | 13 |    \n";
+    std::cout << "  |___________|_____|____|    \n";
+    std::cout << "  |     |     | 8|9 |    |    \n";
+    std::cout << "  |  2  |  3  | 6|7 | 10 |    \n";
+    std::cout << "  |-----+-----|-----+----|    \n";
+    std::cout << "  |  0  |  1  |  4  | 5  |    \n";
+    std::cout << "  |_____|_____|_____|____|    \n";
+    std::cout << "                              \n";
+  }
 
-  const auto neigh_level_status = amrMetadata.neigh_level_status();
+  std::cout << "update neighbor status\n";
+  amrMetadata.update_neigh_level_status(amr_mesh);
+
+  const auto neigh_level_status = amrMetadata.neigh_level_status_array();
   
   for (std::size_t iOct=0; iOct<amr_mesh.getNumOctants(); ++iOct)
   {

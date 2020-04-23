@@ -42,10 +42,16 @@ public:
 
   //! type used to stored neighbor level status
   //! we need more bits to encode status in 3D, see below
-  using neigh_status_t = typename std::conditional<dim==2,uint16_t,uint64_t>::type;
+  using neigh_level_status_t = typename std::conditional<dim==2,uint16_t,uint64_t>::type;
 
   //! type alias for the array storing neighbor level status
-  using neighbor_level_status_t = Kokkos::View<neigh_status_t*, dyablo::Device>;
+  using neigh_level_status_array_t = Kokkos::View<neigh_level_status_t*, dyablo::Device>;
+
+  //! type alias 
+  using neigh_rel_pos_status_t = typename std::conditional<dim==2,uint8_t,uint32_t>::type; 
+
+  //! type alias for the array storing neighbor relative position
+  using neigh_rel_pos_status_array_t = Kokkos::View<neigh_rel_pos_status_t*, dyablo::Device>;
 
   /**
    * enum for representing relative level difference between
@@ -60,7 +66,7 @@ public:
    * NEIGH_IS_LARGER  means neighbor octant has a smaller level
    * NEIGH_IS_SMALLER means neighbor octant has a larger level
    */
-  enum neighbor_level : neigh_status_t 
+  enum NEIGHBOR_LEVEL : neigh_level_status_t 
   {
     NEIGH_IS_SAME_SIZE       = 0x0, /* 0 */
     NEIGH_IS_SMALLER         = 0x1, /* at level+1 */
@@ -69,7 +75,7 @@ public:
     NEIGH_IS_LARGER          = 0x3  /* at level-1 using 2's complement notation */
   };
 
-  std::string neighbor_level_to_string(neighbor_level nl)
+  std::string neighbor_level_to_string(NEIGHBOR_LEVEL nl)
   {
     if(nl == 0x0) 
       return "NEIGH_IS_SAME";
@@ -81,22 +87,27 @@ public:
       return "NEIGH_IS_LARGER";
   }
 
+  /**
+   * - in 2D, across a face there can only be 2 neighbors, so only
+   * RELATIVE_POS_0 and RELATIVE_POS_1 will be used.
+   * - in 3D, there can be up to 4 neighbors across a face,
+   *  and 2 neighbors across an edge.
+   *
+   * Total number of bits required:
+   * in 2D : 4 faces x 1 bit = 4 bits
+   * in 3D : 6 faces x 2 bits + 12 edges x 1 bit = 24 bits
+   */
+  enum RELATIVE_POSITION : neigh_rel_pos_status_t
+  {
+    RELATIVE_POS_0 = 0x0,
+    RELATIVE_POS_1 = 0x1,
+    RELATIVE_POS_2 = 0x2,
+    RELATIVE_POS_3 = 0x3
+  };
+
+
   //! number of bits required to stored neighbor level status
   static constexpr int NEIGH_BIT_WIDTH = 2; 
-
-  /**
-   * TODO : not really sure we need it
-   */
-  enum neigbor_location : uint8_t
-  {
-    FACE_LEFT_X  = 0,
-    FACE_RIGHT_X = 1,
-    FACE_LEFT_Y  = 2,
-    FACE_RIGHT_Y = 3,
-    FACE_LEFT_Z  = 4,
-    FACE_RIGHT_Z = 5,
-
-  };
 
   //! constructor 
   AMRMetaData(uint64_t capacity);
@@ -137,7 +148,52 @@ public:
    * different for 2D or 3D, so we defined an templated alias for
    * that, see neigh_status_t
    */
-  void update_neighbor_status(const AMRmesh& mesh);
+  void update_neigh_level_status(const AMRmesh& mesh);
+
+  /**
+   * Update array m_neigh_rel_pos_status.
+   *
+   * This array contains one neigh_status_t value per octant
+   * all octant are concerned (regular and ghost).
+   *
+   * for all octant
+   *   for all interface (face, edge) // corners are not concerned
+   *      if ( (neigh is same size) or (neigbor is smaller)
+   *         return 0;
+   *      else // neighbor is larger
+   *         encode relative position of current octant among
+   *         all octants touching the same neighbor (see below)
+   *
+   * =============================================================
+   * E.g. small cell is current octant, large one is the neighbor 
+   * when dir = DIR_X and face = FACE_RIGHT (neighbor is on the right):
+   *
+   * RELATIVE_POS_0          RELATIVE_POS_1
+   *        ______           __      ______ 
+   *       |      |         |1 |    |      |
+   *  __   |      |     or  |__|    |      |
+   * |0 |  |      |                 |      |
+   * |__|  |______|                 |______|
+   *
+   * when dir = DIR_Y and face = FACE_RIGHTT (neigbor is on the right
+   * along Y direction):
+   *
+   * RELATIVE_POS_0       RELATIVE_POS_1
+   *  ______               ______ 
+   * |      |             |      |
+   * |      |         or  |      |
+   * |      |             |      |
+   * |______|             |______|
+   *
+   *  __                       __
+   * |0 |                     |1 |
+   * |__|                     |__|
+   *
+
+   * \note in 3D, there are 4 relative positions, ordered using Morton 
+   * order
+   */
+  void update_neigh_rel_pos_status(const AMRmesh& mesh);
 
   //! minimal reporting
   void report();
@@ -149,18 +205,30 @@ public:
   const hashmap_t& hashmap() { return m_hashmap; }
 
   //! get neighborlevel_status array
-  const neighbor_level_status_t& neigh_level_status() { return m_neigh_level_status; }
+  const neigh_level_status_array_t& neigh_level_status_array() 
+  { 
+    return m_neigh_level_status;
+  }
 
   //! helper for debug / testing : decode neigh status
   void decode_neighbor_status(uint64_t iOct);
+
+  //! get neigh_rel_pos_status array
+  const neigh_rel_pos_status_array_t& neigh_rel_pos_status_array() 
+  { 
+    return m_neigh_rel_pos_status;
+  }
 
 private:
   //! main metadata container, an unordered map 
   //! key is Morton index, value is memory/iOct index
   hashmap_t m_hashmap;
 
-  //! neighbor level status
-  neighbor_level_status_t m_neigh_level_status;
+  //! neighbor level status array
+  neigh_level_status_array_t m_neigh_level_status;
+
+  //! neighbor relative position array
+  neigh_rel_pos_status_array_t m_neigh_rel_pos_status;
 
   //! hashmap capacity
   uint64_t m_capacity;
@@ -185,6 +253,7 @@ template<int dim>
 AMRMetaData<dim>::AMRMetaData(uint64_t capacity) :
   m_hashmap(capacity),
   m_neigh_level_status(),
+  m_neigh_rel_pos_status(),
   m_capacity(capacity)
 {
 
@@ -288,15 +357,15 @@ void AMRMetaData<dim>::update_hashmap(const AMRmesh& mesh)
 // =============================================
 // =============================================
 template<int dim>
-void AMRMetaData<dim>::update_neighbor_status(const AMRmesh& mesh)
+void AMRMetaData<dim>::update_neigh_level_status(const AMRmesh& mesh)
 {
-} // update_neighbor_status
+} // update_neigh_level_status
 
 // declare specializations
 template<>
-void AMRMetaData<2>::update_neighbor_status(const AMRmesh& mesh);
+void AMRMetaData<2>::update_neigh_level_status(const AMRmesh& mesh);
 template<>
-void AMRMetaData<3>::update_neighbor_status(const AMRmesh& mesh);
+void AMRMetaData<3>::update_neigh_level_status(const AMRmesh& mesh);
 
 // =============================================
 // =============================================
@@ -307,12 +376,12 @@ void AMRMetaData<dim>::decode_neighbor_status(uint64_t iOct)
   const uint8_t nbFaces   = 2*m_dim;
   const uint8_t nbCorners = dim==2 ? 4 : 8;
 
-  neigh_status_t status = m_neigh_level_status(iOct);
+  neigh_level_status_t status = m_neigh_level_status(iOct);
   
   std::cout << "Neigh status of iOct = " << iOct << " :\n";
   for (int iface=0; iface<nbFaces; ++iface)
   {
-    neighbor_level nl = static_cast<neighbor_level>( (status >> (2*iface)) & 0x3 );
+    NEIGHBOR_LEVEL nl = static_cast<NEIGHBOR_LEVEL>( (status >> (2*iface)) & 0x3 );
 
     std::cout << "face = " << iface << " status is "
               << neighbor_level_to_string(nl) << "\n";
@@ -323,7 +392,7 @@ void AMRMetaData<dim>::decode_neighbor_status(uint64_t iOct)
   {
     int icorner2 = icorner + nbFaces;
 
-    neighbor_level nl = static_cast<neighbor_level>( (status >> (2*icorner2)) & 0x3 );
+    NEIGHBOR_LEVEL nl = static_cast<NEIGHBOR_LEVEL>( (status >> (2*icorner2)) & 0x3 );
 
     std::cout << "corner = " << icorner << " status is "
               << neighbor_level_to_string(nl) << "\n";
@@ -336,6 +405,19 @@ void AMRMetaData<dim>::decode_neighbor_status(uint64_t iOct)
   }
 
 }; // AMRMetaData<dim>::decode_neighbor_status
+
+// =============================================
+// =============================================
+template<int dim>
+void AMRMetaData<dim>::update_neigh_rel_pos_status(const AMRmesh& mesh)
+{
+} // update_neigh_rel_pos_status
+
+// declare specializations
+template<>
+void AMRMetaData<2>::update_neigh_rel_pos_status(const AMRmesh& mesh);
+template<>
+void AMRMetaData<3>::update_neigh_rel_pos_status(const AMRmesh& mesh);
 
 
 // =============================================

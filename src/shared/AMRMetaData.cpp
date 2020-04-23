@@ -13,7 +13,7 @@ namespace dyablo
 // =============================================
 // template specialization for 2D
 template<>
-void AMRMetaData<2>::update_neighbor_status(const AMRmesh& mesh)
+void AMRMetaData<2>::update_neigh_level_status(const AMRmesh& mesh)
 {
 
   const uint8_t nbFaces = 2*m_dim;
@@ -24,7 +24,7 @@ void AMRMetaData<2>::update_neighbor_status(const AMRmesh& mesh)
   Kokkos::resize(m_neigh_level_status, m_nbOctants);
 
   // create a mirror on host
-  neighbor_level_status_t::HostMirror neigh_level_status_host = 
+  neigh_level_status_array_t::HostMirror neigh_level_status_host = 
     Kokkos::create_mirror_view(m_neigh_level_status);
 
   // fill the mirrored array on host with OpenMP exec space
@@ -34,7 +34,7 @@ void AMRMetaData<2>::update_neighbor_status(const AMRmesh& mesh)
       policy,
       [&](const uint64_t iOct)
       {
-        neigh_status_t status = 0;
+        neigh_level_status_t status = 0;
 
         /*
          * 1. face neighbors
@@ -174,13 +174,13 @@ void AMRMetaData<2>::update_neighbor_status(const AMRmesh& mesh)
   // copy array on device
   Kokkos::deep_copy (m_neigh_level_status, neigh_level_status_host);
 
-} // AMRMetaData<2>::update_neighbor_status
+} // AMRMetaData<2>::update_neigh_level_status
 
 // =============================================
 // =============================================
 // template specialization for 3D
 template<>
-void AMRMetaData<3>::update_neighbor_status(const AMRmesh& mesh)
+void AMRMetaData<3>::update_neigh_level_status(const AMRmesh& mesh)
 {
 
   const uint8_t nbFaces = 2*m_dim;
@@ -191,7 +191,7 @@ void AMRMetaData<3>::update_neighbor_status(const AMRmesh& mesh)
   Kokkos::resize(m_neigh_level_status, m_nbOctants);
   
   // create a mirror on host
-  neighbor_level_status_t::HostMirror neigh_level_status_host = 
+  neigh_level_status_array_t::HostMirror neigh_level_status_host = 
     Kokkos::create_mirror_view(m_neigh_level_status);
 
   // fill the mirrored array on host with OpenMP exec space
@@ -202,7 +202,7 @@ void AMRMetaData<3>::update_neighbor_status(const AMRmesh& mesh)
       [&](const uint64_t iOct)
       {
 
-        neigh_status_t status = 0;
+        neigh_level_status_t status = 0;
 
         /*
          * 1. face neighbors
@@ -336,6 +336,24 @@ void AMRMetaData<3>::update_neighbor_status(const AMRmesh& mesh)
   // copy array on device
   Kokkos::deep_copy (m_neigh_level_status, neigh_level_status_host);
 
-} // AMRMetaData<3>::update_neighbor_status
+} // AMRMetaData<3>::update_neigh_level_status
+
+// =============================================
+// =============================================
+// template specialization for 2D
+template<>
+void AMRMetaData<2>::update_neigh_rel_pos_status(const AMRmesh& mesh)
+{
+  // TODO
+} // AMRMetaData<2>::update_neigh_rel_pos_status
+
+// =============================================
+// =============================================
+// template specialization for 3D
+template<>
+void AMRMetaData<3>::update_neigh_rel_pos_status(const AMRmesh& mesh)
+{
+  // TODO
+} // AMRMetaData<3>::update_neigh_rel_pos_status
 
 } // namespace dyablo
