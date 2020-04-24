@@ -56,8 +56,11 @@ void run_test()
   amr_mesh.setPeriodic(1);
   amr_mesh.setPeriodic(2);
   amr_mesh.setPeriodic(3);
-  amr_mesh.setPeriodic(4);
-  amr_mesh.setPeriodic(5);
+  if (dim==3)
+  {
+    amr_mesh.setPeriodic(4);
+    amr_mesh.setPeriodic(5);
+  }
 
   // stage 1
   amr_mesh.adaptGlobalRefine();
@@ -78,7 +81,6 @@ void run_test()
   /**<(Load)Balance the octree over the processes.*/
   amr_mesh.loadBalance();
 #endif
-
 
   /* 
    * 2d mesh should be exactly like this : 16 octants
@@ -121,7 +123,9 @@ void run_test()
     // copy on host before printing
     Kokkos::deep_copy(map_host, map_device);
 
-    std::cout << "Print hashmap\n";
+    std::cout << "// =========================================\n";
+    std::cout << "// Print hashmap\n";
+    std::cout << "// =========================================\n";
     for (std::size_t i=0; i<map_host.capacity(); ++i)
     {
       if (map_host.valid_at(i)) 
@@ -137,6 +141,29 @@ void run_test()
                   << "\n";
       }
     }
+
+    std::cout << "// =========================================\n";
+    std::cout << "// Print hashmap again\n";
+    std::cout << "// =========================================\n";
+    for (std::size_t i=0; i<map_host.capacity(); ++i)
+    {
+      if (map_host.valid_at(i)) 
+      {
+        auto key   = map_host.key_at(i)[0];
+        auto level = map_host.key_at(i)[1];
+        auto value = map_host.value_at(i);
+        
+        std::cout << i << " "
+                  << "map[" << morton_extract_bits<3,IX>(key) 
+                  << "," << morton_extract_bits<3,IY>(key)
+                  << "," << morton_extract_bits<3,IZ>(key)
+                  << "]=" << value
+                  << " (level=" << level << ")"
+                  << " and Morton (from Pablo) = " << amr_mesh.getMorton(value)
+                  << "\n";
+      }
+    }
+
   }
 
   // ============================================================
@@ -202,6 +229,10 @@ void run_test()
   // ============================================================
   // ============================================================
 
+  std::cout << "// =========================================\n";
+  std::cout << "// Print mesh face connectivity\n";
+  std::cout << "// =========================================\n";
+
   if (dim==2) {
     // print mesh
     std::cout << "   ___________ __________     \n";
@@ -218,17 +249,7 @@ void run_test()
     std::cout << "                              \n";
   }
 
-//   int mpi_rank = -1;
-//   int ranks = 0;
-// #ifdef USE_MPI
-//   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-// #endif // USE_MPI
-
   {
-    std::cout << "// =========================================\n";
-    std::cout << "Print mesh face connectivity\n";
-    std::cout << "// =========================================\n";
-
     //
     // get hashmap
     //
@@ -293,8 +314,8 @@ void run_test()
         for (int iface=0; iface<nbFaces; ++iface)
         {
           NEIGH_LEVEL nl = static_cast<NEIGH_LEVEL>( (status >> (2*iface)) & 0x3 );
-
-          if (nl == NEIGH_LEVEL::NEIGH_IS_SAME_SIZE) 
+          
+          if (nl == NEIGH_LEVEL::NEIGH_IS_SAME_SIZE)
           {
             key_n[0] = get_neighbor_morton(morton,level,iface);
             key_n[1] = level;

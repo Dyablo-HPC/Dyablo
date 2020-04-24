@@ -252,7 +252,9 @@ uint32_t morton_extract_bits(uint64_t key)
  * \return neighbor morton key
  *
  * \todo maybe try to extract only the coordinate of interest not all 
- * three coordinates.
+ *       three coordinates.
+ * \todo all the addition could probably be implemented more efficiently
+ *       with bit manipulation
  *
  */
 KOKKOS_INLINE_FUNCTION
@@ -267,23 +269,50 @@ uint64_t get_neighbor_morton(uint64_t key,
   constexpr int MAX_LEVEL = 20;
   auto length = uint32_t(1) << (MAX_LEVEL - level);
 
-  if (face == 0)
+  // domain length
+  auto total_length = uint32_t(1) << MAX_LEVEL;
+
+  if (face == 0) 
+  {
+    if (x < length)
+      x += total_length;
     x -= length;
-  
+  }
+
   if (face == 1)
+  {
     x += length;
+    if (x >= total_length)
+      x -= total_length;
+  }
 
-  if (face == 2)
+  if (face == 2) 
+  {
+    if (y < length)
+      y += total_length;
     y -= length;
-  
-  if (face == 3)
-    y += length;
+  }
 
-  if (face == 4)
+  if (face == 3)
+  {
+    y += length;
+    if (y >= total_length)
+      y -= total_length;
+  }
+
+  if (face == 4) 
+  {
+    if (z < length)
+      z += total_length;
     z -= length;
+  }
 
   if (face == 5)
+  {
     z += length;
+    if (z >= total_length)
+      z -= total_length;
+  }
 
   return compute_morton_key(x,y,z);
 
@@ -304,8 +333,10 @@ uint64_t get_neighbor_morton(uint64_t key,
  * \note neigh_id should 0 or 1 in 2D
  * \note neigh_id should 0, 1, 2 or 3 in 3D
  *
- * \todo matbe try to extract only the coordinate of interest not all 
- * three coordinates.
+ * \todo maybe try to extract only the coordinate of interest not all 
+ *       three coordinates.
+ * \todo all the addition could probably be implemented more efficiently
+ *       with bit manipulation
  *
  */
 KOKKOS_INLINE_FUNCTION
@@ -329,6 +360,9 @@ uint64_t get_neighbor_morton(uint64_t key,
   // length of neighbor
   auto length_n = uint32_t(1) << (MAX_LEVEL - level_n);
 
+  // domain length
+  auto total_length = uint32_t(1) << MAX_LEVEL;
+
   // get direction and left/right face
   auto dir = face >> 1;
   auto iface = face & 0x1;
@@ -342,7 +376,10 @@ uint64_t get_neighbor_morton(uint64_t key,
 
     if (dir == IX)
     {
-      xyz[IX] = iface==0 ? xyz[IX]-length_n : xyz[IX]+length;
+      xyz[IX] = iface==0 ? (xyz[IX] < length_n ?
+                            xyz[IX]+(total_length-length_n) :
+                            xyz[IX]-length_n) : xyz[IX]+length;
+      //xyz[IX] = iface==0 ? xyz[IX]-length_n : xyz[IX]+length;
       xyz[IY] = b0   ==0 ? xyz[IY]          : xyz[IY]+length_n;
       xyz[IZ] = b1   ==0 ? xyz[IZ]          : xyz[IZ]+length_n;
     }
@@ -350,7 +387,10 @@ uint64_t get_neighbor_morton(uint64_t key,
     if (dir == IY)
     {
       xyz[IX] = b0   ==0 ? xyz[IX]          : xyz[IX]+length_n;
-      xyz[IY] = iface==0 ? xyz[IY]-length_n : xyz[IY]+length;
+      xyz[IY] = iface==0 ? (xyz[IY] < length_n ?
+                            xyz[IY]+(total_length-length_n) :
+                            xyz[IY]-length_n) : xyz[IY]+length;
+      //xyz[IY] = iface==0 ? xyz[IY]-length_n : xyz[IY]+length;
       xyz[IZ] = b1   ==0 ? xyz[IZ]          : xyz[IZ]+length_n;
     }
 
@@ -358,7 +398,10 @@ uint64_t get_neighbor_morton(uint64_t key,
     {
       xyz[IX] = b0   ==0 ? xyz[IX]          : xyz[IX]+length_n;
       xyz[IY] = b1   ==0 ? xyz[IY]          : xyz[IY]+length_n;
-      xyz[IZ] = iface==0 ? xyz[IZ]-length_n : xyz[IZ]+length;
+      xyz[IZ] = iface==0 ? (xyz[IZ] < length_n ?
+                            xyz[IZ]+(total_length-length_n) :
+                            xyz[IZ]-length_n) : xyz[IZ]+length;
+      //xyz[IZ] = iface==0 ? xyz[IZ]-length_n : xyz[IZ]+length;
     }
 
     return compute_morton_key(xyz[IX],xyz[IY],xyz[IZ]);
@@ -371,7 +414,10 @@ uint64_t get_neighbor_morton(uint64_t key,
 
     if (dir == IX)
     {
-      xyz[IX] = iface==0 ? xyz[IX]-length_n : xyz[IX]+length;
+      xyz[IX] = iface==0 ? (xyz[IX] < length_n ?
+                            xyz[IX]+(total_length-length_n) :
+                            xyz[IX]-length_n) : xyz[IX]+length;
+      //xyz[IX] = iface==0 ? xyz[IX]-length_n : xyz[IX]+length;
       xyz[IY] = b0   ==0 ? xyz[IY]          : xyz[IY]-length;
       xyz[IZ] = b1   ==0 ? xyz[IZ]          : xyz[IZ]-length;
     }
@@ -379,7 +425,10 @@ uint64_t get_neighbor_morton(uint64_t key,
     if (dir == IY)
     {
       xyz[IX] = b0   ==0 ? xyz[IX]          : xyz[IX]-length;
-      xyz[IY] = iface==0 ? xyz[IY]-length_n : xyz[IY]+length;
+      xyz[IY] = iface==0 ? (xyz[IY] < length_n ?
+                            xyz[IY]+(total_length-length_n) :
+                            xyz[IY]-length_n) : xyz[IY]+length;
+      //xyz[IY] = iface==0 ? xyz[IY]-length_n : xyz[IY]+length;
       xyz[IZ] = b1   ==0 ? xyz[IZ]          : xyz[IZ]-length;
     }
 
@@ -387,7 +436,10 @@ uint64_t get_neighbor_morton(uint64_t key,
     {
       xyz[IX] = b0   ==0 ? xyz[IX]          : xyz[IX]-length;
       xyz[IY] = b1   ==0 ? xyz[IY]          : xyz[IY]-length;
-      xyz[IZ] = iface==0 ? xyz[IZ]-length_n : xyz[IZ]+length;
+      xyz[IZ] = iface==0 ? (xyz[IZ] < length_n ?
+                            xyz[IZ]+(total_length-length_n) :
+                            xyz[IZ]-length_n) : xyz[IZ]+length;
+      //xyz[IZ] = iface==0 ? xyz[IZ]-length_n : xyz[IZ]+length;
     }
 
     return compute_morton_key(xyz[IX],xyz[IY],xyz[IZ]);
