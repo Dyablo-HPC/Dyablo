@@ -218,24 +218,157 @@ void run_test()
     std::cout << "                              \n";
   }
 
-  int mpi_rank = -1;
-  int ranks = 0;
-#ifdef USE_MPI
-  MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-#endif // USE_MPI
+//   int mpi_rank = -1;
+//   int ranks = 0;
+// #ifdef USE_MPI
+//   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+// #endif // USE_MPI
 
-  if (ranks>0) 
   {
     std::cout << "// =========================================\n";
-    std::cout << "Print mesh connectivity\n";
+    std::cout << "Print mesh face connectivity\n";
     std::cout << "// =========================================\n";
 
+    //
+    // get hashmap
+    //
+    auto map_device = amrMetadata.hashmap();
 
-    for (std::size_t iOct=0; iOct<amr_mesh.getNumOctants(); ++iOct)
-    {
+    using hashmap_host_t = typename AMRMetaData<dim>::hashmap_t::HostMirror;
     
-    }
-  }
+    auto invalid_index = ~static_cast<uint32_t>(0);
+
+    hashmap_host_t map_host(map_device.capacity());
+
+    Kokkos::deep_copy(map_host, map_device);
+
+    //
+    // get morton keys array
+    //
+    const auto morton_keys = amrMetadata.morton_keys();
+
+    typename AMRMetaData<dim>::morton_keys_array_t::HostMirror morton_keys_host =
+      Kokkos::create_mirror_view(morton_keys);
+    
+    Kokkos::deep_copy(morton_keys_host,
+                      morton_keys);
+    
+
+    //
+    // get neighbor level information
+    //
+    const auto neigh_level_status = amrMetadata.neigh_level_status_array();
+    
+    typename AMRMetaData<dim>::neigh_level_status_array_t::HostMirror neigh_level_status_host = 
+      Kokkos::create_mirror_view(neigh_level_status);
+    
+    Kokkos::deep_copy(neigh_level_status_host,
+                      neigh_level_status);
+    
+    const uint8_t nbFaces   = 2*dim;
+
+    using NEIGH_LEVEL = typename AMRMetaData<dim>::NEIGH_LEVEL;
+
+    // neighbor key
+    typename AMRMetaData<dim>::key_t key_n; 
+
+    for (std::size_t i=0; i<map_host.capacity(); ++i)
+    {
+      if (map_host.valid_at(i)) 
+      {
+        auto morton= map_host.key_at(i)[0];
+        auto level = map_host.key_at(i)[1];
+        auto iOct  = map_host.value_at(i);
+        
+        auto status = neigh_level_status_host(iOct);
+        
+        auto x = morton_extract_bits<3,IX>(morton);
+        auto y = morton_extract_bits<3,IY>(morton);
+        auto z = morton_extract_bits<3,IZ>(morton);
+
+        std::cout << "iOct " << iOct << " (morton=" << morton << ") ";
+        std::cout << "| " << x << " " << y << " " << z << " |";
+        std::cout << " || "; 
+        
+        for (int iface=0; iface<nbFaces; ++iface)
+        {
+          NEIGH_LEVEL nl = static_cast<NEIGH_LEVEL>( (status >> (2*iface)) & 0x3 );
+
+          if (nl == NEIGH_LEVEL::NEIGH_IS_SAME_SIZE) 
+          {
+            key_n[0] = get_neighbor_morton(morton,level,iface);
+            key_n[1] = level;
+
+            auto index_n = map_host.find(key_n);
+
+            if ( invalid_index != index_n )
+            {
+              // print neighbor iOct
+              std::cout << "| f" << iface << " " << map_host.value_at(index_n) << " ";
+            }
+          }
+
+          if (nl == NEIGH_LEVEL::NEIGH_IS_SMALLER)
+          {
+            // max number of neighbors through a face
+            const uint8_t nbNeighs = 1<<(dim-1);
+
+            std::cout << "| f" << iface << " " ;
+
+            for (uint8_t ineigh=0; ineigh<nbNeighs; ++ineigh)
+            {
+
+              auto level_n = level+1;
+              key_n[0] = get_neighbor_morton(morton, level, level_n, iface, ineigh);
+              key_n[1] = level_n;
+
+              auto index_n = map_host.find(key_n);
+              
+              if ( invalid_index != index_n )
+              {
+                // print neighbor iOct
+                std::cout << " " << map_host.value_at(index_n) << " ";
+              }
+                            
+            } // end for ineigh
+
+          } // end if NEIGH_IS_SMALLER
+          
+          if (nl == NEIGH_LEVEL::NEIGH_IS_LARGER)
+          {
+            // max number of "possible location" neighbors through a face
+            const uint8_t nbNeighs = 1<<(dim-1);
+
+            std::cout << "| f" << iface << " " ;
+
+            for (uint8_t ineigh=0; ineigh<nbNeighs; ++ineigh)
+            {
+
+              auto level_n = level-1;
+              key_n[0] = get_neighbor_morton(morton, level, level_n, iface, ineigh);
+              key_n[1] = level_n;
+
+              auto index_n = map_host.find(key_n);
+              
+              if ( invalid_index != index_n )
+              {
+                // print neighbor iOct
+                std::cout << " " << map_host.value_at(index_n) << " ";
+              }
+                            
+            } // end for ineigh
+            
+
+          } // end if NEIGH_IS_LARGER
+          
+        } // end for iface
+
+        std::cout << "\n";
+      } // if map valid
+
+    } // end map
+
+  } // end print mesh connectivity
 
 } // run_test
 

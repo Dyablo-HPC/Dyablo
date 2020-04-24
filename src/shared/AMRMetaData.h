@@ -41,6 +41,9 @@ public:
   //! hashmap type alias
   using hashmap_t = Kokkos::UnorderedMap<key_t, value_t, dyablo::Device>;
 
+  //! array of Morton keys
+  using morton_keys_array_t = Kokkos::View<uint64_t*, dyablo::Device>;
+
   //! type used to stored neighbor level status
   //! we need more bits to encode status in 3D, see below
   using neigh_level_status_t = typename std::conditional<dim==2,uint16_t,uint64_t>::type;
@@ -212,6 +215,9 @@ public:
   //! get hashmap
   const hashmap_t& hashmap() { return m_hashmap; }
 
+  //! get hashmap
+  const auto& morton_keys() { return m_morton_keys_array; }
+
   //! get neighborlevel_status array
   const neigh_level_status_array_t& neigh_level_status_array() 
   { 
@@ -249,6 +255,11 @@ private: /* private data */
   //! key is Morton index, value is memory/iOct index
   hashmap_t m_hashmap;
 
+  //! array of morton key
+  //! this allow to convert an octant id into its morton key
+  //! without bitpit mesh
+  morton_keys_array_t m_morton_keys_array;
+
   //! neighbor level status array
   neigh_level_status_array_t m_neigh_level_status;
 
@@ -268,15 +279,20 @@ private: /* private data */
 
 }; // class AMRMetaData
 
+
+
 // =============================================
 // ==== CLASS AMRMetaData IMPL =================
 // =============================================
+
+
 
 // =============================================
 // =============================================
 template<int dim>
 AMRMetaData<dim>::AMRMetaData(uint64_t capacity) :
   m_hashmap(capacity),
+  m_morton_keys_array(),
   m_neigh_level_status(),
   m_neigh_rel_pos_status(),
   m_capacity(capacity)
@@ -315,6 +331,13 @@ void AMRMetaData<dim>::update_hashmap(const AMRmesh& mesh)
   // create a mirror on host
   hashmap_t::HostMirror hashmap_host(m_hashmap.capacity());
 
+  // we also need to update morton keys array
+  Kokkos::resize(m_morton_keys_array, m_nbOctants+m_nbGhosts);
+
+  morton_keys_array_t::HostMirror morton_keys_host;
+  Kokkos::resize(morton_keys_host, m_nbOctants+m_nbGhosts);
+
+  
   // insert data from pablo mesh object, do that on host, with OpenMP
   {
     Kokkos::RangePolicy<Kokkos::OpenMP> policy(0, m_nbOctants+m_nbGhosts);
@@ -371,11 +394,14 @@ void AMRMetaData<dim>::update_hashmap(const AMRmesh& mesh)
 
         hashmap_host.insert( key, value );
 
+        morton_keys_host(iOct) = morton_key;
+
       });
   }
 
   // finaly update the new hashmap on device
   Kokkos::deep_copy(m_hashmap, hashmap_host);
+  Kokkos::deep_copy(m_morton_keys_array, morton_keys_host);
 
 } // AMRMetaData::update_hashmap
 
