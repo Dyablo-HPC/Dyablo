@@ -164,6 +164,23 @@ void run_test()
       }
     }
 
+    std::cout << "// =========================================\n";
+    std::cout << "// Print octant Ids and level\n";
+    std::cout << "// =========================================\n";
+    
+    auto levels = amrMetadata.levels();
+    typename AMRMetaData<dim>::levels_array_t::HostMirror levels_host = 
+      Kokkos::create_mirror_view(levels);
+    Kokkos::deep_copy(levels_host, levels);
+    
+
+    for (std::size_t iOct=0; iOct<amr_mesh.getNumOctants(); ++iOct)
+    {
+      std::cout << "iOct = " << iOct 
+                << " level=" << int(levels_host(iOct))
+                << "\n";
+    }
+
   }
 
   // ============================================================

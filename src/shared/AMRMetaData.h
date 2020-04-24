@@ -44,6 +44,9 @@ public:
   //! array of Morton keys
   using morton_keys_array_t = Kokkos::View<uint64_t*, dyablo::Device>;
 
+  //! array of levels
+  using levels_array_t = Kokkos::View<uint8_t*, dyablo::Device>;
+
   //! type used to stored neighbor level status
   //! we need more bits to encode status in 3D, see below
   using neigh_level_status_t = typename std::conditional<dim==2,uint16_t,uint64_t>::type;
@@ -215,8 +218,11 @@ public:
   //! get hashmap
   const hashmap_t& hashmap() { return m_hashmap; }
 
-  //! get hashmap
+  //! get morton keys
   const auto& morton_keys() { return m_morton_keys_array; }
+
+  //! get levels
+  const auto& levels() { return m_levels_array; }
 
   //! get neighborlevel_status array
   const neigh_level_status_array_t& neigh_level_status_array() 
@@ -260,6 +266,11 @@ private: /* private data */
   //! without bitpit mesh
   morton_keys_array_t m_morton_keys_array;
 
+  //! array of levels
+  //! this is also necessary to compute hash key of neighbors
+  //! without bitpit mesh
+  levels_array_t m_levels_array;
+
   //! neighbor level status array
   neigh_level_status_array_t m_neigh_level_status;
 
@@ -293,6 +304,7 @@ template<int dim>
 AMRMetaData<dim>::AMRMetaData(uint64_t capacity) :
   m_hashmap(capacity),
   m_morton_keys_array(),
+  m_levels_array(),
   m_neigh_level_status(),
   m_neigh_rel_pos_status(),
   m_capacity(capacity)
@@ -333,10 +345,13 @@ void AMRMetaData<dim>::update_hashmap(const AMRmesh& mesh)
 
   // we also need to update morton keys array
   Kokkos::resize(m_morton_keys_array, m_nbOctants+m_nbGhosts);
-
   morton_keys_array_t::HostMirror morton_keys_host;
   Kokkos::resize(morton_keys_host, m_nbOctants+m_nbGhosts);
 
+  // we also need to update levels array
+  Kokkos::resize(m_levels_array, m_nbOctants+m_nbGhosts);
+  levels_array_t::HostMirror levels_host;
+  Kokkos::resize(levels_host, m_nbOctants+m_nbGhosts);
   
   // insert data from pablo mesh object, do that on host, with OpenMP
   {
@@ -395,6 +410,7 @@ void AMRMetaData<dim>::update_hashmap(const AMRmesh& mesh)
         hashmap_host.insert( key, value );
 
         morton_keys_host(iOct) = morton_key;
+        levels_host(iOct) = key[1];
 
       });
   }
@@ -402,6 +418,7 @@ void AMRMetaData<dim>::update_hashmap(const AMRmesh& mesh)
   // finaly update the new hashmap on device
   Kokkos::deep_copy(m_hashmap, hashmap_host);
   Kokkos::deep_copy(m_morton_keys_array, morton_keys_host);
+  Kokkos::deep_copy(m_levels_array, levels_host);
 
 } // AMRMetaData::update_hashmap
 
@@ -431,7 +448,6 @@ void AMRMetaData<dim>::decode_neighbor_status(uint64_t iOct,
 
   //neigh_level_status_t status = m_neigh_level_status(iOct);
 
-
   std::cout << "Neigh status of iOct = " << iOct << " :\n";
   for (int iface=0; iface<nbFaces; ++iface)
   {
@@ -442,7 +458,7 @@ void AMRMetaData<dim>::decode_neighbor_status(uint64_t iOct,
 
     //if (status2)
     {
-      std::bitset<1> status2_bin ( (status2 >> iface) & 0x1);
+      std::bitset<1> status2_bin ( (status2 >> iface) & 0x1 );
       std::cout << " | relative pos : " << status2_bin;
 
     }
