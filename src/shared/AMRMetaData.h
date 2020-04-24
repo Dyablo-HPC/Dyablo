@@ -4,6 +4,7 @@
 #include "shared/kokkos_shared.h"
 #include "shared/amr_key.h" // for amr_key_t typedef
 #include "shared/bitpit_common.h"  // for type AMRmesh = bitpit::PabloUniform
+#include "shared/enums.h"
 
 #include "shared/morton_utils.h" // for compute_morton_key
 
@@ -66,7 +67,7 @@ public:
    * NEIGH_IS_LARGER  means neighbor octant has a smaller level
    * NEIGH_IS_SMALLER means neighbor octant has a larger level
    */
-  enum NEIGHBOR_LEVEL : neigh_level_status_t 
+  enum NEIGH_LEVEL : neigh_level_status_t 
   {
     NEIGH_IS_SAME_SIZE       = 0x0, /* 0 */
     NEIGH_IS_SMALLER         = 0x1, /* at level+1 */
@@ -75,7 +76,7 @@ public:
     NEIGH_IS_LARGER          = 0x3  /* at level-1 using 2's complement notation */
   };
 
-  std::string neighbor_level_to_string(NEIGHBOR_LEVEL nl)
+  std::string neighbor_level_to_string(NEIGH_LEVEL nl)
   {
     if(nl == 0x0) 
       return "NEIGH_IS_SAME";
@@ -89,7 +90,7 @@ public:
 
   /**
    * - in 2D, across a face there can only be 2 neighbors, so only
-   * RELATIVE_POS_0 and RELATIVE_POS_1 will be used.
+   * NEIGH_POS_0 and NEIGH_POS_1 will be used.
    * - in 3D, there can be up to 4 neighbors across a face,
    *  and 2 neighbors across an edge.
    *
@@ -97,12 +98,12 @@ public:
    * in 2D : 4 faces x 1 bit = 4 bits
    * in 3D : 6 faces x 2 bits + 12 edges x 1 bit = 24 bits
    */
-  enum RELATIVE_POSITION : neigh_rel_pos_status_t
+  enum NEIGH_POSITION : neigh_rel_pos_status_t
   {
-    RELATIVE_POS_0 = 0x0,
-    RELATIVE_POS_1 = 0x1,
-    RELATIVE_POS_2 = 0x2,
-    RELATIVE_POS_3 = 0x3
+    NEIGH_POS_0 = 0x0,
+    NEIGH_POS_1 = 0x1,
+    NEIGH_POS_2 = 0x2,
+    NEIGH_POS_3 = 0x3
   };
 
 
@@ -123,7 +124,9 @@ public:
   void update_hashmap(const AMRmesh& mesh);
 
   /**
+   * =======================================================
    * update neighbor level status.
+   * =======================================================
    *
    * For each regular octant, encode neighbor level status.
    * This method will fill Kokkos view m_neigh_level_status
@@ -168,7 +171,7 @@ public:
    * E.g. small cell is current octant, large one is the neighbor 
    * when dir = DIR_X and face = FACE_RIGHT (neighbor is on the right):
    *
-   * RELATIVE_POS_0          RELATIVE_POS_1
+   * NEIGH_POS_0            NEIGH_POS_1
    *        ______           __      ______ 
    *       |      |         |1 |    |      |
    *  __   |      |     or  |__|    |      |
@@ -178,22 +181,27 @@ public:
    * when dir = DIR_Y and face = FACE_RIGHTT (neigbor is on the right
    * along Y direction):
    *
-   * RELATIVE_POS_0       RELATIVE_POS_1
-   *  ______               ______ 
-   * |      |             |      |
-   * |      |         or  |      |
-   * |      |             |      |
-   * |______|             |______|
+   * NEIGH_POS_0           NEIGH_POS_1
+   *  ______                ______ 
+   * |      |              |      |
+   * |      |          or  |      |
+   * |      |              |      |
+   * |______|              |______|
    *
-   *  __                       __
-   * |0 |                     |1 |
-   * |__|                     |__|
+   *  __                        __
+   * |0 |                      |1 |
+   * |__|                      |__|
    *
 
    * \note in 3D, there are 4 relative positions, ordered using Morton 
    * order
+   *
+   * Let's remind the total (max) number of bits required per octant:
+   * in 2D : 4 faces x 1 bit = 4 bits
+   * in 3D : 6 faces x 2 bits + 12 edges x 1 bit = 24 bits
+   *
    */
-  void update_neigh_rel_pos_status(const AMRmesh& mesh);
+  //void update_neigh_rel_pos_status(const AMRmesh& mesh);
 
   //! minimal reporting
   void report();
@@ -211,7 +219,9 @@ public:
   }
 
   //! helper for debug / testing : decode neigh status
-  void decode_neighbor_status(uint64_t iOct);
+  void decode_neighbor_status(uint64_t iOct,
+                              neigh_level_status_t status,
+                              neigh_rel_pos_status_t status2);
 
   //! get neigh_rel_pos_status array
   const neigh_rel_pos_status_array_t& neigh_rel_pos_status_array() 
@@ -219,7 +229,22 @@ public:
     return m_neigh_rel_pos_status;
   }
 
-private:
+private: /* private methods */
+
+  /**
+   * return an enum identifying the relative position (in Morton order)
+   * of current octant among all siblings touching the same large
+   * neighbor.
+   */
+  NEIGH_POSITION get_relative_position(const AMRmesh& mesh,
+                                       uint32_t iOct,
+                                       uint32_t iOct_neigh,
+                                       bool     is_ghost,
+                                       DIR_ID   dir,
+                                       FACE_ID  face,
+                                       NEIGH_LEVEL neigh_size) const;
+
+private: /* private data */
   //! main metadata container, an unordered map 
   //! key is Morton index, value is memory/iOct index
   hashmap_t m_hashmap;
@@ -370,21 +395,33 @@ void AMRMetaData<3>::update_neigh_level_status(const AMRmesh& mesh);
 // =============================================
 // =============================================
 template<int dim>
-void AMRMetaData<dim>::decode_neighbor_status(uint64_t iOct) 
+void AMRMetaData<dim>::decode_neighbor_status(uint64_t iOct, 
+                                              neigh_level_status_t status,
+                                              neigh_rel_pos_status_t status2)
 {
 
   const uint8_t nbFaces   = 2*m_dim;
   const uint8_t nbCorners = dim==2 ? 4 : 8;
 
-  neigh_level_status_t status = m_neigh_level_status(iOct);
-  
+  //neigh_level_status_t status = m_neigh_level_status(iOct);
+
+
   std::cout << "Neigh status of iOct = " << iOct << " :\n";
   for (int iface=0; iface<nbFaces; ++iface)
   {
-    NEIGHBOR_LEVEL nl = static_cast<NEIGHBOR_LEVEL>( (status >> (2*iface)) & 0x3 );
+    NEIGH_LEVEL nl = static_cast<NEIGH_LEVEL>( (status >> (2*iface)) & 0x3 );
 
     std::cout << "face = " << iface << " status is "
-              << neighbor_level_to_string(nl) << "\n";
+              << neighbor_level_to_string(nl);
+
+    //if (status2)
+    {
+      std::bitset<1> status2_bin ( (status2 >> iface) & 0x1);
+      std::cout << " | relative pos : " << status2_bin;
+
+    }
+
+    std::cout << "\n";
 
   }
 
@@ -392,7 +429,7 @@ void AMRMetaData<dim>::decode_neighbor_status(uint64_t iOct)
   {
     int icorner2 = icorner + nbFaces;
 
-    NEIGHBOR_LEVEL nl = static_cast<NEIGHBOR_LEVEL>( (status >> (2*icorner2)) & 0x3 );
+    NEIGH_LEVEL nl = static_cast<NEIGH_LEVEL>( (status >> (2*icorner2)) & 0x3 );
 
     std::cout << "corner = " << icorner << " status is "
               << neighbor_level_to_string(nl) << "\n";
@@ -406,19 +443,40 @@ void AMRMetaData<dim>::decode_neighbor_status(uint64_t iOct)
 
 }; // AMRMetaData<dim>::decode_neighbor_status
 
-// =============================================
-// =============================================
+// ==============================================================
+// ==============================================================
 template<int dim>
-void AMRMetaData<dim>::update_neigh_rel_pos_status(const AMRmesh& mesh)
+typename AMRMetaData<dim>::NEIGH_POSITION 
+AMRMetaData<dim>::get_relative_position(const AMRmesh& mesh,
+                                        uint32_t iOct,
+                                        uint32_t iOct_neigh,
+                                        bool     is_ghost,
+                                        DIR_ID   dir,
+                                        FACE_ID  face,
+                                        typename AMRMetaData<dim>::NEIGH_LEVEL neigh_size) const
 {
-} // update_neigh_rel_pos_status
+} // AMRMetaData<dim>::get_relative_position
 
 // declare specializations
 template<>
-void AMRMetaData<2>::update_neigh_rel_pos_status(const AMRmesh& mesh);
-template<>
-void AMRMetaData<3>::update_neigh_rel_pos_status(const AMRmesh& mesh);
+typename AMRMetaData<2>::NEIGH_POSITION 
+AMRMetaData<2>::get_relative_position(const AMRmesh& mesh,
+                                      uint32_t iOct,
+                                      uint32_t iOct_neigh,
+                                      bool     is_ghost,
+                                      DIR_ID   dir,
+                                      FACE_ID  face,
+                                      typename AMRMetaData<2>::NEIGH_LEVEL neigh_size) const;
 
+template<>
+typename AMRMetaData<3>::NEIGH_POSITION 
+AMRMetaData<3>::get_relative_position(const AMRmesh& mesh,
+                                      uint32_t iOct,
+                                      uint32_t iOct_neigh,
+                                      bool     is_ghost,
+                                      DIR_ID   dir,
+                                      FACE_ID  face,
+                                      typename AMRMetaData<3>::NEIGH_LEVEL neigh_size) const;
 
 // =============================================
 // =============================================

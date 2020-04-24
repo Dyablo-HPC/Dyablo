@@ -139,6 +139,9 @@ void run_test()
     }
   }
 
+  // ============================================================
+  // ============================================================
+
   if (dim==2) {
     // print mesh
     std::cout << "   ___________ __________     \n";
@@ -155,20 +158,85 @@ void run_test()
     std::cout << "                              \n";
   }
 
-  std::cout << "update neighbor status\n";
-  amrMetadata.update_neigh_level_status(amr_mesh);
-
-  const auto neigh_level_status = amrMetadata.neigh_level_status_array();
-  
-  for (std::size_t iOct=0; iOct<amr_mesh.getNumOctants(); ++iOct)
   {
-    auto status = neigh_level_status(iOct);
-    std::bitset<16> status_binary(status);
+    std::cout << "update neighbor status\n";
+    amrMetadata.update_neigh_level_status(amr_mesh);
 
-    std::cout << "iOct " << iOct << " | " << status << " | " << status_binary << "\n" ;
-    amrMetadata.decode_neighbor_status(iOct);
+    // get neighbor level information
+    const auto neigh_level_status = amrMetadata.neigh_level_status_array();
+
+    typename AMRMetaData<dim>::neigh_level_status_array_t::HostMirror neigh_level_status_host = 
+      Kokkos::create_mirror_view(neigh_level_status);
+
+    Kokkos::deep_copy(neigh_level_status_host,
+                      neigh_level_status);
+
+    // get neighbor relative position information
+    const auto neigh_rel_pos_status = amrMetadata.neigh_rel_pos_status_array();
+
+    typename AMRMetaData<dim>::neigh_rel_pos_status_array_t::HostMirror neigh_rel_pos_status_host = 
+      Kokkos::create_mirror_view(neigh_rel_pos_status);
+
+    Kokkos::deep_copy(neigh_rel_pos_status_host,
+                      neigh_rel_pos_status);
+
+    // print neighbor information
+    for (std::size_t iOct=0; iOct<amr_mesh.getNumOctants(); ++iOct)
+    {
+      auto status = neigh_level_status_host(iOct);
+      std::bitset<8*sizeof(status)> status_binary(status);
+
+      auto status2 = neigh_rel_pos_status_host(iOct);
+      std::bitset<8*sizeof(status2)> status2_binary(status2);
+      
+      std::cout << "iOct " << iOct << " | " 
+                << "status=" << status 
+                << " ( " << status_binary << " ) | "
+                << "status2=" << int(status2) 
+                << " ( " << status2_binary << " )\n" ;
+
+      amrMetadata.decode_neighbor_status(iOct,status,status2);
+    }
   }
-  
+
+  // ============================================================
+  // ============================================================
+
+  if (dim==2) {
+    // print mesh
+    std::cout << "   ___________ __________     \n";
+    std::cout << "  |           |     |    |    \n";
+    std::cout << "  |           |  14 | 15 |    \n";
+    std::cout << "  |    11     |-----+----|    \n";
+    std::cout << "  |           |  12 | 13 |    \n";
+    std::cout << "  |___________|_____|____|    \n";
+    std::cout << "  |     |     | 8|9 |    |    \n";
+    std::cout << "  |  2  |  3  | 6|7 | 10 |    \n";
+    std::cout << "  |-----+-----|-----+----|    \n";
+    std::cout << "  |  0  |  1  |  4  | 5  |    \n";
+    std::cout << "  |_____|_____|_____|____|    \n";
+    std::cout << "                              \n";
+  }
+
+  int mpi_rank = -1;
+  int ranks = 0;
+#ifdef USE_MPI
+  MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+#endif // USE_MPI
+
+  if (ranks>0) 
+  {
+    std::cout << "// =========================================\n";
+    std::cout << "Print mesh connectivity\n";
+    std::cout << "// =========================================\n";
+
+
+    for (std::size_t iOct=0; iOct<amr_mesh.getNumOctants(); ++iOct)
+    {
+    
+    }
+  }
+
 } // run_test
 
 } // dyablo
@@ -228,12 +296,18 @@ int main(int argc, char* argv[])
 #endif // USE_MPI
   }    // end kokkos config
 
+  int testId = 2;
+  if (argc>1)
+    testId = std::atoi(argv[1]);
+
   // dim 2
-  dyablo::run_test<2>();
+  if (testId == 2)
+    dyablo::run_test<2>();
 
   // dim3
-  dyablo::run_test<3>();
-  
+  else if (testId == 3)
+    dyablo::run_test<3>();
+
   Kokkos::finalize();
 
   return EXIT_SUCCESS;
