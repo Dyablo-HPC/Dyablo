@@ -228,6 +228,9 @@ public:
   KOKKOS_INLINE_FUNCTION
   const auto& levels() const { return m_levels_array; }
 
+  //! get hashmap
+  const auto& morton_keys() { return m_morton_keys_array; }
+
   //! get neighborlevel_status array
   KOKKOS_INLINE_FUNCTION
   const neigh_level_status_array_t& neigh_level_status_array() const 
