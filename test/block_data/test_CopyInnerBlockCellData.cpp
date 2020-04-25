@@ -26,7 +26,10 @@
 
 using Device = Kokkos::DefaultExecutionSpace;
 
-namespace dyablo { namespace muscl_block {
+namespace dyablo
+{
+namespace muscl_block
+{
 
 // =======================================================================
 // =======================================================================
@@ -161,7 +164,7 @@ void run_test(int argc, char *argv[], uint32_t bSize, uint32_t nbBlocks) {
     for (uint32_t iy=0; iy<by; ++iy) {
       for (uint32_t ix=0; ix<bx; ++ix) {
         uint32_t index = ix + bx*(iy+by*iz);
-        std::cout << U(index,fm[ID],iOct) << " ";
+        std::cout << std::right << std::setw(5) << U(index,fm[ID],iOct) << " ";
       }
       std::cout << "\n";
     }
@@ -183,7 +186,7 @@ void run_test(int argc, char *argv[], uint32_t bSize, uint32_t nbBlocks) {
       for (uint32_t iy=0; iy<by_g; ++iy) {
         for (uint32_t ix = 0; ix < bx_g; ++ix) {
           uint32_t index = ix + bx_g * (iy + by_g * iz);
-          std::cout << Ugroup(index, fm[ID], iOctOffset) << " ";
+          std::cout << std::right << std::setw(6) << Ugroup(index, fm[ID], iOctOffset) << " ";
         }
         std::cout << "\n";
       }
@@ -195,7 +198,7 @@ void run_test(int argc, char *argv[], uint32_t bSize, uint32_t nbBlocks) {
     for (uint32_t iy=0; iy<by_g; ++iy) {
         for (uint32_t ix = 0; ix < bx_g; ++ix) {
           uint32_t index = ix + bx_g * iy;
-          std::cout << Ugroup(index, fm[ID], iOctOffset) << " ";
+          std::cout << std::right << std::setw(6) << Ugroup(index, fm[ID], iOctOffset) << " ";
         }
         std::cout << "\n";
       }
