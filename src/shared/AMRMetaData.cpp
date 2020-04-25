@@ -241,6 +241,10 @@ template<>
 void AMRMetaData<3>::update_neigh_level_status(const AMRmesh& mesh)
 {
 
+  //
+  // TODO - NOT UP TO DATE - FIX ME !!!
+  //
+
   const uint8_t nbFaces = 2*m_dim;
   
   const uint8_t nbCorners = m_dim == 2 ? 4 : 8;
