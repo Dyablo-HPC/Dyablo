@@ -32,13 +32,16 @@
 
 using Device = Kokkos::DefaultExecutionSpace;
 
-namespace dyablo {
+namespace dyablo
+{
 
-namespace muscl_block {
+namespace muscl_block
+{
 
 // =======================================================================
 // =======================================================================
-void run_test(int argc, char *argv[]) {
+void run_test(int argc, char *argv[])
+{
 
   /*
    * testing CopyGhostBlockCellDataFunctor
@@ -51,7 +54,7 @@ void run_test(int argc, char *argv[]) {
    * read parameter file and initialize a ConfigMap object
    */
   // only MPI rank 0 actually reads input file
-  std::string input_file = std::string(argv[1]);
+  std::string input_file = argc>1 ? std::string(argv[1]) : "test_implode_2D_block.ini";
   ConfigMap configMap = broadcast_parameters(input_file);
 
   // test: create a HydroParams object
@@ -63,7 +66,8 @@ void run_test(int argc, char *argv[]) {
 
   // actually initializing a solver
   // initialize workspace memory (U, U2, ...)
-  if (solver_name.find("Muscl_Block") == std::string::npos) {
+  if (solver_name.find("Muscl_Block") == std::string::npos)
+  {
 
     std::cerr << "Please modify your input parameter file.\n";
     std::cerr << "  solver name must contain string \"Muscl_Block\"\n";
@@ -157,9 +161,12 @@ void run_test(int argc, char *argv[]) {
   solver->save_solution();
 
   std::cout << "Printing U data from iOct = " << iOct_global << "\n";
-  for (uint32_t iz=0; iz<bz; ++iz) {
-    for (uint32_t iy=0; iy<by; ++iy) {
-      for (uint32_t ix=0; ix<bx; ++ix) {
+  for (uint32_t iz=0; iz<bz; ++iz) 
+  {
+    for (uint32_t iy=0; iy<by; ++iy)
+    {
+      for (uint32_t ix=0; ix<bx; ++ix)
+      {
         uint32_t index = ix + bx*(iy+by*iz);
         printf("%5f ",solver->U(index,fm[ID],iOct_global));
       }
@@ -202,11 +209,15 @@ void run_test(int argc, char *argv[]) {
     
     // print data from from the chosen iGroup 
     std::cout << "Printing Ugroup data from iOct = " << iOct_global << " | iOctLocal = " << iOct_local << " and iGroup = " << iGroup << "\n";
-    if (bz>1) {
+    if (bz>1) 
+    {
       
-      for (uint32_t iz = 0; iz < bz_g; ++iz) {
-        for (uint32_t iy = 0; iy < by_g; ++iy) {
-          for (uint32_t ix = 0; ix < bx_g; ++ix) {
+      for (uint32_t iz = 0; iz < bz_g; ++iz)
+      {
+        for (uint32_t iy = 0; iy < by_g; ++iy)
+        {
+          for (uint32_t ix = 0; ix < bx_g; ++ix)
+          {
             uint32_t index = ix + bx_g * (iy + by_g * iz);
             printf("%5f ", Ugroup(index, fm[ID], iOct_local));
           }
@@ -215,17 +226,22 @@ void run_test(int argc, char *argv[]) {
         std::cout << "\n";
       }
       
-    } else {
+    } 
+    else 
+    {
       
-      for (uint32_t iy = 0; iy < by_g; ++iy) {
-        for (uint32_t ix = 0; ix < bx_g; ++ix) {
+      for (uint32_t iy = 0; iy < by_g; ++iy)
+      {
+        for (uint32_t ix = 0; ix < bx_g; ++ix)
+        {
           uint32_t index = ix + bx_g * iy;
           printf("%5f ", Ugroup(index, fm[IP], iOct_local));
         }
         std::cout << "\n";
       }
-
+      
     } // end if bz>1
+
   } // end testing CopyFaceBlockCellDataFunctor
 
   // also testing ConvertToPrimitivesHydroFunctor
@@ -247,8 +263,10 @@ void run_test(int argc, char *argv[]) {
                                            Ugroup, 
                                            Qgroup);
 
-    for (uint32_t iy = 0; iy < by_g; ++iy) {
-      for (uint32_t ix = 0; ix < bx_g; ++ix) {
+    for (uint32_t iy = 0; iy < by_g; ++iy)
+    {
+      for (uint32_t ix = 0; ix < bx_g; ++ix)
+      {
         uint32_t index = ix + bx_g * iy;
         printf("%5f ", Qgroup(index, fm[IP], iOct_local));
       }
@@ -268,7 +286,8 @@ void run_test(int argc, char *argv[]) {
 // =======================================================================
 // =======================================================================
 // =======================================================================
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
 
   // Create MPI session if MPI enabled
 #ifdef USE_MPI
@@ -321,13 +340,6 @@ int main(int argc, char *argv[]) {
 # endif // KOKKOS_ENABLE_CUDA
 #endif // USE_MPI
   }    // end kokkos config
-
-  if (argc < 2) {
-    std::cerr << "Wrong number of arguments.\n\n";
-    std::cerr << "Usage:\n";
-    std::cerr << " ./test_CopyGhostBlockCellData ./parameter_file.ini\n";
-    exit(EXIT_FAILURE);
-  }
 
   dyablo::muscl_block::run_test(argc, argv);
 
