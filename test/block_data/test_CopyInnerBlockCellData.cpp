@@ -95,7 +95,7 @@ void run_test(int argc, char *argv[], uint32_t bSize, uint32_t nbBlocks)
    * read parameter file and initialize a ConfigMap object
    */
   // only MPI rank 0 actually reads input file
-  std::string input_file = std::string(argv[1]);
+  std::string input_file = argc>1 ? std::string(argv[1]) : "test_implode_2D_block.ini";
   ConfigMap configMap = broadcast_parameters(input_file);
 
   // test: create a HydroParams object
@@ -278,14 +278,6 @@ int main(int argc, char *argv[])
 #endif // KOKKOS_ENABLE_CUDA
 #endif // USE_MPI
   }    // end kokkos config
-
-  if (argc < 2)
-  {
-    std::cerr << "Wrong number of arguments.\n\n";
-    std::cerr << "Usage:\n";
-    std::cerr << " ./test_CopyInnerBlockCellData ./parameter_file.ini\n";
-    exit(EXIT_FAILURE);
-  }
 
   uint32_t bSize = 4;
   uint32_t nbBlocks = 32;

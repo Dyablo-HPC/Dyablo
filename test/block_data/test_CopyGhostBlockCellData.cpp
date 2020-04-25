@@ -157,6 +157,11 @@ void run_test(int argc, char *argv[])
 
   std::cout << "Looking at octant id = " << iOct_global << "\n";
 
+  // octant location
+  double x = solver->amr_mesh->getX(iOct_global);
+  double y = solver->amr_mesh->getY(iOct_global);
+  std::cout << "Octant location : x=" << x << " y=" << y << "\n";
+
   // save solution, just for cross-checking
   solver->save_solution();
 
