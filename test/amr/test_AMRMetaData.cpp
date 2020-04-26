@@ -102,7 +102,7 @@ void run_test()
 
   std::cout << "Number of octants :" << amr_mesh.getNumOctants() <<  "\n";
 
-  // stage 2 : create a AMRMetaData ovject
+  // stage 2 : create a AMRMetaData object
 
   uint64_t capacity = 1024*1024;
   AMRMetaData<dim> amrMetadata(capacity);
