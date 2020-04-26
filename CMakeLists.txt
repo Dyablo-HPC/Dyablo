@@ -1,6 +1,11 @@
 # set minimal version the one requested by kokkos
 cmake_minimum_required(VERSION 3.10)
 
+if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
+  message(STATUS "Setting policy CMP0076 to use new behavior")
+  cmake_policy(SET CMP0076 NEW)
+endif()
+
 ###################################################################
 #
 # Handle superbuild first for building 
