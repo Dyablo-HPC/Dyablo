@@ -213,18 +213,23 @@ public:
   void report();
 
   //! get hashmap capacity
+  KOKKOS_INLINE_FUNCTION
   uint64_t capacity() const { return m_capacity; }
 
   //! get hashmap
+  KOKKOS_INLINE_FUNCTION
   const hashmap_t& hashmap() const { return m_hashmap; }
 
   //! get morton keys
+  KOKKOS_INLINE_FUNCTION
   const auto& morton_keys() const { return m_morton_keys_array; }
 
   //! get levels
+  KOKKOS_INLINE_FUNCTION
   const auto& levels() const { return m_levels_array; }
 
   //! get neighborlevel_status array
+  KOKKOS_INLINE_FUNCTION
   const neigh_level_status_array_t& neigh_level_status_array() const 
   { 
     return m_neigh_level_status;
@@ -236,15 +241,18 @@ public:
                               neigh_rel_pos_status_t status2);
 
   //! get neigh_rel_pos_status array
+  KOKKOS_INLINE_FUNCTION
   const neigh_rel_pos_status_array_t& neigh_rel_pos_status_array() const
   { 
     return m_neigh_rel_pos_status;
   }
 
   //! return number of regular octants
+  KOKKOS_INLINE_FUNCTION
   uint32_t nbOctants() const { return m_nbOctants; }
 
   //! return number of ghost octants
+  KOKKOS_INLINE_FUNCTION
   uint32_t nbGhosts() const { return m_nbGhosts; }
 
 private: /* private methods */
