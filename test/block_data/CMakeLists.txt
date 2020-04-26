@@ -37,6 +37,24 @@ endif(USE_MPI)
 
 # ======================================================
 # ======================================================
+add_executable(test_CopyGhostBlockCellData_hash_openmp
+  test_CopyGhostBlockCellData_hash_openmp.cpp)
+target_link_libraries(test_CopyGhostBlockCellData_hash_openmp PUBLIC 
+  config
+  kokkos
+  dl
+  muscl_block
+  shared
+  monitoring
+  BITPIT::BITPIT)
+if (USE_MPI)
+  target_link_libraries(test_CopyGhostBlockCellData_hash_openmp
+    PUBLIC 
+    mpiUtils MPI::MPI_CXX)
+endif(USE_MPI)
+
+# ======================================================
+# ======================================================
 add_executable(test_MusclBlockGodunovUpdateFunctor
   test_MusclBlockGodunovUpdateFunctor.cpp)
 target_link_libraries(test_MusclBlockGodunovUpdateFunctor PUBLIC 
