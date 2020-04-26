@@ -752,7 +752,7 @@ public:
     auto hashmap = mesh.hashmap();
 
     // total number of octants
-    uint32_t nbOcts = mesh.getNumOctants();
+    uint32_t nbOcts = mesh.nbOctants();
 
     /*
      * first deal with external border
@@ -786,7 +786,8 @@ public:
        * |______|  |__|       |______|  
        */
       // decode neigh relative position
-      uint32_t rel_pos = (status_rel_pos >> (iface)) & 0x1 ;
+      NEIGH_POSITION rel_pos = 
+        static_cast<NEIGH_POSITION>( (status_rel_pos >> (iface)) & 0x1 );
 
       // neighbor hash key
       key_t key_n;
@@ -895,7 +896,7 @@ public:
     uint32_t iOct_g = member.league_rank();
 
     // total number of octants
-    uint32_t nbOcts = mesh.getNumOctants();
+    uint32_t nbOcts = mesh.nbOctants();
 
     // compute first octant index after current group
     uint32_t iOctNextGroup = (iGroup + 1) * nbOctsPerGroup;
@@ -914,6 +915,9 @@ public:
     // get a const ref on the array of neighbor "relative position status"
     const auto neigh_rel_pos_status = mesh.neigh_rel_pos_status_array();
 
+    // get a const ref on the array of morton keys
+    const auto morton_keys = mesh.morton_keys();
+
     // get a const ref on the array of levels
     const auto levels = mesh.levels();
 
@@ -930,6 +934,7 @@ public:
       // get neigh relative position status
       auto neigh_rp_status = neigh_rel_pos_status(iOct);
 
+      uint64_t morton_key = morton_keys(iOct);
       uint8_t level = levels(iOct);
 
       // perform "vectorized" loop inside a given block data
@@ -938,16 +943,16 @@ public:
         KOKKOS_LAMBDA(const index_t index)
         {
           // compute face X,left
-          fill_ghost_face_2d(iOct, iOct_g, level, index, DIR_X, FACE_LEFT, neigh_lv_status, neigh_rp_status);
+          fill_ghost_face_2d(iOct, iOct_g, morton_key, level, index, DIR_X, FACE_LEFT, neigh_lv_status, neigh_rp_status);
           
           // compute face X,right
-          fill_ghost_face_2d(iOct, iOct_g, level, index, DIR_X, FACE_RIGHT, neigh_lv_status, neigh_rp_status);
+          fill_ghost_face_2d(iOct, iOct_g, morton_key, level, index, DIR_X, FACE_RIGHT, neigh_lv_status, neigh_rp_status);
           
           // compute face Y,left
-          fill_ghost_face_2d(iOct, iOct_g, level, index, DIR_Y, FACE_LEFT, neigh_lv_status, neigh_rp_status);
+          fill_ghost_face_2d(iOct, iOct_g, morton_key, level, index, DIR_Y, FACE_LEFT, neigh_lv_status, neigh_rp_status);
           
           // compute face Y,right
-          fill_ghost_face_2d(iOct, iOct_g, level, index, DIR_Y, FACE_RIGHT, neigh_lv_status, neigh_rp_status);
+          fill_ghost_face_2d(iOct, iOct_g, morton_key, level, index, DIR_Y, FACE_RIGHT, neigh_lv_status, neigh_rp_status);
           
         }); // end TeamVectorRange
       
