@@ -213,19 +213,19 @@ public:
   void report();
 
   //! get hashmap capacity
-  uint64_t capacity() { return m_capacity; }
+  uint64_t capacity() const { return m_capacity; }
 
   //! get hashmap
-  const hashmap_t& hashmap() { return m_hashmap; }
+  const hashmap_t& hashmap() const { return m_hashmap; }
 
   //! get morton keys
-  const auto& morton_keys() { return m_morton_keys_array; }
+  const auto& morton_keys() const { return m_morton_keys_array; }
 
   //! get levels
-  const auto& levels() { return m_levels_array; }
+  const auto& levels() const { return m_levels_array; }
 
   //! get neighborlevel_status array
-  const neigh_level_status_array_t& neigh_level_status_array() 
+  const neigh_level_status_array_t& neigh_level_status_array() const 
   { 
     return m_neigh_level_status;
   }
@@ -236,10 +236,16 @@ public:
                               neigh_rel_pos_status_t status2);
 
   //! get neigh_rel_pos_status array
-  const neigh_rel_pos_status_array_t& neigh_rel_pos_status_array() 
+  const neigh_rel_pos_status_array_t& neigh_rel_pos_status_array() const
   { 
     return m_neigh_rel_pos_status;
   }
+
+  //! return number of regular octants
+  uint32_t nbOctants() const { return m_nbOctants; }
+
+  //! return number of ghost octants
+  uint32_t nbGhosts() const { return m_nbGhosts; }
 
 private: /* private methods */
 
@@ -282,11 +288,11 @@ private: /* private data */
 
   //! AMR number of regular octants (current MPI process)
   //! changed each time update_hashmap() method is called
-  uint64_t m_nbOctants;
+  uint32_t m_nbOctants;
 
   //! AMR number of ghosts octants (current MPI process)
   //! changed each time update_hashmap() method is called
-  uint64_t m_nbGhosts;
+  uint32_t m_nbGhosts;
 
 }; // class AMRMetaData
 
