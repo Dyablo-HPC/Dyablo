@@ -79,7 +79,7 @@ void run_test(int argc, char *argv[])
 
   // by now, init condition must have been called
 
-  // just retrieve a filed manager
+  // just retrieve a field manager
   FieldManager fieldMgr;
   fieldMgr.setup(params, configMap);
 
