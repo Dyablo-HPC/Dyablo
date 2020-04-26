@@ -940,7 +940,7 @@ public:
       // perform "vectorized" loop inside a given block data
       Kokkos::parallel_for(
         Kokkos::TeamVectorRange(member, nbCells),
-        KOKKOS_LAMBDA(const index_t index)
+        [&](const index_t index)
         {
           // compute face X,left
           fill_ghost_face_2d(iOct, iOct_g, morton_key, level, index, DIR_X, FACE_LEFT, neigh_lv_status, neigh_rp_status);
