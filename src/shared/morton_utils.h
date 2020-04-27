@@ -376,10 +376,13 @@ uint64_t get_neighbor_morton(uint64_t key,
 
     if (dir == IX)
     {
-      xyz[IX] = iface==0 ? (xyz[IX] < length_n ?
-                            xyz[IX]+(total_length-length_n) :
-                            xyz[IX]-length_n) : xyz[IX]+length;
-      //xyz[IX] = iface==0 ? xyz[IX]-length_n : xyz[IX]+length;
+
+      xyz[IX] = iface==0 ? xyz[IX]-length_n : xyz[IX]+length;
+      if (xyz[IX]<0)
+        xyz[IX] += total_length;
+      if (xyz[IX]>=total_length)
+        xyz[IX] -= total_length;
+
       xyz[IY] = b0   ==0 ? xyz[IY]          : xyz[IY]+length_n;
       xyz[IZ] = b1   ==0 ? xyz[IZ]          : xyz[IZ]+length_n;
     }
@@ -387,10 +390,13 @@ uint64_t get_neighbor_morton(uint64_t key,
     if (dir == IY)
     {
       xyz[IX] = b0   ==0 ? xyz[IX]          : xyz[IX]+length_n;
-      xyz[IY] = iface==0 ? (xyz[IY] < length_n ?
-                            xyz[IY]+(total_length-length_n) :
-                            xyz[IY]-length_n) : xyz[IY]+length;
-      //xyz[IY] = iface==0 ? xyz[IY]-length_n : xyz[IY]+length;
+
+      xyz[IY] = iface==0 ? xyz[IY]-length_n : xyz[IY]+length;
+      if (xyz[IY]<0)
+        xyz[IY] += total_length;
+      if (xyz[IY]>=total_length)
+        xyz[IY] -= total_length;
+
       xyz[IZ] = b1   ==0 ? xyz[IZ]          : xyz[IZ]+length_n;
     }
 
@@ -398,10 +404,13 @@ uint64_t get_neighbor_morton(uint64_t key,
     {
       xyz[IX] = b0   ==0 ? xyz[IX]          : xyz[IX]+length_n;
       xyz[IY] = b1   ==0 ? xyz[IY]          : xyz[IY]+length_n;
-      xyz[IZ] = iface==0 ? (xyz[IZ] < length_n ?
-                            xyz[IZ]+(total_length-length_n) :
-                            xyz[IZ]-length_n) : xyz[IZ]+length;
-      //xyz[IZ] = iface==0 ? xyz[IZ]-length_n : xyz[IZ]+length;
+      
+      xyz[IZ] = iface==0 ? xyz[IZ]-length_n : xyz[IZ]+length;
+      if (xyz[IZ]<0)
+        xyz[IZ] += total_length;
+      if (xyz[IZ]>=total_length)
+        xyz[IZ] -= total_length;
+
     }
 
     return compute_morton_key(xyz[IX],xyz[IY],xyz[IZ]);
@@ -414,10 +423,12 @@ uint64_t get_neighbor_morton(uint64_t key,
 
     if (dir == IX)
     {
-      xyz[IX] = iface==0 ? (xyz[IX] < length_n ?
-                            xyz[IX]+(total_length-length_n) :
-                            xyz[IX]-length_n) : xyz[IX]+length;
-      //xyz[IX] = iface==0 ? xyz[IX]-length_n : xyz[IX]+length;
+      xyz[IX] = iface == 0 ? xyz[IX]-length_n : xyz[IX]+length;
+      if (xyz[IX]<0)
+        xyz[IX] += total_length;
+      if (xyz[IX]>=total_length)
+        xyz[IX] -= total_length;
+
       xyz[IY] = b0   ==0 ? xyz[IY]          : xyz[IY]-length;
       xyz[IZ] = b1   ==0 ? xyz[IZ]          : xyz[IZ]-length;
     }
@@ -425,10 +436,13 @@ uint64_t get_neighbor_morton(uint64_t key,
     if (dir == IY)
     {
       xyz[IX] = b0   ==0 ? xyz[IX]          : xyz[IX]-length;
-      xyz[IY] = iface==0 ? (xyz[IY] < length_n ?
-                            xyz[IY]+(total_length-length_n) :
-                            xyz[IY]-length_n) : xyz[IY]+length;
-      //xyz[IY] = iface==0 ? xyz[IY]-length_n : xyz[IY]+length;
+      
+      xyz[IY] = iface == 0 ? xyz[IY]-length_n : xyz[IY]+length;
+      if (xyz[IY]<0)
+        xyz[IY] += total_length;
+      if (xyz[IY]>=total_length)
+        xyz[IY] -= total_length;
+
       xyz[IZ] = b1   ==0 ? xyz[IZ]          : xyz[IZ]-length;
     }
 
@@ -436,10 +450,13 @@ uint64_t get_neighbor_morton(uint64_t key,
     {
       xyz[IX] = b0   ==0 ? xyz[IX]          : xyz[IX]-length;
       xyz[IY] = b1   ==0 ? xyz[IY]          : xyz[IY]-length;
-      xyz[IZ] = iface==0 ? (xyz[IZ] < length_n ?
-                            xyz[IZ]+(total_length-length_n) :
-                            xyz[IZ]-length_n) : xyz[IZ]+length;
-      //xyz[IZ] = iface==0 ? xyz[IZ]-length_n : xyz[IZ]+length;
+
+      xyz[IZ] = iface == 0 ? xyz[IZ]-length_n : xyz[IZ]+length;
+      if (xyz[IZ]<0)
+        xyz[IZ] += total_length;
+      if (xyz[IZ]>=total_length)
+        xyz[IZ] -= total_length;
+
     }
 
     return compute_morton_key(xyz[IX],xyz[IY],xyz[IZ]);

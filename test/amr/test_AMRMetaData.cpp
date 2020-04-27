@@ -344,6 +344,11 @@ void run_test()
               // print neighbor iOct
               std::cout << "| f" << iface << " " << map_host.value_at(index_n) << " ";
             }
+            else
+            {
+              std::cout << "Invalid index when trying to access hashmap...\n";
+            }
+
           }
 
           if (nl == NEIGH_LEVEL::NEIGH_IS_SMALLER)
@@ -366,6 +371,10 @@ void run_test()
               {
                 // print neighbor iOct
                 std::cout << " " << map_host.value_at(index_n) << " ";
+              }
+              else
+              {
+                std::cout << "Invalid index when trying to access hashmap...\n";
               }
                             
             } // end for ineigh
@@ -392,6 +401,10 @@ void run_test()
               {
                 // print neighbor iOct
                 std::cout << " " << map_host.value_at(index_n) << " ";
+              }
+              else
+              {
+                std::cout << "Invalid index when trying to access hashmap...\n";
               }
                             
             } // end for ineigh
