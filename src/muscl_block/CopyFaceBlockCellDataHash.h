@@ -121,7 +121,7 @@ public:
    * We probably could avoid passing a HydroParams object. // Refactor me ?
    *
    */
-  CopyFaceBlockCellDataHashFunctor(const AMRMetaData<dim>& mesh,
+  CopyFaceBlockCellDataHashFunctor(AMRMetaData<dim> mesh,
                                    HydroParams params,
                                    id2index_t fm,
                                    blockSize_t blockSizes, 
@@ -132,7 +132,8 @@ public:
                                    DataArrayBlock Ugroup,
                                    uint32_t iGroup,
                                    FlagArrayBlock Interface_flags) :
-    mesh(mesh), params(params), 
+    mesh(mesh), nbOcts(mesh.nbOctants()), 
+    params(params),
     fm(fm), blockSizes(blockSizes), 
     ghostWidth(ghostWidth),
     nbOctsPerGroup(nbOctsPerGroup), 
@@ -152,7 +153,7 @@ public:
   };
 
   // static method which does it all: create and execute functor
-  static void apply(const AMRMetaData<dim>& mesh,
+  static void apply(AMRMetaData<dim> mesh,
                     ConfigMap configMap, 
                     HydroParams params, 
                     id2index_t fm,
@@ -752,7 +753,7 @@ public:
     auto hashmap = mesh.hashmap();
 
     // total number of octants
-    uint32_t nbOcts = mesh.nbOctants();
+    //uint32_t nbOcts = mesh.nbOctants();
 
     /*
      * first deal with external border
@@ -896,7 +897,7 @@ public:
     uint32_t iOct_g = member.league_rank();
 
     // total number of octants
-    uint32_t nbOcts = mesh.nbOctants();
+    //uint32_t nbOcts = mesh.nbOctants();
 
     // compute first octant index after current group
     uint32_t iOctNextGroup = (iGroup + 1) * nbOctsPerGroup;
@@ -982,7 +983,10 @@ public:
   } // operator() - 3d version
 
   //! AMR mesh
-  const AMRMetaData<dim>& mesh;
+  AMRMetaData<dim> mesh;
+
+  //! number of regular octants
+  uint32_t nbOcts;
 
   //! general parameters
   HydroParams params;
