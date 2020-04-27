@@ -409,6 +409,10 @@ void run_test()
                 // print neighbor iOct
                 std::cout << " " << map_host.value_at(index_n) << " ";
               }
+              else
+              {
+                std::cout << "Invalid index when trying to access hashmap...\n";
+              }
                             
             } // end for ineigh
             
