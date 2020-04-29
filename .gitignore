@@ -5,3 +5,10 @@ build
 build_*
 !build_doc.rst
 .ccls-cache
+runs*
+external
+src/doxygen
+.vscode/c_cpp_properties.json
+.vscode/settings.json
+.vscode/tasks.json
+src/Doxyfile
