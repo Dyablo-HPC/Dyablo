@@ -16,6 +16,7 @@ using StateNd = Kokkos::Array<real_t, dim>;
 
 using HydroState2d = StateNd<HYDRO_2D_NBVAR>;
 using HydroState3d = StateNd<HYDRO_3D_NBVAR>;
+using GravityField = Kokkos::Array<real_t, 3>;
 using MHDState = Kokkos::Array<real_t, MHD_NBVAR>;
 using BField = Kokkos::Array<real_t, 3>;
 
