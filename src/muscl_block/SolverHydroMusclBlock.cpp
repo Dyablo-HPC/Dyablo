@@ -137,7 +137,7 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   U     = DataArrayBlock("U", nbCellsPerOct, nbvar, nbOcts);
   Uhost = Kokkos::create_mirror(U);
   U2    = DataArrayBlock("U2",nbCellsPerOct, nbvar, nbOcts);
-  
+
   total_mem_size += nbCellsPerOct*nbOcts*nbvar * sizeof(real_t) * 2;// 1+1+1 for U+U2
 
 
@@ -145,8 +145,18 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   Ugroup = DataArrayBlock("Ugroup", nbCellsPerOct_g, nbvar, nbOctsPerGroup);
   Qgroup = DataArrayBlock("Qgroup", nbCellsPerOct_g, nbvar, nbOctsPerGroup);
 
-
   total_mem_size += nbCellsPerOct_g*nbOctsPerGroup*nbvar * sizeof(real_t) * 2 ;// 1+1 for Ugroup and Qgroup
+
+  // Gravity field
+  if (params.gravity_type == GRAVITY_CST_FIELD) {
+    int ngvars = (params.dimType == THREE_D ? 3 : 2);
+    Gravity      = DataArrayBlock("Gravity", nbCellsPerOct, ngvars, nbOcts);
+    Gravity_host = Kokkos::create_mirror(Gravity);
+    Ggroup       = DataArrayBlock("Ggroup", nbCellsPerOct_g, ngvars, nbOctsPerGroup);
+
+    total_mem_size += nbCellsPerOct*ngvars*nbOcts*sizeof(real_t);
+    total_mem_size += nbCellsPerOct_g*ngvars*nbOctsPerGroup*sizeof(real_t);
+  }
 
   // flags data array for faces on 2:1 borders
   Interface_flags = FlagArrayBlock("Flags", nbOctsPerGroup);
@@ -164,12 +174,6 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
     total_mem_size += nbCellsPerOct_g*nbOctsPerGroup*nbvar * sizeof(real_t) * 2;// 1+1 for Slopes_x+Slopes_y
   else
     total_mem_size += nbCellsPerOct_g*nbOctsPerGroup*nbvar * sizeof(real_t) * 3;// 1+1+1 for Slopes_x+Slopes_y+Slopes_z
-  
-  
-  // if (m_gravity_enabled) {
-  //   gravity = DataArrayBlock("gravity field",nbOcts,m_dim);
-  //   total_mem_size += isize*jsize*2; // TODO
-  // }
 
   if (params.rsst_enabled) {
     Fluxes = DataArrayBlock("Fluxes", nbCellsPerOct, nbvar, nbOctsPerGroup);
@@ -233,6 +237,11 @@ void SolverHydroMusclBlock::resize_solver_data()
   Kokkos::resize(U2, nbCellsPerOct, params.nbvar, amr_mesh->getNumOctants());
   Kokkos::resize(Uhost, nbCellsPerOct, params.nbvar, amr_mesh->getNumOctants());
 
+  if (params.gravity_type == GRAVITY_CST_FIELD) {
+    int ndim = (params.dimType == THREE_D ? 3 : 2);
+    Kokkos::resize(Gravity_host, nbCellsPerOct, ndim, amr_mesh->getNumOctants());
+    Kokkos::resize(Gravity, nbCellsPerOct, ndim, amr_mesh->getNumOctants());
+  }
   // Remember that all other array are fixed sized - nbOctsPerGroup
 
 } // SolverHydroMusclBlock::resize_solver_data
@@ -317,8 +326,6 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
     
     // initialize U2
     Kokkos::deep_copy(U2,U);
-
-    save_solution();
 
 
   } // end regular initialization
@@ -406,12 +413,12 @@ double SolverHydroMusclBlock::compute_dt_local()
 void SolverHydroMusclBlock::next_iteration_impl()
 {
   
+  std::cerr << "----" << std::endl;
   int myRank=0;
   
 #ifdef USE_MPI
   myRank = params.myRank;
 #endif // USE_MPI
-  
   if (m_iteration % m_nlog == 0) {
     if (myRank==0) {
       printf("time step=%7d (dt=% 10.8f t=% 10.8f)\n",m_iteration,m_dt, m_t);
@@ -563,10 +570,13 @@ void SolverHydroMusclBlock::godunov_unsplit_impl(DataArrayBlock data_in,
                                           nbOctsPerGroup,
                                           iGroup,
                                           Ugroup,
-					  U,
-					  Ughost,
+					                                U,
+					                                Ughost,
                                           data_out,
                                           Qgroup,
+                                          Gravity,
+                                          Gravity_ghost,
+                                          Ggroup,
                                           Interface_flags,
                                           dt);
 
@@ -931,15 +941,29 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
   //amr_mesh->adapt(true);
   uint32_t nocts = amr_mesh->getNumOctants();
   Kokkos::resize(U, nbCellsPerOct, nbVars, nocts);
+
+  // Gravity, we initialize a new array and replace the previous one
+  int ndim = (params.dimType == THREE_D ? 3 : 2);
+  DataArrayBlock Gravity_new;
+  bool remap_gravity = params.gravity_type == GRAVITY_CST_FIELD;
+  if (remap_gravity) {
+    Gravity_new = DataArrayBlock("Gravity", nbCellsPerOct, ndim, nocts);
+  }
   
   // reset U
   Kokkos::parallel_for("dyablo::muscl_block::SolverHydroMusclBlock reset U",
                        nocts, 
                        KOKKOS_LAMBDA(const size_t iOct) {
-                         for (int ivar=0; ivar<nbVars; ++ivar)
-                           for (uint32_t index=0; index<nbCellsPerOct; ++index)
-                             U(index,fm[ivar],iOct)=0.0;
+                          for (uint32_t index=0; index<nbCellsPerOct; ++index) {
+                            for (int ivar=0; ivar<nbVars; ++ivar)
+                              U(index,fm[ivar],iOct)=0.0;
+                            if (remap_gravity) {
+                              for (int idim=0; idim<ndim; ++idim)
+                                Gravity_new(index, idim, iOct) = 0.0;
+                            }
+                          }
                        });
+
   
   /*
    * Assign to the new octant the average of the old children
@@ -1014,6 +1038,15 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
                 U2    (iCellChild, fm[ivar], mapper[iOctChild])/m_nbChildren ;
               
             } // end for ivar
+
+	          // Gravity assign
+	          if (remap_gravity) {
+	            for (int dim=0; dim < ndim; ++dim) {
+		            Gravity_new(iCell, dim, iOct) += (isghost[iOctChild]) ?
+		              Gravity_ghost(iCellChild, dim, mapper[iOctChild])/m_nbChildren :
+		              Gravity      (iCellChild, dim, mapper[iOctChild])/m_nbChildren ;
+	            } // end for dim
+	          } // end if remap_gravity
             
           } // end for i,j
         
@@ -1073,6 +1106,15 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
                   U2    (iCellChild, fm[ivar], mapper[iOctChild])/m_nbChildren ;
                 
               } // end for ivar
+
+	            // Gravity assign
+	            if (remap_gravity) {
+		            for (int dim=0; dim < ndim; ++dim) {
+		              Gravity_new(iCell, dim, iOct) += (isghost[iOctChild]) ?
+		                Gravity_ghost(iCellChild, dim, mapper[iOctChild])/m_nbChildren :
+		                Gravity      (iCellChild, dim, mapper[iOctChild])/m_nbChildren ;
+		            } // end for dim
+	            } // end if remap
               
             } // end for i,j,k
 
@@ -1081,85 +1123,100 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
     }
     else if (amr_mesh->getIsNewR(iOct)) {
       if (params.dimType==TWO_D) {
-	for (int ivar = 0; ivar < nbVars; ++ivar) {
-	  for (uint32_t iCell = 0; iCell < nbCellsPerOct; ++iCell) {
-	    // We compute the position of the cell in the block
-	    uint32_t j = iCell / bx;
-	    uint32_t i = iCell - j*bx;
-	    
-	    // Depending on the child we shift the actual position
-	    if (child_id & 0x1)
-	      i += bx;
-	    if (child_id & 0x2)
-	      j += by;
+        for (uint32_t iCell = 0; iCell < nbCellsPerOct; ++iCell) {
+          // We compute the position of the cell in the block
+          uint32_t j = iCell / bx;
+          uint32_t i = iCell - j*bx;
+          
+          // Depending on the child we shift the actual position
+          if (child_id & 0x1)
+            i += bx;
+          if (child_id & 0x2)
+            j += by;
+          
+          // Indices corresponding to the parents
+          uint32_t ii = i / 2;
+          uint32_t jj = j / 2;
+          
+          uint32_t parent_id = ii + jj*bx;
+          
+          for (int ivar = 0; ivar < nbVars; ++ivar) {
+            U(iCell, fm[ivar], iOct) = U2(parent_id, fm[ivar], mapper[0]);
+          } // end for ivar
 
-	    // Indices corresponding to the parents
-	    uint32_t ii = i / 2;
-	    uint32_t jj = j / 2;
+          if (remap_gravity) {
+            for (int dim=0; dim < ndim; ++dim)
+              Gravity_new(iCell, dim, iOct) = Gravity(parent_id, dim, mapper[0]);
+          } // end if remap_gravity
+        } // end for iCell
 
-	    uint32_t parent_id = ii + jj*bx;
-	    U(iCell, fm[ivar], iOct) = U2(parent_id, fm[ivar], mapper[0]);
-	  }
-	}
-
-	// Increase the child counter by 1
-	// If we reach 4, we reset the counter
-	child_id++;
-	if (child_id == 4)
-	  child_id = 0;
+        // Increase the child counter by 1
+        // If we reach 4, we reset the counter
+        child_id++;
+        if (child_id == 4)
+          child_id = 0;
       }
       else { // in 3D
-	// TO BE THOROUGHLY TESTED !
-	const uint32_t bxby = bx*by;
-	for (int ivar = 0; ivar < nbVars; ++ivar) {
-	  for (uint32_t iCell = 0; iCell < nbCellsPerOct; ++iCell) {
-	    // We compute the position of the cell in the block
-	    uint32_t k = iCell / bxby; 
-	    uint32_t j = (iCell-k*bxby) / bx;
-	    uint32_t i = iCell - j*bx - k*bxby;
-	    
-	    // Depending on the child we shift the actual position
-	    if (child_id & 0x1)
-	      i += bx;
-	    if (child_id & 0x2)
-	      j += by;
-	    if (child_id & 0x4)
-	      k += bz;
-	    
-	    // Indices corresponding to the parents
-	    uint32_t ii = i / 2;
-	    uint32_t jj = j / 2;
-	    uint32_t kk = k / 2;
+        // TO BE THOROUGHLY TESTED !
+        const uint32_t bxby = bx*by;
+        for (uint32_t iCell = 0; iCell < nbCellsPerOct; ++iCell) {
+          // We compute the position of the cell in the block
+          uint32_t k = iCell / bxby; 
+          uint32_t j = (iCell-k*bxby) / bx;
+          uint32_t i = iCell - j*bx - k*bxby;
+          
+          // Depending on the child we shift the actual position
+          if (child_id & 0x1)
+            i += bx;
+          if (child_id & 0x2)
+            j += by;
+          if (child_id & 0x4)
+            k += bz;
+          
+          // Indices corresponding to the parents
+          uint32_t ii = i / 2;
+          uint32_t jj = j / 2;
+          uint32_t kk = k / 2;
+          
+          uint32_t parent_id = ii + jj*bx + kk*bxby;
+          
+          for (int ivar = 0; ivar < nbVars; ++ivar) {
+            U(iCell, fm[ivar], iOct) = U2(parent_id, fm[ivar], mapper[0]);
+          } // end for ivat
+          
+          if (remap_gravity) {
+            for (int dim=0; dim < ndim; ++dim)
+              Gravity_new(iCell, dim, iOct) = Gravity(parent_id, dim, mapper[0]);
+          } // end if remap_gravity
+        } // end for iCell
 
-	    uint32_t parent_id = ii + jj*bx + kk*bxby;
-	    U(iCell, fm[ivar], iOct) = U2(parent_id, fm[ivar], mapper[0]);
-	  }
-	}
-
-	child_id++;
-	if (child_id == 8)
-	  child_id = 0;
+        child_id++;
+        if (child_id == 8)
+          child_id = 0;
       }
     }
     else {
-      
       // current cell is just an old cell so we just copy data
-      for (int ivar = 0; ivar < nbVars; ++ivar) {
-
-        for (uint32_t iCell = 0; iCell < nbCellsPerOct; ++iCell) {
-	  
+      for (uint32_t iCell = 0; iCell < nbCellsPerOct; ++iCell) {
+        for (int ivar = 0; ivar < nbVars; ++ivar) {
           U(iCell, fm[ivar], iOct) = U2(iCell, fm[ivar], mapper[0]);
+        } // end for ivar
 
-        } // end for iCell 
-
-      } // end vor ivar
-
+      if (remap_gravity) {
+        for (int dim=0; dim < ndim; ++dim)
+          Gravity_new(iCell, dim, iOct) = Gravity(iCell, dim, mapper[0]);
+        } // end if remap_gravity
+      } // end vor iCell
     } // end if isNewC/isNewR
   } // end for iOct
 
   // now U contains the most up to date data after mesh adaptation
   // we can resize U2 for the next time-step
   Kokkos::resize(U2, U.extent(0), U.extent(1), U.extent(2));
+
+  if (remap_gravity)
+    Gravity = std::move(Gravity_new);
+
   
   m_timers[TIMER_AMR_CYCLE_MAP_USERDATA]->stop();
 
@@ -1213,7 +1270,9 @@ void SolverHydroMusclBlock::fill_block_data_inner(DataArrayBlock data_in,
                                        ghostWidth,
                                        nbOcts,
                                        nbOctsPerGroup,
-                                       data_in, Ugroup, iGroup);
+                                       data_in, Ugroup, 
+                                       Gravity, Ggroup, 
+                                       iGroup);
 
 } // SolverHydroMusclBlock::fill_block_data_inner
 
@@ -1238,6 +1297,9 @@ void SolverHydroMusclBlock::fill_block_data_ghost(DataArrayBlock data_in,
                                       data_in,
                                       Ughost,
                                       Ugroup, 
+                                      Gravity,
+                                      Gravity_ghost,
+                                      Ggroup,
                                       iGroup,
                                       Interface_flags);
 
@@ -1252,9 +1314,12 @@ void SolverHydroMusclBlock::fill_block_data_ghost(DataArrayBlock data_in,
 					data_in,
 					Ughost,
 					Ugroup,
+          Gravity,
+          Gravity_ghost,
+          Ggroup,
 					iGroup,
 					Interface_flags);
-
+  
 } // SolverHydroMusclBlock::fill_block_data_ghost
 
 } // namespace muscl_block

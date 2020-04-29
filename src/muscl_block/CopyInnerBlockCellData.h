@@ -62,6 +62,8 @@ public:
                                 uint32_t       nbOctsPerGroup,
                                 DataArrayBlock U,
                                 DataArrayBlock Ugroup,
+                                DataArrayBlock Gravity,
+                                DataArrayBlock Ggroup,
                                 uint32_t       iGroup) :
     params(params),
     fm(fm), 
@@ -71,19 +73,26 @@ public:
     nbOctsPerGroup(nbOctsPerGroup),
     U(U), 
     Ugroup(Ugroup),
+    Gravity(Gravity),
+    Ggroup(Ggroup),
     iGroup(iGroup)
-  {};
+  {
+    copy_gravity = (params.gravity_type == GRAVITY_CST_FIELD);
+    ndim = (params.dimType == THREE_D ? 3 : 2);
+  };
   
   // static method which does it all: create and execute functor
   static void apply(ConfigMap      configMap,
-		    HydroParams    params,
-		    id2index_t     fm,
+		                HydroParams    params,
+		                id2index_t     fm,
                     blockSize_t    blockSizes,
                     uint32_t       ghostWidth,
                     uint32_t       nbOcts,
                     uint32_t       nbOctsPerGroup,
-		    DataArrayBlock U,
+		                DataArrayBlock U,
                     DataArrayBlock Ugroup,
+                    DataArrayBlock Gravity,
+                    DataArrayBlock Ggroup,
                     uint32_t       iGroup)
   {
 
@@ -95,6 +104,8 @@ public:
                                           nbOctsPerGroup,
                                           U,
                                           Ugroup,
+                                          Gravity,
+                                          Ggroup,
                                           iGroup);
     
     // kokkos execution policy
@@ -163,6 +174,11 @@ public:
           if (params.dimType == THREE_D)
             Ugroup(index_g, fm[IW], iOct_g) = U(index, fm[IW], iOct);
 
+          if (copy_gravity) {
+            for (int dim=0; dim < ndim; ++dim)
+              Ggroup(index_g, dim, iOct_g) = Gravity(index, dim, iOct);
+          }
+
         }); // end TeamVectorRange
 
       // increase current octant location both in U and Ugroup
@@ -200,8 +216,20 @@ public:
   //! heavy data - output - local group array of block data (with ghosts)
   DataArrayBlock    Ugroup;
 
+  //! heavy data - input - global array for gravity
+  DataArrayBlock Gravity;
+
+  //! heavy data - input - current ghosted block group for gravity
+  DataArrayBlock Ggroup;
+
   //! id of group of octants to be copied
   uint32_t iGroup;
+
+  // should we copy gravity ?
+  bool copy_gravity;
+
+  // number of dimensions for gravity
+  int ndim;
 
 }; // CopyInnerBlockCellDataFunctor
 
