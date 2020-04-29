@@ -179,6 +179,9 @@ void run_test(int argc, char *argv[]) {
 
   // first copy inner cells
 
+  params.gravity_type = GRAVITY_NONE;
+  DataArrayBlock Gravity, Gravity_ghost, Ggroup;
+
   //uint32_t nbOcts = solver->amr_mesh->getNumOctants();
 
   CopyInnerBlockCellDataFunctor::apply(configMap, params, fm, 
@@ -186,7 +189,9 @@ void run_test(int argc, char *argv[]) {
                                        ghostWidth, 
                                        nbOcts,
                                        nbOctsPerGroup,
-                                       solver->U, Ugroup, iGroup);
+                                       solver->U, Ugroup, 
+                                       Gravity, Ggroup,
+                                       iGroup);
 
   {
     CopyFaceBlockCellDataFunctor::apply(solver->amr_mesh,
@@ -198,7 +203,10 @@ void run_test(int argc, char *argv[]) {
                                         nbOctsPerGroup,
                                         solver->U, 
                                         solver->Ughost, 
-                                        Ugroup, 
+                                        Ugroup,
+                                        Gravity,
+                                        Gravity_ghost,
+                                        Ggroup, 
                                         iGroup,
                                         Interface_flags);
     
@@ -255,11 +263,14 @@ void run_test(int argc, char *argv[]) {
                                           nbOcts,
                                           nbOctsPerGroup,
                                           iGroup,
-					  solver->U,
-					  solver->Ughost,
+					                                solver->U,
+					                                solver->Ughost,
                                           Ugroup,
                                           solver->U2,
-                                          Qgroup, 
+                                          Qgroup,
+                                          Gravity, 
+                                          Gravity_ghost,
+                                          Ggroup, 
                                           Interface_flags,
                                           dt);
 

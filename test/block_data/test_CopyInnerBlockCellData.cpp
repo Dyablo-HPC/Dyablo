@@ -176,12 +176,17 @@ void run_test(int argc, char *argv[], uint32_t bSize, uint32_t nbBlocks)
     std::cout << "\n";
   }
 
+  // Deactivating gravity
+  DataArrayBlock Gravity, Ggroup;
+  params.gravity_type = GRAVITY_NONE;
+
   CopyInnerBlockCellDataFunctor::apply(configMap, params, fm, 
                                        blockSizes,
                                        ghostWidth, 
                                        nbOcts,
                                        nbOctsPerGroup,
-                                       U, Ugroup, iGroup);
+                                       U, Ugroup, 
+                                       Gravity, Ggroup, iGroup);
 
   // print data from from the chosen iGroup 
   std::cout << "Printing Ugroup data from iOct = " << iOct << " | iOctLocal =" << iOctOffset << " and iGroup=" << iGroup << "\n";
