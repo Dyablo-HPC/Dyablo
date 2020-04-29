@@ -47,9 +47,10 @@
 
 // Additional includes here
 
-
-namespace dyablo {
-namespace muscl_block {
+namespace dyablo
+{
+namespace muscl_block
+{
 
 /**
  * Functor to initialize the Rayleigh-Taylor instability problem
@@ -60,118 +61,133 @@ namespace muscl_block {
  * The parameter structures RtParams (if necessary) should be located in 
  * src/shared/problems
  **/
-class InitRayleighTaylorDataFunctor {
+class InitRayleighTaylorDataFunctor
+{
 private:
   uint32_t nbTeams; //!< Number of thread teams;
-  
+
 public:
   using team_policy_t = Kokkos::TeamPolicy<Kokkos::OpenMP, Kokkos::IndexType<uint32_t>>;
   using thread_t = team_policy_t::member_type;
 
-  void setNbTeams(uint32_t nbTeams_) {nbTeams=nbTeams_;};
+  void setNbTeams(uint32_t nbTeams_) { nbTeams = nbTeams_; };
 
   // Constructor of the functor
   InitRayleighTaylorDataFunctor(std::shared_ptr<AMRmesh> pmesh,
-		       HydroParams              params,
-		       RTParams                 rtParams,		       
-		       id2index_t               fm,
-		       blockSize_t              blockSizes,
-		       DataArrayBlockHost       Udata_h)
-    : pmesh(pmesh), params(params), rtParams(rtParams),
-    fm(fm), blockSizes(blockSizes), Udata_h(Udata_h) {};
+                                HydroParams params,
+                                RTParams rtParams,
+                                id2index_t fm,
+                                blockSize_t blockSizes,
+                                DataArrayBlockHost Udata_h,
+                                DataArrayBlockHost Gravity_h)
+      : pmesh(pmesh), params(params), rtParams(rtParams),
+        fm(fm), blockSizes(blockSizes), Udata_h(Udata_h), 
+        Gravity_h(Gravity_h){};
 
   // Static function that initializes and applies the functor
   static void apply(std::shared_ptr<AMRmesh> pmesh,
-		    HydroParams              params,
-		    ConfigMap                configMap,
-		    id2index_t               fm,
-		    blockSize_t              blockSizes,
-		    DataArrayBlockHost       Udata_h) {
+                    HydroParams params,
+                    ConfigMap configMap,
+                    id2index_t fm,
+                    blockSize_t blockSizes,
+                    DataArrayBlockHost Udata_h,
+                    DataArrayBlockHost Gravity_h)
+  {
     // Loading up specific parameters if necessary
     RTParams rtParams(configMap);
 
     // Instantiation of the functor
-    InitRayleighTaylorDataFunctor functor(pmesh, params, rtParams, fm, blockSizes, Udata_h);
+    InitRayleighTaylorDataFunctor functor(pmesh, params, rtParams, fm, blockSizes, Udata_h, Gravity_h);
 
     // And applying it to the mesh
     uint32_t nbTeams = configMap.getInteger("init", "nbTeams", 16);
     functor.setNbTeams(nbTeams);
 
     team_policy_t policy(Kokkos::OpenMP(),
-			 nbTeams,
-			 Kokkos::AUTO());
+                         nbTeams,
+                         Kokkos::AUTO());
 
     Kokkos::parallel_for("dyablo::muscl_block::InitRayleighTaylorDataFunctor",
-			 policy, functor);
+                         policy, functor);
   }
 
   // Actual initialization operator
   KOKKOS_INLINE_FUNCTION
-  void operator()(thread_t member) const {
+  void operator()(thread_t member) const
+  {
     uint32_t iOct = member.league_rank();
 
-    const int& bx = blockSizes[IX];
-    const int& by = blockSizes[IY];
-    const int& bz = blockSizes[IZ];
+    const int &bx = blockSizes[IX];
+    const int &by = blockSizes[IY];
+    const int &bz = blockSizes[IZ];
 
-    const bool twoD   = (params.dimType==TWO_D);
+    const bool twoD = (params.dimType == TWO_D);
     const bool threeD = !twoD;
 
-    uint32_t nbCells = twoD ? bx*by : bx*by*bz;
+    uint32_t nbCells = twoD ? bx * by : bx * by * bz;
 
     const real_t g = params.gy;
 
     // Looping over all octants
-    while(iOct <  pmesh->getNumOctants()) {
+    while (iOct < pmesh->getNumOctants())
+    {
 
       // get octant size
       const real_t octSize = pmesh->getSize(iOct);
 
-      const real_t dx = octSize/bx;
-      const real_t dy = octSize/by;
-      const real_t dz = octSize/bz;
+      const real_t dx = octSize / bx;
+      const real_t dy = octSize / by;
 
       // coordinates of the lower left corner
       const real_t x0 = pmesh->getNode(iOct, 0)[IX];
       const real_t y0 = pmesh->getNode(iOct, 0)[IY];
-      const real_t z0 = pmesh->getNode(iOct, 0)[IZ];
-      
+
       // Iterating on all cells
       Kokkos::parallel_for(
-        Kokkos::TeamVectorRange(member, nbCells),
-        KOKKOS_LAMBDA(const int32_t index) {
-	  coord_t iCoord;
-          uint32_t& ix = iCoord[IX];
-          uint32_t& iy = iCoord[IY];
-          uint32_t& iz = iCoord[IZ];                    
+          Kokkos::TeamVectorRange(member, nbCells),
+          KOKKOS_LAMBDA(const int32_t index) {
+            coord_t iCoord;
+            uint32_t &ix = iCoord[IX];
+            uint32_t &iy = iCoord[IY];
 
-          if (twoD) {
-            iCoord = index_to_coord<2>(index,blockSizes);
-          } else {
-            iCoord = index_to_coord<3>(index,blockSizes);
-          }
+            if (twoD)
+            {
+              iCoord = index_to_coord<2>(index, blockSizes);
+            }
+            else
+            {
+              iCoord = index_to_coord<3>(index, blockSizes);
+            }
 
-          real_t x = x0 + ix*dx + dx/2;
-          real_t y = y0 + iy*dy + dy/2;
-          real_t z = z0 + iz*dy + dz/2;
+            real_t x = x0 + ix * dx + dx / 2;
+            real_t y = y0 + iy * dy + dy / 2;
 
-	  real_t rho = (y > rtParams.rt_y ? rtParams.rho_up : rtParams.rho_down);
-	  real_t vy = rtParams.amplitude * (1.0 + cos(2.0 * M_PI * (x-0.5))) * (1.0 + cos(2.0 * M_PI * (y-0.5))) * 0.25;
-	  real_t P = (rtParams.P0 + rho*g*(y-0.5)) / (params.settings.gamma0-1.0);
+            real_t rho = (y > rtParams.rt_y ? rtParams.rho_up : rtParams.rho_down);
+            real_t vy = rtParams.amplitude * (1.0 + cos(2.0 * M_PI * (x - 0.5))) * (1.0 + cos(2.0 * M_PI * (y - 0.5))) * 0.25;
+            real_t P = (rtParams.P0 + rho * g * (y - 0.5)) / (params.settings.gamma0 - 1.0);
+
+            Udata_h(index, fm[ID], iOct) = rho;
+            Udata_h(index, fm[IU], iOct) = 0.0;
+            Udata_h(index, fm[IV], iOct) = vy;
+            Udata_h(index, fm[IP], iOct) = P;
+            if (threeD)
+              Udata_h(index, fm[IW], iOct) = 0.0;
 
 
-	  Udata_h(index, fm[ID], iOct) = rho;
-	  Udata_h(index, fm[IU], iOct) = 0.0;
-	  Udata_h(index, fm[IV], iOct) = vy;
-	  Udata_h(index, fm[IP], iOct) = P;
-	  if (threeD)
-	    Udata_h(index, fm[IW], iOct) = 0.0;
-	});
-      
+            //std::cerr << "Gtype = " << params.gravity_type << " " << params.gx << " " << params.gy << " " << std::endl;
+
+            if (params.gravity_type == GRAVITY_CST_FIELD) {
+              Gravity_h(index, IX, iOct) = params.gx;
+              Gravity_h(index, IY, iOct) = params.gy;
+              if (params.dimType == THREE_D)
+                Gravity_h(index, IZ, iOct) = params.gz;
+            }
+          });
+
       iOct += nbTeams;
     } // end while iOct
-  } // end operator()
-  	  
+  }   // end operator()
+
   //! Mesh of the simulation
   std::shared_ptr<AMRmesh> pmesh;
 
@@ -185,10 +201,16 @@ public:
   id2index_t fm;
 
   //! Block sizes array
-  blockSize_t blockSizes;     
+  blockSize_t blockSizes;
 
   //! Data array on host
-  DataArrayBlockHost Udata_h;	  
+  DataArrayBlockHost Udata_h;
+
+  //! Data array for Gravity on host
+  DataArrayBlockHost Gravity_h;
+
+  //! Type of gravity selected
+  uint8_t gravity_type;
 };
 
 /**
@@ -196,53 +218,55 @@ public:
  *
  * This functor takes as input an unrefined mesh and performs initial refinement
  **/
-class InitRayleighTaylorRefineFunctor {
+class InitRayleighTaylorRefineFunctor
+{
 public:
   using range_policy_t = Kokkos::RangePolicy<Kokkos::OpenMP>;
   InitRayleighTaylorRefineFunctor(std::shared_ptr<AMRmesh> pmesh,
-			 HydroParams              params,
-			 RTParams                 rtParams,
-			 uint8_t                  level_refine)
-    : pmesh(pmesh), params(params), rtParams(rtParams), level_refine(level_refine){};
+                                  HydroParams params,
+                                  RTParams rtParams,
+                                  uint8_t level_refine)
+      : pmesh(pmesh), params(params), rtParams(rtParams), level_refine(level_refine){};
 
   // Applying the functor to the mesh
   static void apply(std::shared_ptr<AMRmesh> pmesh,
-		    ConfigMap                configMap,
-		    HydroParams              params,
-		    uint8_t level_refine) {
+                    ConfigMap configMap,
+                    HydroParams params,
+                    uint8_t level_refine)
+  {
     RTParams rtParams(configMap);
 
     // iterate functor for refinement
     InitRayleighTaylorRefineFunctor functor(pmesh, params, rtParams, level_refine);
 
-    range_policy_t policy(Kokkos::OpenMP(), 0, pmesh->getNumOctants());	
+    range_policy_t policy(Kokkos::OpenMP(), 0, pmesh->getNumOctants());
     Kokkos::parallel_for("dyablo::muscl_block::InitRayleighTaylorRefineFunctor", policy, functor);
   }
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(const uint32_t &iOct) const {
+  void operator()(const uint32_t &iOct) const
+  {
     uint8_t level = pmesh->getLevel(iOct);
-    
+
     /**
      * The functor is called once per level to refine (from level_min to level_max-1)
      * The decision if the cell should be refined should be only made in this test
      * which checks that the current cell is effectively on the current level of 
      * consideration
      **/
-    if (level == level_refine) {
-      std::array<double,3> center = pmesh->getCenter(iOct);
-      const real_t x = center[0];
+    if (level == level_refine)
+    {
+      std::array<double, 3> center = pmesh->getCenter(iOct);
       const real_t y = center[1];
-      const real_t z = center[2];
       const real_t rt_y = rtParams.rt_y;
-      
+
       double cellSize = pmesh->getSize(iOct);
 
       bool should_refine = fabs(y - rt_y) < cellSize;
       if (should_refine)
         pmesh->setMarker(iOct, 1);
     } // end if level == level_refine
-  } // end operator()
+  }   // end operator()
 
   //! The mesh to refine
   std::shared_ptr<AMRmesh> pmesh;
