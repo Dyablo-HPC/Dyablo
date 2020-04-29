@@ -307,7 +307,6 @@ public:
 
     if (level == level_refine) {
       std::array<double,3> center = pmesh->getCenter(iOct);
-      const real_t x = center[0];
       const real_t y = center[1];
       const real_t z = center[2];
 
