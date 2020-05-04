@@ -158,6 +158,11 @@ public:
     // If we're not, we check the neighbours using PABLO
     pmesh->findNeighbours(iOct, corner, corner_codim, neigh_v, isGhost_v);
 
+    /*if (iOct == 167 or iOct == 40) {
+      std::cerr << "iOct = " << iOct << "; corner = " << (int)corner << "; neigh.size = " << neigh_v.size()
+      << std::endl;
+    }*/
+
     // All good, we have a neighbour in PABLO, we return it
     if (neigh_v.size() > 0) {
       neigh      = neigh_v[0];
@@ -177,62 +182,49 @@ public:
       return;
     }
     else {
-      // No neighbour, we check if we're at a boundary if not, we're at a non conformal edge
-      // We have to test manually first if we're at the edge of the domain
-      real_t x    = pmesh->getX(iOct);
-      real_t y    = pmesh->getY(iOct);
-      real_t size = pmesh->getSize(iOct);
-
-      if (corner & CORNER_RIGHT)
-	      x += size*1.25;
-      else
-	      x -= size*0.25;
-      if (corner & CORNER_TOP)
-	      y += size*1.25;
-      else
-	      y -= size*0.25;
-
-      // No neighbour, we check if we're at a boundary if not, we're at a non conformal edge
-      // We have to test manually first if we're at the edge of the domain
-      if (corner & CORNER_RIGHT)
-	      x += size;
-      if (corner & CORNER_TOP)
-	      y += size;
-      
-      if ((x < params.xmin and params.boundary_type_xmin != BC_PERIODIC)
-	      or (y < params.ymin and params.boundary_type_ymin != BC_PERIODIC)
-	      or (x > params.xmax and params.boundary_type_xmax != BC_PERIODIC)
-	      or (y > params.ymax and params.boundary_type_ymax != BC_PERIODIC)) {
-	        isBoundary = true;
-
-	      return;
-      }
-      // If not, that means the corner points to the center of a larger edge
+      // Testing for non conformal corners : the corner would then point to the center of a larger edge
       // In that case, PABLO returns no neighbours so we have to detect
       // the neighbour using the edge.
       // These correspond to design cases 2, 3, 5, 6, 7, 8, 10 and 11
 
       // X interface
-      uint8_t iface;
-      InterfaceType nc_flag;
+      uint8_t iface_x, iface_y;
+      InterfaceType nc_flag_x, nc_flag_y;
       if (corner & CORNER_RIGHT) {
-	      iface   = FACE_RIGHT;
-	      nc_flag = INTERFACE_XMAX_BIGGER;
+	      iface_x   = FACE_RIGHT;
+	      nc_flag_x = INTERFACE_XMAX_BIGGER;
       }
       else {
-	      iface   = FACE_LEFT;
-	      nc_flag = INTERFACE_XMIN_BIGGER;
+	      iface_x   = FACE_LEFT;
+	      nc_flag_x = INTERFACE_XMIN_BIGGER;
+      }
+      // Y interface
+      if (corner & CORNER_TOP) {
+        iface_y   = FACE_TOP;
+        nc_flag_y = INTERFACE_YMAX_BIGGER;
+      }
+      else {
+        iface_y   = FACE_BOTTOM;
+        nc_flag_y = INTERFACE_YMIN_BIGGER;
       }
 
       // If the corresponding neighbour is bigger, we return it
-      if (Interface_flags(iOct_local) & nc_flag) {
-	      pmesh->findNeighbours(iOct, iface, face_codim, neigh_v, isGhost_v);
+      std::vector<uint32_t> neigh_x, neigh_y;
+      std::vector<bool> isGhost_x, isGhost_y;
+      pmesh->findNeighbours(iOct, iface_x, face_codim, neigh_x, isGhost_x);
+      pmesh->findNeighbours(iOct, iface_y, face_codim, neigh_y, isGhost_y);
 
+      if (neigh_x.size() == 0 or neigh_y.size() == 0) {
+        isBoundary = true;
+        return;
+      }
+
+      if (Interface_flags(iOct_local) & nc_flag_x) {
         // X interface has a larger neighbour, that means we are in cases 5, 6, 7 or 8
-        if (neigh_v.size() > 0) {
+        if (neigh_x.size() > 0) {
           isBoundary = false;
-          neigh      = neigh_v[0];
-          isGhost    = isGhost_v[0];
+          neigh      = neigh_x[0];
+          isGhost    = isGhost_x[0];
 
           if (corner & CORNER_RIGHT) // Corner on the right side;  Cases 5 and 7
             coord_neigh[IX] = 0;
@@ -245,29 +237,16 @@ public:
             coord_neigh[IY] = (by-ghostWidth)/2;
 
           // No need to stay here
-          return; // Dunno if it's wise to use a return. Maybe encapsulate the Y part in a else ?
+          return;
         }
       }
-      
-      // Y interface
-      if (corner & CORNER_TOP) {
-        iface = FACE_TOP;
-        nc_flag = INTERFACE_YMAX_BIGGER;
-      }
-      else {
-        iface = FACE_BOTTOM;
-        nc_flag = INTERFACE_YMIN_BIGGER;
-      }
-
       // If the corresponding neighbour is bigger, we return it
-      if (Interface_flags(iOct_local) & nc_flag) {
-        pmesh->findNeighbours(iOct, iface, face_codim, neigh_v, isGhost_v);
-
+      else if (Interface_flags(iOct_local) & nc_flag_y) {
         // Y interface has a larger neighbour, that means we are in cases 2, 3, 10 or 11
-        if (neigh_v.size() > 0) {
+        if (neigh_y.size() > 0) {
           isBoundary = false;
-          neigh      = neigh_v[0];
-          isGhost    = isGhost_v[0];
+          neigh      = neigh_y[0];
+          isGhost    = isGhost_y[0];
 
           if (corner & CORNER_RIGHT) // Corner on the right side;  Cases 2 and 10
             coord_neigh[IX] = bx/2;
@@ -282,11 +261,9 @@ public:
           // We exit
           return;
         }
-
-        // Should never get to this point !
+        // Shouldn't come here !
+        assert(false);
       } // if Interface_flags(iOct_local) & nc_flag
-      
-      
 
       // TODO : 3d here !
     } // if neigh_v.size = 0
@@ -352,47 +329,51 @@ public:
 
     // Coordinates in the ghosted block and in the neighbour
     coord_t coord_ghost = index_to_coord(index, ghostWidth, ghostWidth);
+    uint32_t x = coord_ghost[IX];
+    uint32_t y = coord_ghost[IY];
 
     // Shifting ghosted index to correct position
-    if (corner & 1)
+    if (corner & CORNER_RIGHT)
       coord_ghost[IX] += gx_offset;
-    if (corner & 2)
+    if (corner & CORNER_TOP)
       coord_ghost[IY] += gy_offset;
 
+    
     coord_t coord_copy  = coord_ghost;
+
     real_t sign_u = 1.0;
     real_t sign_v = 1.0;
 
     if (dir == DIR_X) {
       // Absorbing conditions
       if (params.boundary_type_xmin == BC_ABSORBING and face == FACE_LEFT)
-	coord_copy[IX] = ghostWidth;
+	      coord_copy[IX] = ghostWidth;
       else if (params.boundary_type_xmax == BC_ABSORBING and face == FACE_RIGHT)
-	coord_copy[IX] = gx_offset-1;
+	      coord_copy[IX] = gx_offset-1;
       // Reflexive conditions
       else if (params.boundary_type_xmin == BC_REFLECTING and face == FACE_LEFT) {
-	coord_copy[IX] = 2*ghostWidth - coord_copy[IX] - 1;
-	sign_u = -1.0;
+	      coord_copy[IX] = 2*ghostWidth-1-x;
+	      sign_u = -1.0;
       }
       else if (params.boundary_type_xmax == BC_REFLECTING and face == FACE_RIGHT) {
-	coord_copy[IX] = 2*(ghostWidth+bx) - coord_copy[IX] - 1;
-	sign_u = -1.0;
+        coord_copy[IX] = bx+ghostWidth-1-x;
+        sign_u = -1.0;
       }
     }
     else { // DIR_Y
       // Absorbing conditions
       if (params.boundary_type_ymin == BC_ABSORBING and face == FACE_LEFT)
-	coord_copy[IY] = ghostWidth;
+	      coord_copy[IY] = ghostWidth;
       else if (params.boundary_type_ymax == BC_ABSORBING and face == FACE_RIGHT)
-	coord_copy[IY] = gy_offset-1;
+	      coord_copy[IY] = gy_offset-1;
       // Reflexive conditions
       else if (params.boundary_type_ymin == BC_REFLECTING and face == FACE_LEFT) {
-	coord_copy[IY] = 2*ghostWidth - coord_copy[IY] - 1;
-	sign_v = -1.0;
+	      coord_copy[IY] = 2*ghostWidth-1-y;
+	      sign_v = -1.0;
       }
       else if (params.boundary_type_ymax == BC_REFLECTING and face == FACE_RIGHT) {
-	coord_copy[IY] = 2*(ghostWidth+by) - coord_copy[IY] - 1;
-	sign_v = -1.0;
+	      coord_copy[IY] = by+ghostWidth-1-y;
+	      sign_v = -1.0;
       }
     } // end if dir
 
@@ -447,11 +428,6 @@ public:
 
     uint32_t ghost_index = coord_ghost[IX] + bx_g*coord_ghost[IY];
     uint32_t neigh_index = coord_neigh[IX] + bx*coord_neigh[IY];
-
-    if (iOct == 40 or iOct == 167) {
-      std::cerr << "Oct #" << iOct << "; Corner = " << (int)corner << "(larger) iOct neigh = " << iOct_neigh 
-      << " index " << index << " <- " << neigh_index << std::endl; 
-    }
 
     if (isGhost) {
       Ugroup(ghost_index, fm[ID], iOct_local) = U_ghost(neigh_index, fm[ID], iOct_neigh);
@@ -522,10 +498,6 @@ public:
 
     uint32_t ghost_index = coord_ghost[IX] + bx_g*coord_ghost[IY];
 
-    if (iOct == 40 or iOct == 167) {
-      std::cerr << "Oct #" << iOct << "; Corner = " << (int)corner << "(smaller) iOct neigh = " << iOct_neigh 
-      << " index " << index << " <- " << coord_neigh[IX] + bx*coord_neigh[IY] << std::endl; 
-    }
     // Summing all the sub-cells
     for (int ix=0; ix < 2; ++ix) {
       for (int iy=0; iy < 2; ++iy) {
@@ -612,11 +584,6 @@ public:
     uint32_t neigh_index = coord_neigh[IX] + bx*coord_neigh[IY];
     uint32_t ghost_index = coord_ghost[IX] + bx_g*coord_ghost[IY];
 
-    if (iOct == 40 or iOct == 167) {
-      std::cerr << "Oct #" << iOct << "; Corner = " << (int)corner << "(larger) iOct neigh = " << iOct_neigh 
-      << " index " << index << " <- " << neigh_index << std::endl; 
-    }
-
     // And we copy the data
     if (isGhost) {
       Ugroup(ghost_index, fm[ID], iOct_local) = U_ghost(neigh_index, fm[ID], iOct_neigh);
@@ -670,9 +637,6 @@ public:
     
     // We treat boundary conditions differently
     if (isBoundary) {
-      if (iOct == 40 or iOct == 167) {
-        std::cerr << "Oct #" << iOct << "; Corner = " << (int)corner << " is boundary !" << std::endl;
-      }
       // We check if we have one or two boundaries
       const uint8_t face_codim = 1;
       std::vector<uint32_t> n1, n2;
@@ -691,14 +655,13 @@ public:
       // Faces of copy
       const uint8_t f1 = (corner & 1 ? FACE_RIGHT : FACE_LEFT);
       const uint8_t f2 = (corner & 2 ? FACE_RIGHT : FACE_LEFT);
-
+      
       if (n2.size() > 0)      // X face is boundary
 	      fill_ghost_corner_bc_face_2d(iOct_local, index, corner, DIR_X, f1);
       else if (n1.size() > 0) // Y face is boundary
 	      fill_ghost_corner_bc_face_2d(iOct_local, index, corner, DIR_Y, f2);
       else                    // X and Y are boundaries
 	      fill_ghost_corner_bc_corner_2d(iOct_local, index, corner);
-      
     }
     else {  // If we have a neighbour, we treat the different AMR cases separately
       uint32_t cur_level, neigh_level;
