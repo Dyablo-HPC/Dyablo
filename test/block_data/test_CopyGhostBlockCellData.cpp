@@ -176,13 +176,17 @@ void run_test(int argc, char *argv[]) {
   // first copy inner cells
 
   //uint32_t nbOcts = solver->amr_mesh->getNumOctants();
+  DataArrayBlock Gravity("Gravity", nbCellsPerOct, 3, nbOcts);
+  DataArrayBlock Gravity_host = Kokkos::create_mirror(Gravity);
+  DataArrayBlock Ggroup("Ggroup", nbCellsPerOct_g, 3, nbOctsPerGroup);
+  DataArrayBlock Gravity_ghost;
 
   CopyInnerBlockCellDataFunctor::apply(configMap, params, fm, 
                                        blockSizes,
                                        ghostWidth, 
                                        nbOcts,
                                        nbOctsPerGroup,
-                                       solver->U, Ugroup, iGroup);
+                                       solver->U, Ugroup, Gravity, Ggroup, iGroup);
 
   std::cout << "==========================================";
   std::cout << "Testing CopyFaceBlockCellDataFunctor....\n";
@@ -196,6 +200,7 @@ void run_test(int argc, char *argv[]) {
                                         nbOctsPerGroup,
                                         solver->U, 
                                         solver->Ughost, 
+                                        Gravity, Gravity_ghost, Ggroup,
                                         Ugroup, 
                                         iGroup,
                                         Interface_flags);
