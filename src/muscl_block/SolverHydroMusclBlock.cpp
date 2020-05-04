@@ -327,8 +327,6 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
     // initialize U2
     Kokkos::deep_copy(U2,U);
 
-    save_solution();
-
 
   } // end regular initialization
 
