@@ -327,6 +327,8 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
     // initialize U2
     Kokkos::deep_copy(U2,U);
 
+    save_solution();
+
 
   } // end regular initialization
 
@@ -412,8 +414,6 @@ double SolverHydroMusclBlock::compute_dt_local()
 // =======================================================
 void SolverHydroMusclBlock::next_iteration_impl()
 {
-  
-  std::cerr << "----" << std::endl;
   int myRank=0;
   
 #ifdef USE_MPI
@@ -430,7 +430,7 @@ void SolverHydroMusclBlock::next_iteration_impl()
     if ( should_save_solution() ) {
       
       if (myRank==0) {
-	std::cout << "Output results at time t=" << m_t
+	      std::cout << "Output results at time t=" << m_t
 		  << " step " << m_iteration
 		  << " dt=" << m_dt << std::endl;
       }
