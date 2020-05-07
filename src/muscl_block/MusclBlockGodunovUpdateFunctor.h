@@ -108,9 +108,6 @@ public:
                                  DataArrayBlock U_ghost,
                                  DataArrayBlock U2,
                                  DataArrayBlock Qgroup,
-                                 DataArrayBlock Gravity,
-                                 DataArrayBlock Gravity_ghost,
-                                 DataArrayBlock Ggroup,
                                  FlagArrayBlock Interface_flags,
                                  real_t dt) : pmesh(pmesh),
                                               params(params),
@@ -125,9 +122,6 @@ public:
                                               U_ghost(U_ghost),
                                               U2(U2),
                                               Qgroup(Qgroup),
-                                              Gravity(Gravity),
-                                              Gravity_ghost(Gravity_ghost),
-                                              Ggroup(Ggroup),
                                               Interface_flags(Interface_flags),
                                               dt(dt)
   {
@@ -183,9 +177,6 @@ public:
                     DataArrayBlock U_ghost,
                     DataArrayBlock U2,
                     DataArrayBlock Qgroup,
-                    DataArrayBlock Gravity,
-                    DataArrayBlock Gravity_ghost,
-                    DataArrayBlock Ggroup,
                     FlagArrayBlock Interface_flags,
                     real_t dt)
   {
@@ -196,7 +187,6 @@ public:
                                            nbOcts, nbOctsPerGroup, iGroup,
                                            Ugroup, U, U_ghost, U2,
                                            Qgroup,
-                                           Gravity, Gravity_ghost, Ggroup,
                                            Interface_flags,
                                            dt);
 
@@ -305,9 +295,9 @@ public:
         u[IU] = U_ghost(index_border, fm[IU], neigh[iNeigh]);
         u[IV] = U_ghost(index_border, fm[IV], neigh[iNeigh]);
 
-        if (params.gravity_type == GRAVITY_CST_FIELD) {
-          for (int dim=0; dim < 2; ++dim)
-            g[dim] = Gravity_ghost(index_border, dim, neigh[iNeigh]);
+        if (params.gravity_type & GRAVITY_FIELD) {
+          g[0] = U_ghost(index_border, fm[IGX], neigh[iNeigh]);
+          g[1] = U_ghost(index_border, fm[IGY], neigh[iNeigh]);
         }
       }
       else
@@ -317,9 +307,9 @@ public:
         u[IU] = U(index_border, fm[IU], neigh[iNeigh]);
         u[IV] = U(index_border, fm[IV], neigh[iNeigh]);
 
-        if (params.gravity_type == GRAVITY_CST_FIELD) {
-          for (int dim=0; dim < 2; ++dim)
-            g[dim] = Gravity(index_border, dim, neigh[iNeigh]);
+        if (params.gravity_type & GRAVITY_FIELD) {
+          g[0] = U(index_border, fm[IGX], neigh[iNeigh]);
+          g[1] = U(index_border, fm[IGY], neigh[iNeigh]);
         }
       }
 
@@ -356,10 +346,10 @@ public:
         res[IZ] = params.gz;
     }
     else if (params.gravity_type == GRAVITY_CST_FIELD) {
-      res[IX] = Ggroup(index, IX, iOct_local);
-      res[IY] = Ggroup(index, IY, iOct_local);
+      res[IX] = Ugroup(index, fm[IGX], iOct_local);
+      res[IY] = Ugroup(index, fm[IGY], iOct_local);
       if (params.dimType == THREE_D)
-        res[IZ] = Ggroup(index, IZ, iOct_local);
+        res[IZ] = Ugroup(index, fm[IGZ], iOct_local);
     }
 
     return res;
@@ -580,13 +570,13 @@ public:
       if (params.dimType == THREE_D)
         gz = params.gz;
     }
-    else if (params.gravity_type == GRAVITY_CST_FIELD)
+    else if (params.gravity_type & GRAVITY_FIELD)
     {
-      gx = Gravity(index, IX, iOct);
-      gy = Gravity(index, IY, iOct);
+      gx = Ugroup(index, fm[IGX], iOct_g);
+      gy = Ugroup(index, fm[IGY], iOct_g);
 
       if (params.dimType == THREE_D)
-        gz = Ggroup(index_g, IZ, iOct_g);
+        gz = Ugroup(index_g, fm[IGZ], iOct_g);
     }
 
     rhou += 0.5 * dt * gx * (rhoOld + rhoNew);
@@ -1811,15 +1801,6 @@ public:
 
   //! user data (primitive variables) for the ith group of octants
   DataArrayBlock Qgroup;
-
-  //! heavy data - input - global array for gravity
-  DataArrayBlock Gravity;
-
-  //! heavy data - input - ghost array for gravity
-  DataArrayBlock Gravity_ghost;
-
-  //! heavy data - input - current ghosted block group for gravity
-  DataArrayBlock Ggroup;
 
   //! flags at interface for 2:1 ratio
   FlagArrayBlock Interface_flags;

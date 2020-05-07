@@ -48,9 +48,6 @@ public:
 				 DataArrayBlock U,
 				 DataArrayBlock U_ghost,
 				 DataArrayBlock Ugroup,
-         DataArrayBlock Gravity,
-         DataArrayBlock Gravity_ghost,
-         DataArrayBlock Ggroup,
 				 uint32_t iGroup,
 				 FlagArrayBlock Interface_flags) :
     pmesh(pmesh),
@@ -62,9 +59,6 @@ public:
     U(U),
     U_ghost(U_ghost),
     Ugroup(Ugroup),
-    Gravity(Gravity),
-    Gravity_ghost(Gravity_ghost),
-    Ggroup(Ggroup),
     iGroup(iGroup),
     Interface_flags(Interface_flags),
     eps(std::numeric_limits<real_t>::epsilon())
@@ -77,7 +71,7 @@ public:
     by_g = blockSizes[IY] + 2 * ghostWidth;
     bz_g = blockSizes[IZ] + 2 * ghostWidth;
 
-    copy_gravity = (params.gravity_type == GRAVITY_CST_FIELD);
+    copy_gravity = (params.gravity_type & GRAVITY_FIELD);
     ndim = (params.dimType == THREE_D ? 3 : 2);
   }
 
@@ -92,9 +86,6 @@ public:
 		      DataArrayBlock U,
 		      DataArrayBlock U_ghost,
 		      DataArrayBlock Ugroup,
-          DataArrayBlock Gravity,
-          DataArrayBlock Gravity_ghost,
-          DataArrayBlock Ggroup,
 		      uint32_t iGroup,
 		      FlagArrayBlock Interface_flags)
   {
@@ -103,7 +94,6 @@ public:
 					   blockSizes, ghostWidth,
 					   nbOctsPerGroup, 
 					   U, U_ghost, Ugroup, 
-					   Gravity, Gravity_ghost, Ggroup, 
              iGroup, Interface_flags);
 
     /*
@@ -304,6 +294,11 @@ public:
     Ugroup(ighost, fm[IU], iOct_local) = 0.0;
     Ugroup(ighost, fm[IV], iOct_local) = 0.0;
     Ugroup(ighost, fm[IP], iOct_local) = 0.0;
+
+    if (copy_gravity) {
+      Ugroup(ighost, fm[IGX], iOct_local) = 0.0;
+      Ugroup(ighost, fm[IGY], iOct_local) = 0.0;
+    }
   } // fill_ghost_corner_bc_corner_2d
 
   // ==============================================================
@@ -385,9 +380,10 @@ public:
     Ugroup(index_ghost, fm[IV], iOct_local) = Ugroup(index_copy, fm[IV], iOct_local) * sign_v;
     Ugroup(index_ghost, fm[IP], iOct_local) = Ugroup(index_copy, fm[IP], iOct_local);
 
-    if (copy_gravity)
-      for (int dim=0; dim < ndim; ++dim)
-        Ggroup(index_ghost, dim, iOct_local) = Ggroup(index_copy, dim, iOct_local);
+    if (copy_gravity) {
+      Ugroup(index_ghost, fm[IGX], iOct_local) = Ugroup(index_copy, fm[IGX], iOct_local);
+      Ugroup(index_ghost, fm[IGY], iOct_local) = Ugroup(index_copy, fm[IGY], iOct_local);
+    }
   } // fill_ghost_corner_bc_face_2d
 
   // ==============================================================
@@ -435,9 +431,10 @@ public:
       Ugroup(ghost_index, fm[IV], iOct_local) = U_ghost(neigh_index, fm[IV], iOct_neigh);
       Ugroup(ghost_index, fm[IP], iOct_local) = U_ghost(neigh_index, fm[IP], iOct_neigh);
 
-      if (copy_gravity)
-        for (int dim=0; dim < ndim; ++dim)
-          Ggroup(ghost_index, dim, iOct_local) = Gravity_ghost(neigh_index, dim, iOct_neigh);
+      if (copy_gravity) {
+        Ugroup(ghost_index, fm[IGX], iOct_local) = U_ghost(neigh_index, fm[IGX], iOct_neigh);
+        Ugroup(ghost_index, fm[IGY], iOct_local) = U_ghost(neigh_index, fm[IGY], iOct_neigh);
+      }
     }
     else {
       Ugroup(ghost_index, fm[ID], iOct_local) = U(neigh_index, fm[ID], iOct_neigh);
@@ -445,9 +442,10 @@ public:
       Ugroup(ghost_index, fm[IV], iOct_local) = U(neigh_index, fm[IV], iOct_neigh);
       Ugroup(ghost_index, fm[IP], iOct_local) = U(neigh_index, fm[IP], iOct_neigh);
 
-      if (copy_gravity)
-        for (int dim=0; dim < ndim; ++dim)
-          Ggroup(ghost_index, dim, iOct_local) = Gravity(neigh_index, dim, iOct_neigh);
+      if (copy_gravity) {
+        Ugroup(ghost_index, fm[IGX], iOct_local) = U(neigh_index, fm[IGX], iOct_neigh);
+        Ugroup(ghost_index, fm[IGY], iOct_local) = U(neigh_index, fm[IGY], iOct_neigh);
+      }
     } // end ifGhost
   } // fill_ghost_corner_larger_2d
 
@@ -494,7 +492,7 @@ public:
 
     // We accumulate the results in this variable
     HydroState2d u = {0.0, 0.0, 0.0, 0.0};
-    real_t gravity[ndim] {0.0};
+    real_t gravity[2] {0.0, 0.0};
 
     uint32_t ghost_index = coord_ghost[IX] + bx_g*coord_ghost[IY];
 
@@ -513,9 +511,10 @@ public:
           u[IV] += U_ghost(neigh_index, fm[IV], iOct_neigh);
           u[IP] += U_ghost(neigh_index, fm[IP], iOct_neigh);
 
-          if (copy_gravity)
-            for (int dim=0; dim < ndim; ++dim)
-              gravity[dim] += Gravity_ghost(neigh_index, dim, iOct_neigh);
+          if (copy_gravity) {
+            gravity[0] += U_ghost(neigh_index, fm[IGX], iOct_neigh);
+            gravity[1] += U_ghost(neigh_index, fm[IGY], iOct_neigh);
+          }
         }
         else {
           u[ID] += U(neigh_index, fm[ID], iOct_neigh);
@@ -523,9 +522,10 @@ public:
           u[IV] += U(neigh_index, fm[IV], iOct_neigh);
           u[IP] += U(neigh_index, fm[IP], iOct_neigh);
 
-          if (copy_gravity)
-            for (int dim=0; dim < ndim; ++dim)
-              gravity[dim] += Gravity(neigh_index, dim, iOct_neigh);
+          if (copy_gravity) {
+            gravity[0] += U(neigh_index, fm[IGX], iOct_neigh);
+            gravity[1] += U(neigh_index, fm[IGY], iOct_neigh);
+          }
         } // end isGhost
       } // end for iy
     } // end for ix
@@ -536,9 +536,10 @@ public:
     Ugroup(ghost_index, fm[IV], iOct_local) = 0.25 * u[IV];
     Ugroup(ghost_index, fm[IP], iOct_local) = 0.25 * u[IP];
 
-    if (copy_gravity)
-      for (int dim=0; dim < ndim; ++dim)
-        Ggroup(ghost_index, dim, iOct_local) = 0.25 * gravity[dim];
+    if (copy_gravity) { 
+      Ugroup(ghost_index, fm[IGX], iOct_local) = 0.25 * gravity[0];
+      Ugroup(ghost_index, fm[IGY], iOct_local) = 0.25 * gravity[1];
+    }
 
   } // fill_ghost_corner_smaller_2d
 
@@ -592,8 +593,8 @@ public:
       Ugroup(ghost_index, fm[IP], iOct_local) = U_ghost(neigh_index, fm[IP], iOct_neigh);
 
       if (copy_gravity) {
-        for (int dim=0; dim < ndim; ++dim)
-          Ggroup(ghost_index, dim, iOct_local) = Gravity_ghost(neigh_index, dim, iOct_neigh);
+        Ugroup(ghost_index, fm[IGX], iOct_local) = U_ghost(neigh_index, fm[IGX], iOct_neigh);
+        Ugroup(ghost_index, fm[IGY], iOct_local) = U_ghost(neigh_index, fm[IGY], iOct_neigh);
       }
     }
     else {
@@ -603,8 +604,8 @@ public:
       Ugroup(ghost_index, fm[IP], iOct_local) = U(neigh_index, fm[IP], iOct_neigh);
 
       if (copy_gravity) {
-        for (int dim=0; dim < ndim; ++dim)
-          Ggroup(ghost_index, dim, iOct_local) = Gravity(neigh_index, dim, iOct_neigh);
+        Ugroup(ghost_index, fm[IGX], iOct_local) = U(neigh_index, fm[IGX], iOct_neigh);
+        Ugroup(ghost_index, fm[IGY], iOct_local) = U(neigh_index, fm[IGY], iOct_neigh);
       }
     }
 
@@ -764,15 +765,6 @@ public:
 
   //! heavy data - output - local group array of block data (with ghosts)
   DataArrayBlock Ugroup;
-
-  //! heavy data - input - global array for gravity
-  DataArrayBlock Gravity;
-
-  //! heavy data - input - ghost array for gravity
-  DataArrayBlock Gravity_ghost;
-
-  //! heavy data - input - current ghosted block group for gravity
-  DataArrayBlock Ggroup;  
 
   //! id of group of octants to be copied
   uint32_t iGroup;

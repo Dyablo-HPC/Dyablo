@@ -81,12 +81,20 @@ public:
       var_enabled[i] = 0;
 
     // always enable rho, energy and velocity components
+    bool three_d = params.dimType == 3 ? 1 : 0;
+
     var_enabled[ID] = 1;
     var_enabled[IP] = 1; // remind that IE and IP aliases 
     var_enabled[IE] = 1;
     var_enabled[IU] = 1;
     var_enabled[IV] = 1;
-    var_enabled[IW] = params.dimType == 3 ? 1 : 0;
+    var_enabled[IW] = three_d;
+
+    if (params.gravity_type & GRAVITY_FIELD) {
+      var_enabled[IGX] = 1;
+      var_enabled[IGY] = 1;
+      var_enabled[IGZ] = three_d;
+    }
     // if (params.mhd_enabled) {
     //   var_enabled[IA] = 1;
     //   var_enabled[IB] = 1;
@@ -104,10 +112,10 @@ public:
     for (int id=0; id<nbComponent; ++id) {
 
       if (var_enabled[id] == 1) {
-	id2index[id] = count;
-	count++;
+        id2index[id] = count;
+        count++;
       } else {
-	id2index[id] = -1;
+        id2index[id] = -1;
       }
       
     } // end for
@@ -122,8 +130,8 @@ public:
 
     for (int id=0; id<nbComponent; ++id) {
       if (var_enabled[id] == 1) {
-	// insert couple  ( index(id), name )
-	index2names[ id2index[id] ] = id2namesAll[id];
+        // insert couple  ( index(id), name )
+        index2names[ id2index[id] ] = id2namesAll[id];
       }
     }
 
@@ -135,8 +143,8 @@ public:
 
     for (int id=0; id<nbComponent; ++id) {
       if (var_enabled[id] == 1) {
-	// insert couple  ( index(id), name )
-	names2index[ id2namesAll[id] ] = id2index[id];
+        // insert couple  ( index(id), name )
+        names2index[ id2namesAll[id] ] = id2index[id];
       }
     }
     

@@ -78,11 +78,9 @@ public:
                                 RTParams rtParams,
                                 id2index_t fm,
                                 blockSize_t blockSizes,
-                                DataArrayBlockHost Udata_h,
-                                DataArrayBlockHost Gravity_h)
+                                DataArrayBlockHost Udata_h)
       : pmesh(pmesh), params(params), rtParams(rtParams),
-        fm(fm), blockSizes(blockSizes), Udata_h(Udata_h), 
-        Gravity_h(Gravity_h){};
+        fm(fm), blockSizes(blockSizes), Udata_h(Udata_h) {};
 
   // Static function that initializes and applies the functor
   static void apply(std::shared_ptr<AMRmesh> pmesh,
@@ -90,14 +88,13 @@ public:
                     ConfigMap configMap,
                     id2index_t fm,
                     blockSize_t blockSizes,
-                    DataArrayBlockHost Udata_h,
-                    DataArrayBlockHost Gravity_h)
+                    DataArrayBlockHost Udata_h)
   {
     // Loading up specific parameters if necessary
     RTParams rtParams(configMap);
 
     // Instantiation of the functor
-    InitRayleighTaylorDataFunctor functor(pmesh, params, rtParams, fm, blockSizes, Udata_h, Gravity_h);
+    InitRayleighTaylorDataFunctor functor(pmesh, params, rtParams, fm, blockSizes, Udata_h);
 
     // And applying it to the mesh
     uint32_t nbTeams = configMap.getInteger("init", "nbTeams", 16);
@@ -176,11 +173,11 @@ public:
 
             //std::cerr << "Gtype = " << params.gravity_type << " " << params.gx << " " << params.gy << " " << std::endl;
 
-            if (params.gravity_type == GRAVITY_CST_FIELD) {
-              Gravity_h(index, IX, iOct) = params.gx;
-              Gravity_h(index, IY, iOct) = params.gy;
+            if (params.gravity_type & GRAVITY_FIELD) {
+              Udata_h(index, fm[IGX], iOct) = params.gx;
+              Udata_h(index, fm[IGY], iOct) = params.gy;
               if (params.dimType == THREE_D)
-                Gravity_h(index, IZ, iOct) = params.gz;
+                Udata_h(index, fm[IGZ], iOct) = params.gz;
             }
           });
 
@@ -205,9 +202,6 @@ public:
 
   //! Data array on host
   DataArrayBlockHost Udata_h;
-
-  //! Data array for Gravity on host
-  DataArrayBlockHost Gravity_h;
 
   //! Type of gravity selected
   uint8_t gravity_type;
