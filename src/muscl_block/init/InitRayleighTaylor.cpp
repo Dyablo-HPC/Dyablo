@@ -29,11 +29,14 @@ void init_rayleigh_taylor(SolverHydroMusclBlock *psolver) {
   int level_min = params.level_min;
   int level_max = params.level_max;
 
-  if (params.gravity_type != GRAVITY_CST_SCALAR and params.gravity_type != GRAVITY_CST_FIELD) {
+  if (!(params.gravity_type & GRAVITY_CONSTANT)) {
     std::cerr << "ERROR: Gravity type should be set to constant for Rayleigh-Taylor instability" << std::endl;
     std::cerr << "       Setting gravity to constant scalar" << std::endl;
     // HERE do something like std::exit(1);
     params.gravity_type = GRAVITY_CST_SCALAR;
+    params.gx           =  0.0;
+    params.gy           = -0.1;
+    params.gz           =  0.0;
   }
 
   for (uint8_t level=0; level<level_min; ++level)
@@ -69,13 +72,9 @@ void init_rayleigh_taylor(SolverHydroMusclBlock *psolver) {
   psolver->resize_solver_data();
 
   // And data init
-  DataFunctor::apply(amr_mesh, params, configMap, fm, psolver->blockSizes, psolver->Uhost, psolver->Gravity_host);
+  DataFunctor::apply(amr_mesh, params, configMap, fm, psolver->blockSizes, psolver->Uhost);
   // Upload data on device
   Kokkos::deep_copy(psolver->U, psolver->Uhost);
-
-  // Upload gravity data on device
-  if (params.gravity_type == GRAVITY_CST_FIELD)
-    Kokkos::deep_copy(psolver->Gravity, psolver->Gravity_host);
 
 } // init_RayleighTaylor
 } // namespace muscl_block

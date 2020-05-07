@@ -113,14 +113,6 @@ public:
   //! fluxes - only usefull when low Mach RSST computation is activated
   //! flux accumulator - array of octant's block data
   DataArrayBlock Fluxes;
-  
-  //! Gravitational Field
-  DataArrayBlock Gravity;
-  DataArrayBlock Gravity_host; // Do we need a Gravity host ?
-  DataArrayBlock Gravity_ghost;
-
-  //! Gravitational Field for current group
-  DataArrayBlock Ggroup;
 
   //! field manager for scalar variables mapping to memory index
   FieldManager fieldMgr;

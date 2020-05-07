@@ -14,7 +14,7 @@ UserDataComm::UserDataComm(DataArrayBlock data_, DataArrayBlock ghostData_, id2i
   data(data_),
   ghostData(ghostData_),
   fm(fm_),
-  nbVars(data_.extent(1)),
+  nbFields(data_.extent(1)),
   nbCellsPerOct(data_.extent(0))
 {
 }; // UserDataComm::UserDataComm
@@ -40,7 +40,7 @@ size_t UserDataComm::size(const uint32_t iOct) const
 {
   
   BITPIT_UNUSED(iOct);
-  return sizeof(real_t)*nbCellsPerOct*nbVars;
+  return sizeof(real_t)*nbCellsPerOct*nbFields;
  
 }; // UserDataComm::size
 

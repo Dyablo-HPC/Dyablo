@@ -64,6 +64,8 @@ void HydroParams::setup(ConfigMap &configMap)
     std::cerr << "Solver name not valid : " << solver_name << "\n";
     
   }
+
+  nbfields = nbvar;
   
   /* initialize MESH parameters */
   nx = configMap.getInteger("mesh","nx", 1);
@@ -154,11 +156,15 @@ void HydroParams::setup(ConfigMap &configMap)
 
   // Gravity
   gravity_type = static_cast<GravityType>(configMap.getInteger("gravity", "gravity_type", GRAVITY_NONE));
-  if (gravity_type != GRAVITY_NONE) {
+  if (gravity_type & GRAVITY_CONSTANT) {
     gx = configMap.getFloat("gravity", "gx",  0.0);
     gy = configMap.getFloat("gravity", "gy", -1.0);
     gz = configMap.getFloat("gravity", "gz",  0.0);
-  }
+  } 
+
+  // If we have gravitation has a field, we add ndim variables to U
+  if (gravity_type & GRAVITY_FIELD)
+    nbfields += (dimType == THREE_D ? 3 : 2);
 
   debug_output = configMap.getBool("output", "debug", false);
 
@@ -261,6 +267,7 @@ void HydroParams::print()
 
   printf( "ghostWidth : %d\n", ghostWidth);
   printf( "nbvar      : %d\n", nbvar);
+  printf( "nbfields   : %d\n", nbfields);
   printf( "nStepmax   : %d\n", nStepmax);
   printf( "tEnd       : %f\n", tEnd);
   printf( "nOutput    : %d\n", nOutput);

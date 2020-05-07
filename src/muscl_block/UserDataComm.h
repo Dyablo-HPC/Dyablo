@@ -36,8 +36,8 @@ public:
   //! to actual index
   id2index_t  fm;
 
-  //! number of scalar variables per cell
-  uint32_t nbVars;
+  //! number of scalar fields per cell
+  uint32_t nbFields;
 
   //! number of cells per octant
   uint32_t nbCellsPerOct;
@@ -54,9 +54,9 @@ public:
   template<class Buffer>
   void gather(Buffer & buff, const uint32_t iOct) {
 
-    for (uint32_t ivar=0; ivar<nbVars; ++ivar) {
+    for (uint32_t ivar=0; ivar<nbFields; ++ivar) {
       for (uint32_t index=0; index<nbCellsPerOct; ++index)
-        buff << data(index,fm[ivar],iOct);
+        buff << data(index,ivar,iOct);
     }
 
   } // gather
@@ -67,9 +67,9 @@ public:
   template<class Buffer>
   void scatter(Buffer & buff, const uint32_t iOct) {
 
-    for (uint32_t ivar=0; ivar<nbVars; ++ivar) {
+    for (uint32_t ivar=0; ivar<nbFields; ++ivar) {
       for (uint32_t index=0; index<nbCellsPerOct; ++index)
-        buff >> ghostData(index,fm[ivar],iOct);
+        buff >> ghostData(index,ivar,iOct);
     }
 
   } // scatter

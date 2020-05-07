@@ -110,9 +110,6 @@ public:
                                DataArrayBlock U,
                                DataArrayBlock U_ghost,
                                DataArrayBlock Ugroup,
-                               DataArrayBlock Gravity,
-                               DataArrayBlock Gravity_ghost,
-                               DataArrayBlock Ggroup,
                                uint32_t iGroup,
                                FlagArrayBlock Interface_flags) :
     pmesh(pmesh), params(params), 
@@ -122,9 +119,6 @@ public:
     U(U), 
     U_ghost(U_ghost),
     Ugroup(Ugroup), 
-    Gravity(Gravity),
-    Gravity_ghost(Gravity_ghost),
-    Ggroup(Ggroup),
     iGroup(iGroup),
     Interface_flags(Interface_flags)
   {
@@ -136,7 +130,7 @@ public:
     bz_g = blockSizes[IZ] + 2 * ghostWidth;
 
     // Gravity
-    copy_gravity = (params.gravity_type == GRAVITY_CST_FIELD);
+    copy_gravity = (params.gravity_type & GRAVITY_FIELD);
     ndim = (params.dimType == THREE_D ? 3 : 2);
   };
 
@@ -151,9 +145,6 @@ public:
                     DataArrayBlock U,
                     DataArrayBlock U_ghost,
                     DataArrayBlock Ugroup,
-                    DataArrayBlock Gravity,
-                    DataArrayBlock Gravity_ghost,
-                    DataArrayBlock Ggroup,
                     uint32_t iGroup,
                     FlagArrayBlock Interface_flags)
   {
@@ -162,7 +153,6 @@ public:
                                          blockSizes, ghostWidth,
                                          nbOctsPerGroup, 
                                          U, U_ghost, Ugroup,
-                                         Gravity, Gravity_ghost, Ggroup,
                                          iGroup,
                                          Interface_flags);
 
@@ -427,9 +417,9 @@ public:
       Ugroup(index_cur, fm[IU], iOct_local) = Ugroup(index, fm[IU], iOct_local) * sign_u;
       Ugroup(index_cur, fm[IV], iOct_local) = Ugroup(index, fm[IV], iOct_local) * sign_v;
 
-      if (copy_gravity) { // Gravity at bc is not well defined, is it ?
-        for (int dim=0; dim < ndim; ++dim)
-          Ggroup(index_cur, dim, iOct_local) = Ggroup(index, dim, iOct_local);
+      if (copy_gravity) {
+          Ugroup(index_cur, fm[IGX], iOct_local) = Ugroup(index, fm[IGX], iOct_local);
+          Ugroup(index_cur, fm[IGY], iOct_local) = Ugroup(index, fm[IGY], iOct_local);
       } // end if copy
       
     } // end if admissible values
@@ -525,8 +515,8 @@ public:
         Ugroup(index_cur, fm[IV], iOct_local) = U_ghost(index_border, fm[IV], iOct_neigh);
 
         if (copy_gravity) { 
-          for (int dim=0; dim < ndim; ++dim)
-            Ggroup(index_cur, dim, iOct_local) = Gravity_ghost(index_border, dim, iOct_neigh);
+          Ugroup(index_cur, fm[IGX], iOct_local) = U_ghost(index_border, fm[IGX], iOct_neigh);
+          Ugroup(index_cur, fm[IGY], iOct_local) = U_ghost(index_border, fm[IGY], iOct_neigh);
         }
       } else {
         Ugroup(index_cur, fm[ID], iOct_local) = U(index_border, fm[ID], iOct_neigh);
@@ -534,9 +524,10 @@ public:
         Ugroup(index_cur, fm[IU], iOct_local) = U(index_border, fm[IU], iOct_neigh);
         Ugroup(index_cur, fm[IV], iOct_local) = U(index_border, fm[IV], iOct_neigh);
 
-        if (copy_gravity)
-          for (int dim=0; dim < ndim; ++dim)
-            Ggroup(index_cur, dim, iOct_local) = Gravity(index_border, dim, iOct_neigh);
+        if (copy_gravity) {
+          Ugroup(index_cur, fm[IGX], iOct_local) = U(index_border, fm[IGX], iOct_neigh);
+          Ugroup(index_cur, fm[IGY], iOct_local) = U(index_border, fm[IGY], iOct_neigh);
+        }
       }
 
     } // end if admissible values for index
@@ -652,8 +643,8 @@ public:
         Ugroup(index_cur, fm[IV], iOct_local) = U_ghost(index_border, fm[IV], iOct_neigh);
 
         if (copy_gravity) {
-          for (int dim=0; dim < ndim; ++dim)
-            Ggroup(index_cur, dim, iOct_local) = Gravity_ghost(index_border, dim, iOct_neigh);
+          Ugroup(index_cur, fm[IGX], iOct_local) = U_ghost(index_border, fm[IGX], iOct_neigh);
+          Ugroup(index_cur, fm[IGY], iOct_local) = U_ghost(index_border, fm[IGY], iOct_neigh);
         }
       } else {
         Ugroup(index_cur, fm[ID], iOct_local) = U(index_border, fm[ID], iOct_neigh);
@@ -662,8 +653,8 @@ public:
         Ugroup(index_cur, fm[IV], iOct_local) = U(index_border, fm[IV], iOct_neigh);
 
         if (copy_gravity) {
-          for (int dim=0; dim < ndim; ++dim)
-            Ggroup(index_cur, dim, iOct_local) = Gravity(index_border, dim, iOct_neigh);
+          Ugroup(index_cur, fm[IGX], iOct_local) = U(index_border, fm[IGX], iOct_neigh);
+          Ugroup(index_cur, fm[IGY], iOct_local) = U(index_border, fm[IGY], iOct_neigh);
         }
       }
 
@@ -721,7 +712,7 @@ public:
     // used to accumulate values from smaller octant into
     // large octant ghost cells
     HydroState2d q = {0, 0, 0, 0};
-    real_t gravity[ndim]{0.0};
+    real_t gravity[2]{0.0, 0.0};
 
     const index_t size_borderX = ghostWidth*by;
     const index_t size_borderY = bx*ghostWidth;
@@ -805,8 +796,8 @@ public:
             q[IV] += U_ghost(index_border, fm[IV], iOct_neigh[iNeigh]);
 
             if (copy_gravity) {
-              for (int dim=0; dim < ndim; ++dim)
-                gravity[dim] += Gravity_ghost(index_border, dim, iOct_neigh[iNeigh]);
+              gravity[0] += U_ghost(index_border, fm[IGX], iOct_neigh[iNeigh]);
+              gravity[1] += U_ghost(index_border, fm[IGY], iOct_neigh[iNeigh]);
             }
           } else {
             q[ID] += U(index_border, fm[ID], iOct_neigh[iNeigh]);
@@ -815,8 +806,8 @@ public:
             q[IV] += U(index_border, fm[IV], iOct_neigh[iNeigh]);
 
             if (copy_gravity) {
-              for (int dim=0; dim < ndim; ++dim)
-                gravity[dim] += Gravity(index_border, dim, iOct_neigh[iNeigh]);
+              gravity[0] += U(index_border, fm[IGX], iOct_neigh[iNeigh]);
+              gravity[1] += U(index_border, fm[IGY], iOct_neigh[iNeigh]);
             }
           }
 
@@ -830,8 +821,8 @@ public:
       Ugroup(index_cur, fm[IV], iOct_local) = q[IV]/4;
 
       if (copy_gravity) {
-        for (int dim=0; dim < ndim; ++dim)
-          Ggroup(index_cur, dim, iOct_local) = gravity[dim];
+        Ugroup(index_cur, fm[IGX], iOct_local) = gravity[0];
+        Ugroup(index_cur, fm[IGY], iOct_local) = gravity[1];
       } // end if copy_gravity
     } // end if admissible values for index
 
@@ -1049,16 +1040,7 @@ public:
   DataArrayBlock U_ghost;
 
   //! heavy data - output - local group array of block data (with ghosts)
-  DataArrayBlock Ugroup;
-
-  //! heavy data - input - global array for gravity
-  DataArrayBlock Gravity;
-
-  //! heavy data - input - ghost array for gravity
-  DataArrayBlock Gravity_ghost;
-
-  //! heavy data - input - current ghosted block group for gravity
-  DataArrayBlock Ggroup;
+  DataArrayBlock Ugroup;  
 
   //! id of group of octants to be copied
   uint32_t iGroup;
