@@ -36,7 +36,9 @@ void run_test()
   std::cout << "AMRMetaData test in dim : " << dim << "\n";
   std::cout << "==================================\n";
 
+  // ================================
   // stage 1 : create a PABLO mesh
+  // ================================
 
   /**<Instantation of a nDimensional pablo uniform object.*/
   bitpit::PabloUniform amr_mesh(dim);
@@ -102,13 +104,16 @@ void run_test()
 
   std::cout << "Number of octants :" << amr_mesh.getNumOctants() <<  "\n";
 
+  // ======================================
   // stage 2 : create a AMRMetaData object
+  // ======================================
 
   uint64_t capacity = 1024*1024;
   AMRMetaData<dim> amrMetadata(capacity);
 
   amrMetadata.report();
   amrMetadata.update_hashmap(amr_mesh);
+  //amrMetadata.update_neigh_level_status(amr_mesh);
   amrMetadata.report();
 
   {
@@ -123,9 +128,9 @@ void run_test()
     // copy on host before printing
     Kokkos::deep_copy(map_host, map_device);
 
-    std::cout << "// =========================================\n";
+    std::cout << "// ===========================================\n";
     std::cout << "// Print hashmap\n";
-    std::cout << "// =========================================\n";
+    std::cout << "// ===========================================\n";
     for (std::size_t i=0; i<map_host.capacity(); ++i)
     {
       if (map_host.valid_at(i)) 
@@ -134,17 +139,17 @@ void run_test()
         auto level = map_host.key_at(i)[1];
         auto value = map_host.value_at(i);
 
-        std::cout << i << " "
-                  << "map[" << key << "]=" << value
+        std::cout << std::setw(8) << i << " "
+                  << "map[" << std::setw(18) << key << "]=" << std::setw(3) << value
                   << " (level=" << level << ")"
                   << " and Morton (from Pablo) = " << amr_mesh.getMorton(value)
                   << "\n";
       }
     }
 
-    std::cout << "// =========================================\n";
-    std::cout << "// Print hashmap again\n";
-    std::cout << "// =========================================\n";
+    std::cout << "// ===========================================\n";
+    std::cout << "// Print hashmap again (extract bits modulo 3)\n";
+    std::cout << "// ===========================================\n";
     for (std::size_t i=0; i<map_host.capacity(); ++i)
     {
       if (map_host.valid_at(i)) 
@@ -153,11 +158,11 @@ void run_test()
         auto level = map_host.key_at(i)[1];
         auto value = map_host.value_at(i);
         
-        std::cout << i << " "
-                  << "map[" << morton_extract_bits<3,IX>(key) 
-                  << "," << morton_extract_bits<3,IY>(key)
-                  << "," << morton_extract_bits<3,IZ>(key)
-                  << "]=" << value
+        std::cout << std::setw(8) << i << " "
+                  << "map[" << std::setw(6) << morton_extract_bits<3,IX>(key) 
+                  << ","    << std::setw(6) << morton_extract_bits<3,IY>(key)
+                  << ","    << std::setw(6) << morton_extract_bits<3,IZ>(key)
+                  << "]=" << std::setw(3) << value
                   << " (level=" << level << ")"
                   << " and Morton (from Pablo) = " << amr_mesh.getMorton(value)
                   << "\n";
@@ -324,8 +329,10 @@ void run_test()
         auto y = morton_extract_bits<3,IY>(morton);
         auto z = morton_extract_bits<3,IZ>(morton);
 
-        std::cout << "iOct " << iOct << " (morton=" << morton << ") ";
-        std::cout << "| " << x << " " << y << " " << z << " |";
+        std::cout << "iOct " << std::setw(3) << iOct << " (morton=" << std::setw(19) << morton << ") ";
+        std::cout << "| " << std::setw(7) << x 
+                  << " "  << std::setw(7) << y 
+                  << " "  << std::setw(7) << z << " |";
         std::cout << " || "; 
         
         for (int iface=0; iface<nbFaces; ++iface)
@@ -401,10 +408,6 @@ void run_test()
               {
                 // print neighbor iOct
                 std::cout << " " << map_host.value_at(index_n) << " ";
-              }
-              else
-              {
-                std::cout << "Invalid index when trying to access hashmap...\n";
               }
                             
             } // end for ineigh
