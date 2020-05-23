@@ -370,98 +370,102 @@ uint64_t get_neighbor_morton(uint64_t key,
   uint32_t b0 =  neigh_id     & 0x1 ;
   uint32_t b1 = (neigh_id>>1) & 0x1 ;
   
-  // neighbor is smaller
-  if (level_n > level)
+  // =====================================================
+  // neighbor must be smaller or larger but not same size
+  // =====================================================
+  if ( level_n != level )
   {
-
+    
+    // ======================================
     if (dir == IX)
     {
 
-      xyz[IX] = iface==0 ? xyz[IX]-length_n : xyz[IX]+length;
-      if (xyz[IX]<0)
-        xyz[IX] += total_length;
-      if (xyz[IX]>=total_length)
-        xyz[IX] -= total_length;
+      if (iface==0)
+      {
+        xyz[IX] = (xyz[IX]<length_n) ?
+          xyz[IX] + total_length - length_n :
+          xyz[IX]                - length_n;
+      }
+      else
+      {
+        xyz[IX] += length;
+        if (xyz[IX]>=total_length)
+          xyz[IX] -= total_length;
+      }
 
-      xyz[IY] = b0   ==0 ? xyz[IY]          : xyz[IY]+length_n;
-      xyz[IZ] = b1   ==0 ? xyz[IZ]          : xyz[IZ]+length_n;
+
+      if ( level_n > level )
+      {
+        xyz[IY] = b0 == 0 ? xyz[IY] : xyz[IY]+length_n;
+        xyz[IZ] = b1 == 0 ? xyz[IZ] : xyz[IZ]+length_n;
+      }
+      else
+      {
+        xyz[IY] = b0 == 0 ? xyz[IY] : xyz[IY]-length;
+        xyz[IZ] = b1 == 0 ? xyz[IZ] : xyz[IZ]-length;
+      }
     }
 
+    // ======================================
     if (dir == IY)
     {
-      xyz[IX] = b0   ==0 ? xyz[IX]          : xyz[IX]+length_n;
+      if (iface==0)
+      {
+        xyz[IY] = (xyz[IY]<length_n) ?
+          xyz[IY] + total_length - length_n :
+          xyz[IY]                - length_n;
+      }
+      else
+      {
+        xyz[IY] += length;
+        if (xyz[IY]>=total_length)
+          xyz[IY] -= total_length;
+      }
 
-      xyz[IY] = iface==0 ? xyz[IY]-length_n : xyz[IY]+length;
-      if (xyz[IY]<0)
-        xyz[IY] += total_length;
-      if (xyz[IY]>=total_length)
-        xyz[IY] -= total_length;
-
-      xyz[IZ] = b1   ==0 ? xyz[IZ]          : xyz[IZ]+length_n;
+      if ( level_n > level )
+      {
+        xyz[IX] = b0 == 0 ? xyz[IX] : xyz[IX]+length_n;
+        xyz[IZ] = b1 == 0 ? xyz[IZ] : xyz[IZ]+length_n;
+      }
+      else
+      {
+        xyz[IX] = b0 == 0 ? xyz[IX] : xyz[IX]-length;
+        xyz[IZ] = b1 == 0 ? xyz[IZ] : xyz[IZ]-length;
+      }
     }
 
+    // ======================================
     if (dir == IZ)
     {
-      xyz[IX] = b0   ==0 ? xyz[IX]          : xyz[IX]+length_n;
-      xyz[IY] = b1   ==0 ? xyz[IY]          : xyz[IY]+length_n;
-      
-      xyz[IZ] = iface==0 ? xyz[IZ]-length_n : xyz[IZ]+length;
-      if (xyz[IZ]<0)
-        xyz[IZ] += total_length;
-      if (xyz[IZ]>=total_length)
-        xyz[IZ] -= total_length;
+      if (iface==0)
+      {
+        xyz[IZ] = (xyz[IZ]<length_n) ?
+          xyz[IZ] + total_length - length_n :
+          xyz[IZ]                - length_n;
+      }
+      else
+      {
+        xyz[IZ] += length;
+        if (xyz[IZ]>=total_length)
+          xyz[IZ] -= total_length;
+      }
 
+      if ( level_n > level )
+      {
+        xyz[IX] = b0 == 0 ? xyz[IX] : xyz[IX]+length_n;
+        xyz[IY] = b1 == 0 ? xyz[IY] : xyz[IY]+length_n;
+      }
+      else
+      {
+        xyz[IX] = b0 == 0 ? xyz[IX] : xyz[IX]-length;
+        xyz[IY] = b1 == 0 ? xyz[IY] : xyz[IY]-length;
+      }
+      
     }
 
     return compute_morton_key(xyz[IX],xyz[IY],xyz[IZ]);
 
-  } // end neighbor is smaller
-
-  // neighbor is larger
-  if (level_n < level)
-  {
-
-    if (dir == IX)
-    {
-      xyz[IX] = iface == 0 ? xyz[IX]-length_n : xyz[IX]+length;
-      if (xyz[IX]<0)
-        xyz[IX] += total_length;
-      if (xyz[IX]>=total_length)
-        xyz[IX] -= total_length;
-
-      xyz[IY] = b0   ==0 ? xyz[IY]          : xyz[IY]-length;
-      xyz[IZ] = b1   ==0 ? xyz[IZ]          : xyz[IZ]-length;
-    }
-
-    if (dir == IY)
-    {
-      xyz[IX] = b0   ==0 ? xyz[IX]          : xyz[IX]-length;
-      
-      xyz[IY] = iface == 0 ? xyz[IY]-length_n : xyz[IY]+length;
-      if (xyz[IY]<0)
-        xyz[IY] += total_length;
-      if (xyz[IY]>=total_length)
-        xyz[IY] -= total_length;
-
-      xyz[IZ] = b1   ==0 ? xyz[IZ]          : xyz[IZ]-length;
-    }
-
-    if (dir == IZ)
-    {
-      xyz[IX] = b0   ==0 ? xyz[IX]          : xyz[IX]-length;
-      xyz[IY] = b1   ==0 ? xyz[IY]          : xyz[IY]-length;
-
-      xyz[IZ] = iface == 0 ? xyz[IZ]-length_n : xyz[IZ]+length;
-      if (xyz[IZ]<0)
-        xyz[IZ] += total_length;
-      if (xyz[IZ]>=total_length)
-        xyz[IZ] -= total_length;
-
-    }
-
-    return compute_morton_key(xyz[IX],xyz[IY],xyz[IZ]);
-
-  } // end neighbor is larger
+  } // end neighbor is smaller or larger
 
   // should never reach here
   return compute_morton_key(0,0,0);
