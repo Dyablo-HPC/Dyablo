@@ -472,6 +472,17 @@ uint64_t get_neighbor_morton(uint64_t key,
 
 } // get_neighbor_morton
 
+
+// ====================================================================
+// ====================================================================
+KOKKOS_INLINE_FUNCTION
+real_t levelToSize (uint8_t level) 
+{
+
+  return 1.0/(1<<level);
+
+}
+
 } // namespace dyablo
 
 #endif // SHARED_MORTON_UTILS_H
