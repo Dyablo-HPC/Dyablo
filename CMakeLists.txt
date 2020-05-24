@@ -65,9 +65,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # dyablo options
 
-#option (BUILD_CODE "Enable / disable project build" ON)
-option (BUILD_DOC  "Enable / disable documentation build" OFF)
-option (USE_SPHINX_EXHALE "Enable / disable building API documentation (very long)" OFF)
 option (USE_MPI "Activate / want MPI build" OFF)
 option (USE_VTK "Activate / want VTK build" OFF)
 option (USE_DOUBLE "build with double precision" ON)
@@ -243,7 +240,8 @@ add_subdirectory(src)
 
 # Documentation type
 if(BUILD_DOC)
-  message("At some point, there will be blood")
+  #message("At some point, there will be blood")
+  add_subdirectory(doc)
 endif(BUILD_DOC)
 
 
