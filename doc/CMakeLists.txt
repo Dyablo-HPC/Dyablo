@@ -1,4 +1,9 @@
-find_package(Doxygen REQUIRED COMPONENTS dot)
+#
+# Find Doxygen
+#
+find_package(Doxygen 
+  REQUIRED dot
+  OPTIONAL_COMPONENTS mscgen dia)
 
 get_target_property(DOXY_DOT_PATH Doxygen::dot IMPORTED_LOCATION)
 get_filename_component(DOXY_DOT_PATH "${DOXY_DOT_PATH}" DIRECTORY)
@@ -7,11 +12,8 @@ file(TO_NATIVE_PATH "${DOXY_DOT_PATH}" DOXY_DOT_PATH)
 set(DOC_SRC_DIR "${CMAKE_SOURCE_DIR}/doc")
 set(DOC_BIN_DIR "${CMAKE_BINARY_DIR}/doc")
 set(DOC_DEST_DIR "${CMAKE_BINARY_DIR}/doc/${DOC}")
-#set(DOC_TMP "${CMAKE_BINARY_DIR}/tmp/doc")
 
 set(DOXY_WARN_AS_ERR "NO")
-
-set(SPHINX_LOG_FILE ${CMAKE_BINARY_DIR}/doc/sphinx_warnings.log)
 
 # ------------------------------------------------
 # configure documentation
@@ -128,6 +130,8 @@ else()
   # ================================
   # SPHINX
   # ================================
+
+  set(SPHINX_LOG_FILE ${CMAKE_BINARY_DIR}/doc/sphinx_warnings.log)
 
   # # List and copy all rst files from source dir to binary dir
   # file(GLOB_RECURSE files_rst RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
