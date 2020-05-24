@@ -37,6 +37,11 @@ extensions = ['breathe']
 breathe_default_project = "@PROJECT_NAME@"
 breathe_domain_by_extension = {"c": "c", "h": "cpp", "cpp": "cpp", "hpp": "cpp"}
 breathe_projects = {"@PROJECT_NAME@": "@DOXY_OUTPUT_DIR@/xml"}
+breathe_default_project = "@PROJECT_NAME@"
+
+breathe_projects_source = {
+     "shared" : ( "../../src/shared", ["bc_utils.h", "bitpit_common.h", "enums.h", "hashmap.h", "morton_utils.h", "RiemannSolvers.h"] )
+}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = []

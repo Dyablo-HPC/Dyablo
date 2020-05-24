@@ -5,16 +5,16 @@ License Info
 dyablo License
 ----------------
 
-.. include:: ../../../LICENSE.CECILL.EN.utf8
+.. include:: ../../../../LICENSE
 
 	     
-Third Party Builtin Libraries
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Third Party Libraries
+---------------------
 
 Here is a list of the software components used by dyablo.
 
 C and C++ Libraries
-=====================
+~~~~~~~~~~~~~~~~~~~
 - *kokkos*: https://github.com/kokkos/kokkos (BSD Clause 3 License)
 - *hdf5*: https://support.hdfgroup.org/HDF5/ (BSD Style License)
 
