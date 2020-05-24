@@ -88,9 +88,13 @@ set (DYABLO_CMAKE_ARGS)
 option(Kokkos_ENABLE_HWLOC  "enable HWLOC in Kokkos" ON)
 option(Kokkos_ENABLE_OPENMP "enable Kokkos::OpenMP backend" ON)
 option(Kokkos_ENABLE_CUDA   "enable Kokkos::Cuda backend" OFF)
+option(BUILD_DOC  "Enable / disable documentation build" OFF)
 
 # only usefull when building for Kokkos::Cuda backend 
 set(Kokkos_ARCH  "" CACHE STRING "Kokkos arch (KEPLER37, PASCAL60, ...)")
+
+# documentation type
+set(DOC "doxygen" CACHE STRING "documentation type (html or doxygen)")
 
 if (Kokkos_ENABLE_CUDA)
 
@@ -103,6 +107,8 @@ if (Kokkos_ENABLE_CUDA)
     -DKokkos_ARCH_${Kokkos_ARCH}=ON
     -DUSE_HDF5=ON
     -DUSE_MPI=ON
+    -DBUILD_DOC=${BUILD_DOC}
+    -DDOC=${DOC}
     -DBITPIT_DIR=${MY_BITPIT_DIR}
     )
 
@@ -114,6 +120,8 @@ else()
     -DKokkos_ENABLE_OPENMP=${Kokkos_ENABLE_OPENMP}
     -DUSE_HDF5=ON
     -DUSE_MPI=ON
+    -DBUILD_DOC=${BUILD_DOC}
+    -DDOC=${DOC}
     -DBITPIT_DIR=${MY_BITPIT_DIR}
     )
 
