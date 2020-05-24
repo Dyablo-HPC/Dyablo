@@ -1,15 +1,13 @@
 /**
  * \file InitTemplate.cpp
  * \author Maxime Delorme
- */
-
-/**
+ *
  * This file is a template for the construction of a new problem.
  * It should be copied to the correct name (e.g. InitBlast.cpp) and adapted
  * so that the right functors are called.
  *
  * Please follow the instructions in InitTemplate.h.
- **/
+ */
 
 #include "InitXXXXX.h"
 #include "../SolverHydroMusclBlock.h"

@@ -1,10 +1,8 @@
 /**
  * \file InitTemplate.h
  * \author Maxime Delorme
- **/
-
-/**
- * This is a template for initialization of a problem in dyablo
+ *
+ * \brif This is a template for initialization of a problem in dyablo.
  *
  * The initial conditions of a problem require two functors:
  * - The first is the Data functor (InitXXXXXDataFunctor) which takes as input
@@ -26,7 +24,7 @@
  *  5-  Update the HydroInitFunctors.h to add the function defined in InitTemplate.cpp
  *  6-  Update the init method in SolverHydroMusclBlock.cpp to include your init function
  *  7-  Update the CMakeLists.txt in src/muscl_block to account for the new .cpp file
- **/
+ */
 
 #ifndef MUSCL_BLOCK_XXXXX_H_
 #define MUSCL_BLOCK_XXXXX_H_
