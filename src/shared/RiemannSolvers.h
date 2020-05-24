@@ -1,4 +1,5 @@
 /**
+ * \file RiemannSolvers.h
  * All possible Riemann solvers or so.
  */
 #ifndef RIEMANN_SOLVERS_H_
