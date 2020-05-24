@@ -1,13 +1,14 @@
 /**
+ * \file morton_utils.h
  * Some usefull routines to compute / handle Morton indexes.
  *
  * Morton curve (or Z-curve) is a space filling curve,
  *  i.e. a mapping from an n-dimensional space to 1d).
  *
  * \sa https://en.wikipedia.org/wiki/Z-order_curve
- */
-
-/* Some of the following routines are adapted from:
+ *
+ *
+ * Some of the following routines are adapted from:
  * http://www.forceflow.be/2013/10/07/morton-encodingdecoding-through-bit-interleaving-implementations/
  *
  * This blog provides performances comparison between 3 methods:
