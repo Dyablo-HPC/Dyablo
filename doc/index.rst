@@ -1,7 +1,7 @@
 @PROJECT_NAME@
 ================
 
-**@PROJECT_NAME@ : Adaptive mesh refinement for CFD applications using performance portable kernels **
+**@PROJECT_NAME@ : Adaptive mesh refinement for CFD applications using performance portable kernels**
 
 Introduction
 ------------
@@ -16,7 +16,7 @@ TODO
 Resources
 ---------
 
-**Online Documentation (TODO) **
+**Online Documentation (TODO)**
 
 https://github.com/pkestene/@PROJECT_NAME@ ??
 
