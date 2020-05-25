@@ -21,6 +21,10 @@ find_package(Doxygen
   REQUIRED dot
   OPTIONAL_COMPONENTS mscgen dia)
 
+if(NOT DOXYGEN_FOUND)
+  message(WARNING "Doxygen need to be installed to generate the doxygen documentation. Can't go further.")
+endif(DOXYGEN_FOUND)
+
 get_target_property(DOXY_DOT_PATH Doxygen::dot IMPORTED_LOCATION)
 get_filename_component(DOXY_DOT_PATH "${DOXY_DOT_PATH}" DIRECTORY)
 file(TO_NATIVE_PATH "${DOXY_DOT_PATH}" DOXY_DOT_PATH)
