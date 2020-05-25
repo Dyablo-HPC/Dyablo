@@ -31,6 +31,7 @@
 #include <cstddef> // for std::size_t
 
 #include "shared/enums.h" // for ComponentIndex3D
+#include "shared/real_type.h"
 
 #include <Kokkos_Macros.hpp> // for KOKKOS_INLINE_FUNCTION
 
