@@ -27,7 +27,8 @@
 #ifndef SHARED_MORTON_UTILS_H
 #define SHARED_MORTON_UTILS_H
 
-#include <cstdint>
+#include <cstdint> // for uint32_t, uint64_t, etc...
+#include <cstddef> // for std::size_t
 
 #include "shared/enums.h" // for ComponentIndex3D
 
@@ -37,7 +38,7 @@ namespace dyablo {
 
 /**
  * Helper method to encode a Morton key from the cartesian coordinates.
- * Seperate bits from a given integer "dim" positions apart and 
+ * Separate bits from a given integer "dim" positions apart and 
  * inserting zeros in between.
  *
  * e.g. "100" becomes "01|00|00"    in 2D
@@ -120,10 +121,10 @@ struct index_t<2>{
   index_t(int i, int j) { data[0]=i; data[1]=j; }
 
   KOKKOS_INLINE_FUNCTION
-  uint32_t operator[](size_t i) const { return data[i]; }
+  uint32_t operator[](std::size_t i) const { return data[i]; }
 
   KOKKOS_INLINE_FUNCTION
-  uint32_t& operator[](size_t i) { return data[i]; }
+  uint32_t& operator[](std::size_t i) { return data[i]; }
 
 }; // index_t<2>
 
@@ -141,10 +142,10 @@ struct index_t<3>{
   index_t(int i, int j, int k) { data[0]=i; data[1]=j; data[2]=k; }
 
   KOKKOS_INLINE_FUNCTION
-  uint32_t operator[](size_t i) const { return data[i]; }
+  uint32_t operator[](std::size_t i) const { return data[i]; }
 
   KOKKOS_INLINE_FUNCTION
-  uint32_t& operator[](size_t i) { return data[i]; }
+  uint32_t& operator[](std::size_t i) { return data[i]; }
 
 }; // index_t<3>
 

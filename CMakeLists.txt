@@ -108,6 +108,11 @@ if (BITPIT_FOUND)
 endif(BITPIT_FOUND)
 
 #####################################################################
+# Boost (for unit testing)
+#####################################################################
+find_package(Boost 1.55)
+
+#####################################################################
 # MPI
 #####################################################################
 find_package(MPI)
@@ -244,6 +249,11 @@ if(BUILD_DOC)
   add_subdirectory(doc)
 endif(BUILD_DOC)
 
+# unit testing
+if (${Boost_FOUND})
+  enable_testing()
+  add_subdirectory(unit_test)
+endif()
 
 ##################### PRINT CONFIGURE STATUS ######################
 message("//===================================================")
@@ -272,6 +282,11 @@ if (HDF5_FOUND)
   message("  HDF5 includes dirs    : ${HDF5_INCLUDE_DIRS}")
   message("  HDF5 libraries        : ${HDF5_LIBRARIES}")
 endif(HDF5_FOUND)
+message("")
+message(" BOOST found : ${Boost_FOUND}")
+if (Boost_FOUND)
+  message(" BOOST version : ${Boost_VERSION}")
+endif(Boost_FOUND)
 
 message("")
 
