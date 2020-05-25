@@ -93,8 +93,8 @@ option(BUILD_DOC  "Enable / disable documentation build" OFF)
 # only usefull when building for Kokkos::Cuda backend 
 set(Kokkos_ARCH  "" CACHE STRING "Kokkos arch (KEPLER37, PASCAL60, ...)")
 
-# documentation type
-set(DOC "doxygen" CACHE STRING "documentation type (html or doxygen)")
+# documentation type - the only valid values are : doxygen and mkdocs
+set(DOC "doxygen" CACHE STRING "documentation type (doxygen or mkdocs)")
 
 if (Kokkos_ENABLE_CUDA)
 

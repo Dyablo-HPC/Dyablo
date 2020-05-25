@@ -81,15 +81,35 @@ if(DOC STREQUAL "doxygen")
   add_custom_target(clean_doc
     COMMAND ${CMAKE_COMMAND} -E remove_directory "${DOC_DEST_DIR}")
   
-else()
+elseif(DOC STREQUAL "mkdocs")
 
   # ================================
   # Doxygen XML + MkDocs
   # ================================
-  
+
+  find_program(
+    DOXYBOOK2_EXE
+    NAMES "doxybook2"
+    DOC "Path to doxybook2 executable"
+    )
+  if(NOT DOXYBOOK2_EXE)
+    message(FATAL_ERROR "doxybook2 was not found, please install and make it available in your PATH")
+  endif()
+
+  configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/mkdocs/mkdocs.yml.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/mkdocs/mkdocs.yml")
+
+  configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/mkdocs/docs/index.md.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/mkdocs/docs/index.md")
+
+  # set doxybook2 command line
+  set (DOXYBOOK2_ARGS "--input ${DOXY_OUTPUT_DIR}/xml --output ${DOC_DEST_DIR}/docs --config ${CMAKE_SOURCE_DIR}/doc/mkdocs/.doxybook/config.json")
+
   add_custom_target(doc
 
-    DEPENDS copy_files
+    #DEPENDS copy_files
     
     COMMAND "${CMAKE_COMMAND}" -E echo
     "Generating Doxygen XML API documentation"
@@ -99,7 +119,10 @@ else()
     COMMAND "${CMAKE_COMMAND}" -E echo
     "Generating ${DOC} sources documentation with doxybook2"
   
-    COMMAND "${CMAKE_COMMAND}" -E doxybook2 --input ${DOXY_OUTPUT_DIR}/xml --output ${DOC_DEST_DIR} --config ${CMAKE_SRC_DIR}/doc/mkdocs/.doxybook/config.json)
+    COMMAND "${CMAKE_COMMAND}" -E echo "${DOXYBOOK2_EXE}" "${DOXYBOOK2_ARGS}"
+
+    COMMAND ${DOXYBOOK2_EXE} --input ${DOXY_OUTPUT_DIR}/xml --output ${DOC_DEST_DIR}/docs --config ${CMAKE_SOURCE_DIR}/doc/mkdocs/.doxybook/config.json
+    )
   
   add_custom_command(TARGET doc POST_BUILD
     COMMAND ;
@@ -107,5 +130,9 @@ else()
 
   add_custom_target(clean_doc
     COMMAND ${CMAKE_COMMAND} -E remove_directory "${DOC_DEST_DIR}")
+
+elseif()
+
+  message(WARNING "The only valid values for DOC are : doxygen and mkdocs. No documentation will be generated")
 
 endif()
