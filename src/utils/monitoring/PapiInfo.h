@@ -14,7 +14,7 @@
 
 #include "OpenMPTimer.h"
 
-namespace ppkMHD {
+namespace dyablo {
 
 class PapiInfo
 {
