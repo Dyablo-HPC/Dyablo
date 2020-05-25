@@ -1,0 +1,48 @@
+site_name: @PROJECT_NAME@ @PROJECT_VERSION@ Documentation
+
+theme: 'readthedocs'
+#theme: 'material'
+
+markdown_extensions:
+  - admonition
+  - codehilite:
+      linenums: true
+      guess_lang: false
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: True
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.critic
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_generator: !!python/name:pymdownx.emoji.to_svg
+  - pymdownx.inlinehilite
+  - pymdownx.magiclink
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.superfences
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+extra:
+  social:
+    - icon: material/gitlab
+      link: https://gitlab.maisondelasimulation.fr/pkestene/dyablo
+
+repo_name: pkestene/dyablo
+repo_url: https://gitlab.maisondelasimulation.fr/pkestene/dyablo
+
+extra_css:
+  - 'https://cdn.jsdelivr.net/npm/katex@0.11.1/dist/katex.min.css'
+
+extra_javascript:
+  - 'https://cdn.jsdelivr.net/npm/katex@0.11.1/dist/katex.min.js'
+  - 'extra.js'
+
+nav:
+  - Home: 'index.md'
+  - Installation: 'installation/gettingstarted.md'
