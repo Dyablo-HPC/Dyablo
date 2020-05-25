@@ -17,7 +17,7 @@
 #include <stdio.h>
 #include <papi.h>
 
-namespace ppkMHD {
+namespace dyablo {
 
 ////////////////////////////////////////////////////////////////////////////////
 // PapiInfo class methods body
@@ -108,4 +108,4 @@ double PapiInfo::elapsed() {
   
 } // PapiInfo::elapsed
 
-} // namespace ppkMHD
+} // namespace dyablo
