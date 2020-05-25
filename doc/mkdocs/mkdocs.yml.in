@@ -42,7 +42,3 @@ extra_css:
 extra_javascript:
   - 'https://cdn.jsdelivr.net/npm/katex@0.11.1/dist/katex.min.js'
   - 'extra.js'
-
-nav:
-  - Home: 'index.md'
-  - Installation: 'installation/gettingstarted.md'
