@@ -44,13 +44,13 @@ include(preventBuildInSource)
 #
 
 option (DYABLO_USE_MPI "Activate / want MPI build" ON)
-option (USE_VTK "Activate / want VTK build" OFF)
+option (DYABLO_USE_VTK "Activate / want VTK build" OFF)
 option (DYABLO_USE_DOUBLE "build with double precision" ON)
 #option (USE_MOOD "build MOOD numerical schemes" OFF)
 #option (USE_SDM "build Spectral Difference Method numerical schemes" OFF)
 option (USE_HDF5 "build HDF5 input/output support" ON)
-option (USE_PNETCDF "build PNETCDF input/output support (MPI required)" OFF)
-option (USE_FPE_DEBUG "build with floating point Nan tracing (signal handler)" OFF)
+option (DYABLO_USE_PNETCDF "build PNETCDF input/output support (MPI required)" OFF)
+option (DYABLO_USE_FPE_DEBUG "build with floating point Nan tracing (signal handler)" OFF)
 option (DYABLO_USE_MPI_CUDA_AWARE_ENFORCED "Some MPI cuda-aware implementation are not well detected; use this to enforce" OFF)
 
 # Enforce rebuilding bitpit
@@ -181,12 +181,12 @@ list (APPEND DYABLO_CMAKE_ARGS
   -DKokkos_ENABLE_DEBUG=${Kokkos_ENABLE_DEBUG}
   -DKokkos_ENABLE_DEBUG_BOUNDS_CHECK=${Kokkos_ENABLE_DEBUG_BOUNDS_CHECK}
   -DUSE_HDF5=${USE_HDF5}
-  -DUSE_PNETCDF=${USE_PNETCDF}
-  -DUSE_VTK=${USE_VTK}
+  -DDYABLO_USE_PNETCDF=${DYABLO_USE_PNETCDF}
+  -DDYABLO_USE_VTK=${DYABLO_USE_VTK}
   -DDYABLO_USE_MPI=${DYABLO_USE_MPI}
   -DDYABLO_USE_MPI_CUDA_AWARE_ENFORCED=${DYABLO_USE_MPI_CUDA_AWARE_ENFORCED}
   -DDYABLO_USE_DOUBLE=${DYABLO_USE_DOUBLE}
-  -DUSE_FPE_DEBUG=${USE_FPE_DEBUG}
+  -DDYABLO_USE_FPE_DEBUG=${DYABLO_USE_FPE_DEBUG}
   -DBUILD_DOC=${BUILD_DOC}
   -DDOC=${DOC}
   -DDYABLO_ENABLE_UNIT_TESTING=${DYABLO_ENABLE_UNIT_TESTING}
