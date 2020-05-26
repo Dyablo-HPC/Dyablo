@@ -148,6 +148,9 @@ endif()
 # now we build dyablo
 #####################################
 
+# at some point we should also build kokkos using ExternalProject, instead of including
+# its build system into dyablo
+
 #
 # prepare cmake arguments list
 #
@@ -157,6 +160,12 @@ set (DYABLO_CMAKE_ARGS)
 option(Kokkos_ENABLE_HWLOC  "enable HWLOC in Kokkos" ON)
 option(Kokkos_ENABLE_OPENMP "enable Kokkos::OpenMP backend" ON)
 option(Kokkos_ENABLE_CUDA   "enable Kokkos::Cuda backend" OFF)
+option(Kokkos_ENABLE_CUDA_LAMBDA   "enable Kokkos::Cuda backend with LAMBDA" ON)
+option(Kokkos_ENABLE_CUDA_CONSTEXPR   "enable Kokkos::Cuda backend with LAMBDA" OFF)
+option(Kokkos_ENABLE_CUDA_UVM   "enable Kokkos::Cuda backend with LAMBDA" OFF)
+
+option(Kokkos_ENABLE_DEBUG  "build Kokkos in debug mode" OFF)
+option(Kokkos_ENABLE_DEBUG_BOUNDS_CHECK  "build Kokkos in debug mode" OFF)
 
 # if CUDA is enable, you need to be careful about the version of boost
 option(DYABLO_ENABLE_UNIT_TESTING "Enable unit testing" OFF)
@@ -169,6 +178,8 @@ list (APPEND DYABLO_CMAKE_ARGS
   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
   -DKokkos_ENABLE_HWLOC=${Kokkos_ENABLE_HWLOC}
   -DKokkos_ENABLE_OPENMP=${Kokkos_ENABLE_OPENMP}
+  -DKokkos_ENABLE_DEBUG=${Kokkos_ENABLE_DEBUG}
+  -DKokkos_ENABLE_DEBUG_BOUNDS_CHECK=${Kokkos_ENABLE_DEBUG_BOUNDS_CHECK}
   -DUSE_HDF5=${USE_HDF5}
   -DUSE_PNETCDF=${USE_PNETCDF}
   -DUSE_VTK=${USE_VTK}
@@ -187,7 +198,9 @@ if (Kokkos_ENABLE_CUDA)
 
   list (APPEND DYABLO_CMAKE_ARGS
     -DKokkos_ENABLE_CUDA=${Kokkos_ENABLE_CUDA}
-    -DKokkos_ENABLE_CUDA_LAMBDA=ON
+    -DKokkos_ENABLE_CUDA_LAMBDA=${Kokkos_ENABLE_CUDA_LAMBDA}
+    -DKokkos_ENABLE_CUDA_CONSTEXPR=${Kokkos_ENABLE_CUDA_CONSTEXPR}
+    -DKokkos_ENABLE_CUDA_UVM=${Kokkos_ENABLE_CUDA_UVM}
     -DKokkos_ARCH_${Kokkos_ARCH}=ON
     )
 
