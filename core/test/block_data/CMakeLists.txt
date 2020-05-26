@@ -11,11 +11,11 @@ target_link_libraries(test_CopyInnerBlockCellData PUBLIC
   kokkos
   shared 
   monitoring)
-if (USE_MPI)
+if (DYABLO_USE_MPI)
   target_link_libraries(test_CopyInnerBlockCellData
     PUBLIC 
     mpiUtils MPI::MPI_CXX)
-endif(USE_MPI)
+endif(DYABLO_USE_MPI)
 
 # ======================================================
 # ======================================================
@@ -29,11 +29,11 @@ target_link_libraries(test_CopyGhostBlockCellData PUBLIC
   shared
   monitoring
   BITPIT::BITPIT)
-if (USE_MPI)
+if (DYABLO_USE_MPI)
   target_link_libraries(test_CopyGhostBlockCellData
     PUBLIC 
     mpiUtils MPI::MPI_CXX)
-endif(USE_MPI)
+endif(DYABLO_USE_MPI)
 
 # ======================================================
 # ======================================================
@@ -47,11 +47,11 @@ target_link_libraries(test_MusclBlockGodunovUpdateFunctor PUBLIC
   shared
   monitoring
   BITPIT::BITPIT)
-if (USE_MPI)
+if (DYABLO_USE_MPI)
   target_link_libraries(test_MusclBlockGodunovUpdateFunctor
     PUBLIC 
     mpiUtils MPI::MPI_CXX)
-endif(USE_MPI)
+endif(DYABLO_USE_MPI)
 
 # some useful parameter file
 configure_file(test_implode_2D_block.ini test_implode_2D_block.ini COPYONLY)

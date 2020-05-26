@@ -35,7 +35,7 @@ if(NOT Kokkos_ENABLE_CUDA)
   )
 endif()
 
-if (USE_MPI)
+if (DYABLO_USE_MPI)
   target_compile_definitions(${UNIT_TEST_NAME} PUBLIC BITPIT_ENABLE_MPI)
 
   target_link_libraries(${UNIT_TEST_NAME} PRIVATE mpiUtils)

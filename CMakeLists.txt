@@ -43,7 +43,7 @@ include(preventBuildInSource)
 # dyablo options
 #
 
-option (USE_MPI "Activate / want MPI build" ON)
+option (DYABLO_USE_MPI "Activate / want MPI build" ON)
 option (USE_VTK "Activate / want VTK build" OFF)
 option (DYABLO_USE_DOUBLE "build with double precision" ON)
 #option (USE_MOOD "build MOOD numerical schemes" OFF)
@@ -51,7 +51,7 @@ option (DYABLO_USE_DOUBLE "build with double precision" ON)
 option (USE_HDF5 "build HDF5 input/output support" ON)
 option (USE_PNETCDF "build PNETCDF input/output support (MPI required)" OFF)
 option (USE_FPE_DEBUG "build with floating point Nan tracing (signal handler)" OFF)
-option (USE_MPI_CUDA_AWARE_ENFORCED "Some MPI cuda-aware implementation are not well detected; use this to enforce" OFF)
+option (DYABLO_USE_MPI_CUDA_AWARE_ENFORCED "Some MPI cuda-aware implementation are not well detected; use this to enforce" OFF)
 
 # Enforce rebuilding bitpit
 option(FORCE_BITPIT_BUILD "Enforce rebuilding bitpit" OFF)
@@ -183,8 +183,8 @@ list (APPEND DYABLO_CMAKE_ARGS
   -DUSE_HDF5=${USE_HDF5}
   -DUSE_PNETCDF=${USE_PNETCDF}
   -DUSE_VTK=${USE_VTK}
-  -DUSE_MPI=${USE_MPI}
-  -DUSE_MPI_CUDA_AWARE_ENFORCED=${USE_MPI_CUDA_AWARE_ENFORCED}
+  -DDYABLO_USE_MPI=${DYABLO_USE_MPI}
+  -DDYABLO_USE_MPI_CUDA_AWARE_ENFORCED=${DYABLO_USE_MPI_CUDA_AWARE_ENFORCED}
   -DDYABLO_USE_DOUBLE=${DYABLO_USE_DOUBLE}
   -DUSE_FPE_DEBUG=${USE_FPE_DEBUG}
   -DBUILD_DOC=${BUILD_DOC}

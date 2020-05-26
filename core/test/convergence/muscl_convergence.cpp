@@ -28,10 +28,10 @@
 #include "shared/real_type.h"    // choose between single and double precision
 #include "shared/solver_utils.h" // print monitoring information
 
-#ifdef USE_MPI
+#ifdef DYABLO_USE_MPI
 #include "utils/mpiUtils/GlobalMpiSession.h"
 #include <mpi.h>
-#endif // USE_MPI
+#endif // DYABLO_USE_MPI
 
 #include "muscl/SolverHydroMuscl.h"
 
@@ -344,9 +344,9 @@ int main(int argc, char *argv[]) {
   using namespace dyablo::muscl;
 
   // Create MPI session if MPI enabled
-#ifdef USE_MPI
+#ifdef DYABLO_USE_MPI
   hydroSimu::GlobalMpiSession mpiSession(&argc, &argv);
-#endif // USE_MPI
+#endif // DYABLO_USE_MPI
 
   Kokkos::initialize(argc, argv);
 
@@ -370,7 +370,7 @@ int main(int argc, char *argv[]) {
     std::cout << msg.str();
     std::cout << "##########################\n";
 
-#ifdef USE_MPI
+#ifdef DYABLO_USE_MPI
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &nRanks);
 #ifdef KOKKOS_ENABLE_CUDA
@@ -390,7 +390,7 @@ int main(int argc, char *argv[]) {
                 << " pinned to GPU #" << cudaDeviceId << "\n";
     }
 #endif // KOKKOS_ENABLE_CUDA
-#endif // USE_MPI
+#endif // DYABLO_USE_MPI
   }
 
   // banner

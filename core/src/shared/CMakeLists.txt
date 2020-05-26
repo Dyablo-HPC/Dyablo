@@ -19,9 +19,9 @@ if (USE_HDF5)
     )
 endif(USE_HDF5)
 
-if (USE_MPI)
+if (DYABLO_USE_MPI)
   target_compile_definitions(shared PUBLIC BITPIT_ENABLE_MPI)
-endif (USE_MPI)
+endif (DYABLO_USE_MPI)
 
 target_include_directories(shared
   PUBLIC
@@ -34,11 +34,11 @@ target_link_libraries(shared
   PUBLIC
     kokkos BITPIT::BITPIT
   )
-if (USE_MPI)
+if (DYABLO_USE_MPI)
   target_link_libraries(shared PUBLIC
     MPI::MPI_CXX
     )
-endif(USE_MPI)
+endif(DYABLO_USE_MPI)
 
 if(USE_HDF5)
   target_link_libraries(shared PUBLIC

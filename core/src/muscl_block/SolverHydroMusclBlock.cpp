@@ -186,9 +186,9 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   compute_dt();
 
   int myRank=0;
-#ifdef USE_MPI
+#ifdef DYABLO_USE_MPI
   myRank = params.myRank;
-#endif // USE_MPI
+#endif // DYABLO_USE_MPI
 
   if (myRank==0) {
     std::cout << "##########################" << "\n";
@@ -399,9 +399,9 @@ void SolverHydroMusclBlock::next_iteration_impl()
 {
   int myRank=0;
   
-#ifdef USE_MPI
+#ifdef DYABLO_USE_MPI
   myRank = params.myRank;
-#endif // USE_MPI
+#endif // DYABLO_USE_MPI
   if (m_iteration % m_nlog == 0) {
     if (myRank==0) {
       printf("time step=%7d (dt=% 10.8f t=% 10.8f)\n",m_iteration,m_dt, m_t);
@@ -637,10 +637,10 @@ void SolverHydroMusclBlock::print_monitoring_info()
   int nProcs = 1;
   UNUSED(nProcs);
 
-#ifdef USE_MPI
+#ifdef DYABLO_USE_MPI
   myRank = params.myRank;
   nProcs = params.nProcs;
-#endif // USE_MPI
+#endif // DYABLO_USE_MPI
   
   // only print on master
   if (myRank == 0) {

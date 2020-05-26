@@ -39,9 +39,9 @@
 // 
 // ***********************************************************************
 
-#ifdef USE_MPI
+#ifdef DYABLO_USE_MPI
 #include <mpi.h>
-#endif // USE_MPI
+#endif // DYABLO_USE_MPI
 
 #include "GlobalMpiSession.h"
 #include "TestForException.h"
@@ -62,7 +62,7 @@ GlobalMpiSession::GlobalMpiSession( int* argc, char*** argv, std::ostream *out )
   // Above is used to create all output before sending to *out to avoid
   // jumbled parallel output between processors
 
-#ifdef USE_MPI
+#ifdef DYABLO_USE_MPI
 
   // initialize MPI
   int mpiHasBeenStarted = 0, mpierr = 0;
@@ -99,7 +99,7 @@ GlobalMpiSession::GlobalMpiSession( int* argc, char*** argv, std::ostream *out )
   oss << "hydroSimu::GlobalMpiSession::GlobalMpiSession(): started serial run"
       << std::endl;
 
-#endif // USE_MPI
+#endif // DYABLO_USE_MPI
 
 #ifndef PPKMHD_SUPPRESS_PROC_STARTUP_BANNER
 
@@ -132,7 +132,7 @@ GlobalMpiSession::~GlobalMpiSession()
 {
   haveMPIState_ = false;
 
-#ifdef USE_MPI
+#ifdef DYABLO_USE_MPI
   const int mpierr = ::MPI_Finalize();
   mpiIsFinalized_ = (mpierr == 0);
   if (mpierr != 0)
@@ -187,7 +187,7 @@ int GlobalMpiSession::getNProc() {
 // =======================================================
 void GlobalMpiSession::initialize( std::ostream *out )
 {
-#ifdef USE_MPI
+#ifdef DYABLO_USE_MPI
     
   if(mpiIsFinalized_) {
     // MPI has aleady been finalized so we have a serial machine again!
@@ -228,7 +228,7 @@ void GlobalMpiSession::initialize( std::ostream *out )
   haveMPIState_ = true;
   mpiIsFinalized_ = false;
 
-#endif // USE_MPI
+#endif // DYABLO_USE_MPI
     
 } // GlobalMpiSession::initialize
 

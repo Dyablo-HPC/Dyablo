@@ -13,11 +13,11 @@ set (muscl_block_SRCS
   )
 
 # add MPI user data communication interface
-if (USE_MPI)
+if (DYABLO_USE_MPI)
   list(APPEND muscl_block_SRCS
     ${CMAKE_CURRENT_SOURCE_DIR}/UserDataComm.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/UserDataLB.cpp)
-endif(USE_MPI)
+endif(DYABLO_USE_MPI)
 
 add_library(muscl_block
   ${muscl_block_SRCS}
@@ -27,10 +27,10 @@ target_include_directories(muscl_block
   ${CMAKE_SOURCE_DIR}/src) 
 target_link_libraries(muscl_block PUBLIC kokkos BITPIT::BITPIT)
 
-if (USE_MPI)
+if (DYABLO_USE_MPI)
    
   target_compile_definitions(muscl_block PUBLIC BITPIT_ENABLE_MPI)
 
   target_link_libraries(muscl_block PUBLIC MPI::MPI_CXX)
 
-endif (USE_MPI)
+endif (DYABLO_USE_MPI)

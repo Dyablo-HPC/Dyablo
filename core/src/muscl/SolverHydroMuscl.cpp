@@ -129,9 +129,9 @@ SolverHydroMuscl::SolverHydroMuscl(HydroParams& params,
   compute_dt();
 
   int myRank=0;
-#ifdef USE_MPI
+#ifdef DYABLO_USE_MPI
   myRank = params.myRank;
-#endif // USE_MPI
+#endif // DYABLO_USE_MPI
 
   if (myRank==0) {
     std::cout << "##########################" << "\n";
@@ -340,9 +340,9 @@ void SolverHydroMuscl::next_iteration_impl()
   
   int myRank=0;
   
-#ifdef USE_MPI
+#ifdef DYABLO_USE_MPI
   myRank = params.myRank;
-#endif // USE_MPI
+#endif // DYABLO_USE_MPI
   
   if (m_iteration % m_nlog == 0) {
     if (myRank==0) {

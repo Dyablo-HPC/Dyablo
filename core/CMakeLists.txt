@@ -71,7 +71,7 @@ endif(BITPIT_FOUND)
 # MPI
 #####################################################################
 find_package(MPI)
-if (USE_MPI)
+if (DYABLO_USE_MPI)
   if(MPI_CXX_FOUND)
     message(STATUS "MPI support found")
     message(STATUS "MPI compile flags: " ${MPI_CXX_COMPILE_FLAGS})
@@ -89,7 +89,7 @@ if (USE_MPI)
     if (OMPI_INFO)
       execute_process(COMMAND ${OMPI_INFO}
         OUTPUT_VARIABLE _output)
-      if ( (_output MATCHES "smcuda") OR (USE_MPI_CUDA_AWARE_ENFORCED) )
+      if ( (_output MATCHES "smcuda") OR (DYABLO_USE_MPI_CUDA_AWARE_ENFORCED) )
         message(STATUS "Found OpenMPI with CUDA support built.")
       else()
         message(WARNING "OpenMPI found, but it is not built with CUDA support.")
@@ -97,8 +97,8 @@ if (USE_MPI)
       endif()
     endif()
   else()
-    message(WARNING "Not compiling with MPI. Suppress this warning with -DUSE_MPI=OFF")
-    set(USE_MPI OFF)
+    message(WARNING "Not compiling with MPI. Suppress this warning with -DDYABLO_USE_MPI=OFF")
+    set(DYABLO_USE_MPI OFF)
   endif()
 endif()
 
@@ -128,9 +128,9 @@ endif(USE_VTK)
 # HDF5
 #####################################################################
 # prefer using parallel HDF5 when build with mpi
-if (USE_MPI)
+if (DYABLO_USE_MPI)
   set(HDF5_PREFER_PARALLEL TRUE)
-endif(USE_MPI)
+endif(DYABLO_USE_MPI)
 
 if (USE_HDF5)
   find_package(HDF5)
@@ -147,7 +147,7 @@ endif(USE_HDF5)
 #####################################################################
 # PNETCDF
 #####################################################################
-if (USE_MPI)
+if (DYABLO_USE_MPI)
   if (USE_PNETCDF)
     find_package(PNETCDF)
     if (PNETCDF_FOUND)
@@ -155,7 +155,7 @@ if (USE_MPI)
       include_directories(${PNETCDF_INCLUDE_DIRS})
     endif(PNETCDF_FOUND)
   endif(USE_PNETCDF)
-endif(USE_MPI)  
+endif(DYABLO_USE_MPI)  
 
 #
 # common flags
@@ -169,8 +169,8 @@ if (DYABLO_USE_DOUBLE)
   add_compile_options(-DDYABLO_USE_DOUBLE)
 endif()
 
-if (USE_MPI)
-  add_compile_options(-DUSE_MPI)    
+if (DYABLO_USE_MPI)
+  add_compile_options(-DDYABLO_USE_MPI)    
 endif()
 
 if (USE_FPE_DEBUG)
@@ -217,11 +217,11 @@ message("  C++ Compiler : ${CMAKE_CXX_COMPILER_ID} "
   "${CMAKE_CXX_COMPILER_VERSION} " 
   "${CMAKE_CXX_COMPILER_WRAPPER}")
 message("    ${CMAKE_CXX_COMPILER}")
-if (USE_MPI)
+if (DYABLO_USE_MPI)
   message("  MPI enabled")
-else(USE_MPI)
+else(DYABLO_USE_MPI)
   message("  MPI not enabled")
-endif(USE_MPI)
+endif(DYABLO_USE_MPI)
 if (USE_CUDA)
   message("  CUDA Compiler      : ${CMAKE_CUDA_COMPILER}")
   message("  CUDA Compiler exec : ${CUDA_NVCC_EXECUTABLE}")

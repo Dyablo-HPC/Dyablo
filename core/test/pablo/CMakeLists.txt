@@ -10,9 +10,9 @@ macro(build_test_executable name with_kokkos)
   target_include_directories(${name}
     PUBLIC
     ${CMAKE_SOURCE_DIR}/src)
-  if(USE_MPI)
+  if(DYABLO_USE_MPI)
     target_compile_definitions(${name} PUBLIC BITPIT_ENABLE_MPI)
-  endif(USE_MPI)
+  endif(DYABLO_USE_MPI)
   target_link_libraries(${name} PUBLIC BITPIT::BITPIT)
 
   if (${with_kokkos})

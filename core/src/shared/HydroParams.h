@@ -18,9 +18,9 @@
 
 #include "shared/enums.h"
 
-#ifdef USE_MPI
+#ifdef DYABLO_USE_MPI
 #include "utils/mpiUtils/MpiComm.h"
-#endif // USE_MPI
+#endif // DYABLO_USE_MPI
 
 struct HydroSettings {
 
@@ -144,7 +144,7 @@ struct HydroParams {
   //! constant scalar gravity
   real_t gx, gy, gz;
 
-#ifdef USE_MPI
+#ifdef DYABLO_USE_MPI
 //! MPI communicator in a cartesian virtual topology
   hydroSimu::MpiComm *communicator;
 
@@ -155,7 +155,7 @@ struct HydroParams {
   //! number of dimension
   int nDim;  
 
-#endif // USE_MPI
+#endif // DYABLO_USE_MPI
 
   //! MPI rank of current process
   int myRank;
@@ -192,10 +192,10 @@ struct HydroParams {
   //! This is the genuine initialization / setup (fed by parameter file)
   virtual void setup(ConfigMap& map);
 
-#ifdef USE_MPI
+#ifdef DYABLO_USE_MPI
   //! Initialize MPI-specific parameters
   void setup_mpi(ConfigMap& map);
-#endif // USE_MPI
+#endif // DYABLO_USE_MPI
   
   void init();
   void print();
