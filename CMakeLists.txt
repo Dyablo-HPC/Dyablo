@@ -45,7 +45,7 @@ include(preventBuildInSource)
 
 option (USE_MPI "Activate / want MPI build" ON)
 option (USE_VTK "Activate / want VTK build" OFF)
-option (USE_DOUBLE "build with double precision" ON)
+option (DYABLO_USE_DOUBLE "build with double precision" ON)
 #option (USE_MOOD "build MOOD numerical schemes" OFF)
 #option (USE_SDM "build Spectral Difference Method numerical schemes" OFF)
 option (USE_HDF5 "build HDF5 input/output support" ON)
@@ -185,7 +185,7 @@ list (APPEND DYABLO_CMAKE_ARGS
   -DUSE_VTK=${USE_VTK}
   -DUSE_MPI=${USE_MPI}
   -DUSE_MPI_CUDA_AWARE_ENFORCED=${USE_MPI_CUDA_AWARE_ENFORCED}
-  -DUSE_DOUBLE=${USE_DOUBLE}
+  -DDYABLO_USE_DOUBLE=${DYABLO_USE_DOUBLE}
   -DUSE_FPE_DEBUG=${USE_FPE_DEBUG}
   -DBUILD_DOC=${BUILD_DOC}
   -DDOC=${DOC}
