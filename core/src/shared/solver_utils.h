@@ -30,10 +30,10 @@ namespace dyablo {
 //   int nProcs = 1;
 //   UNUSED(nProcs);
 
-// #ifdef USE_MPI
+// #ifdef DYABLO_USE_MPI
 //   myRank = solver->params.myRank;
 //   nProcs = solver->params.nProcs;
-// #endif // USE_MPI
+// #endif // DYABLO_USE_MPI
   
 //   // only print on master
 //   if (myRank == 0) {

@@ -17,9 +17,9 @@ macro(build_test_executable name)
   target_include_directories(${name}
     PUBLIC
     ${CMAKE_SOURCE_DIR}/src)
-  if(USE_MPI)
+  if(DYABLO_USE_MPI)
     target_compile_definitions(${name} PUBLIC BITPIT_ENABLE_MPI)
-  endif(USE_MPI)
+  endif(DYABLO_USE_MPI)
   target_link_libraries(${name} kokkos shared BITPIT::BITPIT)
 
 endmacro(build_test_executable)

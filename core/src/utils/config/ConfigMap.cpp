@@ -12,7 +12,7 @@
 #include <sstream>
 #include <fstream>
 
-#if USE_MPI
+#if DYABLO_USE_MPI
 #include <mpi.h>
 #endif
 
@@ -102,7 +102,7 @@ void ConfigMap::setBool(std::string section, std::string name, bool value)
 // =======================================================
 ConfigMap broadcast_parameters(std::string filename)
 {
-#ifdef USE_MPI
+#ifdef DYABLO_USE_MPI
 
   int myRank;
   int nTasks;

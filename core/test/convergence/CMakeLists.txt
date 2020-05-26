@@ -22,7 +22,7 @@ target_link_libraries(${EXE_NAME}
   monitoring
   BITPIT::BITPIT)
 
-if (USE_MPI)
+if (DYABLO_USE_MPI)
   target_compile_definitions(${EXE_NAME} PUBLIC BITPIT_ENABLE_MPI)
   target_link_libraries(${EXE_NAME} mpiUtils)
 endif()

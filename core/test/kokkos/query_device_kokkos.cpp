@@ -46,9 +46,9 @@
 
 #include <Kokkos_Macros.hpp>
 
-#if defined( USE_MPI )
+#if defined( DYABLO_USE_MPI )
 #include <mpi.h>
-#endif // USE_MPI
+#endif // DYABLO_USE_MPI
 
 #include <Kokkos_Core.hpp>
 
@@ -70,7 +70,7 @@ int main( int argc , char ** argv )
   int mpi_rank = 0 ;
   int nRanks = 1;
 
-#if defined( USE_MPI )
+#if defined( DYABLO_USE_MPI )
 
   MPI_Init( & argc , & argv );
 
@@ -79,7 +79,7 @@ int main( int argc , char ** argv )
 
   msg << "MPI rank(" << mpi_rank << ") " ;
 
-#endif // USE_MPI
+#endif // DYABLO_USE_MPI
 
   Kokkos::initialize(argc, argv);
 
@@ -127,7 +127,7 @@ int main( int argc , char ** argv )
   
   Kokkos::finalize();
   
-#if defined( USE_MPI )
+#if defined( DYABLO_USE_MPI )
 
   MPI_Finalize();
 
