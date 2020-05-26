@@ -8,9 +8,9 @@ endif()
 
 ###################################################################
 #
-# Handle superbuild first for building 
-# required dependencies (here only bitpit)
-# adapted from https://github.com/Sarcasm/cmake-superbuild
+# Handle superbuild first building 
+# 1. required dependencies (here only bitpit)
+# 2. bitpit + kokkos
 #
 # To clarify : the superbuild drives the build of
 # - bitpit
@@ -26,24 +26,13 @@ endif()
 # - nvcc_wrapper Kokkos/CUDA
 #
 ###################################################################
-option (USE_SUPERBUILD "Whether or not a superbuild should be invoked" ON)
+project (dyablo_superbuild LANGUAGES C CXX)
 
-if (USE_SUPERBUILD)
-  project (SUPERBUILD LANGUAGES C CXX)
-  # execute the superbuild (this script will be invoked again without the
-  # USE_SUPERBUILD option this time)
-  include (cmake/SuperBuild.cmake)
-  return() # stop processing this file further
-else()
-  set(PROJECT_LANGUAGES ${PROJECT_LANGUAGES} C CXX)
-  project(dyablo
-    LANGUAGES ${PROJECT_LANGUAGES})
-endif()
 
 #
 # default local cmake macro repository
 #
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/core/cmake)
 
 #
 # Prevent from build in source tree
@@ -51,245 +40,166 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 include(preventBuildInSource)
 
 #
-# Write a small header with build data, git version, etc...
-#
-include(write_version)
-
-#
-# Init build type: Release, Debug, ...
-#
-include(initBuildType)
-
-# always export compile commands database
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
 # dyablo options
+#
 
-option (USE_MPI "Activate / want MPI build" OFF)
+option (USE_MPI "Activate / want MPI build" ON)
 option (USE_VTK "Activate / want VTK build" OFF)
 option (USE_DOUBLE "build with double precision" ON)
-option (USE_MOOD "build MOOD numerical schemes" OFF)
-option (USE_SDM "build Spectral Difference Method numerical schemes" OFF)
-option (USE_HDF5 "build HDF5 input/output support" OFF)
+#option (USE_MOOD "build MOOD numerical schemes" OFF)
+#option (USE_SDM "build Spectral Difference Method numerical schemes" OFF)
+option (USE_HDF5 "build HDF5 input/output support" ON)
 option (USE_PNETCDF "build PNETCDF input/output support (MPI required)" OFF)
 option (USE_FPE_DEBUG "build with floating point Nan tracing (signal handler)" OFF)
 option (USE_MPI_CUDA_AWARE_ENFORCED "Some MPI cuda-aware implementation are not well detected; use this to enforce" OFF)
 
-# C++11 is for Kokkos
-set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_EXTENSIONS OFF)
+# Enforce rebuilding bitpit
+option(FORCE_BITPIT_BUILD "Enforce rebuilding bitpit" OFF)
 
-#####################################################################
-# External packages: MPI, ...
-#####################################################################
+#
+# documentation related options
+#
+option(BUILD_DOC  "Enable / disable documentation build" OFF)
 
-#####################################################################
-# BitPit
-#####################################################################
-find_package(BITPIT REQUIRED)
-# create imported target for bitpit library
-if (BITPIT_FOUND)
-  if(NOT TARGET BITPIT::BITPIT)
-    get_filename_component(LIB_EXT "${BITPIT_LIBRARY}" EXT)
-    if(LIB_EXT STREQUAL ".a" OR LIB_EXT STREQUAL ".lib")
-      set(LIB_TYPE STATIC)
-    else()
-      set(LIB_TYPE SHARED)
-    endif()
-    add_library(BITPIT::BITPIT ${LIB_TYPE} IMPORTED GLOBAL)
-    set(_tmp_dep_libs "${BITPIT_LIBRARIES}")
-    list(REMOVE_DUPLICATES _tmp_dep_libs)
-    set_target_properties(BITPIT::BITPIT
-      PROPERTIES
-      IMPORTED_LOCATION "${BITPIT_LIBRARY}"
-      INTERFACE_INCLUDE_DIRECTORIES "${BITPIT_INCLUDE_DIRS}"
-      INTERFACE_LINK_LIBRARIES "${_tmp_dep_libs}")
-  endif()
-endif(BITPIT_FOUND)
+# documentation type - the only valid values are : doxygen and mkdocs
+set(DOC "doxygen" CACHE STRING "documentation type (doxygen or mkdocs)")
 
-#####################################################################
-# Boost (for unit testing)
-#####################################################################
-find_package(Boost 1.55)
+###################################################################
+#
+# this is where the superbuild starts
+#
+###################################################################
 
-#####################################################################
-# MPI
-#####################################################################
-find_package(MPI)
-if (USE_MPI)
-  if(MPI_CXX_FOUND)
-    message(STATUS "MPI support found")
-    message(STATUS "MPI compile flags: " ${MPI_CXX_COMPILE_FLAGS})
-    message(STATUS "MPI include path: " ${MPI_CXX_INCLUDE_PATH})
-    message(STATUS "MPI LINK flags path: " ${MPI_CXX_LINK_FLAGS})
-    message(STATUS "MPI libraries: " ${MPI_CXX_LIBRARIES})
-    
-    #set(CMAKE_EXE_LINKER_FLAGS ${MPI_CXX_LINK_FLAGS})
-    find_program(OMPI_INFO
-      NAMES ompi_info
-      HINTS ${MPI_CXX_LIBRARIES}/../bin)
-    
-    # Full command line to probe if cuda support in MPI implementation is enabled
-    # ompi_info --parsable --all | grep mpi_built_with_cuda_support:value
-    if (OMPI_INFO)
-      execute_process(COMMAND ${OMPI_INFO}
-        OUTPUT_VARIABLE _output)
-      if ( (_output MATCHES "smcuda") OR (USE_MPI_CUDA_AWARE_ENFORCED) )
-        message(STATUS "Found OpenMPI with CUDA support built.")
-      else()
-        message(WARNING "OpenMPI found, but it is not built with CUDA support.")
-        add_compile_options(-DMPI_CUDA_AWARE_OFF)
-      endif()
-    endif()
-  else()
-    message(WARNING "Not compiling with MPI. Suppress this warning with -DUSE_MPI=OFF")
-    set(USE_MPI OFF)
-  endif()
+# dyablo and bitpit will for sure be built as external projects
+include (ExternalProject)
+
+##############################################################
+# let's try first to detect bitpit
+# this will only work if option -DBITPIT_DIR=/some/where
+# was given on the command line
+# the path should contain file BITPITConfig.cmake
+##############################################################
+find_package(BITPIT CONFIG QUIET)
+
+# retrieve BITPIT_DIR as given on the command line
+set(MY_BITPIT_DIR ${BITPIT_DIR})
+
+# enforce a CPU build of BITPIT/PABLO
+# anyway PABLO is a CPU library
+# anyway PABLO is not at all in a shape to pass nvcc_wrapper compilation
+# anyway we won't use PABLO internal structure in the core Kokkos
+# computing functors
+set(BITPIT_COMPILER  "g++" CACHE STRING "compiler used to build bitpit")
+
+# list of dependencies to build before dyablo itself;
+# currently the only dependency is bitpit external project;
+# kokkos is still built inline
+# DEPENDENCIES is initialized as empty, but in case BITPIT_FOUND
+# is false, we add bitpit to DEPENDENCIES
+set (DEPENDENCIES)
+
+####################################################
+#
+# if BITPIT is not found, then build / install it
+# then use our custom BITPIT_DIR to build dyablo
+#
+####################################################
+if ( (NOT BITPIT_FOUND) OR FORCE_BITPIT_BUILD )
+
+  list (APPEND DEPENDENCIES bitpit_external)
+
+  #
+  # build our custom BitPit version
+  #
+  set_property(DIRECTORY PROPERTY EP_BASE ${CMAKE_BINARY_DIR}/external)
+  ExternalProject_Add (bitpit_external
+    URL https://github.com/pkestene/bitpit/archive/bitpit-1.7.0-devel-dyablo-v0.2.tar.gz
+    URL_MD5 5d7a8672b711addc01708ac483d74b5c
+    UPDATE_COMMAND ""
+    CMAKE_ARGS
+      -DCMAKE_CXX_COMPILER=${BITPIT_COMPILER}
+      -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
+      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+      -DENABLE_MPI=ON
+      -DBITPIT_MODULE_LA=OFF
+      -DBITPIT_MODULE_CG=OFF
+      -DBITPIT_MODULE_DISCRETIZATION=OFF
+      -DBITPIT_MODULE_LEVELSET=OFF
+      -DBITPIT_MODULE_PATCHKERNEL=OFF
+      -DBITPIT_MODULE_POD=OFF
+      -DBITPIT_MODULE_RBF=OFF
+      -DBITPIT_MODULE_SA=OFF
+      -DBITPIT_MODULE_SURFUNSTRUCTURED=OFF
+      -DBITPIT_MODULE_VOLCARTESIAN=OFF
+      -DBITPIT_MODULE_VOLOCTREE=OFF
+      -DBITPIT_MODULE_VOLUNSTRUCTURED=OFF
+    LOG_CONFIGURE 1
+    LOG_BUILD 1
+    LOG_INSTALL 1
+    )
+
+  set (BITPIT_VERSION_SHORT 1.7)
+
+  set(MY_BITPIT_DIR "${CMAKE_BINARY_DIR}/external/Install/bitpit_external/lib/cmake/bitpit-${BITPIT_VERSION_SHORT}")
+
 endif()
 
-
-#####################################################################
-# VTK configuration tips, see
-# /usr/lib/cmake/vtk-6.2/VTKConfig.cmake
-# /usr/lib/cmake/vtk-6.2/UseVTK.cmake
-#####################################################################
-if (USE_VTK)
-  # look for VTK only if requested; VTK macro might even be not present
-  # on the target platform
-  find_package(VTK)
-  
-  # the following add VTK to all targets
-  # if(VTK_FOUND)
-  #   include(${VTK_USE_FILE})
-  # endif(VTK_FOUND)
-  if (VTK_FOUND)
-    message("***VTK FOUND ${VTK_MAJOR_VERSION}.${VTK_MINOR_VERSION}")
-  else()
-    message ("*** VTK NOT FOUND")
-  endIF()
-endif(USE_VTK)
-
-#####################################################################
-# HDF5
-#####################################################################
-# prefer using parallel HDF5 when build with mpi
-if (USE_MPI)
-  set(HDF5_PREFER_PARALLEL TRUE)
-endif(USE_MPI)
-
-if (USE_HDF5)
-  find_package(HDF5)
-  if(HDF5_FOUND)
-    include_directories(${HDF5_INCLUDE_DIRS})
-    set(my_hdf5_libs hdf5 hdf5_cpp)
-    add_compile_options(-DUSE_HDF5 -DH5_NO_DEPRECATED_SYMBOLS)
-    if (HDF5_IS_PARALLEL)
-      add_compile_options(-DUSE_HDF5_PARALLEL)
-    endif()
-  endif(HDF5_FOUND)
-endif(USE_HDF5)
-
-#####################################################################
-# PNETCDF
-#####################################################################
-if (USE_MPI)
-  if (USE_PNETCDF)
-    find_package(PNETCDF)
-    if (PNETCDF_FOUND)
-      add_compile_options(-DUSE_PNETCDF)
-      include_directories(${PNETCDF_INCLUDE_DIRS})
-    endif(PNETCDF_FOUND)
-  endif(USE_PNETCDF)
-endif(USE_MPI)  
+#####################################
+# now we build dyablo
+#####################################
 
 #
-# common flags
+# prepare cmake arguments list
 #
+set (DYABLO_CMAKE_ARGS)
 
+# some top-level cmake option (super-build)
+option(Kokkos_ENABLE_HWLOC  "enable HWLOC in Kokkos" ON)
+option(Kokkos_ENABLE_OPENMP "enable Kokkos::OpenMP backend" ON)
+option(Kokkos_ENABLE_CUDA   "enable Kokkos::Cuda backend" OFF)
+
+# if CUDA is enable, you need to be careful about the version of boost
+option(DYABLO_ENABLE_UNIT_TESTING "Enable unit testing" OFF)
+
+# only usefull when building for Kokkos::Cuda backend 
+set(Kokkos_ARCH  "" CACHE STRING "Kokkos arch (KEPLER37, PASCAL60, ...)")
+
+# default arguments - common to all platform
+list (APPEND DYABLO_CMAKE_ARGS
+  -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+  -DKokkos_ENABLE_HWLOC=${Kokkos_ENABLE_HWLOC}
+  -DKokkos_ENABLE_OPENMP=${Kokkos_ENABLE_OPENMP}
+  -DUSE_HDF5=${USE_HDF5}
+  -DUSE_PNETCDF=${USE_PNETCDF}
+  -DUSE_VTK=${USE_VTK}
+  -DUSE_MPI=${USE_MPI}
+  -DUSE_MPI_CUDA_AWARE_ENFORCED=${USE_MPI_CUDA_AWARE_ENFORCED}
+  -DUSE_DOUBLE=${USE_DOUBLE}
+  -DUSE_FPE_DEBUG=${USE_FPE_DEBUG}
+  -DBUILD_DOC=${BUILD_DOC}
+  -DDOC=${DOC}
+  -DDYABLO_ENABLE_UNIT_TESTING=${DYABLO_ENABLE_UNIT_TESTING}
+  -DBITPIT_DIR=${MY_BITPIT_DIR}
+  )
+
+# CUDA specific argument
 if (Kokkos_ENABLE_CUDA)
-  add_compile_options(-DCUDA)
-endif()
 
-if (USE_DOUBLE)
-  add_compile_options(-DUSE_DOUBLE)
-endif()
+  list (APPEND DYABLO_CMAKE_ARGS
+    -DKokkos_ENABLE_CUDA=${Kokkos_ENABLE_CUDA}
+    -DKokkos_ENABLE_CUDA_LAMBDA=ON
+    -DKokkos_ARCH_${Kokkos_ARCH}=ON
+    )
 
-if (USE_MPI)
-  add_compile_options(-DUSE_MPI)    
 endif()
-
-if (USE_FPE_DEBUG)
-  add_compile_options(-DUSE_FPE_DEBUG)
-endif()
-
-##
-## Using flags -Wextra, it's to strong for Kokkos, too many warnings
-## But -Wall is really a minimum
-##
-#add_definitions(-Wall -Wextra -Wconversion -Wshadow -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wcast-qual -Wunused -Woverloaded-virtual  -pedantic )
-#add_definitions( -Wall -Wextra )
-add_definitions( -Wall )
 
 #
-# sources
+# build dyablo
 #
-add_subdirectory(external/backward-cpp)
-add_subdirectory(external/kokkos)
-#add_subdirectory(external/bitpit)
-
-# pass Kokkos include directories to our target application
-include_directories(${Kokkos_INCLUDE_DIRS_RET})
-
-add_subdirectory(test)
-add_subdirectory(src)
-
-# Documentation type
-if(BUILD_DOC)
-  #message("At some point, there will be blood")
-  add_subdirectory(doc)
-endif(BUILD_DOC)
-
-# unit testing
-if (${Boost_FOUND})
-  if (DYABLO_ENABLE_UNIT_TESTING)
-    enable_testing()
-    add_subdirectory(unit_test)
-  endif()
-endif()
-
-##################### PRINT CONFIGURE STATUS ######################
-message("//===================================================")
-message("  ${PROJECT_NAME} build configuration:")
-message("//===================================================")
-message("  C++ Compiler : ${CMAKE_CXX_COMPILER_ID} " 
-  "${CMAKE_CXX_COMPILER_VERSION} " 
-  "${CMAKE_CXX_COMPILER_WRAPPER}")
-message("    ${CMAKE_CXX_COMPILER}")
-if (USE_MPI)
-  message("  MPI enabled")
-else(USE_MPI)
-  message("  MPI not enabled")
-endif(USE_MPI)
-if (USE_CUDA)
-  message("  CUDA Compiler      : ${CMAKE_CUDA_COMPILER}")
-  message("  CUDA Compiler exec : ${CUDA_NVCC_EXECUTABLE}")
-  message("  CUDA Compile flags : ${CUDA_NVCC_FLAGS}")
-else(USE_CUDA)
-  message("  CUDA not enabled")
-endif(USE_CUDA)
-if (HDF5_FOUND)
-  message("  HDF5 found version    : ${HDF5_VERSION}")
-  message("  HDF5 definitions      : ${HDF5_DEFINITIONS}")
-  message("  HDF5 parallel         : ${HDF5_IS_PARALLEL}")
-  message("  HDF5 includes dirs    : ${HDF5_INCLUDE_DIRS}")
-  message("  HDF5 libraries        : ${HDF5_LIBRARIES}")
-endif(HDF5_FOUND)
-message("")
-message(" BOOST found : ${Boost_FOUND}")
-if (Boost_FOUND)
-  message(" BOOST version : ${Boost_VERSION}")
-  message(" BOOST include : ${Boost_INCLUDE_DIRS}")
-endif(Boost_FOUND)
-
-message("")
-
+ExternalProject_Add (dyablo_external
+  DEPENDS ${DEPENDENCIES}
+  BUILD_ALWAYS TRUE
+  SOURCE_DIR ${PROJECT_SOURCE_DIR}/core
+  CMAKE_ARGS ${DYABLO_CMAKE_ARGS}
+  INSTALL_COMMAND ""
+  BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/dyablo)
