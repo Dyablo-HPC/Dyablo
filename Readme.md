@@ -81,34 +81,44 @@ BITPIT_DIR should to your bitpit install subdirectory where the BITPITConfig.cma
 
 1. get [bitpit sources](https://github.com/pkestene/bitpit/archive/bitpit-1.7.0-devel-dyablo.tar.gz)
 2. ```shell
-   tar zxf bitpit-1.7.0-devel-dyablo.tar.gz
-   cd bitpit-1.7.0-devel-dyablo
-   mkdir build; cd build
-   ccmake -DCMAKE_INSTALL_PREFIX=/home/pkestene/local/bitpit-1.7.0-devel \
-       -DCMAKE_BUILD_TYPE=Release \
-       -DENABLE_MPI=ON \
-       -DBITPIT_MODULE_LA=OFF \
-       -DBITPIT_MODULE_CG=OFF \
-       -DBITPIT_MODULE_DISCRETIZATION=OFF \
-       -DBITPIT_MODULE_LEVELSET=OFF \
-       -DBITPIT_MODULE_PATCHKERNEL=OFF \
-       -DBITPIT_MODULE_POD=OFF \
-       -DBITPIT_MODULE_RBF=OFF \
-       -DBITPIT_MODULE_SA=OFF \
-       -DBITPIT_MODULE_SURFUNSTRUCTURED=OFF \
-       -DBITPIT_MODULE_VOLCARTESIAN=OFF \
-       -DBITPIT_MODULE_VOLOCTREE=OFF \
-       -DBITPIT_MODULE_VOLUNSTRUCTURED=OFF \ 
-      ..
-   make
-   make install
-   ```
-This installed version of bitpit can be used to build dyablo (see above).
+      tar zxf bitpit-1.7.0-devel-dyablo.tar.gz
+      cd bitpit-1.7.0-devel-dyablo
+      mkdir build; cd build
+      ccmake -DCMAKE_INSTALL_PREFIX=/home/pkestene/local/bitpit-1.7.0-devel \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DENABLE_MPI=ON \
+          -DBITPIT_MODULE_LA=OFF \
+          -DBITPIT_MODULE_CG=OFF \
+          -DBITPIT_MODULE_DISCRETIZATION=OFF \
+          -DBITPIT_MODULE_LEVELSET=OFF \
+          -DBITPIT_MODULE_PATCHKERNEL=OFF \
+          -DBITPIT_MODULE_POD=OFF \
+          -DBITPIT_MODULE_RBF=OFF \
+          -DBITPIT_MODULE_SA=OFF \
+          -DBITPIT_MODULE_SURFUNSTRUCTURED=OFF \
+          -DBITPIT_MODULE_VOLCARTESIAN=OFF \
+          -DBITPIT_MODULE_VOLOCTREE=OFF \
+          -DBITPIT_MODULE_VOLUNSTRUCTURED=OFF \ 
+          ..
+      make
+      make install
+      ```
 
+This installed version of bitpit can be used to build dyablo (see above).
 
 # More information
 
 For now, just visit the wiki page https://gitlab.maisondelasimulation.fr/pkestene/dyablo/wikis/home
+
+## build and run unit tests
+
+```shell
+# configure cmake for building unit tests
+# make sur to have boost installed (with libs)
+ccmake -DDYABLO_ENABLE_UNIT_TESTING=ON .. 
+make
+make dyablo-test
+```
 
 ## build documentation
 
@@ -117,9 +127,9 @@ For now, just visit the wiki page https://gitlab.maisondelasimulation.fr/pkesten
 ```shell
 # re-run cmake with additionnal options
 cd build
-ccmake -DBUILD_DOC=ON -DDOC=doxygen
+ccmake -DDYABLO_BUILD_DOC=ON -DDYABLO_DOC=doxygen
 make
-cd dyablo; make doc
+make dyablo-doc
 ```
 
 This will generate the html doxygen page in `doc/doxygen/html`
@@ -131,9 +141,9 @@ MkDocs is an alternative to sphinx, but relying on markdown instead of ResST. He
 ```shell
 # generate mkdocs sources
 cd build
-ccmake -DBUILD_DOC=ON -DDOC=mkdocs
+ccmake -DDYABLO_BUILD_DOC=ON -DDYABLO_DOC=mkdocs
 make
-cd dyablo; make doc
+make dyablo-doc
 ```
 
 This will generate the markdown sources for the mkdocs static webpage.
