@@ -108,7 +108,7 @@ endif()
 # /usr/lib/cmake/vtk-6.2/VTKConfig.cmake
 # /usr/lib/cmake/vtk-6.2/UseVTK.cmake
 #####################################################################
-if (USE_VTK)
+if (DYABLO_USE_VTK)
   # look for VTK only if requested; VTK macro might even be not present
   # on the target platform
   find_package(VTK)
@@ -122,7 +122,7 @@ if (USE_VTK)
   else()
     message ("*** VTK NOT FOUND")
   endIF()
-endif(USE_VTK)
+endif(DYABLO_USE_VTK)
 
 #####################################################################
 # HDF5
@@ -148,13 +148,13 @@ endif(USE_HDF5)
 # PNETCDF
 #####################################################################
 if (DYABLO_USE_MPI)
-  if (USE_PNETCDF)
+  if (DYABLO_USE_PNETCDF)
     find_package(PNETCDF)
     if (PNETCDF_FOUND)
-      add_compile_options(-DUSE_PNETCDF)
+      add_compile_options(-DDYABLO_USE_PNETCDF)
       include_directories(${PNETCDF_INCLUDE_DIRS})
     endif(PNETCDF_FOUND)
-  endif(USE_PNETCDF)
+  endif(DYABLO_USE_PNETCDF)
 endif(DYABLO_USE_MPI)  
 
 #
@@ -173,8 +173,8 @@ if (DYABLO_USE_MPI)
   add_compile_options(-DDYABLO_USE_MPI)    
 endif()
 
-if (USE_FPE_DEBUG)
-  add_compile_options(-DUSE_FPE_DEBUG)
+if (DYABLO_USE_FPE_DEBUG)
+  add_compile_options(-DDYABLO_USE_FPE_DEBUG)
 endif()
 
 ##
