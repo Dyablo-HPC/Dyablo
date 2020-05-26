@@ -165,8 +165,8 @@ if (Kokkos_ENABLE_CUDA)
   add_compile_options(-DCUDA)
 endif()
 
-if (USE_DOUBLE)
-  add_compile_options(-DUSE_DOUBLE)
+if (DYABLO_USE_DOUBLE)
+  add_compile_options(-DDYABLO_USE_DOUBLE)
 endif()
 
 if (USE_MPI)

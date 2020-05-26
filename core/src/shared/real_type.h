@@ -14,14 +14,14 @@
 /**
  * \typedef real_t (alias to float or double)
  */
-#ifdef USE_DOUBLE
+#ifdef DYABLO_USE_DOUBLE
 using real_t = double;
 #else
 using real_t = float;
-#endif // USE_DOUBLE
+#endif // DYABLO_USE_DOUBLE
 
 // math function
-#if defined(USE_DOUBLE) ||  defined(USE_MIXED_PRECISION)
+#if defined(DYABLO_USE_DOUBLE)
 #define FMAX(x,y) fmax(x,y)
 #define FMIN(x,y) fmin(x,y)
 #define SQRT(x) sqrt(x)
@@ -47,7 +47,7 @@ using real_t = float;
 #define ONE_FOURTH_F (0.25f)
 #define ONE_F  (1.0f)
 #define TWO_F  (2.0f)
-#endif // USE_DOUBLE
+#endif // DYABLO_USE_DOUBLE
 
 // other usefull macros
 #define SQR(x) ((x)*(x))
