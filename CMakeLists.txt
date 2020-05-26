@@ -48,7 +48,7 @@ option (DYABLO_USE_VTK "Activate / want VTK build" OFF)
 option (DYABLO_USE_DOUBLE "build with double precision" ON)
 #option (USE_MOOD "build MOOD numerical schemes" OFF)
 #option (USE_SDM "build Spectral Difference Method numerical schemes" OFF)
-option (USE_HDF5 "build HDF5 input/output support" ON)
+option (DYABLO_USE_HDF5 "build HDF5 input/output support" ON)
 option (DYABLO_USE_PNETCDF "build PNETCDF input/output support (MPI required)" OFF)
 option (DYABLO_USE_FPE_DEBUG "build with floating point Nan tracing (signal handler)" OFF)
 option (DYABLO_USE_MPI_CUDA_AWARE_ENFORCED "Some MPI cuda-aware implementation are not well detected; use this to enforce" OFF)
@@ -180,7 +180,7 @@ list (APPEND DYABLO_CMAKE_ARGS
   -DKokkos_ENABLE_OPENMP=${Kokkos_ENABLE_OPENMP}
   -DKokkos_ENABLE_DEBUG=${Kokkos_ENABLE_DEBUG}
   -DKokkos_ENABLE_DEBUG_BOUNDS_CHECK=${Kokkos_ENABLE_DEBUG_BOUNDS_CHECK}
-  -DUSE_HDF5=${USE_HDF5}
+  -DDYABLO_USE_HDF5=${DYABLO_USE_HDF5}
   -DDYABLO_USE_PNETCDF=${DYABLO_USE_PNETCDF}
   -DDYABLO_USE_VTK=${DYABLO_USE_VTK}
   -DDYABLO_USE_MPI=${DYABLO_USE_MPI}

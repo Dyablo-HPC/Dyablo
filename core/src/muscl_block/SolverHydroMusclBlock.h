@@ -192,9 +192,9 @@ public:
 
 private:
 
-#ifdef USE_HDF5
+#ifdef DYABLO_USE_HDF5
   std::shared_ptr<HDF5_Writer> hdf5_writer;
-#endif // USE_HDF5
+#endif // DYABLO_USE_HDF5
 
   //! VTK output
   void save_solution_vtk();

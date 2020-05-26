@@ -62,9 +62,9 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   Slopes_x(), 
   Slopes_y(), 
   Slopes_z()
-#ifdef USE_HDF5
+#ifdef DYABLO_USE_HDF5
   , hdf5_writer(std::make_shared<HDF5_Writer>(amr_mesh, configMap, params))
-#endif // USE_HDF5
+#endif // DYABLO_USE_HDF5
 {
 
   solver_type = SOLVER_MUSCL_HANCOCK_BLOCK;
@@ -213,9 +213,9 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
 SolverHydroMusclBlock::~SolverHydroMusclBlock()
 {
 
-#ifdef USE_HDF5
+#ifdef DYABLO_USE_HDF5
   //delete hdf5_writer;
-#endif // USE_HDF5
+#endif // DYABLO_USE_HDF5
 
 } // SolverHydroMusclBlock::~SolverHydroMusclBlock
 
@@ -698,7 +698,7 @@ void SolverHydroMusclBlock::save_solution_vtk()
 void SolverHydroMusclBlock::save_solution_hdf5() 
 {
 
-#ifdef USE_HDF5
+#ifdef DYABLO_USE_HDF5
 
   // retrieve available / allowed names: fieldManager, and field map (fm)
   auto fm = fieldMgr.get_id2index();
@@ -771,7 +771,7 @@ void SolverHydroMusclBlock::save_solution_hdf5()
   if (amr_mesh->getRank() == 0)
     std::cerr << "You need to re-run cmake and enable HDF5 to have HDF5 output available. Also set hdf5_enabled variable to true in the input paramter file for the run.\n";
 
-#endif // USE_HDF5
+#endif // DYABLO_USE_HDF5
 
 } // SolverHydroMusclBlock::save_solution_hdf5
 

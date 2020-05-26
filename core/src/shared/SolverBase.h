@@ -8,9 +8,9 @@
 #include "utils/config/ConfigMap.h"
 #include "shared/kokkos_shared.h"
 
-#ifdef USE_HDF5
+#ifdef DYABLO_USE_HDF5
 #include "shared/HDF5_IO.h"
-#endif // USE_HDF5
+#endif // DYABLO_USE_HDF5
 
 // for timer
 #ifdef KOKKOS_ENABLE_CUDA

@@ -12,12 +12,12 @@ target_sources (shared
   ${CMAKE_CURRENT_SOURCE_DIR}/SimpleVTKIO.cpp
   )
 
-if (USE_HDF5)
+if (DYABLO_USE_HDF5)
   target_sources(shared
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/HDF5_IO.cpp
     )
-endif(USE_HDF5)
+endif(DYABLO_USE_HDF5)
 
 if (DYABLO_USE_MPI)
   target_compile_definitions(shared PUBLIC BITPIT_ENABLE_MPI)
@@ -40,7 +40,7 @@ if (DYABLO_USE_MPI)
     )
 endif(DYABLO_USE_MPI)
 
-if(USE_HDF5)
+if(DYABLO_USE_HDF5)
   target_link_libraries(shared PUBLIC
     ${HDF5_LIBRARIES})
-endif(USE_HDF5)
+endif(DYABLO_USE_HDF5)
