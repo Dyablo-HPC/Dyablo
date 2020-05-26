@@ -59,10 +59,10 @@ option(FORCE_BITPIT_BUILD "Enforce rebuilding bitpit" OFF)
 #
 # documentation related options
 #
-option(BUILD_DOC  "Enable / disable documentation build" OFF)
+option(DYABLO_BUILD_DOC  "Enable / disable documentation build" OFF)
 
 # documentation type - the only valid values are : doxygen and mkdocs
-set(DOC "doxygen" CACHE STRING "documentation type (doxygen or mkdocs)")
+set(DYABLO_DOC "doxygen" CACHE STRING "documentation type (doxygen or mkdocs)")
 
 ###################################################################
 #
@@ -187,8 +187,8 @@ list (APPEND DYABLO_CMAKE_ARGS
   -DDYABLO_USE_MPI_CUDA_AWARE_ENFORCED=${DYABLO_USE_MPI_CUDA_AWARE_ENFORCED}
   -DDYABLO_USE_DOUBLE=${DYABLO_USE_DOUBLE}
   -DDYABLO_USE_FPE_DEBUG=${DYABLO_USE_FPE_DEBUG}
-  -DBUILD_DOC=${BUILD_DOC}
-  -DDOC=${DOC}
+  -DDYABLO_BUILD_DOC=${DYABLO_BUILD_DOC}
+  -DDYABLO_DOC=${DYABLO_DOC}
   -DDYABLO_ENABLE_UNIT_TESTING=${DYABLO_ENABLE_UNIT_TESTING}
   -DBITPIT_DIR=${MY_BITPIT_DIR}
   )
@@ -209,10 +209,38 @@ endif()
 #
 # build dyablo
 #
-ExternalProject_Add (dyablo_external
+ExternalProject_Add (dyablo
   DEPENDS ${DEPENDENCIES}
   BUILD_ALWAYS TRUE
   SOURCE_DIR ${PROJECT_SOURCE_DIR}/core
   CMAKE_ARGS ${DYABLO_CMAKE_ARGS}
   INSTALL_COMMAND ""
   BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/dyablo)
+
+# add target dyablo-test
+if (DYABLO_ENABLE_UNIT_TESTING)
+
+  ExternalProject_Add_Step (dyablo test
+    COMMAND           make test
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/dyablo
+    COMMENT           "running dyablo unit tests"
+    ALWAYS            TRUE
+    EXCLUDE_FROM_MAIN TRUE
+    )
+  ExternalProject_Add_StepTargets(dyablo test)
+
+endif()
+
+# add target dyablo-doc
+if (DYABLO_BUILD_DOC)
+
+  ExternalProject_Add_Step (dyablo doc
+    COMMAND           make doc
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/dyablo
+    COMMENT           "building dyablo doc"
+    ALWAYS            TRUE
+    EXCLUDE_FROM_MAIN TRUE
+  )
+  ExternalProject_Add_StepTargets(dyablo doc)
+
+endif()

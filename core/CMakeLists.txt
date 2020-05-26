@@ -198,10 +198,9 @@ add_subdirectory(test)
 add_subdirectory(src)
 
 # Documentation type
-if(BUILD_DOC)
-  #message("At some point, there will be blood")
+if(DYABLO_BUILD_DOC)
   add_subdirectory(doc)
-endif(BUILD_DOC)
+endif(DYABLO_BUILD_DOC)
 
 # unit testing
 if (DYABLO_ENABLE_UNIT_TESTING)
@@ -239,6 +238,8 @@ if (DYABLO_USE_HDF5)
   endif(HDF5_FOUND)
 endif(DYABLO_USE_HDF5)
 message("")
-
+if (DYABLO_BUILD_DOC)
+  message("   Building doc of type ${DYABLO_DOC}")
+endif (DYABLO_BUILD_DOC)
 message("")
 

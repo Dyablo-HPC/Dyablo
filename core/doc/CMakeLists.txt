@@ -31,7 +31,7 @@ file(TO_NATIVE_PATH "${DOXY_DOT_PATH}" DOXY_DOT_PATH)
 
 set(DOC_SRC_DIR "${CMAKE_SOURCE_DIR}/doc")
 set(DOC_BIN_DIR "${CMAKE_BINARY_DIR}/doc")
-set(DOC_DEST_DIR "${CMAKE_BINARY_DIR}/doc/${DOC}")
+set(DOC_DEST_DIR "${CMAKE_BINARY_DIR}/doc/${DYABLO_DOC}")
 
 set(DOXY_WARN_AS_ERR "NO")
 
@@ -40,7 +40,7 @@ set(DOXY_WARN_AS_ERR "NO")
 #-------------------------------------------------
 
 # if the target is doxygen build only doxygen HTML
-if(DOC STREQUAL "doxygen")
+if(DYABLO_DOC STREQUAL "doxygen")
 
   set(DOXY_BUILD_HTML "YES")
   set(DOXY_BUILD_XML "NO")
@@ -68,7 +68,7 @@ configure_file(
 # ------------------------------------------------
 # create documentation targets
 #-------------------------------------------------
-if(DOC STREQUAL "doxygen")
+if(DYABLO_DOC STREQUAL "doxygen")
 
   # ================================
   # DOXYGEN html
@@ -85,7 +85,7 @@ if(DOC STREQUAL "doxygen")
   add_custom_target(clean_doc
     COMMAND ${CMAKE_COMMAND} -E remove_directory "${DOC_DEST_DIR}")
   
-elseif(DOC STREQUAL "mkdocs")
+elseif(DYABLO_DOC STREQUAL "mkdocs")
 
   # ================================
   # Doxygen XML + MkDocs
@@ -121,7 +121,7 @@ elseif(DOC STREQUAL "mkdocs")
     COMMAND Doxygen::doxygen "${DOC_BIN_DIR}/doxyfile"
     
     COMMAND "${CMAKE_COMMAND}" -E echo
-    "Generating ${DOC} sources documentation with doxybook2"
+    "Generating ${DYABLO_DOC} sources documentation with doxybook2"
   
     COMMAND "${CMAKE_COMMAND}" -E echo "${DOXYBOOK2_EXE}" "${DOXYBOOK2_ARGS}"
 
