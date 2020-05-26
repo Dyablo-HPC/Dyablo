@@ -44,9 +44,9 @@ Kokkos and BitPit/PABLO are built as part of dyablo with the cmake build system.
 
 ## superbuild : build bitpit/PABLO and dyablo together
 
-The super-build pattern build both dyablo and its depency (bitpit) using cmake command [ExternalProject_Add](https://cmake.org/cmake/help/latest/module/ExternalProject.html).
+The top-level `CMakeLists.txt` uses the the super-build pattern to build both dyablo and its depency (here bitpit) using cmake command [ExternalProject_Add](https://cmake.org/cmake/help/latest/module/ExternalProject.html).
 
-We removed the local modified copy of [BitPit/PABLO](https://github.com/optimad/bitpit) introduced in December 2018; we use instead the following archive [bitpit-1.7.0-devel-dyablo.tar.gz](https://github.com/pkestene/bitpit/archive/bitpit-1.7.0-devel-dyablo.tar.gz). BitPit source code archive is downloaded and built as part of dyablo (using the cmake super-build pattern). 
+We removed the local modified copy of [BitPit/PABLO](https://github.com/optimad/bitpit) introduced in December 2018; we use instead the following archive [bitpit-1.7.0-devel-dyablo-v0.2.tar.gz](https://github.com/pkestene/bitpit/archive/bitpit-1.7.0-devel-dyablo-v0.2.tar.gz). BitPit source code archive is downloaded and built as part of dyablo (using the cmake super-build pattern). 
 
 To build bitpit and dyablo (for Kokkos/OpenMP backend which is the default)
 
@@ -71,20 +71,20 @@ To build dyablo for kokkos/OpenMP backend, assuming bitpit is already installed 
 
 ```bash
 mkdir build_openmp; cd build_openmp
-ccmake -DBITPIT_DIR=/home/pkestene/local/bitpit-1.7.0-devel-dyablo/lib/cmake/bitpit-1.7 ..
+ccmake -DBITPIT_DIR=/home/pkestene/local/bitpit-1.7.0-devel-dyablo-v0.2/lib/cmake/bitpit-1.7 ..
 make
 ```
 
-BITPIT_DIR should to your bitpit install subdirectory where the BITPITConfig.cmake resides.
+BITPIT_DIR should point to your bitpit install subdirectory where the BITPITConfig.cmake resides.
 
 ## build only bitpit
 
-1. get [bitpit sources](https://github.com/pkestene/bitpit/archive/bitpit-1.7.0-devel-dyablo.tar.gz)
+1. get [bitpit sources](https://github.com/pkestene/bitpit/archive/bitpit-1.7.0-devel-dyablo-v0.2.tar.gz)
 2. ```shell
-      tar zxf bitpit-1.7.0-devel-dyablo.tar.gz
-      cd bitpit-1.7.0-devel-dyablo
+      tar zxf bitpit-1.7.0-devel-dyablo-v0.2.tar.gz
+      cd bitpit-1.7.0-devel-dyablo-v0.2
       mkdir build; cd build
-      ccmake -DCMAKE_INSTALL_PREFIX=/home/pkestene/local/bitpit-1.7.0-devel \
+      ccmake -DCMAKE_INSTALL_PREFIX=/home/pkestene/local/bitpit-1.7.0-devel-dyablo-v0.2 \
           -DCMAKE_BUILD_TYPE=Release \
           -DENABLE_MPI=ON \
           -DBITPIT_MODULE_LA=OFF \
@@ -122,7 +122,7 @@ make dyablo-test
 
 ## build documentation
 
-### doxygen
+### [doxygen](https://www.doxygen.nl/)
 
 ```shell
 # re-run cmake with additionnal options
