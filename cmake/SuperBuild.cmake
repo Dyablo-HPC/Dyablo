@@ -90,39 +90,35 @@ option(Kokkos_ENABLE_OPENMP "enable Kokkos::OpenMP backend" ON)
 option(Kokkos_ENABLE_CUDA   "enable Kokkos::Cuda backend" OFF)
 option(BUILD_DOC  "Enable / disable documentation build" OFF)
 
+# if CUDA is enable, you need to be careful about the version of boost
+option(DYABLO_ENABLE_UNIT_TESTING "Enable unit testing" OFF)
+
 # only usefull when building for Kokkos::Cuda backend 
 set(Kokkos_ARCH  "" CACHE STRING "Kokkos arch (KEPLER37, PASCAL60, ...)")
 
 # documentation type - the only valid values are : doxygen and mkdocs
 set(DOC "doxygen" CACHE STRING "documentation type (doxygen or mkdocs)")
 
+# default arguments - common to all platform
+list (APPEND DYABLO_CMAKE_ARGS
+  -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+  -DKokkos_ENABLE_HWLOC=${Kokkos_ENABLE_HWLOC}
+  -DKokkos_ENABLE_OPENMP=${Kokkos_ENABLE_OPENMP}
+  -DUSE_HDF5=ON
+  -DUSE_MPI=ON
+  -DBUILD_DOC=${BUILD_DOC}
+  -DDOC=${DOC}
+  -DDYABLO_ENABLE_UNIT_TESTING=${DYABLO_ENABLE_UNIT_TESTING}
+  -DBITPIT_DIR=${MY_BITPIT_DIR}
+  )
+
+# CUDA specific argument
 if (Kokkos_ENABLE_CUDA)
 
   list (APPEND DYABLO_CMAKE_ARGS
-    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-    -DKokkos_ENABLE_HWLOC=${Kokkos_ENABLE_HWLOC}
-    -DKokkos_ENABLE_OPENMP=${Kokkos_ENABLE_OPENMP}
     -DKokkos_ENABLE_CUDA=${Kokkos_ENABLE_CUDA}
     -DKokkos_ENABLE_CUDA_LAMBDA=ON
     -DKokkos_ARCH_${Kokkos_ARCH}=ON
-    -DUSE_HDF5=ON
-    -DUSE_MPI=ON
-    -DBUILD_DOC=${BUILD_DOC}
-    -DDOC=${DOC}
-    -DBITPIT_DIR=${MY_BITPIT_DIR}
-    )
-
-else()
-
-  list (APPEND DYABLO_CMAKE_ARGS
-    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-    -DKokkos_ENABLE_HWLOC=${Kokkos_ENABLE_HWLOC}
-    -DKokkos_ENABLE_OPENMP=${Kokkos_ENABLE_OPENMP}
-    -DUSE_HDF5=ON
-    -DUSE_MPI=ON
-    -DBUILD_DOC=${BUILD_DOC}
-    -DDOC=${DOC}
-    -DBITPIT_DIR=${MY_BITPIT_DIR}
     )
 
 endif()
