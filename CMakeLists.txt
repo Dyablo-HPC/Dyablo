@@ -251,8 +251,10 @@ endif(BUILD_DOC)
 
 # unit testing
 if (${Boost_FOUND})
-  enable_testing()
-  add_subdirectory(unit_test)
+  if (DYABLO_ENABLE_UNIT_TESTING)
+    enable_testing()
+    add_subdirectory(unit_test)
+  endif()
 endif()
 
 ##################### PRINT CONFIGURE STATUS ######################
@@ -286,6 +288,7 @@ message("")
 message(" BOOST found : ${Boost_FOUND}")
 if (Boost_FOUND)
   message(" BOOST version : ${Boost_VERSION}")
+  message(" BOOST include : ${Boost_INCLUDE_DIRS}")
 endif(Boost_FOUND)
 
 message("")
