@@ -14,7 +14,7 @@
 
 #include "shared/morton_utils.h"
 
-#include <boost/test/auto_unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 namespace utf = boost::unit_test;
 
 #include <cstdint>
@@ -23,7 +23,7 @@ BOOST_AUTO_TEST_SUITE(dyablo)
 
 BOOST_AUTO_TEST_SUITE(shared)
 
-BOOST_AUTO_TEST_CASE(morton_utils, * utf::tolerance(0.00001))
+BOOST_AUTO_TEST_CASE(morton_utils)
 {
 
   uint32_t value = 2 + 4; // 0x10  + 0x100
