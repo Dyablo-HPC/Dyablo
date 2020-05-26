@@ -9,6 +9,6 @@ endif()
 
 add_subdirectory(amr)
 
-if (USE_HDF5)
+if (DYABLO_USE_HDF5)
   add_subdirectory(io)
-endif(USE_HDF5)
+endif(DYABLO_USE_HDF5)
