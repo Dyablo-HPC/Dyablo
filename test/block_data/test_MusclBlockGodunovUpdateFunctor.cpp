@@ -179,6 +179,8 @@ void run_test(int argc, char *argv[]) {
 
   // first copy inner cells
 
+  params.gravity_type = GRAVITY_NONE;
+
   //uint32_t nbOcts = solver->amr_mesh->getNumOctants();
 
   CopyInnerBlockCellDataFunctor::apply(configMap, params, fm, 
@@ -186,7 +188,8 @@ void run_test(int argc, char *argv[]) {
                                        ghostWidth, 
                                        nbOcts,
                                        nbOctsPerGroup,
-                                       solver->U, Ugroup, iGroup);
+                                       solver->U, Ugroup,
+                                       iGroup);
 
   {
     CopyFaceBlockCellDataFunctor::apply(solver->amr_mesh,
@@ -255,8 +258,8 @@ void run_test(int argc, char *argv[]) {
                                           nbOcts,
                                           nbOctsPerGroup,
                                           iGroup,
-					  solver->U,
-					  solver->Ughost,
+					                                solver->U,
+					                                solver->Ughost,
                                           Ugroup,
                                           solver->U2,
                                           Qgroup, 

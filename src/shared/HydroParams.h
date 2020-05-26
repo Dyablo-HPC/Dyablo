@@ -71,6 +71,8 @@ struct HydroParams {
   int nz;     /*!< logical size along Z (without ghost cells).*/
   int ghostWidth;  
   int nbvar;  /*!< number of variables in HydroState / MHDState. */
+  int nbfields; /*!< number of fields stored in U. Equal to the sum of nbvars and the number of additional fields (eg gravity) */
+
   DimensionType dimType; //!< 2D or 3D.
 
   int imin;   /*!< index minimum at X border*/
@@ -135,6 +137,12 @@ struct HydroParams {
 
   //! reduce speed of sound parameter
   real_t rsst_ksi;
+
+  //! gravity type
+  GravityType gravity_type;
+
+  //! constant scalar gravity
+  real_t gx, gy, gz;
 
 #ifdef USE_MPI
 //! MPI communicator in a cartesian virtual topology

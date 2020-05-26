@@ -19,7 +19,7 @@ void init_four_quadrant(SolverHydroMusclBlock *psolver);
 void init_isentropic_vortex(SolverHydroMusclBlock *psolver);
 void init_shu_osher(SolverHydroMusclBlock *psolver);
 void init_double_mach_reflection(SolverHydroMusclBlock *psolver);
-// void init_rayleigh_taylor(SolverHydroMusclBlock *psolver);
+void init_rayleigh_taylor(SolverHydroMusclBlock *psolver);
 
 } // namespace muscl_block
 } // namespace dyablo

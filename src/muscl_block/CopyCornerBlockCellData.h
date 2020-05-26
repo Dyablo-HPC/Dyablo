@@ -70,6 +70,9 @@ public:
     bx_g = blockSizes[IX] + 2 * ghostWidth;
     by_g = blockSizes[IY] + 2 * ghostWidth;
     bz_g = blockSizes[IZ] + 2 * ghostWidth;
+
+    copy_gravity = (params.gravity_type & GRAVITY_FIELD);
+    ndim = (params.dimType == THREE_D ? 3 : 2);
   }
 
   // static method that does everything: creates and executes the functor
@@ -90,8 +93,8 @@ public:
     CopyCornerBlockCellDataFunctor functor(pmesh, params, fm, 
 					   blockSizes, ghostWidth,
 					   nbOctsPerGroup, 
-					   U, U_ghost, 
-					   Ugroup, iGroup, Interface_flags);
+					   U, U_ghost, Ugroup, 
+             iGroup, Interface_flags);
 
     /*
      * using kokkos team execution policy
@@ -145,6 +148,11 @@ public:
     // If we're not, we check the neighbours using PABLO
     pmesh->findNeighbours(iOct, corner, corner_codim, neigh_v, isGhost_v);
 
+    /*if (iOct == 167 or iOct == 40) {
+      std::cerr << "iOct = " << iOct << "; corner = " << (int)corner << "; neigh.size = " << neigh_v.size()
+      << std::endl;
+    }*/
+
     // All good, we have a neighbour in PABLO, we return it
     if (neigh_v.size() > 0) {
       neigh      = neigh_v[0];
@@ -152,118 +160,100 @@ public:
 
       // Finding coordinates from where to copy
       if (corner & CORNER_RIGHT)  // Right face  -> Cases 1 and 9
-	coord_neigh[IX] = 0;
+	      coord_neigh[IX] = 0;
       else                        // Left face   -> Cases 4 and 12
-	coord_neigh[IX] = bx - ghostWidth/2;
+	      coord_neigh[IX] = bx - ghostWidth/2;
 
       if (corner & CORNER_TOP)    // Top face    -> Cases 9 and 12
-	coord_neigh[IY] = 0;
+	      coord_neigh[IY] = 0;
       else                        // Bottom face -> Cases 1 and 4
-	coord_neigh[IY] = by - ghostWidth/2;
+	      coord_neigh[IY] = by - ghostWidth/2;
+
+      return;
     }
     else {
-      // No neighbour, we check if we're at a boundary if not, we're at a non conformal edge
-      // We have to test manually first if we're at the edge of the domain
-      real_t x    = pmesh->getX(iOct);
-      real_t y    = pmesh->getY(iOct);
-      real_t size = pmesh->getSize(iOct);
+      // Testing for non conformal corners : the corner would then point to the center of a larger edge
+      // In that case, PABLO returns no neighbours so we have to detect
+      // the neighbour using the edge.
+      // These correspond to design cases 2, 3, 5, 6, 7, 8, 10 and 11
 
-      if (corner & CORNER_RIGHT)
-	x += size*1.25;
-      else
-	x -= size*0.25;
-      if (corner & CORNER_TOP)
-	y += size*1.25;
-      else
-	y -= size*0.25;
-
-      if (corner & CORNER_RIGHT)
-	x += size;
-      if (corner & CORNER_TOP)
-	y += size;
-      
-      if ((x < params.xmin and params.boundary_type_xmin != BC_PERIODIC)
-	  or (y < params.ymin and params.boundary_type_ymin != BC_PERIODIC)
-	  or (x > params.xmax and params.boundary_type_xmax != BC_PERIODIC)
-	  or (y > params.ymax and params.boundary_type_ymax != BC_PERIODIC)) {
-	isBoundary = true;
-
-	return;
-      }
-      
       // X interface
-      uint8_t iface;
-      InterfaceType nc_flag;
+      uint8_t iface_x, iface_y;
+      InterfaceType nc_flag_x, nc_flag_y;
       if (corner & CORNER_RIGHT) {
-	iface   = FACE_RIGHT;
-	nc_flag = INTERFACE_XMAX_BIGGER;
+	      iface_x   = FACE_RIGHT;
+	      nc_flag_x = INTERFACE_XMAX_BIGGER;
       }
       else {
-	iface   = FACE_LEFT;
-	nc_flag = INTERFACE_XMIN_BIGGER;
+	      iface_x   = FACE_LEFT;
+	      nc_flag_x = INTERFACE_XMIN_BIGGER;
       }
-
-      // If the corresponding neighbour is bigger, we return it
-      if (Interface_flags(iOct_local) & nc_flag) {
-	pmesh->findNeighbours(iOct, iface, face_codim, neigh_v, isGhost_v);
-
-	// X interface has a larger neighbour, that means we are in cases 5, 6, 7 or 8
-	if (neigh_v.size() > 0) {
-	  isBoundary = false;
-	  neigh      = neigh_v[0];
-	  isGhost    = isGhost_v[0];
-
-	  if (corner & CORNER_RIGHT) // Corner on the right side;  Cases 5 and 7
-	    coord_neigh[IX] = 0;
-	  else                       // Corner on the left side;   Cases 6 and 8
-	    coord_neigh[IX] = bx-ghostWidth/2;
-
-	  if (corner & CORNER_TOP)   // Corner on the top side;    Cases 7 and 8
-	    coord_neigh[IY] = by/2;
-	  else                       // Corner on the bottom side; Cases 5 and 6
-	    coord_neigh[IY] = (by-ghostWidth)/2;
-
-	  // No need to stay here
-	  return; // Dunno if it's wise to use a return. Maybe encapsulate the Y part in a else ?
-	}
-      }
-      
       // Y interface
       if (corner & CORNER_TOP) {
-	iface = FACE_TOP;
-	nc_flag = INTERFACE_YMAX_BIGGER;
+        iface_y   = FACE_TOP;
+        nc_flag_y = INTERFACE_YMAX_BIGGER;
       }
       else {
-	iface = FACE_BOTTOM;
-	nc_flag = INTERFACE_YMIN_BIGGER;
+        iface_y   = FACE_BOTTOM;
+        nc_flag_y = INTERFACE_YMIN_BIGGER;
       }
 
       // If the corresponding neighbour is bigger, we return it
-      if (Interface_flags(iOct_local) & nc_flag) {
-	pmesh->findNeighbours(iOct, iface, face_codim, neigh_v, isGhost_v);
+      std::vector<uint32_t> neigh_x, neigh_y;
+      std::vector<bool> isGhost_x, isGhost_y;
+      pmesh->findNeighbours(iOct, iface_x, face_codim, neigh_x, isGhost_x);
+      pmesh->findNeighbours(iOct, iface_y, face_codim, neigh_y, isGhost_y);
 
-	// Y interface has a larger neighbour, that means we are in cases 2, 3, 10 or 11
-	if (neigh_v.size() > 0) {
-	  isBoundary = false;
-	  neigh      = neigh_v[0];
-	  isGhost    = isGhost_v[0];
+      if (neigh_x.size() == 0 or neigh_y.size() == 0) {
+        isBoundary = true;
+        return;
+      }
 
-	  if (corner & CORNER_RIGHT) // Corner on the right side;  Cases 2 and 10
-	    coord_neigh[IX] = bx/2;
-	  else                       // Corner on the left side;   Cases 3 and 11
-	    coord_neigh[IX] = (bx-ghostWidth)/2;
+      if (Interface_flags(iOct_local) & nc_flag_x) {
+        // X interface has a larger neighbour, that means we are in cases 5, 6, 7 or 8
+        if (neigh_x.size() > 0) {
+          isBoundary = false;
+          neigh      = neigh_x[0];
+          isGhost    = isGhost_x[0];
 
-	  if (corner & CORNER_TOP)   // Corner on the top side;    Cases 10 and 11
-	    coord_neigh[IY] = 0;
-	  else                       // Corner on the bottom side; Cases 2 and 3
-	    coord_neigh[IY] = by-ghostWidth/2;
-	  
-	  // We exit
-	  return;
-	}
+          if (corner & CORNER_RIGHT) // Corner on the right side;  Cases 5 and 7
+            coord_neigh[IX] = 0;
+          else                       // Corner on the left side;   Cases 6 and 8
+            coord_neigh[IX] = bx-ghostWidth/2;
+
+          if (corner & CORNER_TOP)   // Corner on the top side;    Cases 7 and 8
+            coord_neigh[IY] = by/2;
+          else                       // Corner on the bottom side; Cases 5 and 6
+            coord_neigh[IY] = (by-ghostWidth)/2;
+
+          // No need to stay here
+          return;
+        }
+      }
+      // If the corresponding neighbour is bigger, we return it
+      else if (Interface_flags(iOct_local) & nc_flag_y) {
+        // Y interface has a larger neighbour, that means we are in cases 2, 3, 10 or 11
+        if (neigh_y.size() > 0) {
+          isBoundary = false;
+          neigh      = neigh_y[0];
+          isGhost    = isGhost_y[0];
+
+          if (corner & CORNER_RIGHT) // Corner on the right side;  Cases 2 and 10
+            coord_neigh[IX] = bx/2;
+          else                       // Corner on the left side;   Cases 3 and 11
+            coord_neigh[IX] = (bx-ghostWidth)/2;
+
+          if (corner & CORNER_TOP)   // Corner on the top side;    Cases 10 and 11
+            coord_neigh[IY] = 0;
+          else                       // Corner on the bottom side; Cases 2 and 3
+            coord_neigh[IY] = by-ghostWidth/2;
+          
+          // We exit
+          return;
+        }
+        // Shouldn't come here !
+        assert(false);
       } // if Interface_flags(iOct_local) & nc_flag
-      
-      
 
       // TODO : 3d here !
     } // if neigh_v.size = 0
@@ -304,6 +294,11 @@ public:
     Ugroup(ighost, fm[IU], iOct_local) = 0.0;
     Ugroup(ighost, fm[IV], iOct_local) = 0.0;
     Ugroup(ighost, fm[IP], iOct_local) = 0.0;
+
+    if (copy_gravity) {
+      Ugroup(ighost, fm[IGX], iOct_local) = 0.0;
+      Ugroup(ighost, fm[IGY], iOct_local) = 0.0;
+    }
   } // fill_ghost_corner_bc_corner_2d
 
   // ==============================================================
@@ -329,47 +324,51 @@ public:
 
     // Coordinates in the ghosted block and in the neighbour
     coord_t coord_ghost = index_to_coord(index, ghostWidth, ghostWidth);
+    uint32_t x = coord_ghost[IX];
+    uint32_t y = coord_ghost[IY];
 
     // Shifting ghosted index to correct position
-    if (corner & 1)
+    if (corner & CORNER_RIGHT)
       coord_ghost[IX] += gx_offset;
-    if (corner & 2)
+    if (corner & CORNER_TOP)
       coord_ghost[IY] += gy_offset;
 
+    
     coord_t coord_copy  = coord_ghost;
+
     real_t sign_u = 1.0;
     real_t sign_v = 1.0;
 
     if (dir == DIR_X) {
       // Absorbing conditions
       if (params.boundary_type_xmin == BC_ABSORBING and face == FACE_LEFT)
-	coord_copy[IX] = ghostWidth;
+	      coord_copy[IX] = ghostWidth;
       else if (params.boundary_type_xmax == BC_ABSORBING and face == FACE_RIGHT)
-	coord_copy[IX] = gx_offset-1;
+	      coord_copy[IX] = gx_offset-1;
       // Reflexive conditions
       else if (params.boundary_type_xmin == BC_REFLECTING and face == FACE_LEFT) {
-	coord_copy[IX] = 2*ghostWidth - coord_copy[IX] - 1;
-	sign_u = -1.0;
+	      coord_copy[IX] = 2*ghostWidth-1-x;
+	      sign_u = -1.0;
       }
       else if (params.boundary_type_xmax == BC_REFLECTING and face == FACE_RIGHT) {
-	coord_copy[IX] = 2*(ghostWidth+bx) - coord_copy[IX] - 1;
-	sign_u = -1.0;
+        coord_copy[IX] = bx+ghostWidth-1-x;
+        sign_u = -1.0;
       }
     }
     else { // DIR_Y
       // Absorbing conditions
       if (params.boundary_type_ymin == BC_ABSORBING and face == FACE_LEFT)
-	coord_copy[IY] = ghostWidth;
+	      coord_copy[IY] = ghostWidth;
       else if (params.boundary_type_ymax == BC_ABSORBING and face == FACE_RIGHT)
-	coord_copy[IY] = gy_offset-1;
+	      coord_copy[IY] = gy_offset-1;
       // Reflexive conditions
       else if (params.boundary_type_ymin == BC_REFLECTING and face == FACE_LEFT) {
-	coord_copy[IY] = 2*ghostWidth - coord_copy[IY] - 1;
-	sign_v = -1.0;
+	      coord_copy[IY] = 2*ghostWidth-1-y;
+	      sign_v = -1.0;
       }
       else if (params.boundary_type_ymax == BC_REFLECTING and face == FACE_RIGHT) {
-	coord_copy[IY] = 2*(ghostWidth+by) - coord_copy[IY] - 1;
-	sign_v = -1.0;
+	      coord_copy[IY] = by+ghostWidth-1-y;
+	      sign_v = -1.0;
       }
     } // end if dir
 
@@ -380,6 +379,11 @@ public:
     Ugroup(index_ghost, fm[IU], iOct_local) = Ugroup(index_copy, fm[IU], iOct_local) * sign_u;
     Ugroup(index_ghost, fm[IV], iOct_local) = Ugroup(index_copy, fm[IV], iOct_local) * sign_v;
     Ugroup(index_ghost, fm[IP], iOct_local) = Ugroup(index_copy, fm[IP], iOct_local);
+
+    if (copy_gravity) {
+      Ugroup(index_ghost, fm[IGX], iOct_local) = Ugroup(index_copy, fm[IGX], iOct_local);
+      Ugroup(index_ghost, fm[IGY], iOct_local) = Ugroup(index_copy, fm[IGY], iOct_local);
+    }
   } // fill_ghost_corner_bc_face_2d
 
   // ==============================================================
@@ -396,7 +400,7 @@ public:
    * \param[in] coord_neigh the coordinates in the neighbour, that have already been returned by get_corner_neighbours
    **/
   KOKKOS_INLINE_FUNCTION
-  void fill_ghost_corner_larger_2d(uint32_t iOct_local, uint32_t index, uint8_t corner, uint32_t iOct_neigh,
+  void fill_ghost_corner_larger_2d(uint32_t iOct_local, uint32_t iOct, uint32_t index, uint8_t corner, uint32_t iOct_neigh,
 				   bool isGhost, coord_t base_neigh) const {
     // Pre-computed offsets for shifting coordinates in the right reference frame
     // gx/gy_offset are for the ghosted block
@@ -426,12 +430,22 @@ public:
       Ugroup(ghost_index, fm[IU], iOct_local) = U_ghost(neigh_index, fm[IU], iOct_neigh);
       Ugroup(ghost_index, fm[IV], iOct_local) = U_ghost(neigh_index, fm[IV], iOct_neigh);
       Ugroup(ghost_index, fm[IP], iOct_local) = U_ghost(neigh_index, fm[IP], iOct_neigh);
+
+      if (copy_gravity) {
+        Ugroup(ghost_index, fm[IGX], iOct_local) = U_ghost(neigh_index, fm[IGX], iOct_neigh);
+        Ugroup(ghost_index, fm[IGY], iOct_local) = U_ghost(neigh_index, fm[IGY], iOct_neigh);
+      }
     }
     else {
       Ugroup(ghost_index, fm[ID], iOct_local) = U(neigh_index, fm[ID], iOct_neigh);
       Ugroup(ghost_index, fm[IU], iOct_local) = U(neigh_index, fm[IU], iOct_neigh);
       Ugroup(ghost_index, fm[IV], iOct_local) = U(neigh_index, fm[IV], iOct_neigh);
       Ugroup(ghost_index, fm[IP], iOct_local) = U(neigh_index, fm[IP], iOct_neigh);
+
+      if (copy_gravity) {
+        Ugroup(ghost_index, fm[IGX], iOct_local) = U(neigh_index, fm[IGX], iOct_neigh);
+        Ugroup(ghost_index, fm[IGY], iOct_local) = U(neigh_index, fm[IGY], iOct_neigh);
+      }
     } // end ifGhost
   } // fill_ghost_corner_larger_2d
 
@@ -453,10 +467,10 @@ public:
     // Pre-computed offsets for shifting coordinates in the right reference frame
     // x/y_offsets are for the neighbour cell
     // gx/gy_offsets aree for the ghosted block
-    uint32_t x_offset  = bx-ghostWidth*2;
-    uint32_t y_offset  = by-ghostWidth*2;
-    uint32_t gx_offset = bx+ghostWidth;
-    uint32_t gy_offset = by+ghostWidth;
+    const uint32_t x_offset  = bx-ghostWidth*2;
+    const uint32_t y_offset  = by-ghostWidth*2;
+    const uint32_t gx_offset = bx+ghostWidth;
+    const uint32_t gy_offset = by+ghostWidth;
 
     // Coordinates in the neighbour and in the ghosted block
     coord_t coord_neigh = index_to_coord(index, ghostWidth, ghostWidth);
@@ -478,30 +492,41 @@ public:
 
     // We accumulate the results in this variable
     HydroState2d u = {0.0, 0.0, 0.0, 0.0};
+    real_t gravity[2] {0.0, 0.0};
 
     uint32_t ghost_index = coord_ghost[IX] + bx_g*coord_ghost[IY];
 
     // Summing all the sub-cells
     for (int ix=0; ix < 2; ++ix) {
       for (int iy=0; iy < 2; ++iy) {
-	coord_t coord_sub = coord_neigh;
-	coord_sub[IX] += ix;
-	coord_sub[IY] += iy;
+        coord_t coord_sub = coord_neigh;
+        coord_sub[IX] += ix;
+        coord_sub[IY] += iy;
 
-	uint32_t neigh_index = coord_sub[IX] + bx*coord_sub[IY];
+        uint32_t neigh_index = coord_sub[IX] + bx*coord_sub[IY];
 
-	if (isGhost) {
-	  u[ID] += U_ghost(neigh_index, fm[ID], iOct_neigh);
-	  u[IU] += U_ghost(neigh_index, fm[IU], iOct_neigh);
-	  u[IV] += U_ghost(neigh_index, fm[IV], iOct_neigh);
-	  u[IP] += U_ghost(neigh_index, fm[IP], iOct_neigh);
-	}
-	else {
-	  u[ID] += U(neigh_index, fm[ID], iOct_neigh);
-	  u[IU] += U(neigh_index, fm[IU], iOct_neigh);
-	  u[IV] += U(neigh_index, fm[IV], iOct_neigh);
-	  u[IP] += U(neigh_index, fm[IP], iOct_neigh);
-	} // end isGhost
+        if (isGhost) {
+          u[ID] += U_ghost(neigh_index, fm[ID], iOct_neigh);
+          u[IU] += U_ghost(neigh_index, fm[IU], iOct_neigh);
+          u[IV] += U_ghost(neigh_index, fm[IV], iOct_neigh);
+          u[IP] += U_ghost(neigh_index, fm[IP], iOct_neigh);
+
+          if (copy_gravity) {
+            gravity[0] += U_ghost(neigh_index, fm[IGX], iOct_neigh);
+            gravity[1] += U_ghost(neigh_index, fm[IGY], iOct_neigh);
+          }
+        }
+        else {
+          u[ID] += U(neigh_index, fm[ID], iOct_neigh);
+          u[IU] += U(neigh_index, fm[IU], iOct_neigh);
+          u[IV] += U(neigh_index, fm[IV], iOct_neigh);
+          u[IP] += U(neigh_index, fm[IP], iOct_neigh);
+
+          if (copy_gravity) {
+            gravity[0] += U(neigh_index, fm[IGX], iOct_neigh);
+            gravity[1] += U(neigh_index, fm[IGY], iOct_neigh);
+          }
+        } // end isGhost
       } // end for iy
     } // end for ix
 
@@ -510,6 +535,11 @@ public:
     Ugroup(ghost_index, fm[IU], iOct_local) = 0.25 * u[IU];
     Ugroup(ghost_index, fm[IV], iOct_local) = 0.25 * u[IV];
     Ugroup(ghost_index, fm[IP], iOct_local) = 0.25 * u[IP];
+
+    if (copy_gravity) { 
+      Ugroup(ghost_index, fm[IGX], iOct_local) = 0.25 * gravity[0];
+      Ugroup(ghost_index, fm[IGY], iOct_local) = 0.25 * gravity[1];
+    }
 
   } // fill_ghost_corner_smaller_2d
 
@@ -526,7 +556,7 @@ public:
    * \param[in] isGhost indicates if the neighbour has to be copied from the U_ghost
    **/
   KOKKOS_INLINE_FUNCTION
-  void fill_ghost_corner_same_size_2d(uint32_t iOct_local, uint32_t index, uint8_t corner, uint32_t iOct_neigh,
+  void fill_ghost_corner_same_size_2d(uint32_t iOct_local, uint32_t iOct, uint32_t index, uint8_t corner, uint32_t iOct_neigh,
 				      bool isGhost) const  {
     // Pre-computed offsets for shifting coordinates in the right reference frame
     // x/y_offsets are for the neighbour cell
@@ -561,12 +591,22 @@ public:
       Ugroup(ghost_index, fm[IU], iOct_local) = U_ghost(neigh_index, fm[IU], iOct_neigh);
       Ugroup(ghost_index, fm[IV], iOct_local) = U_ghost(neigh_index, fm[IV], iOct_neigh);
       Ugroup(ghost_index, fm[IP], iOct_local) = U_ghost(neigh_index, fm[IP], iOct_neigh);
+
+      if (copy_gravity) {
+        Ugroup(ghost_index, fm[IGX], iOct_local) = U_ghost(neigh_index, fm[IGX], iOct_neigh);
+        Ugroup(ghost_index, fm[IGY], iOct_local) = U_ghost(neigh_index, fm[IGY], iOct_neigh);
+      }
     }
     else {
       Ugroup(ghost_index, fm[ID], iOct_local) = U(neigh_index, fm[ID], iOct_neigh);
       Ugroup(ghost_index, fm[IU], iOct_local) = U(neigh_index, fm[IU], iOct_neigh);
       Ugroup(ghost_index, fm[IV], iOct_local) = U(neigh_index, fm[IV], iOct_neigh);
       Ugroup(ghost_index, fm[IP], iOct_local) = U(neigh_index, fm[IP], iOct_neigh);
+
+      if (copy_gravity) {
+        Ugroup(ghost_index, fm[IGX], iOct_local) = U(neigh_index, fm[IGX], iOct_neigh);
+        Ugroup(ghost_index, fm[IGY], iOct_local) = U(neigh_index, fm[IGY], iOct_neigh);
+      }
     }
 
   } // fill_ghost_corner_same_size_2d
@@ -616,14 +656,13 @@ public:
       // Faces of copy
       const uint8_t f1 = (corner & 1 ? FACE_RIGHT : FACE_LEFT);
       const uint8_t f2 = (corner & 2 ? FACE_RIGHT : FACE_LEFT);
-
-      if (n2.size() > 0)      // X face is boundary
-	fill_ghost_corner_bc_face_2d(iOct_local, index, corner, DIR_X, f1);
-      else if (n1.size() > 0) // Y face is boundary
-	fill_ghost_corner_bc_face_2d(iOct_local, index, corner, DIR_Y, f2);
-      else                    // X and Y are boundaries
-	fill_ghost_corner_bc_corner_2d(iOct_local, index, corner);
       
+      if (n2.size() > 0)      // X face is boundary
+	      fill_ghost_corner_bc_face_2d(iOct_local, index, corner, DIR_X, f1);
+      else if (n1.size() > 0) // Y face is boundary
+	      fill_ghost_corner_bc_face_2d(iOct_local, index, corner, DIR_Y, f2);
+      else                    // X and Y are boundaries
+	      fill_ghost_corner_bc_corner_2d(iOct_local, index, corner);
     }
     else {  // If we have a neighbour, we treat the different AMR cases separately
       uint32_t cur_level, neigh_level;
@@ -632,11 +671,11 @@ public:
       neigh_level = pmesh->getLevel(neigh);
 
       if (cur_level == neigh_level)     // Same level
-	fill_ghost_corner_same_size_2d(iOct_local, index, corner, neigh, isGhost);
+	      fill_ghost_corner_same_size_2d(iOct_local, iOct, index, corner, neigh, isGhost);
       else if (cur_level > neigh_level) // Larger neighbour
-	fill_ghost_corner_larger_2d(iOct_local, index, corner, neigh, isGhost, neigh_coords);
+	      fill_ghost_corner_larger_2d(iOct_local, iOct, index, corner, neigh, isGhost, neigh_coords);
       else                              // Smaller neighbour
-	fill_ghost_corner_smaller_2d(iOct_local, iOct, index, corner, neigh, isGhost);
+	      fill_ghost_corner_smaller_2d(iOct_local, iOct, index, corner, neigh, isGhost);
     } // end if neigh.size() == 
   } // fill_ghost_corner_2d
   
@@ -665,14 +704,14 @@ public:
 
       // should we do this here ? retrieving the neighbours and everything will be done multiple times
       Kokkos::parallel_for(
-	 Kokkos::TeamVectorRange(member, nbCells),
-	 KOKKOS_LAMBDA(const index_t index) {
-	   // Compute all four corners
-	   fill_ghost_corner_2d(iOct, iOct_g, index, CORNER_TOP_LEFT);
-	   fill_ghost_corner_2d(iOct, iOct_g, index, CORNER_TOP_RIGHT);
-	   fill_ghost_corner_2d(iOct, iOct_g, index, CORNER_BOTTOM_LEFT);
-	   fill_ghost_corner_2d(iOct, iOct_g, index, CORNER_BOTTOM_RIGHT);
-	 }); // end parallel_for
+        Kokkos::TeamVectorRange(member, nbCells),
+        KOKKOS_LAMBDA(const index_t index) {
+          // Compute all four corners
+          fill_ghost_corner_2d(iOct, iOct_g, index, CORNER_TOP_LEFT);
+          fill_ghost_corner_2d(iOct, iOct_g, index, CORNER_TOP_RIGHT);
+          fill_ghost_corner_2d(iOct, iOct_g, index, CORNER_BOTTOM_LEFT);
+          fill_ghost_corner_2d(iOct, iOct_g, index, CORNER_BOTTOM_RIGHT);
+        }); // end parallel_for
 	   
       // increase current octant location both in U and Ugroup
       iOct += nbTeams;
@@ -735,6 +774,12 @@ public:
 
   // ! epsilon value to test equality between reals
   real_t eps;
+
+  // should we copy gravity ?
+  bool copy_gravity;
+
+  // number of dimensions for gravity
+  int ndim; 
 
 }; // CopyCornerBlockCellDataFunctor
 

@@ -129,6 +129,9 @@ public:
     by_g = blockSizes[IY] + 2 * ghostWidth;
     bz_g = blockSizes[IZ] + 2 * ghostWidth;
 
+    // Gravity
+    copy_gravity = (params.gravity_type & GRAVITY_FIELD);
+    ndim = (params.dimType == THREE_D ? 3 : 2);
   };
 
   // static method which does it all: create and execute functor
@@ -149,8 +152,8 @@ public:
     CopyFaceBlockCellDataFunctor functor(pmesh, params, fm, 
                                          blockSizes, ghostWidth,
                                          nbOctsPerGroup, 
-                                         U, U_ghost, 
-                                         Ugroup, iGroup,
+                                         U, U_ghost, Ugroup,
+                                         iGroup,
                                          Interface_flags);
 
     /*
@@ -413,6 +416,11 @@ public:
       Ugroup(index_cur, fm[IP], iOct_local) = Ugroup(index, fm[IP], iOct_local);
       Ugroup(index_cur, fm[IU], iOct_local) = Ugroup(index, fm[IU], iOct_local) * sign_u;
       Ugroup(index_cur, fm[IV], iOct_local) = Ugroup(index, fm[IV], iOct_local) * sign_v;
+
+      if (copy_gravity) {
+          Ugroup(index_cur, fm[IGX], iOct_local) = Ugroup(index, fm[IGX], iOct_local);
+          Ugroup(index_cur, fm[IGY], iOct_local) = Ugroup(index, fm[IGY], iOct_local);
+      } // end if copy
       
     } // end if admissible values
 
@@ -505,11 +513,21 @@ public:
         Ugroup(index_cur, fm[IP], iOct_local) = U_ghost(index_border, fm[IP], iOct_neigh);
         Ugroup(index_cur, fm[IU], iOct_local) = U_ghost(index_border, fm[IU], iOct_neigh);
         Ugroup(index_cur, fm[IV], iOct_local) = U_ghost(index_border, fm[IV], iOct_neigh);
+
+        if (copy_gravity) { 
+          Ugroup(index_cur, fm[IGX], iOct_local) = U_ghost(index_border, fm[IGX], iOct_neigh);
+          Ugroup(index_cur, fm[IGY], iOct_local) = U_ghost(index_border, fm[IGY], iOct_neigh);
+        }
       } else {
         Ugroup(index_cur, fm[ID], iOct_local) = U(index_border, fm[ID], iOct_neigh);
         Ugroup(index_cur, fm[IP], iOct_local) = U(index_border, fm[IP], iOct_neigh);
         Ugroup(index_cur, fm[IU], iOct_local) = U(index_border, fm[IU], iOct_neigh);
         Ugroup(index_cur, fm[IV], iOct_local) = U(index_border, fm[IV], iOct_neigh);
+
+        if (copy_gravity) {
+          Ugroup(index_cur, fm[IGX], iOct_local) = U(index_border, fm[IGX], iOct_neigh);
+          Ugroup(index_cur, fm[IGY], iOct_local) = U(index_border, fm[IGY], iOct_neigh);
+        }
       }
 
     } // end if admissible values for index
@@ -623,11 +641,21 @@ public:
         Ugroup(index_cur, fm[IP], iOct_local) = U_ghost(index_border, fm[IP], iOct_neigh);
         Ugroup(index_cur, fm[IU], iOct_local) = U_ghost(index_border, fm[IU], iOct_neigh);
         Ugroup(index_cur, fm[IV], iOct_local) = U_ghost(index_border, fm[IV], iOct_neigh);
+
+        if (copy_gravity) {
+          Ugroup(index_cur, fm[IGX], iOct_local) = U_ghost(index_border, fm[IGX], iOct_neigh);
+          Ugroup(index_cur, fm[IGY], iOct_local) = U_ghost(index_border, fm[IGY], iOct_neigh);
+        }
       } else {
         Ugroup(index_cur, fm[ID], iOct_local) = U(index_border, fm[ID], iOct_neigh);
         Ugroup(index_cur, fm[IP], iOct_local) = U(index_border, fm[IP], iOct_neigh);
         Ugroup(index_cur, fm[IU], iOct_local) = U(index_border, fm[IU], iOct_neigh);
         Ugroup(index_cur, fm[IV], iOct_local) = U(index_border, fm[IV], iOct_neigh);
+
+        if (copy_gravity) {
+          Ugroup(index_cur, fm[IGX], iOct_local) = U(index_border, fm[IGX], iOct_neigh);
+          Ugroup(index_cur, fm[IGY], iOct_local) = U(index_border, fm[IGY], iOct_neigh);
+        }
       }
 
     } // end if admissible values for index
@@ -684,6 +712,7 @@ public:
     // used to accumulate values from smaller octant into
     // large octant ghost cells
     HydroState2d q = {0, 0, 0, 0};
+    real_t gravity[2]{0.0, 0.0};
 
     const index_t size_borderX = ghostWidth*by;
     const index_t size_borderY = bx*ghostWidth;
@@ -765,11 +794,21 @@ public:
             q[IP] += U_ghost(index_border, fm[IP], iOct_neigh[iNeigh]);
             q[IU] += U_ghost(index_border, fm[IU], iOct_neigh[iNeigh]);
             q[IV] += U_ghost(index_border, fm[IV], iOct_neigh[iNeigh]);
+
+            if (copy_gravity) {
+              gravity[0] += U_ghost(index_border, fm[IGX], iOct_neigh[iNeigh]);
+              gravity[1] += U_ghost(index_border, fm[IGY], iOct_neigh[iNeigh]);
+            }
           } else {
             q[ID] += U(index_border, fm[ID], iOct_neigh[iNeigh]);
             q[IP] += U(index_border, fm[IP], iOct_neigh[iNeigh]);
             q[IU] += U(index_border, fm[IU], iOct_neigh[iNeigh]);
             q[IV] += U(index_border, fm[IV], iOct_neigh[iNeigh]);
+
+            if (copy_gravity) {
+              gravity[0] += U(index_border, fm[IGX], iOct_neigh[iNeigh]);
+              gravity[1] += U(index_border, fm[IGY], iOct_neigh[iNeigh]);
+            }
           }
 
         } // end for ix
@@ -780,6 +819,11 @@ public:
       Ugroup(index_cur, fm[IP], iOct_local) = q[IP]/4;
       Ugroup(index_cur, fm[IU], iOct_local) = q[IU]/4;
       Ugroup(index_cur, fm[IV], iOct_local) = q[IV]/4;
+
+      if (copy_gravity) {
+        Ugroup(index_cur, fm[IGX], iOct_local) = gravity[0];
+        Ugroup(index_cur, fm[IGY], iOct_local) = gravity[1];
+      } // end if copy_gravity
     } // end if admissible values for index
 
   } // fill_ghost_face_2d_smaller_size
@@ -996,13 +1040,19 @@ public:
   DataArrayBlock U_ghost;
 
   //! heavy data - output - local group array of block data (with ghosts)
-  DataArrayBlock Ugroup;
+  DataArrayBlock Ugroup;  
 
   //! id of group of octants to be copied
   uint32_t iGroup;
 
   //! 2:1 flagging mechanism
   FlagArrayBlock Interface_flags;
+
+  // should we copy gravity ?
+  bool copy_gravity;
+
+  // number of dimensions for gravity
+  int ndim;
 
 }; // CopyFaceBlockCellDataFunctor
 

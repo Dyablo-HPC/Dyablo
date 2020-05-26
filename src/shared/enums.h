@@ -22,11 +22,14 @@ enum VarIndex {
   IC=7,   /*!< Z magnetic field index */ 
   IBX=5,  /*!< X magnetic field index */ 
   IBY=6,  /*!< Y magnetic field index */ 
-  IBZ=7,   /*!< Z magnetic field index */
+  IBZ=7,  /*!< Z magnetic field index */
+  IGX=8,  /*!< X gravitational field index */
+  IGY=9,  /*!< Y gravitational field index */
+  IGZ=10, /*!< Z gravitational field index */
   IBFX = 0,
   IBFY = 1,
   IBFZ = 2,
-  COMPONENT_SIZE=8 /*!< invalid index, just counting number of fields */
+  COMPONENT_SIZE=11 /*!< invalid index, just counting number of fields */
 };
 
 // //! enum class to enumerate field location in a velocity/temperature gradient array in 2d at solution points
@@ -265,6 +268,18 @@ enum CORNER_DIR : uint8_t {
 enum UPDATE_TYPE : uint8_t {
   UPDATE_NON_CONSERVATIVE = 0,
   UPDATE_CONSERVATIVE_SUM = 1
+};
+
+enum GravityType : uint8_t {
+  GRAVITY_NONE       = 0,
+
+  // General flags
+  GRAVITY_CONSTANT = 1,
+  GRAVITY_FIELD    = 2,
+
+  // These are the flags to actually use in the code
+  GRAVITY_CST_SCALAR = GRAVITY_CONSTANT,
+  GRAVITY_CST_FIELD  = GRAVITY_CONSTANT | GRAVITY_FIELD
 };
 
 

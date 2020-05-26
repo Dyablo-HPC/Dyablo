@@ -19,7 +19,7 @@ UserDataLB::UserDataLB(DataArrayBlock& data_,
   data(data_),
   ghostdata(ghostdata_),
   fm(fm_),
-  nbVars(data_.extent(1)),
+  nbFields(data_.extent(1)),
   nbCellsPerOct(data_.extent(0))
 {
 }; // UserDataLB::UserDataLB
@@ -47,7 +47,7 @@ size_t UserDataLB::size(const uint32_t iOct) const
   BITPIT_UNUSED(iOct);
 
   // return size per octant
-  return sizeof(real_t)*nbCellsPerOct*nbVars;
+  return sizeof(real_t)*nbCellsPerOct*nbFields;
 
 }; // UserDataLB::size
 
@@ -56,7 +56,7 @@ size_t UserDataLB::size(const uint32_t iOct) const
 void UserDataLB::move(const uint32_t from, const uint32_t to)
 {
 
-  for (uint32_t ivar=0; ivar<nbVars; ++ivar)
+  for (uint32_t ivar=0; ivar<nbFields; ++ivar)
     for (uint32_t index=0; index<nbCellsPerOct; ++index)
       data(index,fm[ivar],to) = data(index,fm[ivar],from);
 
@@ -68,10 +68,10 @@ void UserDataLB::assign(uint32_t stride, uint32_t length)
 {
   
   DataArrayBlock dataCopy("dataLBcopy");
-  Kokkos::resize(dataCopy, nbCellsPerOct, length, nbVars);
+  Kokkos::resize(dataCopy, nbCellsPerOct, length, nbFields);
   
   Kokkos::parallel_for("dyablo::muscl_block::UserDataLB::assign copy data to dataCopy",length, KOKKOS_LAMBDA(size_t &iOct) {
-      for (uint32_t ivar=0; ivar<nbVars; ++ivar)
+      for (uint32_t ivar=0; ivar<nbFields; ++ivar)
         for (uint32_t index=0; index<nbCellsPerOct; ++index)
           dataCopy(index, fm[ivar], iOct) = data(index, fm[ivar], iOct+stride);
     });
@@ -79,7 +79,7 @@ void UserDataLB::assign(uint32_t stride, uint32_t length)
   //data = dataCopy;
   //Kokkos::resize(data,nbCellsPerOct,length,nbVars);
   Kokkos::parallel_for("dyablo::muscl_block::UserDataLB::assign copy dataCopy to data",length, KOKKOS_LAMBDA(size_t &iOct) {
-      for (uint32_t ivar=0; ivar<nbVars; ++ivar)
+      for (uint32_t ivar=0; ivar<nbFields; ++ivar)
         for (uint32_t index=0; index<nbCellsPerOct; ++index)
           data(index,fm[ivar],iOct) = dataCopy(index,fm[ivar],iOct);
     });
@@ -91,7 +91,7 @@ void UserDataLB::assign(uint32_t stride, uint32_t length)
 void UserDataLB::resize(uint32_t newSize)
 {
 
-  Kokkos::resize(data, nbCellsPerOct, nbVars, newSize);
+  Kokkos::resize(data, nbCellsPerOct, nbFields, newSize);
 
 }; // UserDataLB::resize
 
@@ -100,7 +100,7 @@ void UserDataLB::resize(uint32_t newSize)
 void UserDataLB::resizeGhost(uint32_t newSize)
 {
 
-  Kokkos::resize(ghostdata, nbCellsPerOct, nbVars, newSize);
+  Kokkos::resize(ghostdata, nbCellsPerOct, nbFields, newSize);
 
 }; // UserDataLB::resizeGhost
 

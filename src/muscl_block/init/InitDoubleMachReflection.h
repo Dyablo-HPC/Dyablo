@@ -114,8 +114,7 @@ public:
         KOKKOS_LAMBDA(const int32_t index) {
 	  coord_t iCoord;
           uint32_t& ix = iCoord[IX];
-          uint32_t& iy = iCoord[IY];
-          uint32_t& iz = iCoord[IZ];                    
+          uint32_t& iy = iCoord[IY];                 
 
           if (twoD) {
             iCoord = index_to_coord<2>(index,blockSizes);
@@ -218,7 +217,6 @@ public:
       std::array<double,3> center = pmesh->getCenter(iOct);
       const real_t x = center[0];
       const real_t y = center[1];
-      const real_t z = center[2];
       
       const real_t xs    = dmrParams.xs;
       const real_t tant  = tanf(dmrParams.angle);

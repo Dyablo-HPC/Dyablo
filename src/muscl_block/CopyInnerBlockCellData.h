@@ -72,17 +72,20 @@ public:
     U(U), 
     Ugroup(Ugroup),
     iGroup(iGroup)
-  {};
+  {
+    copy_gravity = (params.gravity_type & GRAVITY_FIELD);
+    ndim = (params.dimType == THREE_D ? 3 : 2);
+  };
   
   // static method which does it all: create and execute functor
   static void apply(ConfigMap      configMap,
-		    HydroParams    params,
-		    id2index_t     fm,
+		                HydroParams    params,
+		                id2index_t     fm,
                     blockSize_t    blockSizes,
                     uint32_t       ghostWidth,
                     uint32_t       nbOcts,
                     uint32_t       nbOctsPerGroup,
-		    DataArrayBlock U,
+		                DataArrayBlock U,
                     DataArrayBlock Ugroup,
                     uint32_t       iGroup)
   {
@@ -163,6 +166,13 @@ public:
           if (params.dimType == THREE_D)
             Ugroup(index_g, fm[IW], iOct_g) = U(index, fm[IW], iOct);
 
+          if (copy_gravity) {
+            Ugroup(index_g, fm[IGX], iOct_g) = U(index, fm[IGX], iOct);
+            Ugroup(index_g, fm[IGY], iOct_g) = U(index, fm[IGY], iOct);
+            if (params.dimType == THREE_D)
+              Ugroup(index_g, fm[IGZ], iOct_g) = U(index, fm[IGZ], iOct);
+          }
+
         }); // end TeamVectorRange
 
       // increase current octant location both in U and Ugroup
@@ -202,6 +212,12 @@ public:
 
   //! id of group of octants to be copied
   uint32_t iGroup;
+
+  // should we copy gravity ?
+  bool copy_gravity;
+
+  // number of dimensions for gravity
+  int ndim;
 
 }; // CopyInnerBlockCellDataFunctor
 

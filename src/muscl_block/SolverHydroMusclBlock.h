@@ -114,9 +114,6 @@ public:
   //! flux accumulator - array of octant's block data
   DataArrayBlock Fluxes;
 
-  //! Gravity field
-  DataArrayBlock gravity;
-
   //! field manager for scalar variables mapping to memory index
   FieldManager fieldMgr;
   
