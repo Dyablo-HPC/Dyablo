@@ -32,7 +32,7 @@ void close_vtu_grid(std::ostream &outFile);
  */
 void write_vtu_footer(std::ostream &outFile);
 
-#ifdef USE_MPI
+#ifdef DYABLO_USE_MPI
 /**
  * write pvtu header in a separate file.
  */
@@ -40,7 +40,7 @@ void write_pvtu_header(std::string headerFilename, std::string outputPrefix,
                        const int nProcs, ConfigMap &configMap,
                        const std::map<int, std::string> &varNames,
                        const int iStep);
-#endif // USE_MPI
+#endif // DYABLO_USE_MPI
 
 } // namespace io
 

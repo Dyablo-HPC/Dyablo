@@ -107,7 +107,7 @@ void write_vtu_footer(std::ostream &outFile)
 
 } // write_vtu_footer
 
-#ifdef USE_MPI
+#ifdef DYABLO_USE_MPI
 /*
  * write pvtu header in a separate file.
  */
@@ -213,7 +213,7 @@ void write_pvtu_header(std::string headerFilename, std::string outputPrefix,
 
 } // write_pvtu_header
 
-#endif // USE_MPI
+#endif // DYABLO_USE_MPI
 
 } // namespace io
 

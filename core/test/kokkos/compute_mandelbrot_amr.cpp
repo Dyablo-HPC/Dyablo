@@ -28,9 +28,9 @@
 #include <Kokkos_Sort.hpp>
 
 // MPI support
-#ifdef USE_MPI
+#ifdef DYABLO_USE_MPI
 #include "utils/mpiUtils/GlobalMpiSession.h"
-#endif // USE_MPI
+#endif // DYABLO_USE_MPI
 
 // VTK IO implementation
 #include "utils/io/VTKWriter.h" // for VTK_WRITE_ENUM class
@@ -884,9 +884,9 @@ int main(int argc, char* argv[])
 {
 
   // Create MPI session if MPI enabled
-#ifdef USE_MPI
+#ifdef DYABLO_USE_MPI
   hydroSimu::GlobalMpiSession mpiSession(&argc,&argv);
-#endif // USE_MPI
+#endif // DYABLO_USE_MPI
 
   Kokkos::initialize(argc, argv);
 

@@ -1,6 +1,6 @@
-#ifdef USE_MPI
+#ifdef DYABLO_USE_MPI
 #include <mpi.h>
-#endif // USE_MPI
+#endif // DYABLO_USE_MPI
 
 #include "utils/io/libb64/libb64.h" // for type base64 encoding
 #include <algorithm>                // for std::max
@@ -67,13 +67,13 @@ VTKWriter::VTKWriter(ConfigMap &configMap, int64_t nbCells) :
   else if (outputVtkBinary)
     m_write_type_str = "binary";
 
-#if USE_MPI
+#if DYABLO_USE_MPI
   m_fileHandler.setIsParallel(true);
 
   int rank = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   m_fileHandler.setRank(rank);
-#endif // USE_MPI
+#endif // DYABLO_USE_MPI
 
 } // VTKWriter::VTKWriter
 
