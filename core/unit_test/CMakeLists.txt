@@ -18,9 +18,12 @@ set(UNIT_TEST_NAME "dyablo_unit_tests")
 add_executable(${UNIT_TEST_NAME} "")
 target_sources(${UNIT_TEST_NAME} PRIVATE
   shared/morton_utils_test.cpp main.cpp)
+# this is necessary to have BOOST_TEST_ALTERNATIVE_INIT_API
+# and thus being able to initialize with empty function init_function
+target_compile_definitions(${UNIT_TEST_NAME} PRIVATE BOOST_TEST_DYN_LINK)
 target_link_libraries(${UNIT_TEST_NAME} PRIVATE
   config
-  kokkos
+  Kokkos::kokkos
   dl
   shared
   monitoring
