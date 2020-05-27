@@ -33,7 +33,7 @@ Make sure to clone this repository recursively, this will also download kokkos s
 git clone --recurse-submodules git@gitlab.maisondelasimulation.fr:pkestene/dyablo.git
 ```
 
-Kokkos and BitPit/PABLO are built as part of dyablo with the cmake build system.
+Kokkos and BitPit/PABLO are (optinnally) built as part of dyablo with the cmake build system.
 
 ## prerequisites
 
@@ -42,13 +42,13 @@ Kokkos and BitPit/PABLO are built as part of dyablo with the cmake build system.
 
 ## build dyablo
 
-## superbuild : build bitpit/PABLO and dyablo together
+## superbuild : build bitpit/PABLO, Kokkos and dyablo alltogether
 
-The top-level `CMakeLists.txt` uses the the super-build pattern to build both dyablo and its depency (here bitpit) using cmake command [ExternalProject_Add](https://cmake.org/cmake/help/latest/module/ExternalProject.html).
+The top-level `CMakeLists.txt` uses the the super-build pattern to build bdyablo and its depencies (here bitpit and Kokkos) using cmake command [ExternalProject_Add](https://cmake.org/cmake/help/latest/module/ExternalProject.html).
 
 We removed the local modified copy of [BitPit/PABLO](https://github.com/optimad/bitpit) introduced in December 2018; we use instead the following archive [bitpit-1.7.0-devel-dyablo-v0.2.tar.gz](https://github.com/pkestene/bitpit/archive/bitpit-1.7.0-devel-dyablo-v0.2.tar.gz). BitPit source code archive is downloaded and built as part of dyablo (using the cmake super-build pattern). 
 
-To build bitpit and dyablo (for Kokkos/OpenMP backend which is the default)
+To build bitpit, Kokkos and dyablo (for Kokkos/OpenMP backend which is the default)
 
 ```bash
 mkdir build_openmp; cd build_openmp
@@ -59,11 +59,34 @@ make
 The same for Kokkos/CUDA (e.g. for latest Turing CUDA architecture):
 ```bash
 mkdir build_cuda; cd build_cuda
-# use nvcc_wrapper compiler from kokkos source directory
-export CXX=/full/absolute/path/to/nvcc_wrapper
 ccmake -DKokkos_ENABLE_CUDA=ON -DKokkos_ARCH=TURING75 ..
 make
 ```
+
+Please note that you don't have to specify environment variable CXX (set to nvcc_wrapper when targeting CUDA backend), each sub-project (Bitpit / Kokkos / dyablo) is built with a custom specific `CMAKE_CXX_COMPILER` variable; if `Kokkos_ENABLE_CUDA` is enabled, internally `nvcc_wrapper` will be selcted to build both Kokkos and dyablo.
+
+## What should I do when Kokkos is already available on my host ?
+
+Just set environment variable `Kokkos_DIR`:
+```shell
+export Kokkos_DIR={KOKKOS_INSTALL_DIR}/lib/cmake/Kokkos
+```
+then Kokkos will be recognized, and building Kokkos will be skipped.
+
+## What should I do if I want to change options passed to Kokkos build ?
+
+1. example: you first compiled the project with OpenMP enabled, and now want to enable CUDA, you can change the cmake top-level varaible, and enforce rebuilding Kokkos by setting cmake var `FORCE_KOKKOS_BUILD` to TRUE
+
+2. you want to change advanced options of the Kokkos build:
+```shell
+# step into kokkos build dir
+cd ${PROJECT_BINARY_DIR}/external/Build/kokkos_external
+# reconfigure Kokkos cmake options using ccmake interface
+ccmake ../../../../external/kokkos
+make 
+make install
+```
+then go back to dyablo build directory, and make again with the new Kokkos build.
 
 ## build only dyablo for Kokkos/OpenMP (when bitpit is already installed)
 
