@@ -397,8 +397,6 @@ double SolverHydroMusclBlock::compute_dt_local()
 // =======================================================
 void SolverHydroMusclBlock::next_iteration_impl()
 {
-  
-  std::cerr << "----" << std::endl;
   int myRank=0;
   
 #ifdef DYABLO_USE_MPI

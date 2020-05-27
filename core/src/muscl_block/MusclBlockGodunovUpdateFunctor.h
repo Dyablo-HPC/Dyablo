@@ -687,6 +687,7 @@ public:
     qr[IV] = v + sv0 + offsets[IX] * dvx + offsets[IY] * dvy;
     qr[ID] = fmax(smallr, qr[ID]);
 
+
     return qr;
 
   } // reconstruct_state_2d
@@ -1274,8 +1275,6 @@ public:
             // j -> j+1
             const uint32_t ig = (i + ghostWidth) + bx_g * (j + ghostWidth);
 
-            bool debug = false; //((iOct == 172 and index == 3) or (iOct == 43 and index == 0));
-            std::cerr << std::fixed << std::setprecision(10);
             // the following condition makes sure we stay inside
             // the inner block
             if (i >= 0 and i < bx and
@@ -1285,16 +1284,6 @@ public:
               HydroState2d qprim = get_prim_variables<HydroState2d>(ig, iOct_local);
               GravityField gc = get_gravity_field(ig, iOct_local);
               GravityField g;
-
-              /*
-              if ((iOct == 172 and index == 3) or (iOct == 43 and index == 0))
-                std::cerr << (int)iOct << " " << (int)index << " "
-                          << qprim[ID] << " " << qprim[IU] << " " << qprim[IV] << " " << qprim[IP]
-                          << "; " << gc[IX] << " " << gc[IY] << std::endl;*/
-              if (debug)
-                std::cerr << (int)iOct << " " << (int)index << " "
-                          << qprim[ID] << " " << qprim[IU] << " " << qprim[IV] << " " << qprim[IP]
-                          << "; " << gc[IX] << " " << gc[IY] << std::endl;
 
               // fluxes will be accumulated in qcons
               HydroState2d qcons = get_cons_variables<HydroState2d>(ig, iOct_local);
@@ -1324,15 +1313,6 @@ public:
                 apply_gravity_prediction(qR, gc);
                 g = get_gravity_field(ig-1, iOct_local);
                 apply_gravity_prediction(qL, g);
-
-                if (debug)
-                  std::cerr << (int)iOct << " " << (int)index << " left conformal." 
-                            << " qp " << qR[ID] << " " << qR[IU] << " " << qR[IV] << " " << qR[IP]
-                            << " qo " << qL[ID] << " " << qL[IU] << " " << qL[IV] << " " << qL[IP]
-                            << " qpb " << qprim[ID] << " " << qprim[IU] << " " << qprim[IV] << " " << qprim[IP]
-                            << " qob " << qprim_n[ID] << " " << qprim_n[IU] << " " << qprim_n[IV] << " " << qprim_n[IP]
-                            << std::endl;
-                
 
                 // step 4 : compute flux (Riemann solver)
                 HydroState2d flux = riemann_hydro(qL, qR, params);
@@ -1367,13 +1347,7 @@ public:
                 apply_gravity_prediction(qL, gc);
                 g = get_gravity_field(ig+1, iOct_local);
                 apply_gravity_prediction(qR, g);
-                if (debug)
-                  std::cerr << (int)iOct << " " << (int)index << " right conformal." 
-                            << " qp " << qL[ID] << " " << qL[IU] << " " << qL[IV] << " " << qL[IP]
-                            << " qo " << qR[ID] << " " << qR[IU] << " " << qR[IV] << " " << qR[IP]
-                            << " qpb " << qprim[ID] << " " << qprim[IU] << " " << qprim[IV] << " " << qprim[IP]
-                            << " qob " << qprim_n[ID] << " " << qprim_n[IU] << " " << qprim_n[IV] << " " << qprim_n[IP]
-                            << std::endl;
+                
                 // step 4 : compute flux (Riemann solver)
                 HydroState2d flux = riemann_hydro(qL, qR, params);
 
@@ -1407,13 +1381,7 @@ public:
                 apply_gravity_prediction(qR, gc);
                 g = get_gravity_field(ig-bx_g, iOct_local);
                 apply_gravity_prediction(qL, g);
-                if (debug)
-                  std::cerr << (int)iOct << " " << (int)index << " bottom conformal." 
-                            << " qp " << qR[ID] << " " << qR[IU] << " " << qR[IV] << " " << qR[IP]
-                            << " qo " << qL[ID] << " " << qL[IU] << " " << qL[IV] << " " << qL[IP]
-                            << " qpb " << qprim[ID] << " " << qprim[IU] << " " << qprim[IV] << " " << qprim[IP]
-                            << " qob " << qprim_n[ID] << " " << qprim_n[IU] << " " << qprim_n[IV] << " " << qprim_n[IP]
-                            << std::endl;
+                
                 // swap IU / IV
                 my_swap(qL[IU], qL[IV]);
                 my_swap(qR[IU], qR[IV]);
@@ -1454,13 +1422,7 @@ public:
                 apply_gravity_prediction(qL, gc);
                 g = get_gravity_field(ig+bx_g, iOct_local);
                 apply_gravity_prediction(qR, g);
-                if (debug)
-                  std::cerr << (int)iOct << " " << (int)index << " top conformal." 
-                            << " qp " << qL[ID] << " " << qL[IU] << " " << qL[IV] << " " << qL[IP]
-                            << " qo " << qR[ID] << " " << qR[IU] << " " << qR[IV] << " " << qR[IP]
-                            << " qpb " << qprim[ID] << " " << qprim[IU] << " " << qprim[IV] << " " << qprim[IP]
-                            << " qob " << qprim_n[ID] << " " << qprim_n[IU] << " " << qprim_n[IV] << " " << qprim_n[IP]
-                            << std::endl;
+                
                 // swap IU / IV
                 my_swap(qL[IU], qL[IV]);
                 my_swap(qR[IU], qR[IV]);
