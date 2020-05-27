@@ -413,7 +413,7 @@ void SolverHydroMusclBlock::next_iteration_impl()
     if ( should_save_solution() ) {
       
       if (myRank==0) {
-	      std::cout << "Output results at time t=" << m_t
+	std::cout << "Output results at time t=" << m_t
 		  << " step " << m_iteration
 		  << " dt=" << m_dt << std::endl;
       }
