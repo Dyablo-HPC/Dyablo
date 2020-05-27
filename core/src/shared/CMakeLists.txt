@@ -33,7 +33,8 @@ target_include_directories(shared
 
 target_link_libraries(shared 
   PUBLIC
-    kokkos BITPIT::BITPIT
+    Kokkos::kokkos
+    BITPIT::BITPIT
   )
 if (DYABLO_USE_MPI)
   target_link_libraries(shared PUBLIC

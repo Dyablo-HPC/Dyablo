@@ -15,7 +15,7 @@ target_include_directories(${EXE_NAME}
 
 target_link_libraries(${EXE_NAME}
   config
-  kokkos
+  Kokkos::kokkos
   dl
   muscl
   shared

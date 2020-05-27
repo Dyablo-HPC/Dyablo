@@ -16,7 +16,7 @@ macro(build_test_executable name with_kokkos)
   target_link_libraries(${name} PUBLIC BITPIT::BITPIT)
 
   if (${with_kokkos})
-    target_link_libraries(${name} PUBLIC kokkos)
+    target_link_libraries(${name} PUBLIC Kokkos::kokkos)
   endif()
   
 endmacro(build_test_executable)

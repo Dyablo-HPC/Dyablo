@@ -20,7 +20,7 @@ macro(build_test_executable name)
   if(DYABLO_USE_MPI)
     target_compile_definitions(${name} PUBLIC BITPIT_ENABLE_MPI)
   endif(DYABLO_USE_MPI)
-  target_link_libraries(${name} kokkos shared BITPIT::BITPIT)
+  target_link_libraries(${name} Kokkos::kokkos shared BITPIT::BITPIT)
 
 endmacro(build_test_executable)
 

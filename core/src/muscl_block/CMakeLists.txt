@@ -25,7 +25,7 @@ add_library(muscl_block
 target_include_directories(muscl_block
   PUBLIC
   ${CMAKE_SOURCE_DIR}/src) 
-target_link_libraries(muscl_block PUBLIC kokkos BITPIT::BITPIT)
+target_link_libraries(muscl_block PUBLIC Kokkos::kokkos BITPIT::BITPIT)
 
 if (DYABLO_USE_MPI)
    
