@@ -33,7 +33,7 @@ Make sure to clone this repository recursively, this will also download kokkos s
 git clone --recurse-submodules git@gitlab.maisondelasimulation.fr:pkestene/dyablo.git
 ```
 
-Kokkos and BitPit/PABLO are built as part of dyablo with the cmake build system.
+Kokkos and BitPit/PABLO are (optinnally) built as part of dyablo with the cmake build system.
 
 ## prerequisites
 
@@ -42,13 +42,13 @@ Kokkos and BitPit/PABLO are built as part of dyablo with the cmake build system.
 
 ## build dyablo
 
-## superbuild : build bitpit/PABLO and dyablo together
+## superbuild : build bitpit/PABLO, Kokkos and dyablo alltogether
 
-The super-build pattern build both dyablo and its depency (bitpit) using cmake command [ExternalProject_Add](https://cmake.org/cmake/help/latest/module/ExternalProject.html).
+The top-level `CMakeLists.txt` uses the the super-build pattern to build bdyablo and its depencies (here bitpit and Kokkos) using cmake command [ExternalProject_Add](https://cmake.org/cmake/help/latest/module/ExternalProject.html).
 
-We removed the local modified copy of [BitPit/PABLO](https://github.com/optimad/bitpit) introduced in December 2018; we use instead the following archive [bitpit-1.7.0-devel-dyablo.tar.gz](https://github.com/pkestene/bitpit/archive/bitpit-1.7.0-devel-dyablo.tar.gz). BitPit source code archive is downloaded and built as part of dyablo (using the cmake super-build pattern). 
+We removed the local modified copy of [BitPit/PABLO](https://github.com/optimad/bitpit) introduced in December 2018; we use instead the following archive [bitpit-1.7.0-devel-dyablo-v0.2.tar.gz](https://github.com/pkestene/bitpit/archive/bitpit-1.7.0-devel-dyablo-v0.2.tar.gz). BitPit source code archive is downloaded and built as part of dyablo (using the cmake super-build pattern). 
 
-To build bitpit and dyablo (for Kokkos/OpenMP backend which is the default)
+To build bitpit, Kokkos and dyablo (for Kokkos/OpenMP backend which is the default)
 
 ```bash
 mkdir build_openmp; cd build_openmp
@@ -59,11 +59,34 @@ make
 The same for Kokkos/CUDA (e.g. for latest Turing CUDA architecture):
 ```bash
 mkdir build_cuda; cd build_cuda
-# use nvcc_wrapper compiler from kokkos source directory
-export CXX=/full/absolute/path/to/nvcc_wrapper
 ccmake -DKokkos_ENABLE_CUDA=ON -DKokkos_ARCH=TURING75 ..
 make
 ```
+
+Please note that you don't have to specify environment variable CXX (set to nvcc_wrapper when targeting CUDA backend), each sub-project (Bitpit / Kokkos / dyablo) is built with a custom specific `CMAKE_CXX_COMPILER` variable; if `Kokkos_ENABLE_CUDA` is enabled, internally `nvcc_wrapper` will be selcted to build both Kokkos and dyablo.
+
+## What should I do when Kokkos is already available on my host ?
+
+Just set environment variable `Kokkos_DIR`:
+```shell
+export Kokkos_DIR={KOKKOS_INSTALL_DIR}/lib/cmake/Kokkos
+```
+then Kokkos will be recognized, and building Kokkos will be skipped.
+
+## What should I do if I want to change options passed to Kokkos build ?
+
+1. example: you first compiled the project with OpenMP enabled, and now want to enable CUDA, you can change the cmake top-level varaible, and enforce rebuilding Kokkos by setting cmake var `FORCE_KOKKOS_BUILD` to TRUE
+
+2. you want to change advanced options of the Kokkos build:
+```shell
+# step into kokkos build dir
+cd ${PROJECT_BINARY_DIR}/external/Build/kokkos_external
+# reconfigure Kokkos cmake options using ccmake interface
+ccmake ../../../../external/kokkos
+make 
+make install
+```
+then go back to dyablo build directory, and make again with the new Kokkos build.
 
 ## build only dyablo for Kokkos/OpenMP (when bitpit is already installed)
 
@@ -71,55 +94,65 @@ To build dyablo for kokkos/OpenMP backend, assuming bitpit is already installed 
 
 ```bash
 mkdir build_openmp; cd build_openmp
-ccmake -DBITPIT_DIR=/home/pkestene/local/bitpit-1.7.0-devel-dyablo/lib/cmake/bitpit-1.7 ..
+ccmake -DBITPIT_DIR=/home/pkestene/local/bitpit-1.7.0-devel-dyablo-v0.2/lib/cmake/bitpit-1.7 ..
 make
 ```
 
-BITPIT_DIR should to your bitpit install subdirectory where the BITPITConfig.cmake resides.
+BITPIT_DIR should point to your bitpit install subdirectory where the BITPITConfig.cmake resides.
 
 ## build only bitpit
 
-1. get [bitpit sources](https://github.com/pkestene/bitpit/archive/bitpit-1.7.0-devel-dyablo.tar.gz)
+1. get [bitpit sources](https://github.com/pkestene/bitpit/archive/bitpit-1.7.0-devel-dyablo-v0.2.tar.gz)
 2. ```shell
-   tar zxf bitpit-1.7.0-devel-dyablo.tar.gz
-   cd bitpit-1.7.0-devel-dyablo
-   mkdir build; cd build
-   ccmake -DCMAKE_INSTALL_PREFIX=/home/pkestene/local/bitpit-1.7.0-devel \
-       -DCMAKE_BUILD_TYPE=Release \
-       -DENABLE_MPI=ON \
-       -DBITPIT_MODULE_LA=OFF \
-       -DBITPIT_MODULE_CG=OFF \
-       -DBITPIT_MODULE_DISCRETIZATION=OFF \
-       -DBITPIT_MODULE_LEVELSET=OFF \
-       -DBITPIT_MODULE_PATCHKERNEL=OFF \
-       -DBITPIT_MODULE_POD=OFF \
-       -DBITPIT_MODULE_RBF=OFF \
-       -DBITPIT_MODULE_SA=OFF \
-       -DBITPIT_MODULE_SURFUNSTRUCTURED=OFF \
-       -DBITPIT_MODULE_VOLCARTESIAN=OFF \
-       -DBITPIT_MODULE_VOLOCTREE=OFF \
-       -DBITPIT_MODULE_VOLUNSTRUCTURED=OFF \ 
-      ..
-   make
-   make install
-   ```
-This installed version of bitpit can be used to build dyablo (see above).
+      tar zxf bitpit-1.7.0-devel-dyablo-v0.2.tar.gz
+      cd bitpit-1.7.0-devel-dyablo-v0.2
+      mkdir build; cd build
+      ccmake -DCMAKE_INSTALL_PREFIX=/home/pkestene/local/bitpit-1.7.0-devel-dyablo-v0.2 \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DENABLE_MPI=ON \
+          -DBITPIT_MODULE_LA=OFF \
+          -DBITPIT_MODULE_CG=OFF \
+          -DBITPIT_MODULE_DISCRETIZATION=OFF \
+          -DBITPIT_MODULE_LEVELSET=OFF \
+          -DBITPIT_MODULE_PATCHKERNEL=OFF \
+          -DBITPIT_MODULE_POD=OFF \
+          -DBITPIT_MODULE_RBF=OFF \
+          -DBITPIT_MODULE_SA=OFF \
+          -DBITPIT_MODULE_SURFUNSTRUCTURED=OFF \
+          -DBITPIT_MODULE_VOLCARTESIAN=OFF \
+          -DBITPIT_MODULE_VOLOCTREE=OFF \
+          -DBITPIT_MODULE_VOLUNSTRUCTURED=OFF \ 
+          ..
+      make
+      make install
+      ```
 
+This installed version of bitpit can be used to build dyablo (see above).
 
 # More information
 
 For now, just visit the wiki page https://gitlab.maisondelasimulation.fr/pkestene/dyablo/wikis/home
 
+## build and run unit tests
+
+```shell
+# configure cmake for building unit tests
+# make sur to have boost installed (with libs)
+ccmake -DDYABLO_ENABLE_UNIT_TESTING=ON .. 
+make
+make dyablo-test
+```
+
 ## build documentation
 
-### doxygen
+### [doxygen](https://www.doxygen.nl/)
 
 ```shell
 # re-run cmake with additionnal options
 cd build
-ccmake -DBUILD_DOC=ON -DDOC=doxygen
+ccmake -DDYABLO_BUILD_DOC=ON -DDYABLO_DOC=doxygen
 make
-cd dyablo; make doc
+make dyablo-doc
 ```
 
 This will generate the html doxygen page in `doc/doxygen/html`
@@ -131,9 +164,9 @@ MkDocs is an alternative to sphinx, but relying on markdown instead of ResST. He
 ```shell
 # generate mkdocs sources
 cd build
-ccmake -DBUILD_DOC=ON -DDOC=mkdocs
+ccmake -DDYABLO_BUILD_DOC=ON -DDYABLO_DOC=mkdocs
 make
-cd dyablo; make doc
+make dyablo-doc
 ```
 
 This will generate the markdown sources for the mkdocs static webpage.

@@ -1,0 +1,6 @@
+add_subdirectory(config)
+add_subdirectory(monitoring)
+add_subdirectory(misc)
+if (DYABLO_USE_MPI)
+  add_subdirectory(mpiUtils)
+endif(DYABLO_USE_MPI)
