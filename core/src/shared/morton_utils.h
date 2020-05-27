@@ -474,19 +474,6 @@ uint64_t get_neighbor_morton(uint64_t key,
   return compute_morton_key(0,0,0);
 
 } // get_neighbor_morton
-ro; simplify a bit function  get_neighbor_morton in the case the neigbor octant is has not the same size as current octant
-
-
-// ====================================================================
-// ====================================================================
-KOKKOS_INLINE_FUNCTION
-real_t levelToSize (uint8_t level) 
-{
-
-  return 1.0/(1<<level);
-
-}
-
 
 // ====================================================================
 // ====================================================================

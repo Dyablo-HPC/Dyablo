@@ -22,5 +22,5 @@ target_include_directories(io
 target_link_libraries(io
   config
   misc
-  kokkos
+  Kokkos::kokkos
   )
