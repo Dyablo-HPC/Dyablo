@@ -201,12 +201,12 @@ if ( (NOT Kokkos_FOUND) OR FORCE_KOKKOS_BUILD )
   endif()
 
   # clear cmake cache if necessary
-  set (KOKKOS_CMAKE_CACHE ${PROJECT_BINARY_DIR}/external/Build/kokkos_external/CMakeCache.txt)
-  if (EXISTS ${KOKKOS_CMAKE_CACHE})
-    # if we are here, it means Kokkos was already build once, and FORCE_KOKKOS_BUILD is true
-    # ==> erase cmake cache, to make sure cmake configuration is re-run
-    file(REMOVE ${KOKKOS_CMAKE_CACHE})
-  endif()
+  # set (KOKKOS_CMAKE_CACHE ${PROJECT_BINARY_DIR}/external/Build/kokkos_external/CMakeCache.txt)
+  # if (EXISTS ${KOKKOS_CMAKE_CACHE})
+  #   # if we are here, it means Kokkos was already build once, and FORCE_KOKKOS_BUILD is true
+  #   # ==> erase cmake cache, to make sure cmake configuration is re-run
+  #   file(REMOVE ${KOKKOS_CMAKE_CACHE})
+  # endif()
 
   #
   # build kokkos
