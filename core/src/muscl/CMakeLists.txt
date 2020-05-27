@@ -26,7 +26,7 @@ target_include_directories(muscl
   PUBLIC
   ${CMAKE_SOURCE_DIR}/src
   ) 
-target_link_libraries(muscl PUBLIC kokkos BITPIT::BITPIT)
+target_link_libraries(muscl PUBLIC Kokkos::kokkos BITPIT::BITPIT)
 
 if (DYABLO_USE_MPI)
  

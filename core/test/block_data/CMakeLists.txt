@@ -8,7 +8,7 @@ add_executable(test_CopyInnerBlockCellData
   test_CopyInnerBlockCellData.cpp)
 target_link_libraries(test_CopyInnerBlockCellData PUBLIC 
   config
-  kokkos
+  Kokkos::kokkos
   shared 
   monitoring)
 if (DYABLO_USE_MPI)
@@ -23,7 +23,7 @@ add_executable(test_CopyGhostBlockCellData
   test_CopyGhostBlockCellData.cpp)
 target_link_libraries(test_CopyGhostBlockCellData PUBLIC 
   config
-  kokkos
+  Kokkos::kokkos
   dl
   muscl_block
   shared
@@ -41,7 +41,7 @@ add_executable(test_MusclBlockGodunovUpdateFunctor
   test_MusclBlockGodunovUpdateFunctor.cpp)
 target_link_libraries(test_MusclBlockGodunovUpdateFunctor PUBLIC 
   config
-  kokkos
+  Kokkos::kokkos
   dl
   muscl_block
   shared

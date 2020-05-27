@@ -4,14 +4,14 @@
 
 add_executable(query_device_kokkos
   query_device_kokkos.cpp)
-target_link_libraries(query_device_kokkos PUBLIC kokkos)
+target_link_libraries(query_device_kokkos PUBLIC Kokkos::kokkos)
 if (DYABLO_USE_MPI)
   target_link_libraries(query_device_kokkos PUBLIC MPI::MPI_CXX)
 endif(DYABLO_USE_MPI)
 
 add_executable(test_kokkos_teamvector
   test_kokkos_teamvector.cpp)
-target_link_libraries(test_kokkos_teamvector PUBLIC kokkos)
+target_link_libraries(test_kokkos_teamvector PUBLIC Kokkos::kokkos)
 if (DYABLO_USE_MPI)
   target_link_libraries(test_kokkos_teamvector PUBLIC mpiUtils MPI::MPI_CXX)
 endif(DYABLO_USE_MPI)
@@ -23,5 +23,5 @@ target_include_directories(test_unordered_map
   PUBLIC
   ${CMAKE_SOURCE_DIR}/src
   )
-target_link_libraries(test_unordered_map kokkos hwloc dl)
+target_link_libraries(test_unordered_map Kokkos::kokkos hwloc dl)
 

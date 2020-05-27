@@ -35,7 +35,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # dyablo options are defined in top level CMakeLists.txt
 
-# C++11 is for Kokkos
+# C++14 is for Kokkos
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -66,6 +66,15 @@ if (BITPIT_FOUND)
       INTERFACE_LINK_LIBRARIES "${_tmp_dep_libs}")
   endif()
 endif(BITPIT_FOUND)
+
+#####################################################################
+# Kokkos
+#####################################################################
+find_package(Kokkos 3.1 REQUIRED)
+if(Kokkos_ENABLE_CUDA)
+  # kokkos_check is defined in KokkosConfigCommon.cmake
+  kokkos_check(OPTIONS CUDA_LAMBDA)
+endif()
 
 #####################################################################
 # MPI
@@ -189,10 +198,10 @@ add_definitions( -Wall )
 # sources
 #
 add_subdirectory(../external/backward-cpp external/backward-cpp)
-add_subdirectory(../external/kokkos external/kokkos)
+#add_subdirectory(../external/kokkos external/kokkos)
 
 # pass Kokkos include directories to our target application
-include_directories(${Kokkos_INCLUDE_DIRS_RET})
+#include_directories(${Kokkos_INCLUDE_DIRS_RET})
 
 add_subdirectory(test)
 add_subdirectory(src)
@@ -221,6 +230,19 @@ if (DYABLO_USE_MPI)
 else(DYABLO_USE_MPI)
   message("  MPI not enabled")
 endif(DYABLO_USE_MPI)
+if (Kokkos_FOUND)
+  message("  Kokkos_Found true")
+  message("  Kokkos_ENABLE_HWLOC=${Kokkos_ENABLE_HWLOC}")
+  message("  Kokkos_ENABLE_OPENMP=${Kokkos_ENABLE_OPENMP}")
+  message("  Kokkos_ENABLE_DEBUG=${Kokkos_ENABLE_DEBUG}")
+  message("  Kokkos_ENABLE_DEBUG_BOUNDS_CHECK=${Kokkos_ENABLE_DEBUG_BOUNDS_CHECK}")
+  message("  Kokkos_ENABLE_CUDA=${Kokkos_ENABLE_CUDA}")
+  message("  Kokkos_ENABLE_CUDA_LAMBDA=${Kokkos_ENABLE_CUDA_LAMBDA}")
+  message("  Kokkos_ENABLE_CUDA_CONSTEXPR=${Kokkos_ENABLE_CUDA_CONSTEXPR}")
+  message("  Kokkos_ENABLE_CUDA_UVM=${Kokkos_ENABLE_CUDA_UVM}")
+  message("  Kokkos_ARCH_${Kokkos_ARCH}=ON")
+endif(Kokkos_FOUND)
+
 if (USE_CUDA)
   message("  CUDA Compiler      : ${CMAKE_CUDA_COMPILER}")
   message("  CUDA Compiler exec : ${CUDA_NVCC_EXECUTABLE}")

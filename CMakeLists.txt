@@ -56,6 +56,9 @@ option (DYABLO_USE_MPI_CUDA_AWARE_ENFORCED "Some MPI cuda-aware implementation a
 # Enforce rebuilding bitpit
 option(FORCE_BITPIT_BUILD "Enforce rebuilding bitpit" OFF)
 
+# Enforce rebuilding bitpit
+option(FORCE_KOKKOS_BUILD "Enforce rebuilding kokkos" OFF)
+
 #
 # documentation related options
 #
@@ -144,18 +147,11 @@ if ( (NOT BITPIT_FOUND) OR FORCE_BITPIT_BUILD )
 
 endif()
 
-#####################################
-# now we build dyablo
-#####################################
-
-# at some point we should also build kokkos using ExternalProject, instead of including
-# its build system into dyablo
-
+####################################################
 #
-# prepare cmake arguments list
+# if KOKKOS is not found, then build / install it
 #
-set (DYABLO_CMAKE_ARGS)
-
+####################################################
 # some top-level cmake option (super-build)
 option(Kokkos_ENABLE_HWLOC  "enable HWLOC in Kokkos" ON)
 option(Kokkos_ENABLE_OPENMP "enable Kokkos::OpenMP backend" ON)
@@ -167,19 +163,94 @@ option(Kokkos_ENABLE_CUDA_UVM   "enable Kokkos::Cuda backend with LAMBDA" OFF)
 option(Kokkos_ENABLE_DEBUG  "build Kokkos in debug mode" OFF)
 option(Kokkos_ENABLE_DEBUG_BOUNDS_CHECK  "build Kokkos in debug mode" OFF)
 
+# only usefull when building for Kokkos::Cuda backend
+set(Kokkos_ARCH  "" CACHE STRING "Kokkos arch (KEPLER37, PASCAL60, ...)")
+
+find_package(Kokkos 3.1 QUIET)
+
+if ( (NOT Kokkos_FOUND) OR FORCE_KOKKOS_BUILD )
+
+  # enforce kokkos build before dyablo
+  list (APPEND DEPENDENCIES kokkos_external)
+
+  set(KOKKOS_COMPILER  "g++" CACHE STRING "compiler used to build kokkos (defaults to g++ if CUDA is not enabled, if CUDA enabled, set to nvcc_wrapper internally)")
+
+  if (Kokkos_ENABLE_CUDA)
+    set(KOKKOS_COMPILER ${PROJECT_SOURCE_DIR}/external/kokkos/bin/nvcc_wrapper)
+  endif()
+
+  list (APPEND KOKKOS_CMAKE_ARGS
+    -DCMAKE_INSTALL_PREFIX:PATH=${PROJECT_BINARY_DIR}/external/Install/kokkos_external
+    -DCMAKE_CXX_COMPILER=${KOKKOS_COMPILER}
+    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+    -DKokkos_ENABLE_HWLOC=${Kokkos_ENABLE_HWLOC}
+    -DKokkos_ENABLE_OPENMP=${Kokkos_ENABLE_OPENMP}
+    -DKokkos_ENABLE_DEBUG=${Kokkos_ENABLE_DEBUG}
+    -DKokkos_ENABLE_DEBUG_BOUNDS_CHECK=${Kokkos_ENABLE_DEBUG_BOUNDS_CHECK}
+    )
+  
+  # CUDA specific argument
+  if (Kokkos_ENABLE_CUDA)
+    list (APPEND KOKKOS_CMAKE_ARGS
+      -DKokkos_ENABLE_CUDA=${Kokkos_ENABLE_CUDA}
+      -DKokkos_ENABLE_CUDA_LAMBDA=${Kokkos_ENABLE_CUDA_LAMBDA}
+      -DKokkos_ENABLE_CUDA_CONSTEXPR=${Kokkos_ENABLE_CUDA_CONSTEXPR}
+      -DKokkos_ENABLE_CUDA_UVM=${Kokkos_ENABLE_CUDA_UVM}
+      -DKokkos_ARCH_${Kokkos_ARCH}=ON
+      )
+  endif()
+
+  # clear cmake cache if necessary
+  set (KOKKOS_CMAKE_CACHE ${PROJECT_BINARY_DIR}/external/Build/kokkos_external/CMakeCache.txt)
+  if (EXISTS ${KOKKOS_CMAKE_CACHE})
+    # if we are here, it means Kokkos was already build once, and FORCE_KOKKOS_BUILD is true
+    # ==> erase cmake cache, to make sure cmake configuration is re-run
+    file(REMOVE ${KOKKOS_CMAKE_CACHE})
+  endif()
+
+  #
+  # build kokkos
+  #
+  set_property(DIRECTORY PROPERTY EP_BASE ${CMAKE_BINARY_DIR}/external)
+  ExternalProject_Add (kokkos_external
+    UPDATE_COMMAND ""
+    SOURCE_DIR ${PROJECT_SOURCE_DIR}/external/kokkos
+    CMAKE_ARGS ${KOKKOS_CMAKE_ARGS}
+    LOG_CONFIGURE 1
+    LOG_BUILD 1
+    LOG_INSTALL 1
+    BUILD_ALWAYS ${FORCE_KOKKOS_BUILD}
+    )
+
+endif()
+
+#####################################
+#####################################
+# now we build dyablo
+#####################################
+#####################################
+
+# at some point we should also build kokkos using ExternalProject, instead of including
+# its build system into dyablo
+
+#
+# prepare cmake arguments list
+#
+set (DYABLO_CMAKE_ARGS)
+
 # if CUDA is enable, you need to be careful about the version of boost
 option(DYABLO_ENABLE_UNIT_TESTING "Enable unit testing" OFF)
 
-# only usefull when building for Kokkos::Cuda backend 
-set(Kokkos_ARCH  "" CACHE STRING "Kokkos arch (KEPLER37, PASCAL60, ...)")
+set(DYABLO_COMPILER ${KOKKOS_COMPILER} CACHE STRING "compiler used to build dyablo (defaults to the same as for kokkos)")
+
+if (Kokkos_ENABLE_CUDA)
+  set(DYABLO_COMPILER ${PROJECT_SOURCE_DIR}/external/kokkos/bin/nvcc_wrapper)
+endif()
 
 # default arguments - common to all platform
 list (APPEND DYABLO_CMAKE_ARGS
+  -DCMAKE_CXX_COMPILER=${DYABLO_COMPILER}
   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-  -DKokkos_ENABLE_HWLOC=${Kokkos_ENABLE_HWLOC}
-  -DKokkos_ENABLE_OPENMP=${Kokkos_ENABLE_OPENMP}
-  -DKokkos_ENABLE_DEBUG=${Kokkos_ENABLE_DEBUG}
-  -DKokkos_ENABLE_DEBUG_BOUNDS_CHECK=${Kokkos_ENABLE_DEBUG_BOUNDS_CHECK}
   -DDYABLO_USE_HDF5=${DYABLO_USE_HDF5}
   -DDYABLO_USE_PNETCDF=${DYABLO_USE_PNETCDF}
   -DDYABLO_USE_VTK=${DYABLO_USE_VTK}
@@ -193,21 +264,17 @@ list (APPEND DYABLO_CMAKE_ARGS
   -DBITPIT_DIR=${MY_BITPIT_DIR}
   )
 
-# CUDA specific argument
-if (Kokkos_ENABLE_CUDA)
-
+# if Kokkos was not found in the first place, it means we built it (see above),
+# so instruct dyablo with the path to Kokkos
+if ( (NOT Kokkos_FOUND) OR FORCE_KOKKOS_BUILD )
   list (APPEND DYABLO_CMAKE_ARGS
-    -DKokkos_ENABLE_CUDA=${Kokkos_ENABLE_CUDA}
-    -DKokkos_ENABLE_CUDA_LAMBDA=${Kokkos_ENABLE_CUDA_LAMBDA}
-    -DKokkos_ENABLE_CUDA_CONSTEXPR=${Kokkos_ENABLE_CUDA_CONSTEXPR}
-    -DKokkos_ENABLE_CUDA_UVM=${Kokkos_ENABLE_CUDA_UVM}
-    -DKokkos_ARCH_${Kokkos_ARCH}=ON
-    )
-
+    -DKokkos_DIR=${PROJECT_BINARY_DIR}/external/Install/kokkos_external/lib/cmake/Kokkos)
 endif()
 
 #
+#
 # build dyablo
+#
 #
 ExternalProject_Add (dyablo
   DEPENDS ${DEPENDENCIES}
