@@ -689,6 +689,7 @@ public:
         if (copy_gravity) {
           Ugroup(index_cur, fm[IGX], iOct_local) = U(index_border, fm[IGX], iOct_neigh);
           Ugroup(index_cur, fm[IGY], iOct_local) = U(index_border, fm[IGY], iOct_neigh);
+        }
 
       }
 
