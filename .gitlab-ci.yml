@@ -35,6 +35,6 @@ test:
   stage: test
   tags:
     - kokkos-openmp, kokkos-cuda
-  script:
-    - make dyablo-test
+  script: "cd build_openmp; make dyablo-test"
+  after_script:
     - date
