@@ -25,3 +25,25 @@ target_include_directories(test_unordered_map
   )
 target_link_libraries(test_unordered_map Kokkos::kokkos hwloc dl)
 
+##############################################
+add_executable(test_morton_key
+  test_morton_key.cpp)
+target_include_directories(test_morton_key
+  PUBLIC
+  ${CMAKE_SOURCE_DIR}/src
+  )
+target_link_libraries(test_morton_key Kokkos::kokkos hwloc dl)
+
+##############################################
+add_executable(compute_mandelbrot_amr
+  compute_mandelbrot_amr.cpp)
+target_include_directories(compute_mandelbrot_amr
+  PUBLIC
+  ${CMAKE_SOURCE_DIR}/src
+  ${CMAKE_CURRENT_SOURCE_DIR}
+  )
+target_link_libraries(compute_mandelbrot_amr Kokkos::kokkos io hwloc dl)
+if(DYABLO_USE_MPI)
+  target_link_libraries(compute_mandelbrot_amr
+    mpiUtils)
+endif(DYABLO_USE_MPI)

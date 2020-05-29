@@ -26,6 +26,10 @@
 
 using Device = Kokkos::DefaultExecutionSpace;
 
+#include <boost/test/unit_test.hpp>
+using namespace boost::unit_test;
+
+
 namespace dyablo
 {
 namespace muscl_block
@@ -95,7 +99,7 @@ void run_test(int argc, char *argv[], uint32_t bSize, uint32_t nbBlocks)
    * read parameter file and initialize a ConfigMap object
    */
   // only MPI rank 0 actually reads input file
-  std::string input_file = argc>1 ? std::string(argv[1]) : "test_implode_2D_block.ini";
+  std::string input_file = argc>1 ? std::string(argv[1]) : "./block_data/test_implode_2D_block.ini";
   ConfigMap configMap = broadcast_parameters(input_file);
 
   // test: create a HydroParams object
@@ -168,8 +172,8 @@ void run_test(int argc, char *argv[], uint32_t bSize, uint32_t nbBlocks)
      {
       for (uint32_t ix=0; ix<bx; ++ix)
        {
-        uint32_t index = ix + bx*(iy+by*iz);
-        std::cout << std::right << std::setw(5) << U(index,fm[ID],iOct) << " ";
+         uint32_t index = ix + bx*(iy+by*iz);
+         std::cout << std::right << std::setw(5) << U(index,fm[ID],iOct) << " ";
       }
       std::cout << "\n";
     }
@@ -212,10 +216,23 @@ void run_test(int argc, char *argv[], uint32_t bSize, uint32_t nbBlocks)
       {
         uint32_t index = ix + bx_g * iy;
         std::cout << std::right << std::setw(6) << Ugroup(index, fm[ID], iOctOffset) << " ";
+
+        if (ix>= ghostWidth and 
+            iy>= ghostWidth and
+            ix < ghostWidth + bx and
+            iy < ghostWidth + by )
+        {
+          uint32_t uindex = (ix-ghostWidth) + bx * (iy-ghostWidth);
+          BOOST_CHECK_CLOSE(Ugroup(index, fm[ID], iOctOffset),
+                            U(uindex, fm[ID], iOct),
+                            0.1);
+        }
+
+
       }
       std::cout << "\n";
     }
-    
+
   }
 
 } // run_test
@@ -224,6 +241,28 @@ void run_test(int argc, char *argv[], uint32_t bSize, uint32_t nbBlocks)
 
 } // namespace dyablo
 
+BOOST_AUTO_TEST_SUITE(dyablo)
+
+BOOST_AUTO_TEST_SUITE(muscl_block)
+
+BOOST_AUTO_TEST_CASE(test_CopyGhostBlockCellData)
+{
+
+  uint32_t bSize = 4;
+  uint32_t nbBlocks = 32;
+
+  run_test(framework::master_test_suite().argc,
+           framework::master_test_suite().argv,
+           bSize, nbBlocks);
+
+}
+
+BOOST_AUTO_TEST_SUITE_END() /* muscl_block */
+
+BOOST_AUTO_TEST_SUITE_END() /* dyablo */
+
+// old main
+#if 0
 // =======================================================================
 // =======================================================================
 int main(int argc, char *argv[])
@@ -233,7 +272,7 @@ int main(int argc, char *argv[])
 #ifdef DYABLO_USE_MPI
   hydroSimu::GlobalMpiSession mpiSession(&argc, &argv);
 #endif // DYABLO_USE_MPI
-
+  
   Kokkos::initialize(argc, argv);
 
   int rank = 0;
@@ -261,7 +300,6 @@ int main(int argc, char *argv[])
     MPI_Comm_size(MPI_COMM_WORLD, &nRanks);
 #ifdef KOKKOS_ENABLE_CUDA
     {
-
       // To enable kokkos accessing multiple GPUs don't forget to
       // add option "--ndevices=X" where X is the number of GPUs
       // you want to use per node.
@@ -287,3 +325,4 @@ int main(int argc, char *argv[])
 
   return EXIT_SUCCESS;
 }
+#endif // old main

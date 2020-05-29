@@ -14,8 +14,10 @@
 // utils block
 #include "muscl_block/utils_block.h"
 
-namespace dyablo {
-namespace muscl_block {
+namespace dyablo
+{
+namespace muscl_block
+{
 
 /*************************************************/
 /*************************************************/
@@ -52,11 +54,12 @@ namespace muscl_block {
  * \sa functor CopyInnerBlockCellDataFunctor
  *
  */
-class CopyFaceBlockCellDataFunctor {
+class CopyFaceBlockCellDataFunctor
+{
 
 private:
   uint32_t nbTeams; //!< number of thread teams
-
+  
 public:
   using index_t = int32_t;
   using team_policy_t = Kokkos::TeamPolicy<Kokkos::IndexType<index_t>>;
@@ -71,14 +74,16 @@ public:
    * In 2d, only 2 possibilities
    * In 3d, there are 4 possibilities
    */
-  enum NEIGH_LOC : uint8_t {
+  enum NEIGH_LOC : uint8_t
+  {
     NEIGH_POS_0 = 0,
     NEIGH_POS_1 = 1,
     NEIGH_POS_2 = 2,
     NEIGH_POS_3 = 3
   };
 
-  enum NEIGH_SIZE : uint8_t {
+  enum NEIGH_SIZE : uint8_t
+  {
     NEIGH_IS_SMALLER   = 0,
     NEIGH_IS_LARGER    = 1,
     NEIGH_IS_SAME_SIZE = 2
@@ -165,12 +170,12 @@ public:
     // create execution policy
     team_policy_t policy(nbTeams_,
                          Kokkos::AUTO() /* team size chosen by kokkos */);
-
+    
     // launch computation (parallel kernel)
     Kokkos::parallel_for("dyablo::muscl_block::CopyFaceBlockCellDataFunctor",
                          policy, functor);
   }
-
+  
   // ==============================================================
   // ==============================================================
   /**
@@ -227,6 +232,13 @@ public:
    * \note Please note that the "if" branches are not divergent,
    * all threads in a given team always follow the same
    * branch.
+   *
+   * \param[in] iOct octant id of current current octant
+   * \param[in] iOct_neigh octant id of current neighbor octant
+   * \param[in] is_ghost true if neighbor is ghost octant
+   * \param[in] dir identifies the direction of the interface
+   * \param[in] face identifies the face (left or right)
+   * \param[in] neigh_size give information about neighbor octant (smaller, same size or larger)
    */
   KOKKOS_INLINE_FUNCTION
   NEIGH_LOC get_relative_position_2d(uint32_t iOct,
@@ -247,7 +259,8 @@ public:
     /*
      * check if we are dealing with face along X, Y or Z direction
      */
-    if (dir == DIR_X) {
+    if (dir == DIR_X)
+    {
 
       // get Y coordinates of the lower left corner of current octant
       real_t cur_loc = pmesh->getY(iOct);
@@ -265,7 +278,8 @@ public:
 
     }
 
-    if (dir == DIR_Y) {
+    if (dir == DIR_Y) 
+    {
 
       // get X coordinates of the lower left corner of current octant
       real_t cur_loc = pmesh->getX(iOct);
@@ -312,7 +326,8 @@ public:
     
     // make sure index is valid, i.e. inside the range of admissible values
     if ((index_in < size_borderX and dir == DIR_X) or
-        (index_in < size_borderY and dir == DIR_Y)) {
+        (index_in < size_borderY and dir == DIR_Y)) 
+    {
 
       // in case of a X border
       // border sizes for input  cell are : ghostWidth,by
@@ -333,7 +348,8 @@ public:
       if (dir == DIR_Y)
         coord_cur[IX] += ghostWidth;
 
-      if ( face == FACE_RIGHT ) {
+      if ( face == FACE_RIGHT )
+      {
         // if necessary shift coordinate to the right
         if (dir == DIR_X)
           coord_cur[IX] += (bx+ghostWidth);
@@ -461,7 +477,8 @@ public:
     
     // make sure index is valid, i.e. inside the range of admissible values
     if ( (index < size_borderX and dir == DIR_X) or
-         (index < size_borderY and dir == DIR_Y) ) {
+         (index < size_borderY and dir == DIR_Y) )
+    {
 
       // in case of a X border
       // border sizes for input  cell are : ghostWidth,by
@@ -487,7 +504,8 @@ public:
       if (dir == DIR_Y)
         coord_cur[IX] += ghostWidth;
 
-      if ( face == FACE_RIGHT ) {
+      if ( face == FACE_RIGHT )
+      {
         // if necessary shift coordinate to the right
         if (dir == DIR_X)
           coord_cur[IX] += (bx+ghostWidth);
@@ -499,7 +517,8 @@ public:
       uint32_t index_cur = coord_cur[IX] + (bx+2*ghostWidth)*coord_cur[IY];
 
       // if necessary, shift border coords to access input (neighbor octant) cell data
-      if ( face == FACE_LEFT ) {
+      if ( face == FACE_LEFT )
+      {
         if ( dir == DIR_X )
           coord_border[IX] += (bx - ghostWidth);
         if ( dir == DIR_Y )
@@ -508,7 +527,9 @@ public:
 
       uint32_t index_border = coord_border[IX] + bx * coord_border[IY];
 
-      if (is_ghost) {
+      if (is_ghost)
+      {
+        
         Ugroup(index_cur, fm[ID], iOct_local) = U_ghost(index_border, fm[ID], iOct_neigh);
         Ugroup(index_cur, fm[IP], iOct_local) = U_ghost(index_border, fm[IP], iOct_neigh);
         Ugroup(index_cur, fm[IU], iOct_local) = U_ghost(index_border, fm[IU], iOct_neigh);
@@ -518,7 +539,11 @@ public:
           Ugroup(index_cur, fm[IGX], iOct_local) = U_ghost(index_border, fm[IGX], iOct_neigh);
           Ugroup(index_cur, fm[IGY], iOct_local) = U_ghost(index_border, fm[IGY], iOct_neigh);
         }
-      } else {
+
+      } 
+      else
+      {
+        
         Ugroup(index_cur, fm[ID], iOct_local) = U(index_border, fm[ID], iOct_neigh);
         Ugroup(index_cur, fm[IP], iOct_local) = U(index_border, fm[IP], iOct_neigh);
         Ugroup(index_cur, fm[IU], iOct_local) = U(index_border, fm[IU], iOct_neigh);
@@ -587,7 +612,8 @@ public:
 
     // make sure index is valid, i.e. inside the range of admissible values
     if ((index < size_borderX and dir == DIR_X) or
-        (index < size_borderY and dir == DIR_Y)) {
+        (index < size_borderY and dir == DIR_Y))
+    {
 
       // compute cell coordinates inside border
       coord_t coord_border = dir == DIR_X ? 
@@ -605,7 +631,8 @@ public:
       if (dir == DIR_Y)
         coord_cur[IX] += ghostWidth;
 
-      if ( face == FACE_RIGHT ) {
+      if ( face == FACE_RIGHT )
+      {
         // if necessary shift coordinate to the right
         if (dir == DIR_X)
           coord_cur[IX] += (bx+ghostWidth);
@@ -617,7 +644,8 @@ public:
       uint32_t index_cur = coord_cur[IX] + (bx+2*ghostWidth)*coord_cur[IY];
 
       // if necessary, shift border coords to access input (neighbor octant) cell data
-      if ( face == FACE_LEFT ) {
+      if ( face == FACE_LEFT )
+      {
         if ( dir == DIR_X )
           coord_border[IX] = (coord_border[IX] + 2*bx - ghostWidth);
         if ( dir == DIR_Y )
@@ -636,7 +664,9 @@ public:
 
       uint32_t index_border = coord_border[IX] + bx * coord_border[IY];
 
-      if (is_ghost) {
+      if (is_ghost)
+      {
+      
         Ugroup(index_cur, fm[ID], iOct_local) = U_ghost(index_border, fm[ID], iOct_neigh);
         Ugroup(index_cur, fm[IP], iOct_local) = U_ghost(index_border, fm[IP], iOct_neigh);
         Ugroup(index_cur, fm[IU], iOct_local) = U_ghost(index_border, fm[IU], iOct_neigh);
@@ -646,7 +676,11 @@ public:
           Ugroup(index_cur, fm[IGX], iOct_local) = U_ghost(index_border, fm[IGX], iOct_neigh);
           Ugroup(index_cur, fm[IGY], iOct_local) = U_ghost(index_border, fm[IGY], iOct_neigh);
         }
-      } else {
+
+      } 
+      else
+      {
+
         Ugroup(index_cur, fm[ID], iOct_local) = U(index_border, fm[ID], iOct_neigh);
         Ugroup(index_cur, fm[IP], iOct_local) = U(index_border, fm[IP], iOct_neigh);
         Ugroup(index_cur, fm[IU], iOct_local) = U(index_border, fm[IU], iOct_neigh);
@@ -656,6 +690,7 @@ public:
           Ugroup(index_cur, fm[IGX], iOct_local) = U(index_border, fm[IGX], iOct_neigh);
           Ugroup(index_cur, fm[IGY], iOct_local) = U(index_border, fm[IGY], iOct_neigh);
         }
+
       }
 
     } // end if admissible values for index
@@ -720,7 +755,8 @@ public:
     // make sure index is valid, 
     // i.e. inside the range of admissible values
     if ((index < size_borderX and dir == DIR_X) or
-        (index < size_borderY and dir == DIR_Y)) {
+        (index < size_borderY and dir == DIR_Y))
+    {
 
       // compute cell coordinates inside border of current block,
       // ghost width not taken into account now
@@ -742,7 +778,8 @@ public:
         coord_cur[IX] += ghostWidth;
 
       // make sure coord_cur is actually mapping the right ghost border
-      if ( face == FACE_RIGHT ) {
+      if ( face == FACE_RIGHT )
+      {
         // if necessary shift coordinate to the right
         if (dir == DIR_X)
           coord_cur[IX] += (bx+ghostWidth);
@@ -756,8 +793,10 @@ public:
       uint32_t index_cur = coord_cur[IX] + (bx+2*ghostWidth)*coord_cur[IY];
 
       // loop inside neighbor block (smaller octant) to accumulate values
-      for (int8_t iy = 0; iy < 2; ++iy) {
-        for (int8_t ix = 0; ix < 2; ++ix) {
+      for (int8_t iy = 0; iy < 2; ++iy)
+      {
+        for (int8_t ix = 0; ix < 2; ++ix)
+        {
 
           int32_t ii = 2 * coord_border[IX] + ix;
           int32_t jj = 2 * coord_border[IY] + iy;
@@ -765,11 +804,14 @@ public:
           // select from which neighbor we will take data
           // this should be ok, even if bx/by are odd integers
           uint8_t iNeigh=0;
-          if (dir == DIR_X and jj>=by) {
+          if (dir == DIR_X and jj>=by)
+          {
             iNeigh=1;
             jj -= by;
           }
-          if (dir == DIR_Y and ii>=bx) {
+          
+          if (dir == DIR_Y and ii>=bx)
+          {
             iNeigh=1;
             ii -= bx;
           }
@@ -778,7 +820,8 @@ public:
           // neighbor octant
           // remember that : left interface for current octant
           // translates into a right interface for neighbor octants
-          if ( face == FACE_LEFT ) {
+          if ( face == FACE_LEFT )
+          {
             if ( dir == DIR_X )
               ii += (bx - 2*ghostWidth);
             if ( dir == DIR_Y )
@@ -789,7 +832,9 @@ public:
           // so compute index to access data
           uint32_t index_border = ii + bx * jj;
           
-          if (is_ghost[iNeigh]) {
+          if (is_ghost[iNeigh]) 
+          {
+          
             q[ID] += U_ghost(index_border, fm[ID], iOct_neigh[iNeigh]);
             q[IP] += U_ghost(index_border, fm[IP], iOct_neigh[iNeigh]);
             q[IU] += U_ghost(index_border, fm[IU], iOct_neigh[iNeigh]);
@@ -799,7 +844,11 @@ public:
               gravity[0] += U_ghost(index_border, fm[IGX], iOct_neigh[iNeigh]);
               gravity[1] += U_ghost(index_border, fm[IGY], iOct_neigh[iNeigh]);
             }
-          } else {
+
+          }
+          else
+          {
+
             q[ID] += U(index_border, fm[ID], iOct_neigh[iNeigh]);
             q[IP] += U(index_border, fm[IP], iOct_neigh[iNeigh]);
             q[IU] += U(index_border, fm[IU], iOct_neigh[iNeigh]);
@@ -809,6 +858,7 @@ public:
               gravity[0] += U(index_border, fm[IGX], iOct_neigh[iNeigh]);
               gravity[1] += U(index_border, fm[IGY], iOct_neigh[iNeigh]);
             }
+
           }
 
         } // end for ix
@@ -859,7 +909,8 @@ public:
     /*
      * first deal with external border
      */
-    if (neigh.size() == 0) {
+    if (neigh.size() == 0)
+    {
 
       // if (index_in==0)
       //   printf("[neigh is external] iOct_global=%d iOct_local=%2d ---- dir=%d face=%d \n",iOct, iOct_local, dir, face);
@@ -870,7 +921,8 @@ public:
     /*
      * there one neighbor accross face , either same size or larger
      */
-    else if (neigh.size() == 1) {
+    else if (neigh.size() == 1)
+    {
 
       // retrieve neighbor octant id
       uint32_t iOct_neigh = neigh[0];
@@ -898,7 +950,9 @@ public:
 
         fill_ghost_face_2d_larger_size(iOct, iOct_local, iOct_neigh, isghost[0], index_in, dir, face, loc);
 
-      } else {
+      }
+      else
+      {
         // if (index_in==0)
         //   printf("[neigh has same size] iOct_global=%d iOct_local=%2d iOct_neigh=%2d \n",iOct, iOct_local, iOct_neigh);
 
@@ -913,7 +967,8 @@ public:
      * here we average values read from the smaller octant before copying
      * into ghost cells of the larger octant.
      */
-    else if (neigh.size() == 2) {
+    else if (neigh.size() == 2)
+    {
 
       // Setting interface flag to "smaller"
       Interface_flags(iOct_local) |= (1<<iface);
@@ -945,7 +1000,8 @@ public:
   // ==============================================================
   // ==============================================================
   KOKKOS_INLINE_FUNCTION
-  void functor2d(team_policy_t::member_type member) const {
+  void functor2d(team_policy_t::member_type member) const 
+  {
 
     // iOct must span the range [iGroup*nbOctsPerGroup ,
     // (iGroup+1)*nbOctsPerGroup [
@@ -968,27 +1024,29 @@ public:
     uint32_t bmax = bx < by ? by : bx;
     uint32_t nbCells = bmax*ghostWidth;
 
-    while (iOct < iOctNextGroup and iOct < nbOcts) {
+    while (iOct < iOctNextGroup and iOct < nbOcts)
+    {
       Interface_flags(iOct_g) = INTERFACE_NONE;
 
       // perform "vectorized" loop inside a given block data
       Kokkos::parallel_for(
-          Kokkos::TeamVectorRange(member, nbCells),
-          KOKKOS_LAMBDA(const index_t index) {
-            // compute face X,left
-            fill_ghost_face_2d(iOct, iOct_g, index, DIR_X, FACE_LEFT);
-
-            // compute face X,right
-            fill_ghost_face_2d(iOct, iOct_g, index, DIR_X, FACE_RIGHT);
-
-            // compute face Y,left
-            fill_ghost_face_2d(iOct, iOct_g, index, DIR_Y, FACE_LEFT);
-
-            // compute face Y,right
-            fill_ghost_face_2d(iOct, iOct_g, index, DIR_Y, FACE_RIGHT);
-            
-          }); // end TeamVectorRange
-
+        Kokkos::TeamVectorRange(member, nbCells),
+        KOKKOS_LAMBDA(const index_t index)
+        {
+          // compute face X,left
+          fill_ghost_face_2d(iOct, iOct_g, index, DIR_X, FACE_LEFT);
+          
+          // compute face X,right
+          fill_ghost_face_2d(iOct, iOct_g, index, DIR_X, FACE_RIGHT);
+          
+          // compute face Y,left
+          fill_ghost_face_2d(iOct, iOct_g, index, DIR_Y, FACE_LEFT);
+          
+          // compute face Y,right
+          fill_ghost_face_2d(iOct, iOct_g, index, DIR_Y, FACE_RIGHT);
+          
+        }); // end TeamVectorRange
+      
       // increase current octant location both in U and Ugroup
       iOct += nbTeams;
       iOct_g += nbTeams;
@@ -1000,7 +1058,8 @@ public:
   // ==============================================================
   // ==============================================================
   KOKKOS_INLINE_FUNCTION
-  void operator()(team_policy_t::member_type member) const {
+  void operator()(team_policy_t::member_type member) const 
+  {
 
     if (params.dimType == TWO_D)
       functor2d(member);
