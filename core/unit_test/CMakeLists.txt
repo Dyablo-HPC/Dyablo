@@ -14,27 +14,28 @@ endif(Boost_FOUND)
 
 #####################################################################
 #
-# macro to simplify creating a unit test
+# function to simplify creating a unit test
 #
-# fist arg is the test name
-# all other arg are expected to be source files
+# Parameters:
+#  - UNIT_TEST_NAME : the executable test name
+#  - all other arg are expected to be source files
 #
 #####################################################################
-macro(dyablo_add_test UNIT_TEST_NAME)
-
-  #set(UNIT_TEST_NAME "dyablo_unit_tests")
+function(dyablo_add_test UNIT_TEST_NAME)
 
   add_executable(${UNIT_TEST_NAME} "")
   target_sources(${UNIT_TEST_NAME} PRIVATE
-    ${ARGN} main.cpp)
+    ${ARGN})
 
   # this is necessary to have BOOST_TEST_ALTERNATIVE_INIT_API
   # and thus being able to initialize with empty function init_function
   target_compile_definitions(${UNIT_TEST_NAME} PRIVATE BOOST_TEST_DYN_LINK)
+
   target_link_libraries(${UNIT_TEST_NAME} PRIVATE
     config
     Kokkos::kokkos
     dl
+    muscl_block
     shared
     monitoring
     BITPIT::BITPIT
@@ -54,15 +55,41 @@ macro(dyablo_add_test UNIT_TEST_NAME)
     target_link_libraries(${UNIT_TEST_NAME} PRIVATE mpiUtils)
   endif()
 
-  add_test(NAME ${UNIT_TEST_NAME} COMMAND ./${UNIT_TEST_NAME})
+  add_test(
+    NAME ${UNIT_TEST_NAME}
+    COMMAND ./${UNIT_TEST_NAME}
+    WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/unit_test/)
   
-endmacro(dyablo_add_test)
+endfunction(dyablo_add_test)
 
 #####################################################################
 #
 # here we create our tests
 #
 #####################################################################
-dyablo_add_test(tst_shared_MortonUtils shared/morton_utils_test.cpp)
+dyablo_add_test(tst_shared_MortonUtils 
+  shared/morton_utils_test.cpp
+  main.cpp)
 
 
+# from old test/block_data
+configure_file(
+  block_data/test_implode_2D_block.ini
+  block_data/test_implode_2D_block.ini COPYONLY)
+
+dyablo_add_test(utest_CopyInnerBlockCellData 
+  block_data/test_CopyInnerBlockCellData.cpp
+  main.cpp)
+
+dyablo_add_test(utest_CopyGhostBlockCellData 
+  block_data/test_CopyGhostBlockCellData.cpp
+  main.cpp)
+
+# disable this test until we know why - see issue 70
+# dyablo_add_test(utest_MusclBlockGodunovUpdateFunctor
+#   block_data/test_MusclBlockGodunovUpdateFunctor.cpp
+#   main.cpp)
+
+dyablo_add_test(utest_CopyGhostBlockCellData_hash_openmp 
+  block_data/test_CopyGhostBlockCellData_hash_openmp.cpp
+  main.cpp)
