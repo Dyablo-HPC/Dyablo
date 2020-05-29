@@ -85,10 +85,9 @@ dyablo_add_test(utest_CopyGhostBlockCellData
   block_data/test_CopyGhostBlockCellData.cpp
   main.cpp)
 
-# disable this test until we know why - see issue 70
-# dyablo_add_test(utest_MusclBlockGodunovUpdateFunctor
-#   block_data/test_MusclBlockGodunovUpdateFunctor.cpp
-#   main.cpp)
+dyablo_add_test(utest_MusclBlockGodunovUpdateFunctor
+  block_data/test_MusclBlockGodunovUpdateFunctor.cpp
+  main.cpp)
 
 dyablo_add_test(utest_CopyGhostBlockCellData_hash_openmp 
   block_data/test_CopyGhostBlockCellData_hash_openmp.cpp
