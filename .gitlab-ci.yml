@@ -20,7 +20,7 @@ build_openmp:
   script:
     - mkdir build_openmp
     - cd build_openmp
-    - cmake ..
+    - cmake -DDYABLO_ENABLE_UNIT_TESTING=ON ..
     - make
   artifacts:
     paths:
@@ -36,4 +36,5 @@ test:
   tags:
     - kokkos-openmp, kokkos-cuda
   script:
+    - make dyablo-test
     - date
