@@ -296,8 +296,8 @@ public:
         u[IV] = U_ghost(index_border, fm[IV], neigh[iNeigh]);
 
         if (params.gravity_type & GRAVITY_FIELD) {
-          g[0] = U_ghost(index_border, fm[IGX], neigh[iNeigh]);
-          g[1] = U_ghost(index_border, fm[IGY], neigh[iNeigh]);
+          g[IX] = U_ghost(index_border, fm[IGX], neigh[iNeigh]);
+          g[IY] = U_ghost(index_border, fm[IGY], neigh[iNeigh]);
         }
       }
       else
@@ -308,8 +308,8 @@ public:
         u[IV] = U(index_border, fm[IV], neigh[iNeigh]);
 
         if (params.gravity_type & GRAVITY_FIELD) {
-          g[0] = U(index_border, fm[IGX], neigh[iNeigh]);
-          g[1] = U(index_border, fm[IGY], neigh[iNeigh]);
+          g[IX] = U(index_border, fm[IGX], neigh[iNeigh]);
+          g[IY] = U(index_border, fm[IGY], neigh[iNeigh]);
         }
       }
 
@@ -322,7 +322,8 @@ public:
       real_t c = 0.0;
       computePrimitives(u, &c, q, params);
     } // end for ip
-  }
+
+  } // get_non_conformal_neighbors_2d
 
   // ====================================================================
   // ====================================================================
@@ -353,7 +354,8 @@ public:
     }
 
     return res;
-  }
+
+  } // get_gravity_field
 
   // ====================================================================
   // ====================================================================
@@ -513,10 +515,10 @@ public:
    */
   template <class HydroState>
   KOKKOS_INLINE_FUNCTION
-      HydroState
-      slope_unsplit_hydro(const HydroState &q,
-                          const HydroState &qPlus,
-                          const HydroState &qMinus) const
+  HydroState
+  slope_unsplit_hydro(const HydroState &q,
+                      const HydroState &qPlus,
+                      const HydroState &qMinus) const
   {
 
     const real_t slope_type = params.settings.slope_type;
@@ -539,12 +541,16 @@ public:
   KOKKOS_INLINE_FUNCTION
   void apply_gravity_prediction(HydroState2d &q, const GravityField &g) const
   {
+
     q[IU] += 0.5 * dt * g[IX];
     q[IV] += 0.5 * dt * g[IY];
     if (params.dimType == THREE_D)
       q[IW] += 0.5 * dt * g[IZ];
-  }
 
+  } // apply_gravity_prediction
+
+  // ====================================================================
+  // ====================================================================
   KOKKOS_INLINE_FUNCTION
   void apply_gravity_correction(uint32_t iOct_g, uint32_t index_g,
                                 uint32_t iOct, uint32_t index) const
@@ -592,8 +598,11 @@ public:
 
     real_t ekin_new = 0.5 * (rhou * rhou + rhov * rhov + rhow * rhow) / rhoNew;
     U2(index, fm[IP], iOct) += (ekin_new - ekin_old);
-  }
 
+  }// apply_gravity_correction
+
+  // ====================================================================
+  // ====================================================================
   KOKKOS_INLINE_FUNCTION
   void apply_gravity_correction_2d(thread2_t member) const
   {
@@ -611,6 +620,7 @@ public:
 
     while (iOct < iOctNextGroup and iOct < nbOcts)
     {
+
       Kokkos::parallel_for(
           Kokkos::TeamVectorRange(member, nbCellsPerBlock),
           KOKKOS_LAMBDA(const int32_t index) {
@@ -622,8 +632,10 @@ public:
           });
       iOct += nbTeams;
       iOct_local += nbTeams;
+
     }
-  }
+
+  } // apply_gravity_correction_2d
 
   // ====================================================================
   // ====================================================================
@@ -1510,8 +1522,8 @@ public:
               HydroState2d qcons = get_cons_variables<HydroState2d>(ig, iOct_local);
 
              /*
-             * compute from left face along x dir
-             */
+              * compute from left face along x dir
+              */
               {
                 // step 1 : reconstruct state in the left neighbor
 
@@ -1537,8 +1549,8 @@ public:
               }
 
               /*
-             * compute flux from right face along x dir
-             */
+               * compute flux from right face along x dir
+               */
               {
                 // step 1 : reconstruct state in the left neighbor
 
@@ -1564,8 +1576,8 @@ public:
               }
 
               /*
-             * compute flux from left face along y dir
-             */
+               * compute flux from left face along y dir
+               */
               {
                 // step 1 : reconstruct state in the left neighbor
 
@@ -1597,8 +1609,8 @@ public:
               }
 
               /*
-             * compute flux from right face along y dir
-             */
+               * compute flux from right face along y dir
+               */
               {
                 // step 1 : reconstruct state in the left neighbor
 
