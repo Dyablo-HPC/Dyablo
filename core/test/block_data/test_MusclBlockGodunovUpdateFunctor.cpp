@@ -53,7 +53,8 @@ void run_test(int argc, char *argv[]) {
    * read parameter file and initialize a ConfigMap object
    */
   // only MPI rank 0 actually reads input file
-  std::string input_file = std::string(argv[1]);
+  //std::string input_file = std::string(argv[1]);
+  std::string input_file = argc>1 ? std::string(argv[1]) : "./block_data/test_implode_2D_block.ini";
   ConfigMap configMap = broadcast_parameters(input_file);
 
   // test: create a HydroParams object
@@ -140,7 +141,7 @@ void run_test(int argc, char *argv[]) {
   uint32_t iGroup = 1;
 
   uint8_t nfaces = (params.dimType == TWO_D ? 4 : 6);
-  FlagArrayBlock Interface_flags = FlagArrayBlock("Interface Flags", nfaces, nbOctsPerGroup);
+  FlagArrayBlock Interface_flags = FlagArrayBlock("Interface Flags", nbOctsPerGroup);
   
   // // chose an octant which should have a "same size" neighbor in all direction
   // //uint32_t iOct_local = 2;
@@ -160,17 +161,17 @@ void run_test(int argc, char *argv[]) {
   // // save solution, just for cross-checking
   // solver->save_solution();
 
-  // std::cout << "Printing U data from iOct = " << iOct_global << "\n";
-  // for (uint32_t iz=0; iz<bz; ++iz) {
-  //   for (uint32_t iy=0; iy<by; ++iy) {
-  //     for (uint32_t ix=0; ix<bx; ++ix) {
-  //       uint32_t index = ix + bx*(iy+by*iz);
-  //       printf("%5f ",solver->U(index,fm[ID],iOct_global));
-  //     }
-  //     std::cout << "\n";
-  //   }
-  //   std::cout << "\n";
-  // }
+  std::cout << "Printing U data from iOct = " << iOct_global << "\n";
+  for (uint32_t iz=0; iz<bz; ++iz) {
+    for (uint32_t iy=0; iy<by; ++iy) {
+      for (uint32_t ix=0; ix<bx; ++ix) {
+        uint32_t index = ix + bx*(iy+by*iz);
+        printf("%5f ",solver->U(index,fm[ID],iOct_global));
+      }
+      std::cout << "\n";
+    }
+    std::cout << "\n";
+  }
 
   std::cout << "Ugroup sizes = " 
             << Ugroup.extent(0) << " "
@@ -258,9 +259,9 @@ void run_test(int argc, char *argv[]) {
                                           nbOcts,
                                           nbOctsPerGroup,
                                           iGroup,
-					                                solver->U,
-					                                solver->Ughost,
                                           Ugroup,
+                                          solver->U,
+                                          solver->Ughost,
                                           solver->U2,
                                           Qgroup, 
                                           Interface_flags,

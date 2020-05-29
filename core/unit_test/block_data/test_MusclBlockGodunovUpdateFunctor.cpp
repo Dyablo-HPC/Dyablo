@@ -144,7 +144,6 @@ void run_test(int argc, char *argv[]) {
   uint32_t iGroup = 1;
 
   uint8_t nfaces = (params.dimType == TWO_D ? 4 : 6);
-  //FlagArrayBlock Interface_flags = FlagArrayBlock("Interface Flags", nfaces, nbOctsPerGroup);
   FlagArrayBlock Interface_flags = FlagArrayBlock("Interface Flags", nbOctsPerGroup);
   
   // // chose an octant which should have a "same size" neighbor in all direction
@@ -165,17 +164,17 @@ void run_test(int argc, char *argv[]) {
   // // save solution, just for cross-checking
   // solver->save_solution();
 
-  // std::cout << "Printing U data from iOct = " << iOct_global << "\n";
-  // for (uint32_t iz=0; iz<bz; ++iz) {
-  //   for (uint32_t iy=0; iy<by; ++iy) {
-  //     for (uint32_t ix=0; ix<bx; ++ix) {
-  //       uint32_t index = ix + bx*(iy+by*iz);
-  //       printf("%5f ",solver->U(index,fm[ID],iOct_global));
-  //     }
-  //     std::cout << "\n";
-  //   }
-  //   std::cout << "\n";
-  // }
+  std::cout << "Printing U data from iOct = " << iOct_global << "\n";
+  for (uint32_t iz=0; iz<bz; ++iz) {
+    for (uint32_t iy=0; iy<by; ++iy) {
+      for (uint32_t ix=0; ix<bx; ++ix) {
+        uint32_t index = ix + bx*(iy+by*iz);
+        printf("%5f ",solver->U(index,fm[ID],iOct_global));
+      }
+      std::cout << "\n";
+    }
+    std::cout << "\n";
+  }
 
   std::cout << "Ugroup sizes = " 
             << Ugroup.extent(0) << " "
@@ -263,9 +262,9 @@ void run_test(int argc, char *argv[]) {
                                           nbOcts,
                                           nbOctsPerGroup,
                                           iGroup,
+                                          Ugroup,
                                           solver->U,
                                           solver->Ughost,
-                                          Ugroup,
                                           solver->U2,
                                           Qgroup, 
                                           Interface_flags,
@@ -347,7 +346,7 @@ int main(int argc, char *argv[]) {
 #ifdef DYABLO_USE_MPI
   hydroSimu::GlobalMpiSession mpiSession(&argc,&argv);
 #endif // DYABLO_USE_MPI
-
+  
   Kokkos::initialize(argc, argv);
 
   int rank = 0;
@@ -384,12 +383,12 @@ int main(int argc, char *argv[]) {
       // on a large cluster, the scheduler should assign ressources
       // in a way that each MPI task is mapped to a different GPU
       // let's cross-checked that:
-
+      
       int cudaDeviceId;
       cudaGetDevice(&cudaDeviceId);
       std::cout << "I'm MPI task #" << rank << " (out of " << nRanks << ")"
-        << " pinned to GPU #" << cudaDeviceId << "\n";
-
+		<< " pinned to GPU #" << cudaDeviceId << "\n";
+      
     }
 # endif // KOKKOS_ENABLE_CUDA
 #endif // DYABLO_USE_MPI
