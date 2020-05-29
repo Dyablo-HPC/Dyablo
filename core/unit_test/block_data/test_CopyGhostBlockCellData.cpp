@@ -1,7 +1,7 @@
 /**
- * \file test_MusclBlockGodunovUpdateFunctor.cpp
+ * \file test_CopyGhostBlockCellData.cpp
  * \author Pierre Kestener
- * \date October, 1st 2019
+ * \date September, 24th 2019
  */
 
 #include <Kokkos_Core.hpp>
@@ -29,31 +29,36 @@
 #include "muscl_block/CopyInnerBlockCellData.h"
 #include "muscl_block/CopyFaceBlockCellData.h"
 #include "muscl_block/ConvertToPrimitivesHydroFunctor.h"
-#include "muscl_block/MusclBlockGodunovUpdateFunctor.h"
-#include "muscl_block/ComputeDtHydroFunctor.h"
 
 using Device = Kokkos::DefaultExecutionSpace;
 
-namespace dyablo {
+#include <boost/test/unit_test.hpp>
+using namespace boost::unit_test;
 
-namespace muscl_block {
+
+namespace dyablo
+{
+
+namespace muscl_block
+{
 
 // =======================================================================
 // =======================================================================
-void run_test(int argc, char *argv[]) {
+void run_test(int argc, char *argv[])
+{
 
   /*
-   * testing MusclBlockGodunovUpdateFunctor
+   * testing CopyGhostBlockCellDataFunctor
    */
   std::cout << "// =========================================\n";
-  std::cout << "// Testing MusclBlockGodunovUpdateFunctor...\n";
+  std::cout << "// Testing CopyGhostBlockCellDataFunctor ...\n";
   std::cout << "// =========================================\n";
 
   /*
    * read parameter file and initialize a ConfigMap object
    */
   // only MPI rank 0 actually reads input file
-  std::string input_file = std::string(argv[1]);
+  std::string input_file = argc>1 ? std::string(argv[1]) : "./block_data/test_implode_2D_block.ini";
   ConfigMap configMap = broadcast_parameters(input_file);
 
   // test: create a HydroParams object
@@ -65,7 +70,8 @@ void run_test(int argc, char *argv[]) {
 
   // actually initializing a solver
   // initialize workspace memory (U, U2, ...)
-  if (solver_name.find("Muscl_Block") == std::string::npos) {
+  if (solver_name.find("Muscl_Block") == std::string::npos)
+  {
 
     std::cerr << "Please modify your input parameter file.\n";
     std::cerr << "  solver name must contain string \"Muscl_Block\"\n";
@@ -118,14 +124,14 @@ void run_test(int argc, char *argv[]) {
             << "bz_g=" << bz_g << " "
             << "ghostwidth=" << ghostWidth << "\n";
 
-  //uint32_t nbCellsPerOct = params.dimType == TWO_D ? bx * by : bx * by * bz;
+  uint32_t nbCellsPerOct = params.dimType == TWO_D ? bx * by : bx * by * bz;
   uint32_t nbCellsPerOct_g =
       params.dimType == TWO_D ? bx_g * by_g : bx_g * by_g * bz_g;
 
   uint32_t nbOctsPerGroup = configMap.getInteger("amr", "nbOctsPerGroup", 32);
 
   /*
-   * allocate/initialize Ugroup / Qgroup
+   * allocate/initialize Ugroup
    */
 
   uint32_t nbOcts = solver->amr_mesh->getNumOctants();
@@ -135,42 +141,48 @@ void run_test(int argc, char *argv[]) {
   std::cout << "Using nbOctsPerGroup (number of octant per group) = " << nbOctsPerGroup << "\n";
 
   DataArrayBlock Ugroup = DataArrayBlock("Ugroup", nbCellsPerOct_g, params.nbvar, nbOctsPerGroup);
-  DataArrayBlock Qgroup = DataArrayBlock("Qgroup", nbCellsPerOct_g, params.nbvar, nbOctsPerGroup);
-  
   uint32_t iGroup = 1;
 
   uint8_t nfaces = (params.dimType == TWO_D ? 4 : 6);
-  FlagArrayBlock Interface_flags = FlagArrayBlock("Interface Flags", nfaces, nbOctsPerGroup);
+  FlagArrayBlock Interface_flags = FlagArrayBlock("Interface Flags", nbOctsPerGroup);
   
-  // // chose an octant which should have a "same size" neighbor in all direction
-  // //uint32_t iOct_local = 2;
+  // chose an octant which should have a "same size" neighbor in all direction
+  //uint32_t iOct_local = 2;
   
-  // // chose an octant which should have at least
-  // // a "larger size" neighbor in one direction
-  // //uint32_t iOct_local = 30;
+  // chose an octant which should have at least
+  // a "larger size" neighbor in one direction
+  //uint32_t iOct_local = 30;
 
-  // // chose an octant which should have at least
-  // // an interface with "smaller size" neighbor in one direction
+  // chose an octant which should have at least
+  // an interface with "smaller size" neighbor in one direction
   uint32_t iOct_local = 26;
 
   uint32_t iOct_global = iOct_local + iGroup * nbOctsPerGroup;
 
-  // std::cout << "Looking at octant id = " << iOct_global << "\n";
+  std::cout << "Looking at octant id = " << iOct_global << "\n";
 
-  // // save solution, just for cross-checking
-  // solver->save_solution();
+  // octant location
+  double x = solver->amr_mesh->getX(iOct_global);
+  double y = solver->amr_mesh->getY(iOct_global);
+  std::cout << "Octant location : x=" << x << " y=" << y << "\n";
 
-  // std::cout << "Printing U data from iOct = " << iOct_global << "\n";
-  // for (uint32_t iz=0; iz<bz; ++iz) {
-  //   for (uint32_t iy=0; iy<by; ++iy) {
-  //     for (uint32_t ix=0; ix<bx; ++ix) {
-  //       uint32_t index = ix + bx*(iy+by*iz);
-  //       printf("%5f ",solver->U(index,fm[ID],iOct_global));
-  //     }
-  //     std::cout << "\n";
-  //   }
-  //   std::cout << "\n";
-  // }
+  // save solution, just for cross-checking
+  solver->save_solution();
+
+  std::cout << "Printing U data from iOct = " << iOct_global << "\n";
+  for (uint32_t iz=0; iz<bz; ++iz) 
+  {
+    for (uint32_t iy=0; iy<by; ++iy)
+    {
+      for (uint32_t ix=0; ix<bx; ++ix)
+      {
+        uint32_t index = ix + bx*(iy+by*iz);
+        printf("%5f ",solver->U(index,fm[ID],iOct_global));
+      }
+      std::cout << "\n";
+    }
+    std::cout << "\n";
+  }
 
   std::cout << "Ugroup sizes = " 
             << Ugroup.extent(0) << " "
@@ -179,18 +191,16 @@ void run_test(int argc, char *argv[]) {
 
   // first copy inner cells
 
-  params.gravity_type = GRAVITY_NONE;
-
   //uint32_t nbOcts = solver->amr_mesh->getNumOctants();
-
   CopyInnerBlockCellDataFunctor::apply(configMap, params, fm, 
                                        blockSizes,
                                        ghostWidth, 
                                        nbOcts,
                                        nbOctsPerGroup,
-                                       solver->U, Ugroup,
-                                       iGroup);
+                                       solver->U, Ugroup, iGroup);
 
+  std::cout << "==========================================";
+  std::cout << "Testing CopyFaceBlockCellDataFunctor....\n";
   {
     CopyFaceBlockCellDataFunctor::apply(solver->amr_mesh,
                                         configMap,
@@ -205,10 +215,76 @@ void run_test(int argc, char *argv[]) {
                                         iGroup,
                                         Interface_flags);
     
+    // print data from from the chosen iGroup 
+    std::cout << "Printing Ugroup data from iOct = " << iOct_global << " | iOctLocal = " << iOct_local << " and iGroup = " << iGroup << "\n";
+    if (bz>1) 
+    {
+      
+      for (uint32_t iz = 0; iz < bz_g; ++iz)
+      {
+        for (uint32_t iy = 0; iy < by_g; ++iy)
+        {
+          for (uint32_t ix = 0; ix < bx_g; ++ix)
+          {
+            uint32_t index = ix + bx_g * (iy + by_g * iz);
+            printf("%5f ", Ugroup(index, fm[ID], iOct_local));
+          }
+          std::cout << "\n";
+        }
+        std::cout << "\n";
+      }
+      
+    } 
+    else 
+    {
+      
+      for (uint32_t iy = 0; iy < by_g; ++iy)
+      {
+        for (uint32_t ix = 0; ix < bx_g; ++ix)
+        {
+          uint32_t index = ix + bx_g * iy;
+          printf("%5f ", Ugroup(index, fm[IP], iOct_local));
+          if ( (ix==1 and iy==2) or
+               (ix==2 and iy==1) )
+            BOOST_CHECK_CLOSE(Ugroup(index, fm[IP], iOct_local), 1.601501, 0.1);
+          if ( (ix==1 and iy==3) or
+               (ix==3 and iy==1) )
+            BOOST_CHECK_CLOSE(Ugroup(index, fm[IP], iOct_local), 1.607751, 0.1);
+          if ( (ix==1 and iy==4) or
+               (ix==4 and iy==1) )
+            BOOST_CHECK_CLOSE(Ugroup(index, fm[IP], iOct_local), 1.614001, 0.1);
+          if ( (ix==1 and iy==5) or
+               (ix==5 and iy==1) )
+            BOOST_CHECK_CLOSE(Ugroup(index, fm[IP], iOct_local), 1.620251, 0.1);
+
+        }
+        std::cout << "\n";
+      }
+
+      // left border
+      
+      BOOST_CHECK_CLOSE(Ugroup(6 + bx_g * 2, fm[IP], iOct_local), 
+                        Ugroup(5 + bx_g * 2, fm[IP], iOct_local), 0.1);
+      BOOST_CHECK_CLOSE(Ugroup(6 + bx_g * 3, fm[IP], iOct_local), 
+                        Ugroup(5 + bx_g * 3, fm[IP], iOct_local), 0.1);
+      BOOST_CHECK_CLOSE(Ugroup(6 + bx_g * 4, fm[IP], iOct_local), 
+                        Ugroup(5 + bx_g * 4, fm[IP], iOct_local), 0.1);
+      BOOST_CHECK_CLOSE(Ugroup(6 + bx_g * 5, fm[IP], iOct_local), 
+                        Ugroup(5 + bx_g * 5, fm[IP], iOct_local), 0.1);
+
+      
+    } // end if bz>1
+
   } // end testing CopyFaceBlockCellDataFunctor
 
   // also testing ConvertToPrimitivesHydroFunctor
+  std::cout << "==========================================";
+  std::cout << "Testing ConvertToPrimitivesHydroFunctor \n";
   {
+    DataArrayBlock Qgroup = DataArrayBlock("Qgroup", nbCellsPerOct_g, params.nbvar, nbOctsPerGroup);
+
+    uint32_t nbOcts = solver->amr_mesh->getNumOctants();
+    
     ConvertToPrimitivesHydroFunctor::apply(configMap,
                                            params, 
                                            fm,
@@ -220,89 +296,17 @@ void run_test(int argc, char *argv[]) {
                                            Ugroup, 
                                            Qgroup);
 
-    for (uint32_t iy = 0; iy < by_g; ++iy) {
-      for (uint32_t ix = 0; ix < bx_g; ++ix) {
+    for (uint32_t iy = 0; iy < by_g; ++iy)
+    {
+      for (uint32_t ix = 0; ix < bx_g; ++ix)
+      {
         uint32_t index = ix + bx_g * iy;
-        printf("%5f ", Qgroup(index, fm[ID], iOct_local));
+        printf("%5f ", Qgroup(index, fm[IP], iOct_local));
       }
       std::cout << "\n";
     }
-    std::cout << "\n";
 
   } // end testing ConvertToPrimitivesHydroFunctor
-
-  // compute CFL constraint
-  real_t invDt;
-  ComputeDtHydroFunctor::apply(solver->amr_mesh,
-                               configMap,
-                               params,
-                               fm,
-                               blockSizes,
-                               solver->U,
-                               invDt);
-  
-  
-  real_t dt = params.settings.cfl / invDt;
-
-  printf("CFL dt = %f\n",dt);
-
-  // testing MusclBlockGodunovUpdateFunctor
-  {
-
-    MusclBlockGodunovUpdateFunctor::apply(solver->amr_mesh,
-                                          configMap,
-                                          params, 
-                                          fm,
-                                          blockSizes,
-                                          ghostWidth,
-                                          nbOcts,
-                                          nbOctsPerGroup,
-                                          iGroup,
-					                                solver->U,
-					                                solver->Ughost,
-                                          Ugroup,
-                                          solver->U2,
-                                          Qgroup, 
-                                          Interface_flags,
-                                          dt);
-
-    for (uint32_t iy = 0; iy < by_g; ++iy) {
-      for (uint32_t ix = 0; ix < bx_g; ++ix) {
-        uint32_t index = ix + bx_g * iy;
-        printf("%5f ", Qgroup(index, fm[ID], iOct_local));
-      }
-      std::cout << "\n";
-    }
-    std::cout << "\n";
-
-    // for (uint32_t iy = 0; iy < by_g; ++iy) {
-    //   for (uint32_t ix = 0; ix < bx_g; ++ix) {
-    //     uint32_t index = ix + bx_g * iy;
-    //     printf("%5f ", Ugroup(index, fm[ID], iOct_local));
-    //   }
-    //   std::cout << "\n";
-    // }
-    // std::cout << "\n";
-
-    for (uint32_t iy = 0; iy < by; ++iy) {
-      for (uint32_t ix = 0; ix < bx; ++ix) {
-        uint32_t index = ix + bx * iy;
-        printf("%5f ", solver->U(index, fm[ID], iOct_global));
-      }
-      std::cout << "\n";
-    }
-    std::cout << "\n";
-
-    for (uint32_t iy = 0; iy < by; ++iy) {
-      for (uint32_t ix = 0; ix < bx; ++ix) {
-        uint32_t index = ix + bx * iy;
-        printf("%5f ", solver->U2(index, fm[ID], iOct_global));
-      }
-      std::cout << "\n";
-    }
-    std::cout << "\n";
-
-  }
 
   delete solver;
 
@@ -312,16 +316,35 @@ void run_test(int argc, char *argv[]) {
 
 } // namespace dyablo
 
+BOOST_AUTO_TEST_SUITE(dyablo)
+
+BOOST_AUTO_TEST_SUITE(muscl_block)
+
+BOOST_AUTO_TEST_CASE(test_CopyGhostBlockCellData)
+{
+
+  run_test(framework::master_test_suite().argc,
+           framework::master_test_suite().argv);
+
+}
+
+BOOST_AUTO_TEST_SUITE_END() /* muscl_block */
+
+BOOST_AUTO_TEST_SUITE_END() /* dyablo */
+
+//old main
+#if 0
 // =======================================================================
 // =======================================================================
 // =======================================================================
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
 
   // Create MPI session if MPI enabled
 #ifdef DYABLO_USE_MPI
   hydroSimu::GlobalMpiSession mpiSession(&argc,&argv);
 #endif // DYABLO_USE_MPI
-  
+
   Kokkos::initialize(argc, argv);
 
   int rank = 0;
@@ -358,23 +381,16 @@ int main(int argc, char *argv[]) {
       // on a large cluster, the scheduler should assign ressources
       // in a way that each MPI task is mapped to a different GPU
       // let's cross-checked that:
-      
+
       int cudaDeviceId;
       cudaGetDevice(&cudaDeviceId);
       std::cout << "I'm MPI task #" << rank << " (out of " << nRanks << ")"
-		<< " pinned to GPU #" << cudaDeviceId << "\n";
-      
+        << " pinned to GPU #" << cudaDeviceId << "\n";
+
     }
 # endif // KOKKOS_ENABLE_CUDA
 #endif // DYABLO_USE_MPI
   }    // end kokkos config
-
-  if (argc < 2) {
-    std::cerr << "Wrong number of arguments.\n\n";
-    std::cerr << "Usage:\n";
-    std::cerr << " ./test_CopyGhostBlockCellData ./parameter_file.ini\n";
-    exit(EXIT_FAILURE);
-  }
 
   dyablo::muscl_block::run_test(argc, argv);
 
@@ -382,3 +398,4 @@ int main(int argc, char *argv[]) {
 
   return EXIT_SUCCESS;
 }
+#endif // old main

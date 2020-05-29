@@ -1,9 +1,9 @@
 /**
- * \file CopyFaceBlockCellData.h
+ * \file CopyFaceBlockCellDataHash.h
  * \author Pierre Kestener
  */
-#ifndef COPY_FACE_BLOCK_CELL_DATA_FUNCTOR_H_
-#define COPY_FACE_BLOCK_CELL_DATA_FUNCTOR_H_
+#ifndef COPY_FACE_BLOCK_CELL_DATA_HASH_FUNCTOR_H_
+#define COPY_FACE_BLOCK_CELL_DATA_HASH_FUNCTOR_H_
 
 #include "shared/FieldManager.h"
 #include "shared/kokkos_shared.h"
@@ -11,8 +11,11 @@
 // utils hydro
 #include "shared/utils_hydro.h"
 
-// utils block
+// utils block for :
+// - enum NEIGH_LOC / NEIGH_SIZE
 #include "muscl_block/utils_block.h"
+
+#include "shared/AMRMetaData.h"
 
 namespace dyablo
 {
@@ -53,8 +56,13 @@ namespace muscl_block
  *
  * \sa functor CopyInnerBlockCellDataFunctor
  *
+ * This new version of CopyFaceBlockCellDataFunctor uses AMRMetaData
+ * instead of bitpit mesh (not kokkos compatible).
+ *
+ * \tparam dim dimension is 2 or 3, necessary for AMRMetaData
  */
-class CopyFaceBlockCellDataFunctor
+template<int dim>
+class CopyFaceBlockCellDataHashFunctor
 {
 
 private:
@@ -65,7 +73,14 @@ public:
   using team_policy_t = Kokkos::TeamPolicy<Kokkos::IndexType<index_t>>;
   using thread_t = team_policy_t::member_type;
 
+  // AMR related type alias
+  using key_t = typename AMRMetaData<dim>::key_t;
+  using value_t = typename AMRMetaData<dim>::value_t;
+
   void setNbTeams(uint32_t nbTeams_) { nbTeams = nbTeams_; };
+
+  using NEIGH_LEVEL    = typename AMRMetaData<dim>::NEIGH_LEVEL;
+  using NEIGH_POSITION = typename AMRMetaData<dim>::NEIGH_POSITION;
 
   /**
    * enum used to identify the relative position of an octant
@@ -74,24 +89,24 @@ public:
    * In 2d, only 2 possibilities
    * In 3d, there are 4 possibilities
    */
-  enum NEIGH_LOC : uint8_t
-  {
-    NEIGH_POS_0 = 0,
-    NEIGH_POS_1 = 1,
-    NEIGH_POS_2 = 2,
-    NEIGH_POS_3 = 3
-  };
+  // enum NEIGH_LOC : uint8_t
+  // {
+  //   NEIGH_POS_0 = 0,
+  //   NEIGH_POS_1 = 1,
+  //   NEIGH_POS_2 = 2,
+  //   NEIGH_POS_3 = 3
+  // };
 
-  enum NEIGH_SIZE : uint8_t
-  {
-    NEIGH_IS_SMALLER   = 0,
-    NEIGH_IS_LARGER    = 1,
-    NEIGH_IS_SAME_SIZE = 2
-  };
+  // enum NEIGH_SIZE : uint8_t
+  // {
+  //   NEIGH_IS_SMALLER   = 0,
+  //   NEIGH_IS_LARGER    = 1,
+  //   NEIGH_IS_SAME_SIZE = 2
+  // };
 
   /**
    *
-   * \param[in] pmesh the main PABLO data structure with AMR connectivity information
+   * \param[in] mesh reference a AMRMetaData object for connectivity 
    * \param[in] params hydrodynamics parameters (geometry, ...)
    * \param[in] fm field manager to access applicative/hydrodynamics variables
    * \param[in] blockSizes x,y,z sizes of block of data per octant (no ghost)
@@ -106,18 +121,19 @@ public:
    * We probably could avoid passing a HydroParams object. // Refactor me ?
    *
    */
-  CopyFaceBlockCellDataFunctor(std::shared_ptr<AMRmesh> pmesh,
-                               HydroParams params,
-                               id2index_t fm,
-                               blockSize_t blockSizes, 
-                               uint32_t ghostWidth,
-                               uint32_t nbOctsPerGroup,
-                               DataArrayBlock U,
-                               DataArrayBlock U_ghost,
-                               DataArrayBlock Ugroup,
-                               uint32_t iGroup,
-                               FlagArrayBlock Interface_flags) :
-    pmesh(pmesh), params(params), 
+  CopyFaceBlockCellDataHashFunctor(AMRMetaData<dim> mesh,
+                                   HydroParams params,
+                                   id2index_t fm,
+                                   blockSize_t blockSizes, 
+                                   uint32_t ghostWidth,
+                                   uint32_t nbOctsPerGroup,
+                                   DataArrayBlock U,
+                                   DataArrayBlock U_ghost,
+                                   DataArrayBlock Ugroup,
+                                   uint32_t iGroup,
+                                   FlagArrayBlock Interface_flags) :
+    mesh(mesh), nbOcts(mesh.nbOctants()), 
+    params(params),
     fm(fm), blockSizes(blockSizes), 
     ghostWidth(ghostWidth),
     nbOctsPerGroup(nbOctsPerGroup), 
@@ -134,13 +150,10 @@ public:
     by_g = blockSizes[IY] + 2 * ghostWidth;
     bz_g = blockSizes[IZ] + 2 * ghostWidth;
 
-    // Gravity
-    copy_gravity = (params.gravity_type & GRAVITY_FIELD);
-    ndim = (params.dimType == THREE_D ? 3 : 2);
   };
 
   // static method which does it all: create and execute functor
-  static void apply(std::shared_ptr<AMRmesh> pmesh,
+  static void apply(AMRMetaData<dim> mesh,
                     ConfigMap configMap, 
                     HydroParams params, 
                     id2index_t fm,
@@ -154,12 +167,12 @@ public:
                     FlagArrayBlock Interface_flags)
   {
 
-    CopyFaceBlockCellDataFunctor functor(pmesh, params, fm, 
-                                         blockSizes, ghostWidth,
-                                         nbOctsPerGroup, 
-                                         U, U_ghost, Ugroup,
-                                         iGroup,
-                                         Interface_flags);
+    CopyFaceBlockCellDataHashFunctor functor(mesh, params, fm, 
+                                             blockSizes, ghostWidth,
+                                             nbOctsPerGroup, 
+                                             U, U_ghost, 
+                                             Ugroup, iGroup,
+                                             Interface_flags);
 
     /*
      * using kokkos team execution policy
@@ -172,135 +185,10 @@ public:
                          Kokkos::AUTO() /* team size chosen by kokkos */);
     
     // launch computation (parallel kernel)
-    Kokkos::parallel_for("dyablo::muscl_block::CopyFaceBlockCellDataFunctor",
+    Kokkos::parallel_for("dyablo::muscl_block::CopyFaceBlockCellDataHashFunctor",
                          policy, functor);
   }
   
-  // ==============================================================
-  // ==============================================================
-  /**
-   * Identifies situations like this (assuming neighbor octant is on the left,
-   * and current octant on the right) :
-   *
-   * \return eitheir NEIGH_POS_0 or NEIGH_POS_1 (see below)
-   *
-   * Algorithm to evaluate realtive position (see drawings below)
-   * just consists in comparing X or Y coordinate of the lower
-   * left corner of current octant and neighbor octant.
-   *
-   * assuming neighbor octant is LARGER than current octant
-   *
-   * ============================================
-   * E.g. when dir = DIR_X and face = FACE_LEFT :
-   *
-   * NEIGH_POS_0          NEIGH_POS_1
-   *  ______               ______    __
-   * |      |             |      |  |  |
-   * |      |   __    or  |      |  |__|
-   * |      |  |  |       |      |
-   * |______|  |__|       |______|
-   *
-   *
-   * ============================================
-   * E.g. when dir = DIR_Y and face = FACE_LEFT (i.e. below):
-   *
-   * NEIGH_POS_0          NEIGH_POS_1
-   *  ______               ______ 
-   * |      |             |      |
-   * |      |         or  |      |
-   * |      |             |      |
-   * |______|             |______|
-   *
-   *  __                       __
-   * |  |                     |  |
-   * |__|                     |__|
-   *
-   * 
-   * assuming neighbor octant is SMALLER than current octant
-   *
-   * ============================================
-   * E.g. when dir = DIR_X and face = FACE_LEFT :
-   *
-   * NEIGH_POS_0            NEIGH_POS_1
-   *        ______           __      ______ 
-   *       |      |         |  |    |      |
-   *  __   |      |     or  |__|    |      |
-   * |  |  |      |                 |      |
-   * |__|  |______|                 |______|
-   *
-   *
-   * \note Please note that the "if" branches are not divergent,
-   * all threads in a given team always follow the same
-   * branch.
-   *
-   * \param[in] iOct octant id of current current octant
-   * \param[in] iOct_neigh octant id of current neighbor octant
-   * \param[in] is_ghost true if neighbor is ghost octant
-   * \param[in] dir identifies the direction of the interface
-   * \param[in] face identifies the face (left or right)
-   * \param[in] neigh_size give information about neighbor octant (smaller, same size or larger)
-   */
-  KOKKOS_INLINE_FUNCTION
-  NEIGH_LOC get_relative_position_2d(uint32_t iOct,
-                                     uint32_t iOct_neigh,
-                                     bool     is_ghost,
-                                     DIR_ID   dir,
-                                     FACE_ID  face,
-                                     NEIGH_SIZE neigh_size) const
-  {
-
-    // default value
-    NEIGH_LOC res = NEIGH_POS_0;
-
-    // the following is a bit dirty, because current PABLO does not allow
-    // the user to probe logical coordinates (integer), only physical
-    // coordinates (double)
-
-    /*
-     * check if we are dealing with face along X, Y or Z direction
-     */
-    if (dir == DIR_X)
-    {
-
-      // get Y coordinates of the lower left corner of current octant
-      real_t cur_loc = pmesh->getY(iOct);
-
-      // get Y coordinates of the lower left corner of neighbor octant
-      real_t neigh_loc = is_ghost ? 
-        pmesh->getYghost(iOct_neigh) : 
-        pmesh->getY     (iOct_neigh);
-
-      if (neigh_size == NEIGH_IS_LARGER  and (neigh_loc < cur_loc) )
-        res = NEIGH_POS_1;
-
-      if (neigh_size == NEIGH_IS_SMALLER and (neigh_loc > cur_loc) )
-        res = NEIGH_POS_1;
-
-    }
-
-    if (dir == DIR_Y) 
-    {
-
-      // get X coordinates of the lower left corner of current octant
-      real_t cur_loc = pmesh->getX(iOct);
-
-      // get X coordinates of the lower left corner of neighbor octant
-      real_t neigh_loc = is_ghost ? 
-        pmesh->getXghost(iOct_neigh) : 
-        pmesh->getX     (iOct_neigh);
-
-      if ( neigh_size == NEIGH_IS_LARGER and (neigh_loc < cur_loc) )
-        res = NEIGH_POS_1;
-
-      if ( neigh_size == NEIGH_IS_SMALLER and (neigh_loc > cur_loc) )
-        res = NEIGH_POS_1;
-
-    }
-
-    return res;
-
-  } // get_relative_position_2d
-
   // ==============================================================
   // ==============================================================
   /**
@@ -432,11 +320,6 @@ public:
       Ugroup(index_cur, fm[IP], iOct_local) = Ugroup(index, fm[IP], iOct_local);
       Ugroup(index_cur, fm[IU], iOct_local) = Ugroup(index, fm[IU], iOct_local) * sign_u;
       Ugroup(index_cur, fm[IV], iOct_local) = Ugroup(index, fm[IV], iOct_local) * sign_v;
-
-      if (copy_gravity) {
-          Ugroup(index_cur, fm[IGX], iOct_local) = Ugroup(index, fm[IGX], iOct_local);
-          Ugroup(index_cur, fm[IGY], iOct_local) = Ugroup(index, fm[IGY], iOct_local);
-      } // end if copy
       
     } // end if admissible values
 
@@ -529,30 +412,17 @@ public:
 
       if (is_ghost)
       {
-        
         Ugroup(index_cur, fm[ID], iOct_local) = U_ghost(index_border, fm[ID], iOct_neigh);
         Ugroup(index_cur, fm[IP], iOct_local) = U_ghost(index_border, fm[IP], iOct_neigh);
         Ugroup(index_cur, fm[IU], iOct_local) = U_ghost(index_border, fm[IU], iOct_neigh);
         Ugroup(index_cur, fm[IV], iOct_local) = U_ghost(index_border, fm[IV], iOct_neigh);
-
-        if (copy_gravity) { 
-          Ugroup(index_cur, fm[IGX], iOct_local) = U_ghost(index_border, fm[IGX], iOct_neigh);
-          Ugroup(index_cur, fm[IGY], iOct_local) = U_ghost(index_border, fm[IGY], iOct_neigh);
-        }
-
-      } 
+      }
       else
       {
-        
         Ugroup(index_cur, fm[ID], iOct_local) = U(index_border, fm[ID], iOct_neigh);
         Ugroup(index_cur, fm[IP], iOct_local) = U(index_border, fm[IP], iOct_neigh);
         Ugroup(index_cur, fm[IU], iOct_local) = U(index_border, fm[IU], iOct_neigh);
         Ugroup(index_cur, fm[IV], iOct_local) = U(index_border, fm[IV], iOct_neigh);
-
-        if (copy_gravity) {
-          Ugroup(index_cur, fm[IGX], iOct_local) = U(index_border, fm[IGX], iOct_neigh);
-          Ugroup(index_cur, fm[IGY], iOct_local) = U(index_border, fm[IGY], iOct_neigh);
-        }
       }
 
     } // end if admissible values for index
@@ -601,7 +471,7 @@ public:
                                       index_t  index,
                                       DIR_ID   dir,
                                       FACE_ID  face,
-                                      NEIGH_LOC loc) const
+                                      NEIGH_POSITION loc) const
   {
     
     const int &bx = blockSizes[IX];
@@ -656,40 +526,27 @@ public:
       coord_border[IX] /= 2;
       coord_border[IY] /= 2;
 
-      if (loc == NEIGH_POS_1 and dir == DIR_X)
+      if (loc == NEIGH_POSITION::NEIGH_POS_1 and dir == DIR_X)
         coord_border[IY] += by/2;
 
-      if (loc == NEIGH_POS_1 and dir == DIR_Y)
+      if (loc == NEIGH_POSITION::NEIGH_POS_1 and dir == DIR_Y)
         coord_border[IX] += bx/2;
 
       uint32_t index_border = coord_border[IX] + bx * coord_border[IY];
 
       if (is_ghost)
       {
-      
         Ugroup(index_cur, fm[ID], iOct_local) = U_ghost(index_border, fm[ID], iOct_neigh);
         Ugroup(index_cur, fm[IP], iOct_local) = U_ghost(index_border, fm[IP], iOct_neigh);
         Ugroup(index_cur, fm[IU], iOct_local) = U_ghost(index_border, fm[IU], iOct_neigh);
         Ugroup(index_cur, fm[IV], iOct_local) = U_ghost(index_border, fm[IV], iOct_neigh);
-
-        if (copy_gravity) {
-          Ugroup(index_cur, fm[IGX], iOct_local) = U_ghost(index_border, fm[IGX], iOct_neigh);
-          Ugroup(index_cur, fm[IGY], iOct_local) = U_ghost(index_border, fm[IGY], iOct_neigh);
-        }
-
-      } 
+      }
       else
       {
-
         Ugroup(index_cur, fm[ID], iOct_local) = U(index_border, fm[ID], iOct_neigh);
         Ugroup(index_cur, fm[IP], iOct_local) = U(index_border, fm[IP], iOct_neigh);
         Ugroup(index_cur, fm[IU], iOct_local) = U(index_border, fm[IU], iOct_neigh);
         Ugroup(index_cur, fm[IV], iOct_local) = U(index_border, fm[IV], iOct_neigh);
-
-        if (copy_gravity) {
-          Ugroup(index_cur, fm[IGX], iOct_local) = U(index_border, fm[IGX], iOct_neigh);
-          Ugroup(index_cur, fm[IGY], iOct_local) = U(index_border, fm[IGY], iOct_neigh);
-
       }
 
     } // end if admissible values for index
@@ -736,8 +593,7 @@ public:
                                        bool     is_ghost[2],
                                        index_t  index,
                                        DIR_ID   dir,
-                                       FACE_ID  face,
-                                       NEIGH_LOC loc[2]) const
+                                       FACE_ID  face) const
   {
     const int &bx = blockSizes[IX];
     const int &by = blockSizes[IY];
@@ -746,7 +602,6 @@ public:
     // used to accumulate values from smaller octant into
     // large octant ghost cells
     HydroState2d q = {0, 0, 0, 0};
-    real_t gravity[2]{0.0, 0.0};
 
     const index_t size_borderX = ghostWidth*by;
     const index_t size_borderY = bx*ghostWidth;
@@ -833,31 +688,17 @@ public:
           
           if (is_ghost[iNeigh]) 
           {
-          
             q[ID] += U_ghost(index_border, fm[ID], iOct_neigh[iNeigh]);
             q[IP] += U_ghost(index_border, fm[IP], iOct_neigh[iNeigh]);
             q[IU] += U_ghost(index_border, fm[IU], iOct_neigh[iNeigh]);
             q[IV] += U_ghost(index_border, fm[IV], iOct_neigh[iNeigh]);
-
-            if (copy_gravity) {
-              gravity[0] += U_ghost(index_border, fm[IGX], iOct_neigh[iNeigh]);
-              gravity[1] += U_ghost(index_border, fm[IGY], iOct_neigh[iNeigh]);
-            }
-
-          }
+          } 
           else
           {
-
             q[ID] += U(index_border, fm[ID], iOct_neigh[iNeigh]);
             q[IP] += U(index_border, fm[IP], iOct_neigh[iNeigh]);
             q[IU] += U(index_border, fm[IU], iOct_neigh[iNeigh]);
             q[IV] += U(index_border, fm[IV], iOct_neigh[iNeigh]);
-
-            if (copy_gravity) {
-              gravity[0] += U(index_border, fm[IGX], iOct_neigh[iNeigh]);
-              gravity[1] += U(index_border, fm[IGY], iOct_neigh[iNeigh]);
-            }
-
           }
 
         } // end for ix
@@ -868,11 +709,6 @@ public:
       Ugroup(index_cur, fm[IP], iOct_local) = q[IP]/4;
       Ugroup(index_cur, fm[IU], iOct_local) = q[IU]/4;
       Ugroup(index_cur, fm[IV], iOct_local) = q[IV]/4;
-
-      if (copy_gravity) {
-        Ugroup(index_cur, fm[IGX], iOct_local) = gravity[0];
-        Ugroup(index_cur, fm[IGY], iOct_local) = gravity[1];
-      } // end if copy_gravity
     } // end if admissible values for index
 
   } // fill_ghost_face_2d_smaller_size
@@ -884,122 +720,173 @@ public:
    * - fill_ghost_face_2d_same_size
    * - fill_ghost_face_2d_larger_size
    * - fill_ghost_face_2d_smaller_size
+   *
+   * \param[in] iOct octant id (regular) among all octant in current MPI process
+   * \param[in] iOct_local octant id inside current group/batch of octants processed
+   * \param[in] morton index of current octant
+   * \param[in] level of current octant
+   * \param[in] index_in
+   * \param[in] dir is direction of the face
+   * \param[in] face is 0 (left) or right (1)
+   * \param[in] status is a small integer encode neighbor level difference relative to current octant
    */
   KOKKOS_INLINE_FUNCTION
   void fill_ghost_face_2d(uint32_t iOct, 
-                          uint32_t iOct_local, 
+                          uint32_t iOct_local,
+                          uint64_t morton,
+                          uint8_t  level,
                           index_t  index_in, 
                           DIR_ID   dir, 
-                          FACE_ID  face) const
+                          FACE_ID  face,
+                          AMRMetaData<2>::neigh_level_status_t status_level,
+                          AMRMetaData<2>::neigh_rel_pos_status_t status_rel_pos) const
   {
 
     // probe mesh neighbor information
     uint8_t iface = face + 2*dir;
-    uint8_t codim = 1;
 
-    // list of neighbors octant id, neighbor through a given face
-    std::vector<uint32_t> neigh;
-    std::vector<bool> isghost;
+    // decode neigh level status (larger ? same size ? smaller ?)
+    using NEIGH_LEVEL = AMRMetaData<2>::NEIGH_LEVEL;
+    NEIGH_LEVEL nl = static_cast<NEIGH_LEVEL>( (status_level >> (2*iface)) & 0x3 );
 
-    // ask PABLO to find neighbor octant id accross a given face
-    // this fill fill vector neigh and isghost
-    pmesh->findNeighbours(iOct, iface, codim, neigh, isghost);
+    // get hashmap from mesh, we'll need it to retrieve neighbor octant id
+    auto hashmap = mesh.hashmap();
+
+    // total number of octants
+    //uint32_t nbOcts = mesh.nbOctants();
 
     /*
      * first deal with external border
      */
-    if (neigh.size() == 0)
+    if (nl == NEIGH_LEVEL::NEIGH_IS_EXTERNAL_BORDER)
     {
-
-      // if (index_in==0)
-      //   printf("[neigh is external] iOct_global=%d iOct_local=%2d ---- dir=%d face=%d \n",iOct, iOct_local, dir, face);
 
       fill_ghost_face_2d_external_border(iOct, iOct_local, index_in, dir, face);
+
     } 
-    
+
     /*
-     * there one neighbor accross face , either same size or larger
+     * there is one neighbor, larger at level-1
+     * we further need the relative position to precisely compute it morton key.
      */
-    else if (neigh.size() == 1)
+    else if (nl == NEIGH_LEVEL::NEIGH_IS_LARGER)
     {
 
-      // retrieve neighbor octant id
-      uint32_t iOct_neigh = neigh[0];
-
-      /* check if neighbor is larger, it means one of the corner of current octant
-       * is a hanging node, there are 2 distinct geometrical possibilities, 
+      /*
+       * retrieve neighbor octant id through the given face id
+       */
+      
+      /* neighbor is larger, there are 2 distinct geometrical possibilities, 
        * here illustrated with
        * neighbor (large) octant on the left and current (small) octant on the right 
        *
-       *  _______              ______    __
-       * |      |             |      |  |  |
+       *  ______               ______    __
+       * |N     |             |N     |  |C |
        * |      |   __    or  |      |  |__|
-       * |      |  |  |       |      |
+       * |      |  |C |       |      |
        * |______|  |__|       |______|  
        */
-      if ( pmesh->getLevel(iOct) > pmesh->getLevel(iOct_neigh) ) {
+      // decode neigh relative position
+      NEIGH_POSITION rel_pos = 
+        static_cast<NEIGH_POSITION>( (status_rel_pos >> (iface)) & 0x1 );
 
-        // if (index_in==0)
-        //   printf("[neigh is larger] iOct_global=%d iOct_local=%2d iOct_neigh=%2d ---- \n",iOct, iOct_local, iOct_neigh);
+      // neighbor hash key
+      key_t key_n;
 
-        // Setting interface flag to "bigger"
-	Interface_flags(iOct_local) |= (1 << (iface + 6));
+      key_n[0] = get_neighbor_morton(morton, level, level-1, iface, rel_pos);
+      key_n[1] = level-1;
+
+      // hashmap index - index_n has to be a valid index,
+      // or else we're in deep trouble
+      auto index_n = hashmap.find(key_n);
+      
+      //if ( invalid_index != index_n )
+      //{
+      uint32_t iOct_neigh = hashmap.value_at(index_n);
+      //}
+            
+      // Setting interface flag to "bigger"
+      Interface_flags(iOct_local) |= (1 << (iface + 6));
 	
-        NEIGH_LOC loc = get_relative_position_2d(iOct, iOct_neigh, isghost[0], dir, face, NEIGH_IS_LARGER);
+      bool isGhost = iOct_neigh>=nbOcts;
+      
+      fill_ghost_face_2d_larger_size(iOct, iOct_local, iOct_neigh, isGhost, index_in, dir, face, rel_pos);
+      
+    } // NEIGH_IS_LARGER
 
-        fill_ghost_face_2d_larger_size(iOct, iOct_local, iOct_neigh, isghost[0], index_in, dir, face, loc);
+    else if (nl == NEIGH_LEVEL::NEIGH_IS_SAME_SIZE)
+    {
 
-      }
-      else
-      {
-        // if (index_in==0)
-        //   printf("[neigh has same size] iOct_global=%d iOct_local=%2d iOct_neigh=%2d \n",iOct, iOct_local, iOct_neigh);
+      // neighbor hash key
+      key_t key_n;
 
-        fill_ghost_face_2d_same_size(iOct, iOct_local, iOct_neigh, isghost[0], index_in, dir, face);
+      key_n[0] = get_neighbor_morton(morton, level, iface);
+      key_n[1] = level;
 
-      } // end iOct and iOct_neigh have same size
+      // hashmap index - index_n has to be a valid index,
+      // or else we're in deep trouble
+      auto index_n = hashmap.find(key_n);
+      
+      uint32_t iOct_neigh = hashmap.value_at(index_n);
 
-    } // end neigh.size() == 1
+      bool isGhost = iOct_neigh>=nbOcts;
+
+      fill_ghost_face_2d_same_size(iOct, iOct_local, iOct_neigh, isGhost, index_in, dir, face);
+
+    } // end NEIGH_IS_SAME_SIZE
 
     /*
-     * there are 2 neighbors accross face, smaller than current octant
+     * there are 2 neighbors across face, smaller than current octant
      * here we average values read from the smaller octant before copying
      * into ghost cells of the larger octant.
      */
-    else if (neigh.size() == 2)
+    else if (nl == NEIGH_LEVEL::NEIGH_IS_SMALLER)
     {
 
       // Setting interface flag to "smaller"
       Interface_flags(iOct_local) |= (1<<iface);
 
-      // if (index_in==0)
-      //   printf("[neigh has smaller size] iOct_global=%d iOct_local=%2d iOct_neigh0=%2d iOct_neigh1=%2d -- dir=%d face=%d\n",
-      //          iOct, iOct_local, neigh[0], neigh[1],dir,face);
+      // retrieve the 2 neighbor octant ids
+      uint32_t iOct_neigh[2];
+      bool isghost_neigh[2];
 
-      // compute relative position of smaller octant versus current one
-      // we do that because I don't know if PABLO always returns the neighbor
-      // in that order. To be investigated, it is not clearly stated in PABLO
-      // doc (doxygen), it probably require a good reading of PABLO source code
-      // and reverse engineering to be sure. Maybe ask PABLO authors in a github issue ?
-      NEIGH_LOC loc[2];
-      uint32_t iOct_neigh[2] = {neigh[0], neigh[1]};
-      bool isghost_neigh[2] = {isghost[0], isghost[1]};
+      for (int ineigh=0; ineigh<2; ++ineigh)
+      {
 
-      loc[0] = get_relative_position_2d (iOct, neigh[0], isghost[0], dir, face, NEIGH_IS_SMALLER);
-      loc[1] = get_relative_position_2d (iOct, neigh[1], isghost[1], dir, face, NEIGH_IS_SMALLER);
+        // neighbor hash key
+        key_t key_n;
+
+        key_n[0] = get_neighbor_morton(morton, level, level+1, iface, ineigh);
+        key_n[1] = level+1;
+
+        // hashmap index - index_n has to be a valid index,
+        // or else we're in deep trouble
+        auto index_n = hashmap.find(key_n);
+        
+        iOct_neigh[ineigh] = hashmap.value_at(index_n);
+        isghost_neigh[ineigh] = iOct_neigh[ineigh]>= nbOcts;
+
+      }
 
       fill_ghost_face_2d_smaller_size(iOct, iOct_local, iOct_neigh, 
                                       isghost_neigh, index_in, 
-                                      dir, face, loc);
+                                      dir, face);
       
-    }
+    } // end NEIGH_IS_SMALLER
 
   } // fill_ghost_face_2d
 
   // ==============================================================
+  // ================================================
+  // ================================
+  // 2D version.
+  // ================================
+  // ================================================
   // ==============================================================
+  //! functor for 2d 
+  template<int dim_ = dim>
   KOKKOS_INLINE_FUNCTION
-  void functor2d(team_policy_t::member_type member) const 
+  void operator()(typename std::enable_if<dim_==2, team_policy_t::member_type>::type member) const 
   {
 
     // iOct must span the range [iGroup*nbOctsPerGroup ,
@@ -1010,7 +897,7 @@ public:
     uint32_t iOct_g = member.league_rank();
 
     // total number of octants
-    uint32_t nbOcts = pmesh->getNumOctants();
+    //uint32_t nbOcts = mesh.nbOctants();
 
     // compute first octant index after current group
     uint32_t iOctNextGroup = (iGroup + 1) * nbOctsPerGroup;
@@ -1023,53 +910,83 @@ public:
     uint32_t bmax = bx < by ? by : bx;
     uint32_t nbCells = bmax*ghostWidth;
 
+    // get a const ref on the array of neighbor "level status"
+    const auto neigh_level_status = mesh.neigh_level_status_array();
+
+    // get a const ref on the array of neighbor "relative position status"
+    const auto neigh_rel_pos_status = mesh.neigh_rel_pos_status_array();
+
+    // get a const ref on the array of morton keys
+    const auto morton_keys = mesh.morton_keys();
+
+    // get a const ref on the array of levels
+    const auto levels = mesh.levels();
+
+    //
+    // THE main loop
+    //
     while (iOct < iOctNextGroup and iOct < nbOcts)
     {
       Interface_flags(iOct_g) = INTERFACE_NONE;
 
+      // get neigh level status
+      auto neigh_lv_status = neigh_level_status(iOct);
+
+      // get neigh relative position status
+      auto neigh_rp_status = neigh_rel_pos_status(iOct);
+
+      uint64_t morton_key = morton_keys(iOct);
+      uint8_t level = levels(iOct);
+
       // perform "vectorized" loop inside a given block data
       Kokkos::parallel_for(
         Kokkos::TeamVectorRange(member, nbCells),
-        KOKKOS_LAMBDA(const index_t index)
+        [&](const index_t index)
         {
           // compute face X,left
-          fill_ghost_face_2d(iOct, iOct_g, index, DIR_X, FACE_LEFT);
+          fill_ghost_face_2d(iOct, iOct_g, morton_key, level, index, DIR_X, FACE_LEFT, neigh_lv_status, neigh_rp_status);
           
           // compute face X,right
-          fill_ghost_face_2d(iOct, iOct_g, index, DIR_X, FACE_RIGHT);
+          fill_ghost_face_2d(iOct, iOct_g, morton_key, level, index, DIR_X, FACE_RIGHT, neigh_lv_status, neigh_rp_status);
           
           // compute face Y,left
-          fill_ghost_face_2d(iOct, iOct_g, index, DIR_Y, FACE_LEFT);
+          fill_ghost_face_2d(iOct, iOct_g, morton_key, level, index, DIR_Y, FACE_LEFT, neigh_lv_status, neigh_rp_status);
           
           // compute face Y,right
-          fill_ghost_face_2d(iOct, iOct_g, index, DIR_Y, FACE_RIGHT);
+          fill_ghost_face_2d(iOct, iOct_g, morton_key, level, index, DIR_Y, FACE_RIGHT, neigh_lv_status, neigh_rp_status);
           
         }); // end TeamVectorRange
       
       // increase current octant location both in U and Ugroup
-      iOct += nbTeams;
+      iOct   += nbTeams;
       iOct_g += nbTeams;
 
     } // end while iOct inside current group of octants
 
-  } // functor2d()
+  } // operator() - 2d version
 
   // ==============================================================
+  // ================================================
+  // ================================
+  // 3D version.
+  // ================================
+  // ================================================
   // ==============================================================
+  //! functor for 3d 
+  template<int dim_ = dim>
   KOKKOS_INLINE_FUNCTION
-  void operator()(team_policy_t::member_type member) const 
+  void operator()(typename std::enable_if<dim_==3, team_policy_t::member_type>::type member) const 
   {
 
-    if (params.dimType == TWO_D)
-      functor2d(member);
+    // TODO my dear...
 
-    // if (params.dimType == THREE_D)
-    //   functor3d(member);
-
-  } // operator()
+  } // operator() - 3d version
 
   //! AMR mesh
-  std::shared_ptr<AMRmesh> pmesh;
+  AMRMetaData<dim> mesh;
+
+  //! number of regular octants
+  uint32_t nbOcts;
 
   //! general parameters
   HydroParams params;
@@ -1098,7 +1015,7 @@ public:
   DataArrayBlock U_ghost;
 
   //! heavy data - output - local group array of block data (with ghosts)
-  DataArrayBlock Ugroup;  
+  DataArrayBlock Ugroup;
 
   //! id of group of octants to be copied
   uint32_t iGroup;
@@ -1106,16 +1023,10 @@ public:
   //! 2:1 flagging mechanism
   FlagArrayBlock Interface_flags;
 
-  // should we copy gravity ?
-  bool copy_gravity;
-
-  // number of dimensions for gravity
-  int ndim;
-
-}; // CopyFaceBlockCellDataFunctor
+}; // CopyFaceBlockCellDataHashFunctor
 
 } // namespace muscl_block
 
 } // namespace dyablo
 
-#endif // COPY_FACE_BLOCK_CELL_DATA_FUNCTOR_H_
+#endif // COPY_FACE_BLOCK_CELL_DATA_HASH_FUNCTOR_H_

@@ -5,6 +5,7 @@
 
 namespace dyablo {
 
+//! bitpit Pablo object type alias
 using AMRmesh = bitpit::PabloUniform;
 
 } // namespace dyablo

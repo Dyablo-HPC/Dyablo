@@ -31,6 +31,7 @@
 #include <cstddef> // for std::size_t
 
 #include "shared/enums.h" // for ComponentIndex3D
+#include "shared/real_type.h"
 
 #include <Kokkos_Macros.hpp> // for KOKKOS_INLINE_FUNCTION
 
@@ -242,6 +243,247 @@ uint32_t morton_extract_bits(uint64_t key)
   return static_cast<uint32_t>(key);
 
 } // morton_extract_bits
+
+/**
+ * Get morton key of a face neighbor at same level
+ * given current octant Morton key.
+ *
+ * \param[in] key is the morton key of current octant
+ * \param[in] level AMR level of current octant
+ * \param[in] face is faceId (FACE_XMIN, FACE_XMAX, ....)
+ *
+ * \return neighbor morton key
+ *
+ * \todo maybe try to extract only the coordinate of interest not all 
+ *       three coordinates.
+ * \todo all the addition could probably be implemented more efficiently
+ *       with bit manipulation
+ *
+ */
+KOKKOS_INLINE_FUNCTION
+uint64_t get_neighbor_morton(uint64_t key,
+                             uint8_t level,
+                             uint8_t face)
+{
+  auto x = morton_extract_bits<3,IX>(key);
+  auto y = morton_extract_bits<3,IY>(key);
+  auto z = morton_extract_bits<3,IZ>(key);
+
+  constexpr int MAX_LEVEL = 20;
+  auto length = uint32_t(1) << (MAX_LEVEL - level);
+
+  // domain length
+  auto total_length = uint32_t(1) << MAX_LEVEL;
+
+  if (face == 0) 
+  {
+    if (x < length)
+      x += total_length;
+    x -= length;
+  }
+
+  if (face == 1)
+  {
+    x += length;
+    if (x >= total_length)
+      x -= total_length;
+  }
+
+  if (face == 2) 
+  {
+    if (y < length)
+      y += total_length;
+    y -= length;
+  }
+
+  if (face == 3)
+  {
+    y += length;
+    if (y >= total_length)
+      y -= total_length;
+  }
+
+  if (face == 4) 
+  {
+    if (z < length)
+      z += total_length;
+    z -= length;
+  }
+
+  if (face == 5)
+  {
+    z += length;
+    if (z >= total_length)
+      z -= total_length;
+  }
+
+  return compute_morton_key(x,y,z);
+
+} // get_neighbor_morton
+
+/**
+ * Get morton key of a face neighbor at same level
+ * given current octant Morton key.
+ *
+ * \param[in] key is the morton key of current octant
+ * \param[in] level AMR level of current octant
+ * \param[in] level_n AMR level of neigh octant
+ * \param[in] face is faceId (FACE_XMIN, FACE_XMAX, ....)
+ * \param[in] neigh_id is neighbor id
+ *
+ * \return neighbor morton key
+ *
+ * \note neigh_id should 0 or 1 in 2D
+ * \note neigh_id should 0, 1, 2 or 3 in 3D
+ *
+ * \todo maybe try to extract only the coordinate of interest not all 
+ *       three coordinates.
+ * \todo all the addition could probably be implemented more efficiently
+ *       with bit manipulation
+ *
+ */
+KOKKOS_INLINE_FUNCTION
+uint64_t get_neighbor_morton(uint64_t key,
+                             uint8_t level,
+                             uint8_t level_n,
+                             uint8_t face,
+                             uint8_t neigh_id)
+{
+  
+  uint32_t xyz[3];
+  xyz[IX] = morton_extract_bits<3,IX>(key);
+  xyz[IY] = morton_extract_bits<3,IY>(key);
+  xyz[IZ] = morton_extract_bits<3,IZ>(key);
+
+  constexpr int MAX_LEVEL = 20;
+
+  // length of current octant
+  auto length = uint32_t(1) << (MAX_LEVEL - level);
+
+  // length of neighbor
+  auto length_n = uint32_t(1) << (MAX_LEVEL - level_n);
+
+  // domain length
+  auto total_length = uint32_t(1) << MAX_LEVEL;
+
+  // get direction and left/right face
+  auto dir = face >> 1;
+  auto iface = face & 0x1;
+
+  uint32_t b0 =  neigh_id     & 0x1 ;
+  uint32_t b1 = (neigh_id>>1) & 0x1 ;
+  
+  // =====================================================
+  // neighbor must be smaller or larger but not same size
+  // =====================================================
+  if ( level_n != level )
+  {
+    
+    // ======================================
+    if (dir == IX)
+    {
+
+      if (iface==0)
+      {
+        xyz[IX] = (xyz[IX]<length_n) ?
+          xyz[IX] + total_length - length_n :
+          xyz[IX]                - length_n;
+      }
+      else
+      {
+        xyz[IX] += length;
+        if (xyz[IX]>=total_length)
+          xyz[IX] -= total_length;
+      }
+
+
+      if ( level_n > level )
+      {
+        xyz[IY] = b0 == 0 ? xyz[IY] : xyz[IY]+length_n;
+        xyz[IZ] = b1 == 0 ? xyz[IZ] : xyz[IZ]+length_n;
+      }
+      else
+      {
+        xyz[IY] = b0 == 0 ? xyz[IY] : xyz[IY]-length;
+        xyz[IZ] = b1 == 0 ? xyz[IZ] : xyz[IZ]-length;
+      }
+    }
+
+    // ======================================
+    if (dir == IY)
+    {
+      if (iface==0)
+      {
+        xyz[IY] = (xyz[IY]<length_n) ?
+          xyz[IY] + total_length - length_n :
+          xyz[IY]                - length_n;
+      }
+      else
+      {
+        xyz[IY] += length;
+        if (xyz[IY]>=total_length)
+          xyz[IY] -= total_length;
+      }
+
+      if ( level_n > level )
+      {
+        xyz[IX] = b0 == 0 ? xyz[IX] : xyz[IX]+length_n;
+        xyz[IZ] = b1 == 0 ? xyz[IZ] : xyz[IZ]+length_n;
+      }
+      else
+      {
+        xyz[IX] = b0 == 0 ? xyz[IX] : xyz[IX]-length;
+        xyz[IZ] = b1 == 0 ? xyz[IZ] : xyz[IZ]-length;
+      }
+    }
+
+    // ======================================
+    if (dir == IZ)
+    {
+      if (iface==0)
+      {
+        xyz[IZ] = (xyz[IZ]<length_n) ?
+          xyz[IZ] + total_length - length_n :
+          xyz[IZ]                - length_n;
+      }
+      else
+      {
+        xyz[IZ] += length;
+        if (xyz[IZ]>=total_length)
+          xyz[IZ] -= total_length;
+      }
+
+      if ( level_n > level )
+      {
+        xyz[IX] = b0 == 0 ? xyz[IX] : xyz[IX]+length_n;
+        xyz[IY] = b1 == 0 ? xyz[IY] : xyz[IY]+length_n;
+      }
+      else
+      {
+        xyz[IX] = b0 == 0 ? xyz[IX] : xyz[IX]-length;
+        xyz[IY] = b1 == 0 ? xyz[IY] : xyz[IY]-length;
+      }
+      
+    }
+
+    return compute_morton_key(xyz[IX],xyz[IY],xyz[IZ]);
+
+  } // end neighbor is smaller or larger
+
+  // should never reach here
+  return compute_morton_key(0,0,0);
+
+} // get_neighbor_morton
+
+// ====================================================================
+// ====================================================================
+KOKKOS_INLINE_FUNCTION
+real_t levelToSize (uint8_t level) 
+{
+
+  return 1.0/(1<<level);
+
+}
 
 } // namespace dyablo
 
