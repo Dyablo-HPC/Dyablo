@@ -41,6 +41,20 @@ namespace dyablo
 
 // =======================================================================
 // =======================================================================
+/**
+ * Initialize a DataArrayBlock.
+ *
+ * All cells inside a given octant are initialized with the octant id.
+ * This will ease checking that neighbor information is correctly
+ * computed.
+ *
+ * \param[out] data array to initialize
+ * \param[in]  nbOcts is the total number of octants
+ * \param[in]  params holds hydro parameters
+ * \param[in]  blockSizes number of cells per octant (or block)
+ * \param[in]  ghostwidth width of the ghost cells around a block
+ * \param[in]  fm field manager
+ */
 void init_U(DataArrayBlock U,
             uint32_t nbOcts,
             HydroParams params,
@@ -65,28 +79,29 @@ void init_U(DataArrayBlock U,
   uint32_t nbCells = params.dimType == TWO_D ?
     bx*by : bx*by*bz;
 
-  Kokkos::parallel_for("init_U", policy,
-                       KOKKOS_LAMBDA(const thread_t& member)
-                       {
-                         uint32_t iOct = member.league_rank();
-
-                         while (iOct <  nbOcts) {
-
-                           Kokkos::parallel_for(
-                             Kokkos::TeamVectorRange(member, nbCells),
-                             [&](const int32_t index) {
-                               U(index, 0, iOct) =
-                                 // something like a cellwise Morton index
-                                 //index + iOct * nbCells;
-                                 iOct;
-                             }); // end TeamVectorRange
-
-                           iOct += nbTeams_;
-
-                         }
-
-                       });
-
+  Kokkos::parallel_for(
+    "init_U", policy,
+    KOKKOS_LAMBDA(const thread_t& member)
+    {
+      uint32_t iOct = member.league_rank();
+      
+      while (iOct <  nbOcts) {
+        
+        Kokkos::parallel_for(
+          Kokkos::TeamVectorRange(member, nbCells),
+          [&](const int32_t index) {
+            U(index, 0, iOct) =
+              // something like a cellwise Morton index
+              //index + iOct * nbCells;
+              iOct;
+          }); // end TeamVectorRange
+        
+        iOct += nbTeams_;
+        
+      }
+      
+    });
+  
 } // init_U
 
 // =======================================================================
@@ -118,6 +133,7 @@ void run_test()
 
   // block ghost width
   uint32_t ghostWidth = configMap.getInteger("amr", "ghostwidth", 2);
+  uint32_t& g=ghostWidth; 
 
   // block sizes
   uint32_t bx = configMap.getInteger("amr", "bx", 0);
@@ -153,9 +169,9 @@ void run_test()
 
   uint32_t nbOctsPerGroup = 32;
 
-  // ==================================================
-  // STAGE 1 : PABLO object
-  // ==================================================
+  // ==========================================================
+  // STAGE 1 : create a PABLO object (only for initialization)
+  // ==========================================================
 
   /*
    * initialize Pablo mesh
@@ -222,7 +238,8 @@ void run_test()
 #endif
 
   // ==================================================
-  // STAGE 2 : create a AMRMetaData object
+  // STAGE 2 : create a AMRMetaData object 
+  //           mirroring the same mesh as PABLO
   // ==================================================
 
   uint64_t capacity = 1024*1024;
@@ -242,9 +259,8 @@ void run_test()
   fieldMgr.setup(params, configMap);
   auto fm = fieldMgr.get_id2index();
 
-
   /*
-   * allocate/initialize face data U
+   * allocate/initialize fake data U
    */
   uint32_t nbOcts = amr_mesh.getNumOctants();
   std::cout << "Currently mesh has " << nbOcts << " octants\n";
@@ -291,6 +307,178 @@ void run_test()
   std::cout << "Testing CopyFaceBlockCellDataHashFunctor.....\n";
   std::cout << "=============================================\n";
   {
+
+    if (dim==2) {
+      // print mesh
+      std::cout << "  2D mesh connectivity        \n";
+      std::cout << "   ___________ __________     \n";
+      std::cout << "  |           |     |    |    \n";
+      std::cout << "  |           |  14 | 15 |    \n";
+      std::cout << "  |    11     |-----+----|    \n";
+      std::cout << "  |           |  12 | 13 |    \n";
+      std::cout << "  |___________|_____|____|    \n";
+      std::cout << "  |     |     | 8|9 |    |    \n";
+      std::cout << "  |  2  |  3  | 6|7 | 10 |    \n";
+      std::cout << "  |-----+-----|-----+----|    \n";
+      std::cout << "  |  0  |  1  |  4  | 5  |    \n";
+      std::cout << "  |_____|_____|_____|____|    \n";
+      std::cout << "                              \n";
+    }
+
+    // expected results
+    // first dimension is octant id : 0 to nbOcts-1
+    // second dimension enumerate neighbors in Morton order 
+    //    the maximun number of neighbors is nbfaces * 2^(dim-1)
+    // value is the neighbor octant id 
+    Kokkos::View<real_t**, Kokkos::HostSpace> mesh_connectivity("mesh_connectivity", nbOcts, dim==2 ? 4 * 2 : 6 * 4);
+    if (dim == 2) {
+
+      mesh_connectivity(0,0) = 5;
+      mesh_connectivity(0,1) = 5;
+      mesh_connectivity(0,2) = 1;
+      mesh_connectivity(0,3) = 1;
+      mesh_connectivity(0,4) = 11;
+      mesh_connectivity(0,5) = 11;
+      mesh_connectivity(0,6) = 2;
+      mesh_connectivity(0,7) = 2;
+
+      mesh_connectivity(1,0) = 0;
+      mesh_connectivity(1,1) = 0;
+      mesh_connectivity(1,2) = 4;
+      mesh_connectivity(1,3) = 4;
+      mesh_connectivity(1,4) = 11;
+      mesh_connectivity(1,5) = 11;
+      mesh_connectivity(1,6) = 3;
+      mesh_connectivity(1,7) = 3;
+
+      mesh_connectivity(2,0) = 10;
+      mesh_connectivity(2,1) = 10;
+      mesh_connectivity(2,2) = 3;
+      mesh_connectivity(2,3) = 3;
+      mesh_connectivity(2,4) = 0;
+      mesh_connectivity(2,5) = 0;
+      mesh_connectivity(2,6) = 11;
+      mesh_connectivity(2,7) = 11;
+
+      mesh_connectivity(3,0) = 2;
+      mesh_connectivity(3,1) = 2;
+      mesh_connectivity(3,2) = 6;
+      mesh_connectivity(3,3) = 8;
+      mesh_connectivity(3,4) = 1;
+      mesh_connectivity(3,5) = 1;
+      mesh_connectivity(3,6) = 11;
+      mesh_connectivity(3,7) = 11;
+
+      mesh_connectivity(4,0) = 1;
+      mesh_connectivity(4,1) = 1;
+      mesh_connectivity(4,2) = 5;
+      mesh_connectivity(4,3) = 5;
+      mesh_connectivity(4,4) = 14;
+      mesh_connectivity(4,5) = 14;
+      mesh_connectivity(4,6) = 6;
+      mesh_connectivity(4,7) = 7;
+
+      mesh_connectivity(5,0) = 4;
+      mesh_connectivity(5,1) = 4;
+      mesh_connectivity(5,2) = 0;
+      mesh_connectivity(5,3) = 0;
+      mesh_connectivity(5,4) = 15;
+      mesh_connectivity(5,5) = 15;
+      mesh_connectivity(5,6) = 10;
+      mesh_connectivity(5,7) = 10;
+
+      mesh_connectivity(6,0) = 3;
+      mesh_connectivity(6,1) = 3;
+      mesh_connectivity(6,2) = 7;
+      mesh_connectivity(6,3) = 7;
+      mesh_connectivity(6,4) = 4;
+      mesh_connectivity(6,5) = 4;
+      mesh_connectivity(6,6) = 8;
+      mesh_connectivity(6,7) = 8;
+
+      mesh_connectivity(7,0) = 6;
+      mesh_connectivity(7,1) = 6;
+      mesh_connectivity(7,2) = 10;
+      mesh_connectivity(7,3) = 10;
+      mesh_connectivity(7,4) = 4;
+      mesh_connectivity(7,5) = 4;
+      mesh_connectivity(7,6) = 9;
+      mesh_connectivity(7,7) = 9;
+
+      mesh_connectivity(8,0) = 3;
+      mesh_connectivity(8,1) = 3;
+      mesh_connectivity(8,2) = 9;
+      mesh_connectivity(8,3) = 9;
+      mesh_connectivity(8,4) = 6;
+      mesh_connectivity(8,5) = 6;
+      mesh_connectivity(8,6) = 12;
+      mesh_connectivity(8,7) = 12;
+
+      mesh_connectivity(9,0) = 8;
+      mesh_connectivity(9,1) = 8;
+      mesh_connectivity(9,2) = 10;
+      mesh_connectivity(9,3) = 10;
+      mesh_connectivity(9,4) = 7;
+      mesh_connectivity(9,5) = 7;
+      mesh_connectivity(9,6) = 12;
+      mesh_connectivity(9,7) = 12;
+
+      mesh_connectivity(10,0) = 7;
+      mesh_connectivity(10,1) = 9;
+      mesh_connectivity(10,2) = 2;
+      mesh_connectivity(10,3) = 2;
+      mesh_connectivity(10,4) = 5;
+      mesh_connectivity(10,5) = 5;
+      mesh_connectivity(10,6) = 13;
+      mesh_connectivity(10,7) = 13;
+
+      mesh_connectivity(11,0) = 13;
+      mesh_connectivity(11,1) = 15;
+      mesh_connectivity(11,2) = 12;
+      mesh_connectivity(11,3) = 14;
+      mesh_connectivity(11,4) = 2;
+      mesh_connectivity(11,5) = 3;
+      mesh_connectivity(11,6) = 0;
+      mesh_connectivity(11,7) = 1;
+
+      mesh_connectivity(12,0) = 11;
+      mesh_connectivity(12,1) = 11;
+      mesh_connectivity(12,2) = 13;
+      mesh_connectivity(12,3) = 13;
+      mesh_connectivity(12,4) = 8;
+      mesh_connectivity(12,5) = 9;
+      mesh_connectivity(12,6) = 14;
+      mesh_connectivity(12,7) = 14;
+
+      mesh_connectivity(13,0) = 12;
+      mesh_connectivity(13,1) = 12;
+      mesh_connectivity(13,2) = 11;
+      mesh_connectivity(13,3) = 11;
+      mesh_connectivity(13,4) = 10;
+      mesh_connectivity(13,5) = 10;
+      mesh_connectivity(13,6) = 15;
+      mesh_connectivity(13,7) = 15;
+
+      mesh_connectivity(14,0) = 11;
+      mesh_connectivity(14,1) = 11;
+      mesh_connectivity(14,2) = 15;
+      mesh_connectivity(14,3) = 15;
+      mesh_connectivity(14,4) = 12;
+      mesh_connectivity(14,5) = 12;
+      mesh_connectivity(14,6) = 4;
+      mesh_connectivity(14,7) = 4;
+
+      mesh_connectivity(15,0) = 14;
+      mesh_connectivity(15,1) = 14;
+      mesh_connectivity(15,2) = 11;
+      mesh_connectivity(15,3) = 11;
+      mesh_connectivity(15,4) = 13;
+      mesh_connectivity(15,5) = 13;
+      mesh_connectivity(15,6) = 5;
+      mesh_connectivity(15,7) = 5;
+
+    }
+
     muscl_block::CopyFaceBlockCellDataHashFunctor<dim>::apply(amrMetadata,
                                                               configMap,
                                                               params, 
@@ -306,13 +494,12 @@ void run_test()
     
 
     std::cout << "Copy Device data to host....\n";
-    DataArrayBlock::HostMirror Ugroup_host =
-      Kokkos::create_mirror(Ugroup);
+    auto Ugroup_host = Kokkos::create_mirror(Ugroup);
 
 
     Kokkos::deep_copy(Ugroup_host, Ugroup);
 
-    std::cout << "Start checking results....\n";
+    std::cout << "Start checking results (cell to neighbor connectivity)....\n";
     for (uint32_t iOct = 0; iOct<nbOcts; ++iOct)
     {
       std::cout << "iOct=" << iOct << " // ==================================\n";
@@ -337,9 +524,10 @@ void run_test()
       } 
       else 
       {
-        // //
-        // // WARNING reverse order
-        // //
+        //
+        // WARNING reverse order on Y-axis, so that it's simpler
+        // to make a visual comparison with the mesh
+        //
         for (uint32_t iy2 = 0; iy2 < by_g; ++iy2)
         {
           uint32_t iy = by_g-1 - iy2;
@@ -351,12 +539,23 @@ void run_test()
           }
           std::cout << "\n";
         }
-        
+
+        BOOST_CHECK_CLOSE(Ugroup_host(0+bx_g*2,0,iOct), mesh_connectivity(iOct,0), 0.1);
+        BOOST_CHECK_CLOSE(Ugroup_host(0+bx_g*4,0,iOct), mesh_connectivity(iOct,1), 0.1);
+        BOOST_CHECK_CLOSE(Ugroup_host(0+bx+g+bx_g*2,0,iOct), mesh_connectivity(iOct,2), 0.1);
+        BOOST_CHECK_CLOSE(Ugroup_host(0+bx+g+bx_g*4,0,iOct), mesh_connectivity(iOct,3), 0.1);
+
+        BOOST_CHECK_CLOSE(Ugroup_host(2,0,iOct), mesh_connectivity(iOct,4), 0.1);
+        BOOST_CHECK_CLOSE(Ugroup_host(4,0,iOct), mesh_connectivity(iOct,5), 0.1);
+        BOOST_CHECK_CLOSE(Ugroup_host(2+(by+g)*bx_g,0,iOct), mesh_connectivity(iOct,6), 0.1);
+        BOOST_CHECK_CLOSE(Ugroup_host(4+(by+g)*bx_g,0,iOct), mesh_connectivity(iOct,7), 0.1);
+
       } // end if bz>1
-    }
+
+    } // end for iOct
+
 
   } // end testing CopyFaceBlockCellDataFunctor
-
 
 } // run_test
 
