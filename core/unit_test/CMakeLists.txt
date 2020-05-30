@@ -92,3 +92,16 @@ dyablo_add_test(utest_MusclBlockGodunovUpdateFunctor
 dyablo_add_test(utest_CopyGhostBlockCellData_hash_openmp 
   block_data/test_CopyGhostBlockCellData_hash_openmp.cpp
   main.cpp)
+
+
+# from old test/amr
+configure_file(amr/dummy2d.ini amr/dummy2d.ini COPYONLY)
+configure_file(amr/dummy3d.ini amr/dummy3d.ini COPYONLY)
+
+dyablo_add_test(utest_AMRMetaData
+  amr/test_AMRMetaData.cpp
+  main.cpp)
+
+dyablo_add_test(utest_CopyGhostBlockCellDataHash
+  amr/test_CopyGhostBlockCellDataHash.cpp
+  main.cpp)

@@ -21,6 +21,8 @@
 
 using Device = Kokkos::DefaultExecutionSpace;
 
+#include <boost/test/unit_test.hpp>
+using namespace boost::unit_test;
 
 namespace dyablo
 {
@@ -432,6 +434,33 @@ void run_test()
 
 } // dyablo
 
+
+
+BOOST_AUTO_TEST_SUITE(dyablo)
+
+BOOST_AUTO_TEST_CASE(test_AMRMetaData2d)
+{
+
+  // always run this test
+  run_test<2>();
+  
+} 
+
+BOOST_AUTO_TEST_CASE(test_AMRMetaData3d)
+{
+
+  // allow this test to be manually disabled
+  // if there is an addition argument, disable
+  if (framework::master_test_suite().argc==1)
+    run_test<3>();
+  
+} 
+
+BOOST_AUTO_TEST_SUITE_END() /* dyablo */
+
+
+// old main
+#if 0
 // ==========================================================
 // ==========================================================
 int main(int argc, char* argv[])
@@ -504,3 +533,5 @@ int main(int argc, char* argv[])
   return EXIT_SUCCESS;
 
 } // main
+
+#endif // old main
