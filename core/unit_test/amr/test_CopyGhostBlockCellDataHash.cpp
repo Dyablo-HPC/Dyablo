@@ -167,7 +167,7 @@ void run_test()
   uint32_t nbCellsPerOct_g =
       params.dimType == TWO_D ? bx_g * by_g : bx_g * by_g * bz_g;
 
-  uint32_t nbOctsPerGroup = 32;
+  uint32_t nbOctsPerGroup = dim==2 ? 32 : 64;
 
   // ==========================================================
   // STAGE 1 : create a PABLO object (only for initialization)
@@ -507,10 +507,12 @@ void run_test()
       if (bz>1) 
       {
       
-        for (uint32_t iz = 0; iz < bz_g; ++iz)
+        //for (uint32_t iz = 0; iz < bz_g; ++iz)
+        uint32_t iz = bz_g/2;
         {
-          for (uint32_t iy = 0; iy < by_g; ++iy)
+          for (uint32_t iy2 = 0; iy2 < by_g; ++iy2)
           {
+            uint32_t iy = by_g-1 - iy2;
             for (uint32_t ix = 0; ix < bx_g; ++ix)
             {
               uint32_t index = ix + bx_g * (iy + by_g * iz);
@@ -572,7 +574,7 @@ BOOST_AUTO_TEST_CASE(test_AMRMetaData2d)
 } 
 
 //
-// FIX ME - BUGGY BOY
+// FIX ME - CopyFaceBlockCellDataHash not implemented for 3D - TODO
 //
 
 // BOOST_AUTO_TEST_CASE(test_AMRMetaData3d)
