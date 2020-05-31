@@ -1007,17 +1007,6 @@ public:
       
       uint32_t iOct_neigh = hashmap.value_at(index_n);
 
-      {
-        key_t key_c;
-        key_c[0] = morton;
-        key_c[1] = level;
-        auto index_c = hashmap.find(key_c);
-        auto iOct_c = hashmap.value_at(index_c);
-
-        if (iOct==2)
-          printf("===================== iOct=%d (%lu) iOct_neigh=%d (%lu) level=%d face=%d\n",iOct_c,morton,iOct_neigh,key_n[0],level,iface);
-       }
-
       bool isGhost = iOct_neigh>=nbOcts;
 
       fill_ghost_face_3d_same_size(iOct, iOct_local, iOct_neigh, isGhost, index_in, dir, face);
@@ -1054,15 +1043,6 @@ public:
         
         iOct_neigh[ineigh] = hashmap.value_at(index_n);
         isghost_neigh[ineigh] = iOct_neigh[ineigh]>= nbOcts;
-
-
-        if (iOct==2)
-          printf("============== %d %d %d %d\n",
-                 iOct_neigh[0],
-                 iOct_neigh[1],
-                 iOct_neigh[2],
-                 
-                 iOct_neigh[3]);
 
       }
 
