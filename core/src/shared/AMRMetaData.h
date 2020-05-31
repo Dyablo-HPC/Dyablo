@@ -474,10 +474,15 @@ void AMRMetaData<dim>::decode_neighbor_status(uint64_t iOct,
               << neighbor_level_to_string(nl);
 
     //if (status2)
+    if (dim==2)
     {
       std::bitset<1> status2_bin ( (status2 >> iface) & 0x1 );
       std::cout << " | relative pos : " << status2_bin;
-
+    }
+    else
+    {
+      std::bitset<2> status2_bin ( (status2 >> (2*iface)) & 0x3 );
+      std::cout << " | relative pos : " << status2_bin;
     }
 
     std::cout << "\n";

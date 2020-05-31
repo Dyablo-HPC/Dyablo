@@ -138,13 +138,13 @@ void AMRMetaData<2>::update_neigh_level_status(const AMRmesh& mesh)
                 // threads want to update the same ghost octant
                 // that will happen quite a lot
                 Kokkos::atomic_or(&(neigh_rel_pos_status_host(iOct_n)),
-                                  static_cast<neigh_rel_pos_status_t>((pos << iface_neigh)) );
+                                  static_cast<neigh_rel_pos_status_t>(pos << iface_neigh) );
               
               } // end for ighost
 
             } // end if isghost[0] true
             
-          }
+          } // end if neigh.size() > 1
           
         } // end for iface
         
@@ -257,6 +257,9 @@ void AMRMetaData<3>::update_neigh_level_status(const AMRmesh& mesh)
   neigh_level_status_array_t::HostMirror neigh_level_status_host = 
     Kokkos::create_mirror_view(m_neigh_level_status);
 
+  neigh_rel_pos_status_array_t::HostMirror neigh_rel_pos_status_host = 
+    Kokkos::create_mirror_view(m_neigh_rel_pos_status);
+
   // fill the mirrored array on host with OpenMP exec space
   {
     Kokkos::RangePolicy<Kokkos::OpenMP> policy(0, m_nbOctants);
@@ -266,6 +269,7 @@ void AMRMetaData<3>::update_neigh_level_status(const AMRmesh& mesh)
       {
 
         neigh_level_status_t status = 0;
+        neigh_rel_pos_status_t status2 = 0;
 
         /*
          * 1. face neighbors
@@ -302,10 +306,24 @@ void AMRMetaData<3>::update_neigh_level_status(const AMRmesh& mesh)
               mesh.getLevel(iOct_neigh);                    // neigh is a regular oct
             
             // neighbor is larger
+            // we also need to update status2 (relative position)
             if ( level_neigh < level )
             {
               status |= (NEIGH_IS_LARGER << 2*iface);
-            }
+
+              // we need to update status2
+              auto pos = get_relative_position(mesh,
+                                               iOct,
+                                               iOct_neigh,
+                                               isghost[0],
+                                               DIR_ID(iface/2), // direction
+                                               FACE_ID(iface%2),  /* face */
+                                               NEIGH_IS_LARGER);
+              
+              // in 3D using 2 bits per face
+              status2 |= (pos << (2*iface));
+
+            } // end neighbor is larger
             
             // neighbor has same size
             else
@@ -313,12 +331,49 @@ void AMRMetaData<3>::update_neigh_level_status(const AMRmesh& mesh)
               status |= (NEIGH_IS_SAME_SIZE << 2*iface);
             }
             
-          }
+          } // end neigh.size() == 1
           
           // more neighbors means neighbors are smaller
           else if (neigh.size() > 1)
           {
             status |= (NEIGH_IS_SMALLER << 2*iface);
+
+            // if neighbor is ghost, we need to update status2 in all
+            // the neighbor ghost cells
+            if (isghost[0])
+            {
+              
+              for (size_t ighost=0; ighost<neigh.size(); ++ighost)
+              {
+
+                auto iOct_n = neigh[ighost];
+
+                // get relative position
+                auto pos = get_relative_position(mesh,
+                                                 iOct,
+                                                 iOct_n,
+                                                 true, // isghost
+                                                 DIR_ID(iface/2), // direction
+                                                 FACE_ID(iface%2),  /* face */
+                                                 NEIGH_IS_SMALLER);
+
+                // invert face, because a left face from current octant
+                // is a right face from neighbor octant
+                // since iface = face + 2 * dir, we just need
+                // to toggle lest significant bit
+                int iface_neigh = (iface ^ 0x1);
+
+                // modify external status in the neighbor,
+                // be careful, there might be a data race, if multiple
+                // threads want to update the same ghost octant
+                // that will happen quite a lot
+                Kokkos::atomic_or(&(neigh_rel_pos_status_host(iOct_n)),
+                                  static_cast<neigh_rel_pos_status_t>(pos << (2*iface_neigh)) );
+              
+              } // end for ighost
+
+            } // end if isghost[0] true
+
           }
           
         } // end for iface
@@ -391,6 +446,7 @@ void AMRMetaData<3>::update_neigh_level_status(const AMRmesh& mesh)
         // TODO
 
         neigh_level_status_host(iOct) = status;
+        neigh_rel_pos_status_host(iOct) = status2;
 
       }); // end Kokkos parallel_for
       
@@ -398,6 +454,7 @@ void AMRMetaData<3>::update_neigh_level_status(const AMRmesh& mesh)
 
   // copy array on device
   Kokkos::deep_copy (m_neigh_level_status, neigh_level_status_host);
+  Kokkos::deep_copy (m_neigh_rel_pos_status, neigh_rel_pos_status_host);
 
 } // AMRMetaData<3>::update_neigh_level_status
 
@@ -540,10 +597,117 @@ AMRMetaData<3>::get_relative_position(const AMRmesh& mesh,
                                       NEIGH_LEVEL neigh_size) const
 {
 
-  // default value
-  NEIGH_POSITION res = NEIGH_POS_0;
+  std::bitset<2> status(0);
+  
+  // the following is a bit dirty, because current PABLO does not allow
+  // the user to probe logical coordinates (integer), only physical
+  // coordinates (double)
+  
+  /*
+   * check if we are dealing with face along X, Y or Z direction
+   */
+  if (dir == DIR_X)
+  {
+    
+    // get Y and Z coordinates of the lower left corner of current octant
+    real_t cur_locY = mesh.getY(iOct);
+    real_t cur_locZ = mesh.getZ(iOct);
+    
+    // get Y and Z coordinates of the lower left corner of neighbor octant
+    real_t neigh_locY = is_ghost ? 
+      mesh.getYghost(iOct_neigh) : 
+      mesh.getY     (iOct_neigh);
 
-  // TODO
+    real_t neigh_locZ = is_ghost ? 
+      mesh.getZghost(iOct_neigh) : 
+      mesh.getZ     (iOct_neigh);
+    
+    if (neigh_size == NEIGH_IS_LARGER) 
+    {
+      if (neigh_locY < cur_locY)
+        status[0] = 1;
+      if (neigh_locZ < cur_locZ)
+        status[1] = 1;
+    }
+
+    else if (neigh_size == NEIGH_IS_SMALLER)
+    {
+      if (neigh_locY > cur_locY)
+        status[0] = 1;
+      if (neigh_locZ > cur_locZ)
+        status[1] = 1;
+    }
+
+  } // DIR_X
+
+  if (dir == DIR_Y)
+  {
+    // get X and Z coordinates of the lower left corner of current octant
+    real_t cur_locX = mesh.getX(iOct);
+    real_t cur_locZ = mesh.getZ(iOct);
+    
+    // get X and Z coordinates of the lower left corner of neighbor octant
+    real_t neigh_locX = is_ghost ? 
+      mesh.getXghost(iOct_neigh) : 
+      mesh.getX     (iOct_neigh);
+
+    real_t neigh_locZ = is_ghost ? 
+      mesh.getZghost(iOct_neigh) : 
+      mesh.getZ     (iOct_neigh);
+    
+    if (neigh_size == NEIGH_IS_LARGER) 
+    {
+      if (neigh_locX < cur_locX)
+        status[0] = 1;
+      if (neigh_locZ < cur_locZ)
+        status[1] = 1;
+    }
+
+    else if (neigh_size == NEIGH_IS_SMALLER)
+    {
+      if (neigh_locX > cur_locX)
+        status[0] = 1;
+      if (neigh_locZ > cur_locZ)
+        status[1] = 1;
+    }
+
+  } // DIR_Y
+
+  if (dir == DIR_Z)
+  {
+    // get X and Y coordinates of the lower left corner of current octant
+    real_t cur_locX = mesh.getX(iOct);
+    real_t cur_locY = mesh.getY(iOct);
+    
+    // get X and Y coordinates of the lower left corner of neighbor octant
+    real_t neigh_locX = is_ghost ? 
+      mesh.getXghost(iOct_neigh) : 
+      mesh.getX     (iOct_neigh);
+
+    real_t neigh_locY = is_ghost ? 
+      mesh.getYghost(iOct_neigh) : 
+      mesh.getY     (iOct_neigh);
+    
+    if (neigh_size == NEIGH_IS_LARGER) 
+    {
+      if (neigh_locX < cur_locX)
+        status[0] = 1;
+      if (neigh_locY < cur_locY)
+        status[1] = 1;
+    }
+
+    else if (neigh_size == NEIGH_IS_SMALLER)
+    {
+      if (neigh_locX > cur_locX)
+        status[0] = 1;
+      if (neigh_locY > cur_locY)
+        status[1] = 1;
+    }
+
+  } // DIR_Z
+  
+  // default value
+  NEIGH_POSITION res = (NEIGH_POSITION) (status.to_ulong());
 
   return res;
 
