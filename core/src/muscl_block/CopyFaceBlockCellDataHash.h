@@ -805,7 +805,7 @@ public:
       uint32_t iOct_neigh = hashmap.value_at(index_n);
       //}
             
-      // Setting interface flag to "bigger"
+      // Setting interface flag to "bigger" -- PROBABLY NOT NEEDED ANYMORE
       Interface_flags(iOct_local) |= (1 << (iface + 6));
 	
       bool isGhost = iOct_neigh>=nbOcts;
@@ -843,7 +843,7 @@ public:
     else if (nl == NEIGH_LEVEL::NEIGH_IS_SMALLER)
     {
 
-      // Setting interface flag to "smaller"
+      // Setting interface flag to "smaller" -- PROBABLY NOT NEEDED ANYMORE
       Interface_flags(iOct_local) |= (1<<iface);
 
       // retrieve the 2 neighbor octant ids
