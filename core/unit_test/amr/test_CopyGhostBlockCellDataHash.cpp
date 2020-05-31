@@ -37,6 +37,9 @@ using Device = Kokkos::DefaultExecutionSpace;
 #include <boost/test/unit_test.hpp>
 using namespace boost::unit_test;
 
+#define IDX(ix,iy,iz) ((ix) + bx_g * (iy) + bx_g*by_g*(iz))
+
+
 namespace dyablo
 {
 
@@ -713,6 +716,108 @@ void run_test()
 
     } // end for iOct
 
+    if (dim==3)
+    {
+      
+      uint32_t iOct=0;
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(1,2,2)   ,0,iOct), 9, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx,2,2),0,iOct), 1, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,1,2)   ,0,iOct),23, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2+by,2),0,iOct), 2, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2,1)   ,0,iOct),32, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2,2+bz),0,iOct), 4, 0.1);
+
+      iOct=1;
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(1,2,2)   ,0,iOct), 0, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx,2,2),0,iOct), 8, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,1,2)   ,0,iOct),23, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2+by,2),0,iOct), 3, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2,1)   ,0,iOct),32, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2,2+bz),0,iOct), 5, 0.1);
+
+      iOct=2;
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(1,2,2)   ,0,iOct),11, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx,2,2),0,iOct), 3, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,1,2)   ,0,iOct), 0, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2+by,2),0,iOct),23, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2,1)   ,0,iOct),32, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2,2+bz),0,iOct), 6, 0.1);
+
+      iOct=5; // on right face along X, there are 4 neighbors
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(1,2,2)   ,0,iOct), 4, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx,2,2),0,iOct),12, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx,2+by/2,2),0,iOct),14, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx,2,2+bz/2),0,iOct),16, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx,2+by/2,2+bz/2),0,iOct),18, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,1,2)   ,0,iOct),23, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2+by,2),0,iOct), 7, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2,1)   ,0,iOct), 1, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2,2+bz),0,iOct),32, 0.1);
+
+      iOct=21;
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(1,2,2)   ,0,iOct), 7, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx,2,2),0,iOct),22, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,1,2)   ,0,iOct),14, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2+by,2),0,iOct),28, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2,1)   ,0,iOct),10, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2,2+bz),0,iOct),35, 0.1);
+
+      iOct=30;
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(1,2,2)   ,0,iOct),23, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx,2,2),0,iOct),31, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,1,2)   ,0,iOct),28, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2     ,2+by,2     ),0,iOct),12, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx/2,2+by,2     ),0,iOct),13, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2     ,2+by,2+bz/2),0,iOct),16, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx/2,2+by,2+bz/2),0,iOct),17, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2,1)   ,0,iOct),26, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2,2+bz),0,iOct),42, 0.1);
+
+
+      iOct=32;
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(1,2     ,     2)   ,0,iOct),34, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(1,2+by/2,2     )   ,0,iOct),36, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(1,2     ,2+bz/2)   ,0,iOct),38, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(1,2+by/2,2+bz/2)   ,0,iOct),40, 0.1);
+
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx,2     ,2     ),0,iOct),33, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx,2+by/2,2     ),0,iOct),35, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx,2     ,2+bz/2),0,iOct),37, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx,2+by/2,2+bz/2),0,iOct),39, 0.1);
+
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,1   ,2),0,iOct),41, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2+by,2),0,iOct),41, 0.1);
+
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2     ,2     ,1)   ,0,iOct), 4, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx/2,2     ,1)   ,0,iOct), 5, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2     ,2+by/2,1)   ,0,iOct), 6, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx/2,2+by/2,1)   ,0,iOct), 7, 0.1);
+
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2     ,2     ,2+bz),0,iOct), 0, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx/2,2     ,2+bz),0,iOct), 1, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2     ,2+by/2,2+bz),0,iOct), 2, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx/2,2+by/2,2+bz),0,iOct), 3, 0.1);
+
+      iOct=33;
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(1,2,2)   ,0,iOct),32, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx,2,2),0,iOct),34, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,1,2)   ,0,iOct),42, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2+by,2),0,iOct),35, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2     ,2     ,1)   ,0,iOct),16, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx/2,2     ,1)   ,0,iOct),17, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2     ,2+by/2,1)   ,0,iOct),18, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx/2,2+by/2,1)   ,0,iOct),19, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2,2+bz),0,iOct),37, 0.1);
+
+      iOct=40;
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(1,2,2)   ,0,iOct),39, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx,2,2),0,iOct),32, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,1,2)   ,0,iOct),38, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2+by,2),0,iOct),42, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2,1)   ,0,iOct),36, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2,2+bz),0,iOct),11, 0.1);
+
+    }
 
   } // end testing CopyFaceBlockCellDataFunctor
 
