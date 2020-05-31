@@ -28,6 +28,7 @@
 
 #include "muscl_block/CopyInnerBlockCellData.h"
 #include "muscl_block/CopyFaceBlockCellDataHash.h"
+#include "muscl_block/CopyFaceBlockCellDataHash3d.h"
 #include "muscl_block/ConvertToPrimitivesHydroFunctor.h"
 #include "muscl_block/utils_block.h"
 
@@ -38,6 +39,86 @@ using namespace boost::unit_test;
 
 namespace dyablo
 {
+
+namespace muscl_block
+{
+
+template<int dim>
+void
+call_CopyFaceBlockCellDataHashFunctor(AMRMetaData<dim> mesh,
+                                      ConfigMap configMap, 
+                                      HydroParams params,
+                                      id2index_t fm,
+                                      blockSize_t blockSizes, 
+                                      uint32_t ghostWidth,
+                                      uint32_t nbOctsPerGroup,
+                                      DataArrayBlock U,
+                                      DataArrayBlock U_ghost,
+                                      DataArrayBlock Ugroup,
+                                      uint32_t iGroup,
+                                      FlagArrayBlock Interface_flags)
+{
+};
+
+template<>
+void
+call_CopyFaceBlockCellDataHashFunctor<2>(AMRMetaData<2> mesh,
+                                         ConfigMap configMap, 
+                                         HydroParams params,
+                                         id2index_t fm,
+                                         blockSize_t blockSizes, 
+                                         uint32_t ghostWidth,
+                                         uint32_t nbOctsPerGroup,
+                                         DataArrayBlock U,
+                                         DataArrayBlock U_ghost,
+                                         DataArrayBlock Ugroup,
+                                         uint32_t iGroup,
+                                         FlagArrayBlock Interface_flags)
+{
+  muscl_block::CopyFaceBlockCellDataHashFunctor<2>::apply(mesh,
+                                                          configMap,
+                                                          params, 
+                                                          fm,
+                                                          blockSizes,
+                                                          ghostWidth,
+                                                          nbOctsPerGroup,
+                                                          U, 
+                                                          U_ghost, 
+                                                          Ugroup, 
+                                                          iGroup,
+                                                          Interface_flags);
+}
+
+template<>
+void
+call_CopyFaceBlockCellDataHashFunctor<3>(AMRMetaData<3> mesh,
+                                         ConfigMap configMap, 
+                                         HydroParams params,
+                                         id2index_t fm,
+                                         blockSize_t blockSizes, 
+                                         uint32_t ghostWidth,
+                                         uint32_t nbOctsPerGroup,
+                                         DataArrayBlock U,
+                                         DataArrayBlock U_ghost,
+                                         DataArrayBlock Ugroup,
+                                         uint32_t iGroup,
+                                         FlagArrayBlock Interface_flags)
+{
+  CopyFaceBlockCellDataHashFunctor3d::apply(mesh,
+                                            configMap,
+                                            params, 
+                                            fm,
+                                            blockSizes,
+                                            ghostWidth,
+                                            nbOctsPerGroup,
+                                            U, 
+                                            U_ghost, 
+                                            Ugroup, 
+                                            iGroup,
+                                            Interface_flags);
+}
+
+} // namespace muscl_block
 
 // =======================================================================
 // =======================================================================
@@ -227,9 +308,18 @@ void run_test()
   amr_mesh.updateConnectivity();
 
   // step 3
-  amr_mesh.setMarker(3,1);
-  amr_mesh.adapt(true);
-  amr_mesh.updateConnectivity();
+  if (dim==2) 
+  {
+    amr_mesh.setMarker(3,1);
+    amr_mesh.adapt(true);
+    amr_mesh.updateConnectivity();
+  }
+  else
+  {
+    amr_mesh.setMarker(5,1);
+    amr_mesh.adapt(true);
+    amr_mesh.updateConnectivity();
+  }
   std::cout << "Mesh size is " << amr_mesh.getNumOctants() << "\n";
 
 #if BITPIT_ENABLE_MPI==1
@@ -479,18 +569,18 @@ void run_test()
 
     }
 
-    muscl_block::CopyFaceBlockCellDataHashFunctor<dim>::apply(amrMetadata,
-                                                              configMap,
-                                                              params, 
-                                                              fm,
-                                                              blockSizes,
-                                                              ghostWidth,
-                                                              nbOctsPerGroup,
-                                                              U, 
-                                                              Ughost, 
-                                                              Ugroup, 
-                                                              iGroup,
-                                                              Interface_flags);
+    muscl_block::call_CopyFaceBlockCellDataHashFunctor(amrMetadata,
+                                                       configMap,
+                                                       params, 
+                                                       fm,
+                                                       blockSizes,
+                                                       ghostWidth,
+                                                       nbOctsPerGroup,
+                                                       U, 
+                                                       Ughost, 
+                                                       Ugroup, 
+                                                       iGroup,
+                                                       Interface_flags);
     
 
     std::cout << "Copy Device data to host....\n";
@@ -573,19 +663,15 @@ BOOST_AUTO_TEST_CASE(test_AMRMetaData2d)
   
 } 
 
-//
-// FIX ME - CopyFaceBlockCellDataHash not implemented for 3D - TODO
-//
+BOOST_AUTO_TEST_CASE(test_AMRMetaData3d)
+{
 
-// BOOST_AUTO_TEST_CASE(test_AMRMetaData3d)
-// {
-
-//   // allow this test to be manually disabled
-//   // if there is an addition argument, disable
-//   if (framework::master_test_suite().argc==1)
-//     run_test<3>();
+  // allow this test to be manually disabled
+  // if there is an addition argument, disable
+  if (framework::master_test_suite().argc==1)
+    run_test<3>();
   
-// } 
+} 
 
 BOOST_AUTO_TEST_SUITE_END() /* dyablo */
 
