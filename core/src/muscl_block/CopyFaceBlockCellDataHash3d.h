@@ -821,21 +821,21 @@ public:
               kk -= bz;
             }
 
-            if (dir == DIR_Z and jj>=by and kk<bz)
+            if (dir == DIR_Z and ii>=bx and jj<by)
             {
               iNeigh=1;
-              jj -= by;
+              ii -= bx;
             }
-            if (dir == DIR_Z and jj<by  and kk>=bz)
+            if (dir == DIR_Z and ii<bx  and jj>=by)
             {
               iNeigh=2;
-              kk -= bz;
+              jj -= by;
             }
-            if (dir == DIR_Z and jj>=by and kk>=bz)
+            if (dir == DIR_Z and ii>=bx and jj>=by)
             {
               iNeigh=3;
+              ii -= bx;
               jj -= by;
-              kk -= bz;
             }
 
             // if necessary, shift border coords to access input data in 
