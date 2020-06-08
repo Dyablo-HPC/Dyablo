@@ -77,18 +77,18 @@ call_CopyFaceBlockCellDataHashFunctor<2>(AMRMetaData<2> mesh,
                                          uint32_t iGroup,
                                          FlagArrayBlock Interface_flags)
 {
-  // muscl_block::CopyFaceBlockCellDataHashFunctor<2>::apply(mesh,
-  //                                                         configMap,
-  //                                                         params, 
-  //                                                         fm,
-  //                                                         blockSizes,
-  //                                                         ghostWidth,
-  //                                                         nbOctsPerGroup,
-  //                                                         U, 
-  //                                                         U_ghost, 
-  //                                                         Ugroup, 
-  //                                                         iGroup,
-  //                                                         Interface_flags);
+  muscl_block::CopyFaceBlockCellDataHashFunctor<2>::apply(mesh,
+                                                          configMap,
+                                                          params, 
+                                                          fm,
+                                                          blockSizes,
+                                                          ghostWidth,
+                                                          nbOctsPerGroup,
+                                                          U, 
+                                                          U_ghost, 
+                                                          Ugroup, 
+                                                          iGroup,
+                                                          Interface_flags);
 }
 
 template<>
@@ -106,18 +106,18 @@ call_CopyFaceBlockCellDataHashFunctor<3>(AMRMetaData<3> mesh,
                                          uint32_t iGroup,
                                          FlagArrayBlock Interface_flags)
 {
-  // muscl_block::CopyFaceBlockCellDataHashFunctor<3>::apply(mesh,
-  //                                                         configMap,
-  //                                                         params, 
-  //                                                         fm,
-  //                                                         blockSizes,
-  //                                                         ghostWidth,
-  //                                                         nbOctsPerGroup,
-  //                                                         U, 
-  //                                                         U_ghost, 
-  //                                                         Ugroup, 
-  //                                                         iGroup,
-  //                                                         Interface_flags);
+  muscl_block::CopyFaceBlockCellDataHashFunctor<3>::apply(mesh,
+                                                          configMap,
+                                                          params, 
+                                                          fm,
+                                                          blockSizes,
+                                                          ghostWidth,
+                                                          nbOctsPerGroup,
+                                                          U, 
+                                                          U_ghost, 
+                                                          Ugroup, 
+                                                          iGroup,
+                                                          Interface_flags);
 }
 
 } // namespace muscl_block
