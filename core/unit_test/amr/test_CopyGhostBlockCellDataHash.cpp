@@ -36,8 +36,91 @@ using Device = Kokkos::DefaultExecutionSpace;
 #include <boost/test/unit_test.hpp>
 using namespace boost::unit_test;
 
+#define IDX(ix,iy,iz) ((ix) + bx_g * (iy) + bx_g*by_g*(iz))
+
+
 namespace dyablo
 {
+
+namespace muscl_block
+{
+
+template<int dim>
+void
+call_CopyFaceBlockCellDataHashFunctor(AMRMetaData<dim> mesh,
+                                      ConfigMap configMap, 
+                                      HydroParams params,
+                                      id2index_t fm,
+                                      blockSize_t blockSizes, 
+                                      uint32_t ghostWidth,
+                                      uint32_t nbOctsPerGroup,
+                                      DataArrayBlock U,
+                                      DataArrayBlock U_ghost,
+                                      DataArrayBlock Ugroup,
+                                      uint32_t iGroup,
+                                      FlagArrayBlock Interface_flags)
+{
+};
+
+template<>
+void
+call_CopyFaceBlockCellDataHashFunctor<2>(AMRMetaData<2> mesh,
+                                         ConfigMap configMap, 
+                                         HydroParams params,
+                                         id2index_t fm,
+                                         blockSize_t blockSizes, 
+                                         uint32_t ghostWidth,
+                                         uint32_t nbOctsPerGroup,
+                                         DataArrayBlock U,
+                                         DataArrayBlock U_ghost,
+                                         DataArrayBlock Ugroup,
+                                         uint32_t iGroup,
+                                         FlagArrayBlock Interface_flags)
+{
+  muscl_block::CopyFaceBlockCellDataHashFunctor<2>::apply(mesh,
+                                                          configMap,
+                                                          params, 
+                                                          fm,
+                                                          blockSizes,
+                                                          ghostWidth,
+                                                          nbOctsPerGroup,
+                                                          U, 
+                                                          U_ghost, 
+                                                          Ugroup, 
+                                                          iGroup,
+                                                          Interface_flags);
+}
+
+template<>
+void
+call_CopyFaceBlockCellDataHashFunctor<3>(AMRMetaData<3> mesh,
+                                         ConfigMap configMap, 
+                                         HydroParams params,
+                                         id2index_t fm,
+                                         blockSize_t blockSizes, 
+                                         uint32_t ghostWidth,
+                                         uint32_t nbOctsPerGroup,
+                                         DataArrayBlock U,
+                                         DataArrayBlock U_ghost,
+                                         DataArrayBlock Ugroup,
+                                         uint32_t iGroup,
+                                         FlagArrayBlock Interface_flags)
+{
+  muscl_block::CopyFaceBlockCellDataHashFunctor<3>::apply(mesh,
+                                                          configMap,
+                                                          params, 
+                                                          fm,
+                                                          blockSizes,
+                                                          ghostWidth,
+                                                          nbOctsPerGroup,
+                                                          U, 
+                                                          U_ghost, 
+                                                          Ugroup, 
+                                                          iGroup,
+                                                          Interface_flags);
+}
+
+} // namespace muscl_block
 
 // =======================================================================
 // =======================================================================
@@ -194,6 +277,42 @@ void run_test()
    *
    */
 
+  /*
+   * 3d mesh should be exactly like this : 43 octants
+   *
+   *
+   *
+   *
+   *
+   *
+   *            ________________________
+   *           /           /           /
+   *          /           /           /|
+   *         /   41      /    42     / |
+   *        /           /           /  |
+   *       /___________/___________/   |
+   *      /           / 39  / 40  /|   |
+   *     /   32      /____ /_____/ |   |
+   *    /           /  37 / 38  /| /   |               ___________________
+   *   /___________/_____/_____/ |/|  /|              |    |    |         |
+   *   |           |     |     | / | / |              | 38 | 40 |         |
+   *   |           | 37  | 38  |/| |/  |              |____|____|    42   |
+   *   |    32     |-----|-----| |/|   |       /      |    |    |         |
+   *   |           | 33  | 34  | / |   |     <====    | 34 | 36 |         |
+   *   |___________|_____|_____|/| |   /       \      |____|____|_________|
+   *   |     |     |16|17|     | | |  /               |    |    |    |    |
+   *   |  4  |  5  |-----| 20  |  /| /                | 20 | 22 | 29 | 31 |
+   *   |_____|_____|12|13|_____| /| /                 |____|____|____|____|
+   *   |     |     |     |     |  |/                  |    |    |    |    |
+   *   |  0  |  1  |  8  |  9  |  /                   | 9  | 11 | 25 | 27 |
+   *   |_____|_____|_____|_____| /                    |____|____|____|____|
+   *
+   *
+   *
+   *
+   *
+   */
+
   bitpit::PabloUniform amr_mesh(dim);
 
   // Set 2:1 balance
@@ -227,9 +346,18 @@ void run_test()
   amr_mesh.updateConnectivity();
 
   // step 3
-  amr_mesh.setMarker(3,1);
-  amr_mesh.adapt(true);
-  amr_mesh.updateConnectivity();
+  if (dim==2) 
+  {
+    amr_mesh.setMarker(3,1);
+    amr_mesh.adapt(true);
+    amr_mesh.updateConnectivity();
+  }
+  else
+  {
+    amr_mesh.setMarker(5,1);
+    amr_mesh.adapt(true);
+    amr_mesh.updateConnectivity();
+  }
   std::cout << "Mesh size is " << amr_mesh.getNumOctants() << "\n";
 
 #if BITPIT_ENABLE_MPI==1
@@ -323,6 +451,31 @@ void run_test()
       std::cout << "  |  0  |  1  |  4  | 5  |    \n";
       std::cout << "  |_____|_____|_____|____|    \n";
       std::cout << "                              \n";
+    }
+    else 
+    {
+      std::cout << "            ________________________                                        \n";
+      std::cout << "           /           /           /|                                       \n";
+      std::cout << "          /           /           / |                                       \n";
+      std::cout << "         /   41      /    42     /  |                                       \n";
+      std::cout << "        /           /           /   |                                       \n";
+      std::cout << "       /___________/___________/    |                                       \n";
+      std::cout << "      /           / 39  / 40  / |   |                                       \n";
+      std::cout << "     /   32      /____ /_____/  |   |                                       \n";
+      std::cout << "    /           /  37 / 38  / | |   |               ___________________     \n";
+      std::cout << "   /___________/_____/_____/  |/|  /|              |    |    |         |    \n";
+      std::cout << "   |           |     |     | /| | / |              | 38 | 40 |         |    \n";
+      std::cout << "   |           | 37  | 38  |/ | |/| |              |____|____|    42   |    \n";
+      std::cout << "   |    32     |-----|-----|  |/| |/|              |    |    |         |    \n";
+      std::cout << "   |           | 33  | 34  |  / | | |      <====   | 34 | 36 |         |    \n";
+      std::cout << "   |___________|_____|_____| /| |/ |/              |____|____|_________|    \n";
+      std::cout << "   |     |     |16|17|     |  | | /                |    |    |    |    |    \n";
+      std::cout << "   |  4  |  5  |-----| 20  |  / |/                 | 20 | 22 | 29 | 31 |    \n";
+      std::cout << "   |_____|_____|12|13|_____| /| /                  |____|____|____|____|    \n";
+      std::cout << "   |     |     |     |     |  |/                   |    |    |    |    |    \n";
+      std::cout << "   |  0  |  1  |  8  |  9  |  /                    | 9  | 11 | 25 | 27 |    \n";
+      std::cout << "   |_____|_____|_____|_____| /                     |____|____|____|____|    \n";
+      std::cout << "                                                                            \n";
     }
 
     // expected results
@@ -477,20 +630,26 @@ void run_test()
       mesh_connectivity(15,6) = 5;
       mesh_connectivity(15,7) = 5;
 
+    } else { // dim == 3
+    
+      // TODO
+      // TODO : add results for 3D
+      // TODO
+
     }
 
-    muscl_block::CopyFaceBlockCellDataHashFunctor<dim>::apply(amrMetadata,
-                                                              configMap,
-                                                              params, 
-                                                              fm,
-                                                              blockSizes,
-                                                              ghostWidth,
-                                                              nbOctsPerGroup,
-                                                              U, 
-                                                              Ughost, 
-                                                              Ugroup, 
-                                                              iGroup,
-                                                              Interface_flags);
+    muscl_block::call_CopyFaceBlockCellDataHashFunctor(amrMetadata,
+                                                       configMap,
+                                                       params, 
+                                                       fm,
+                                                       blockSizes,
+                                                       ghostWidth,
+                                                       nbOctsPerGroup,
+                                                       U, 
+                                                       Ughost, 
+                                                       Ugroup, 
+                                                       iGroup,
+                                                       Interface_flags);
     
 
     std::cout << "Copy Device data to host....\n";
@@ -556,6 +715,108 @@ void run_test()
 
     } // end for iOct
 
+    if (dim==3)
+    {
+      
+      uint32_t iOct=0;
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(1,2,2)   ,0,iOct), 9, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx,2,2),0,iOct), 1, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,1,2)   ,0,iOct),23, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2+by,2),0,iOct), 2, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2,1)   ,0,iOct),32, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2,2+bz),0,iOct), 4, 0.1);
+
+      iOct=1;
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(1,2,2)   ,0,iOct), 0, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx,2,2),0,iOct), 8, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,1,2)   ,0,iOct),23, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2+by,2),0,iOct), 3, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2,1)   ,0,iOct),32, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2,2+bz),0,iOct), 5, 0.1);
+
+      iOct=2;
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(1,2,2)   ,0,iOct),11, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx,2,2),0,iOct), 3, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,1,2)   ,0,iOct), 0, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2+by,2),0,iOct),23, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2,1)   ,0,iOct),32, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2,2+bz),0,iOct), 6, 0.1);
+
+      iOct=5; // on right face along X, there are 4 neighbors
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(1,2,2)   ,0,iOct), 4, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx,2,2),0,iOct),12, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx,2+by/2,2),0,iOct),14, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx,2,2+bz/2),0,iOct),16, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx,2+by/2,2+bz/2),0,iOct),18, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,1,2)   ,0,iOct),23, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2+by,2),0,iOct), 7, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2,1)   ,0,iOct), 1, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2,2+bz),0,iOct),32, 0.1);
+
+      iOct=21;
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(1,2,2)   ,0,iOct), 7, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx,2,2),0,iOct),22, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,1,2)   ,0,iOct),14, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2+by,2),0,iOct),28, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2,1)   ,0,iOct),10, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2,2+bz),0,iOct),35, 0.1);
+
+      iOct=30;
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(1,2,2)   ,0,iOct),23, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx,2,2),0,iOct),31, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,1,2)   ,0,iOct),28, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2     ,2+by,2     ),0,iOct),12, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx/2,2+by,2     ),0,iOct),13, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2     ,2+by,2+bz/2),0,iOct),16, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx/2,2+by,2+bz/2),0,iOct),17, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2,1)   ,0,iOct),26, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2,2+bz),0,iOct),42, 0.1);
+
+
+      iOct=32;
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(1,2     ,     2)   ,0,iOct),34, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(1,2+by/2,2     )   ,0,iOct),36, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(1,2     ,2+bz/2)   ,0,iOct),38, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(1,2+by/2,2+bz/2)   ,0,iOct),40, 0.1);
+
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx,2     ,2     ),0,iOct),33, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx,2+by/2,2     ),0,iOct),35, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx,2     ,2+bz/2),0,iOct),37, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx,2+by/2,2+bz/2),0,iOct),39, 0.1);
+
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,1   ,2),0,iOct),41, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2+by,2),0,iOct),41, 0.1);
+
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2     ,2     ,1)   ,0,iOct), 4, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx/2,2     ,1)   ,0,iOct), 5, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2     ,2+by/2,1)   ,0,iOct), 6, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx/2,2+by/2,1)   ,0,iOct), 7, 0.1);
+
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2     ,2     ,2+bz),0,iOct), 0, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx/2,2     ,2+bz),0,iOct), 1, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2     ,2+by/2,2+bz),0,iOct), 2, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx/2,2+by/2,2+bz),0,iOct), 3, 0.1);
+
+      iOct=33;
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(1,2,2)   ,0,iOct),32, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx,2,2),0,iOct),34, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,1,2)   ,0,iOct),42, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2+by,2),0,iOct),35, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2     ,2     ,1)   ,0,iOct),16, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx/2,2     ,1)   ,0,iOct),17, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2     ,2+by/2,1)   ,0,iOct),18, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx/2,2+by/2,1)   ,0,iOct),19, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2,2+bz),0,iOct),37, 0.1);
+
+      iOct=40;
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(1,2,2)   ,0,iOct),39, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2+bx,2,2),0,iOct),32, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,1,2)   ,0,iOct),38, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2+by,2),0,iOct),42, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2,1)   ,0,iOct),36, 0.1);
+      BOOST_CHECK_CLOSE(Ugroup_host(IDX(2,2,2+bz),0,iOct),11, 0.1);
+
+    }
 
   } // end testing CopyFaceBlockCellDataFunctor
 
@@ -573,19 +834,15 @@ BOOST_AUTO_TEST_CASE(test_AMRMetaData2d)
   
 } 
 
-//
-// FIX ME - CopyFaceBlockCellDataHash not implemented for 3D - TODO
-//
+BOOST_AUTO_TEST_CASE(test_AMRMetaData3d)
+{
 
-// BOOST_AUTO_TEST_CASE(test_AMRMetaData3d)
-// {
-
-//   // allow this test to be manually disabled
-//   // if there is an addition argument, disable
-//   if (framework::master_test_suite().argc==1)
-//     run_test<3>();
+  // allow this test to be manually disabled
+  // if there is an addition argument, disable
+  if (framework::master_test_suite().argc==1)
+    run_test<3>();
   
-// } 
+} 
 
 BOOST_AUTO_TEST_SUITE_END() /* dyablo */
 

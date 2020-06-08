@@ -31,28 +31,30 @@ function(dyablo_add_test UNIT_TEST_NAME)
   # and thus being able to initialize with empty function init_function
   target_compile_definitions(${UNIT_TEST_NAME} PRIVATE BOOST_TEST_DYN_LINK)
 
-  target_link_libraries(${UNIT_TEST_NAME} PRIVATE
+  target_link_libraries(${UNIT_TEST_NAME} PUBLIC
     config
     Kokkos::kokkos
     dl
-    muscl_block
-    shared
-    monitoring
-    BITPIT::BITPIT
-    Boost::unit_test_framework)
+    )
   
   # muscl and muscl libraries only OK when using Kokkos::OpenMP for now
   if(NOT Kokkos_ENABLE_CUDA)
-    target_link_libraries(${UNIT_TEST_NAME} PRIVATE
+    target_link_libraries(${UNIT_TEST_NAME} PUBLIC
       muscl
       muscl_block
       )
   endif()
 
+  target_link_libraries(${UNIT_TEST_NAME} PUBLIC
+    shared
+    monitoring
+    BITPIT::BITPIT
+    Boost::unit_test_framework)
+
   if (DYABLO_USE_MPI)
     target_compile_definitions(${UNIT_TEST_NAME} PUBLIC BITPIT_ENABLE_MPI)
     
-    target_link_libraries(${UNIT_TEST_NAME} PRIVATE mpiUtils)
+    target_link_libraries(${UNIT_TEST_NAME} PUBLIC mpiUtils)
   endif()
 
   add_test(
@@ -71,6 +73,7 @@ dyablo_add_test(tst_shared_MortonUtils
   shared/morton_utils_test.cpp
   main.cpp)
 
+if(NOT Kokkos_ENABLE_CUDA)
 
 # from old test/block_data
 configure_file(
@@ -93,7 +96,6 @@ dyablo_add_test(utest_CopyGhostBlockCellData_hash_openmp
   block_data/test_CopyGhostBlockCellData_hash_openmp.cpp
   main.cpp)
 
-
 # from old test/amr
 configure_file(amr/dummy2d.ini amr/dummy2d.ini COPYONLY)
 configure_file(amr/dummy3d.ini amr/dummy3d.ini COPYONLY)
@@ -102,6 +104,10 @@ dyablo_add_test(utest_AMRMetaData
   amr/test_AMRMetaData.cpp
   main.cpp)
 
+endif()
+
 dyablo_add_test(utest_CopyGhostBlockCellDataHash
   amr/test_CopyGhostBlockCellDataHash.cpp
   main.cpp)
+
+
