@@ -1,10 +1,9 @@
 /**
- * \file CopyFaceBlockCellDataHash3d.h
+ * \file CopyFaceBlockCellDataHash.h
  * \author Pierre Kestener
- * \date May 30th, 2020
  */
-#ifndef COPY_FACE_BLOCK_CELL_DATA_HASH_FUNCTOR_3D_H_
-#define COPY_FACE_BLOCK_CELL_DATA_HASH_FUNCTOR_3D_H_
+#ifndef COPY_FACE_BLOCK_CELL_DATA_HASH_FUNCTOR_2D_H_
+#define COPY_FACE_BLOCK_CELL_DATA_HASH_FUNCTOR_2D_H_
 
 #include "shared/FieldManager.h"
 #include "shared/kokkos_shared.h"
@@ -17,7 +16,6 @@
 #include "muscl_block/utils_block.h"
 
 #include "shared/AMRMetaData.h"
-
 
 namespace dyablo
 {
@@ -61,9 +59,10 @@ namespace muscl_block
  * This new version of CopyFaceBlockCellDataFunctor uses AMRMetaData
  * instead of bitpit mesh (not kokkos compatible).
  *
+ * \tparam dim dimension is 2 or 3, necessary for AMRMetaData
  */
 template<>
-class CopyFaceBlockCellDataHashFunctor<3>
+class CopyFaceBlockCellDataHashFunctor<2>
 {
 
 private:
@@ -75,7 +74,7 @@ public:
   using thread_t = team_policy_t::member_type;
 
   // AMR related type alias
-  static constexpr int dim = 3;
+  static constexpr int dim = 2;
   using key_t = typename AMRMetaData<dim>::key_t;
   using value_t = typename AMRMetaData<dim>::value_t;
 
@@ -83,6 +82,28 @@ public:
 
   using NEIGH_LEVEL    = typename AMRMetaData<dim>::NEIGH_LEVEL;
   using NEIGH_POSITION = typename AMRMetaData<dim>::NEIGH_POSITION;
+
+  /**
+   * enum used to identify the relative position of an octant
+   * versus a face neighbor octant of larger or smaller size.
+   *
+   * In 2d, only 2 possibilities
+   * In 3d, there are 4 possibilities
+   */
+  // enum NEIGH_LOC : uint8_t
+  // {
+  //   NEIGH_POS_0 = 0,
+  //   NEIGH_POS_1 = 1,
+  //   NEIGH_POS_2 = 2,
+  //   NEIGH_POS_3 = 3
+  // };
+
+  // enum NEIGH_SIZE : uint8_t
+  // {
+  //   NEIGH_IS_SMALLER   = 0,
+  //   NEIGH_IS_LARGER    = 1,
+  //   NEIGH_IS_SAME_SIZE = 2
+  // };
 
   /**
    *
@@ -165,7 +186,7 @@ public:
                          Kokkos::AUTO() /* team size chosen by kokkos */);
     
     // launch computation (parallel kernel)
-    Kokkos::parallel_for("dyablo::muscl_block::CopyFaceBlockCellDataHashFunctor<3>",
+    Kokkos::parallel_for("dyablo::muscl_block::CopyFaceBlockCellDataHashFunctor",
                          policy, functor);
   }
   
@@ -179,7 +200,7 @@ public:
    *
    */
   KOKKOS_INLINE_FUNCTION
-  void fill_ghost_face_3d_external_border(uint32_t iOct,
+  void fill_ghost_face_2d_external_border(uint32_t iOct,
                                           uint32_t iOct_local,
                                           index_t  index_in,
                                           DIR_ID   dir,
@@ -188,52 +209,33 @@ public:
 
     const int &bx = blockSizes[IX];
     const int &by = blockSizes[IY];
-    const int &bz = blockSizes[IZ];
 
-    const index_t size_borderX = ghostWidth*by        *bz;
-    const index_t size_borderY = bx        *ghostWidth*bz; 
-    const index_t size_borderZ = bx        *by        *ghostWidth; 
+    const index_t size_borderX = ghostWidth*by;
+    const index_t size_borderY = bx*ghostWidth; 
     
     // make sure index is valid, i.e. inside the range of admissible values
-    if ( (index_in < size_borderX and dir == DIR_X) or
-         (index_in < size_borderY and dir == DIR_Y) or
-         (index_in < size_borderZ and dir == DIR_Z) )
+    if ((index_in < size_borderX and dir == DIR_X) or
+        (index_in < size_borderY and dir == DIR_Y)) 
     {
 
       // in case of a X border
-      // border sizes for input  cell are : ghostWidth,by             ,bz
-      // border sizes for output cell are : ghostWidth,by+2*ghostWidth,bz+2*ghostWidth
+      // border sizes for input  cell are : ghostWidth,by
+      // border sizes for output cell are : ghostWidth,by+2*ghostWidth
 
       // in case of a Y border
-      // border sizes for input  cell are : bx             ,ghostWidth,bz
-      // border sizes for output cell are : bx+2*ghostWidth,ghostWidth,bz+2*ghostWidth
-
-      // in case of a Y border
-      // border sizes for input  cell are : bx             ,by             ,ghostWidth
-      // border sizes for output cell are : bx+2*ghostWidth,by+2*ghostWidth,ghostWidth
+      // border sizes for input  cell are : bx             ,ghostWidth
+      // border sizes for output cell are : bx+2*ghostWidth,ghostWidth
 
       // compute cell coordinates inside border
-      coord_t coord_cur;
-      if (dir == DIR_X)
-        coord_cur = index_to_coord(index_in, ghostWidth, by, bz);
-      if (dir == DIR_Y)
-        coord_cur = index_to_coord(index_in, bx, ghostWidth, bz);
-      if (dir == DIR_Z)
-        coord_cur = index_to_coord(index_in, bx, by, ghostWidth);
+      coord_t coord_cur = dir == DIR_X ? 
+        index_to_coord(index_in, ghostWidth, by) :
+        index_to_coord(index_in, bx, ghostWidth) ;
       
       // shift coord to face center
-      if (dir == DIR_X) {
+      if (dir == DIR_X)
         coord_cur[IY] += ghostWidth;
-        coord_cur[IZ] += ghostWidth;
-      }
-      if (dir == DIR_Y) {
+      if (dir == DIR_Y)
         coord_cur[IX] += ghostWidth;
-        coord_cur[IZ] += ghostWidth;
-      }
-      if (dir == DIR_Z) {
-        coord_cur[IX] += ghostWidth;
-        coord_cur[IY] += ghostWidth;
-      }
 
       if ( face == FACE_RIGHT )
       {
@@ -242,50 +244,36 @@ public:
           coord_cur[IX] += (bx+ghostWidth);
         if (dir == DIR_Y)
           coord_cur[IY] += (by+ghostWidth);
-        if (dir == DIR_Z)
-          coord_cur[IZ] += (bz+ghostWidth);
       }
       
       // compute corresponding index in the ghosted block (current octant) 
-      uint32_t index_cur = 
-        coord_cur[IX] + 
-        coord_cur[IY] * bx_g +
-        coord_cur[IZ] * bx_g * by_g;
+      uint32_t index_cur = coord_cur[IX] + (bx+2*ghostWidth)*coord_cur[IY];
 
       // normal momentum sign
       real_t sign_u = 1.0;
       real_t sign_v = 1.0;
-      real_t sign_w = 1.0;
-      
+      //real_t sign_w = 1.0;
+
       coord_t coord_in = {coord_cur[IX],
                           coord_cur[IY],
-                          coord_cur[IZ]};
+                          0};
 
       // absorbing border : we just copy/mirror data 
       // from the last inner cells into ghost cells
       if ( (params.boundary_type_xmin == BC_ABSORBING and face == FACE_LEFT) or
            (params.boundary_type_xmax == BC_ABSORBING and face == FACE_RIGHT) or
            (params.boundary_type_ymin == BC_ABSORBING and face == FACE_LEFT) or
-           (params.boundary_type_ymax == BC_ABSORBING and face == FACE_RIGHT) or
-           (params.boundary_type_zmin == BC_ABSORBING and face == FACE_LEFT) or
-           (params.boundary_type_zmax == BC_ABSORBING and face == FACE_RIGHT) ) 
+           (params.boundary_type_ymax == BC_ABSORBING and face == FACE_RIGHT) ) 
       {
 
         if (dir == DIR_X and face == FACE_LEFT)
           coord_in[IX] = ghostWidth;
         if (dir == DIR_X and face == FACE_RIGHT)
           coord_in[IX] = bx + ghostWidth - 1;
-
         if (dir == DIR_Y and face == FACE_LEFT)
           coord_in[IY] = ghostWidth;
         if (dir == DIR_Y and face == FACE_RIGHT)
           coord_in[IY] = by + ghostWidth - 1;
-
-        if (dir == DIR_Z and face == FACE_LEFT)
-          coord_in[IZ] = ghostWidth;
-        if (dir == DIR_Z and face == FACE_RIGHT)
-          coord_in[IZ] = bz + ghostWidth - 1;
-
       } // end ABSORBING
 
 
@@ -295,9 +283,7 @@ public:
       if ( (params.boundary_type_xmin == BC_REFLECTING and face == FACE_LEFT) or
            (params.boundary_type_xmax == BC_REFLECTING and face == FACE_RIGHT) or
            (params.boundary_type_ymin == BC_REFLECTING and face == FACE_LEFT) or
-           (params.boundary_type_ymax == BC_REFLECTING and face == FACE_RIGHT) or
-           (params.boundary_type_zmin == BC_REFLECTING and face == FACE_LEFT) or
-           (params.boundary_type_zmax == BC_REFLECTING and face == FACE_RIGHT) ) 
+           (params.boundary_type_ymax == BC_REFLECTING and face == FACE_RIGHT) ) 
       {
 
         if (dir == DIR_X and face == FACE_LEFT) {
@@ -308,7 +294,6 @@ public:
           coord_in[IX] = 2 * bx + 2 * ghostWidth - 1 - coord_cur[IX];
           sign_u = -1.0;
         }
-
         if (dir == DIR_Y and face == FACE_LEFT) {
           coord_in[IY] = 2 * ghostWidth - 1 - coord_cur[IY];
           sign_v = -1.0;
@@ -317,16 +302,6 @@ public:
           coord_in[IY] = 2 * by + 2 * ghostWidth - 1 - coord_cur[IY];
           sign_v = -1.0;
         }
-
-        if (dir == DIR_Z and face == FACE_LEFT) {
-          coord_in[IZ] = 2 * ghostWidth - 1 - coord_cur[IZ];
-          sign_w = -1.0;
-        }
-        if (dir == DIR_Z and face == FACE_RIGHT) {
-          coord_in[IZ] = 2 * bz + 2 * ghostWidth - 1 - coord_cur[IZ];
-          sign_w = -1.0;
-        }
-
       } // end REFLECTING
 
       // index from which data will be copied
@@ -341,16 +316,15 @@ public:
 
       // version 2 : use array Ugroup and
       // assume inner cells have already been copied 
-      uint32_t index = coord_in[IX] + bx_g*coord_in[IY] + bx_g*by_g*coord_in[IZ];
+      uint32_t index = coord_in[IX] + (bx+2*ghostWidth)*coord_in[IY];
       Ugroup(index_cur, fm[ID], iOct_local) = Ugroup(index, fm[ID], iOct_local);
       Ugroup(index_cur, fm[IP], iOct_local) = Ugroup(index, fm[IP], iOct_local);
       Ugroup(index_cur, fm[IU], iOct_local) = Ugroup(index, fm[IU], iOct_local) * sign_u;
       Ugroup(index_cur, fm[IV], iOct_local) = Ugroup(index, fm[IV], iOct_local) * sign_v;
-      Ugroup(index_cur, fm[IW], iOct_local) = Ugroup(index, fm[IW], iOct_local) * sign_w;
       
     } // end if admissible values
 
-  } // fill_ghost_face_3d_external_border
+  } // fill_ghost_face_2d_external_border
 
   // ==============================================================
   // ==============================================================
@@ -370,7 +344,7 @@ public:
    * Remember that a left interface (for current octant) is a right interface for neighbor octant.
    */
   KOKKOS_INLINE_FUNCTION
-  void fill_ghost_face_3d_same_size(uint32_t iOct,
+  void fill_ghost_face_2d_same_size(uint32_t iOct,
                                     uint32_t iOct_local,
                                     uint32_t iOct_neigh,
                                     bool     is_ghost,
@@ -381,57 +355,38 @@ public:
     
     const int &bx = blockSizes[IX];
     const int &by = blockSizes[IY];
-    const int &bz = blockSizes[IZ];
 
-    const index_t size_borderX = ghostWidth*by        *bz;
-    const index_t size_borderY = bx        *ghostWidth*bz; 
-    const index_t size_borderZ = bx        *by        *ghostWidth; 
-
+    const index_t size_borderX = ghostWidth*by;
+    const index_t size_borderY = bx*ghostWidth; 
+    
     // make sure index is valid, i.e. inside the range of admissible values
     if ( (index < size_borderX and dir == DIR_X) or
-         (index < size_borderY and dir == DIR_Y) or
-         (index < size_borderZ and dir == DIR_Z) )
+         (index < size_borderY and dir == DIR_Y) )
     {
 
       // in case of a X border
-      // border sizes for input  cell are : ghostWidth,by             ,bz
-      // border sizes for output cell are : ghostWidth,by+2*ghostWidth,bz+2*ghostWidth
+      // border sizes for input  cell are : ghostWidth,by
+      // border sizes for output cell are : ghostWidth,by+2*ghostWidth
 
       // in case of a Y border
-      // border sizes for input  cell are : bx             ,ghostWidth,bz
-      // border sizes for output cell are : bx+2*ghostWidth,ghostWidth,bz+2*ghostWidth
-
-      // in case of a Y border
-      // border sizes for input  cell are : bx             ,by             ,ghostWidth
-      // border sizes for output cell are : bx+2*ghostWidth,by+2*ghostWidth,ghostWidth
+      // border sizes for input  cell are : bx             ,ghostWidth
+      // border sizes for output cell are : bx+2*ghostWidth,ghostWidth
 
       // compute cell coordinates inside border
-      coord_t coord_border;
-      if (dir == DIR_X)
-        coord_border = index_to_coord(index, ghostWidth, by, bz);
-      if (dir == DIR_Y)
-        coord_border = index_to_coord(index, bx, ghostWidth, bz);
-      if (dir == DIR_Z)
-        coord_border = index_to_coord(index, bx, by, ghostWidth);
+      coord_t coord_border = dir == DIR_X ? 
+        index_to_coord(index, ghostWidth, by) :
+        index_to_coord(index, bx, ghostWidth) ;
       
       // compute cell coordinates inside ghosted block of the receiving octant (current)
       coord_t coord_cur = {coord_border[IX],
                            coord_border[IY], 
-                           coord_border[IZ]};
+                           0};
 
       // shift coord to face center
-      if (dir == DIR_X) {
+      if (dir == DIR_X)
         coord_cur[IY] += ghostWidth;
-        coord_cur[IZ] += ghostWidth;
-      }
-      if (dir == DIR_Y) {
+      if (dir == DIR_Y)
         coord_cur[IX] += ghostWidth;
-        coord_cur[IZ] += ghostWidth;
-      }
-      if (dir == DIR_Z) {
-        coord_cur[IX] += ghostWidth;
-        coord_cur[IY] += ghostWidth;
-      }
 
       if ( face == FACE_RIGHT )
       {
@@ -440,33 +395,21 @@ public:
           coord_cur[IX] += (bx+ghostWidth);
         if (dir == DIR_Y)
           coord_cur[IY] += (by+ghostWidth);
-        if (dir == DIR_Z)
-          coord_cur[IZ] += (bz+ghostWidth);
       }
       
       // compute corresponding index in the ghosted block (current octant) 
-      uint32_t index_cur = 
-        coord_cur[IX] + 
-        coord_cur[IY] * bx_g +
-        coord_cur[IZ] * bx_g * by_g;
+      uint32_t index_cur = coord_cur[IX] + (bx+2*ghostWidth)*coord_cur[IY];
 
       // if necessary, shift border coords to access input (neighbor octant) cell data
       if ( face == FACE_LEFT )
       {
         if ( dir == DIR_X )
           coord_border[IX] += (bx - ghostWidth);
-
         if ( dir == DIR_Y )
           coord_border[IY] += (by - ghostWidth);
-
-        if ( dir == DIR_Z )
-          coord_border[IZ] += (bz - ghostWidth);
       }
 
-      uint32_t index_border = 
-        coord_border[IX] + 
-        coord_border[IY] * bx +
-        coord_border[IZ] * bx*by ;
+      uint32_t index_border = coord_border[IX] + bx * coord_border[IY];
 
       if (is_ghost)
       {
@@ -474,7 +417,6 @@ public:
         Ugroup(index_cur, fm[IP], iOct_local) = U_ghost(index_border, fm[IP], iOct_neigh);
         Ugroup(index_cur, fm[IU], iOct_local) = U_ghost(index_border, fm[IU], iOct_neigh);
         Ugroup(index_cur, fm[IV], iOct_local) = U_ghost(index_border, fm[IV], iOct_neigh);
-        Ugroup(index_cur, fm[IW], iOct_local) = U_ghost(index_border, fm[IW], iOct_neigh);
       }
       else
       {
@@ -482,12 +424,11 @@ public:
         Ugroup(index_cur, fm[IP], iOct_local) = U(index_border, fm[IP], iOct_neigh);
         Ugroup(index_cur, fm[IU], iOct_local) = U(index_border, fm[IU], iOct_neigh);
         Ugroup(index_cur, fm[IV], iOct_local) = U(index_border, fm[IV], iOct_neigh);
-        Ugroup(index_cur, fm[IW], iOct_local) = U(index_border, fm[IW], iOct_neigh);
       }
 
     } // end if admissible values for index
 
-  } // fill_ghost_face_3d_same_size
+  } // fill_ghost_face_2d_same_size
 
   // ==============================================================
   // ==============================================================
@@ -524,7 +465,7 @@ public:
    * TODO : do something about hanging nodes, and filling corner ghost cells...
    */
   KOKKOS_INLINE_FUNCTION
-  void fill_ghost_face_3d_larger_size(uint32_t iOct,
+  void fill_ghost_face_2d_larger_size(uint32_t iOct,
                                       uint32_t iOct_local,
                                       uint32_t iOct_neigh,
                                       bool     is_ghost,
@@ -536,46 +477,30 @@ public:
     
     const int &bx = blockSizes[IX];
     const int &by = blockSizes[IY];
-    const int &bz = blockSizes[IZ];
 
-    const index_t size_borderX = ghostWidth*by        *bz;
-    const index_t size_borderY = bx        *ghostWidth*bz; 
-    const index_t size_borderZ = bx        *by        *ghostWidth; 
+    const index_t size_borderX = ghostWidth*by;
+    const index_t size_borderY = bx*ghostWidth;
 
     // make sure index is valid, i.e. inside the range of admissible values
-    if ( (index < size_borderX and dir == DIR_X) or
-         (index < size_borderY and dir == DIR_Y) or
-         (index < size_borderZ and dir == DIR_Z) )
+    if ((index < size_borderX and dir == DIR_X) or
+        (index < size_borderY and dir == DIR_Y))
     {
 
       // compute cell coordinates inside border
-      coord_t coord_border;
-      if (dir == DIR_X)
-        coord_border = index_to_coord(index, ghostWidth, by, bz);
-      if (dir == DIR_Y)
-        coord_border = index_to_coord(index, bx, ghostWidth, bz);
-      if (dir == DIR_Z)
-        coord_border = index_to_coord(index, bx, by, ghostWidth);
-
-
+      coord_t coord_border = dir == DIR_X ? 
+        index_to_coord(index, ghostWidth, by) :
+        index_to_coord(index, bx, ghostWidth) ;
+      
       // compute cell coordinates inside ghosted block of the receiving octant (current)
       coord_t coord_cur = {coord_border[IX],
                            coord_border[IY], 
-                           coord_border[IZ]};
+                           0};
 
       // shift coord to face center
-      if (dir == DIR_X) {
+      if (dir == DIR_X)
         coord_cur[IY] += ghostWidth;
-        coord_cur[IZ] += ghostWidth;
-      }
-      if (dir == DIR_Y) {
+      if (dir == DIR_Y)
         coord_cur[IX] += ghostWidth;
-        coord_cur[IZ] += ghostWidth;
-      }
-      if (dir == DIR_Z) {
-        coord_cur[IX] += ghostWidth;
-        coord_cur[IY] += ghostWidth;
-      }
 
       if ( face == FACE_RIGHT )
       {
@@ -584,15 +509,10 @@ public:
           coord_cur[IX] += (bx+ghostWidth);
         if (dir == DIR_Y)
           coord_cur[IY] += (by+ghostWidth);
-        if (dir == DIR_Z)
-          coord_cur[IZ] += (bz+ghostWidth);
       }
       
       // compute corresponding index in the ghosted block (current octant) 
-      uint32_t index_cur = 
-        coord_cur[IX] + 
-        coord_cur[IY] * bx_g +
-        coord_cur[IZ] * bx_g * by_g;
+      uint32_t index_cur = coord_cur[IX] + (bx+2*ghostWidth)*coord_cur[IY];
 
       // if necessary, shift border coords to access input (neighbor octant) cell data
       if ( face == FACE_LEFT )
@@ -601,43 +521,19 @@ public:
           coord_border[IX] = (coord_border[IX] + 2*bx - ghostWidth);
         if ( dir == DIR_Y )
           coord_border[IY] = (coord_border[IY] + 2*by - ghostWidth);
-        if ( dir == DIR_Z )
-          coord_border[IZ] = (coord_border[IZ] + 2*bz - ghostWidth);
       }
 
       // remap to take into account that neighbor is actually larger
       coord_border[IX] /= 2;
       coord_border[IY] /= 2;
-      coord_border[IZ] /= 2;
 
-      if ( (loc == NEIGH_POSITION::NEIGH_POS_1 or
-            loc == NEIGH_POSITION::NEIGH_POS_3 ) and dir == DIR_X)
+      if (loc == NEIGH_POSITION::NEIGH_POS_1 and dir == DIR_X)
         coord_border[IY] += by/2;
 
-      if ( (loc == NEIGH_POSITION::NEIGH_POS_2 or
-            loc == NEIGH_POSITION::NEIGH_POS_3 ) and dir == DIR_X)
-        coord_border[IZ] += bz/2;
-
-      if ( (loc == NEIGH_POSITION::NEIGH_POS_1 or
-            loc == NEIGH_POSITION::NEIGH_POS_3 ) and dir == DIR_Y)
+      if (loc == NEIGH_POSITION::NEIGH_POS_1 and dir == DIR_Y)
         coord_border[IX] += bx/2;
 
-      if ( (loc == NEIGH_POSITION::NEIGH_POS_2 or
-            loc == NEIGH_POSITION::NEIGH_POS_3 ) and dir == DIR_Y)
-        coord_border[IZ] += bz/2;
-
-      if ( (loc == NEIGH_POSITION::NEIGH_POS_1 or
-            loc == NEIGH_POSITION::NEIGH_POS_3 ) and dir == DIR_Z)
-        coord_border[IX] += bx/2;
-
-      if ( (loc == NEIGH_POSITION::NEIGH_POS_2 or
-            loc == NEIGH_POSITION::NEIGH_POS_3 ) and dir == DIR_Z)
-        coord_border[IY] += by/2;
-
-      uint32_t index_border = 
-        coord_border[IX] + 
-        coord_border[IY] * bx +
-        coord_border[IZ] * bx * by;
+      uint32_t index_border = coord_border[IX] + bx * coord_border[IY];
 
       if (is_ghost)
       {
@@ -645,7 +541,6 @@ public:
         Ugroup(index_cur, fm[IP], iOct_local) = U_ghost(index_border, fm[IP], iOct_neigh);
         Ugroup(index_cur, fm[IU], iOct_local) = U_ghost(index_border, fm[IU], iOct_neigh);
         Ugroup(index_cur, fm[IV], iOct_local) = U_ghost(index_border, fm[IV], iOct_neigh);
-        Ugroup(index_cur, fm[IW], iOct_local) = U_ghost(index_border, fm[IW], iOct_neigh);
       }
       else
       {
@@ -653,12 +548,11 @@ public:
         Ugroup(index_cur, fm[IP], iOct_local) = U(index_border, fm[IP], iOct_neigh);
         Ugroup(index_cur, fm[IU], iOct_local) = U(index_border, fm[IU], iOct_neigh);
         Ugroup(index_cur, fm[IV], iOct_local) = U(index_border, fm[IV], iOct_neigh);
-        Ugroup(index_cur, fm[IW], iOct_local) = U(index_border, fm[IW], iOct_neigh);
       }
 
     } // end if admissible values for index
 
-  } // fill_ghost_face_3d_larger_size
+  } // fill_ghost_face_2d_larger_size
 
   // ==============================================================
   // ==============================================================
@@ -669,8 +563,8 @@ public:
    *
    * \param[in] iOct global index to current octant
    * \param[in] iOct_local local index (i.e. inside group) to current octant
-   * \param[in] iOct_neigh array of size 4 of global indexes to neighbor octants
-   * \param[in] is_ghost array of size 4 of boolean values, true if neighbor is MPI ghost octant
+   * \param[in] iOct_neigh array of size 2 of global indexes to neighbor octants
+   * \param[in] is_ghost array of size 2 of boolean values, true if neighbor is MPI ghost octant
    * \param[in] index integer used to map the ghost cell to fill
    * \param[in] dir identifies direction of the face border to be filled
    * \param[in] face are we dealing with a left or right interface (as seen from current cell)
@@ -678,11 +572,11 @@ public:
    * 
    * Remember that a left interface (for current octant) is a right interface for neighbor octant.
    *
+   * Difficulty is to deal with these two possibilities:
    * current  (large) octant on the right
    * neighbor (small) octant on the left
    *
-   * The 4 smaller neighbors are enumerated using Morton order, identified by
-   * : NEIGH_POS_0 to NEIGH_POS_3
+   * These 2 situations schematically are :
    *        _______             __      _______ 
    *       |       |           |  |    X       |
    *  __   |       |      or   |__|    X       |
@@ -694,65 +588,49 @@ public:
    *
    */
   KOKKOS_INLINE_FUNCTION
-  void fill_ghost_face_3d_smaller_size(uint32_t iOct,
+  void fill_ghost_face_2d_smaller_size(uint32_t iOct,
                                        uint32_t iOct_local,
-                                       uint32_t iOct_neigh[4],
-                                       bool     is_ghost[4],
+                                       uint32_t iOct_neigh[2],
+                                       bool     is_ghost[2],
                                        index_t  index,
                                        DIR_ID   dir,
                                        FACE_ID  face) const
   {
     const int &bx = blockSizes[IX];
     const int &by = blockSizes[IY];
-    const int &bz = blockSizes[IZ];
 
     // hydrodynamics state variables (initialized to zero)
     // used to accumulate values from smaller octant into
     // large octant ghost cells
-    HydroState3d q{0, 0, 0, 0, 0};
+    HydroState2d q = {0, 0, 0, 0};
 
-    const index_t size_borderX = ghostWidth*by        *bz;
-    const index_t size_borderY = bx        *ghostWidth*bz;
-    const index_t size_borderZ = bx        *by        *ghostWidth;
+    const index_t size_borderX = ghostWidth*by;
+    const index_t size_borderY = bx*ghostWidth;
 
     // make sure index is valid, 
     // i.e. inside the range of admissible values
-    if ( (index < size_borderX and dir == DIR_X) or
-         (index < size_borderY and dir == DIR_Y) or
-         (index < size_borderZ and dir == DIR_Z) )
+    if ((index < size_borderX and dir == DIR_X) or
+        (index < size_borderY and dir == DIR_Y))
     {
 
       // compute cell coordinates inside border of current block,
       // ghost width not taken into account now
-      coord_t coord_cur;
-      if (dir == DIR_X)
-        coord_cur = index_to_coord(index, ghostWidth, by, bz);
-      if (dir == DIR_Y)
-        coord_cur = index_to_coord(index, bx, ghostWidth, bz);
-      if (dir == DIR_Z)
-        coord_cur = index_to_coord(index, bx, by, ghostWidth);
-
+      coord_t coord_cur = dir == DIR_X ? 
+        index_to_coord(index, ghostWidth, by) :
+        index_to_coord(index, bx, ghostWidth) ;
 
       // initialize cell coordinates inside neighbor block 
       // of the receiving octant (i.e. current octant)
       coord_t coord_border = {coord_cur[IX],
                               coord_cur[IY], 
-                              coord_cur[IZ]};
+                              0};
 
       // precisely compute coord_cur
       // shift coord to face center
-      if (dir == DIR_X) {
+      if (dir == DIR_X)
         coord_cur[IY] += ghostWidth;
-        coord_cur[IZ] += ghostWidth;
-      }
-      if (dir == DIR_Y) {
+      if (dir == DIR_Y)
         coord_cur[IX] += ghostWidth;
-        coord_cur[IZ] += ghostWidth;
-      }
-      if (dir == DIR_Z) {
-        coord_cur[IX] += ghostWidth;
-        coord_cur[IY] += ghostWidth;
-      }
 
       // make sure coord_cur is actually mapping the right ghost border
       if ( face == FACE_RIGHT )
@@ -762,136 +640,79 @@ public:
           coord_cur[IX] += (bx+ghostWidth);
         if (dir == DIR_Y)
           coord_cur[IY] += (by+ghostWidth);
-        if (dir == DIR_Z)
-          coord_cur[IZ] += (bz+ghostWidth);
       }
 
       
       // compute corresponding index in the ghosted block
       // i.e. current octant
-      uint32_t index_cur = 
-        coord_cur[IX] +
-        coord_cur[IY] * bx_g +
-        coord_cur[IZ] * bx_g * by_g;
+      uint32_t index_cur = coord_cur[IX] + (bx+2*ghostWidth)*coord_cur[IY];
 
       // loop inside neighbor block (smaller octant) to accumulate values
-      for (int8_t iz = 0; iz < 2; ++iz)
+      for (int8_t iy = 0; iy < 2; ++iy)
       {
-        for (int8_t iy = 0; iy < 2; ++iy)
+        for (int8_t ix = 0; ix < 2; ++ix)
         {
-          for (int8_t ix = 0; ix < 2; ++ix)
+
+          int32_t ii = 2 * coord_border[IX] + ix;
+          int32_t jj = 2 * coord_border[IY] + iy;
+          
+          // select from which neighbor we will take data
+          // this should be ok, even if bx/by are odd integers
+          uint8_t iNeigh=0;
+          if (dir == DIR_X and jj>=by)
           {
-            
-            int32_t ii = 2 * coord_border[IX] + ix;
-            int32_t jj = 2 * coord_border[IY] + iy;
-            int32_t kk = 2 * coord_border[IZ] + iz;
-            
-            // select from which neighbor we will take data
-            // this should be ok, even if bx/by/bz are odd integers
-            uint8_t iNeigh=0;
-            if (dir == DIR_X and jj>=by and kk<bz)
-            {
-              iNeigh=1;
-              jj -= by;
-            }
-            if (dir == DIR_X and jj<by  and kk>=bz)
-            {
-              iNeigh=2;
-              kk -= bz;
-            }
-            if (dir == DIR_X and jj>=by and kk>=bz)
-            {
-              iNeigh=3;
-              jj -= by;
-              kk -= bz;
-            }
+            iNeigh=1;
+            jj -= by;
+          }
           
-            if (dir == DIR_Y and ii>=bx and kk<bz)
-            {
-              iNeigh=1;
-              ii -= bx;
-            }
-            if (dir == DIR_Y and ii<bx  and kk>=bz)
-            {
-              iNeigh=2;
-              kk -= bz;
-            }
-            if (dir == DIR_Y and ii>=bx and kk>=bz)
-            {
-              iNeigh=3;
-              ii -= bx;
-              kk -= bz;
-            }
+          if (dir == DIR_Y and ii>=bx)
+          {
+            iNeigh=1;
+            ii -= bx;
+          }
 
-            if (dir == DIR_Z and ii>=bx and jj<by)
-            {
-              iNeigh=1;
-              ii -= bx;
-            }
-            if (dir == DIR_Z and ii<bx  and jj>=by)
-            {
-              iNeigh=2;
-              jj -= by;
-            }
-            if (dir == DIR_Z and ii>=bx and jj>=by)
-            {
-              iNeigh=3;
-              ii -= bx;
-              jj -= by;
-            }
+          // if necessary, shift border coords to access input data in 
+          // neighbor octant
+          // remember that : left interface for current octant
+          // translates into a right interface for neighbor octants
+          if ( face == FACE_LEFT )
+          {
+            if ( dir == DIR_X )
+              ii += (bx - 2*ghostWidth);
+            if ( dir == DIR_Y )
+              jj += (by - 2*ghostWidth);
+          }
 
-            // if necessary, shift border coords to access input data in 
-            // neighbor octant
-            // remember that : left interface for current octant
-            // translates into a right interface for neighbor octants
-            if ( face == FACE_LEFT )
-            {
-              if ( dir == DIR_X )
-                ii += (bx - 2*ghostWidth);
-              if ( dir == DIR_Y )
-                jj += (by - 2*ghostWidth);
-              if ( dir == DIR_Z )
-                kk += (bz - 2*ghostWidth);
-            }
-
-            // hopefully neighbor octant, cell coordinates are ok now
-            // so compute index to access data
-            uint32_t index_border = 
-              ii + 
-              jj * bx + 
-              kk * bx * by;
+          // hopefully neighbor octant, cell coordinates are ok now
+          // so compute index to access data
+          uint32_t index_border = ii + bx * jj;
           
-            if (is_ghost[iNeigh]) 
-            {
-              q[ID] += U_ghost(index_border, fm[ID], iOct_neigh[iNeigh]);
-              q[IP] += U_ghost(index_border, fm[IP], iOct_neigh[iNeigh]);
-              q[IU] += U_ghost(index_border, fm[IU], iOct_neigh[iNeigh]);
-              q[IV] += U_ghost(index_border, fm[IV], iOct_neigh[iNeigh]);
-              q[IW] += U_ghost(index_border, fm[IW], iOct_neigh[iNeigh]);
-            } 
-            else
-            {
-              q[ID] += U(index_border, fm[ID], iOct_neigh[iNeigh]);
-              q[IP] += U(index_border, fm[IP], iOct_neigh[iNeigh]);
-              q[IU] += U(index_border, fm[IU], iOct_neigh[iNeigh]);
-              q[IV] += U(index_border, fm[IV], iOct_neigh[iNeigh]);
-              q[IW] += U(index_border, fm[IW], iOct_neigh[iNeigh]);
-            }
-            
-          } // end for ix
-        } // end for iy
-      } // end for iz
+          if (is_ghost[iNeigh]) 
+          {
+            q[ID] += U_ghost(index_border, fm[ID], iOct_neigh[iNeigh]);
+            q[IP] += U_ghost(index_border, fm[IP], iOct_neigh[iNeigh]);
+            q[IU] += U_ghost(index_border, fm[IU], iOct_neigh[iNeigh]);
+            q[IV] += U_ghost(index_border, fm[IV], iOct_neigh[iNeigh]);
+          } 
+          else
+          {
+            q[ID] += U(index_border, fm[ID], iOct_neigh[iNeigh]);
+            q[IP] += U(index_border, fm[IP], iOct_neigh[iNeigh]);
+            q[IU] += U(index_border, fm[IU], iOct_neigh[iNeigh]);
+            q[IV] += U(index_border, fm[IV], iOct_neigh[iNeigh]);
+          }
+
+        } // end for ix
+      } // end for iy
 
       // copy back accumulated results
-      Ugroup(index_cur, fm[ID], iOct_local) = q[ID]/8;
-      Ugroup(index_cur, fm[IP], iOct_local) = q[IP]/8;
-      Ugroup(index_cur, fm[IU], iOct_local) = q[IU]/8;
-      Ugroup(index_cur, fm[IV], iOct_local) = q[IV]/8;
-      Ugroup(index_cur, fm[IW], iOct_local) = q[IW]/8;
-
+      Ugroup(index_cur, fm[ID], iOct_local) = q[ID]/4;
+      Ugroup(index_cur, fm[IP], iOct_local) = q[IP]/4;
+      Ugroup(index_cur, fm[IU], iOct_local) = q[IU]/4;
+      Ugroup(index_cur, fm[IV], iOct_local) = q[IV]/4;
     } // end if admissible values for index
 
-  } // fill_ghost_face_3d_smaller_size
+  } // fill_ghost_face_2d_smaller_size
 
   // ==============================================================
   // ==============================================================
@@ -911,22 +732,22 @@ public:
    * \param[in] status is a small integer encode neighbor level difference relative to current octant
    */
   KOKKOS_INLINE_FUNCTION
-  void fill_ghost_face_3d(uint32_t iOct, 
+  void fill_ghost_face_2d(uint32_t iOct, 
                           uint32_t iOct_local,
                           uint64_t morton,
                           uint8_t  level,
                           index_t  index_in, 
                           DIR_ID   dir, 
                           FACE_ID  face,
-                          AMRMetaData<3>::neigh_level_status_t status_level,
-                          AMRMetaData<3>::neigh_rel_pos_status_t status_rel_pos) const
+                          AMRMetaData<2>::neigh_level_status_t status_level,
+                          AMRMetaData<2>::neigh_rel_pos_status_t status_rel_pos) const
   {
 
     // probe mesh neighbor information
     uint8_t iface = face + 2*dir;
 
     // decode neigh level status (larger ? same size ? smaller ?)
-    using NEIGH_LEVEL = AMRMetaData<3>::NEIGH_LEVEL;
+    using NEIGH_LEVEL = AMRMetaData<2>::NEIGH_LEVEL;
     NEIGH_LEVEL nl = static_cast<NEIGH_LEVEL>( (status_level >> (2*iface)) & 0x3 );
 
     // get hashmap from mesh, we'll need it to retrieve neighbor octant id
@@ -941,7 +762,7 @@ public:
     if (nl == NEIGH_LEVEL::NEIGH_IS_EXTERNAL_BORDER)
     {
 
-      fill_ghost_face_3d_external_border(iOct, iOct_local, index_in, dir, face);
+      fill_ghost_face_2d_external_border(iOct, iOct_local, index_in, dir, face);
 
     } 
 
@@ -968,7 +789,7 @@ public:
        */
       // decode neigh relative position
       NEIGH_POSITION rel_pos = 
-        static_cast<NEIGH_POSITION>( (status_rel_pos >> (2*iface)) & 0x3 );
+        static_cast<NEIGH_POSITION>( (status_rel_pos >> (iface)) & 0x1 );
 
       // neighbor hash key
       key_t key_n;
@@ -984,13 +805,13 @@ public:
       //{
       uint32_t iOct_neigh = hashmap.value_at(index_n);
       //}
-
+            
       // Setting interface flag to "bigger" -- PROBABLY NOT NEEDED ANYMORE
       Interface_flags(iOct_local) |= (1 << (iface + 6));
 	
       bool isGhost = iOct_neigh>=nbOcts;
       
-      fill_ghost_face_3d_larger_size(iOct, iOct_local, iOct_neigh, isGhost, index_in, dir, face, rel_pos);
+      fill_ghost_face_2d_larger_size(iOct, iOct_local, iOct_neigh, isGhost, index_in, dir, face, rel_pos);
       
     } // NEIGH_IS_LARGER
 
@@ -1011,7 +832,7 @@ public:
 
       bool isGhost = iOct_neigh>=nbOcts;
 
-      fill_ghost_face_3d_same_size(iOct, iOct_local, iOct_neigh, isGhost, index_in, dir, face);
+      fill_ghost_face_2d_same_size(iOct, iOct_local, iOct_neigh, isGhost, index_in, dir, face);
 
     } // end NEIGH_IS_SAME_SIZE
 
@@ -1026,11 +847,11 @@ public:
       // Setting interface flag to "smaller" -- PROBABLY NOT NEEDED ANYMORE
       Interface_flags(iOct_local) |= (1<<iface);
 
-      // retrieve the 4 neighbor octant ids
-      uint32_t iOct_neigh[4];
-      bool isghost_neigh[4];
+      // retrieve the 2 neighbor octant ids
+      uint32_t iOct_neigh[2];
+      bool isghost_neigh[2];
 
-      for (int ineigh=0; ineigh<4; ++ineigh)
+      for (int ineigh=0; ineigh<2; ++ineigh)
       {
 
         // neighbor hash key
@@ -1048,24 +869,27 @@ public:
 
       }
 
-      fill_ghost_face_3d_smaller_size(iOct, iOct_local, iOct_neigh, 
+      fill_ghost_face_2d_smaller_size(iOct, iOct_local, iOct_neigh, 
                                       isghost_neigh, index_in, 
                                       dir, face);
       
     } // end NEIGH_IS_SMALLER
 
-  } // fill_ghost_face_3d
+  } // fill_ghost_face_2d
 
   // ==============================================================
   // ================================================
   // ================================
-  // 3D version.
+  // 2D version.
   // ================================
   // ================================================
   // ==============================================================
-  //! functor for 3d 
+  //! functor for 2d 
+  // template<int dim_ = dim>
+  // KOKKOS_INLINE_FUNCTION
+  // void operator()(typename std::enable_if<dim_==2, team_policy_t::member_type>::type member) const 
   KOKKOS_INLINE_FUNCTION
-  void operator()(team_policy_t::member_type member) const
+  void operator()(team_policy_t::member_type member) const 
   {
 
     // iOct must span the range [iGroup*nbOctsPerGroup ,
@@ -1083,16 +907,10 @@ public:
 
     const int &bx = blockSizes[IX];
     const int &by = blockSizes[IY];
-    const int &bz = blockSizes[IZ];
 
     // maximun number of ghost cells to fill (per face)
     // this number will be used to set the number of working threads
-    uint32_t bmax = bx*by;
-    if (bmax < by*bz)
-      bmax = by*bz;
-    if (bmax < bx*bz)
-      bmax = bx*bz;
-
+    uint32_t bmax = bx < by ? by : bx;
     uint32_t nbCells = bmax*ghostWidth;
 
     // get a const ref on the array of neighbor "level status"
@@ -1129,22 +947,16 @@ public:
         [&](const index_t index)
         {
           // compute face X,left
-          fill_ghost_face_3d(iOct, iOct_g, morton_key, level, index, DIR_X, FACE_LEFT, neigh_lv_status, neigh_rp_status);
+          fill_ghost_face_2d(iOct, iOct_g, morton_key, level, index, DIR_X, FACE_LEFT, neigh_lv_status, neigh_rp_status);
           
           // compute face X,right
-          fill_ghost_face_3d(iOct, iOct_g, morton_key, level, index, DIR_X, FACE_RIGHT, neigh_lv_status, neigh_rp_status);
+          fill_ghost_face_2d(iOct, iOct_g, morton_key, level, index, DIR_X, FACE_RIGHT, neigh_lv_status, neigh_rp_status);
           
           // compute face Y,left
-          fill_ghost_face_3d(iOct, iOct_g, morton_key, level, index, DIR_Y, FACE_LEFT, neigh_lv_status, neigh_rp_status);
+          fill_ghost_face_2d(iOct, iOct_g, morton_key, level, index, DIR_Y, FACE_LEFT, neigh_lv_status, neigh_rp_status);
           
           // compute face Y,right
-          fill_ghost_face_3d(iOct, iOct_g, morton_key, level, index, DIR_Y, FACE_RIGHT, neigh_lv_status, neigh_rp_status);
-          
-          // compute face Z,left
-          fill_ghost_face_3d(iOct, iOct_g, morton_key, level, index, DIR_Z, FACE_LEFT, neigh_lv_status, neigh_rp_status);
-          
-          // compute face Z,right
-          fill_ghost_face_3d(iOct, iOct_g, morton_key, level, index, DIR_Z, FACE_RIGHT, neigh_lv_status, neigh_rp_status);
+          fill_ghost_face_2d(iOct, iOct_g, morton_key, level, index, DIR_Y, FACE_RIGHT, neigh_lv_status, neigh_rp_status);
           
         }); // end TeamVectorRange
       
@@ -1154,7 +966,24 @@ public:
 
     } // end while iOct inside current group of octants
 
-  } // operator() - 3d version
+  } // operator() - 2d version
+
+  // ==============================================================
+  // ================================================
+  // ================================
+  // 3D version.
+  // ================================
+  // ================================================
+  // ==============================================================
+  //! functor for 3d 
+  // template<int dim_ = dim>
+  // KOKKOS_INLINE_FUNCTION
+  // void operator()(typename std::enable_if<dim_==3, team_policy_t::member_type>::type member) const 
+  // {
+
+  //   // do nothing, shouldn't be here....
+
+  // } // operator() - 3d version
 
   //! AMR mesh
   AMRMetaData<dim> mesh;

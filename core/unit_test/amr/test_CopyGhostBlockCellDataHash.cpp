@@ -28,7 +28,6 @@
 
 #include "muscl_block/CopyInnerBlockCellData.h"
 #include "muscl_block/CopyFaceBlockCellDataHash.h"
-#include "muscl_block/CopyFaceBlockCellDataHash3d.h"
 #include "muscl_block/ConvertToPrimitivesHydroFunctor.h"
 #include "muscl_block/utils_block.h"
 
@@ -78,18 +77,18 @@ call_CopyFaceBlockCellDataHashFunctor<2>(AMRMetaData<2> mesh,
                                          uint32_t iGroup,
                                          FlagArrayBlock Interface_flags)
 {
-  muscl_block::CopyFaceBlockCellDataHashFunctor<2>::apply(mesh,
-                                                          configMap,
-                                                          params, 
-                                                          fm,
-                                                          blockSizes,
-                                                          ghostWidth,
-                                                          nbOctsPerGroup,
-                                                          U, 
-                                                          U_ghost, 
-                                                          Ugroup, 
-                                                          iGroup,
-                                                          Interface_flags);
+  // muscl_block::CopyFaceBlockCellDataHashFunctor<2>::apply(mesh,
+  //                                                         configMap,
+  //                                                         params, 
+  //                                                         fm,
+  //                                                         blockSizes,
+  //                                                         ghostWidth,
+  //                                                         nbOctsPerGroup,
+  //                                                         U, 
+  //                                                         U_ghost, 
+  //                                                         Ugroup, 
+  //                                                         iGroup,
+  //                                                         Interface_flags);
 }
 
 template<>
@@ -107,18 +106,18 @@ call_CopyFaceBlockCellDataHashFunctor<3>(AMRMetaData<3> mesh,
                                          uint32_t iGroup,
                                          FlagArrayBlock Interface_flags)
 {
-  CopyFaceBlockCellDataHashFunctor3d::apply(mesh,
-                                            configMap,
-                                            params, 
-                                            fm,
-                                            blockSizes,
-                                            ghostWidth,
-                                            nbOctsPerGroup,
-                                            U, 
-                                            U_ghost, 
-                                            Ugroup, 
-                                            iGroup,
-                                            Interface_flags);
+  // muscl_block::CopyFaceBlockCellDataHashFunctor<3>::apply(mesh,
+  //                                                         configMap,
+  //                                                         params, 
+  //                                                         fm,
+  //                                                         blockSizes,
+  //                                                         ghostWidth,
+  //                                                         nbOctsPerGroup,
+  //                                                         U, 
+  //                                                         U_ghost, 
+  //                                                         Ugroup, 
+  //                                                         iGroup,
+  //                                                         Interface_flags);
 }
 
 } // namespace muscl_block
