@@ -116,7 +116,8 @@ public:
                                DataArrayBlock U_ghost,
                                DataArrayBlock Ugroup,
                                uint32_t iGroup,
-                               FlagArrayBlock Interface_flags) :
+                               FlagArrayBlock Interface_flags,
+                               FlagArrayBlock Boundary_flags) :
     pmesh(pmesh), params(params), 
     fm(fm), blockSizes(blockSizes), 
     ghostWidth(ghostWidth),
@@ -125,7 +126,8 @@ public:
     U_ghost(U_ghost),
     Ugroup(Ugroup), 
     iGroup(iGroup),
-    Interface_flags(Interface_flags)
+    Interface_flags(Interface_flags),
+    Boundary_flags(Boundary_flags)
   {
 
     // in 2d, bz and bz_g are not used
@@ -151,7 +153,8 @@ public:
                     DataArrayBlock U_ghost,
                     DataArrayBlock Ugroup,
                     uint32_t iGroup,
-                    FlagArrayBlock Interface_flags)
+                    FlagArrayBlock Interface_flags,
+                    FlagArrayBlock Boundary_flags)
   {
 
     CopyFaceBlockCellDataFunctor functor(pmesh, params, fm, 
@@ -159,7 +162,8 @@ public:
                                          nbOctsPerGroup, 
                                          U, U_ghost, Ugroup,
                                          iGroup,
-                                         Interface_flags);
+                                         Interface_flags,
+                                         Boundary_flags);
 
     /*
      * using kokkos team execution policy
@@ -913,8 +917,10 @@ public:
 
       // if (index_in==0)
       //   printf("[neigh is external] iOct_global=%d iOct_local=%2d ---- dir=%d face=%d \n",iOct, iOct_local, dir, face);
+      Boundary_flags(iOct_local) |= (1 << iface);
 
-      fill_ghost_face_2d_external_border(iOct, iOct_local, index_in, dir, face);
+      // Now this is done in CopyBoundariesBlockCellData
+      //fill_ghost_face_2d_external_border(iOct, iOct_local, index_in, dir, face);
     } 
     
     /*
@@ -1027,6 +1033,7 @@ public:
     while (iOct < iOctNextGroup and iOct < nbOcts)
     {
       Interface_flags(iOct_g) = INTERFACE_NONE;
+      Boundary_flags(iOct_g)  = BF_NONE;
 
       // perform "vectorized" loop inside a given block data
       Kokkos::parallel_for(
@@ -1106,6 +1113,9 @@ public:
 
   //! 2:1 flagging mechanism
   FlagArrayBlock Interface_flags;
+
+  //! Boundary flags
+  FlagArrayBlock Boundary_flags;
 
   // should we copy gravity ?
   bool copy_gravity;

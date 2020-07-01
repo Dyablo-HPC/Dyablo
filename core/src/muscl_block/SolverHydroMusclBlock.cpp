@@ -33,6 +33,7 @@
 #include "muscl_block/CopyInnerBlockCellData.h"
 #include "muscl_block/CopyFaceBlockCellData.h"
 #include "muscl_block/CopyCornerBlockCellData.h"
+#include "muscl_block/CopyBoundariesBlockCellData.h"
 
 #if BITPIT_ENABLE_MPI==1
 #include "muscl_block/UserDataComm.h"
@@ -59,6 +60,7 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   Ugroup(), 
   Qgroup(),
   Interface_flags(),
+  Boundary_flags(),
   Slopes_x(), 
   Slopes_y(), 
   Slopes_z()
@@ -150,7 +152,11 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   total_mem_size += nbCellsPerOct_g*nbOctsPerGroup*nbvar    * sizeof(real_t); //Qgroup 
 
   // flags data array for faces on 2:1 borders
-  Interface_flags = FlagArrayBlock("Flags", nbOctsPerGroup);
+  Interface_flags = FlagArrayBlock("Interface flags", nbOctsPerGroup);
+  total_mem_size += nbOctsPerGroup*sizeof(uint16_t);
+
+  // flags data array for boundaries
+  Boundary_flags = FlagArrayBlock("Boundary flags", nbOctsPerGroup);
   total_mem_size += nbOctsPerGroup*sizeof(uint16_t);
 
   // all intermediate data array are sized upon nbOctsPerGroup
@@ -1224,7 +1230,8 @@ void SolverHydroMusclBlock::fill_block_data_ghost(DataArrayBlock data_in,
                                       Ughost,
                                       Ugroup, 
                                       iGroup,
-                                      Interface_flags);
+                                      Interface_flags,
+                                      Boundary_flags);
 
   // And corners
   CopyCornerBlockCellDataFunctor::apply(amr_mesh,
@@ -1239,7 +1246,21 @@ void SolverHydroMusclBlock::fill_block_data_ghost(DataArrayBlock data_in,
 					Ugroup,
 					iGroup,
 					Interface_flags);
-  
+
+
+  // And boundary conditions
+  CopyBoundariesBlockCellDataFunctor::apply(amr_mesh, 
+          configMap,
+          params,
+          fm,
+          blockSizes,
+          ghostWidth,
+          nbOctsPerGroup,
+          data_in,
+          Ugroup,
+          iGroup,
+          Boundary_flags);
+
 } // SolverHydroMusclBlock::fill_block_data_ghost
 
 } // namespace muscl_block

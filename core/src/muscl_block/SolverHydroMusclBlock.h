@@ -101,6 +101,9 @@ public:
   //! 2:1 interface flags
   FlagArrayBlock Interface_flags;
 
+  //! Which boundaries board which block 
+  FlagArrayBlock Boundary_flags;
+
   //! slopes along X dir - array of octant's block data
   DataArrayBlock Slopes_x;
 
