@@ -11,6 +11,8 @@
 // utils block
 #include "muscl_block/utils_block.h"
 
+#include "UserPolicies.h"
+
 namespace dyablo
 {
 namespace muscl_block
@@ -28,19 +30,21 @@ public:
 
   void setNbTeams(uint32_t nbTeams_) { nbTeams = nbTeams_; };
 
-  CopyBoundariesBlockCellDataFunctor(std::shared_ptr<AMRmesh> pmesh,
-                                     HydroParams              params,
-                                     id2index_t               fm,
-                                     blockSize_t              blockSizes,
-                                     uint32_t                 ghostWidth,
-                                     uint32_t                 nbOctsPerGroup,
-                                     DataArrayBlock           U,
-                                     DataArrayBlock           Ugroup,
-                                     uint32_t                 iGroup,
-                                     FlagArrayBlock           Boundary_flags) :
+  CopyBoundariesBlockCellDataFunctor(std::shared_ptr<AMRmesh>       pmesh,
+                                     HydroParams                    params,
+                                     id2index_t                     fm,
+                                     blockSize_t                    blockSizes,
+                                     uint32_t                       ghostWidth,
+                                     uint32_t                       nbOctsPerGroup,
+                                     DataArrayBlock                 U,
+                                     DataArrayBlock                 Ugroup,
+                                     uint32_t                       iGroup,
+                                     FlagArrayBlock                 Boundary_flags, 
+                                     std::shared_ptr<UserPolicies>  boundaryPolicy) :
     pmesh(pmesh), params(params), fm(fm), blockSizes(blockSizes),
     ghostWidth(ghostWidth), nbOctsPerGroup(nbOctsPerGroup),
-    U(U), Ugroup(Ugroup), iGroup(iGroup), Boundary_flags(Boundary_flags) {
+    U(U), Ugroup(Ugroup), iGroup(iGroup), Boundary_flags(Boundary_flags),
+    boundaryPolicy(boundaryPolicy) {
       bx   = blockSizes[IX];
       by   = blockSizes[IY];
       bz   = blockSizes[IZ];
@@ -55,21 +59,23 @@ public:
       smallp = params.settings.smallp;
     }
 
-    static void apply(std::shared_ptr<AMRmesh> pmesh,
-                      ConfigMap configMap, 
-                      HydroParams params, 
-                      id2index_t fm,
-                      blockSize_t blockSizes,
-                      uint32_t ghostWidth,
-                      uint32_t nbOctsPerGroup,
-                      DataArrayBlock U,
-                      DataArrayBlock Ugroup,
-                      uint32_t iGroup,
-                      FlagArrayBlock Boundary_flags)                    
+    static void apply(std::shared_ptr<AMRmesh>      pmesh,
+                      ConfigMap                     configMap, 
+                      HydroParams                   params, 
+                      id2index_t                    fm,
+                      blockSize_t                   blockSizes,
+                      uint32_t                      ghostWidth,
+                      uint32_t                      nbOctsPerGroup,
+                      DataArrayBlock                U,
+                      DataArrayBlock                Ugroup,
+                      uint32_t                      iGroup,
+                      FlagArrayBlock                Boundary_flags,
+                      std::shared_ptr<UserPolicies> boundaryPolicy)                    
   {
     CopyBoundariesBlockCellDataFunctor functor(pmesh, params, fm, blockSizes, 
                                                ghostWidth, nbOctsPerGroup,
-                                               U, Ugroup, iGroup, Boundary_flags);
+                                               U, Ugroup, iGroup, Boundary_flags,
+                                               boundaryPolicy);
 
     // Setting up the team and execution policy
     uint32_t nbTeams_ = configMap.getInteger("amr", "nbTeams", 16);
@@ -83,66 +89,6 @@ public:
                          policy, functor);                                          
   }
 
-  KOKKOS_INLINE_FUNCTION
-  HydroState2d fill_reflecting_2d(uint32_t iOct, uint32_t iOct_g, uint32_t index, FACE_ID face, coord_t coords, real_t* coords_phy) const {
-    coord_t copy_coords = coords;
-
-    // Getting the correct source coordinates
-    if (face == FACE_LEFT)
-      copy_coords[IX] = 2 * ghostWidth - coords[IX] - 1;
-    else if (face == FACE_BOTTOM)
-      copy_coords[IY] = 2 * ghostWidth - coords[IY] - 1;
-    else if (face == FACE_RIGHT)
-      copy_coords[IX] = 2*(bx+ghostWidth) - 1 - coords[IX];
-    else if (face == FACE_TOP)
-      copy_coords[IY] = 2*(by+ghostWidth) - 1 - coords[IY];
-
-    uint32_t index_copy = copy_coords[IX] + bx_g * copy_coords[IY];
-
-    HydroState2d Uout;
-    Uout[ID] = Ugroup(index_copy, fm[ID], iOct_g);
-    Uout[IU] = Ugroup(index_copy, fm[IU], iOct_g);
-    Uout[IV] = Ugroup(index_copy, fm[IV], iOct_g);
-    Uout[IE] = Ugroup(index_copy, fm[IE], iOct_g);
-
-    if (face == FACE_LEFT or face == FACE_RIGHT)
-      Uout[IU] *= -1.0;
-    if (face == FACE_BOTTOM or face == FACE_TOP)
-      Uout[IV] *= -1.0;
-
-    return Uout;
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  HydroState2d fill_absorbing_2d(uint32_t iOct, uint32_t iOct_g, uint32_t index, FACE_ID face, coord_t coords, real_t* coords_phy) const {
-    coord_t copy_coords = coords;
-    if (face == FACE_LEFT)
-      copy_coords[IX] = ghostWidth;
-    else if (face == FACE_RIGHT)
-      copy_coords[IX] = bx_g - ghostWidth - 1;
-    else if (face == FACE_BOTTOM)
-      copy_coords[IY] = ghostWidth;
-    else if (face == FACE_TOP)
-      copy_coords[IY] = by_g - ghostWidth - 1;
-
-    uint32_t index_copy = copy_coords[IX] + bx_g * copy_coords[IY];
-
-    //std::cerr << "index = " << index << "; face = " << (int)face << "; coords = " << coords[IX] << " " << coords[IY] << "; Copy coords = " << copy_coords[IX] << " " << copy_coords[IY] << std::endl;
-
-    HydroState2d Uout;
-    Uout[ID] = Ugroup(index_copy, fm[ID], iOct_g);
-    Uout[IU] = Ugroup(index_copy, fm[IU], iOct_g);
-    Uout[IV] = Ugroup(index_copy, fm[IV], iOct_g);
-    Uout[IE] = Ugroup(index_copy, fm[IE], iOct_g);
-
-    return Uout;
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  HydroState2d fill_userdef_2d(uint32_t iOct, uint32_t iOct_g, uint32_t index, FACE_ID face, coord_t coords, real_t* coords_phy) const {
-
-    return HydroState2d{0.0, 0.0, 0.0, 0.0};
-  }
 
   KOKKOS_INLINE_FUNCTION
   void fill_boundary_2d(uint32_t iOct, uint32_t iOct_g, uint32_t index, FACE_ID face, BoundaryConditionType bc) const {
@@ -160,20 +106,17 @@ public:
     if (face == FACE_TOP)
       coord_cur[IY] += by + ghostWidth;
     
-    //std::cerr << "Face : " << (int)face << "; Coords = " << coord_cur[IX] << " " << coord_cur[IY] << std::endl;
-    //std::cerr << "Index = " << index << "; iOct = " << iOct << "; iOct_g = " << iOct_g << std::endl; 
     // Calculating physical coordinates -> todo
     real_t coord_phy[3];
 
     // Calling the right function for each boundary
-    // TODO : Replace this by BoundaryPolicy calls
     HydroState2d Uout;
     if (bc == BC_REFLECTING)
-      Uout = fill_reflecting_2d(iOct, iOct_g, index, face, coord_cur, coord_phy);
+      Uout = boundaryPolicy->fill_reflecting_2d(Ugroup, iOct_g, index, face, coord_cur, coord_phy);
     else if (bc == BC_ABSORBING)
-      Uout = fill_absorbing_2d(iOct, iOct_g, index, face, coord_cur, coord_phy);
+      Uout = boundaryPolicy->fill_absorbing_2d(Ugroup, iOct_g, index, face, coord_cur, coord_phy);
     else if (bc == BC_USERDEF)
-      Uout = fill_userdef_2d(iOct, iOct_g, index, face, coord_cur, coord_phy);
+      Uout = boundaryPolicy->fill_bc_2d(Ugroup, iOct_g, index, face, coord_cur, coord_phy);
 
     // Copying
     uint32_t index_out = coord_cur[IX] + (bx_g * coord_cur[IY]);
@@ -309,6 +252,9 @@ public:
   // Minimum density and pressure values
   real_t smallr;
   real_t smallp;
+
+  // Boundary policies
+  std::shared_ptr<UserPolicies> boundaryPolicy;
 
 }; // end CopyBoundariesBlockCellDataFunctor
 

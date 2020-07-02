@@ -182,6 +182,10 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   // necessary to access user data
   fieldMgr.setup(params, configMap);
 
+  // initialize user policies
+  auto fm = fieldMgr.get_id2index();
+  userPolicies = std::make_shared<UserPolicies>(params, fm, blockSizes, ghostWidth);
+
   // perform init condition
   init(U);
   
@@ -1259,7 +1263,8 @@ void SolverHydroMusclBlock::fill_block_data_ghost(DataArrayBlock data_in,
           data_in,
           Ugroup,
           iGroup,
-          Boundary_flags);
+          Boundary_flags,
+          userPolicies);
 
 } // SolverHydroMusclBlock::fill_block_data_ghost
 
