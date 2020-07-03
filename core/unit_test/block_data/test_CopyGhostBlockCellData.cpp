@@ -29,6 +29,8 @@
 #include "muscl_block/CopyInnerBlockCellData.h"
 #include "muscl_block/CopyFaceBlockCellData.h"
 #include "muscl_block/ConvertToPrimitivesHydroFunctor.h"
+#include "muscl_block/CopyCornerBlockCellData.h"
+#include "muscl_block/CopyBoundariesBlockCellData.h"
 
 using Device = Kokkos::DefaultExecutionSpace;
 
@@ -144,7 +146,6 @@ void run_test(int argc, char *argv[])
   uint32_t iGroup = 1;
 
   uint8_t nfaces = (params.dimType == TWO_D ? 4 : 6);
-  FlagArrayBlock Interface_flags = FlagArrayBlock("Interface Flags", nbOctsPerGroup);
   
   // chose an octant which should have a "same size" neighbor in all direction
   //uint32_t iOct_local = 2;
@@ -213,7 +214,34 @@ void run_test(int argc, char *argv[])
                                         solver->Ughost, 
                                         Ugroup, 
                                         iGroup,
-                                        Interface_flags);
+                                        solver->Interface_flags,
+                                        solver->Boundary_flags);
+    CopyCornerBlockCellDataFunctor::apply(solver->amr_mesh,
+                                          configMap,
+                                          params,
+                                          fm,
+                                          blockSizes,
+                                          ghostWidth,
+                                          nbOctsPerGroup,
+                                          solver->U,
+                                          solver->Ughost,
+                                          Ugroup,
+                                          iGroup,
+                                          solver->Interface_flags);
+
+    CopyBoundariesBlockCellDataFunctor::apply(solver->amr_mesh, 
+                                              configMap,
+                                              params,
+                                              fm,
+                                              blockSizes,
+                                              ghostWidth,
+                                              nbOctsPerGroup,
+                                              solver->U,
+                                              Ugroup,
+                                              iGroup,
+                                              solver->Boundary_flags,
+                                              solver->userPolicies);
+  
     
     // print data from from the chosen iGroup 
     std::cout << "Printing Ugroup data from iOct = " << iOct_global << " | iOctLocal = " << iOct_local << " and iGroup = " << iGroup << "\n";
