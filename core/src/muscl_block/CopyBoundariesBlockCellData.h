@@ -107,7 +107,10 @@ public:
       coord_cur[IY] += by + ghostWidth;
     
     // Calculating physical coordinates -> todo
-    real_t coord_phy[3];
+    bitpit::darray3 top_coord = pmesh->getCoordinates(iOct);
+    real_t dx[2] {pmesh->getSize(iOct) / bx, pmesh->getSize(iOct) / by};
+    real_t coord_phy[2] {top_coord[IX] + dx[IX] * (coord_cur[IX]-ghostWidth),
+                         top_coord[IY] + dx[IY] * (coord_cur[IY]-ghostWidth)};
 
     // Calling the right function for each boundary
     HydroState2d Uout;

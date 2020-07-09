@@ -184,7 +184,7 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
 
   // initialize user policies
   auto fm = fieldMgr.get_id2index();
-  userPolicies = std::make_shared<UserPolicies>(params, fm, blockSizes, ghostWidth);
+  userPolicies = std::make_shared<UserPolicies>(params, configMap, fm, blockSizes, ghostWidth);
 
   // perform init condition
   init(U);
