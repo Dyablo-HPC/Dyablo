@@ -668,7 +668,10 @@ public:
       uint32_t cur_level, neigh_level;
 
       cur_level   = pmesh->getLevel(iOct);
-      neigh_level = pmesh->getLevel(neigh);
+      if (isGhost)
+        neigh_level = pmesh->getLevel(pmesh->getGhostOctant(neigh));
+      else
+        neigh_level = pmesh->getLevel(neigh);
 
       if (cur_level == neigh_level)     // Same level
 	      fill_ghost_corner_same_size_2d(iOct_local, iOct, index, corner, neigh, isGhost);
