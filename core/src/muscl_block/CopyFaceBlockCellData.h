@@ -529,7 +529,6 @@ public:
 
       if (is_ghost)
       {
-        
         Ugroup(index_cur, fm[ID], iOct_local) = U_ghost(index_border, fm[ID], iOct_neigh);
         Ugroup(index_cur, fm[IP], iOct_local) = U_ghost(index_border, fm[IP], iOct_neigh);
         Ugroup(index_cur, fm[IU], iOct_local) = U_ghost(index_border, fm[IU], iOct_neigh);
@@ -938,13 +937,14 @@ public:
        * |      |  |  |       |      |
        * |______|  |__|       |______|  
        */
-      if ( pmesh->getLevel(iOct) > pmesh->getLevel(iOct_neigh) ) {
+      uint32_t neigh_level = (isghost[0] ? pmesh->getLevel(pmesh->getGhostOctant(iOct_neigh)) : pmesh->getLevel(iOct_neigh));
+      if ( pmesh->getLevel(iOct) > neigh_level) {
 
         // if (index_in==0)
         //   printf("[neigh is larger] iOct_global=%d iOct_local=%2d iOct_neigh=%2d ---- \n",iOct, iOct_local, iOct_neigh);
 
         // Setting interface flag to "bigger"
-	Interface_flags(iOct_local) |= (1 << (iface + 6));
+        Interface_flags(iOct_local) |= (1 << (iface + 6));
 	
         NEIGH_LOC loc = get_relative_position_2d(iOct, iOct_neigh, isghost[0], dir, face, NEIGH_IS_LARGER);
 
