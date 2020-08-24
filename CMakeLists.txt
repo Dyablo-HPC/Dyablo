@@ -8,7 +8,7 @@ endif()
 
 ###################################################################
 #
-# Handle superbuild first building 
+# Handle superbuild first building
 # 1. required dependencies (here only bitpit)
 # 2. bitpit + kokkos
 #
@@ -17,9 +17,9 @@ endif()
 # - dyablo + kokkos
 # both using the cmake ExternalProject_add macro.
 #
-# The main reason behind this design is that it allows to separate in a 
-# clean way those two builds, espacially regarding GPU builds. Indeed
-# bitpit can't build with nvcc (too many parsing errors from nvcc front 
+# The main reason behind this design is that it allows to separate in a
+# clean way those two builds, especially regarding GPU builds. Indeed
+# bitpit can't build with nvcc (too many parsing errors from nvcc front
 # end), so bitpit is build with a regular CPU compiler (defaults to g++)
 # and dyablo+kokkos with a compiler adapted to the target architecture :
 # - g++ or clang++ or icpc for Kokkos/OpenMP
@@ -56,7 +56,7 @@ option (DYABLO_USE_MPI_CUDA_AWARE_ENFORCED "Some MPI cuda-aware implementation a
 # Enforce rebuilding bitpit
 option(FORCE_BITPIT_BUILD "Enforce rebuilding bitpit" OFF)
 
-# Enforce rebuilding bitpit
+# Enforce rebuilding kokkos
 option(FORCE_KOKKOS_BUILD "Enforce rebuilding kokkos" OFF)
 
 #
