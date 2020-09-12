@@ -28,6 +28,8 @@
 
 #include "muscl_block/CopyInnerBlockCellData.h"
 #include "muscl_block/CopyFaceBlockCellData.h"
+#include "muscl_block/CopyCornerBlockCellData.h"
+#include "muscl_block/CopyBoundariesBlockCellData.h"
 #include "muscl_block/ConvertToPrimitivesHydroFunctor.h"
 #include "muscl_block/MusclBlockGodunovUpdateFunctor.h"
 #include "muscl_block/ComputeDtHydroFunctor.h"
@@ -144,9 +146,7 @@ void run_test(int argc, char *argv[]) {
   uint32_t iGroup = 1;
 
   uint8_t nfaces = (params.dimType == TWO_D ? 4 : 6);
-  FlagArrayBlock Interface_flags = FlagArrayBlock("Interface Flags", nbOctsPerGroup);
-  
-  // // chose an octant which should have a "same size" neighbor in all direction
+ // // chose an octant which should have a "same size" neighbor in all direction
   // //uint32_t iOct_local = 2;
   
   // // chose an octant which should have at least
@@ -207,9 +207,40 @@ void run_test(int argc, char *argv[]) {
                                         solver->Ughost, 
                                         Ugroup, 
                                         iGroup,
-                                        Interface_flags);
+                                        solver->Interface_flags,
+                                        solver->Boundary_flags);
     
   } // end testing CopyFaceBlockCellDataFunctor
+
+  {
+    CopyCornerBlockCellDataFunctor::apply(solver->amr_mesh,
+                                          configMap,
+                                          params,
+                                          fm,
+                                          blockSizes,
+                                          ghostWidth,
+                                          nbOctsPerGroup,
+                                          solver->U,
+                                          solver->Ughost,
+                                          Ugroup,
+                                          iGroup,
+                                          solver->Interface_flags);
+  }
+
+  {  // And boundary conditions
+    CopyBoundariesBlockCellDataFunctor::apply(solver->amr_mesh, 
+                                              configMap,
+                                              params,
+                                              fm,
+                                              blockSizes,
+                                              ghostWidth,
+                                              nbOctsPerGroup,
+                                              solver->U,
+                                              Ugroup,
+                                              iGroup,
+                                              solver->Boundary_flags,
+                                              solver->userPolicies);
+  }
 
   // also testing ConvertToPrimitivesHydroFunctor
   {
@@ -267,7 +298,7 @@ void run_test(int argc, char *argv[]) {
                                           solver->Ughost,
                                           solver->U2,
                                           Qgroup, 
-                                          Interface_flags,
+                                          solver->Interface_flags,
                                           dt);
 
     for (uint32_t iy = 0; iy < by_g; ++iy) {
