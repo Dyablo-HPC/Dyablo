@@ -17,13 +17,14 @@ namespace dyablo {
                    uint32_t       ghostWidth) :
         BoundaryPolicy(params, fm, blockSizes, ghostWidth)
       {
+        // HERE : User defined constants/variables, etc.
       }
 
       KOKKOS_INLINE_FUNCTION
       HydroState2d fill_bc_2d(DataArrayBlock Ugroup, uint32_t iOct_local, uint32_t index, FACE_ID face, coord_t coords, real_t* xi) {
         // HERE : User defined boundary conditions
         HydroState2d Uout{0.0};
-        
+
         return Uout;
       }
     }; // end class USerPolicies
