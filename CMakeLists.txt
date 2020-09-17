@@ -6,8 +6,6 @@ if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
   cmake_policy(SET CMP0076 NEW)
 endif()
 
-include(GNUInstallDirs)
-
 ###################################################################
 #
 # Handle superbuild first building
@@ -30,6 +28,7 @@ include(GNUInstallDirs)
 ###################################################################
 project (dyablo_superbuild LANGUAGES C CXX)
 
+include(GNUInstallDirs)
 
 #
 # default local cmake macro repository
