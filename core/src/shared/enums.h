@@ -1,6 +1,8 @@
 #ifndef SHARED_ENUMS_H_
 #define SHARED_ENUMS_H_
 
+#include <cstdint>
+
 //! dimension of the problem
 enum DimensionType {
   TWO_D = 2, 
