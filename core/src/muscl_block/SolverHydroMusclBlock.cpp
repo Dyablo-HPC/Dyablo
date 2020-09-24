@@ -117,8 +117,8 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   }
 
   bx_g = bx+2*ghostWidth;
-  by_g = bx+2*ghostWidth;
-  bz_g = bx+2*ghostWidth;
+  by_g = by+2*ghostWidth;
+  bz_g = bz+2*ghostWidth;
 
   blockSizes[IX] = bx;
   blockSizes[IY] = by;
