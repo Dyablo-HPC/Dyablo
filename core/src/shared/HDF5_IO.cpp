@@ -752,9 +752,9 @@ HDF5_Writer::io_hdf5_write_coordinates()
       real_t dz = m_bz==0 ? 0 : cellSize/(m_bz)*Lz;
 
       // coordinates of the lower left corner
-      real_t orig_x = m_amr_mesh->getNode(i, 0)[0];
-      real_t orig_y = m_amr_mesh->getNode(i, 0)[1];
-      real_t orig_z = m_amr_mesh->getNode(i, 0)[2];
+      real_t orig_x = m_amr_mesh->getNode(i, 0)[0] * Lx + m_params.xmin;
+      real_t orig_y = m_amr_mesh->getNode(i, 0)[1] * Ly + m_params.ymin;
+      real_t orig_z = m_amr_mesh->getNode(i, 0)[2] * Lz + m_params.zmin;
 
       int inode = 0;
       for (int32_t jz = 0; jz < m_bz+1; ++jz) {
