@@ -932,12 +932,14 @@ public:
 
     const uint32_t &bx = blockSizes[IX];
     const uint32_t &by = blockSizes[IY];
+    const real_t Lx = params.xmax - params.xmin;
+    const real_t Ly = params.ymax - params.ymin;
 
     while (iOct < iOctNextGroup and iOct < nbOcts)
     {
       // compute dx / dy
-      const real_t dx = (iOct < nbOcts) ? pmesh->getSize(iOct) / bx : 1.0;
-      const real_t dy = (iOct < nbOcts) ? pmesh->getSize(iOct) / by : 1.0;
+      const real_t dx = pmesh->getSize(iOct) * Lx / bx;
+      const real_t dy = pmesh->getSize(iOct) * Ly / by;
 
       // TODO : Factor the update of U2 in an inline function instea of repeating the same block
       // of code again and again
@@ -947,8 +949,8 @@ public:
       const real_t dSy_c = dx;
 
       // Non conformal interface area: divided by the number of neighbours
-      const real_t dSx_nc = dy * 0.5;
-      const real_t dSy_nc = dx * 0.5;
+      const real_t dSx_nc = dSx_c * 0.5;
+      const real_t dSy_nc = dSy_c * 0.5;
 
       // Volume
       const real_t dV = dx * dy;
@@ -1291,13 +1293,15 @@ public:
 
     const uint32_t &bx = blockSizes[IX];
     const uint32_t &by = blockSizes[IY];
+    const real_t Lx = params.xmax - params.xmin;
+    const real_t Ly = params.ymax - params.ymin;
 
     while (iOct < iOctNextGroup and iOct < nbOcts)
     {
 
       // compute dx / dy
-      const real_t dx = (iOct < nbOcts) ? pmesh->getSize(iOct) / bx : 1.0;
-      const real_t dy = (iOct < nbOcts) ? pmesh->getSize(iOct) / by : 1.0;
+      const real_t dx = pmesh->getSize(iOct) * Lx / bx;
+      const real_t dy = pmesh->getSize(iOct) * Ly / by;
 
       const real_t dtdx = dt / dx;
       const real_t dtdy = dt / dy;
@@ -1522,13 +1526,15 @@ public:
 
     const uint32_t &bx = blockSizes[IX];
     const uint32_t &by = blockSizes[IY];
+    const real_t Lx = params.xmax - params.xmin;
+    const real_t Ly = params.ymax - params.ymin;
 
     while (iOct < iOctNextGroup and iOct < nbOcts)
     {
 
       // compute dx / dy
-      const real_t dx = (iOct < nbOcts) ? pmesh->getSize(iOct) / bx : 1.0;
-      const real_t dy = (iOct < nbOcts) ? pmesh->getSize(iOct) / by : 1.0;
+      const real_t dx = pmesh->getSize(iOct) * Lx / bx;
+      const real_t dy = pmesh->getSize(iOct) * Ly / by;
 
       const real_t dtdx = dt / dx;
       const real_t dtdy = dt / dy;

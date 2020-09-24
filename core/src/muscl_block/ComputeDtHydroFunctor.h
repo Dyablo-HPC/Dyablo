@@ -103,10 +103,12 @@ public:
 
     const int& bx = blockSizes[IX];
     const int& by = blockSizes[IY];
-    const int& bz = blockSizes[IZ];
+
+    const real_t Lx = params.xmax - params.xmin;
+    const real_t Ly = params.ymax - params.ymin;
 
     // number of cells per octant
-    uint32_t nbCells = params.dimType == TWO_D ? bx*by : bx*by*bz;
+    uint32_t nbCells = bx*by;
 
     // initialize reduction variable
     real_t invDt_local = invDt;
@@ -123,8 +125,8 @@ public:
       uint8_t level = pmesh->getLevel(iOct);
       
       // retrieve cell size from mesh
-      real_t dx = pmesh->levelToSize(level) / blockSizes[IX];
-      real_t dy = pmesh->levelToSize(level) / blockSizes[IY];
+      real_t dx = pmesh->levelToSize(level) * Lx / bx;
+      real_t dy = pmesh->levelToSize(level) * Ly / by;
 
       // initialialize cell id
       uint32_t iCell = member.team_rank();
@@ -177,7 +179,11 @@ public:
     const int& by = blockSizes[IY];
     const int& bz = blockSizes[IZ];
 
-    uint32_t nbCells = params.dimType == TWO_D ? bx*by : bx*by*bz;
+    const real_t Lx = params.xmax - params.xmin;
+    const real_t Ly = params.ymax - params.ymin;
+    const real_t Lz = params.zmax - params.zmin;
+
+    uint32_t nbCells = bx*by*bz;
 
     real_t invDt_local = invDt;
     
@@ -193,9 +199,9 @@ public:
       uint8_t level = pmesh->getLevel(iOct);
       
       // retrieve cell size from mesh
-      real_t dx = pmesh->levelToSize(level) / blockSizes[IX];
-      real_t dy = pmesh->levelToSize(level) / blockSizes[IY];
-      real_t dz = pmesh->levelToSize(level) / blockSizes[IZ];
+      real_t dx = pmesh->levelToSize(level) * Lx / blockSizes[IX];
+      real_t dy = pmesh->levelToSize(level) * Ly / blockSizes[IY];
+      real_t dz = pmesh->levelToSize(level) * Lz / blockSizes[IZ];
 
       while (iCell < nbCells) {
     
