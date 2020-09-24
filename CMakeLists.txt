@@ -28,6 +28,7 @@ endif()
 ###################################################################
 project (dyablo_superbuild LANGUAGES C CXX)
 
+include(GNUInstallDirs)
 
 #
 # default local cmake macro repository
@@ -268,7 +269,7 @@ list (APPEND DYABLO_CMAKE_ARGS
 # so instruct dyablo with the path to Kokkos
 if ( (NOT Kokkos_FOUND) OR FORCE_KOKKOS_BUILD )
   list (APPEND DYABLO_CMAKE_ARGS
-    -DKokkos_DIR=${PROJECT_BINARY_DIR}/external/Install/kokkos_external/lib/cmake/Kokkos)
+    -DKokkos_DIR=${PROJECT_BINARY_DIR}/external/Install/kokkos_external/${CMAKE_INSTALL_LIBDIR}/cmake/Kokkos)
 endif()
 
 #
