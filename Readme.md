@@ -143,7 +143,21 @@ make
 make dyablo-test
 ```
 
-## build documentation
+## Build documentation
+
+### Requirements
+
+- [doxygen](https://www.doxygen.nl/)
+- (optional, but recommended) [mkdocs](https://www.mkdocs.org/) for building a static webpage with documentation, written in markdown
+   ```shell
+   # we recommend using miniconda for installing python packages
+   conda install -c conda-forge mkdocs
+   ```
+   there is an additionnal useful package, [markdown_katex](https://pypi.org/project/markdown-katex/) for integrating latex equation in markdown; currently there is no conda package, so you must install it with `pip`. 
+- (optional, but recommended) [doxybook2](https://github.com/matusnovak/doxybook2) which provides some glue code to integrate doxygen into mkdocs, the resulting webpage is better than a regular doxygen documentation. We recommend installing [doxybook2](https://github.com/matusnovak/doxybook2) using a binary release package from [https://github.com/matusnovak/doxybook2/tags](https://github.com/matusnovak/doxybook2/tags). Make sure to have doxybook2 executable in your PATH environment variable.
+  ```shell
+  export PATH=${DOXYBOOK2_INSTALL_ROOT}/bin:$PATH
+  ```
 
 ### [doxygen](https://www.doxygen.nl/)
 
@@ -172,6 +186,7 @@ make dyablo-doc
 This will generate the markdown sources for the mkdocs static webpage.
 
 ```shell
+# from the build directory
 cd doc/mkdocs
 
 # preview of the webpage

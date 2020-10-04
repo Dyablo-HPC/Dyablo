@@ -10,6 +10,7 @@ markdown_extensions:
       guess_lang: false
   - toc:
       permalink: true
+  - markdown_katex
   - pymdownx.arithmatex:
       generic: True
   - pymdownx.betterem:
