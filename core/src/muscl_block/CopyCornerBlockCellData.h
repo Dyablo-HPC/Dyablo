@@ -638,9 +638,6 @@ public:
     
     // We treat boundary conditions differently
     if (isBoundary) {
-      /*
-      This is now done in CopyBoundariesBlockCellData.h
-
       // We check if we have one or two boundaries
       const uint8_t face_codim = 1;
       std::vector<uint32_t> n1, n2;
@@ -661,11 +658,11 @@ public:
       const uint8_t f2 = (corner & 2 ? FACE_RIGHT : FACE_LEFT);
       
       if (n2.size() > 0)      // X face is boundary
-	      fill_ghost_corner_bc_face_2d(iOct_local, index, corner, DIR_X, f1);
+	fill_ghost_corner_bc_face_2d(iOct_local, index, corner, DIR_X, f1);
       else if (n1.size() > 0) // Y face is boundary
-	      fill_ghost_corner_bc_face_2d(iOct_local, index, corner, DIR_Y, f2);
+	fill_ghost_corner_bc_face_2d(iOct_local, index, corner, DIR_Y, f2);
       else                    // X and Y are boundaries
-	      fill_ghost_corner_bc_corner_2d(iOct_local, index, corner);*/
+	fill_ghost_corner_bc_corner_2d(iOct_local, index, corner);
     }
     else {  // If we have a neighbour, we treat the different AMR cases separately
       uint32_t cur_level, neigh_level;

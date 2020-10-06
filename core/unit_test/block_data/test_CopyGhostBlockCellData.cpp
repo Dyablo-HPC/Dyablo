@@ -30,7 +30,6 @@
 #include "muscl_block/CopyFaceBlockCellData.h"
 #include "muscl_block/ConvertToPrimitivesHydroFunctor.h"
 #include "muscl_block/CopyCornerBlockCellData.h"
-#include "muscl_block/CopyBoundariesBlockCellData.h"
 
 using Device = Kokkos::DefaultExecutionSpace;
 
@@ -214,8 +213,7 @@ void run_test(int argc, char *argv[])
                                         solver->Ughost, 
                                         Ugroup, 
                                         iGroup,
-                                        solver->Interface_flags,
-                                        solver->Boundary_flags);
+                                        solver->Interface_flags);
     CopyCornerBlockCellDataFunctor::apply(solver->amr_mesh,
                                           configMap,
                                           params,
@@ -227,21 +225,7 @@ void run_test(int argc, char *argv[])
                                           solver->Ughost,
                                           Ugroup,
                                           iGroup,
-                                          solver->Interface_flags);
-
-    CopyBoundariesBlockCellDataFunctor::apply(solver->amr_mesh, 
-                                              configMap,
-                                              params,
-                                              fm,
-                                              blockSizes,
-                                              ghostWidth,
-                                              nbOctsPerGroup,
-                                              solver->U,
-                                              Ugroup,
-                                              iGroup,
-                                              solver->Boundary_flags,
-                                              solver->userPolicies);
-  
+                                          solver->Interface_flags);  
     
     // print data from from the chosen iGroup 
     std::cout << "Printing Ugroup data from iOct = " << iOct_global << " | iOctLocal = " << iOct_local << " and iGroup = " << iGroup << "\n";

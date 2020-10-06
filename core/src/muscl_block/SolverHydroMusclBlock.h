@@ -24,9 +24,6 @@
 #include "shared/FieldManager.h"
 #include "muscl_block/utils_block.h"
 
-// User policies
-#include "muscl_block/UserPolicies.h"
-
 // for IO
 #include <shared/HDF5_IO.h>
 
@@ -104,9 +101,6 @@ public:
   //! 2:1 interface flags
   FlagArrayBlock Interface_flags;
 
-  //! Which boundaries board which block 
-  FlagArrayBlock Boundary_flags;
-
   //! slopes along X dir - array of octant's block data
   DataArrayBlock Slopes_x;
 
@@ -122,9 +116,6 @@ public:
 
   //! field manager for scalar variables mapping to memory index
   FieldManager fieldMgr;
-
-  //! User defined policies
-  std::shared_ptr<UserPolicies> userPolicies;
   
   /*
    * methods
