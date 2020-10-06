@@ -80,12 +80,20 @@ configure_file(
   block_data/test_implode_2D_block.ini
   block_data/test_implode_2D_block.ini COPYONLY)
 
+configure_file(
+  block_data/test_implode_3D_block.ini
+  block_data/test_implode_3D_block.ini COPYONLY)
+
 dyablo_add_test(utest_CopyInnerBlockCellData 
   block_data/test_CopyInnerBlockCellData.cpp
   main.cpp)
 
-dyablo_add_test(utest_CopyGhostBlockCellData 
-  block_data/test_CopyGhostBlockCellData.cpp
+dyablo_add_test(utest_CopyGhostBlockCellData_2D 
+  block_data/test_CopyGhostBlockCellData_2D.cpp
+  main.cpp)
+
+dyablo_add_test(utest_CopyGhostBlockCellData_3D 
+  block_data/test_CopyGhostBlockCellData_3D.cpp
   main.cpp)
 
 dyablo_add_test(utest_MusclBlockGodunovUpdateFunctor
