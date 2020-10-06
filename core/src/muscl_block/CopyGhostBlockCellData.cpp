@@ -28,15 +28,6 @@ CopyGhostBlockCellDataFunctor::CopyGhostBlockCellDataFunctor(
   by_g = blockSizes[IY] + 2 * ghostWidth;
   bz_g = (params.dimType == THREE_D) ? blockSizes[IZ] + 2 * ghostWidth : 1;
 
-  bitpit::darray3 bmin, bmax;
-  pmesh->getBoundingBox(bmin, bmax);
-  tree_min[IX] = bmin[IX];
-  tree_min[IY] = bmin[IY];
-  tree_min[IZ] = bmin[IZ];
-  tree_max[IX] = bmax[IX];
-  tree_max[IY] = bmax[IY];
-  tree_max[IZ] = bmax[IZ];
-
   // Gravity
   copy_gravity = (params.gravity_type & GRAVITY_FIELD);
   ndim         = (params.dimType == THREE_D ? 3 : 2);

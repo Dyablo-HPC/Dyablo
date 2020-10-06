@@ -58,8 +58,8 @@ public :
   uint32_t by_g;
   uint32_t bz_g;
 
-  real_t tree_min[3];
-  real_t tree_max[3];
+  real_t tree_min[3] = {0,0,0};
+  real_t tree_max[3] = {1,1,1};
 
   //! number of octants per group
   uint32_t nbOctsPerGroup;
