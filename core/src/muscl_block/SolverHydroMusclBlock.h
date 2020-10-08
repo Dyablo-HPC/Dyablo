@@ -23,6 +23,7 @@
 #include "shared/kokkos_shared.h"
 #include "shared/FieldManager.h"
 #include "muscl_block/utils_block.h"
+#include "muscl_block/utils_block.h"
 
 // for IO
 #include <shared/HDF5_IO.h>
@@ -99,7 +100,7 @@ public:
   DataArrayBlock Qgroup;
 
   //! 2:1 interface flags
-  FlagArrayBlock Interface_flags;
+  InterfaceFlags interface_flags;
 
   //! slopes along X dir - array of octant's block data
   DataArrayBlock Slopes_x;

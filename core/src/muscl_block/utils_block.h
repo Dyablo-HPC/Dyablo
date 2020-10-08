@@ -10,6 +10,7 @@
 namespace dyablo { namespace muscl_block {
 
 using coord_t        = Kokkos::Array<uint32_t, 3>;
+using coord_g_t        = Kokkos::Array<uint32_t, 3>;
 using blockSize_t    = Kokkos::Array<uint32_t, 3>;
 
 // =======================================================
@@ -207,6 +208,67 @@ uint32_t coord_to_index_g(coord_t     coords,
   return res;
 
 } // coord_to_index_g
+
+class InterfaceFlags
+{
+public :
+  using BitMask = uint16_t;
+  using FlagArrayBlock = Kokkos::View<BitMask*, Device>;
+  
+  InterfaceFlags() = default; 
+  InterfaceFlags( const InterfaceFlags& interface_flag ) = default; 
+  InterfaceFlags& operator=( const InterfaceFlags& interface_flag ) = default; 
+  InterfaceFlags( uint32_t nbOcts ) 
+    : flags("Interface flags", nbOcts) 
+  {}
+
+  /// Sets all flags to 0 for octant iOct
+  void resetFlags(uint32_t iOct) const
+  {
+    flags(iOct) = INTERFACE_NONE;
+  }
+
+  /**
+   * Set flag to signify that neighbor along face iface is bigger to true
+   * @param iOct local octant
+   * @param iface face index (same as for PABLO's findNeighbours())
+   **/
+  void setFaceBigger( uint32_t iOct, uint8_t iface ) const
+  {
+    flags(iOct) |= (1 << (iface + 6));
+  }
+
+  /// Check if neighbor along face iface is bigger
+  bool isFaceBigger( uint32_t iOct, uint8_t iface ) const
+  {
+    return flags(iOct) & (1 << (iface + 6));
+  }
+  
+  /// Set flag to signify that neighbor along face iface is smaller to true
+  void setFaceSmaller( uint32_t iOct, uint8_t iface ) const
+  {
+    flags(iOct) |= (1<<iface);
+  }
+  /// Check if neighbor along face iface is smaller
+  bool isFaceSmaller( uint32_t iOct, uint8_t iface ) const
+  {
+    return flags(iOct) & (1<<iface);
+  }
+
+  /// Check if neighbor along face iface is non-conformal (i.e. neighbor has a different size)
+  bool isFaceNonConformal( uint32_t iOct, uint8_t iface ) const
+  {
+    return isFaceBigger(iOct, iface) || isFaceSmaller(iOct, iface);
+  }
+  /// Check if neighbor along face iface is conformal (i.e. neighbor has same size)
+  bool isFaceConformal( uint32_t iOct, uint8_t iface ) const
+  {
+    return !isFaceNonConformal(iOct, iface);
+  }
+
+private :
+  FlagArrayBlock flags;
+};
 
 } // namespace muscl_block
 

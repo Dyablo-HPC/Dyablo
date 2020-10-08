@@ -108,7 +108,7 @@ public:
                                  DataArrayBlock U_ghost,
                                  DataArrayBlock U2,
                                  DataArrayBlock Qgroup,
-                                 FlagArrayBlock Interface_flags,
+                                 InterfaceFlags interface_flags,
                                  real_t dt) : pmesh(pmesh),
                                               params(params),
                                               fm(fm),
@@ -122,7 +122,7 @@ public:
                                               U_ghost(U_ghost),
                                               U2(U2),
                                               Qgroup(Qgroup),
-                                              Interface_flags(Interface_flags),
+                                              interface_flags(interface_flags),
                                               dt(dt)
   {
 
@@ -177,7 +177,7 @@ public:
                     DataArrayBlock U_ghost,
                     DataArrayBlock U2,
                     DataArrayBlock Qgroup,
-                    FlagArrayBlock Interface_flags,
+                    InterfaceFlags interface_flags,
                     real_t dt)
   {
 
@@ -187,7 +187,7 @@ public:
                                            nbOcts, nbOctsPerGroup, iGroup,
                                            Ugroup, U, U_ghost, U2,
                                            Qgroup,
-                                           Interface_flags,
+                                           interface_flags,
                                            dt);
 
     uint32_t nbTeams_ = configMap.getInteger("amr", "nbTeams", 16);
@@ -961,7 +961,7 @@ public:
       const real_t scale_y_nc = dt * dSy_nc / dV;
 
       // We update the cells at the LEFT border if they have non-conformal neighbours
-      if (Interface_flags(iOct_local) & INTERFACE_XMIN_NC)
+      if (interface_flags.isFaceNonConformal(iOct_local, FACE_LEFT))
       {
         const uint32_t ii = 0;
         Kokkos::parallel_for(
@@ -983,7 +983,7 @@ public:
 
               // fluxes will be accumulated in qcons
               HydroState2d qcons = {0.0, 0.0, 0.0, 0.0};
-              if (Interface_flags(iOct_local) & INTERFACE_XMIN_BIGGER)
+              if (interface_flags.isFaceBigger(iOct_local, FACE_LEFT))
               {
                 // step 1: compute flux (Riemann solver) with centered values
                 HydroState2d qR = qprim;
@@ -999,7 +999,7 @@ public:
                 qcons += flux * scale_x_c;
               }
               // If we are bigger than the neighbors we sum two fluxes coming from the small cells
-              else if (Interface_flags(iOct_local) & INTERFACE_XMIN_SMALLER)
+              else if (interface_flags.isFaceSmaller(iOct_local, FACE_LEFT))
               {
                 // step 1: get the states of both neighbour cell
                 HydroState2d qR = qprim;
@@ -1031,7 +1031,7 @@ public:
       }
 
       // We update the cells at the RIGHT border if they have non-conformal neighbours
-      if (Interface_flags(iOct_local) & INTERFACE_XMAX_NC)
+      if (interface_flags.isFaceNonConformal(iOct_local, FACE_RIGHT))
       {
         const uint32_t ii = bx - 1;
         Kokkos::parallel_for(
@@ -1052,7 +1052,7 @@ public:
 
               // fluxes will be accumulated in qcons
               HydroState2d qcons = {0.0, 0.0, 0.0, 0.0};
-              if (Interface_flags(iOct_local) & INTERFACE_XMAX_BIGGER)
+              if (interface_flags.isFaceBigger(iOct_local, FACE_RIGHT))
               {
                 // step 1: compute flux (Riemann solver) with centered values
                 HydroState2d qL = qprim;
@@ -1068,7 +1068,7 @@ public:
                 // step 2: accumulate flux in current cell
                 qcons -= flux * scale_x_c;
               }
-              else if (Interface_flags(iOct_local) & INTERFACE_XMAX_SMALLER)
+              else if (interface_flags.isFaceSmaller(iOct_local, FACE_RIGHT))
               {
                 // step 1: get the states of both neighbour cells
                 HydroState2d qL = qprim;
@@ -1101,7 +1101,7 @@ public:
       }
 
       // We update the cells at the BOTTOM border if they have non-conformal neighbours
-      if (Interface_flags(iOct_local) & INTERFACE_YMIN_NC)
+      if (interface_flags.isFaceNonConformal(iOct_local, FACE_BOTTOM))
       {
         const uint32_t jj = 0;
         Kokkos::parallel_for(
@@ -1124,7 +1124,7 @@ public:
               // fluxes will be accumulated in qcons
               HydroState2d qcons = {0.0, 0.0, 0.0, 0.0};
 
-              if (Interface_flags(iOct_local) & INTERFACE_YMIN_BIGGER)
+              if (interface_flags.isFaceBigger(iOct_local, FACE_BOTTOM))
               {
                 // step 1: Swap u and v in states
                 HydroState2d qL = get_prim_variables<HydroState2d>(ig - bx_g, iOct_local);
@@ -1145,7 +1145,7 @@ public:
                 my_swap(flux[IU], flux[IV]);
                 qcons += flux * scale_y_c;
               }
-              else if (Interface_flags(iOct_local) & INTERFACE_YMIN_SMALLER)
+              else if (interface_flags.isFaceSmaller(iOct_local, FACE_BOTTOM))
               {
                 // step 1: get the states of both neighbour cells
                 HydroState2d qR = qprim;
@@ -1186,7 +1186,7 @@ public:
       }
 
       // We update the cells at the TOP border if they have non-conformal neighbours
-      if (Interface_flags(iOct_local) & INTERFACE_YMAX_NC)
+      if (interface_flags.isFaceNonConformal(iOct_local, FACE_TOP))
       {
         const uint32_t jj = by - 1;
         Kokkos::parallel_for(
@@ -1208,7 +1208,7 @@ public:
               // fluxes will be accumulated in qcons
               HydroState2d qcons = {0.0, 0.0, 0.0, 0.0};
 
-              if (Interface_flags(iOct_local) & INTERFACE_YMAX_BIGGER)
+              if (interface_flags.isFaceBigger(iOct_local, FACE_TOP))
               {
                 // step 1: Swap u and v in states
                 HydroState2d qR = get_prim_variables<HydroState2d>(ig + bx_g, iOct_local);
@@ -1228,7 +1228,7 @@ public:
                 my_swap(flux[IU], flux[IV]);
                 qcons -= flux * scale_y_c;
               }
-              else if (Interface_flags(iOct_local) & INTERFACE_YMAX_SMALLER)
+              else if (interface_flags.isFaceSmaller(iOct_local, FACE_TOP))
               {
                 // step1: get the states of both neighbour cells
                 HydroState2d qL = qprim;
@@ -1382,22 +1382,22 @@ public:
               };
 
               // compute from left face along x dir
-              if (i > 0 or !(Interface_flags(iOct_local) & INTERFACE_XMIN_NC))
+              if (i > 0 or interface_flags.isFaceConformal(iOct_local, FACE_LEFT))
               {
                 process_axis(IX, FACE_LEFT);
               }
               // compute flux from right face along x dir
-              if (i < bx - 1 or !(Interface_flags(iOct_local) & INTERFACE_XMAX_NC))
+              if (i < bx - 1 or interface_flags.isFaceConformal(iOct_local, FACE_RIGHT))
               {
                 process_axis(IX, FACE_RIGHT);
               }
               // compute flux from left face along y dir
-              if (j > 0 or !(Interface_flags(iOct_local) & INTERFACE_YMIN_NC))
+              if (j > 0 or interface_flags.isFaceConformal(iOct_local, FACE_BOTTOM))
               {
                 process_axis(IY, FACE_LEFT);
               }
               // compute flux from right face along y dir
-              if (j < by - 1 or !(Interface_flags(iOct_local) & INTERFACE_YMAX_NC))
+              if (j < by - 1 or interface_flags.isFaceConformal(iOct_local, FACE_TOP))
               {
                 process_axis(IY, FACE_RIGHT);
               }
@@ -1836,32 +1836,32 @@ public:
               };
 
               // compute from left face along x dir
-              if (i > 0 or !(Interface_flags(iOct_local) & INTERFACE_XMIN_NC))
+              if (i > 0 or interface_flags.isFaceConformal(iOct_local, FACE_LEFT))
               {
                 process_axis(IX, FACE_LEFT);
               }
               // compute flux from right face along x dir
-              if (i < bx - 1 or !(Interface_flags(iOct_local) & INTERFACE_XMAX_NC))
+              if (i < bx - 1 or interface_flags.isFaceConformal(iOct_local, FACE_RIGHT))
               {
                 process_axis(IX, FACE_RIGHT);
               }
               // compute flux from left face along y dir
-              if (j > 0 or !(Interface_flags(iOct_local) & INTERFACE_YMIN_NC))
+              if (j > 0 or interface_flags.isFaceConformal(iOct_local, FACE_BOTTOM))
               {
                 process_axis(IY, FACE_LEFT);
               }
               // compute flux from right face along y dir
-              if (j < by - 1 or !(Interface_flags(iOct_local) & INTERFACE_YMAX_NC))
+              if (j < by - 1 or interface_flags.isFaceConformal(iOct_local, FACE_TOP))
               {
                 process_axis(IY, FACE_RIGHT);
               }
               // compute flux from left face along y dir
-              if (k > 0 or !(Interface_flags(iOct_local) & INTERFACE_ZMIN_NC))
+              if (k > 0 or interface_flags.isFaceConformal(iOct_local, FACE_REAR))
               {
                 process_axis(IZ, FACE_LEFT);
               }
               // compute flux from right face along y dir
-              if (k < bz - 1 or !(Interface_flags(iOct_local) & INTERFACE_ZMAX_NC))
+              if (k < bz - 1 or interface_flags.isFaceConformal(iOct_local, FACE_FRONT))
               {
                 process_axis(IZ, FACE_RIGHT);
               }
@@ -1992,7 +1992,7 @@ public:
   DataArrayBlock Qgroup;
 
   //! flags at interface for 2:1 ratio
-  FlagArrayBlock Interface_flags;
+  InterfaceFlags interface_flags;
 
   //! time step
   real_t dt;

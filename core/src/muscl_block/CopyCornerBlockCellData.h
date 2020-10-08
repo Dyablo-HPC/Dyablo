@@ -49,7 +49,7 @@ public:
 				 DataArrayBlock U_ghost,
 				 DataArrayBlock Ugroup,
 				 uint32_t iGroup,
-				 FlagArrayBlock Interface_flags) :
+				 InterfaceFlags interface_flags) :
     pmesh(pmesh),
     params(params),
     fm(fm),
@@ -60,7 +60,7 @@ public:
     U_ghost(U_ghost),
     Ugroup(Ugroup),
     iGroup(iGroup),
-    Interface_flags(Interface_flags),
+    interface_flags(interface_flags),
     eps(std::numeric_limits<real_t>::epsilon())
   {
     bx   = blockSizes[IX];
@@ -87,14 +87,14 @@ public:
 		      DataArrayBlock U_ghost,
 		      DataArrayBlock Ugroup,
 		      uint32_t iGroup,
-		      FlagArrayBlock Interface_flags)
+		      InterfaceFlags interface_flags)
   {
 
     CopyCornerBlockCellDataFunctor functor(pmesh, params, fm, 
 					   blockSizes, ghostWidth,
 					   nbOctsPerGroup, 
 					   U, U_ghost, Ugroup, 
-             iGroup, Interface_flags);
+             iGroup, interface_flags);
 
     /*
      * using kokkos team execution policy
@@ -179,23 +179,18 @@ public:
 
       // X interface
       uint8_t iface_x, iface_y;
-      InterfaceType nc_flag_x, nc_flag_y;
       if (corner & CORNER_RIGHT) {
 	      iface_x   = FACE_RIGHT;
-	      nc_flag_x = INTERFACE_XMAX_BIGGER;
       }
       else {
 	      iface_x   = FACE_LEFT;
-	      nc_flag_x = INTERFACE_XMIN_BIGGER;
       }
       // Y interface
       if (corner & CORNER_TOP) {
         iface_y   = FACE_TOP;
-        nc_flag_y = INTERFACE_YMAX_BIGGER;
       }
       else {
         iface_y   = FACE_BOTTOM;
-        nc_flag_y = INTERFACE_YMIN_BIGGER;
       }
 
       // If the corresponding neighbour is bigger, we return it
@@ -209,7 +204,7 @@ public:
         return;
       }
 
-      if (Interface_flags(iOct_local) & nc_flag_x) {
+      if ( interface_flags.isFaceBigger(iOct_local, iface_x) ) {
         // X interface has a larger neighbour, that means we are in cases 5, 6, 7 or 8
         if (neigh_x.size() > 0) {
           isBoundary = false;
@@ -231,7 +226,7 @@ public:
         }
       }
       // If the corresponding neighbour is bigger, we return it
-      else if (Interface_flags(iOct_local) & nc_flag_y) {
+      if ( interface_flags.isFaceBigger(iOct_local, iface_y) ) {
         // Y interface has a larger neighbour, that means we are in cases 2, 3, 10 or 11
         if (neigh_y.size() > 0) {
           isBoundary = false;
@@ -773,7 +768,7 @@ public:
   uint32_t iGroup;
 
   // ! flag array to keep track of which side is non-conformal 
-  FlagArrayBlock Interface_flags;
+  InterfaceFlags interface_flags;
 
   // ! epsilon value to test equality between reals
   real_t eps;

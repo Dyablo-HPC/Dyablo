@@ -9,7 +9,7 @@ CopyGhostBlockCellDataFunctor::CopyGhostBlockCellDataFunctor(
     std::shared_ptr<AMRmesh> pmesh, HydroParams params, id2index_t fm,
     blockSize_t blockSizes, uint32_t ghostWidth, uint32_t nbOctsPerGroup,
     DataArrayBlock U, DataArrayBlock U_ghost, DataArrayBlock Ugroup,
-    uint32_t iGroup, FlagArrayBlock Interface_flags) :
+    uint32_t iGroup, InterfaceFlags interface_flags) :
   pmesh(pmesh),
   params(params),
   fm(fm),
@@ -20,7 +20,7 @@ CopyGhostBlockCellDataFunctor::CopyGhostBlockCellDataFunctor(
   U_ghost(U_ghost),
   Ugroup(Ugroup),
   iGroup(iGroup),
-  Interface_flags(Interface_flags)
+  interface_flags(interface_flags)
 {
   // in 2d, bz and bz_g are not used
   blockSizes[IZ] = (params.dimType == THREE_D) ? blockSizes[IZ] : 1;
@@ -37,7 +37,7 @@ void CopyGhostBlockCellDataFunctor::apply(
     std::shared_ptr<AMRmesh> pmesh, ConfigMap configMap, HydroParams params,
     id2index_t fm, blockSize_t blockSizes, uint32_t ghostWidth,
     uint32_t nbOctsPerGroup, DataArrayBlock U, DataArrayBlock U_ghost,
-    DataArrayBlock Ugroup, uint32_t iGroup, FlagArrayBlock Interface_flags)
+    DataArrayBlock Ugroup, uint32_t iGroup, InterfaceFlags interface_flags)
 {
   CopyGhostBlockCellDataFunctor functor(pmesh,
                                         params,
@@ -49,7 +49,7 @@ void CopyGhostBlockCellDataFunctor::apply(
                                         U_ghost,
                                         Ugroup,
                                         iGroup,
-                                        Interface_flags);
+                                        interface_flags);
 
   // using kokkos team execution policy
   uint32_t nbTeams_ = configMap.getInteger("amr", "nbTeams", 16);
@@ -884,7 +884,7 @@ void fill_ghosts(const Functor& f, Functor::team_policy_t::member_type member)
 
     while (iOct < iOctNextGroup and iOct < nbOcts)
     {
-      f.Interface_flags(iOct_g) = INTERFACE_NONE;
+      f.interface_flags.resetFlags(iOct_g);
 
       // perform "vectorized" loop inside a given block data
       Kokkos::parallel_for(

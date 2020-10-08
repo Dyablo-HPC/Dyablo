@@ -59,7 +59,7 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   U(), Uhost(), U2(), Ughost(), 
   Ugroup(), 
   Qgroup(),
-  Interface_flags(),
+  interface_flags(),
   Slopes_x(), 
   Slopes_y(), 
   Slopes_z()
@@ -151,7 +151,7 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   total_mem_size += nbCellsPerOct_g*nbOctsPerGroup*nbvar    * sizeof(real_t); //Qgroup 
 
   // flags data array for faces on 2:1 borders
-  Interface_flags = FlagArrayBlock("Interface flags", nbOctsPerGroup);
+  interface_flags = InterfaceFlags(nbOctsPerGroup);
   total_mem_size += nbOctsPerGroup*sizeof(uint16_t);
 
   // all intermediate data array are sized upon nbOctsPerGroup
@@ -558,7 +558,7 @@ void SolverHydroMusclBlock::godunov_unsplit_impl(DataArrayBlock data_in,
                                           Ughost,
                                           data_out,
                                           Qgroup,
-                                          Interface_flags,
+                                          interface_flags,
                                           dt);
 
     m_timers[TIMER_NUM_SCHEME]->stop();
@@ -1228,7 +1228,7 @@ void SolverHydroMusclBlock::fill_block_data_ghost(DataArrayBlock data_in,
                                         Ughost,
                                         Ugroup, 
                                         iGroup,
-                                        Interface_flags);
+                                        interface_flags);
   } else {
     // Faces
     CopyFaceBlockCellDataFunctor::apply(amr_mesh,
@@ -1242,7 +1242,7 @@ void SolverHydroMusclBlock::fill_block_data_ghost(DataArrayBlock data_in,
                                         Ughost,
                                         Ugroup, 
                                         iGroup,
-                                        Interface_flags);
+                                        interface_flags);
 
     // And corners
     CopyCornerBlockCellDataFunctor::apply(amr_mesh,
@@ -1256,7 +1256,7 @@ void SolverHydroMusclBlock::fill_block_data_ghost(DataArrayBlock data_in,
             Ughost,
             Ugroup,
             iGroup,
-            Interface_flags);
+            interface_flags);
   }
 } // SolverHydroMusclBlock::fill_block_data_ghost
 

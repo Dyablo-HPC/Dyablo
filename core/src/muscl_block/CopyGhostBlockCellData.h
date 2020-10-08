@@ -26,8 +26,8 @@ public:
                                 uint32_t nbOctsPerGroup, DataArrayBlock U,
                                 DataArrayBlock U_ghost, DataArrayBlock Ugroup,
                                 uint32_t iGroup,
-                                FlagArrayBlock Interface_flags);
-  
+                                InterfaceFlags interface_flags);
+
   /**
    * @brief Fill ghost cell data of all octants in the group
    * 
@@ -41,7 +41,7 @@ public:
                     uint32_t ghostWidth, uint32_t nbOctsPerGroup,
                     DataArrayBlock U, DataArrayBlock U_ghost,
                     DataArrayBlock Ugroup, uint32_t iGroup,
-                    FlagArrayBlock Interface_flags);
+                    InterfaceFlags interface_flags);
 
   // Called with parallel_for inside apply()
   void operator()(team_policy_t::member_type member) const;
@@ -89,7 +89,7 @@ public :
   uint32_t iGroup;
 
   //! 2:1 flagging mechanism
-  FlagArrayBlock Interface_flags;
+  InterfaceFlags interface_flags;
 
   // should we copy gravity ?
   bool copy_gravity;
