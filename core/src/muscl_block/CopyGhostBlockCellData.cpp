@@ -10,7 +10,6 @@ CopyGhostBlockCellDataFunctor::CopyGhostBlockCellDataFunctor(
     blockSize_t blockSizes, uint32_t ghostWidth, uint32_t nbOctsPerGroup,
     DataArrayBlock U, DataArrayBlock U_ghost, DataArrayBlock Ugroup,
     uint32_t iGroup, InterfaceFlags interface_flags) :
-  pmesh(pmesh),
   params(params),
   fm(fm),
   blockSizes(blockSizes),
@@ -20,7 +19,8 @@ CopyGhostBlockCellDataFunctor::CopyGhostBlockCellDataFunctor(
   U_ghost(U_ghost),
   Ugroup(Ugroup),
   iGroup(iGroup),
-  interface_flags(interface_flags)
+  interface_flags(interface_flags),
+  lmesh(pmesh)
 {
   // in 2d, bz and bz_g are not used
   blockSizes[IZ] = (params.dimType == THREE_D) ? blockSizes[IZ] : 1;
@@ -268,11 +268,12 @@ using CellData = HydroState3d;
  * @param is_ghost is neighbor octant a ghost octant?
  **/
 template <int ndim>
-CellData get_cell_data_same_size( const Functor& f, uint32_t iOct_neigh, coord_t pos_in_neighbor, bool is_ghost)
+CellData get_cell_data_same_size( const Functor& f, const LightOctree::OctantIndex& neigh, coord_t pos_in_neighbor)
 {
     CellData res;
     uint32_t index_in_neighbor = coord_to_index_g<ndim>( pos_in_neighbor, f.blockSizes, 0 );
-    if (is_ghost)
+    uint32_t iOct_neigh = neigh.iOct;
+    if (neigh.isGhost)
     {
         res[ID] = f.U_ghost(index_in_neighbor, f.fm[ID], iOct_neigh);
         res[IP] = f.U_ghost(index_in_neighbor, f.fm[IP], iOct_neigh);
@@ -326,9 +327,9 @@ CellData get_cell_data_same_size( const Functor& f, uint32_t iOct_neigh, coord_t
  * @note cell_physical_pos is necessary to determine in which sub-octant to fetch (see y in example above)
  **/
 template <int ndim >
-CellData get_cell_data_larger( const Functor& f, uint32_t iOct_neigh, coord_t pos_in_neighbor, bool is_ghost, real_t cell_physical_pos[3])
+CellData get_cell_data_larger( const Functor& f, const LightOctree::OctantIndex& neigh, coord_t pos_in_neighbor, real_t cell_physical_pos[3])
 {
-    bitpit::darray3 neighbor_center = is_ghost ? f.pmesh->getCenter(f.pmesh->getGhostOctant(iOct_neigh)) : f.pmesh->getCenter(iOct_neigh);
+    LightOctree::pos_t neighbor_center = f.lmesh.getCenter(neigh);
 
     for( ComponentIndex3D current_dim : {IX, IY, IZ} )
     {
@@ -339,7 +340,7 @@ CellData get_cell_data_larger( const Functor& f, uint32_t iOct_neigh, coord_t po
             pos_in_neighbor[current_dim] += f.blockSizes[current_dim]/2;
     }
 
-    return get_cell_data_same_size<ndim>( f, iOct_neigh, pos_in_neighbor, is_ghost );
+    return get_cell_data_same_size<ndim>( f, neigh, pos_in_neighbor );
 }
 
 template< int ndim >
@@ -373,7 +374,7 @@ int neighbor_count = (ndim == 2) ? 2 : 4;
  * @note cell_physical_pos is necessary to determine in which sub-octant cell is in local octant
  **/
 template <int ndim>
-CellData get_cell_data_smaller( const Functor& f, const std::vector<uint32_t>& iOcts_neigh, coord_t pos_in_neighbor, const std::vector<bool>& is_ghost, real_t cell_physical_pos[3])
+CellData get_cell_data_smaller( const Functor& f, const LightOctree::NeighborList& neighs, coord_t pos_in_neighbor, real_t cell_physical_pos[3])
 {                
     // Get position of first cell in neighbor (as if it was same size)
     coord_t c0_neighbor = pos_in_neighbor; 
@@ -386,12 +387,14 @@ CellData get_cell_data_smaller( const Functor& f, const std::vector<uint32_t>& i
     assert( f.blockSizes[IX]%2 == 0 && f.blockSizes[IY]%2 == 0 && ( ndim ==2 || f.blockSizes[IZ]%2 == 0 )  );
     // Find which sub-octant contains the cell to fill
     int8_t suboctant = -1;
-    for( size_t i=0; i<iOcts_neigh.size(); i++ )
+    for( size_t i=0; i<neighs.size(); i++ )
     {        
-        real_t npx = is_ghost[i] ? f.pmesh->getXghost(iOcts_neigh[i]) : f.pmesh->getX(iOcts_neigh[i]);
-        real_t npy = is_ghost[i] ? f.pmesh->getYghost(iOcts_neigh[i]) : f.pmesh->getY(iOcts_neigh[i]);
-        real_t npz = is_ghost[i] ? f.pmesh->getZghost(iOcts_neigh[i]) : f.pmesh->getZ(iOcts_neigh[i]);
-        real_t neighbor_size = is_ghost[i] ? f.pmesh->getSizeGhost(iOcts_neigh[i]) : f.pmesh->getSize(iOcts_neigh[i]);
+        LightOctree::pos_t np = f.lmesh.getCorner( neighs[i] );
+
+        real_t npx = np[IX];
+        real_t npy = np[IY];
+        real_t npz = np[IZ];
+        real_t neighbor_size = f.lmesh.getSize( neighs[i] );
 
         bitpit::darray3 neighbor_min = {npx,npy,npz};
 
@@ -440,7 +443,7 @@ CellData get_cell_data_smaller( const Functor& f, const std::vector<uint32_t>& i
                 // 0|_|_|_|  |   |
                 // 2|_|_|_|  |___|_...
 
-                CellData d = get_cell_data_same_size<ndim>( f, iOcts_neigh[suboctant], pos_in_smaller, is_ghost[suboctant] );
+                CellData d = get_cell_data_same_size<ndim>( f, neighs[suboctant], pos_in_smaller );
 
                 for( size_t i=0; i<res.size(); i++ )
                     res[i] += d[i];
@@ -536,26 +539,6 @@ CellData get_cell_data_border( const Functor& f, uint32_t iOct_local, coord_g_t 
     return res;
 }
 
-
-/**
- * Table to convert neighbor relative position to "iface" parameter for findNeighbors()
- * If neighbor octant is at position (x, y, z) relative to local octant (-1<=x,y,z<=1)
- * iface for findNeighbors() is iface_from_pos[z+1][y+1][x+1]-1
- * 
- * In 2D : offset = (x,y,0) => iface = iface_from_pos[0][y+1][x+1]-1
- * 
- * Has been generated by https://gitlab.maisondelasimulation.fr/pkestene/dyablo/-/snippets/3
- **/
-constexpr uint8_t iface_from_pos[3][3][3] = {
-                        {{ 1, 3, 2 },
-                            { 1, 5, 2 },
-                            { 3, 4, 4 }},
-                        {{ 5, 3, 6 },
-                            { 1, 0, 2 },
-                            { 7, 4, 8 }},
-                        {{ 5, 11, 6 },
-                            { 9, 6, 10 },
-                            { 7, 12, 8 }}};
 constexpr uint8_t CODIM_NODE = 3;
 constexpr uint8_t CODIM_EDGE = 2;
 constexpr uint8_t CODIM_FACE = 1;
@@ -569,25 +552,19 @@ constexpr uint8_t CODIM_FACE = 1;
  * @param neighbor neighbor position relative to local octant ( (-1,0,0) is left neighbor )
  **/
 template < int ndim >
-void fix_missing_corner_neighbor( const Functor& f, uint32_t iOct_global, const coord_g_t& neighbor, const real_t cellPos[3], std::vector<uint32_t>& res_iOct_neighbors, std::vector<bool>& res_isghost_neighbors)
+void fix_missing_corner_neighbor( const Functor& f, uint32_t iOct_global, const LightOctree::offset_t& neighbor, const real_t cellPos[3], LightOctree::NeighborList& res_neighbors)
 {
     /// Check if position `cellPos` is inside neighbor designated by search_codim and search_iface
     /// @returns true if cell is inside and sets res_iOct_neighbors and res_isGhost_neighbors accordingly, false otherwise
-    auto check_neighbor = [&](uint8_t search_codim, uint8_t search_iface)
+    auto check_neighbor = [&](const LightOctree::offset_t& offset)
     {   
-        std::vector<uint32_t> iOct_neighbors;
-        std::vector<bool> isghost_neighbors;
-
-        f.pmesh->findNeighbours(iOct_global, search_iface, search_codim, iOct_neighbors, isghost_neighbors);
-        if( iOct_neighbors.size() == 1 ) // Looking only for bigger neighbors
+        LightOctree::NeighborList neighbors = f.lmesh.findNeighbors({iOct_global,false}, offset);
+        if( neighbors.size() == 1 ) // Looking only for bigger neighbors
         {
-            bitpit::darray3 neigh_min = isghost_neighbors[0] ? 
-                f.pmesh->getCoordinates(f.pmesh->getGhostOctant(iOct_neighbors[0])) : 
-                f.pmesh->getCoordinates(iOct_neighbors[0]);
-            real_t oct_size = isghost_neighbors[0] ? 
-                f.pmesh->getSize(f.pmesh->getGhostOctant(iOct_neighbors[0])) : 
-                f.pmesh->getSize(iOct_neighbors[0]);
-            bitpit::darray3 neigh_max = {
+            LightOctree::pos_t neigh_min = f.lmesh.getCorner(neighbors[0]);
+            real_t oct_size = f.lmesh.getSize(neighbors[0]);
+
+            LightOctree::pos_t neigh_max = {
                     neigh_min[IX] + oct_size,
                     neigh_min[IY] + oct_size,
                     neigh_min[IZ] + oct_size
@@ -597,8 +574,7 @@ void fix_missing_corner_neighbor( const Functor& f, uint32_t iOct_global, const 
             &&  neigh_min[IY] < cellPos[IY] && cellPos[IY] < neigh_max[IY]
             && ((ndim==2) || (neigh_min[IZ] < cellPos[IZ] && cellPos[IZ] < neigh_max[IZ])) )
             {
-                res_iOct_neighbors = iOct_neighbors;
-                res_isghost_neighbors = isghost_neighbors;
+                res_neighbors = neighbors;
                 return true;
             }
         }
@@ -615,11 +591,8 @@ void fix_missing_corner_neighbor( const Functor& f, uint32_t iOct_global, const 
     {
         assert( codim == CODIM_EDGE ); // In 2D, only edges can have this issue
         // Search both faces connected to edge:
-        uint8_t search_codim = CODIM_FACE; 
-        uint8_t search_iface_x = iface_from_pos[0][1][neighbor[IX]+1]-1;
-        if( check_neighbor(search_codim, search_iface_x) ) return;
-        uint8_t search_iface_y = iface_from_pos[0][neighbor[IY]+1][1]-1;
-        if( check_neighbor(search_codim, search_iface_y) ) return;
+        if( check_neighbor({neighbor[IX],1           ,0}) ) return;
+        if( check_neighbor({1,           neighbor[IY],0}) ) return;
         assert(false); // Failed to find neighbor...
     }
     else 
@@ -631,21 +604,19 @@ void fix_missing_corner_neighbor( const Functor& f, uint32_t iOct_global, const 
             // Search the 3 edges connected to the node
             for(int i=0; i<3; i++)
             {
-                uint8_t search_neighbor[3] = {(uint8_t)(neighbor[IX]+1), (uint8_t)(neighbor[IY]+1), (uint8_t)(neighbor[IZ]+1)};
-                search_neighbor[i] = 1; // Search edges that have 2 coordinate in common
-                uint8_t search_iface = iface_from_pos[search_neighbor[IZ]][search_neighbor[IY]][search_neighbor[IX]]-1;
-                if( check_neighbor(CODIM_EDGE, search_iface) ) return;
+                LightOctree::offset_t search_neighbor = {neighbor[IX], neighbor[IY], neighbor[IZ]};
+                search_neighbor[i] = 0; // Search edges that have 2 coordinate in common
+                if( check_neighbor(search_neighbor) ) return;
             }
         }
         // Search connected faces
         for(int i=0; i<3; i++)
         {
-            uint8_t search_neighbor[3] = {1,1,1};
-            search_neighbor[i] = neighbor[i]+1; // Search faces that have 1 coordinate in common
-            if( search_neighbor[IX] != 1 || search_neighbor[IY] != 1 || search_neighbor[IZ] != 1 ) // Only 2 faces when initially edge (0,0,0 not a neighbor)
+            LightOctree::offset_t search_neighbor = {0,0,0};
+            search_neighbor[i] = neighbor[i]; // Search faces that have 1 coordinate in common
+            if( search_neighbor[IX] != 0 || search_neighbor[IY] != 0 || search_neighbor[IZ] != 0 ) // Only 2 faces when initially edge (0,0,0 not a neighbor)
             {
-                uint8_t search_iface = iface_from_pos[search_neighbor[IZ]][search_neighbor[IY]][search_neighbor[IX]]-1;
-                if( check_neighbor(CODIM_FACE, search_iface) ) return;
+                if( check_neighbor(search_neighbor) ) return;
             }
         }
         assert(false); // Failed to find neighbor...
@@ -670,13 +641,13 @@ void fix_missing_corner_neighbor( const Functor& f, uint32_t iOct_global, const 
  * @return Cell data fetched from neighbor
  **/
 template < int ndim, DIR_ID dir >
-CellData get_cell_data( const Functor& f, uint32_t iOct_local, coord_g_t neighbor, coord_t pos_in_neighbor, coord_g_t pos_in_local )
+CellData get_cell_data( const Functor& f, uint32_t iOct_local, coord_g_t neighbor_, coord_t pos_in_neighbor, coord_g_t pos_in_local )
 {
     uint32_t iOct_global = iOct_local + f.iGroup * f.nbOctsPerGroup;
 
-    // Compute cell physical position
-    bitpit::darray3 oct_origin = f.pmesh->getCoordinates(iOct_global);
-    real_t oct_size = f.pmesh->getSize(iOct_global);
+    LightOctree::offset_t neighbor = {(int8_t)neighbor_[IX],(int8_t)neighbor_[IY],(int8_t)neighbor_[IZ]};
+    LightOctree::pos_t oct_origin = f.lmesh.getCorner({iOct_global, false});
+    real_t oct_size = f.lmesh.getSize({iOct_global, false});
     real_t cell_size[3] = {
         oct_size/f.blockSizes[IX],
         oct_size/f.blockSizes[IY],
@@ -688,13 +659,7 @@ CellData get_cell_data( const Functor& f, uint32_t iOct_local, coord_g_t neighbo
         (ndim == 2) ? 0 : oct_origin[IZ] + pos_in_local[IZ] * cell_size[IZ] + cell_size[IZ]/2
     };
     
-    // Determine codimension
-    int count_dims = 0;
-    count_dims += std::abs(neighbor[IX]);
-    count_dims += std::abs(neighbor[IY]);
-    count_dims += std::abs(neighbor[IZ]);
-   
-    uint8_t pablo_codim = count_dims;
+    
 
     BoundaryConditionType bc_min[3], bc_max[3];
     bc_min[IX] = f.params.boundary_type_xmin;
@@ -723,37 +688,31 @@ CellData get_cell_data( const Functor& f, uint32_t iOct_local, coord_g_t neighbo
         return CellData({0,1.11}); // Boundary conditions are set later in the kernel;
     }
 
-    int neighbor_pos_z = (ndim==2) ? 0 : neighbor[IZ]+1;
-    uint8_t pablo_iface = iface_from_pos[neighbor_pos_z][neighbor[IY]+1][neighbor[IX]+1] - 1;
+    LightOctree::NeighborList neighbors = f.lmesh.findNeighbors({iOct_global,false}, neighbor);
 
-    std::vector<uint32_t> iOct_neighbors;
-    std::vector<bool> isghost_neighbors;
-    f.pmesh->findNeighbours(iOct_global, pablo_iface, pablo_codim, iOct_neighbors, isghost_neighbors);
+    uint32_t oct_level = f.lmesh.getLevel({iOct_global,false});
 
-    uint32_t oct_level = f.pmesh->getLevel(iOct_global);
-
-    if(iOct_neighbors.size() == 0) 
+    if(neighbors.size() == 0) 
     {
-        fix_missing_corner_neighbor<ndim>(f, iOct_global, neighbor, cellPos, iOct_neighbors, isghost_neighbors);
+        fix_missing_corner_neighbor<ndim>(f, iOct_global, neighbor, cellPos, neighbors);
     }
     
-    if(iOct_neighbors.size() == 0) return CellData({0,1.22});
-    assert(iOct_neighbors.size() > 0); //Should have at least one neighbor (Boundaries already taken care of)
+    assert(neighbors.size() > 0); //Should have at least one neighbor (Boundaries already taken care of)
+    if(neighbors.size() == 0) return CellData({std::nan(""),std::nan(""),std::nan(""),std::nan(""),std::nan("")});
 
     // All neighbors are on same level as neighbor[0]
-    uint32_t neigh_level = isghost_neighbors[0] ? f.pmesh->getLevel(f.pmesh->getGhostOctant(iOct_neighbors[0])) : f.pmesh->getLevel(iOct_neighbors[0]);
-
+    uint32_t neigh_level = f.lmesh.getLevel(neighbors[0]);
     if( neigh_level == oct_level ) 
     {
-        return get_cell_data_same_size<ndim>(f, iOct_neighbors[0], pos_in_neighbor, isghost_neighbors[0]);
+        return get_cell_data_same_size<ndim>(f, neighbors[0], pos_in_neighbor);
     }
     else if( neigh_level > oct_level ) 
     {
-        return get_cell_data_smaller<ndim>(f, iOct_neighbors, pos_in_neighbor, isghost_neighbors, cellPos);
+        return get_cell_data_smaller<ndim>(f, neighbors, pos_in_neighbor, cellPos);
     }
     else //if( neigh_level < oct_level ) 
     {
-        return get_cell_data_larger<ndim>(f, iOct_neighbors[0], pos_in_neighbor, isghost_neighbors[0], cellPos);
+        return get_cell_data_larger<ndim>(f, neighbors[0], pos_in_neighbor, cellPos);
     }
 }
 
@@ -828,8 +787,8 @@ void fill_boundary_faces( const Functor& f, uint32_t iOct_local, Functor::index_
     {
         uint32_t iOct_global = iOct_local + f.iGroup * f.nbOctsPerGroup;
 
-        bitpit::darray3 oct_origin = f.pmesh->getCoordinates(iOct_global);
-        real_t oct_size = f.pmesh->getSize(iOct_global);
+        LightOctree::pos_t oct_origin = f.lmesh.getCorner({iOct_global, false});
+        real_t oct_size = f.lmesh.getSize({iOct_global, false});
         real_t cell_size[3] = {
             oct_size/f.blockSizes[IX],
             oct_size/f.blockSizes[IY],
@@ -873,7 +832,7 @@ void fill_ghosts(const Functor& f, Functor::team_policy_t::member_type member)
     // octant id inside the Ugroup data array
     uint32_t iOct_g = member.league_rank();
     // total number of octants
-    uint32_t nbOcts = f.pmesh->getNumOctants();
+    uint32_t nbOcts = f.lmesh.getNumOctants();
     // compute first octant index after current group
     uint32_t iOctNextGroup = (iGroup + 1) * nbOctsPerGroup;   
 
@@ -899,7 +858,7 @@ void fill_ghosts(const Functor& f, Functor::team_policy_t::member_type member)
         }); // end TeamVectorRange
     
         member.team_barrier();
-        if( f.pmesh->getBound(iOct) ) //This octant has ghosts outside of global domain
+        if( f.lmesh.getBound({iOct,false}) ) //This octant has ghosts outside of global domain
         {
             Kokkos::parallel_for(
                 Kokkos::TeamVectorRange(member, nbCells),

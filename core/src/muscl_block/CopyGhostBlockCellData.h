@@ -6,6 +6,7 @@
 #include "shared/utils_hydro.h"
 #include "shared/bitpit_common.h"
 #include "muscl_block/utils_block.h"
+#include "LightOctree.h"
 
 namespace dyablo
 {
@@ -48,8 +49,7 @@ public:
 
 public :
   uint32_t nbTeams; //!< number of thread teams
-  //! AMR mesh
-  std::shared_ptr<AMRmesh> pmesh;
+  
 
   //! general parameters
   HydroParams params;
@@ -96,6 +96,9 @@ public :
 
   // number of dimensions for gravity
   int ndim;
+  
+  //! AMR mesh
+  LightOctree lmesh;
 };
 
 } // namespace muscl_block
