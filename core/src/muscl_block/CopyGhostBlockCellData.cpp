@@ -591,8 +591,8 @@ void fix_missing_corner_neighbor( const Functor& f, uint32_t iOct_global, const 
     {
         assert( codim == CODIM_EDGE ); // In 2D, only edges can have this issue
         // Search both faces connected to edge:
-        if( check_neighbor({neighbor[IX],1           ,0}) ) return;
-        if( check_neighbor({1,           neighbor[IY],0}) ) return;
+        if( check_neighbor({neighbor[IX],0           ,0}) ) return;
+        if( check_neighbor({0,           neighbor[IY],0}) ) return;
         assert(false); // Failed to find neighbor...
     }
     else 
