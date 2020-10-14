@@ -206,7 +206,7 @@ void run_test(int argc, char *argv[]) {
                                         solver->Ughost, 
                                         Ugroup, 
                                         iGroup,
-                                        solver->Interface_flags);
+                                        solver->interface_flags);
     
   } // end testing CopyFaceBlockCellDataFunctor
 
@@ -222,7 +222,7 @@ void run_test(int argc, char *argv[]) {
                                           solver->Ughost,
                                           Ugroup,
                                           iGroup,
-                                          solver->Interface_flags);
+                                          solver->interface_flags);
   }
 
   // also testing ConvertToPrimitivesHydroFunctor
@@ -281,7 +281,7 @@ void run_test(int argc, char *argv[]) {
                                           solver->Ughost,
                                           solver->U2,
                                           Qgroup, 
-                                          solver->Interface_flags,
+                                          solver->interface_flags,
                                           dt);
 
     for (uint32_t iy = 0; iy < by_g; ++iy) {

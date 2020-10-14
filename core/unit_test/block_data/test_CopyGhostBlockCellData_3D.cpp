@@ -304,7 +304,7 @@ void run_test(int argc, char *argv[])
                                         solver->Ughost, 
                                         Ugroup, 
                                         iGroup,
-                                        Interface_flags);   
+                                        solver->interface_flags);   
   // CopyFaceBlockCellDataFunctor::apply(solver->amr_mesh,
   //                                       configMap,
   //                                       params, 

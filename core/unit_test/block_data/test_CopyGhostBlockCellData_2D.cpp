@@ -272,7 +272,7 @@ void run_test(int argc, char *argv[])
                                         solver->Ughost, 
                                         Ugroup, 
                                         iGroup,
-                                        Interface_flags);
+                                        solver->interface_flags);
     
     
     show_octant_group(iOct1);
