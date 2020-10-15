@@ -236,9 +236,8 @@ private:
 class LightOctree_hashmap : public LightOctree_pablo{
 public:
     LightOctree_hashmap( std::shared_ptr<AMRmesh> pmesh, const HydroParams& params )
-    : LightOctree_pablo(pmesh, params), oct_map(params.level_max+1) , max_level(params.level_max)
-    {
-       
+    : LightOctree_pablo(pmesh, params), oct_map(pmesh->getNumOctants()+pmesh->getNumGhosts()) , max_level(params.level_max)
+    {      
         // Insert Octant in the map for his level with the morton index at this level as key
         auto add_octant = [&](const OctantIndex& oct)
         {
@@ -260,7 +259,7 @@ public:
             };
             morton_t morton = compute_morton_key(logical_coords);
 
-            oct_map.at(level).insert( {morton, oct} );
+            oct_map.insert( {get_key(level, morton), oct} );
         };
 
         for( uint32_t iOct = 0; iOct < pmesh->getNumOctants(); iOct++)
@@ -298,8 +297,8 @@ public:
         morton_t morton_neighbor = compute_morton_key( logical_coords );
 
         NeighborList res = {0};
-        auto it = oct_map[level].find(morton_neighbor);
-        if( it != oct_map[level].end() ) // Found at same level
+        auto it = oct_map.find(get_key(level, morton_neighbor));
+        if( it != oct_map.end() ) // Found at same level
         {
             // Found at same level
             res =  NeighborList{1, {it->second}};
@@ -307,14 +306,16 @@ public:
         else
         {
             morton_t morton_neighbor_bigger = morton_neighbor >> 3; // Remove last 3 bits
-            auto it = oct_map[level-1].find(morton_neighbor_bigger);
-            if( it != oct_map[level-1].end() ) 
+
+            auto it = oct_map.find(get_key(level-1, morton_neighbor_bigger));
+            if( it != oct_map.end() ) 
             {
                 // Found at bigger level
                 res = NeighborList{1, {it->second}};
             }
             else
             {
+                assert(level+1 <= max_level);
                 // Neighbor is smaller
                 for( uint8_t x=0; x<2; x++ )
                 for( uint8_t y=0; y<2; y++ )
@@ -335,8 +336,8 @@ public:
                         res.m_size++;
                         assert(res.m_size<=4);
                         morton_t morton_neighbor_smaller = ( morton_neighbor << 3 ) + (z << IZ) + (y << IY) + (x << IX);
-                        auto it = oct_map[level+1].find(morton_neighbor_smaller);
-                        assert(it!=oct_map[level+1].end()); // Could not find neighbor
+                        auto it = oct_map.find(get_key(level+1, morton_neighbor_smaller));
+                        assert(it!=oct_map.end()); // Could not find neighbor
                         res.m_neighbors[res.m_size-1] = it->second;
                     }
                 }
@@ -348,10 +349,17 @@ public:
 private:
     using morton_t = uint64_t;
     using level_t = uint8_t;
-    using key_t = morton_t;
+    using key_t = uint64_t;
     using oct_ref_t = OctantIndex;
-    using oct_map_t = std::vector< std::unordered_map<key_t, oct_ref_t> >;
+    using oct_map_t = std::unordered_map<key_t, oct_ref_t>;
     oct_map_t oct_map;
+
+    static key_t get_key( level_t level, morton_t morton ) {
+        constexpr uint8_t shift = sizeof(level)*8;
+        key_t res = (morton << shift) + level; 
+        assert( morton == (res >> shift) ); // Loss of data from shift
+        return res;
+    };
 
     level_t max_level;
 };
