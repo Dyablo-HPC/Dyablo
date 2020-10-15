@@ -7,6 +7,7 @@
 #include "shared/kokkos_shared.h"
 #include "shared/bitpit_common.h"
 #include "shared/HydroParams.h"
+#include "Kokkos_UnorderedMap.hpp"
 
 namespace dyablo { 
 namespace muscl_block {
@@ -259,7 +260,8 @@ public:
             };
             morton_t morton = compute_morton_key(logical_coords);
 
-            oct_map.insert( {get_key(level, morton), oct} );
+            oct_map_t::insert_result inserted = oct_map.insert( get_key(level, morton), oct );
+            assert(inserted.success());
         };
 
         for( uint32_t iOct = 0; iOct < pmesh->getNumOctants(); iOct++)
@@ -298,20 +300,20 @@ public:
 
         NeighborList res = {0};
         auto it = oct_map.find(get_key(level, morton_neighbor));
-        if( it != oct_map.end() ) // Found at same level
+        if( oct_map.valid_at(it) ) // Found at same level
         {
             // Found at same level
-            res =  NeighborList{1, {it->second}};
+            res =  NeighborList{1, {oct_map.value_at(it)}};
         }
         else
         {
             morton_t morton_neighbor_bigger = morton_neighbor >> 3; // Remove last 3 bits
 
             auto it = oct_map.find(get_key(level-1, morton_neighbor_bigger));
-            if( it != oct_map.end() ) 
+            if( oct_map.valid_at(it) ) 
             {
                 // Found at bigger level
-                res = NeighborList{1, {it->second}};
+                res = NeighborList{1, {oct_map.value_at(it)}};
             }
             else
             {
@@ -337,8 +339,8 @@ public:
                         assert(res.m_size<=4);
                         morton_t morton_neighbor_smaller = ( morton_neighbor << 3 ) + (z << IZ) + (y << IY) + (x << IX);
                         auto it = oct_map.find(get_key(level+1, morton_neighbor_smaller));
-                        assert(it!=oct_map.end()); // Could not find neighbor
-                        res.m_neighbors[res.m_size-1] = it->second;
+                        assert(oct_map.valid_at(it)); // Could not find neighbor
+                        res.m_neighbors[res.m_size-1] = oct_map.value_at(it);
                     }
                 }
             }            
@@ -351,7 +353,7 @@ private:
     using level_t = uint8_t;
     using key_t = uint64_t;
     using oct_ref_t = OctantIndex;
-    using oct_map_t = std::unordered_map<key_t, oct_ref_t>;
+    using oct_map_t = Kokkos::UnorderedMap<key_t, oct_ref_t>;
     oct_map_t oct_map;
 
     static key_t get_key( level_t level, morton_t morton ) {
