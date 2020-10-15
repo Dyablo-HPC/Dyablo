@@ -4,6 +4,7 @@
 
 #include "shared/kokkos_shared.h"
 #include "shared/bitpit_common.h"
+#include "shared/HydroParams.h"
 
 namespace dyablo { 
 namespace muscl_block {
@@ -28,7 +29,7 @@ static constexpr uint8_t iface_from_pos[3][3][3] = {
                             { 9, 6, 10 },
                             { 7, 12, 8 }}};
 
-class LightOctree{
+class LightOctree_pablo{
 public:
     struct OctantIndex
     {
@@ -53,7 +54,7 @@ public:
     };
     
 
-    LightOctree( std::shared_ptr<AMRmesh> pmesh )
+    LightOctree_pablo( std::shared_ptr<AMRmesh> pmesh, const HydroParams& params )
     : pmesh(pmesh), ndim(pmesh->getDim())
     {}
     uint32_t getNumOctants() const
@@ -109,22 +110,128 @@ public:
 
         pmesh->findNeighbours(iOct.iOct, pablo_iface, pablo_codim, iOct_neighbors, isghost_neighbors);
 
-        NeighborList neighbors;
-        neighbors.m_size = iOct_neighbors.size();
+        NeighborList neighbors={0,{99,true}};
+        if( iOct_neighbors.size() == 0 )
+        {
+            pos_t cellPos = getCenter(iOct);
+            uint8_t level = getLevel(iOct);
+            real_t cellSize = 1.0/std::pow(2, level );
+            cellPos[IX] += offset[IX]*cellSize*0.6;
+            cellPos[IY] += offset[IY]*cellSize*0.6;
+            cellPos[IZ] += offset[IZ]*cellSize*0.6;
+            bitpit::bvector periodic = pmesh->getPeriodic();
+            if( ( periodic[2*IX] or ( 0.0 <= cellPos[IX] && cellPos[IX] < 1.0 ) )
+             or ( periodic[2*IY] or ( 0.0 <= cellPos[IY] && cellPos[IY] < 1.0 ) )
+             or ( periodic[2*IZ] or ( 0.0 <= cellPos[IZ] && cellPos[IZ] < 1.0 ) ) )
+            {
+                //Get periodic position inside domain
+                if(periodic[2*IX]) cellPos[IX] -= std::floor(cellPos[IX]/1.0);
+                if(periodic[2*IY]) cellPos[IY] -= std::floor(cellPos[IY]/1.0);
+                if(periodic[2*IZ]) cellPos[IZ] -= std::floor(cellPos[IZ]/1.0);
 
+                fix_missing_corner_neighbor(iOct.iOct, offset, cellPos, neighbors);
+            }
+        }
+        else
+        {
+            neighbors.m_size = iOct_neighbors.size();
         for(int i=0; i<neighbors.m_size; i++)
         {
             neighbors.m_neighbors[i].iOct = iOct_neighbors[i];
             neighbors.m_neighbors[i].isGhost = isghost_neighbors[i];
         }
+        }
 
         return neighbors;
     }
 
-private:
+protected:
     std::shared_ptr<AMRmesh> pmesh;
     uint8_t ndim;
+
+private:
+    /** 
+     * When neighbor is larger, it is returned in only one `findNeighbours()` request
+     * Sometimes `findNeighbours()` edge/node returns 0 neighbors because the only neighbor has already been returned by findNeighbour
+     * on a lower codimension request. In this case, actual edge/node neighbor has to be searched in lower codimention neighbor
+     **/
+    void fix_missing_corner_neighbor( uint32_t iOct_global, const offset_t& neighbor, const pos_t cellPos, NeighborList& res_neighbors) const
+    {
+        constexpr uint8_t CODIM_NODE = 3;
+        constexpr uint8_t CODIM_EDGE = 2;
+        //constexpr uint8_t CODIM_FACE = 1;
+
+        /// Check if position `cellPos` is inside neighbor designated by search_codim and search_iface
+        /// @returns true if cell is inside and sets res_iOct_neighbors and res_isGhost_neighbors accordingly, false otherwise
+        auto check_neighbor = [&](const offset_t& offset)
+        {   
+             NeighborList neighbors = findNeighbors({iOct_global,false}, offset);
+            if( neighbors.size() == 1 ) // Looking only for bigger neighbors
+            {
+                pos_t neigh_min = getCorner(neighbors[0]);
+                real_t oct_size = getSize(neighbors[0]);
+
+                pos_t neigh_max = {
+                        neigh_min[IX] + oct_size,
+                        neigh_min[IY] + oct_size,
+                        neigh_min[IZ] + oct_size
+                };
+
+                if( neigh_min[IX] < cellPos[IX] && cellPos[IX] < neigh_max[IX] 
+                &&  neigh_min[IY] < cellPos[IY] && cellPos[IY] < neigh_max[IY]
+                && ((ndim==2) || (neigh_min[IZ] < cellPos[IZ] && cellPos[IZ] < neigh_max[IZ])) )
+                {
+                    res_neighbors = neighbors;
+                    return true;
+                }
+            }
+            return false;        
+        };
+
+        // Determine neighbor codimension (node/edge/face)
+        int codim = 0;
+        codim += std::abs(neighbor[IX]);
+        codim += std::abs(neighbor[IY]);
+        codim += std::abs(neighbor[IZ]);
+
+        if(ndim == 2)
+        {
+            assert( codim == CODIM_EDGE ); // In 2D, only edges can have this issue
+            // Search both faces connected to edge:
+            if( check_neighbor({neighbor[IX],0           ,0}) ) return;
+            if( check_neighbor({0,           neighbor[IY],0}) ) return;
+            assert(false); // Failed to find neighbor...
+        }
+        else 
+        {
+            assert( codim == CODIM_NODE || codim == CODIM_EDGE ); // In 3D, edges and node can have this issue
+
+            if(codim == CODIM_NODE) // search direction is a node (corner)
+            {
+                // Search the 3 edges connected to the node
+                for(int i=0; i<3; i++)
+                {
+                    offset_t search_neighbor = {neighbor[IX], neighbor[IY], neighbor[IZ]};
+                    search_neighbor[i] = 0; // Search edges that have 2 coordinate in common
+                    if( check_neighbor(search_neighbor) ) return;
+                }
+            }
+            // Search connected faces
+            for(int i=0; i<3; i++)
+            {
+                offset_t search_neighbor = {0,0,0};
+                search_neighbor[i] = neighbor[i]; // Search faces that have 1 coordinate in common
+                if( search_neighbor[IX] != 0 || search_neighbor[IY] != 0 || search_neighbor[IZ] != 0 ) // Only 2 faces when initially edge (0,0,0 not a neighbor)
+                {
+                    if( check_neighbor(search_neighbor) ) return;
+                }
+            }
+            assert(false); // Failed to find neighbor...
+        }     
+    } 
 };
+
+using LightOctree = LightOctree_pablo;
 
 } //namespace dyablo
 } //namespace muscl_block

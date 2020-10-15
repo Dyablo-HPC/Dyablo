@@ -20,7 +20,7 @@ CopyGhostBlockCellDataFunctor::CopyGhostBlockCellDataFunctor(
   Ugroup(Ugroup),
   iGroup(iGroup),
   interface_flags(interface_flags),
-  lmesh(pmesh)
+  lmesh(pmesh, params)
 {
   // in 2d, bz and bz_g are not used
   blockSizes[IZ] = (params.dimType == THREE_D) ? blockSizes[IZ] : 1;
@@ -539,91 +539,6 @@ CellData get_cell_data_border( const Functor& f, uint32_t iOct_local, coord_g_t 
     return res;
 }
 
-constexpr uint8_t CODIM_NODE = 3;
-constexpr uint8_t CODIM_EDGE = 2;
-constexpr uint8_t CODIM_FACE = 1;
-
-/** 
- * When neighbor is larger, it is returned only in one `findNeighbours()` request
- * Sometimes `findNeighbours()` edge/node returns 0 neighbors because the only neighbor has already been returned by findNeighbour
- * on a lower codimension request. In this case, actual edge/node neighbor has to be searched in lower codimention neighbors
- * 
- * @param iOct_global index of local octant
- * @param neighbor neighbor position relative to local octant ( (-1,0,0) is left neighbor )
- **/
-template < int ndim >
-void fix_missing_corner_neighbor( const Functor& f, uint32_t iOct_global, const LightOctree::offset_t& neighbor, const real_t cellPos[3], LightOctree::NeighborList& res_neighbors)
-{
-    /// Check if position `cellPos` is inside neighbor designated by search_codim and search_iface
-    /// @returns true if cell is inside and sets res_iOct_neighbors and res_isGhost_neighbors accordingly, false otherwise
-    auto check_neighbor = [&](const LightOctree::offset_t& offset)
-    {   
-        LightOctree::NeighborList neighbors = f.lmesh.findNeighbors({iOct_global,false}, offset);
-        if( neighbors.size() == 1 ) // Looking only for bigger neighbors
-        {
-            LightOctree::pos_t neigh_min = f.lmesh.getCorner(neighbors[0]);
-            real_t oct_size = f.lmesh.getSize(neighbors[0]);
-
-            LightOctree::pos_t neigh_max = {
-                    neigh_min[IX] + oct_size,
-                    neigh_min[IY] + oct_size,
-                    neigh_min[IZ] + oct_size
-            };
-
-            if( neigh_min[IX] < cellPos[IX] && cellPos[IX] < neigh_max[IX] 
-            &&  neigh_min[IY] < cellPos[IY] && cellPos[IY] < neigh_max[IY]
-            && ((ndim==2) || (neigh_min[IZ] < cellPos[IZ] && cellPos[IZ] < neigh_max[IZ])) )
-            {
-                res_neighbors = neighbors;
-                return true;
-            }
-        }
-        return false;        
-    };
-
-    // Determine neighbor codimension (node/edge/face)
-    int codim = 0;
-    codim += std::abs(neighbor[IX]);
-    codim += std::abs(neighbor[IY]);
-    codim += std::abs(neighbor[IZ]);
-
-    if(ndim == 2)
-    {
-        assert( codim == CODIM_EDGE ); // In 2D, only edges can have this issue
-        // Search both faces connected to edge:
-        if( check_neighbor({neighbor[IX],0           ,0}) ) return;
-        if( check_neighbor({0,           neighbor[IY],0}) ) return;
-        assert(false); // Failed to find neighbor...
-    }
-    else 
-    {
-        assert( codim == CODIM_NODE || codim == CODIM_EDGE ); // In 3D, edges and node can have this issue
-
-        if(codim == CODIM_NODE) // search direction is a node (corner)
-        {
-            // Search the 3 edges connected to the node
-            for(int i=0; i<3; i++)
-            {
-                LightOctree::offset_t search_neighbor = {neighbor[IX], neighbor[IY], neighbor[IZ]};
-                search_neighbor[i] = 0; // Search edges that have 2 coordinate in common
-                if( check_neighbor(search_neighbor) ) return;
-            }
-        }
-        // Search connected faces
-        for(int i=0; i<3; i++)
-        {
-            LightOctree::offset_t search_neighbor = {0,0,0};
-            search_neighbor[i] = neighbor[i]; // Search faces that have 1 coordinate in common
-            if( search_neighbor[IX] != 0 || search_neighbor[IY] != 0 || search_neighbor[IZ] != 0 ) // Only 2 faces when initially edge (0,0,0 not a neighbor)
-            {
-                if( check_neighbor(search_neighbor) ) return;
-            }
-        }
-        assert(false); // Failed to find neighbor...
-    }     
-}
-
-
 /**
  * @brief Fetch data associated to a cell from a neighbor octant.
  * 
@@ -659,8 +574,6 @@ CellData get_cell_data( const Functor& f, uint32_t iOct_local, coord_g_t neighbo
         (ndim == 2) ? 0 : oct_origin[IZ] + pos_in_local[IZ] * cell_size[IZ] + cell_size[IZ]/2
     };
     
-    
-
     BoundaryConditionType bc_min[3], bc_max[3];
     bc_min[IX] = f.params.boundary_type_xmin;
     bc_max[IX] = f.params.boundary_type_xmax;
@@ -691,11 +604,6 @@ CellData get_cell_data( const Functor& f, uint32_t iOct_local, coord_g_t neighbo
     LightOctree::NeighborList neighbors = f.lmesh.findNeighbors({iOct_global,false}, neighbor);
 
     uint32_t oct_level = f.lmesh.getLevel({iOct_global,false});
-
-    if(neighbors.size() == 0) 
-    {
-        fix_missing_corner_neighbor<ndim>(f, iOct_global, neighbor, cellPos, neighbors);
-    }
     
     assert(neighbors.size() > 0); //Should have at least one neighbor (Boundaries already taken care of)
     if(neighbors.size() == 0) return CellData({std::nan(""),std::nan(""),std::nan(""),std::nan(""),std::nan("")});
