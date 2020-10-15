@@ -1,7 +1,9 @@
 #pragma once
 
 #include <memory>
+#include <unordered_map>
 
+#include "shared/morton_utils.h"
 #include "shared/kokkos_shared.h"
 #include "shared/bitpit_common.h"
 #include "shared/HydroParams.h"
@@ -135,11 +137,11 @@ public:
         else
         {
             neighbors.m_size = iOct_neighbors.size();
-        for(int i=0; i<neighbors.m_size; i++)
-        {
-            neighbors.m_neighbors[i].iOct = iOct_neighbors[i];
-            neighbors.m_neighbors[i].isGhost = isghost_neighbors[i];
-        }
+            for(int i=0; i<neighbors.m_size; i++)
+            {
+                neighbors.m_neighbors[i].iOct = iOct_neighbors[i];
+                neighbors.m_neighbors[i].isGhost = isghost_neighbors[i];
+            }
         }
 
         return neighbors;
@@ -231,7 +233,131 @@ private:
     } 
 };
 
-using LightOctree = LightOctree_pablo;
+class LightOctree_hashmap : public LightOctree_pablo{
+public:
+    LightOctree_hashmap( std::shared_ptr<AMRmesh> pmesh, const HydroParams& params )
+    : LightOctree_pablo(pmesh, params), oct_map(params.level_max+1) , max_level(params.level_max)
+    {
+       
+        // Insert Octant in the map for his level with the morton index at this level as key
+        auto add_octant = [&](const OctantIndex& oct)
+        {
+            pos_t c = getCorner(oct);
+            uint8_t level = getLevel(oct);
+
+            uint32_t octant_count = std::pow( 2, level );
+            real_t octant_size = 1.0/octant_count;
+            real_t eps = octant_size/8; // To avoid rounding error when computing logical coords
+            auto periodic_coord = [&](real_t pos) -> int32_t
+            {
+                int32_t grid_pos = std::floor((pos+eps)/octant_size);
+                return (grid_pos+octant_count) % octant_count; // Only works if grid_pos>-octant_count
+            };
+            index_t<3> logical_coords = {
+                periodic_coord( c[IX] ),
+                periodic_coord( c[IY] ),
+                periodic_coord( c[IZ] )
+            };
+            morton_t morton = compute_morton_key(logical_coords);
+
+            oct_map.at(level).insert( {morton, oct} );
+        };
+
+        for( uint32_t iOct = 0; iOct < pmesh->getNumOctants(); iOct++)
+        {
+            add_octant({iOct, false});
+        }
+        for( uint32_t iOct = 0; iOct<pmesh->getNumGhosts(); iOct++)
+        {
+            add_octant({iOct, true});
+        }
+    }
+    NeighborList findNeighbors( const OctantIndex& iOct, const offset_t& offset )  const
+    {
+        assert( !iOct.isGhost );
+
+        pos_t c = getCenter(iOct);
+        uint8_t level = getLevel(iOct); 
+
+        uint32_t octant_count = std::pow( 2, level );
+        real_t octant_size = 1.0/octant_count;
+        real_t eps = octant_size/8;
+
+         auto periodic_coord = [&](real_t pos, int8_t offset) -> int32_t
+        {
+            int32_t grid_pos = std::floor((pos+eps)/octant_size) + offset;
+            return (grid_pos+octant_count) % octant_count; // Only works if grid_pos>-octant_count
+        };
+        index_t<3> logical_coords = {
+            periodic_coord( c[IX], offset[IX] ),
+            periodic_coord( c[IY], offset[IY] ),
+            periodic_coord( c[IZ], offset[IZ] )
+        };
+
+        // Get morton at same level
+        morton_t morton_neighbor = compute_morton_key( logical_coords );
+
+        NeighborList res = {0};
+        auto it = oct_map[level].find(morton_neighbor);
+        if( it != oct_map[level].end() ) // Found at same level
+        {
+            // Found at same level
+            res =  NeighborList{1, {it->second}};
+        }
+        else
+        {
+            morton_t morton_neighbor_bigger = morton_neighbor >> 3; // Remove last 3 bits
+            auto it = oct_map[level-1].find(morton_neighbor_bigger);
+            if( it != oct_map[level-1].end() ) 
+            {
+                // Found at bigger level
+                res = NeighborList{1, {it->second}};
+            }
+            else
+            {
+                // Neighbor is smaller
+                for( uint8_t x=0; x<2; x++ )
+                for( uint8_t y=0; y<2; y++ )
+                for( uint8_t z=0; z<(ndim-1); z++ )
+                {
+                    // Add smaller neighbor only if near original octant
+                    // direction is unsconstrained OR offset left + suboctant right OR offset right + suboctant left
+                    // (offset[IX] == 0)           OR (offset[IX]==-1 && x==1)      OR (offset[IX]==1 && x==0)
+                    // offset\x 0 1
+                    //   -1     F T
+                    //    0     T T
+                    //    1     T F
+                    
+                    if( ( (offset[IX] == 0) or (offset[IX]==-1 && x==1) or (offset[IX]==1 && x==0) )
+                    and ( (offset[IY] == 0) or (offset[IY]==-1 && y==1) or (offset[IY]==1 && y==0) )
+                    and ( (offset[IZ] == 0) or (offset[IZ]==-1 && z==1) or (offset[IZ]==1 && z==0) ) )
+                    {
+                        res.m_size++;
+                        assert(res.m_size<=4);
+                        morton_t morton_neighbor_smaller = ( morton_neighbor << 3 ) + (z << IZ) + (y << IY) + (x << IX);
+                        auto it = oct_map[level+1].find(morton_neighbor_smaller);
+                        assert(it!=oct_map[level+1].end()); // Could not find neighbor
+                        res.m_neighbors[res.m_size-1] = it->second;
+                    }
+                }
+            }            
+        }
+        return res;
+    }
+
+private:
+    using morton_t = uint64_t;
+    using level_t = uint8_t;
+    using key_t = morton_t;
+    using oct_ref_t = OctantIndex;
+    using oct_map_t = std::vector< std::unordered_map<key_t, oct_ref_t> >;
+    oct_map_t oct_map;
+
+    level_t max_level;
+};
+
+using LightOctree = LightOctree_hashmap;
+//using LightOctree = LightOctree_pablo;
 
 } //namespace dyablo
 } //namespace muscl_block
