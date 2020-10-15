@@ -264,14 +264,17 @@ public:
             assert(inserted.success());
         };
 
-        for( uint32_t iOct = 0; iOct < pmesh->getNumOctants(); iOct++)
+        Kokkos::parallel_for( pmesh->getNumOctants(),
+                              KOKKOS_LAMBDA(uint32_t iOct)
         {
             add_octant({iOct, false});
-        }
-        for( uint32_t iOct = 0; iOct<pmesh->getNumGhosts(); iOct++)
+        });
+
+        Kokkos::parallel_for( pmesh->getNumGhosts(),
+                              KOKKOS_LAMBDA(uint32_t iOct)
         {
             add_octant({iOct, true});
-        }
+        });
     }
     NeighborList findNeighbors( const OctantIndex& iOct, const offset_t& offset )  const
     {
