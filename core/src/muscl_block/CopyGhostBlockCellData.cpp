@@ -766,7 +766,7 @@ void fill_ghosts(const Functor& f, Functor::team_policy_t::member_type member)
         }); // end TeamVectorRange
     
         member.team_barrier();
-        if( f.lmesh.getBound({iOct,false}) ) //This octant has ghosts outside of global domain
+        //if( f.lmesh.getBound({iOct,false}) ) //This octant has ghosts outside of global domain
         {
             Kokkos::parallel_for(
                 Kokkos::TeamVectorRange(member, nbCells),

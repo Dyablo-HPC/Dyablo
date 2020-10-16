@@ -32,7 +32,7 @@ static constexpr uint8_t iface_from_pos[3][3][3] = {
                             { 9, 6, 10 },
                             { 7, 12, 8 }}};
 
-class LightOctree_pablo{
+class LightOctree_base{
 public:
     struct OctantIndex
     {
@@ -46,17 +46,19 @@ public:
         uint8_t m_size;
         Kokkos::Array<OctantIndex,4> m_neighbors;
 
-        uint8_t size() const
+        KOKKOS_INLINE_FUNCTION uint8_t size() const
         {
             return m_size;
         }
-        const OctantIndex& operator[](uint8_t i) const
+        KOKKOS_INLINE_FUNCTION const OctantIndex& operator[](uint8_t i) const
         {
             return m_neighbors[i];
         }
     };
-    
+};
 
+class LightOctree_pablo : public LightOctree_base{
+public:
     LightOctree_pablo( std::shared_ptr<AMRmesh> pmesh, const HydroParams& params )
     : pmesh(pmesh), ndim(pmesh->getDim())
     {}
@@ -234,49 +236,53 @@ private:
     } 
 };
 
-class LightOctree_hashmap : public LightOctree_pablo{
+class LightOctree_hashmap : public LightOctree_base{
 public:
     LightOctree_hashmap( std::shared_ptr<AMRmesh> pmesh, const HydroParams& params )
-    : LightOctree_pablo(pmesh, params), oct_map(pmesh->getNumOctants()+pmesh->getNumGhosts()) , max_level(params.level_max)
-    {      
-        // Insert Octant in the map for his level with the morton index at this level as key
-        auto add_octant = [&](const OctantIndex& oct)
-        {
-            pos_t c = getCorner(oct);
-            uint8_t level = getLevel(oct);
-
-            uint32_t octant_count = std::pow( 2, level );
-            real_t octant_size = 1.0/octant_count;
-            real_t eps = octant_size/8; // To avoid rounding error when computing logical coords
-            auto periodic_coord = [&](real_t pos) -> int32_t
-            {
-                int32_t grid_pos = std::floor((pos+eps)/octant_size);
-                return (grid_pos+octant_count) % octant_count; // Only works if grid_pos>-octant_count
-            };
-            index_t<3> logical_coords = {
-                periodic_coord( c[IX] ),
-                periodic_coord( c[IY] ),
-                periodic_coord( c[IZ] )
-            };
-            morton_t morton = compute_morton_key(logical_coords);
-
-            oct_map_t::insert_result inserted = oct_map.insert( get_key(level, morton), oct );
-            assert(inserted.success());
-        };
-
-        Kokkos::parallel_for( pmesh->getNumOctants(),
-                              KOKKOS_LAMBDA(uint32_t iOct)
-        {
-            add_octant({iOct, false});
-        });
-
-        Kokkos::parallel_for( pmesh->getNumGhosts(),
-                              KOKKOS_LAMBDA(uint32_t iOct)
-        {
-            add_octant({iOct, true});
-        });
+    : oct_map(pmesh->getNumOctants()+pmesh->getNumGhosts()),
+      oct_data("LightOctree::oct_data", pmesh->getNumOctants()+pmesh->getNumGhosts(), OCT_DATA_COUNT),
+      numOctants(pmesh->getNumOctants()) , max_level(params.level_max), ndim(pmesh->getDim())
+    {
+        init(pmesh, params);
     }
-    NeighborList findNeighbors( const OctantIndex& iOct, const offset_t& offset )  const
+
+    uint32_t getNumOctants() const
+    {
+        return numOctants;
+    }
+    // bool getBound(const OctantIndex& iOct)  const
+    // {
+    //     assert( !iOct.isGhost );
+    //     return pmesh->getBound(iOct.iOct);
+    // }
+    KOKKOS_INLINE_FUNCTION pos_t getCenter(const OctantIndex& iOct)  const
+    {
+        pos_t pos = getCorner(iOct);
+        real_t oct_size = getSize(iOct);
+        return {
+            pos[IX] + oct_size,
+            pos[IY] + oct_size,
+            pos[IZ] + oct_size
+        };
+    }
+    KOKKOS_INLINE_FUNCTION pos_t getCorner(const OctantIndex& iOct)  const
+    {
+        return {
+            oct_data(get_ioct_local(iOct), ICORNERX),
+            oct_data(get_ioct_local(iOct), ICORNERY),
+            oct_data(get_ioct_local(iOct), ICORNERZ),
+        };
+    }
+    KOKKOS_INLINE_FUNCTION real_t getSize(const OctantIndex& iOct)  const
+    {
+        return std::pow( 2, getLevel(iOct) );
+    }
+    KOKKOS_INLINE_FUNCTION uint8_t getLevel(const OctantIndex& iOct)  const
+    {
+        return oct_data(get_ioct_local(iOct), ILEVEL);
+    }
+
+    KOKKOS_INLINE_FUNCTION NeighborList findNeighbors( const OctantIndex& iOct, const offset_t& offset )  const
     {
         assert( !iOct.isGhost );
 
@@ -287,7 +293,7 @@ public:
         real_t octant_size = 1.0/octant_count;
         real_t eps = octant_size/8;
 
-         auto periodic_coord = [&](real_t pos, int8_t offset) -> int32_t
+        auto periodic_coord = KOKKOS_LAMBDA(real_t pos, int8_t offset) -> int32_t
         {
             int32_t grid_pos = std::floor((pos+eps)/octant_size) + offset;
             return (grid_pos+octant_count) % octant_count; // Only works if grid_pos>-octant_count
@@ -358,15 +364,87 @@ private:
     using oct_ref_t = OctantIndex;
     using oct_map_t = Kokkos::UnorderedMap<key_t, oct_ref_t>;
     oct_map_t oct_map;
+    int numOctants;
 
-    static key_t get_key( level_t level, morton_t morton ) {
+    enum oct_data_field_t{
+        ICORNERX, 
+        ICORNERY, 
+        ICORNERZ, 
+        ILEVEL,
+        OCT_DATA_COUNT
+    };
+
+    using oct_data_t = DataArray;
+    oct_data_t oct_data;
+    
+
+    KOKKOS_INLINE_FUNCTION static key_t get_key( level_t level, morton_t morton ) {
         constexpr uint8_t shift = sizeof(level)*8;
         key_t res = (morton << shift) + level; 
         assert( morton == (res >> shift) ); // Loss of data from shift
         return res;
     };
 
+    KOKKOS_INLINE_FUNCTION uint32_t get_ioct_local(const OctantIndex& oct) const
+    {
+        return oct.isGhost*numOctants + oct.iOct;
+    }
+
     level_t max_level;
+    int ndim;
+
+    // Fetches data from pmesh
+    void init(std::shared_ptr<AMRmesh> pmesh, const HydroParams& params)
+    {   
+        oct_data_t::HostMirror oct_data_host("LightOctree::oct_data_host", pmesh->getNumOctants()+pmesh->getNumGhosts(), OCT_DATA_COUNT);
+        oct_map_t::HostMirror oct_map_host( pmesh->getNumOctants()+pmesh->getNumGhosts());
+
+        LightOctree_pablo mesh_pablo(pmesh, params);
+
+        // Insert Octant in the map for his level with the morton index at this level as key
+        auto add_octant = [&](const OctantIndex& oct)
+        {
+            pos_t c = mesh_pablo.getCorner(oct);
+            uint8_t level = mesh_pablo.getLevel(oct);
+
+            uint32_t ioct_local = get_ioct_local(oct);
+            oct_data_host(ioct_local, ICORNERX) = c[IX];
+            oct_data_host(ioct_local, ICORNERY) = c[IY];
+            oct_data_host(ioct_local, ICORNERZ) = c[IZ];
+            oct_data_host(ioct_local, ILEVEL) = level;
+
+            uint32_t octant_count = std::pow( 2, level );
+            real_t octant_size = 1.0/octant_count;
+            real_t eps = octant_size/8; // To avoid rounding error when computing logical coords
+            auto periodic_coord = [&](real_t pos) -> int32_t
+            {
+                int32_t grid_pos = std::floor((pos+eps)/octant_size);
+                return (grid_pos+octant_count) % octant_count; // Only works if grid_pos>-octant_count
+            };
+            index_t<3> logical_coords = {
+                periodic_coord( c[IX] ),
+                periodic_coord( c[IY] ),
+                periodic_coord( c[IZ] )
+            };
+            morton_t morton = compute_morton_key(logical_coords);
+
+            oct_map_t::insert_result inserted = oct_map_host.insert( get_key(level, morton), oct );
+            assert(inserted.success());
+        };
+
+        for(uint32_t iOct = 0; iOct < pmesh->getNumOctants(); iOct++)
+        {
+            add_octant({iOct, false});
+        }
+
+        for(uint32_t iOct = 0; iOct < pmesh->getNumGhosts(); iOct++)
+        {
+            add_octant({iOct, true});
+        }
+
+        Kokkos::deep_copy(oct_map,oct_map_host);
+        Kokkos::deep_copy(oct_data,oct_data_host);
+    }
 };
 
 using LightOctree = LightOctree_hashmap;

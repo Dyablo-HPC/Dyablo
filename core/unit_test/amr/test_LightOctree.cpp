@@ -23,7 +23,6 @@
 using Device = Kokkos::DefaultExecutionSpace;
 
 #include <boost/test/unit_test.hpp>
-using namespace boost::unit_test;
 
 namespace dyablo
 {
@@ -187,6 +186,24 @@ void run_test()
 
     auto test_oct = [&]( uint32_t ioct, uint32_t first_neighbor[3][3]){
       std::cout << "Octant " << ioct << " :" << std::endl;
+      std::cout << "Get Neighbors..." << std::endl;
+      Kokkos::View<real_t[3][3]> actual_neighbors("2D::actual_neighbors");
+      Kokkos::parallel_for( "find_neighbors", 9, KOKKOS_LAMBDA(int i)
+      {
+        if(i==4) return; // {0,0,0}
+        
+        int8_t y = (i/3);
+        int8_t x = (i-3*y); 
+        muscl_block::LightOctree::offset_t offset{(int8_t)(x-1),(int8_t)(y-1),0};
+
+        muscl_block::LightOctree::NeighborList ns = mesh.findNeighbors( {ioct,false}, offset );
+        actual_neighbors(y,x) = ns[0].iOct;
+      } );
+      std::cout << "[DONE]" << std::endl;
+      Kokkos::View<real_t[3][3]>::HostMirror actual_neighbors_host("2D::actual_neighbors_host");
+      Kokkos::deep_copy(actual_neighbors_host, actual_neighbors);
+
+      std::cout << "expected" << std::endl;
       for(int8_t y=2; y>=0; y--)
       {
         for(int8_t x=0; x<3; x++)
@@ -197,14 +214,39 @@ void run_test()
             continue;
           }
           uint32_t expected_neighbor = first_neighbor[2-y][x];
-          muscl_block::LightOctree::offset_t offset = {x-1,y-1,0};
-          muscl_block::LightOctree::NeighborList ns = mesh.findNeighbors( {ioct,false}, offset );
-
-          std::cout << std::setw(5) << ns[0].iOct;
-          BOOST_CHECK_GE( ns.size(), 1 );
-          BOOST_CHECK_EQUAL( ns[0].iOct, expected_neighbor);
+          std::cout << std::setw(5) << expected_neighbor;
         }
         std::cout << std::endl;
+      }
+      std::cout << "actual" << std::endl;
+      for(int8_t y=2; y>=0; y--)
+      {
+        for(int8_t x=0; x<3; x++)
+        {
+          if( x==1 && y==1 ) 
+          {
+            std::cout <<  std::setw(5) << ioct;
+            continue;
+          }
+          uint32_t actual_neighbor = actual_neighbors_host(y,x);
+
+          std::cout << std::setw(5) << actual_neighbor;
+        }
+        std::cout << std::endl;
+      }      
+      for(int8_t y=2; y>=0; y--)
+      {
+        for(int8_t x=0; x<3; x++)
+        {
+          if( x==1 && y==1 ) 
+          {
+            continue;
+          }
+          uint32_t expected_neighbor = first_neighbor[2-y][x];
+          uint32_t actual_neighbor = actual_neighbors_host(y,x);
+
+          BOOST_CHECK_EQUAL( actual_neighbor, expected_neighbor);
+        }
       }
     };
 
@@ -284,6 +326,26 @@ void run_test()
 
     auto test_oct = [&]( uint32_t ioct, uint32_t first_neighbor[3][3][3]){
       std::cout << "Octant " << ioct << " :" << std::endl;
+      std::cout << "Get Neighbors..." << std::endl;
+      Kokkos::View<real_t[3][3][3]> actual_neighbors("3D::actual_neighbors");
+      Kokkos::parallel_for( "find_neighbors", 3*3*3, KOKKOS_LAMBDA(int i)
+      {
+        if(i==13) return; // {0,0,0}
+        
+        // i = x + 3*y + 3*3*z
+        int8_t z = (i/(3*3));
+        int8_t y = (i-z*3*3)/3;
+        int8_t x = (i-3*y-3*3*z); 
+        muscl_block::LightOctree::offset_t offset{(int8_t)(x-1),(int8_t)(y-1),(int8_t)(z-1)};
+
+        muscl_block::LightOctree::NeighborList ns = mesh.findNeighbors( {ioct,false}, offset );
+        actual_neighbors(z,y,x) = ns[0].iOct;
+      } );
+      std::cout << "[DONE]" << std::endl;
+      Kokkos::View<real_t[3][3][3]>::HostMirror actual_neighbors_host("2D::actual_neighbors_host");
+      Kokkos::deep_copy(actual_neighbors_host, actual_neighbors);
+
+      std::cout << "expected" << std::endl;
       for(int8_t y=2; y>=0; y--)
       {
         for(int8_t z=2; z>=0; z--)
@@ -296,16 +358,49 @@ void run_test()
               continue;
             }
             uint32_t expected_neighbor = first_neighbor[2-y][2-z][x];
-            muscl_block::LightOctree::offset_t offset = {x-1,y-1,z-1};
-            muscl_block::LightOctree::NeighborList ns = mesh.findNeighbors( {ioct,false}, offset );
-
-            std::cout << std::setw(5) << ns[0].iOct;
-            BOOST_CHECK_GE( ns.size(), 1 );
-            BOOST_CHECK_EQUAL( ns[0].iOct, expected_neighbor);
+            std::cout << std::setw(5) << expected_neighbor;
           }
           std::cout << std::endl;
         }
         std::cout << std::endl;
+      }
+      std::cout << "actual" << std::endl;
+      for(int8_t y=2; y>=0; y--)
+      {
+        for(int8_t z=2; z>=0; z--)
+        {
+          for(int8_t x=0; x<3; x++)
+          {
+            if( x==1 && y==1 && z==1 ) 
+            {
+              std::cout <<  std::setw(5) << ioct;
+              continue;
+            }
+            uint32_t actual_neighbor = actual_neighbors_host(z,y,x);
+
+            std::cout << std::setw(5) << actual_neighbor;
+          }
+          std::cout << std::endl;
+        }
+        std::cout << std::endl;
+      } 
+      // Test equal     
+      for(int8_t y=2; y>=0; y--)
+      {
+        for(int8_t z=2; z>=0; z--)
+        {
+          for(int8_t x=0; x<3; x++)
+          {
+            if( x==1 && y==1 && z==1 ) 
+            {
+              continue;
+            }
+            uint32_t expected_neighbor = first_neighbor[2-y][2-z][x];
+            uint32_t actual_neighbor = actual_neighbors_host(z,y,x);
+
+            BOOST_CHECK_EQUAL( actual_neighbor, expected_neighbor);
+          }
+        }
       }
     };
 
@@ -343,7 +438,7 @@ BOOST_AUTO_TEST_CASE(test_AMRMetaData3d)
 
   // allow this test to be manually disabled
   // if there is an addition argument, disable
-  if (framework::master_test_suite().argc==1)
+  if (boost::unit_test::framework::master_test_suite().argc==1)
     run_test<3>();
   
 } 

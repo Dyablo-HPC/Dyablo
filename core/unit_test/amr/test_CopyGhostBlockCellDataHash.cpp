@@ -34,7 +34,6 @@
 using Device = Kokkos::DefaultExecutionSpace;
 
 #include <boost/test/unit_test.hpp>
-using namespace boost::unit_test;
 
 #define IDX(ix,iy,iz) ((ix) + bx_g * (iy) + bx_g*by_g*(iz))
 
@@ -839,7 +838,7 @@ BOOST_AUTO_TEST_CASE(test_AMRMetaData3d)
 
   // allow this test to be manually disabled
   // if there is an addition argument, disable
-  if (framework::master_test_suite().argc==1)
+  if (boost::unit_test::framework::master_test_suite().argc==1)
     run_test<3>();
   
 } 

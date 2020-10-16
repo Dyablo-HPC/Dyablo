@@ -112,13 +112,14 @@ dyablo_add_test(utest_AMRMetaData
   amr/test_AMRMetaData.cpp
   main.cpp)
 
+endif()
+
 dyablo_add_test(utest_LightOctree
   amr/test_LightOctree.cpp
   main.cpp)
-
-endif()
-
-dyablo_add_test(utest_CopyGhostBlockCellDataHash
+  
+  
+  dyablo_add_test(utest_CopyGhostBlockCellDataHash
   amr/test_CopyGhostBlockCellDataHash.cpp
   main.cpp)
 
