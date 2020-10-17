@@ -246,7 +246,7 @@ public:
         init(pmesh, params);
     }
 
-    uint32_t getNumOctants() const
+    KOKKOS_INLINE_FUNCTION uint32_t getNumOctants() const
     {
         return numOctants;
     }
@@ -260,9 +260,9 @@ public:
         pos_t pos = getCorner(iOct);
         real_t oct_size = getSize(iOct);
         return {
-            pos[IX] + oct_size,
-            pos[IY] + oct_size,
-            pos[IZ] + oct_size
+            pos[IX] + oct_size/2,
+            pos[IY] + oct_size/2,
+            pos[IZ] + (ndim-2)*(oct_size/2)
         };
     }
     KOKKOS_INLINE_FUNCTION pos_t getCorner(const OctantIndex& iOct)  const
@@ -275,7 +275,7 @@ public:
     }
     KOKKOS_INLINE_FUNCTION real_t getSize(const OctantIndex& iOct)  const
     {
-        return std::pow( 2, getLevel(iOct) );
+        return 1.0/std::pow( 2, getLevel(iOct) );
     }
     KOKKOS_INLINE_FUNCTION uint8_t getLevel(const OctantIndex& iOct)  const
     {
@@ -364,7 +364,6 @@ private:
     using oct_ref_t = OctantIndex;
     using oct_map_t = Kokkos::UnorderedMap<key_t, oct_ref_t>;
     oct_map_t oct_map;
-    int numOctants;
 
     enum oct_data_field_t{
         ICORNERX, 
@@ -390,8 +389,10 @@ private:
         return oct.isGhost*numOctants + oct.iOct;
     }
 
+    int numOctants;
     level_t max_level;
     int ndim;
+    
 
     // Fetches data from pmesh
     void init(std::shared_ptr<AMRmesh> pmesh, const HydroParams& params)

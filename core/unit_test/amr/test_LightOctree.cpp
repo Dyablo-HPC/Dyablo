@@ -250,6 +250,30 @@ void run_test()
       }
     };
 
+    Kokkos::View<real_t[8]> octant_data("octant_data");
+    Kokkos::parallel_for( "get_octant_data", 1, KOKKOS_LAMBDA(int i)
+    {
+      octant_data(0) = mesh.getCorner({10,false})[IX];
+      octant_data(1) = mesh.getCorner({10,false})[IY];
+      octant_data(2) = mesh.getCorner({10,false})[IZ];
+      octant_data(3) = mesh.getCenter({10,false})[IX];
+      octant_data(4) = mesh.getCenter({10,false})[IY];
+      octant_data(5) = mesh.getCenter({10,false})[IZ];
+      octant_data(6) = mesh.getSize({10,false});
+      octant_data(7) = mesh.getLevel({10,false});
+    });
+    auto octant_data_host = Kokkos::create_mirror_view(octant_data);
+    Kokkos::deep_copy(octant_data_host, octant_data);
+
+    BOOST_CHECK_CLOSE(octant_data_host(0) , 0.75, 0.0001 );
+    BOOST_CHECK_CLOSE(octant_data_host(1) , 0.25, 0.0001  );
+    BOOST_CHECK_CLOSE(octant_data_host(2) , 0.0, 0.0001  );
+    BOOST_CHECK_CLOSE(octant_data_host(3) , 0.875, 0.0001 );
+    BOOST_CHECK_CLOSE(octant_data_host(4) , 0.375, 0.0001  );
+    BOOST_CHECK_CLOSE(octant_data_host(5) , 0.0, 0.0001  );
+    BOOST_CHECK_CLOSE(octant_data_host(6) , 0.25, 0.0001  );
+    BOOST_CHECK_EQUAL(octant_data_host(7) , 2  );
+
     // uint32_t neighbors_8[3][3] = {{11,12,12},
     //                               { 3, 0, 9},
     //                               { 3, 6, 7}};
@@ -264,6 +288,7 @@ void run_test()
                                   { 4, 0, 0},
                                   {14,15,11}};
     test_oct( 5, neighbors_5 );
+
   } 
   else 
   {
@@ -403,6 +428,30 @@ void run_test()
         }
       }
     };
+
+    Kokkos::View<real_t[8]> octant_data("octant_data");
+    Kokkos::parallel_for( "get_octant_data", 1, KOKKOS_LAMBDA(int i)
+    {
+      octant_data(0) = mesh.getCorner({18,false})[IX];
+      octant_data(1) = mesh.getCorner({18,false})[IY];
+      octant_data(2) = mesh.getCorner({18,false})[IZ];
+      octant_data(3) = mesh.getCenter({18,false})[IX];
+      octant_data(4) = mesh.getCenter({18,false})[IY];
+      octant_data(5) = mesh.getCenter({18,false})[IZ];
+      octant_data(6) = mesh.getSize({18,false});
+      octant_data(7) = mesh.getLevel({18,false});
+    });
+    auto octant_data_host = Kokkos::create_mirror_view(octant_data);
+    Kokkos::deep_copy(octant_data_host, octant_data);
+
+    BOOST_CHECK_CLOSE(octant_data_host(0) , 0.5, 0.0001 );
+    BOOST_CHECK_CLOSE(octant_data_host(1) , 0.125, 0.0001  );
+    BOOST_CHECK_CLOSE(octant_data_host(2) , 0.375, 0.0001  );
+    BOOST_CHECK_CLOSE(octant_data_host(3) , 0.5625, 0.0001 );
+    BOOST_CHECK_CLOSE(octant_data_host(4) , 0.1875, 0.0001  );
+    BOOST_CHECK_CLOSE(octant_data_host(5) , 0.4375, 0.0001  );
+    BOOST_CHECK_CLOSE(octant_data_host(6) , 0.125, 0.0001  );
+    BOOST_CHECK_EQUAL(octant_data_host(7) , 3  );
 
     uint32_t neighbors_5[3][3][3] = {
      {{32   ,32   ,35},
