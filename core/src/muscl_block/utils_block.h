@@ -223,7 +223,7 @@ public :
   {}
 
   /// Sets all flags to 0 for octant iOct
-  void resetFlags(uint32_t iOct) const
+  KOKKOS_INLINE_FUNCTION void resetFlags(uint32_t iOct) const
   {
     flags(iOct) = INTERFACE_NONE;
   }
@@ -233,35 +233,35 @@ public :
    * @param iOct local octant
    * @param iface face index (same as for PABLO's findNeighbours())
    **/
-  void setFaceBigger( uint32_t iOct, uint8_t iface ) const
+  KOKKOS_INLINE_FUNCTION void setFaceBigger( uint32_t iOct, uint8_t iface ) const
   {
     flags(iOct) |= (1 << (iface + 6));
   }
 
   /// Check if neighbor along face iface is bigger
-  bool isFaceBigger( uint32_t iOct, uint8_t iface ) const
+  KOKKOS_INLINE_FUNCTION bool isFaceBigger( uint32_t iOct, uint8_t iface ) const
   {
     return flags(iOct) & (1 << (iface + 6));
   }
   
   /// Set flag to signify that neighbor along face iface is smaller to true
-  void setFaceSmaller( uint32_t iOct, uint8_t iface ) const
+  KOKKOS_INLINE_FUNCTION void setFaceSmaller( uint32_t iOct, uint8_t iface ) const
   {
     flags(iOct) |= (1<<iface);
   }
   /// Check if neighbor along face iface is smaller
-  bool isFaceSmaller( uint32_t iOct, uint8_t iface ) const
+  KOKKOS_INLINE_FUNCTION bool isFaceSmaller( uint32_t iOct, uint8_t iface ) const
   {
     return flags(iOct) & (1<<iface);
   }
 
   /// Check if neighbor along face iface is non-conformal (i.e. neighbor has a different size)
-  bool isFaceNonConformal( uint32_t iOct, uint8_t iface ) const
+  KOKKOS_INLINE_FUNCTION bool isFaceNonConformal( uint32_t iOct, uint8_t iface ) const
   {
     return isFaceBigger(iOct, iface) || isFaceSmaller(iOct, iface);
   }
   /// Check if neighbor along face iface is conformal (i.e. neighbor has same size)
-  bool isFaceConformal( uint32_t iOct, uint8_t iface ) const
+  KOKKOS_INLINE_FUNCTION bool isFaceConformal( uint32_t iOct, uint8_t iface ) const
   {
     return !isFaceNonConformal(iOct, iface);
   }

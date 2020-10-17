@@ -41,9 +41,12 @@ function(dyablo_add_test UNIT_TEST_NAME)
   if(NOT Kokkos_ENABLE_CUDA)
     target_link_libraries(${UNIT_TEST_NAME} PUBLIC
       muscl
-      muscl_block
       )
   endif()
+
+  target_link_libraries(${UNIT_TEST_NAME} PUBLIC
+      muscl_block
+      )
 
   target_link_libraries(${UNIT_TEST_NAME} PUBLIC
     shared
@@ -75,21 +78,12 @@ dyablo_add_test(tst_shared_MortonUtils
 
 if(NOT Kokkos_ENABLE_CUDA)
 
-# from old test/block_data
-configure_file(
-  block_data/test_implode_2D_block.ini
-  block_data/test_implode_2D_block.ini COPYONLY)
-
 configure_file(
   block_data/test_implode_3D_block.ini
   block_data/test_implode_3D_block.ini COPYONLY)
-
+  
 dyablo_add_test(utest_CopyInnerBlockCellData 
   block_data/test_CopyInnerBlockCellData.cpp
-  main.cpp)
-
-dyablo_add_test(utest_CopyGhostBlockCellData_2D 
-  block_data/test_CopyGhostBlockCellData_2D.cpp
   main.cpp)
 
 dyablo_add_test(utest_CopyGhostBlockCellData_3D 
@@ -117,9 +111,17 @@ endif()
 dyablo_add_test(utest_LightOctree
   amr/test_LightOctree.cpp
   main.cpp)
+
+# from old test/block_data
+configure_file(
+  block_data/test_implode_2D_block.ini
+  block_data/test_implode_2D_block.ini COPYONLY)
+
+dyablo_add_test(utest_CopyGhostBlockCellData_2D 
+  block_data/test_CopyGhostBlockCellData_2D.cpp
+  main.cpp)
   
-  
-  dyablo_add_test(utest_CopyGhostBlockCellDataHash
+dyablo_add_test(utest_CopyGhostBlockCellDataHash
   amr/test_CopyGhostBlockCellDataHash.cpp
   main.cpp)
 

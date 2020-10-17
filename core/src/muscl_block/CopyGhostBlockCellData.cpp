@@ -10,7 +10,6 @@ CopyGhostBlockCellDataFunctor::CopyGhostBlockCellDataFunctor(
     blockSize_t blockSizes, uint32_t ghostWidth, uint32_t nbOctsPerGroup,
     DataArrayBlock U, DataArrayBlock U_ghost, DataArrayBlock Ugroup,
     uint32_t iGroup, InterfaceFlags interface_flags) :
-  params(params),
   fm(fm),
   blockSizes(blockSizes),
   ghostWidth(ghostWidth),
@@ -22,6 +21,13 @@ CopyGhostBlockCellDataFunctor::CopyGhostBlockCellDataFunctor(
   interface_flags(interface_flags),
   lmesh(pmesh, params)
 {
+    bc_min[IX] = params.boundary_type_xmin;
+    bc_max[IX] = params.boundary_type_xmax;
+    bc_min[IY] = params.boundary_type_ymin;
+    bc_max[IY] = params.boundary_type_ymax;
+    bc_min[IZ] = params.boundary_type_zmin;
+    bc_max[IZ] = params.boundary_type_zmax;
+
   // in 2d, bz and bz_g are not used
   blockSizes[IZ] = (params.dimType == THREE_D) ? blockSizes[IZ] : 1;
   bx_g           = blockSizes[IX] + 2 * ghostWidth;
@@ -33,45 +39,14 @@ CopyGhostBlockCellDataFunctor::CopyGhostBlockCellDataFunctor(
   ndim         = (params.dimType == THREE_D ? 3 : 2);
 }
 
-void CopyGhostBlockCellDataFunctor::apply(
-    std::shared_ptr<AMRmesh> pmesh, ConfigMap configMap, HydroParams params,
-    id2index_t fm, blockSize_t blockSizes, uint32_t ghostWidth,
-    uint32_t nbOctsPerGroup, DataArrayBlock U, DataArrayBlock U_ghost,
-    DataArrayBlock Ugroup, uint32_t iGroup, InterfaceFlags interface_flags)
-{
-  CopyGhostBlockCellDataFunctor functor(pmesh,
-                                        params,
-                                        fm,
-                                        blockSizes,
-                                        ghostWidth,
-                                        nbOctsPerGroup,
-                                        U,
-                                        U_ghost,
-                                        Ugroup,
-                                        iGroup,
-                                        interface_flags);
-
-  // using kokkos team execution policy
-  uint32_t nbTeams_ = configMap.getInteger("amr", "nbTeams", 16);
-  functor.nbTeams   = nbTeams_;
-  // create execution policy
-  team_policy_t policy(nbTeams_,
-                       Kokkos::AUTO() /* team size chosen by kokkos */);
-
-  // launch computation (parallel kernel)
-  Kokkos::parallel_for("dyablo::muscl_block::CopyGhostBlockCellDataFunctor",
-                       policy,
-                       functor);
-}
-
 namespace{
 
 using Functor = CopyGhostBlockCellDataFunctor;
 
 /// replaces std::max({v0,v1,...})
-uint32_t max_n(uint32_t v) { return v; }
+KOKKOS_INLINE_FUNCTION uint32_t max_n(uint32_t v) { return v; }
 template <typename T0, typename... Ts>
-T0 max_n(T0 v0, T0 v1, Ts... vs)
+KOKKOS_INLINE_FUNCTION T0 max_n(T0 v0, T0 v1, Ts... vs)
 {
   return v0 > max_n(v1, vs...) ? v0 : max_n(v1, vs...);
 }
@@ -87,7 +62,7 @@ using coord_g_t = Kokkos::Array<int32_t, 3>;
  * @param ghostWidth ghost width in group data
  **/
 template <int ndim>
-uint32_t coord_g_to_index(  coord_g_t   coords, 
+KOKKOS_INLINE_FUNCTION uint32_t coord_g_to_index(  coord_g_t   coords, 
                             blockSize_t bSizes,
                             uint32_t    ghostWidth)
 {
@@ -135,7 +110,7 @@ struct get_pos_t{
  * @return See struct get_pos_t
  **/
 template< int ndim, DIR_ID dir >
-get_pos_t get_pos( const Functor& f, Functor::index_t index )
+KOKKOS_INLINE_FUNCTION get_pos_t get_pos( const Functor& f, Functor::index_t index )
 {
     get_pos_t res = {};
 
@@ -268,7 +243,7 @@ using CellData = HydroState3d;
  * @param is_ghost is neighbor octant a ghost octant?
  **/
 template <int ndim>
-CellData get_cell_data_same_size( const Functor& f, const LightOctree::OctantIndex& neigh, coord_t pos_in_neighbor)
+KOKKOS_INLINE_FUNCTION CellData get_cell_data_same_size( const Functor& f, const LightOctree::OctantIndex& neigh, coord_t pos_in_neighbor)
 {
     CellData res;
     uint32_t index_in_neighbor = coord_to_index_g<ndim>( pos_in_neighbor, f.blockSizes, 0 );
@@ -327,7 +302,7 @@ CellData get_cell_data_same_size( const Functor& f, const LightOctree::OctantInd
  * @note cell_physical_pos is necessary to determine in which sub-octant to fetch (see y in example above)
  **/
 template <int ndim >
-CellData get_cell_data_larger( const Functor& f, const LightOctree::OctantIndex& neigh, coord_t pos_in_neighbor, real_t cell_physical_pos[3])
+KOKKOS_INLINE_FUNCTION CellData get_cell_data_larger( const Functor& f, const LightOctree::OctantIndex& neigh, coord_t pos_in_neighbor, real_t cell_physical_pos[3])
 {
     LightOctree::pos_t neighbor_center = f.lmesh.getCenter(neigh);
 
@@ -374,7 +349,7 @@ int neighbor_count = (ndim == 2) ? 2 : 4;
  * @note cell_physical_pos is necessary to determine in which sub-octant cell is in local octant
  **/
 template <int ndim>
-CellData get_cell_data_smaller( const Functor& f, const LightOctree::NeighborList& neighs, coord_t pos_in_neighbor, real_t cell_physical_pos[3])
+KOKKOS_INLINE_FUNCTION CellData get_cell_data_smaller( const Functor& f, const LightOctree::NeighborList& neighs, coord_t pos_in_neighbor, real_t cell_physical_pos[3])
 {                
     // Get position of first cell in neighbor (as if it was same size)
     coord_t c0_neighbor = pos_in_neighbor; 
@@ -396,7 +371,7 @@ CellData get_cell_data_smaller( const Functor& f, const LightOctree::NeighborLis
         real_t npz = np[IZ];
         real_t neighbor_size = f.lmesh.getSize( neighs[i] );
 
-        bitpit::darray3 neighbor_min = {npx,npy,npz};
+        LightOctree::pos_t neighbor_min = {npx,npy,npz};
 
         if(   ( neighbor_min[IX] < cell_physical_pos[IX] &&  cell_physical_pos[IX] < neighbor_min[IX] + neighbor_size )
           and ( neighbor_min[IY] < cell_physical_pos[IY] &&  cell_physical_pos[IY] < neighbor_min[IY] + neighbor_size )
@@ -466,7 +441,7 @@ CellData get_cell_data_smaller( const Functor& f, const LightOctree::NeighborLis
  * @param cell_physical_pos physical position of cell to fetch
  **/ 
 template < int ndim, DIR_ID dir >
-CellData get_cell_data_border( const Functor& f, uint32_t iOct_local, coord_g_t pos_in_local, real_t cell_center_physical[3])
+KOKKOS_INLINE_FUNCTION CellData get_cell_data_border( const Functor& f, uint32_t iOct_local, coord_g_t pos_in_local, real_t cell_center_physical[3])
 {
 
     // normal momentum sign
@@ -476,24 +451,16 @@ CellData get_cell_data_border( const Functor& f, uint32_t iOct_local, coord_g_t 
                             pos_in_local[IY],
                             pos_in_local[IZ]};
 
-    BoundaryConditionType bc_min[3], bc_max[3];
-    bc_min[IX] = f.params.boundary_type_xmin;
-    bc_max[IX] = f.params.boundary_type_xmax;
-    bc_min[IY] = f.params.boundary_type_ymin;
-    bc_max[IY] = f.params.boundary_type_ymax;
-    bc_min[IZ] = f.params.boundary_type_zmin;
-    bc_max[IZ] = f.params.boundary_type_zmax;
-
     // absorbing border : we just copy/mirror data 
     // from the last inner cells into ghost cells
     for( ComponentIndex3D current_dim : {IX, IY, IZ} )
     {
-        if(     bc_min[current_dim] == BC_ABSORBING 
+        if(     f.bc_min[current_dim] == BC_ABSORBING 
                 && cell_center_physical[current_dim] < f.tree_min[current_dim])
         { // Left border
             coord_in[current_dim] = 0;
         }
-        else if(bc_max[current_dim] == BC_ABSORBING 
+        else if(f.bc_max[current_dim] == BC_ABSORBING 
                 && cell_center_physical[current_dim] > f.tree_max[current_dim])
         { // Right border
             coord_in[current_dim] = f.blockSizes[current_dim]-1;
@@ -505,13 +472,13 @@ CellData get_cell_data_border( const Functor& f, uint32_t iOct_local, coord_g_t 
     // normal momentum
     for( ComponentIndex3D current_dim : {IX, IY, IZ} )
     {
-        if(bc_min[current_dim] == BC_REFLECTING 
+        if(f.bc_min[current_dim] == BC_REFLECTING 
             && cell_center_physical[current_dim] < f.tree_min[current_dim])
         {
             coord_in[current_dim] = -1 - pos_in_local[current_dim];
             sign[current_dim] = -1.0;
         }
-        else if(bc_max[current_dim] == BC_REFLECTING 
+        else if(f.bc_max[current_dim] == BC_REFLECTING 
                 && cell_center_physical[current_dim] > f.tree_max[current_dim])
         {
             coord_in[current_dim] = (f.blockSizes[current_dim]-1) - (pos_in_local[current_dim]-f.blockSizes[current_dim]);
@@ -556,7 +523,7 @@ CellData get_cell_data_border( const Functor& f, uint32_t iOct_local, coord_g_t 
  * @return Cell data fetched from neighbor
  **/
 template < int ndim, DIR_ID dir >
-CellData get_cell_data( const Functor& f, uint32_t iOct_local, coord_g_t neighbor_, coord_t pos_in_neighbor, coord_g_t pos_in_local )
+KOKKOS_INLINE_FUNCTION CellData get_cell_data( const Functor& f, uint32_t iOct_local, coord_g_t neighbor_, coord_t pos_in_neighbor, coord_g_t pos_in_local )
 {
     uint32_t iOct_global = iOct_local + f.iGroup * f.nbOctsPerGroup;
 
@@ -573,22 +540,14 @@ CellData get_cell_data( const Functor& f, uint32_t iOct_local, coord_g_t neighbo
         oct_origin[IY] + pos_in_local[IY] * cell_size[IY] + cell_size[IY]/2,
         (ndim == 2) ? 0 : oct_origin[IZ] + pos_in_local[IZ] * cell_size[IZ] + cell_size[IZ]/2
     };
-    
-    BoundaryConditionType bc_min[3], bc_max[3];
-    bc_min[IX] = f.params.boundary_type_xmin;
-    bc_max[IX] = f.params.boundary_type_xmax;
-    bc_min[IY] = f.params.boundary_type_ymin;
-    bc_max[IY] = f.params.boundary_type_ymax;
-    bc_min[IZ] = f.params.boundary_type_zmin;
-    bc_max[IZ] = f.params.boundary_type_zmax;
 
     // Shift periodic position
     for( ComponentIndex3D current_dim : {IX, IY, IZ} )
     {
-        if( bc_min[current_dim] == BC_PERIODIC 
+        if( f.bc_min[current_dim] == BC_PERIODIC 
             && cellPos[current_dim] < f.tree_min[current_dim] )
             cellPos[current_dim] += f.tree_max[current_dim] - f.tree_min[current_dim];
-        if( bc_max[current_dim] == BC_PERIODIC 
+        if( f.bc_max[current_dim] == BC_PERIODIC 
             && cellPos[current_dim] > f.tree_max[current_dim] )
             cellPos[current_dim] -= f.tree_max[current_dim] - f.tree_min[current_dim];
     }
@@ -633,7 +592,7 @@ CellData get_cell_data( const Functor& f, uint32_t iOct_local, coord_g_t neighbo
  * @param data cell data to write
  **/
 template <int ndim>
-void write_cell_data( const Functor& f, uint32_t iOct_g, coord_g_t pos_in_local, const CellData& data )
+KOKKOS_INLINE_FUNCTION void write_cell_data( const Functor& f, uint32_t iOct_g, coord_g_t pos_in_local, const CellData& data )
 {
     uint32_t index_cur = coord_g_to_index<ndim>( pos_in_local, f.blockSizes, f.ghostWidth );
     f.Ugroup(index_cur, f.fm[ID], iOct_g) = data[ID];
@@ -665,7 +624,7 @@ void write_cell_data( const Functor& f, uint32_t iOct_g, coord_g_t pos_in_local,
  *              (see get_pos() for the detail of the mapping index -> cell position)
  **/
 template< int ndim, DIR_ID dir >
-void fill_ghost_faces( const Functor& f, uint32_t iOct_g, Functor::index_t index )
+KOKKOS_INLINE_FUNCTION void fill_ghost_faces( const Functor& f, uint32_t iOct_g, Functor::index_t index )
 {
     // Compute positions as if neighbor was same size
     get_pos_t p = get_pos<ndim, dir>(f, index);
@@ -686,7 +645,7 @@ void fill_ghost_faces( const Functor& f, uint32_t iOct_g, Functor::index_t index
  * Similar to fill_ghost_faces() but for boundary cells
  **/
 template< int ndim, DIR_ID dir >
-void fill_boundary_faces( const Functor& f, uint32_t iOct_local, Functor::index_t index )
+KOKKOS_INLINE_FUNCTION void fill_boundary_faces( const Functor& f, uint32_t iOct_local, Functor::index_t index )
 {
     // Compute positions as if neighbor was same size
     get_pos_t p = get_pos<ndim, dir>(f, index);
@@ -714,7 +673,7 @@ void fill_boundary_faces( const Functor& f, uint32_t iOct_local, Functor::index_
         {
             CellData cellData = get_cell_data_border<ndim, dir>(f, iOct_local, p.pos_in_local, cellPos);
             write_cell_data<ndim>( f, iOct_local, p.pos_in_local, cellData );
-        }    
+        }  
     }
 }
 
@@ -724,7 +683,7 @@ void fill_boundary_faces( const Functor& f, uint32_t iOct_local, Functor::index_
  * Iterate over Octants assigned to the team and copy ghost cells data from neighbor octants. 
  **/
 template< int ndim >
-void fill_ghosts(const Functor& f, Functor::team_policy_t::member_type member)
+KOKKOS_INLINE_FUNCTION void fill_ghosts(const Functor& f, Functor::team_policy_t::member_type member)
 {
     static_assert(ndim == 2 || ndim == 3 , "CopyFaceBlockCellData only supports 2D and 3D");
 
@@ -790,13 +749,43 @@ void fill_ghosts(const Functor& f, Functor::team_policy_t::member_type member)
 
 } //namespace
 
-void CopyGhostBlockCellDataFunctor::operator()(team_policy_t::member_type member) const
+KOKKOS_INLINE_FUNCTION void CopyGhostBlockCellDataFunctor::operator()(team_policy_t::member_type member) const
 {
-    if (params.dimType == TWO_D)
+    if (ndim==2)
       fill_ghosts<2>(*this, member);
 
-    if (params.dimType == THREE_D)
+    if (ndim==3)
       fill_ghosts<3>(*this, member);
+}
+
+void CopyGhostBlockCellDataFunctor::apply(
+    std::shared_ptr<AMRmesh> pmesh, ConfigMap configMap, HydroParams params,
+    id2index_t fm, blockSize_t blockSizes, uint32_t ghostWidth,
+    uint32_t nbOctsPerGroup, DataArrayBlock U, DataArrayBlock U_ghost,
+    DataArrayBlock Ugroup, uint32_t iGroup, InterfaceFlags interface_flags)
+{
+  CopyGhostBlockCellDataFunctor functor(pmesh,
+                                        params,
+                                        fm,
+                                        blockSizes,
+                                        ghostWidth,
+                                        nbOctsPerGroup,
+                                        U,
+                                        U_ghost,
+                                        Ugroup,
+                                        iGroup,
+                                        interface_flags);
+
+  // using kokkos team execution policy
+  uint32_t nbTeams_ = configMap.getInteger("amr", "nbTeams", 16);
+  functor.nbTeams = nbTeams_;
+  // create execution policy
+  team_policy_t policy(nbTeams_,
+                       Kokkos::AUTO() /* team size chosen by kokkos */);
+  // launch computation (parallel kernel)
+  Kokkos::parallel_for("dyablo::muscl_block::CopyGhostBlockCellDataFunctor",
+                       policy,
+                       functor);
 }
 
 } // namespace muscl_block

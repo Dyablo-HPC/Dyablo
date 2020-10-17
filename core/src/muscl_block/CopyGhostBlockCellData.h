@@ -45,14 +45,14 @@ public:
                     InterfaceFlags interface_flags);
 
   // Called with parallel_for inside apply()
-  void operator()(team_policy_t::member_type member) const;
+  KOKKOS_INLINE_FUNCTION void operator()(team_policy_t::member_type member) const;
 
 public :
   uint32_t nbTeams; //!< number of thread teams
   
 
   //! general parameters
-  HydroParams params;
+  BoundaryConditionType bc_min[3], bc_max[3];
 
   //! field manager
   id2index_t fm;

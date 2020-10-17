@@ -32,16 +32,12 @@
 #include "muscl_block/init/InitImplode.h"
 
 #include "muscl_block/CopyInnerBlockCellData.h"
-#include "muscl_block/CopyFaceBlockCellData.h"
-#include "muscl_block/CopyCornerBlockCellData.h"
 #include "muscl_block/CopyGhostBlockCellData.h"
 #include "muscl_block/ConvertToPrimitivesHydroFunctor.h"
 
 using Device = Kokkos::DefaultExecutionSpace;
 
 #include <boost/test/unit_test.hpp>
-using namespace boost::unit_test;
-
 
 namespace dyablo
 {
@@ -49,11 +45,17 @@ namespace dyablo
 namespace muscl_block
 {
 
+enum NEIGH_SIZE : uint8_t
+{
+  NEIGH_IS_SMALLER   = 0,
+  NEIGH_IS_LARGER    = 1,
+  NEIGH_IS_SAME_SIZE = 2
+};
+
 // =======================================================================
 // =======================================================================
 void run_test(int argc, char *argv[])
 {
-
   /*
    * testing CopyGhostBlockCellDataFunctor
    */
@@ -85,15 +87,9 @@ void run_test(int argc, char *argv[])
 
   }
 
-  // anyway create the right solver
-  std::unique_ptr<SolverHydroMusclBlock> solver = std::make_unique<SolverHydroMusclBlock>(params, configMap);
-
-  // by now, init condition must have been called
-
   // just retrieve a field manager
   FieldManager fieldMgr;
   fieldMgr.setup(params, configMap);
-
   auto fm = fieldMgr.get_id2index();
 
   /*
@@ -131,35 +127,98 @@ void run_test(int argc, char *argv[])
             << "bz_g=" << bz_g << " "
             << "ghostwidth=" << ghostWidth << "\n";
 
+  // create solver members
+  //std::unique_ptr<SolverHydroMusclBlock> solver = std::make_unique<SolverHydroMusclBlock>(params, configMap);
+  
+  std::cout << "Create mesh..." << std::endl;
+  std::shared_ptr<AMRmesh> amr_mesh; //solver->amr_mesh 
+  int ndim = 2;
+  amr_mesh = std::make_shared<AMRmesh>(ndim);
+  amr_mesh->setBalanceCodimension(ndim);
+  uint32_t idx = 0;
+  amr_mesh->setBalance(idx,true);
+  // amr_mesh->setPeriodic(0);
+  // amr_mesh->setPeriodic(1);
+  // amr_mesh->setPeriodic(2);
+  // amr_mesh->setPeriodic(3);
+  //amr_mesh->setPeriodic(4);
+  //amr_mesh->setPeriodic(5);
+  
+  DataArrayBlock Ughost; //solver->Ughost
+
+  amr_mesh->adaptGlobalRefine();
+  amr_mesh->adaptGlobalRefine();
+  amr_mesh->adaptGlobalRefine();
+  amr_mesh->adaptGlobalRefine();
+  amr_mesh->setMarker(15,1);
+  amr_mesh->setMarker(16,1);
+  amr_mesh->setMarker(17,1);
+  amr_mesh->setMarker(18,1);
+  amr_mesh->setMarker(20,1);
+  amr_mesh->setMarker(22,1);
+  amr_mesh->setMarker(24,1);
+  amr_mesh->setMarker(25,1);
+  amr_mesh->setMarker(28,1);
+
+  amr_mesh->adapt();
+  amr_mesh->updateConnectivity();
+  params.level_min = 4;
+  params.level_max = 5;
+
+  uint32_t nbOctsPerGroup = 64;
+  uint32_t iGroup = 0;
+  // Octant that have a "same size" neighbor in all direction
+  uint32_t iOct1 = 3;
+  // Octant that have at least
+  // a "larger size" neighbor in one direction
+  uint32_t iOct2 = 15;
+  // Octant that have have at least
+  // an interface with "smaller size" neighbor in one direction and a periodic boundary
+  uint32_t iOct3 = 31;
+
+  std::cout << "Apply initial condition..." << std::endl;
+
+  int nbfields = params.nbfields;
+  int nbOcts = amr_mesh->getNumOctants();
+  uint32_t nbCellsPerOct =
+      params.dimType == TWO_D ? bx * by : bx * by * bz;
+
+  DataArrayBlockHost Uhost("Uhost", nbCellsPerOct, nbfields, nbOcts);
+  InitImplodeDataFunctor::apply( amr_mesh,
+                                params,
+                                configMap,
+                                fm,
+                                blockSizes,
+                                Uhost );
+  
+  DataArrayBlock U("Uhost", nbCellsPerOct, nbfields, nbOcts ); //solver->U
+  Kokkos::deep_copy(U, Uhost);
+
+  // by now, init condition must have been called
+
   uint32_t nbCellsPerOct_g =
       params.dimType == TWO_D ? bx_g * by_g : bx_g * by_g * bz_g;
-
-  uint32_t nbOctsPerGroup = configMap.getInteger("amr", "nbOctsPerGroup", 32);
 
   /*
    * allocate/initialize Ugroup
    */
 
-  uint32_t nbOcts = solver->amr_mesh->getNumOctants();
   std::cout << "Currently mesh has " << nbOcts << " octants\n";
 
   std::cout << "Using nbCellsPerOct_g (number of cells per octant with ghots) = " << nbCellsPerOct_g << "\n";
   std::cout << "Using nbOctsPerGroup (number of octant per group) = " << nbOctsPerGroup << "\n";
   
 
-  DataArrayBlock Ugroup = DataArrayBlock("Ugroup", nbCellsPerOct_g, params.nbvar, nbOctsPerGroup);
+  DataArrayBlock Ugroup("Ugroup", nbCellsPerOct_g, params.nbvar, nbOctsPerGroup);
+  DataArrayBlockHost UgroupHost("UgroupHost", nbCellsPerOct_g, params.nbvar, nbOctsPerGroup);
 
   std::cout << "Ugroup sizes = " 
               << Ugroup.extent(0) << " "
               << Ugroup.extent(1) << " "
               << Ugroup.extent(2) << "\n";
 
-  uint32_t iGroup = 1;
-
-  FlagArrayBlock Interface_flags = FlagArrayBlock("Interface Flags", nbOctsPerGroup);
-
   // save solution, just for cross-checking
-  solver->save_solution();
+  //solver->save_solution();
 
   // Define print functions as lambdas
   // Print info about original local (iGroup set in main()) octant
@@ -168,14 +227,14 @@ void run_test(int argc, char *argv[])
 
     std::cout << "Looking at octant id = " << iOct_global << "\n";
     // octant location
-    double x = solver->amr_mesh->getX(iOct_global);
-    double y = solver->amr_mesh->getY(iOct_global);
+    double x = amr_mesh->getX(iOct_global);
+    double y = amr_mesh->getY(iOct_global);
     std::cout << "Octant location : x=" << x << " y=" << y << "\n";
     auto print_neighbor_status = [&]( int codim, int iface)
     { 
       std::vector<uint32_t> iOct_neighbors;
       std::vector<bool> isghost_neighbors;
-      solver->amr_mesh->findNeighbours(iOct_global, iface, codim, iOct_neighbors, isghost_neighbors);
+      amr_mesh->findNeighbours(iOct_global, iface, codim, iOct_neighbors, isghost_neighbors);
       if (iOct_neighbors.size() == 0)
       {
         std::cout << "( no neigh)";
@@ -183,10 +242,12 @@ void run_test(int argc, char *argv[])
       else if(iOct_neighbors.size() == 1)
       {
         uint32_t neigh_level = isghost_neighbors[0] ? 
-                    solver->amr_mesh->getLevel(solver->amr_mesh->getGhostOctant(iOct_neighbors[0])) : 
-                    solver->amr_mesh->getLevel(iOct_neighbors[0]);
-        if ( solver->amr_mesh->getLevel(iOct_global) > neigh_level )
+                    amr_mesh->getLevel(amr_mesh->getGhostOctant(iOct_neighbors[0])) : 
+                    amr_mesh->getLevel(iOct_neighbors[0]);
+        if ( amr_mesh->getLevel(iOct_global) > neigh_level )
           std::cout << "( bigger  )";
+        else if ( amr_mesh->getLevel(iOct_global) < neigh_level )
+          std::cout << "( smaller )";
         else
           std::cout << "(same size)";
       }
@@ -195,10 +256,28 @@ void run_test(int argc, char *argv[])
         std::cout << "( smaller )";
       }    
     };
+    auto print_neighbor = [&]( int codim, int iface)
+    { 
+      std::vector<uint32_t> iOct_neighbors;
+      std::vector<bool> isghost_neighbors;
+      amr_mesh->findNeighbours(iOct_global, iface, codim, iOct_neighbors, isghost_neighbors);
+      if (iOct_neighbors.size() == 0)
+      {
+        std::cout << "(no neigh)";
+      }
+      else
+      {
+        std::cout << std::setw(10) << iOct_neighbors[0];
+      }
+    };
     std::cout << "Octant neighbors :" << std::endl;
     print_neighbor_status(2,0) ; print_neighbor_status(1,2) ; print_neighbor_status(2,1); std::cout << std::endl;
     print_neighbor_status(1,0) ; std::cout << "(         )"; print_neighbor_status(1,1); std::cout << std::endl;
     print_neighbor_status(2,2) ; print_neighbor_status(1,3) ; print_neighbor_status(2,3); std::cout << std::endl;
+    std::cout << "Octant neighbors :" << std::endl;
+    print_neighbor(2,0) ; print_neighbor(1,2) ; print_neighbor(2,1); std::cout << std::endl;
+    print_neighbor(1,0) ; std::cout << "          "; print_neighbor(1,1); std::cout << std::endl;
+    print_neighbor(2,2) ; print_neighbor(1,3) ; print_neighbor(2,3); std::cout << std::endl;
     
 
     // std::cout << "  FACE_LEFT   "; print_neighbor_status(FACE_LEFT);
@@ -206,7 +285,7 @@ void run_test(int argc, char *argv[])
     // std::cout << "  FACE_TOP    "; print_neighbor_status(FACE_TOP);
     // std::cout << "  FACE_BOTTOM "; print_neighbor_status(FACE_BOTTOM);
 
-    std::cout << "Printing U data from iOct = " << iOct_global << "\n";
+    std::cout << "Printing Uhost data from iOct = " << iOct_global << "\n";
     for (uint32_t iz=0; iz<bz; ++iz) 
     {
       for (uint32_t iy=0; iy<by; ++iy)
@@ -214,13 +293,14 @@ void run_test(int argc, char *argv[])
         for (uint32_t ix=0; ix<bx; ++ix)
         {
           uint32_t index = ix + bx*(iy+by*iz);
-          printf("%5f ",solver->U(index,fm[ID],iOct_global));
+          printf("%5f ",Uhost(index,fm[ID],iOct_global));
         }
         std::cout << "\n";
       }
       std::cout << "\n";
     }
   };
+
   // Print info about final local octant (with ghosts)
   auto show_octant_group = [&](uint32_t iOct_local){  
     uint32_t iOct_global = iOct_local + iGroup * nbOctsPerGroup;
@@ -231,20 +311,11 @@ void run_test(int argc, char *argv[])
       for (uint32_t ix = 0; ix < bx_g; ++ix)
       {
         uint32_t index = ix + bx_g * iy;
-        printf("%5f ", Ugroup(index, fm[IP], iOct_local));
+        printf("%5f ", UgroupHost(index, fm[IP], iOct_local));
       }
       std::cout << "\n";
     } 
   };
-
-  // Octant that have a "same size" neighbor in all direction
-  uint32_t iOct1 = 2;
-  // Octant that have at least
-  // a "larger size" neighbor in one direction
-  uint32_t iOct2 = 30;
-  // Octant that have have at least
-  // an interface with "smaller size" neighbor in one direction and a periodic boundary
-  uint32_t iOct3 = 26;
 
   show_octant(iOct1);
   show_octant(iOct2);
@@ -256,23 +327,26 @@ void run_test(int argc, char *argv[])
                                        ghostWidth, 
                                        nbOcts,
                                        nbOctsPerGroup,
-                                       solver->U, Ugroup, iGroup);
+                                       U, Ugroup, iGroup);
 
   std::cout << "==========================================";
-  std::cout << "Testing CopyFaceBlockCellDataFunctor....\n";
+  std::cout << "Testing CopyGhostBlockCellDataFunctor....\n";
   {
-    CopyGhostBlockCellDataFunctor::apply(solver->amr_mesh,
+    InterfaceFlags interface_flags(nbOctsPerGroup); //solver->interface_flags
+    CopyGhostBlockCellDataFunctor::apply(amr_mesh,
                                         configMap,
                                         params, 
                                         fm,
                                         blockSizes,
                                         ghostWidth,
                                         nbOctsPerGroup,
-                                        solver->U, 
-                                        solver->Ughost, 
+                                        U, 
+                                        Ughost, 
                                         Ugroup, 
                                         iGroup,
-                                        solver->interface_flags);
+                                        interface_flags);
+
+    Kokkos::deep_copy(UgroupHost, Ugroup);
     
     
     show_octant_group(iOct1);
@@ -305,7 +379,6 @@ void run_test(int argc, char *argv[])
     //                                     Interface_flags);
     // show_octant_group(iOct1);
     
-    using NEIGH_SIZE = dyablo::muscl_block::CopyFaceBlockCellDataFunctor::NEIGH_SIZE;
     NEIGH_SIZE LARGER = NEIGH_SIZE::NEIGH_IS_LARGER;
     NEIGH_SIZE SMALLER = NEIGH_SIZE::NEIGH_IS_SMALLER;
     // Fetch values from initial conditions and compare to actual value 
@@ -313,10 +386,10 @@ void run_test(int argc, char *argv[])
     { 
       ImplodeParams iParams(configMap);
       uint32_t iOct_global = iOct_local + iGroup * nbOctsPerGroup;
-      const real_t octSize = solver->amr_mesh->getSize(iOct_global);
+      const real_t octSize = amr_mesh->getSize(iOct_global);
       const real_t cellSize = octSize/bx;
-      const real_t x0 = solver->amr_mesh->getNode(iOct_global, 0)[IX];
-      const real_t y0 = solver->amr_mesh->getNode(iOct_global, 0)[IY];
+      const real_t x0 = amr_mesh->getNode(iOct_global, 0)[IX];
+      const real_t y0 = amr_mesh->getNode(iOct_global, 0)[IY];
       real_t x = x0 + ix*cellSize - ghostWidth*cellSize + cellSize/2;
       real_t y = y0 + iy*cellSize - ghostWidth*cellSize + cellSize/2;
       real_t z = 0;      
@@ -353,7 +426,7 @@ void run_test(int argc, char *argv[])
       }
       
       uint32_t index = ix + bx_g * iy;
-      real_t& actual = Ugroup(index, fm[IP], iOct_local);
+      real_t& actual = UgroupHost(index, fm[IP], iOct_local);
 
       BOOST_CHECK_CLOSE(actual, 
                         expected, 0.001);
@@ -395,7 +468,7 @@ void run_test(int argc, char *argv[])
         //Check Upper Left
         check_cell(iOct,ig1,ig2+blocksize+ghostWidth);
         //Check Upper Right
-        check_cell(iOct,ig1+blocksize+ghostWidth,ig2+blocksize+ghostWidth, LARGER);
+        check_cell(iOct,ig1+blocksize+ghostWidth,ig2+blocksize+ghostWidth);
       }
 
     // chose an octant which should have at least
@@ -405,26 +478,26 @@ void run_test(int argc, char *argv[])
       for( uint32_t ig=0; ig<ghostWidth; ig++ )
       {
         // Check Bottom border (print top)
-        check_cell(iOct,ghostWidth+i1,ig);
+        check_cell(iOct,ghostWidth+i1,ig,LARGER);
         // Check Top border (print bottom)
-        check_cell(iOct,ghostWidth+i1,ig+blocksize+ghostWidth,LARGER);
+        check_cell(iOct,ghostWidth+i1,ig+blocksize+ghostWidth);
         // Check Left border
-        check_cell(iOct,ig,ghostWidth+i1);
+        check_cell(iOct,ig,ghostWidth+i1,LARGER);
         // Check Right
-        check_cell(iOct,ig+blocksize+ghostWidth,ghostWidth+i1,LARGER);
+        check_cell(iOct,ig+blocksize+ghostWidth,ghostWidth+i1);
       }
 
     for( uint32_t ig1=0; ig1<ghostWidth; ig1++ )
       for( uint32_t ig2=0; ig2<ghostWidth; ig2++ )
       {
         //Check Bottom Left
-        check_cell(iOct,ig1,ig2);
+        check_cell(iOct,ig1,ig2,LARGER);
         //Check Bottom Right
         check_cell(iOct,ig1+blocksize+ghostWidth,ig2,LARGER);
         //Check Upper Left
         check_cell(iOct,ig1,ig2+blocksize+ghostWidth,LARGER);
         //Check Upper Right
-        check_cell(iOct,ig1+blocksize+ghostWidth,ig2+blocksize+ghostWidth,LARGER);
+        check_cell(iOct,ig1+blocksize+ghostWidth,ig2+blocksize+ghostWidth);
       }
 
     // chose an octant which should have at least
@@ -434,35 +507,35 @@ void run_test(int argc, char *argv[])
       for( uint32_t ig=0; ig<ghostWidth; ig++ )
       {
         // Check Bottom border (print top)
-        check_cell(iOct,ghostWidth+i1,ig);
+        check_cell(iOct,ghostWidth+i1,ig, SMALLER);
         // Check Top border (print bottom)
-        check_cell(iOct,ghostWidth+i1,ig+blocksize+ghostWidth);
+        check_cell(iOct,ghostWidth+i1,ig+blocksize+ghostWidth, SMALLER);
         // Check Left border
         check_cell(iOct,ig,ghostWidth+i1, SMALLER);
         // Check Right
-        // (border) check_cell(iOct,ig+blocksize+ghostWidth,ghostWidth+i1);
+        check_cell(iOct,ig+blocksize+ghostWidth,ghostWidth+i1, SMALLER);
       }
 
     for( uint32_t ig1=0; ig1<ghostWidth; ig1++ )
       for( uint32_t ig2=0; ig2<ghostWidth; ig2++ )
       {
         //Check Bottom Left
-        check_cell(iOct,ig1,ig2);
+        check_cell(iOct,ig1,ig2, SMALLER);
         //Check Bottom Right
-        // (border) check_cell(iOct,ig1+blocksize+ghostWidth,ig2);
+        check_cell(iOct,ig1+blocksize+ghostWidth,ig2, SMALLER);
         //Check Upper Left
-        check_cell(iOct,ig1,ig2+blocksize+ghostWidth);
+        check_cell(iOct,ig1,ig2+blocksize+ghostWidth, SMALLER);
         //Check Upper Right
-        // (border) check_cell(iOct,ig1+blocksize+ghostWidth,ig2+blocksize+ghostWidth);
+        check_cell(iOct,ig1+blocksize+ghostWidth,ig2+blocksize+ghostWidth, SMALLER);
       }
 
-    //Check (full) right border cells
-    for( uint32_t i1=0; i1<blocksize+2*ghostWidth; i1++ )
-      for( uint32_t ig=0; ig<ghostWidth; ig++ )
-    {
-      BOOST_CHECK_CLOSE(Ugroup(ghostWidth+blocksize+ig + (blocksize+2*ghostWidth)*i1, fm[IP], iOct), 
-                        Ugroup(ghostWidth+blocksize-1  + (blocksize+2*ghostWidth)*i1, fm[IP], iOct), 0.001);
-    }    
+    // //Check (full) right border cells
+    // for( uint32_t i1=0; i1<blocksize+2*ghostWidth; i1++ )
+    //   for( uint32_t ig=0; ig<ghostWidth; ig++ )
+    // {
+    //   BOOST_CHECK_CLOSE(UgroupHost(ghostWidth+blocksize+ig + (blocksize+2*ghostWidth)*i1, fm[IP], iOct), 
+    //                     UgroupHost(ghostWidth+blocksize-1  + (blocksize+2*ghostWidth)*i1, fm[IP], iOct), 0.001);
+    // }    
       
   } // end testing CopyFaceBlockCellDataFunctor
 
@@ -479,8 +552,8 @@ BOOST_AUTO_TEST_SUITE(muscl_block)
 BOOST_AUTO_TEST_CASE(test_CopyGhostBlockCellData_2D)
 {
 
-  run_test(framework::master_test_suite().argc,
-           framework::master_test_suite().argv);
+  run_test(boost::unit_test::framework::master_test_suite().argc,
+           boost::unit_test::framework::master_test_suite().argv);
 
 }
 
