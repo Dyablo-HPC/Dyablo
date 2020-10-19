@@ -24,8 +24,8 @@ CopyGhostBlockCellDataFunctor::CopyGhostBlockCellDataFunctor(
 {
   // in 2d, bz and bz_g are not used
   blockSizes[IZ] = (params.dimType == THREE_D) ? blockSizes[IZ] : 1;
-  bx_g = blockSizes[IX] + 2 * ghostWidth;
-  by_g = blockSizes[IY] + 2 * ghostWidth;
+  bx_g           = blockSizes[IX] + 2 * ghostWidth;
+  by_g           = blockSizes[IY] + 2 * ghostWidth;
   bz_g = (params.dimType == THREE_D) ? blockSizes[IZ] + 2 * ghostWidth : 1;
 
   // Gravity
@@ -33,7 +33,6 @@ CopyGhostBlockCellDataFunctor::CopyGhostBlockCellDataFunctor(
   ndim         = (params.dimType == THREE_D ? 3 : 2);
 }
 
-// static method which does it all: create and execute functor
 void CopyGhostBlockCellDataFunctor::apply(
     std::shared_ptr<AMRmesh> pmesh, ConfigMap configMap, HydroParams params,
     id2index_t fm, blockSize_t blockSizes, uint32_t ghostWidth,
@@ -52,11 +51,9 @@ void CopyGhostBlockCellDataFunctor::apply(
                                         iGroup,
                                         Interface_flags);
 
-  /*
-   * using kokkos team execution policy
-   */
+  // using kokkos team execution policy
   uint32_t nbTeams_ = configMap.getInteger("amr", "nbTeams", 16);
-  functor.nbTeams = nbTeams_;
+  functor.nbTeams   = nbTeams_;
   // create execution policy
   team_policy_t policy(nbTeams_,
                        Kokkos::AUTO() /* team size chosen by kokkos */);
@@ -71,27 +68,24 @@ namespace{
 
 using Functor = CopyGhostBlockCellDataFunctor;
 
-uint32_t max_n( uint32_t v )
+/// replaces std::max({v0,v1,...})
+uint32_t max_n(uint32_t v) { return v; }
+template <typename T0, typename... Ts>
+T0 max_n(T0 v0, T0 v1, Ts... vs)
 {
-    return v;
+  return v0 > max_n(v1, vs...) ? v0 : max_n(v1, vs...);
 }
 
-template< typename T0, typename... Ts >
-T0 max_n( T0 v0, T0 v1 , Ts... vs )
-{
-    return v0 > max_n( v1, vs... ) ? v0 : max_n( v1, vs... );
-}
-
-/// Signed coordinates for arrays with ghosts
+//! Signed coordinates for cells
 using coord_g_t = Kokkos::Array<int32_t, 3>;
 
-struct get_pos_t{
-    bool in_domain;  //! true if index is inside local domain (coords invalid if false)
-    coord_g_t pos_in_local;  //! position in local block ( will be in ghost zone (-1,0,0) is left ghost )
-    coord_t pos_in_neighbor;  //! position in neighbor block (cannot be outside neighbor)
-    coord_g_t neighbor_pos; //! position of neighbor octant relative to local octant
-};
-
+/**
+ * Compute index in group data (ghosted) corresponding to cell at position `coords`
+ * 
+ * @param coords cell coordinates inside octant (non-ghosted : (-1,0,0) is in left border)
+ * @param bSizes Number of cells in each dimension inside octant
+ * @param ghostWidth ghost width in group data
+ **/
 template <int ndim>
 uint32_t coord_g_to_index(  coord_g_t   coords, 
                             blockSize_t bSizes,
@@ -110,8 +104,36 @@ uint32_t coord_g_to_index(  coord_g_t   coords,
         i + (bx+2*ghostWidth)*j + (bx+2*ghostWidth)*(by+2*ghostWidth)*k;
 
     return res;
-} // coord_g_to_index
+}
 
+//! Cell positions inside local and neighbor octants
+struct get_pos_t{
+    bool in_domain;  //! true if index is inside local domain (coords invalid if false)
+    coord_g_t pos_in_local;  //! position in local block ( will be in ghost zone (-1,0,0) is left ghost )
+    coord_t pos_in_neighbor;  //! position in neighbor block (cannot be outside neighbor)
+    coord_g_t neighbor_pos; //! position of neighbor octant relative to local octant ((-1,0,0) is left neighbor)
+};
+
+/**
+ * @brief Get position of local cell into local and neighbor octant
+ * 
+ * @tparam ndim number of dimensions (2 or 3)
+ * @tparam dir ghost direction. ex : if dir==DIR_X in 2D, resulting positions cover left AND right ghost cells
+ * @param f Ghost copy functor (to fetch simulation parameters)
+ * @param index index between 0 and the number of cells in border to be mapped to a position inside border
+ * 
+ * Translates an index to a position inside the border along the specified axis. 
+ * Relative position of neighbor octant and cell position inside neighbor octant is also computed in this function
+ * 
+ * @note no corners are included when dir=DIR_X, edges along Z are included when dir=DIR_Y, whole Z faces are included when DIR_Z
+ * ex : In 2D with a 2x2 block, x are ghosts in DIR_X, y are ghosts in DIR_Y and o are inner cells
+ * y y y y
+ * x o o x
+ * x o o x
+ * y y y y
+ * 
+ * @return See struct get_pos_t
+ **/
 template< int ndim, DIR_ID dir >
 get_pos_t get_pos( const Functor& f, Functor::index_t index )
 {
@@ -237,6 +259,14 @@ get_pos_t get_pos( const Functor& f, Functor::index_t index )
 
 using CellData = HydroState3d;
 
+/**
+ * Fetch data associated to a cell from a neighbor octant when neighbor and local octant have the same size
+ * 
+ * @param f ghost copy functor
+ * @param iOct_neigh index of neighbor octant
+ * @param pos_in_neighbor cell position inside neighbor
+ * @param is_ghost is neighbor octant a ghost octant?
+ **/
 template <int ndim>
 CellData get_cell_data_same_size( const Functor& f, uint32_t iOct_neigh, coord_t pos_in_neighbor, bool is_ghost)
 {
@@ -271,6 +301,30 @@ CellData get_cell_data_same_size( const Functor& f, uint32_t iOct_neigh, coord_t
     return res;
 }
 
+/**
+ * Fetch data associated to a cell from a neighbor octant when neighbor is larger than local octant
+ * 
+ * @param f ghost copy functor
+ * @param iOct_neigh index of neighbor octant
+ * @param pos_in_neighbor cell position inside neighbor
+ * @param is_ghost is neighbor octant a ghost octant?
+ * @param cell_physical_pos physical position of cell to fetch
+ * 
+ * ex :  Fetching x for local octant returns the value of X form neighbor,
+ *       Fetching y for local octant returns the value of Y form neighbor,
+ * Local :            Neighbor:
+ * 
+ * . . . . . .     
+ * . o o o o .      X   O   O   O
+ * . o o o o x 
+ * . o o o o .      O   O   O   O
+ * . o o o o .      
+ * . . . . . y      Y   O   O   O
+ *                  
+ *                  O   O   O   O
+ * 
+ * @note cell_physical_pos is necessary to determine in which sub-octant to fetch (see y in example above)
+ **/
 template <int ndim >
 CellData get_cell_data_larger( const Functor& f, uint32_t iOct_neigh, coord_t pos_in_neighbor, bool is_ghost, real_t cell_physical_pos[3])
 {
@@ -291,6 +345,33 @@ CellData get_cell_data_larger( const Functor& f, uint32_t iOct_neigh, coord_t po
 template< int ndim >
 int neighbor_count = (ndim == 2) ? 2 : 4;
 
+/**
+ * Fetch data associated to a cell from a neighbor octant when neighbor is smaller than local octant
+ * 
+ * @param f ghost copy functor
+ * @param iOct_neigh indexes of neighbor octants
+ * @param pos_in_neighbor cell position inside neighbor
+ * @param is_ghost are neighbor octants ghost octants?
+ * @param cell_physical_pos physical position of cell to fetch
+ * 
+ * ex :  Fetching X for local octant returns an interpolated value from x in neighbor,
+ *       Fetching Y for local octant returns an interpolated value from y in neighbor,
+ *         Local :             Neighbor:
+ * 
+ *      .   .   .   .
+ *                 
+ *   .  O   O   O   O  X        x x o o     
+ *                              x x o o  
+ *   .  O   O   O   O  Y        y y o o     
+ *                              y y o o     
+ *   .  O   O   O   O  .         
+ *                   
+ *   .  O   O   O   O  .
+ *      
+ *      .   .   .   .                
+ * 
+ * @note cell_physical_pos is necessary to determine in which sub-octant cell is in local octant
+ **/
 template <int ndim>
 CellData get_cell_data_smaller( const Functor& f, const std::vector<uint32_t>& iOcts_neigh, coord_t pos_in_neighbor, const std::vector<bool>& is_ghost, real_t cell_physical_pos[3])
 {                
@@ -372,11 +453,18 @@ CellData get_cell_data_smaller( const Functor& f, const std::vector<uint32_t>& i
     return res;
 }
 
+/**
+ * Generate data associated to a boundary cell
+ * 
+ * @param f ghost copy functor
+ * @param iOct_local indexes of local octant
+ * @param pos_in_local cell position inside local octant : (-1,0,0) is left ghost
+ * @param is_ghost are neighbor octants ghost octants?
+ * @param cell_physical_pos physical position of cell to fetch
+ **/ 
 template < int ndim, DIR_ID dir >
 CellData get_cell_data_border( const Functor& f, uint32_t iOct_local, coord_g_t pos_in_local, real_t cell_center_physical[3])
 {
-    //TODO : boundary conditions for corners
-    //(maybe just change bc_min/max according to position of octant?)
 
     // normal momentum sign
     real_t sign[3] = {1.0,1.0,1.0};
@@ -448,9 +536,16 @@ CellData get_cell_data_border( const Functor& f, uint32_t iOct_local, coord_g_t 
     return res;
 }
 
-// table : relative neighbor position -> "iface" parameter for findNeighbors() ( in fact iface+1 )
-// From dyablo/core/test/pablo/pablo_iface_ids.cpp
-// 2D is iface_from_pos[0][*][*]
+
+/**
+ * Table to convert neighbor relative position to "iface" parameter for findNeighbors()
+ * If neighbor octant is at position (x, y, z) relative to local octant (-1<=x,y,z<=1)
+ * iface for findNeighbors() is iface_from_pos[z+1][y+1][x+1]-1
+ * 
+ * In 2D : offset = (x,y,0) => iface = iface_from_pos[0][y+1][x+1]-1
+ * 
+ * Has been generated by https://gitlab.maisondelasimulation.fr/pkestene/dyablo/-/snippets/3
+ **/
 constexpr uint8_t iface_from_pos[3][3][3] = {
                         {{ 1, 3, 2 },
                             { 1, 5, 2 },
@@ -466,9 +561,12 @@ constexpr uint8_t CODIM_EDGE = 2;
 constexpr uint8_t CODIM_FACE = 1;
 
 /** 
- * When neighbor is larger, it is returned in only one `findNeighbours()` request
+ * When neighbor is larger, it is returned only in one `findNeighbours()` request
  * Sometimes `findNeighbours()` edge/node returns 0 neighbors because the only neighbor has already been returned by findNeighbour
- * on a lower codimension request. In this case, actual edge/node neighbor has to be searched in lower codimention neighbor
+ * on a lower codimension request. In this case, actual edge/node neighbor has to be searched in lower codimention neighbors
+ * 
+ * @param iOct_global index of local octant
+ * @param neighbor neighbor position relative to local octant ( (-1,0,0) is left neighbor )
  **/
 template < int ndim >
 void fix_missing_corner_neighbor( const Functor& f, uint32_t iOct_global, const coord_g_t& neighbor, const real_t cellPos[3], std::vector<uint32_t>& res_iOct_neighbors, std::vector<bool>& res_isghost_neighbors)
@@ -554,11 +652,29 @@ void fix_missing_corner_neighbor( const Functor& f, uint32_t iOct_global, const 
     }     
 }
 
+
+/**
+ * @brief Fetch data associated to a cell from a neighbor octant.
+ * 
+ * Find neighbor octant and drive call to 
+ *  * get_cell_data_same_size
+ *  * get_cell_data_larger
+ *  * get_cell_data_smaller
+ * according to the size of the neighbor
+ * 
+ * @param f ghost copy functor
+ * @param iOct_local index of local octant
+ * @param neighbor realtive position of neighbor octant ( (-1,0,0) is left neighbor )
+ * @param pos_in_neighbor cell position inside neighbor octant
+ * @param pos_in_local cell position inside local octant
+ * @return Cell data fetched from neighbor
+ **/
 template < int ndim, DIR_ID dir >
 CellData get_cell_data( const Functor& f, uint32_t iOct_local, coord_g_t neighbor, coord_t pos_in_neighbor, coord_g_t pos_in_local )
 {
     uint32_t iOct_global = iOct_local + f.iGroup * f.nbOctsPerGroup;
 
+    // Compute cell physical position
     bitpit::darray3 oct_origin = f.pmesh->getCoordinates(iOct_global);
     real_t oct_size = f.pmesh->getSize(iOct_global);
     real_t cell_size[3] = {
@@ -641,6 +757,14 @@ CellData get_cell_data( const Functor& f, uint32_t iOct_local, coord_g_t neighbo
     }
 }
 
+/**
+ * @brief Write cell data into local octant group data.
+ * 
+ * @param f ghost copy functor
+ * @param iOct_g index in group of local octant
+ * @param pos_in_local cell position inside local octant
+ * @param data cell data to write
+ **/
 template <int ndim>
 void write_cell_data( const Functor& f, uint32_t iOct_g, coord_g_t pos_in_local, const CellData& data )
 {
@@ -660,6 +784,19 @@ void write_cell_data( const Functor& f, uint32_t iOct_g, coord_g_t pos_in_local,
     }
 }
 
+
+/**
+ * @brief Sets the value of one cell inside a ghost face of local octant.
+ * 
+ * Iterate over cells in ghost faces of octant `iOct_g` using `index`
+ * 
+ * @tparam ndim number of dimensions (2 or 3)
+ * @tparam dir ghost direction. ex : if dir==DIR_X in 2D, resulting cell positions cover left AND right ghost cells
+ * @param f Ghost copy functor (to fetch simulation parameters)
+ * @param iOct_g index in group of local octant
+ * @param index index between 0 and the number of cells in border to be mapped to a position inside border 
+ *              (see get_pos() for the detail of the mapping index -> cell position)
+ **/
 template< int ndim, DIR_ID dir >
 void fill_ghost_faces( const Functor& f, uint32_t iOct_g, Functor::index_t index )
 {
@@ -676,6 +813,11 @@ void fill_ghost_faces( const Functor& f, uint32_t iOct_g, Functor::index_t index
     }
 }
 
+/**
+ * @brief Sets the value af a cell inside a ghost face of local octant when the cell is a boundary ghost
+ * 
+ * Similar to fill_ghost_faces() but for boundary cells
+ **/
 template< int ndim, DIR_ID dir >
 void fill_boundary_faces( const Functor& f, uint32_t iOct_local, Functor::index_t index )
 {
@@ -709,6 +851,11 @@ void fill_boundary_faces( const Functor& f, uint32_t iOct_local, Functor::index_
     }
 }
 
+/**
+ * @brief Set the values of every ghost cells in every octant of the group
+ * 
+ * Iterate over Octants assigned to the team and copy ghost cells data from neighbor octants. 
+ **/
 template< int ndim >
 void fill_ghosts(const Functor& f, Functor::team_policy_t::member_type member)
 {

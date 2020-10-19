@@ -12,6 +12,8 @@ namespace dyablo
 namespace muscl_block
 {
 
+
+/// @brief Kokkos functor to fill ghost cell data of all octants in the group 
 class CopyGhostBlockCellDataFunctor
 {
 public:
@@ -25,7 +27,15 @@ public:
                                 DataArrayBlock U_ghost, DataArrayBlock Ugroup,
                                 uint32_t iGroup,
                                 FlagArrayBlock Interface_flags);
-  // static method which does it all: create and execute functor
+  
+  /**
+   * @brief Fill ghost cell data of all octants in the group
+   * 
+   * static method which does it all: create and execute functor 
+   * 
+   * Ghost cells of current group octants are filled with values 
+   * from neighbor octants. Fills faces, edges and corners.
+   **/
   static void apply(std::shared_ptr<AMRmesh> pmesh, ConfigMap configMap,
                     HydroParams params, id2index_t fm, blockSize_t blockSizes,
                     uint32_t ghostWidth, uint32_t nbOctsPerGroup,
@@ -58,6 +68,7 @@ public :
   uint32_t by_g;
   uint32_t bz_g;
 
+  //! physical bounds of octree
   real_t tree_min[3] = {0,0,0};
   real_t tree_max[3] = {1,1,1};
 
