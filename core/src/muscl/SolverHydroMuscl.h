@@ -47,12 +47,7 @@ public:
   /**
    * Static creation method called by the solver factory.
    */
-  static SolverBase* create(HydroParams& params, ConfigMap& configMap)
-  {
-    SolverHydroMuscl* solver = new SolverHydroMuscl(params, configMap);
-
-    return solver;
-  }
+  static SolverBase* create(HydroParams& params, ConfigMap& configMap);
 
   DataArray     U;     /*!< hydrodynamics conservative variables arrays at t_n */
   DataArrayHost Uhost; /*!< mirror DataArray U on host memory space */

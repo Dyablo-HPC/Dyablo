@@ -17,11 +17,14 @@ target_link_libraries(${EXE_NAME}
   config
   Kokkos::kokkos
   dl
-  muscl
   muscl_block
   shared
   monitoring
   BITPIT::BITPIT)
+
+if( NOT Kokkos_ENABLE_CUDA )
+  target_link_libraries(${EXE_NAME} muscl)
+endif()
 
 if (DYABLO_USE_MPI)  
   target_compile_definitions(${EXE_NAME} PUBLIC BITPIT_ENABLE_MPI)

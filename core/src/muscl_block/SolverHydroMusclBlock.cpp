@@ -261,17 +261,17 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
       
       init_implode(this);
       
-    } 
+    } else if ( !m_problem_name.compare("blast") ) {
+      
+      init_blast(this);
+      
+    }
 #ifdef KOKKOS_ENABLE_CUDA
 #warning("Initial conditions are not compiled when cuda backend is used!!!")
 #else
     else if ( !m_problem_name.compare("sod") ) {
       
       init_sod(this);
-      
-    } else if ( !m_problem_name.compare("blast") ) {
-      
-      init_blast(this);
       
     } else if ( !m_problem_name.compare("kelvin_helmholtz") ) {
       
@@ -743,7 +743,7 @@ void SolverHydroMusclBlock::save_solution_hdf5()
     hdf5_writer->write_header(m_t);
 
     // write user the fake data (all scalar fields, here only one)
-    hdf5_writer->write_quadrant_attribute(U, fm, names2index);
+    hdf5_writer->write_quadrant_attribute(Uhost, fm, names2index);
 
     // check if we want to write velocity or rhoV vector fields
     std::string write_variables = configMap.getString("output", "write_variables", "");
@@ -758,15 +758,15 @@ void SolverHydroMusclBlock::save_solution_hdf5()
       // we could have used primitive variables, but since here Q
       // may not have the same size, Q may need to be resized
       // and recomputed anyway.
-      hdf5_writer->write_quadrant_mach_number(U, fm);
+      hdf5_writer->write_quadrant_mach_number(Uhost, fm);
     }
 
     if (write_variables.find("P") != std::string::npos) {
-      hdf5_writer->write_quadrant_pressure(U, fm);
+      hdf5_writer->write_quadrant_pressure(Uhost, fm);
     }
 
     if (write_variables.find("iOct") != std::string::npos)
-      hdf5_writer->write_quadrant_id(U);
+      hdf5_writer->write_quadrant_id(Uhost);
 
     // close the file
     hdf5_writer->write_footer();

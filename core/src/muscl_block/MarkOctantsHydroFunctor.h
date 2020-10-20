@@ -47,9 +47,10 @@ class MarkOctantsHydroFunctor {
 
 private:
   uint32_t nbTeams; //!< number of thread teams
+  using markers_t = Kokkos::View<int*>;
 
 public:
-  using team_policy_t = Kokkos::TeamPolicy<Kokkos::OpenMP,Kokkos::IndexType<int32_t>>;
+  using team_policy_t = Kokkos::TeamPolicy<Kokkos::IndexType<int32_t>>;
   using thread_t = team_policy_t::member_type;
 
   void setNbTeams(uint32_t nbTeams_) {nbTeams = nbTeams_;};
@@ -85,8 +86,9 @@ public:
                           DataArrayBlock Qgroup,
                           uint32_t       iGroup,
                           real_t         error_min,
-                          real_t         error_max) :
-    pmesh(pmesh),
+                          real_t         error_max,
+                          markers_t      markers) :
+    lmesh(pmesh,params),
     params(params),
     fm(fm),
     blockSizes(blockSizes),
@@ -98,7 +100,8 @@ public:
     error_min(error_min),
     error_max(error_max),
     eps(std::numeric_limits<real_t>::epsilon()),
-    epsref(0.01)
+    epsref(0.01),
+    markers(markers)
   {
   
     bx_g = blockSizes[IX] + 2 * (ghostWidth);
@@ -129,6 +132,9 @@ public:
                     real_t         error_min,
                     real_t         error_max)
   {
+    markers_t markers("dyablo::muscl_block::MarkOctantsHydroFunctor::markers", nbOctsPerGroup );
+    
+
     MarkOctantsHydroFunctor functor(pmesh, params, fm,
                                     blockSizes,
                                     ghostWidth,
@@ -137,21 +143,39 @@ public:
                                     Qgroup, 
                                     iGroup,
                                     error_min, 
-                                    error_max);
+                                    error_max,
+                                    markers);
 
     // kokkos execution policy
     uint32_t nbTeams_ = configMap.getInteger("amr","nbTeams",16);
     functor.setNbTeams ( nbTeams_ );
     
-    // TODO : Run on GPU : need to compute markers on GPU THEN feed them to PABLO on CPU
-    team_policy_t policy (Kokkos::OpenMP(),
-                          nbTeams_,
+    team_policy_t policy (nbTeams_,
                           Kokkos::AUTO() /* team size chosen by kokkos */);
 
-    // this is a parallel for loop
+    // Compute markers for every octant
     Kokkos::parallel_for("dyablo::muscl_block::MarkOctantsHydroFunctor",
                          policy, 
                          functor);
+    
+    //Feed markers to PABLO octree
+    {
+      auto markers_host = Kokkos::create_mirror(markers);
+      Kokkos::deep_copy(markers_host, markers);
+
+      // iOct must span the range [iGroup*nbOctsPerGroup ,
+      // (iGroup+1)*nbOctsPerGroup [
+      //TODO : parallel_for OpenMP
+      uint32_t iOctBegin = iGroup * nbOctsPerGroup;
+      for( uint32_t iOct_local=0; 
+           iOct_local<nbOctsPerGroup && iOct_local + iOctBegin < nbOcts ; 
+           iOct_local++)
+      {
+        uint32_t iOct_global = iOct_local + iOctBegin;
+        pmesh->setMarker(iOct_global, markers_host(iOct_local));
+      }
+    }
+
   } // apply
 
   // ======================================================
@@ -209,7 +233,7 @@ public:
   
   // ======================================================
   // ======================================================
-  //KOKKOS_INLINE_FUNCTION
+  KOKKOS_INLINE_FUNCTION
   void functor_2d(const thread_t& member) const
   {
     
@@ -224,17 +248,14 @@ public:
     uint32_t iOctNextGroup = (iGroup + 1) * nbOctsPerGroup;
     
     while (iOct < iOctNextGroup and iOct < nbOcts)
-      {
+    {
+	    const int nrefvar=2;
+	    uint8_t ref_var[nrefvar] {ID, IP};     
+	    real_t error = 0.0;
 
-	const int nrefvar=2;
-	uint8_t ref_var[nrefvar] {ID, IP};
-
-      
-	real_t error = 0.0;
-
-	Kokkos::parallel_reduce(
+	    Kokkos::parallel_reduce(
 				Kokkos::TeamVectorRange(member, nbCellsPerBlock),
-				[=](const int32_t iCellInner, real_t& local_error) {
+				KOKKOS_LAMBDA(const int32_t iCellInner, real_t& local_error) {
 				  int32_t j = iCellInner / bx;
 				  int32_t i = iCellInner - j*bx;
 				  
@@ -250,28 +271,24 @@ public:
       // now error has been computed, we can mark / flag octant for 
       // refinement or coarsening
       
-      // get current cell level
-      uint8_t level = pmesh->getLevel(iOct);
-      
       // -1 means coarsen
       //  0 means don't modify
       // +1 means refine
       int criterion = -1;
 
       if (error > error_min)
-	criterion = criterion < 0 ? 0 : criterion;
-      
+	      criterion = criterion < 0 ? 0 : criterion;      
       if (error > error_max)
-	criterion = criterion < 1 ? 1 : criterion;
+	      criterion = criterion < 1 ? 1 : criterion;
       
+      // get current cell level
+      uint8_t level = lmesh.getLevel({iOct,false});
       if ( level < params.level_max and criterion==1 )
-	pmesh->setMarker(iOct,1);
-      
+	      markers(iOct_local)=1;      
       else if ( level > params.level_min and criterion==-1)
-	pmesh->setMarker(iOct,-1);
-      
+        markers(iOct_local)=-1;      
       else
-	pmesh->setMarker(iOct,0);
+        markers(iOct_local)=0;
       
       iOct       += nbTeams;
       iOct_local += nbTeams;
@@ -325,7 +342,7 @@ public:
 
   } // compute_second_derivative
 
-  //KOKKOS_INLINE_FUNCTION
+  KOKKOS_INLINE_FUNCTION
   void functor_3d(const thread_t &member) const
   {
     // iOct must span the range [iGroup*nbOctsPerGroup ,
@@ -379,7 +396,7 @@ public:
       // refinement or coarsening
 
       // get current cell level
-      uint8_t level = pmesh->getLevel(iOct);
+      uint8_t level = lmesh.getLevel({iOct,false});
 
       // -1 means coarsen
       //  0 means don't modify
@@ -393,13 +410,11 @@ public:
         criterion = criterion < 1 ? 1 : criterion;
 
       if (level < params.level_max and criterion == 1)
-        pmesh->setMarker(iOct, 1);
-
+        markers(iOct_local)=1; 
       else if (level > params.level_min and criterion == -1)
-        pmesh->setMarker(iOct, -1);
-
+        markers(iOct_local)=-1; 
       else
-        pmesh->setMarker(iOct, 0);
+        markers(iOct_local)=0; 
 
       iOct += nbTeams;
       iOct_local += nbTeams;
@@ -407,7 +422,7 @@ public:
     } // end while iOct < nbOct
   }   // operator ()
 
-  //KOKKOS_INLINE_FUNCTION
+  KOKKOS_INLINE_FUNCTION
   void operator()(const thread_t& member) const
   {
     if( params.dimType == TWO_D )
@@ -422,7 +437,7 @@ public:
   }
   
 //! bitpit/PABLO amr mesh object
-  std::shared_ptr<AMRmesh> pmesh;
+  LightOctree lmesh;
 
   //! general parameters
   HydroParams    params;
@@ -472,6 +487,8 @@ public:
 
   //! constant used in second derivative computation
   real_t         epsref;
+
+  markers_t markers;
 
 }; // MarkOctantsHydroFunctor
 

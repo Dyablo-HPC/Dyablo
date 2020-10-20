@@ -249,7 +249,7 @@ public:
     
   } // apply
   
-  KOKKOS_INLINE_FUNCTION
+  //KOKKOS_INLINE_FUNCTION
   void operator()(const size_t& iOct) const
   {
 

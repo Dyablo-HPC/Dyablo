@@ -24,7 +24,14 @@ else()
     ${CMAKE_CURRENT_SOURCE_DIR}/SolverHydroMusclBlock.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/CopyGhostBlockCellData.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitImplode.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitBlast.cpp
     )
+  # add MPI user data communication interface
+  if (DYABLO_USE_MPI)
+    list(APPEND muscl_block_SRCS
+      ${CMAKE_CURRENT_SOURCE_DIR}/UserDataComm.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/UserDataLB.cpp)
+  endif(DYABLO_USE_MPI)
 endif()
 
 

@@ -109,7 +109,11 @@ int main(int argc, char *argv[])
   if (solver_name.find("Muscl_Block") != std::string::npos) {
     solver = muscl_block::SolverHydroMusclBlock::create(params, configMap);
   } else {
+#ifdef KOKKOS_ENABLE_CUDA
+    assert(false); //SolverHydroMuscl not compatible with CUDA backend
+#else
     solver = muscl::SolverHydroMuscl::create(params, configMap);
+#endif
   }
 
   // start computation
