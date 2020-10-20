@@ -19,6 +19,7 @@
 
 // utils block
 #include "muscl_block/utils_block.h"
+#include "muscl_block/LightOctree.h"
 
 namespace dyablo
 {
@@ -55,11 +56,7 @@ namespace muscl_block
  */
 class MusclBlockGodunovUpdateFunctor
 {
-
-private:
-  using offsets_t = Kokkos::Array<real_t, 3>;
-  uint32_t nbTeams; //!< number of thread teams
-
+public:
   //! Tag structure for the 2 stages
   struct Slopes
   {
@@ -67,6 +64,9 @@ private:
   struct Fluxes
   {
   }; // stage 2
+private:
+  using offsets_t = Kokkos::Array<real_t, 3>;
+  uint32_t nbTeams; //!< number of thread teams
 
   using team_policy1_t = Kokkos::TeamPolicy<Slopes, Kokkos::IndexType<int32_t>>;
   using thread1_t = team_policy1_t::member_type;
@@ -109,7 +109,7 @@ public:
                                  DataArrayBlock U2,
                                  DataArrayBlock Qgroup,
                                  InterfaceFlags interface_flags,
-                                 real_t dt) : pmesh(pmesh),
+                                 real_t dt) : lmesh(pmesh, params),
                                               params(params),
                                               fm(fm),
                                               blockSizes(blockSizes),
@@ -235,18 +235,12 @@ public:
                                       GravityField &g0,
                                       GravityField &g1) const
   {
-
-    uint8_t codim = 1;
-
     const uint32_t &bx = blockSizes[IX];
     const uint32_t &by = blockSizes[IY];
 
-    uint8_t iface = face + 2 * dir;
-
-    std::vector<uint32_t> neigh;
-    std::vector<bool> is_ghost;
-
-    pmesh->findNeighbours(iOct, iface, codim, neigh, is_ghost);
+    LightOctree::offset_t offset = {0,0,0};
+    offset[dir] = (face==FACE_LEFT) ? -1 : 1;
+    LightOctree::NeighborList neighbors = lmesh.findNeighbors({iOct,false}, offset);
 
     uint32_t ii, jj; // Coords of the first neighbour
     uint8_t iNeigh = 0;
@@ -288,28 +282,28 @@ public:
       HydroState2d &q = (ip == 0 ? q0 : q1);
       GravityField &g = (ip == 0 ? g0 : g1);
       HydroState2d u;
-      if (is_ghost[iNeigh])
+      if (neighbors[iNeigh].isGhost)
       {
-        u[ID] = U_ghost(index_border, fm[ID], neigh[iNeigh]);
-        u[IP] = U_ghost(index_border, fm[IP], neigh[iNeigh]);
-        u[IU] = U_ghost(index_border, fm[IU], neigh[iNeigh]);
-        u[IV] = U_ghost(index_border, fm[IV], neigh[iNeigh]);
+        u[ID] = U_ghost(index_border, fm[ID], neighbors[iNeigh].iOct);
+        u[IP] = U_ghost(index_border, fm[IP], neighbors[iNeigh].iOct);
+        u[IU] = U_ghost(index_border, fm[IU], neighbors[iNeigh].iOct);
+        u[IV] = U_ghost(index_border, fm[IV], neighbors[iNeigh].iOct);
 
         if (params.gravity_type & GRAVITY_FIELD) {
-          g[IX] = U_ghost(index_border, fm[IGX], neigh[iNeigh]);
-          g[IY] = U_ghost(index_border, fm[IGY], neigh[iNeigh]);
+          g[IX] = U_ghost(index_border, fm[IGX], neighbors[iNeigh].iOct);
+          g[IY] = U_ghost(index_border, fm[IGY], neighbors[iNeigh].iOct);
         }
       }
       else
       {
-        u[ID] = U(index_border, fm[ID], neigh[iNeigh]);
-        u[IP] = U(index_border, fm[IP], neigh[iNeigh]);
-        u[IU] = U(index_border, fm[IU], neigh[iNeigh]);
-        u[IV] = U(index_border, fm[IV], neigh[iNeigh]);
+        u[ID] = U(index_border, fm[ID], neighbors[iNeigh].iOct);
+        u[IP] = U(index_border, fm[IP], neighbors[iNeigh].iOct);
+        u[IU] = U(index_border, fm[IU], neighbors[iNeigh].iOct);
+        u[IV] = U(index_border, fm[IV], neighbors[iNeigh].iOct);
 
         if (params.gravity_type & GRAVITY_FIELD) {
-          g[IX] = U(index_border, fm[IGX], neigh[iNeigh]);
-          g[IY] = U(index_border, fm[IGY], neigh[iNeigh]);
+          g[IX] = U(index_border, fm[IGX], neighbors[iNeigh].iOct);
+          g[IY] = U(index_border, fm[IGY], neighbors[iNeigh].iOct);
         }
       }
 
@@ -445,6 +439,7 @@ public:
       const real_t drgt = slope_type * (qPlus - q);
       const real_t dcen = HALF_F * (qPlus - qMinus);
       const real_t dsgn = (dcen >= ZERO_F) ? ONE_F : -ONE_F;
+      if( std::isnan(dlft) or std::isnan(drgt)  ) return std::nan("");
       const real_t slop = fmin(FABS(dlft), FABS(drgt));
       real_t dlim = slop;
       if ((dlft * drgt) <= ZERO_F)
@@ -497,6 +492,7 @@ public:
       const real_t drgt = slope_type * (qPlus - q);
       const real_t dcen = HALF_F * (qPlus - qMinus);
       const real_t dsgn = (dcen >= ZERO_F) ? ONE_F : -ONE_F;
+      if( std::isnan(dlft) or std::isnan(drgt)  ) return std::nan("");
       const real_t slop = fmin(FABS(dlft), FABS(drgt));
       real_t dlim = slop;
       if ((dlft * drgt) <= ZERO_F)
@@ -937,8 +933,8 @@ public:
     while (iOct < iOctNextGroup and iOct < nbOcts)
     {
       // compute dx / dy
-      const real_t dx = pmesh->getSize(iOct) * Lx / bx;
-      const real_t dy = pmesh->getSize(iOct) * Ly / by;
+      const real_t dx = lmesh.getSize({iOct,false}) * Lx / bx;
+      const real_t dy = lmesh.getSize({iOct,false}) * Ly / by;
 
       // TODO : Factor the update of U2 in an inline function instea of repeating the same block
       // of code again and again
@@ -1299,8 +1295,8 @@ public:
     {
 
       // compute dx / dy
-      const real_t dx = pmesh->getSize(iOct) * Lx / bx;
-      const real_t dy = pmesh->getSize(iOct) * Ly / by;
+      const real_t dx = lmesh.getSize({iOct,false}) * Lx / bx;
+      const real_t dy = lmesh.getSize({iOct,false}) * Ly / by;
 
       const real_t dtdx = dt / dx;
       const real_t dtdy = dt / dy;
@@ -1323,8 +1319,8 @@ public:
 
             // the following condition makes sure we stay inside
             // the inner block
-            if (i >= 0 and i < bx and
-                j >= 0 and j < by)
+            if (/*i >= 0 and*/ i < bx and
+                /*j >= 0 and*/ j < by)
             {
               // get current location primitive variables state
               HydroState2d qprim = get_prim_variables<HydroState2d>(ig, iOct_local);
@@ -1442,8 +1438,8 @@ public:
     {
 
       // compute dx / dy
-      const real_t dx = (iOct < nbOcts) ? pmesh->getSize(iOct) / bx : 1.0;
-      const real_t dy = (iOct < nbOcts) ? pmesh->getSize(iOct) / by : 1.0;
+      const real_t dx = (iOct < nbOcts) ? lmesh.getSize({iOct,false}) / bx : 1.0;
+      const real_t dy = (iOct < nbOcts) ? lmesh.getSize({iOct,false}) / by : 1.0;
 
       const real_t dtdx = dt / dx;
       const real_t dtdy = dt / dy;
@@ -1749,9 +1745,9 @@ public:
     while (iOct < iOctNextGroup and iOct < nbOcts)
     {
       // compute dx / dy
-      const real_t dx = pmesh->getSize(iOct) * Lx / bx;
-      const real_t dy = pmesh->getSize(iOct) * Ly / by;
-      const real_t dz = pmesh->getSize(iOct) * Lz / bz;
+      const real_t dx = lmesh.getSize({iOct,false}) * Lx / bx;
+      const real_t dy = lmesh.getSize({iOct,false}) * Ly / by;
+      const real_t dz = lmesh.getSize({iOct,false}) * Lz / bz;
 
       const real_t dtdx = dt / dx;
       const real_t dtdy = dt / dy;
@@ -1776,9 +1772,9 @@ public:
 
             // the following condition makes sure we stay inside
             // the inner block
-            if (i >= 0 and i < bx and
-                j >= 0 and j < by and
-                k >= 0 and k < bz )
+            if (/*i >= 0 and*/ i < bx and
+                /*j >= 0 and*/ j < by and
+                /*k >= 0 and*/ k < bz )
             {
               // get current location primitive variables state
               HydroState3d qprim = get_prim_variables<HydroState3d>(ig, iOct_local);
@@ -1937,7 +1933,7 @@ public:
   } // operator () - fluxes and update
 
   //! bitpit/PABLO amr mesh object
-  std::shared_ptr<AMRmesh> pmesh;
+  LightOctree lmesh;
 
   //! general parameters
   HydroParams params;

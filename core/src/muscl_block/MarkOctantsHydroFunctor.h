@@ -49,7 +49,7 @@ private:
   uint32_t nbTeams; //!< number of thread teams
 
 public:
-  using team_policy_t = Kokkos::TeamPolicy<Kokkos::IndexType<int32_t>>;
+  using team_policy_t = Kokkos::TeamPolicy<Kokkos::OpenMP,Kokkos::IndexType<int32_t>>;
   using thread_t = team_policy_t::member_type;
 
   void setNbTeams(uint32_t nbTeams_) {nbTeams = nbTeams_;};
@@ -143,7 +143,9 @@ public:
     uint32_t nbTeams_ = configMap.getInteger("amr","nbTeams",16);
     functor.setNbTeams ( nbTeams_ );
     
-    team_policy_t policy (nbTeams_,
+    // TODO : Run on GPU : need to compute markers on GPU THEN feed them to PABLO on CPU
+    team_policy_t policy (Kokkos::OpenMP(),
+                          nbTeams_,
                           Kokkos::AUTO() /* team size chosen by kokkos */);
 
     // this is a parallel for loop
@@ -207,7 +209,7 @@ public:
   
   // ======================================================
   // ======================================================
-  KOKKOS_INLINE_FUNCTION
+  //KOKKOS_INLINE_FUNCTION
   void functor_2d(const thread_t& member) const
   {
     
@@ -323,7 +325,7 @@ public:
 
   } // compute_second_derivative
 
-  KOKKOS_INLINE_FUNCTION
+  //KOKKOS_INLINE_FUNCTION
   void functor_3d(const thread_t &member) const
   {
     // iOct must span the range [iGroup*nbOctsPerGroup ,
@@ -405,7 +407,7 @@ public:
     } // end while iOct < nbOct
   }   // operator ()
 
-  KOKKOS_INLINE_FUNCTION
+  //KOKKOS_INLINE_FUNCTION
   void operator()(const thread_t& member) const
   {
     if( params.dimType == TWO_D )

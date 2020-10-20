@@ -27,8 +27,7 @@
 #include "muscl_block/SolverHydroMusclBlock.h"
 
 #include "muscl_block/CopyInnerBlockCellData.h"
-#include "muscl_block/CopyFaceBlockCellData.h"
-#include "muscl_block/CopyCornerBlockCellData.h"
+#include "muscl_block/CopyGhostBlockCellData.h"
 #include "muscl_block/ConvertToPrimitivesHydroFunctor.h"
 #include "muscl_block/MusclBlockGodunovUpdateFunctor.h"
 #include "muscl_block/ComputeDtHydroFunctor.h"
@@ -36,7 +35,6 @@
 using Device = Kokkos::DefaultExecutionSpace;
 
 #include <boost/test/unit_test.hpp>
-using namespace boost::unit_test;
 
 namespace dyablo {
 
@@ -141,6 +139,7 @@ void run_test(int argc, char *argv[]) {
 
   DataArrayBlock Ugroup = DataArrayBlock("Ugroup", nbCellsPerOct_g, params.nbvar, nbOctsPerGroup);
   DataArrayBlock Qgroup = DataArrayBlock("Qgroup", nbCellsPerOct_g, params.nbvar, nbOctsPerGroup);
+  DataArrayBlockHost Qgroup_host = Kokkos::create_mirror_view(Qgroup);
   
   uint32_t iGroup = 1;
 
@@ -168,7 +167,7 @@ void run_test(int argc, char *argv[]) {
     for (uint32_t iy=0; iy<by; ++iy) {
       for (uint32_t ix=0; ix<bx; ++ix) {
         uint32_t index = ix + bx*(iy+by*iz);
-        printf("%5f ",solver->U(index,fm[ID],iOct_global));
+        printf("%5f ",solver->Uhost(index,fm[ID],iOct_global));
       }
       std::cout << "\n";
     }
@@ -195,7 +194,7 @@ void run_test(int argc, char *argv[]) {
                                        iGroup);
 
   {
-    CopyFaceBlockCellDataFunctor::apply(solver->amr_mesh,
+    CopyGhostBlockCellDataFunctor::apply(solver->amr_mesh,
                                         configMap,
                                         params, 
                                         fm,
@@ -207,22 +206,31 @@ void run_test(int argc, char *argv[]) {
                                         Ugroup, 
                                         iGroup,
                                         solver->interface_flags);
+    // CopyFaceBlockCellDataFunctor::apply(solver->amr_mesh,
+    //                                     configMap,
+    //                                     params, 
+    //                                     fm,
+    //                                     blockSizes,
+    //                                     ghostWidth,
+    //                                     nbOctsPerGroup,
+    //                                     solver->U, 
+    //                                     solver->Ughost, 
+    //                                     Ugroup, 
+    //                                     iGroup,
+    //                                     solver->interface_flags);
     
-  } // end testing CopyFaceBlockCellDataFunctor
-
-  {
-    CopyCornerBlockCellDataFunctor::apply(solver->amr_mesh,
-                                          configMap,
-                                          params,
-                                          fm,
-                                          blockSizes,
-                                          ghostWidth,
-                                          nbOctsPerGroup,
-                                          solver->U,
-                                          solver->Ughost,
-                                          Ugroup,
-                                          iGroup,
-                                          solver->interface_flags);
+    // CopyCornerBlockCellDataFunctor::apply(solver->amr_mesh,
+    //                                       configMap,
+    //                                       params,
+    //                                       fm,
+    //                                       blockSizes,
+    //                                       ghostWidth,
+    //                                       nbOctsPerGroup,
+    //                                       solver->U,
+    //                                       solver->Ughost,
+    //                                       Ugroup,
+    //                                       iGroup,
+    //                                       solver->interface_flags);
   }
 
   // also testing ConvertToPrimitivesHydroFunctor
@@ -238,10 +246,12 @@ void run_test(int argc, char *argv[]) {
                                            Ugroup, 
                                            Qgroup);
 
+
+    Kokkos::deep_copy(Qgroup_host, Qgroup);
     for (uint32_t iy = 0; iy < by_g; ++iy) {
       for (uint32_t ix = 0; ix < bx_g; ++ix) {
         uint32_t index = ix + bx_g * iy;
-        printf("%5f ", Qgroup(index, fm[ID], iOct_local));
+        printf("%5f ", Qgroup_host(index, fm[ID], iOct_local));
       }
       std::cout << "\n";
     }
@@ -283,11 +293,11 @@ void run_test(int argc, char *argv[]) {
                                           Qgroup, 
                                           solver->interface_flags,
                                           dt);
-
+    Kokkos::deep_copy(Qgroup_host, Qgroup);
     for (uint32_t iy = 0; iy < by_g; ++iy) {
       for (uint32_t ix = 0; ix < bx_g; ++ix) {
         uint32_t index = ix + bx_g * iy;
-        printf("%5f ", Qgroup(index, fm[ID], iOct_local));
+        printf("%5f ", Qgroup_host(index, fm[ID], iOct_local));
       }
       std::cout << "\n";
     }
@@ -301,25 +311,26 @@ void run_test(int argc, char *argv[]) {
     //   std::cout << "\n";
     // }
     // std::cout << "\n";
-
+    Kokkos::deep_copy( solver->Uhost, solver->U);
     for (uint32_t iy = 0; iy < by; ++iy) {
       for (uint32_t ix = 0; ix < bx; ++ix) {
         uint32_t index = ix + bx * iy;
-        printf("%5f ", solver->U(index, fm[ID], iOct_global));
+        printf("%5f ", solver->Uhost(index, fm[ID], iOct_global));
       }
       std::cout << "\n";
     }
     std::cout << "\n";
 
+    DataArrayBlockHost U2_host = Kokkos::create_mirror_view(solver->U2);
+    Kokkos::deep_copy( U2_host, solver->U2);
     for (uint32_t iy = 0; iy < by; ++iy) {
       for (uint32_t ix = 0; ix < bx; ++ix) {
         uint32_t index = ix + bx * iy;
-        printf("%5f ", solver->U2(index, fm[ID], iOct_global));
+        printf("%5f ", U2_host(index, fm[ID], iOct_global));
       }
       std::cout << "\n";
     }
     std::cout << "\n";
-
   }
 
   delete solver;
@@ -338,8 +349,8 @@ BOOST_AUTO_TEST_SUITE(muscl_block)
 BOOST_AUTO_TEST_CASE(test_MusclBlockGodunovUpdateFunctor)
 {
 
-  run_test(framework::master_test_suite().argc,
-           framework::master_test_suite().argv);
+  run_test(boost::unit_test::framework::master_test_suite().argc,
+           boost::unit_test::framework::master_test_suite().argv);
 
 }
 

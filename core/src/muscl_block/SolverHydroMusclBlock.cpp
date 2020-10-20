@@ -23,7 +23,6 @@
 #include "muscl_block/ComputeDtHydroFunctor.h"
 #include "muscl_block/ConvertToPrimitivesHydroFunctor.h"
 #include "muscl_block/MusclBlockGodunovUpdateFunctor.h"
-#include "muscl_block/MusclBlockSharedGodunovUpdateFunctor.h"
 #include "muscl_block/MarkOctantsHydroFunctor.h"
 
 // // compute functor for low Mach flows
@@ -31,14 +30,14 @@
 
 // Block data related functors
 #include "muscl_block/CopyInnerBlockCellData.h"
-#include "muscl_block/CopyFaceBlockCellData.h"
-#include "muscl_block/CopyCornerBlockCellData.h"
 #include "muscl_block/CopyGhostBlockCellData.h"
 
 #if BITPIT_ENABLE_MPI==1
 #include "muscl_block/UserDataComm.h"
 #include "muscl_block/UserDataLB.h"
 #endif
+
+#include <Kokkos_Macros.hpp> // for KOKKOS_ENABLE_XXX
 
 //#include "shared/mpiBorderUtils.h"
 
@@ -176,7 +175,6 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   // retrieve available / allowed names: fieldManager, and field map (fm)
   // necessary to access user data
   fieldMgr.setup(params, configMap);
-
   // perform init condition
   init(U);
   
@@ -258,11 +256,16 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
     /*
      * initialize hydro array at t=0
      */
+
     if ( !m_problem_name.compare("implode") ) {
       
       init_implode(this);
       
-    } else if ( !m_problem_name.compare("sod") ) {
+    } 
+#ifdef KOKKOS_ENABLE_CUDA
+#warning("Initial conditions are not compiled when cuda backend is used!!!")
+#else
+    else if ( !m_problem_name.compare("sod") ) {
       
       init_sod(this);
       
@@ -298,9 +301,12 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
       
       init_rayleigh_taylor(this);
       
-    } else if ( !m_problem_name.compare("custom") ) {
+    }   
+    else if ( !m_problem_name.compare("custom") ) {
       // Don't do anything here, let the user setup their own problem
-    } else {
+    } 
+#endif //KOKKOS_USE_CUDA
+    else {
       
       std::cout << "Problem : " << m_problem_name
 		<< " is not recognized / implemented."
@@ -308,7 +314,7 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
       std::cout <<  "Use default - implode" << std::endl;
       init_implode(this);
       
-    }
+    }  
     
     // initialize U2
     Kokkos::deep_copy(U2,U);
@@ -923,13 +929,20 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
   uint32_t nocts = amr_mesh->getNumOctants();
   Kokkos::resize(U, nbCellsPerOct, nbFields, nocts);
 
+  auto U_host = create_mirror_view(U);
+  auto U2_host = create_mirror_view(U2);
+  auto Ughost_host = create_mirror_view(Ughost);
+
+  Kokkos::deep_copy(U2_host, U2);
+  Kokkos::deep_copy(Ughost_host, Ughost);
+
     // reset U
   Kokkos::parallel_for("dyablo::muscl_block::SolverHydroMusclBlock reset U",
-                       nocts, 
-                       KOKKOS_LAMBDA(const size_t iOct) {
+                       Kokkos::RangePolicy<Kokkos::OpenMP>( 0, nocts), 
+                       [=](const size_t iOct) {
                           for (uint32_t index=0; index<nbCellsPerOct; ++index) {
                             for (int ifield=0; ifield<nbFields; ++ifield)
-                              U(index,ifield,iOct)=0.0;
+                              U_host(index,ifield,iOct)=0.0;
                           }
                        });
   /*
@@ -1000,9 +1013,9 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
             
             for (int ifield = 0; ifield < nbFields; ++ifield) {
               
-              U(iCell, ifield, iOct) += (isghost[iOctChild]) ?
-                Ughost(iCellChild, ifield, mapper[iOctChild])/m_nbChildren :
-                U2    (iCellChild, ifield, mapper[iOctChild])/m_nbChildren ;
+              U_host(iCell, ifield, iOct) += (isghost[iOctChild]) ?
+                Ughost_host(iCellChild, ifield, mapper[iOctChild])/m_nbChildren :
+                U2_host    (iCellChild, ifield, mapper[iOctChild])/m_nbChildren ;
               
             } // end for ifield
           } // end for i,j
@@ -1058,9 +1071,9 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
 
               for (int ifield = 0; ifield < nbFields; ++ifield) {
 
-                U(iCell, ifield, iOct) += (isghost[iOctChild]) ?
-                  Ughost(iCellChild, ifield, mapper[iOctChild])/m_nbChildren :
-                  U2    (iCellChild, ifield, mapper[iOctChild])/m_nbChildren ;
+                U_host(iCell, ifield, iOct) += (isghost[iOctChild]) ?
+                  Ughost_host(iCellChild, ifield, mapper[iOctChild])/m_nbChildren :
+                  U2_host    (iCellChild, ifield, mapper[iOctChild])/m_nbChildren ;
                 
               } // end for ivar
             } // end for i,j,k
@@ -1088,7 +1101,7 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
           uint32_t parent_id = ii + jj*bx;
           
           for (int ifield = 0; ifield < nbFields; ++ifield) {
-            U(iCell, ifield, iOct) = U2(parent_id, ifield, mapper[0]);
+            U_host(iCell, ifield, iOct) = U2_host(parent_id, ifield, mapper[0]);
           } // end for ivar
         } // end for iCell
 
@@ -1123,7 +1136,7 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
           uint32_t parent_id = ii + jj*bx + kk*bxby;
           
           for (int ifield = 0; ifield < nbFields; ++ifield) {
-            U(iCell, ifield, iOct) = U2(parent_id, ifield, mapper[0]);
+            U_host(iCell, ifield, iOct) = U2_host(parent_id, ifield, mapper[0]);
           } // end for ivat
         } // end for iCell
 
@@ -1136,7 +1149,7 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
       // current cell is just an old cell so we just copy data
       for (uint32_t iCell = 0; iCell < nbCellsPerOct; ++iCell) {
         for (int ifield = 0; ifield < nbFields; ++ifield) {
-          U(iCell, ifield, iOct) = U2(iCell, ifield, mapper[0]);
+          U_host(iCell, ifield, iOct) = U2_host(iCell, ifield, mapper[0]);
         } // end for ivar
       } // end vor iCell
     } // end if isNewC/isNewR
@@ -1145,6 +1158,7 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
   // now U contains the most up to date data after mesh adaptation
   // we can resize U2 for the next time-step
   Kokkos::resize(U2, U.extent(0), U.extent(1), U.extent(2));
+  Kokkos::deep_copy(U, U_host);
   
   m_timers[TIMER_AMR_CYCLE_MAP_USERDATA]->stop();
 
@@ -1214,9 +1228,9 @@ void SolverHydroMusclBlock::fill_block_data_ghost(DataArrayBlock data_in,
   auto fm = fieldMgr.get_id2index();
 
   // TODO : use new ghost copy for 2D and 3D 
-  bool use_new_ghost_copy = (params.dimType == THREE_D);
-  if( use_new_ghost_copy )
-  {
+  //bool use_new_ghost_copy = (params.dimType == THREE_D);
+  // if( use_new_ghost_copy )
+  // {
     CopyGhostBlockCellDataFunctor::apply(amr_mesh,
                                         configMap,
                                         params,
@@ -1229,35 +1243,35 @@ void SolverHydroMusclBlock::fill_block_data_ghost(DataArrayBlock data_in,
                                         Ugroup, 
                                         iGroup,
                                         interface_flags);
-  } else {
-    // Faces
-    CopyFaceBlockCellDataFunctor::apply(amr_mesh,
-                                        configMap,
-                                        params,
-                                        fm,
-                                        blockSizes,
-                                        ghostWidth,
-                                        nbOctsPerGroup,
-                                        data_in,
-                                        Ughost,
-                                        Ugroup, 
-                                        iGroup,
-                                        interface_flags);
+  // } else {
+  //   // Faces
+  //   CopyFaceBlockCellDataFunctor::apply(amr_mesh,
+  //                                       configMap,
+  //                                       params,
+  //                                       fm,
+  //                                       blockSizes,
+  //                                       ghostWidth,
+  //                                       nbOctsPerGroup,
+  //                                       data_in,
+  //                                       Ughost,
+  //                                       Ugroup, 
+  //                                       iGroup,
+  //                                       interface_flags);
 
-    // And corners
-    CopyCornerBlockCellDataFunctor::apply(amr_mesh,
-            configMap,
-            params,
-            fm,
-            blockSizes,
-            ghostWidth,
-            nbOctsPerGroup,
-            data_in,
-            Ughost,
-            Ugroup,
-            iGroup,
-            interface_flags);
-  }
+  //   // And corners
+  //   CopyCornerBlockCellDataFunctor::apply(amr_mesh,
+  //           configMap,
+  //           params,
+  //           fm,
+  //           blockSizes,
+  //           ghostWidth,
+  //           nbOctsPerGroup,
+  //           data_in,
+  //           Ughost,
+  //           Ugroup,
+  //           iGroup,
+  //           interface_flags);
+  // }
 } // SolverHydroMusclBlock::fill_block_data_ghost
 
 } // namespace muscl_block

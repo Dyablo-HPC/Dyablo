@@ -81,10 +81,6 @@ if(NOT Kokkos_ENABLE_CUDA)
     block_data/test_CopyInnerBlockCellData.cpp
     main.cpp)
 
-  dyablo_add_test(utest_MusclBlockGodunovUpdateFunctor
-    block_data/test_MusclBlockGodunovUpdateFunctor.cpp
-    main.cpp)
-
   dyablo_add_test(utest_CopyGhostBlockCellData_hash_openmp 
     block_data/test_CopyGhostBlockCellData_hash_openmp.cpp
     main.cpp)
@@ -119,6 +115,10 @@ dyablo_add_test(utest_CopyGhostBlockCellData_3D
   
 dyablo_add_test(utest_CopyGhostBlockCellDataHash
   amr/test_CopyGhostBlockCellDataHash.cpp
+  main.cpp)
+
+dyablo_add_test(utest_MusclBlockGodunovUpdateFunctor
+  block_data/test_MusclBlockGodunovUpdateFunctor.cpp
   main.cpp)
 
 

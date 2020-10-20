@@ -21,7 +21,9 @@ if (NOT Kokkos_ENABLE_CUDA)
     endif(DYABLO_USE_MPI)
 else()
   set (muscl_block_SRCS
+    ${CMAKE_CURRENT_SOURCE_DIR}/SolverHydroMusclBlock.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/CopyGhostBlockCellData.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitImplode.cpp
     )
 endif()
 

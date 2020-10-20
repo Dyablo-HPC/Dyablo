@@ -329,6 +329,7 @@ public:
       oct_data("LightOctree::oct_data", pmesh->getNumOctants()+pmesh->getNumGhosts(), OCT_DATA_COUNT),
       numOctants(pmesh->getNumOctants()) , max_level(params.level_max), ndim(pmesh->getDim())
     {
+        std::cout << "LightOctree rehash ..." << std::endl;
         init(pmesh, params);
     }
     //! @copydoc LightOctree_base::getNumOctants()
