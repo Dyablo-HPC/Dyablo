@@ -6,7 +6,7 @@ namespace muscl_block
 {
 
 CopyGhostBlockCellDataFunctor::CopyGhostBlockCellDataFunctor(
-    std::shared_ptr<AMRmesh> pmesh, HydroParams params, id2index_t fm,
+    LightOctree lmesh, HydroParams params, id2index_t fm,
     blockSize_t blockSizes, uint32_t ghostWidth, uint32_t nbOctsPerGroup,
     DataArrayBlock U, DataArrayBlock U_ghost, DataArrayBlock Ugroup,
     uint32_t iGroup, InterfaceFlags interface_flags) :
@@ -19,7 +19,7 @@ CopyGhostBlockCellDataFunctor::CopyGhostBlockCellDataFunctor(
   Ugroup(Ugroup),
   iGroup(iGroup),
   interface_flags(interface_flags),
-  lmesh(pmesh, params)
+  lmesh(lmesh)
 {
     bc_min[IX] = params.boundary_type_xmin;
     bc_max[IX] = params.boundary_type_xmax;
@@ -759,12 +759,12 @@ KOKKOS_INLINE_FUNCTION void CopyGhostBlockCellDataFunctor::operator()(team_polic
 }
 
 void CopyGhostBlockCellDataFunctor::apply(
-    std::shared_ptr<AMRmesh> pmesh, ConfigMap configMap, HydroParams params,
+    LightOctree lmesh, ConfigMap configMap, HydroParams params,
     id2index_t fm, blockSize_t blockSizes, uint32_t ghostWidth,
     uint32_t nbOctsPerGroup, DataArrayBlock U, DataArrayBlock U_ghost,
     DataArrayBlock Ugroup, uint32_t iGroup, InterfaceFlags interface_flags)
 {
-  CopyGhostBlockCellDataFunctor functor(pmesh,
+  CopyGhostBlockCellDataFunctor functor(lmesh,
                                         params,
                                         fm,
                                         blockSizes,

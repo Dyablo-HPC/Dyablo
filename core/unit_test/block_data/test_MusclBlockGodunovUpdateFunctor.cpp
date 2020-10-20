@@ -185,6 +185,8 @@ void run_test(int argc, char *argv[]) {
 
   //uint32_t nbOcts = solver->amr_mesh->getNumOctants();
 
+  LightOctree lmesh(solver->amr_mesh,params);
+
   CopyInnerBlockCellDataFunctor::apply(configMap, params, fm, 
                                        blockSizes,
                                        ghostWidth, 
@@ -194,7 +196,8 @@ void run_test(int argc, char *argv[]) {
                                        iGroup);
 
   {
-    CopyGhostBlockCellDataFunctor::apply(solver->amr_mesh,
+    
+    CopyGhostBlockCellDataFunctor::apply(lmesh,
                                         configMap,
                                         params, 
                                         fm,
@@ -261,7 +264,7 @@ void run_test(int argc, char *argv[]) {
 
   // compute CFL constraint
   real_t invDt;
-  ComputeDtHydroFunctor::apply(solver->amr_mesh,
+  ComputeDtHydroFunctor::apply(lmesh,
                                configMap,
                                params,
                                fm,
@@ -277,7 +280,7 @@ void run_test(int argc, char *argv[]) {
   // testing MusclBlockGodunovUpdateFunctor
   {
 
-    MusclBlockGodunovUpdateFunctor::apply(solver->amr_mesh,
+    MusclBlockGodunovUpdateFunctor::apply(lmesh,
                                           configMap,
                                           params, 
                                           fm,

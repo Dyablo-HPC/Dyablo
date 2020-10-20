@@ -21,14 +21,13 @@ public:
   using index_t = uint32_t;
   using team_policy_t = Kokkos::TeamPolicy<Kokkos::IndexType<index_t>>;
 
-  CopyGhostBlockCellDataFunctor(std::shared_ptr<AMRmesh> pmesh,
+  CopyGhostBlockCellDataFunctor(LightOctree lmesh,
                                 HydroParams params, id2index_t fm,
                                 blockSize_t blockSizes, uint32_t ghostWidth,
                                 uint32_t nbOctsPerGroup, DataArrayBlock U,
                                 DataArrayBlock U_ghost, DataArrayBlock Ugroup,
                                 uint32_t iGroup,
                                 InterfaceFlags interface_flags);
-
   /**
    * @brief Fill ghost cell data of all octants in the group
    * 
@@ -37,7 +36,7 @@ public:
    * Ghost cells of current group octants are filled with values 
    * from neighbor octants. Fills faces, edges and corners.
    **/
-  static void apply(std::shared_ptr<AMRmesh> pmesh, ConfigMap configMap,
+  static void apply(LightOctree lmesh, ConfigMap configMap,
                     HydroParams params, id2index_t fm, blockSize_t blockSizes,
                     uint32_t ghostWidth, uint32_t nbOctsPerGroup,
                     DataArrayBlock U, DataArrayBlock U_ghost,

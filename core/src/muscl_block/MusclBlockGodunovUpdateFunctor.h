@@ -86,7 +86,7 @@ public:
   /**
    * Perform time integration (MUSCL Godunov).
    *
-   * \param[in]  pmesh pointer to AMR mesh structure
+   * \param[in]  lmesh AMR mesh structure
    * \param[in]  params
    * \param[in]  fm field map
    * \param[in]  Ugroup current time step data (conservative variables)
@@ -95,7 +95,7 @@ public:
    * \param[in]  time step (as cmputed by CFL condition)
    *
    */
-  MusclBlockGodunovUpdateFunctor(std::shared_ptr<AMRmesh> pmesh,
+  MusclBlockGodunovUpdateFunctor(LightOctree lmesh,
                                  HydroParams params,
                                  id2index_t fm,
                                  blockSize_t blockSizes,
@@ -109,7 +109,7 @@ public:
                                  DataArrayBlock U2,
                                  DataArrayBlock Qgroup,
                                  InterfaceFlags interface_flags,
-                                 real_t dt) : lmesh(pmesh, params),
+                                 real_t dt) : lmesh(lmesh),
                                               params(params),
                                               fm(fm),
                                               blockSizes(blockSizes),
@@ -163,7 +163,7 @@ public:
   }; // constructor
 
   // static method which does it all: create and execute functor
-  static void apply(std::shared_ptr<AMRmesh> pmesh,
+  static void apply(LightOctree lmesh,
                     ConfigMap configMap,
                     HydroParams params,
                     id2index_t fm,
@@ -182,7 +182,7 @@ public:
   {
 
     // instantiate functor
-    MusclBlockGodunovUpdateFunctor functor(pmesh, params, fm,
+    MusclBlockGodunovUpdateFunctor functor(lmesh, params, fm,
                                            blockSizes, ghostWidth,
                                            nbOcts, nbOctsPerGroup, iGroup,
                                            Ugroup, U, U_ghost, U2,

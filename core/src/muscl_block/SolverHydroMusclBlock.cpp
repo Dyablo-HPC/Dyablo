@@ -181,6 +181,8 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   // copy U into U2
   Kokkos::deep_copy(U2,U);
 
+  lmesh = LightOctree(amr_mesh, params);
+
   // compute initialize time step
   compute_dt();
 
@@ -390,7 +392,7 @@ double SolverHydroMusclBlock::compute_dt_local()
   auto fm = fieldMgr.get_id2index();
 
   // call device functor - compute invDt
-  ComputeDtHydroFunctor::apply(amr_mesh, configMap, 
+  ComputeDtHydroFunctor::apply(lmesh, configMap, 
                                params, fm,
                                blockSizes, U, invDt);
 
@@ -550,7 +552,7 @@ void SolverHydroMusclBlock::godunov_unsplit_impl(DataArrayBlock data_in,
      * heap memory is required (array SlopesX, ... are regular
      * Kokkos::View arrays sized upon the group of octant)
      */
-    MusclBlockGodunovUpdateFunctor::apply(amr_mesh,
+    MusclBlockGodunovUpdateFunctor::apply(lmesh,
                                           configMap,
                                           params,
                                           fm,
@@ -865,7 +867,7 @@ void SolverHydroMusclBlock::mark_cells()
 
     // finaly apply refine criterion : 
     // call device functor to flag for refine/coarsen
-    MarkOctantsHydroFunctor::apply(amr_mesh, configMap, params, fm,
+    MarkOctantsHydroFunctor::apply(amr_mesh, lmesh, configMap, params, fm,
                                    blockSizes, ghostWidth,
                                    nbOcts, nbOctsPerGroup,
                                    Qgroup, iGroup,
@@ -890,6 +892,8 @@ void SolverHydroMusclBlock::adapt_mesh()
 
   // 2. re-compute connectivity
   amr_mesh->updateConnectivity();
+
+  lmesh = LightOctree(amr_mesh, params);
   
   m_timers[TIMER_AMR_CYCLE_ADAPT_MESH]->stop();
 
@@ -1188,6 +1192,7 @@ void SolverHydroMusclBlock::load_balance_userdata()
     // we probably need to resize U2, ....
     Kokkos::resize(U2,U.extent(0),U.extent(1),U.extent(2));
 
+    lmesh = LightOctree(amr_mesh, params);
   }
 #endif // BITPIT_ENABLE_MPI==1
   
@@ -1231,7 +1236,7 @@ void SolverHydroMusclBlock::fill_block_data_ghost(DataArrayBlock data_in,
   //bool use_new_ghost_copy = (params.dimType == THREE_D);
   // if( use_new_ghost_copy )
   // {
-    CopyGhostBlockCellDataFunctor::apply(amr_mesh,
+    CopyGhostBlockCellDataFunctor::apply(lmesh,
                                         configMap,
                                         params,
                                         fm,

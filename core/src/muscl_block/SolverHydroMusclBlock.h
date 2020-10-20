@@ -23,7 +23,8 @@
 #include "shared/kokkos_shared.h"
 #include "shared/FieldManager.h"
 #include "muscl_block/utils_block.h"
-#include "muscl_block/utils_block.h"
+#include "muscl_block/LightOctree.h"
+
 
 // for IO
 #include <shared/HDF5_IO.h>
@@ -75,6 +76,8 @@ public:
 
     return solver;
   }
+
+  LightOctree lmesh;
 
   //! hydrodynamics conservative variables arrays at t_n - no ghost
   DataArrayBlock     U;

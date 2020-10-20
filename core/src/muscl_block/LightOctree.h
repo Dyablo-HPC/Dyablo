@@ -324,6 +324,9 @@ private:
 
 class LightOctree_hashmap : public LightOctree_base{
 public:
+    LightOctree_hashmap() = default;
+    LightOctree_hashmap(const LightOctree_hashmap& lmesh) = default;
+
     LightOctree_hashmap( std::shared_ptr<AMRmesh> pmesh, const HydroParams& params )
     : oct_map(pmesh->getNumOctants()+pmesh->getNumGhosts()),
       oct_data("LightOctree::oct_data", pmesh->getNumOctants()+pmesh->getNumGhosts(), OCT_DATA_COUNT),

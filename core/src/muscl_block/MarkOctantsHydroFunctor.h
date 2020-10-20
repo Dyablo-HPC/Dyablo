@@ -76,7 +76,7 @@ public:
    * pmesh object; should be passed as an argument.
    *
    */
-  MarkOctantsHydroFunctor(std::shared_ptr<AMRmesh> pmesh,
+  MarkOctantsHydroFunctor(LightOctree lmesh,
                           HydroParams    params,
                           id2index_t     fm,
                           blockSize_t    blockSizes,
@@ -88,7 +88,7 @@ public:
                           real_t         error_min,
                           real_t         error_max,
                           markers_t      markers) :
-    lmesh(pmesh,params),
+    lmesh(lmesh),
     params(params),
     fm(fm),
     blockSizes(blockSizes),
@@ -120,6 +120,7 @@ public:
   
   // static method which does it all: create and execute functor
   static void apply(std::shared_ptr<AMRmesh> pmesh,
+                    LightOctree lmesh,
 		    ConfigMap      configMap,
                     HydroParams    params,
 		    id2index_t     fm,
@@ -135,7 +136,7 @@ public:
     markers_t markers("dyablo::muscl_block::MarkOctantsHydroFunctor::markers", nbOctsPerGroup );
     
 
-    MarkOctantsHydroFunctor functor(pmesh, params, fm,
+    MarkOctantsHydroFunctor functor(lmesh, params, fm,
                                     blockSizes,
                                     ghostWidth,
                                     nbOcts,

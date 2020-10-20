@@ -46,18 +46,18 @@ public:
 
   void setNbTeams(uint32_t nbTeams_) {nbTeams = nbTeams_;}; 
 
-  ComputeDtHydroFunctor(std::shared_ptr<AMRmesh> pmesh,
+  ComputeDtHydroFunctor(LightOctree lmesh,
 			HydroParams    params,
 			id2index_t     fm,
                         blockSize_t    blockSizes,
 			DataArrayBlock Udata) :
-    lmesh(pmesh, params), params(params),
+    lmesh(lmesh), params(params),
     fm(fm), blockSizes(blockSizes),
     Udata(Udata)
-  {};
+  {}
   
   // static method which does it all: create and execute functor
-  static void apply(std::shared_ptr<AMRmesh> pmesh,
+  static void apply(LightOctree lmesh,
 		    ConfigMap      configMap,
                     HydroParams    params,
 		    id2index_t     fm,
@@ -66,7 +66,7 @@ public:
 		    double        &invDt)
   {
     
-    ComputeDtHydroFunctor functor(pmesh, params, fm, blockSizes, Udata);
+    ComputeDtHydroFunctor functor(lmesh, params, fm, blockSizes, Udata);
 
     // kokkos execution policy
     uint32_t nbTeams_ = configMap.getInteger("amr","nbTeams",16);
