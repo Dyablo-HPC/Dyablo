@@ -6,8 +6,8 @@
  * \date 29 Oct 2010
  *
  */
-#ifndef OPENMP_TIMER_H_
-#define OPENMP_TIMER_H_
+#ifndef DYABLO_UTILS_MONITORING_OPENMP_TIMER_H_
+#define DYABLO_UTILS_MONITORING_OPENMP_TIMER_H_
 
 #include <omp.h>
 
@@ -18,29 +18,31 @@
 class OpenMPTimer
 {
 public:
-  /** default constructor, timing starts rightaway */
+  //! default constructor, timing starts rightaway
   OpenMPTimer();
-    
+
+  //! initialize total time
   OpenMPTimer(double t);
-  OpenMPTimer(OpenMPTimer const& aTimer);
+
+  //! copy constructor
+  OpenMPTimer(const OpenMPTimer& aTimer);
   virtual ~OpenMPTimer();
 
-  /** start time measure */
+  //! start time measure
   virtual void start();
-    
-  /** stop time measure and add result to total_time */
+
+  //! stop time measure and add result to total_time
   virtual void stop();
 
-  /** return elapsed time in seconds (as stored in total_time) */
+  //! return elapsed time in seconds (as stored in total_time)
   virtual double elapsed() const;
 
 protected:
   double    start_time;
 
-  /** store total accumulated timings */
+  //! store total accumulated timings
   double    total_time;
 
 }; // class OpenMPTimer
 
-
-#endif // OPENMP_TIMER_H_
+#endif // DYABLO_UTILS_MONITORING_OPENMP_TIMER_H_

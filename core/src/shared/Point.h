@@ -1,15 +1,16 @@
-#ifndef KHAMR_POINT_H
-#define KHAMR_POINT_H
+#ifndef DYABLO_SHARED_POINT_H
+#define DYABLO_SHARED_POINT_H
 
 #include <array>
 #include "shared/real_type.h"
 
-namespace dyablo {
+namespace dyablo
+{
 
 /** typedef Point holding coordinates of a point. */
 template<int dim>
 using Point = std::array<real_t, dim>;
 
-} // namespace
+} // namespace dyablo
 
-#endif // DYABLO_POINT_H
+#endif // DYABLO_SHARED_POINT_H
