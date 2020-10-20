@@ -29,7 +29,6 @@
 #include "muscl_block/CopyInnerBlockCellData.h"
 #include "muscl_block/CopyFaceBlockCellData.h"
 #include "muscl_block/CopyCornerBlockCellData.h"
-#include "muscl_block/CopyBoundariesBlockCellData.h"
 #include "muscl_block/ConvertToPrimitivesHydroFunctor.h"
 #include "muscl_block/MusclBlockGodunovUpdateFunctor.h"
 #include "muscl_block/ComputeDtHydroFunctor.h"
@@ -207,8 +206,7 @@ void run_test(int argc, char *argv[]) {
                                         solver->Ughost, 
                                         Ugroup, 
                                         iGroup,
-                                        solver->Interface_flags,
-                                        solver->Boundary_flags);
+                                        solver->Interface_flags);
     
   } // end testing CopyFaceBlockCellDataFunctor
 
@@ -225,21 +223,6 @@ void run_test(int argc, char *argv[]) {
                                           Ugroup,
                                           iGroup,
                                           solver->Interface_flags);
-  }
-
-  {  // And boundary conditions
-    CopyBoundariesBlockCellDataFunctor::apply(solver->amr_mesh, 
-                                              configMap,
-                                              params,
-                                              fm,
-                                              blockSizes,
-                                              ghostWidth,
-                                              nbOctsPerGroup,
-                                              solver->U,
-                                              Ugroup,
-                                              iGroup,
-                                              solver->Boundary_flags,
-                                              solver->userPolicies);
   }
 
   // also testing ConvertToPrimitivesHydroFunctor

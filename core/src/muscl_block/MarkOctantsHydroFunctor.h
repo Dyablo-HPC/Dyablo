@@ -208,7 +208,7 @@ public:
   // ======================================================
   // ======================================================
   KOKKOS_INLINE_FUNCTION
-  void operator()(const thread_t& member) const
+  void functor_2d(const thread_t& member) const
   {
     
     // iOct must span the range [iGroup*nbOctsPerGroup ,
@@ -276,6 +276,148 @@ public:
       
     } // end while iOct < nbOct
   } // operator ()
+
+
+  KOKKOS_INLINE_FUNCTION
+  real_t compute_second_derivative_error_3d(uint8_t  ivar, 
+					 uint32_t i,
+					 uint32_t j,
+					 uint32_t k,
+					 uint8_t  dir,
+					 uint32_t iOct_local) const
+  {
+
+    real_t res = 0;
+
+    const uint32_t iCell = i+ghostWidth + bx_g * (j+ghostWidth) + bx_g*by_g*(k+ghostWidth);
+
+    uint32_t iCellm1, iCellp1;
+
+    if( dir == IX )
+    {
+      iCellp1 = i+1+ghostWidth + bx_g * (j+ghostWidth) + bx_g*by_g*(k+ghostWidth);
+      iCellm1 = i-1+ghostWidth + bx_g * (j+ghostWidth) + bx_g*by_g*(k+ghostWidth);
+    }
+    else if( dir == IY )
+    {
+      iCellp1 = i+ghostWidth + bx_g * (j+1+ghostWidth) + bx_g*by_g*(k+ghostWidth);
+      iCellm1 = i+ghostWidth + bx_g * (j-1+ghostWidth) + bx_g*by_g*(k+ghostWidth);
+    }
+    else //if( dir == IZ )
+    {
+      iCellp1 = i+ghostWidth + bx_g * (j+ghostWidth) + bx_g*by_g*(k+1+ghostWidth);
+      iCellm1 = i+ghostWidth + bx_g * (j+ghostWidth) + bx_g*by_g*(k-1+ghostWidth);
+    }
+
+    const real_t q   = Qgroup(iCell  ,fm[ivar],iOct_local);
+    const real_t qm1 = Qgroup(iCellm1,fm[ivar],iOct_local);
+    const real_t qp1 = Qgroup(iCellp1,fm[ivar],iOct_local);
+
+    const real_t fr = qp1 - q;    
+    const real_t fl = qm1 - q;
+    
+    const real_t fc = FABS(qp1) + FABS(qm1) + 2 * FABS(q);
+    res = FABS(fr + fl) / (FABS(fr) + FABS(fl) + epsref * fc + eps);
+      
+    return res;
+
+  } // compute_second_derivative
+
+  KOKKOS_INLINE_FUNCTION
+  void functor_3d(const thread_t &member) const
+  {
+    // iOct must span the range [iGroup*nbOctsPerGroup ,
+    // (iGroup+1)*nbOctsPerGroup [
+    uint32_t iOct = member.league_rank() + iGroup * nbOctsPerGroup;
+
+    // octant id inside the Ugroup data array
+    uint32_t iOct_local = member.league_rank();
+
+    // compute first octant index after current group
+    uint32_t iOctNextGroup = (iGroup + 1) * nbOctsPerGroup;
+
+    while (iOct < iOctNextGroup and iOct < nbOcts)
+    {
+
+      const int nrefvar = 2;
+      uint8_t ref_var[nrefvar]{ID, IP};
+
+      real_t error = 0.0;
+
+      Kokkos::parallel_reduce(
+          Kokkos::TeamVectorRange(member, nbCellsPerBlock),
+          [=](const int32_t iCellInner, real_t &local_error) {
+            //index = i + bx * j + bx * by * k
+            const uint32_t k = iCellInner / (bx*by);
+            const uint32_t j = (iCellInner - k*bx*by) / bx;
+            const uint32_t i = iCellInner - k*bx*by - j*bx;
+
+            for (int ivar = 0; ivar < nrefvar; ++ivar)
+            {
+              real_t fx, fy, fz, fmax;
+              fx = compute_second_derivative_error_3d(ref_var[ivar],
+                                                   i,j,k,
+                                                   IX,
+                                                   iOct_local);
+              fy = compute_second_derivative_error_3d(ref_var[ivar],
+                                                   i,j,k,
+                                                   IY,
+                                                   iOct_local);
+              fz = compute_second_derivative_error_3d(ref_var[ivar],
+                                                   i,j,k,                                                   
+                                                   IZ,
+                                                   iOct_local);
+              fmax = fx > fy ? fx : fy;
+              fmax = fmax > fz ? fmax : fz;
+              local_error = local_error > fmax ? local_error : fmax;
+            }
+          },
+          Kokkos::Max<real_t>(error)); // end TeamVectorRange
+      // now error has been computed, we can mark / flag octant for
+      // refinement or coarsening
+
+      // get current cell level
+      uint8_t level = pmesh->getLevel(iOct);
+
+      // -1 means coarsen
+      //  0 means don't modify
+      // +1 means refine
+      int criterion = -1;
+
+      if (error > error_min)
+        criterion = criterion < 0 ? 0 : criterion;
+
+      if (error > error_max)
+        criterion = criterion < 1 ? 1 : criterion;
+
+      if (level < params.level_max and criterion == 1)
+        pmesh->setMarker(iOct, 1);
+
+      else if (level > params.level_min and criterion == -1)
+        pmesh->setMarker(iOct, -1);
+
+      else
+        pmesh->setMarker(iOct, 0);
+
+      iOct += nbTeams;
+      iOct_local += nbTeams;
+
+    } // end while iOct < nbOct
+  }   // operator ()
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(const thread_t& member) const
+  {
+    if( params.dimType == TWO_D )
+    {
+      functor_2d(member);
+    }
+    else
+    {
+      functor_3d(member);
+    }   
+
+  }
   
 //! bitpit/PABLO amr mesh object
   std::shared_ptr<AMRmesh> pmesh;

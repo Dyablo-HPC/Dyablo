@@ -83,11 +83,9 @@ public:
                          policy, functor);
   }
   
-  //KOKKOS_INLINE_FUNCTION
-  inline
-  void operator()(thread_t member) const
+  inline 
+  static HydroState3d value( const HydroParams& params, const ImplodeParams& iParams, real_t x, real_t y, real_t z)
   {
-
     const real_t xmin = params.xmin;
     const real_t xmax = params.xmax;
     const real_t ymin = params.ymin;
@@ -110,15 +108,73 @@ public:
 
     const int shape = iParams.shape;
 
+    const bool debug = iParams.debug;
+
     const real_t gamma0 = params.settings.gamma0;
 
+    HydroState3d res;
+
+    // initialize
+    bool tmp;
+    if (shape == 1) {
+      if (params.dimType == TWO_D)
+        tmp = x+y*y > 0.5 and x+y*y < 1.5;
+      else
+        tmp = x+y+z > 0.5 and x+y+z < 2.5;
+    } else {
+      if (params.dimType == TWO_D)
+        tmp = x+y > (xmin+xmax)/2. + ymin;
+      else
+        tmp = x+y+z > (xmin+xmax)/2. + ymin + zmin;
+    }
+
+    if (tmp) {
+      res[ID] = rho_out;
+      res[IP] = p_out/(gamma0-1.0) +
+        0.5 * rho_out * (u_out*u_out + v_out*v_out);
+      res[IU] = u_out;
+      res[IV] = v_out;
+    } else {
+      res[ID] = rho_in;
+      res[IP] = p_in/(gamma0-1.0) +
+        0.5 * rho_in * (u_in*u_in + v_in*v_in);
+      res[IU] = u_in;
+      res[IV] = v_in;
+    }
+
+    if (params.dimType == THREE_D) {
+      if (tmp) {
+        res[IW] = w_out;
+        res[IP] = p_out/(gamma0-1.0) +
+          0.5 * rho_out * (u_out*u_out + v_out*v_out + w_out*w_out);
+      } else {
+        res[IW] = w_in;
+        res[IP] = p_in/(gamma0-1.0) +
+          0.5 * rho_in * (u_in*u_in + v_in*v_in + w_in*w_in);
+      }
+    }
+
+    if (debug) {
+      // just add a gradient to density
+      real_t delta = params.dimType == TWO_D ?
+        (x+y)*0.05 :
+        (x+y+z)*0.05;
+      res[ID] += delta;
+      res[IP] += 2*delta;    
+    }
+
+    return res;
+  }
+
+  //KOKKOS_INLINE_FUNCTION
+  inline
+  void operator()(thread_t member) const
+  {
     uint32_t iOct = member.league_rank();
 
     const int& bx = blockSizes[IX];
     const int& by = blockSizes[IY];
     const int& bz = blockSizes[IZ];
-
-    const bool debug = iParams.debug;
 
     uint32_t nbCells = params.dimType == TWO_D ? bx*by : bx*by*bz;
 
@@ -157,59 +213,19 @@ public:
           // compute x,y,z for that cell (cell center)
           real_t x = x0 + ix*cellSize + cellSize/2;
           real_t y = y0 + iy*cellSize + cellSize/2;
-          real_t z = z0 + iz*cellSize + cellSize/2;
+          real_t z = 0;          
+          if( params.dimType == THREE_D) 
+            z = z0 + iz*cellSize + cellSize/2;
 
-          // initialize
-          bool tmp;
-          if (shape == 1) {
-            if (params.dimType == TWO_D)
-              tmp = x+y*y > 0.5 and x+y*y < 1.5;
-            else
-              tmp = x+y+z > 0.5 and x+y+z < 2.5;
-          } else {
-            if (params.dimType == TWO_D)
-              tmp = x+y > (xmin+xmax)/2. + ymin;
-            else
-              tmp = x+y+z > (xmin+xmax)/2. + ymin + zmin;
-          }
-
-          if (tmp) {
-            Udata_h(index, fm[ID], iOct) = rho_out;
-            Udata_h(index, fm[IP], iOct) = p_out/(gamma0-1.0) +
-              0.5 * rho_out * (u_out*u_out + v_out*v_out);
-            Udata_h(index, fm[IU], iOct) = u_out;
-            Udata_h(index, fm[IV], iOct) = v_out;
-          } else {
-            Udata_h(index, fm[ID], iOct) = rho_in;
-            Udata_h(index, fm[IP], iOct) = p_in/(gamma0-1.0) +
-              0.5 * rho_in * (u_in*u_in + v_in*v_in);
-            Udata_h(index, fm[IU], iOct) = u_in;
-            Udata_h(index, fm[IV], iOct) = v_in;
-          }
-
-          if (params.dimType == THREE_D) {
-            if (tmp) {
-              Udata_h(index, fm[IW], iOct) = w_out;
-              Udata_h(index, fm[IP], iOct) = p_out/(gamma0-1.0) +
-                0.5 * rho_out * (u_out*u_out + v_out*v_out + w_out*w_out);
-            } else {
-              Udata_h(index, fm[IW], iOct) = w_in;
-              Udata_h(index, fm[IP], iOct) = p_in/(gamma0-1.0) +
-                0.5 * rho_in * (u_in*u_in + v_in*v_in + w_in*w_in);
-            }
-          }
-
-          if (debug) {
-
-            // just add a gradient to density
-            real_t delta = params.dimType == TWO_D ?
-              (x+y)*0.05 :
-              (x+y+z)*0.05;
-            Udata_h(index, fm[ID], iOct) += delta;
-            Udata_h(index, fm[IP], iOct) += 2*delta;
+          HydroState3d val = value(params, iParams, x,y,z);
           
+          Udata_h(index, fm[ID], iOct) = val[ID];
+          Udata_h(index, fm[IP], iOct) = val[IP];
+          Udata_h(index, fm[IU], iOct) = val[IU];
+          Udata_h(index, fm[IV], iOct) = val[IV];
+          if (params.dimType == THREE_D) {
+              Udata_h(index, fm[IW], iOct) = val[IW];
           }
-
         }); // end TeamVectorRange
 
       iOct += nbTeams;

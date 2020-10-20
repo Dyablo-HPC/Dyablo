@@ -171,7 +171,6 @@ public:
   void operator_3d(const thread_t& member, real_t &invDt) const
   {
     uint32_t iOct = member.league_rank();
-    uint32_t iCell = member.team_rank();
 
     uint32_t nbOct = pmesh->getNumOctants();
 
@@ -203,6 +202,7 @@ public:
       real_t dy = pmesh->levelToSize(level) * Ly / blockSizes[IY];
       real_t dz = pmesh->levelToSize(level) * Lz / blockSizes[IZ];
 
+      uint32_t iCell = member.team_rank();
       while (iCell < nbCells) {
     
         // get local conservative variable

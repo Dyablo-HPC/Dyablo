@@ -142,7 +142,6 @@ enum BoundaryConditionType {
   BC_REFLECTING,  /*!< reflecting border condition */
   BC_ABSORBING,   /*!< absorbing border condition */
   BC_PERIODIC,    /*!< periodic border condition */
-  BC_USERDEF,     /*!< user defined boundary conditions */
   BC_COPY         /*!< only used in MPI parallelized version */
 };
 
@@ -237,20 +236,6 @@ enum InterfaceType : uint16_t {
   INTERFACE_YMAX_NC = 520,
   INTERFACE_ZMIN_NC = 1040,
   INTERFACE_ZMAX_NC = 2080
-};
-
-enum BoundaryFlags : uint16_t {
-  BF_NONE =  0,
-  BF_XMIN =  1,
-  BF_XMAX =  2,
-  BF_YMIN =  4,
-  BF_YMAX =  8,
-  BF_ZMIN = 16,
-  BF_ZMAX = 32,
-
-  BF_X =  3,
-  BF_Y = 12,
-  BF_Z = 48
 };
 
 enum FACE_ID : uint8_t {

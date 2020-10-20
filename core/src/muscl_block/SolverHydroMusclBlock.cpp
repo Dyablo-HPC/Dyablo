@@ -33,7 +33,7 @@
 #include "muscl_block/CopyInnerBlockCellData.h"
 #include "muscl_block/CopyFaceBlockCellData.h"
 #include "muscl_block/CopyCornerBlockCellData.h"
-#include "muscl_block/CopyBoundariesBlockCellData.h"
+#include "muscl_block/CopyGhostBlockCellData.h"
 
 #if BITPIT_ENABLE_MPI==1
 #include "muscl_block/UserDataComm.h"
@@ -60,7 +60,6 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   Ugroup(), 
   Qgroup(),
   Interface_flags(),
-  Boundary_flags(),
   Slopes_x(), 
   Slopes_y(), 
   Slopes_z()
@@ -155,10 +154,6 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   Interface_flags = FlagArrayBlock("Interface flags", nbOctsPerGroup);
   total_mem_size += nbOctsPerGroup*sizeof(uint16_t);
 
-  // flags data array for boundaries
-  Boundary_flags = FlagArrayBlock("Boundary flags", nbOctsPerGroup);
-  total_mem_size += nbOctsPerGroup*sizeof(uint16_t);
-
   // all intermediate data array are sized upon nbOctsPerGroup
 
   Slopes_x = DataArrayBlock("Slope_x", nbCellsPerOct_g, nbvar, nbOctsPerGroup);
@@ -181,10 +176,6 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   // retrieve available / allowed names: fieldManager, and field map (fm)
   // necessary to access user data
   fieldMgr.setup(params, configMap);
-
-  // initialize user policies
-  auto fm = fieldMgr.get_id2index();
-  userPolicies = std::make_shared<UserPolicies>(params, configMap, fm, blockSizes, ghostWidth);
 
   // perform init condition
   init(U);
@@ -1222,50 +1213,51 @@ void SolverHydroMusclBlock::fill_block_data_ghost(DataArrayBlock data_in,
   // necessary to access user data
   auto fm = fieldMgr.get_id2index();
 
-  // Faces
-  CopyFaceBlockCellDataFunctor::apply(amr_mesh,
-                                      configMap,
-                                      params,
-                                      fm,
-                                      blockSizes,
-                                      ghostWidth,
-                                      nbOctsPerGroup,
-                                      data_in,
-                                      Ughost,
-                                      Ugroup, 
-                                      iGroup,
-                                      Interface_flags,
-                                      Boundary_flags);
+  // TODO : use new ghost copy for 2D and 3D 
+  bool use_new_ghost_copy = (params.dimType == THREE_D);
+  if( use_new_ghost_copy )
+  {
+    CopyGhostBlockCellDataFunctor::apply(amr_mesh,
+                                        configMap,
+                                        params,
+                                        fm,
+                                        blockSizes,
+                                        ghostWidth,
+                                        nbOctsPerGroup,
+                                        data_in,
+                                        Ughost,
+                                        Ugroup, 
+                                        iGroup,
+                                        Interface_flags);
+  } else {
+    // Faces
+    CopyFaceBlockCellDataFunctor::apply(amr_mesh,
+                                        configMap,
+                                        params,
+                                        fm,
+                                        blockSizes,
+                                        ghostWidth,
+                                        nbOctsPerGroup,
+                                        data_in,
+                                        Ughost,
+                                        Ugroup, 
+                                        iGroup,
+                                        Interface_flags);
 
-  // And corners
-  CopyCornerBlockCellDataFunctor::apply(amr_mesh,
-					configMap,
-					params,
-					fm,
-					blockSizes,
-					ghostWidth,
-					nbOctsPerGroup,
-					data_in,
-					Ughost,
-					Ugroup,
-					iGroup,
-					Interface_flags);
-
-
-  // And boundary conditions
-  CopyBoundariesBlockCellDataFunctor::apply(amr_mesh, 
-          configMap,
-          params,
-          fm,
-          blockSizes,
-          ghostWidth,
-          nbOctsPerGroup,
-          data_in,
-          Ugroup,
-          iGroup,
-          Boundary_flags,
-          userPolicies);
-
+    // And corners
+    CopyCornerBlockCellDataFunctor::apply(amr_mesh,
+            configMap,
+            params,
+            fm,
+            blockSizes,
+            ghostWidth,
+            nbOctsPerGroup,
+            data_in,
+            Ughost,
+            Ugroup,
+            iGroup,
+            Interface_flags);
+  }
 } // SolverHydroMusclBlock::fill_block_data_ghost
 
 } // namespace muscl_block
