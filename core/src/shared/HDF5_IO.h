@@ -6,7 +6,6 @@
 
 #include "shared/HydroParams.h"
 #include "utils/config/ConfigMap.h"
-#include "shared/kokkos_shared.h"
 #include "shared/FieldManager.h"
 
 #include "shared/kokkos_shared.h" // for DataArray, DataArrayHost
