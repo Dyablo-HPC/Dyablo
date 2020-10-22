@@ -5,6 +5,7 @@
 
 stages:
   - build_openmp
+  - build_cuda
   - test
 
 variables:
@@ -21,7 +22,7 @@ build_openmp:
     - mkdir build_openmp
     - cd build_openmp
     - cmake -DDYABLO_ENABLE_UNIT_TESTING=ON ..
-    - make
+    - make -j `nproc`
   artifacts:
     paths:
       - build_openmp
@@ -29,12 +30,43 @@ build_openmp:
   after_script:
     - date
 
+build_cuda:
+  stage: build_cuda
+  tags:
+    - kokkos-cuda
+  before_script:
+    - date
+    - lscpu
+    - lspci | grep VGA
+  script:
+    - mkdir build_cuda
+    - cd build_cuda
+    - cmake -DDYABLO_ENABLE_UNIT_TESTING=ON -DKokkos_ENABLE_CUDA=ON -DKokkos_ARCH='PASCAL61' ..
+    - make -j `nproc`
+  artifacts:
+    paths:
+      - build_cuda
+    expire_in: 1 week
+  after_script:
+    - date
 
 # run some interesting tests here
-test:
+test:openmp:
   stage: test
+  dependencies: 
+    - build_openmp
   tags:
-    - kokkos-openmp, kokkos-cuda
+    - kokkos-openmp
   script: "cd build_openmp; make dyablo-test"
+  after_script:
+    - date
+
+test:cuda:
+  stage: test
+  dependencies: 
+    - build_cuda
+  tags:
+    - kokkos-cuda
+  script: "cd build_cuda; make dyablo-test"
   after_script:
     - date

@@ -8,6 +8,7 @@
 #include "shared/bitpit_common.h"
 #include "shared/HydroParams.h"
 #include "Kokkos_UnorderedMap.hpp"
+#include "Kokkos_Macros.hpp"
 
 namespace dyablo { 
 namespace muscl_block {
@@ -448,8 +449,11 @@ private:
     }
 };
 
+#ifdef KOKKOS_ENABLE_CUDA
 using LightOctree = LightOctree_hashmap;
-//using LightOctree = LightOctree_pablo;
+#else
+using LightOctree = LightOctree_pablo;
+#endif
 
 } //namespace dyablo
 } //namespace muscl_block

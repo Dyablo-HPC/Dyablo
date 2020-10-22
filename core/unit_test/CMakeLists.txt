@@ -77,41 +77,37 @@ dyablo_add_test(tst_shared_MortonUtils
   main.cpp)
 
 if(NOT Kokkos_ENABLE_CUDA)
+  dyablo_add_test(utest_CopyInnerBlockCellData 
+    block_data/test_CopyInnerBlockCellData.cpp
+    main.cpp)
 
-dyablo_add_test(utest_CopyInnerBlockCellData 
-  block_data/test_CopyInnerBlockCellData.cpp
-  main.cpp)
+  dyablo_add_test(utest_MusclBlockGodunovUpdateFunctor
+    block_data/test_MusclBlockGodunovUpdateFunctor.cpp
+    main.cpp)
 
-dyablo_add_test(utest_MusclBlockGodunovUpdateFunctor
-  block_data/test_MusclBlockGodunovUpdateFunctor.cpp
-  main.cpp)
+  dyablo_add_test(utest_CopyGhostBlockCellData_hash_openmp 
+    block_data/test_CopyGhostBlockCellData_hash_openmp.cpp
+    main.cpp)
 
-dyablo_add_test(utest_CopyGhostBlockCellData_hash_openmp 
-  block_data/test_CopyGhostBlockCellData_hash_openmp.cpp
-  main.cpp)
 
-# from old test/amr
+  dyablo_add_test(utest_AMRMetaData
+    amr/test_AMRMetaData.cpp
+    main.cpp)
+endif()
+
+# Import .ini files
 configure_file(amr/dummy2d.ini amr/dummy2d.ini COPYONLY)
 configure_file(amr/dummy3d.ini amr/dummy3d.ini COPYONLY)
-
-dyablo_add_test(utest_AMRMetaData
-  amr/test_AMRMetaData.cpp
-  main.cpp)
-
-endif()
+configure_file(
+  block_data/test_implode_2D_block.ini
+  block_data/test_implode_2D_block.ini COPYONLY)
+configure_file(
+  block_data/test_implode_3D_block.ini
+  block_data/test_implode_3D_block.ini COPYONLY)
 
 dyablo_add_test(utest_LightOctree
   amr/test_LightOctree.cpp
   main.cpp)
-
-# from old test/block_data
-configure_file(
-  block_data/test_implode_2D_block.ini
-  block_data/test_implode_2D_block.ini COPYONLY)
-
-configure_file(
-  block_data/test_implode_3D_block.ini
-  block_data/test_implode_3D_block.ini COPYONLY)
 
 dyablo_add_test(utest_CopyGhostBlockCellData_2D 
   block_data/test_CopyGhostBlockCellData_2D.cpp
