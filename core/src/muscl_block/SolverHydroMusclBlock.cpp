@@ -803,8 +803,17 @@ void SolverHydroMusclBlock::synchronize_ghost_data(UserDataCommType t)
   switch(t) {
   case UserDataCommType::UDATA: {
     Kokkos::resize(Ughost, U.extent(0), U.extent(1), nghosts);
-    UserDataComm data_comm(U, Ughost, fm);
+
+    // Copy Data to host for MPI communication 
+    DataArrayBlockHost U_host = Kokkos::create_mirror_view(U);
+    DataArrayBlockHost Ughost_host = Kokkos::create_mirror_view(Ughost);
+    Kokkos::deep_copy(U_host, U);
+
+    UserDataComm data_comm(U_host, Ughost_host, fm);
     amr_mesh->communicate(data_comm);
+
+    // Copy back ghosts to Device
+    Kokkos::deep_copy(Ughost, Ughost_host);
     break;
   }
   default:
@@ -1180,13 +1189,26 @@ void SolverHydroMusclBlock::load_balance_userdata()
   {
     uint8_t levels = 4;
 
-    UserDataLB data_lb(U, Ughost, fm);
+    // Copy Data to host for MPI communication 
+    DataArrayBlockHost U_host = Kokkos::create_mirror_view(U);
+    DataArrayBlockHost Ughost_host = Kokkos::create_mirror_view(Ughost);
+    Kokkos::deep_copy(U_host, U);
+    Kokkos::deep_copy(Ughost_host, Ughost);
+
+    UserDataLB data_lb(U_host, Ughost_host, fm);
     amr_mesh->loadBalance(data_lb, levels);
+
+    // Copy back cell data to Device
+    Kokkos::resize(Ughost, Ughost_host.extent(0), Ughost_host.extent(1), Ughost_host.extent(2));
+    Kokkos::deep_copy(Ughost, Ughost_host);
+    Kokkos::resize(U, U_host.extent(0), U_host.extent(1), U_host.extent(2));
+    Kokkos::deep_copy(U_host, U);
 
     // we probably need to resize U2, ....
     Kokkos::resize(U2,U.extent(0),U.extent(1),U.extent(2));
 
-    lmesh = LightOctree(amr_mesh, params);
+    // Update LightOctree after load balancing
+    lmesh = LightOctree(amr_mesh, params);    
   }
 #endif // BITPIT_ENABLE_MPI==1
   

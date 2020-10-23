@@ -28,6 +28,8 @@ class UserDataLB : public bitpit::DataLBInterface<UserDataLB>
 {
 
 public:
+  using DataArray_t = DataArrayBlockHost; //! Data is host block data
+  using Policy_t = Kokkos::RangePolicy<Kokkos::OpenMP>; //! Use OpenMP to iterate over data
   
   // pass by copy (Kokkos::View), watchout data and ghostdata
   // will surely be reassigned, so calling code must be aware of
@@ -36,8 +38,8 @@ public:
   // - first dim is cell id inside block
   // - second dim is variable (rho, rhov, energy, ...)
   // - third dim is octant id
-  DataArrayBlock& data;
-  DataArrayBlock& ghostdata;
+  DataArray_t& data;
+  DataArray_t& ghostdata;
 
   //! FieldMap object for mapping field variable (ID, IP, IU, IV, ...)
   //! to actual index
@@ -94,7 +96,7 @@ public:
   /**
    * Constructor.
    */
-  UserDataLB(DataArrayBlock& data_, DataArrayBlock& ghostdata_, id2index_t fm_);
+  UserDataLB(DataArray_t& data_, DataArray_t& ghostdata_, id2index_t fm_);
   
   /**
    * Destructor.

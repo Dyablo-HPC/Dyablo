@@ -25,12 +25,13 @@ class UserDataComm : public bitpit::DataCommInterface<UserDataComm>
 {
 
 public:
+  using DataArray_t = DataArrayBlockHost; //! Data is host block data
 
   //! bulk data owned by current MPI process
-  DataArrayBlock data;
+  DataArray_t data;
 
   //! ghost data, owned by a different MPI process
-  DataArrayBlock ghostData;
+  DataArray_t ghostData;
   
   //! FieldMap object for mapping field variable (ID, IP, IU, IV, ...)
   //! to actual index
@@ -77,7 +78,7 @@ public:
   /**
    * Constructor.
    */
-  UserDataComm(DataArrayBlock data_, DataArrayBlock ghostData_, id2index_t fm_);
+  UserDataComm(DataArray_t data_, DataArray_t ghostData_, id2index_t fm_);
 
   /**
    * Destructor.
