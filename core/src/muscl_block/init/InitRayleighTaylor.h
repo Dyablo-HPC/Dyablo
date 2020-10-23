@@ -109,7 +109,6 @@ public:
   }
 
   // Actual initialization operator
-  KOKKOS_INLINE_FUNCTION
   void operator()(thread_t member) const
   {
     uint32_t iOct = member.league_rank();
@@ -237,7 +236,6 @@ public:
     Kokkos::parallel_for("dyablo::muscl_block::InitRayleighTaylorRefineFunctor", policy, functor);
   }
 
-  KOKKOS_INLINE_FUNCTION
   void operator()(const uint32_t &iOct) const
   {
     uint8_t level = pmesh->getLevel(iOct);

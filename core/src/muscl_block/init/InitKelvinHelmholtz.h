@@ -79,7 +79,6 @@ public:
   } // end constructor
 
   // The actual initialization operator
-  KOKKOS_INLINE_FUNCTION
   void operator()(thread_t member) const {
     // Kelvin Helmholtz problem parameters
     const real_t d_in  = khParams.d_in;
@@ -300,7 +299,6 @@ public:
     Kokkos::parallel_for("dyablo::muscl_block::InitKelvinHelmholtzRefineFunctor", policy, functor);
   }
 
-  KOKKOS_INLINE_FUNCTION
   void operator()(const uint32_t &iOct) const {
     
     uint8_t level = pmesh->getLevel(iOct);

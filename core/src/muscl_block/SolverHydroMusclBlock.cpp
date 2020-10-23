@@ -37,8 +37,6 @@
 #include "muscl_block/UserDataLB.h"
 #endif
 
-#include <Kokkos_Macros.hpp> // for KOKKOS_ENABLE_XXX
-
 //#include "shared/mpiBorderUtils.h"
 
 namespace dyablo { namespace muscl_block {
@@ -268,9 +266,6 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
       init_blast(this);
       
     }
-#ifdef KOKKOS_ENABLE_CUDA
-#warning("Initial conditions are not compiled when cuda backend is used!!!")
-#else
     else if ( !m_problem_name.compare("sod") ) {
       
       init_sod(this);
@@ -307,7 +302,6 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
     else if ( !m_problem_name.compare("custom") ) {
       // Don't do anything here, let the user setup their own problem
     } 
-#endif //KOKKOS_USE_CUDA
     else {
       
       std::cout << "Problem : " << m_problem_name

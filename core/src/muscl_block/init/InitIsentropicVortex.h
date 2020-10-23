@@ -228,7 +228,6 @@ public:
     Kokkos::parallel_for("dyablo::muscl_block::InitIsentropicVortexRefineFunctor", policy, functor);
   }
 
-  KOKKOS_INLINE_FUNCTION
   void operator()(const uint32_t &iOct) const {
     uint8_t level = pmesh->getLevel(iOct);
 
