@@ -130,6 +130,10 @@ public:
  **/ 
 class LightOctree_pablo : public LightOctree_base{
 public:
+    LightOctree_pablo() = default;
+    LightOctree_pablo(const LightOctree_pablo& ) = default;
+
+
     LightOctree_pablo( std::shared_ptr<AMRmesh> pmesh, const HydroParams& params )
     : pmesh(pmesh), ndim(pmesh->getDim())
     {}

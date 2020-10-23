@@ -13,6 +13,10 @@ target_include_directories(${EXE_NAME}
   ${CMAKE_BINARY_DIR}/src
   )
 
+if( NOT Kokkos_ENABLE_CUDA )
+  target_link_libraries(${EXE_NAME} muscl)
+endif()
+
 target_link_libraries(${EXE_NAME}
   config
   Kokkos::kokkos
@@ -21,10 +25,6 @@ target_link_libraries(${EXE_NAME}
   shared
   monitoring
   BITPIT::BITPIT)
-
-if( NOT Kokkos_ENABLE_CUDA )
-  target_link_libraries(${EXE_NAME} muscl)
-endif()
 
 if (DYABLO_USE_MPI)  
   target_compile_definitions(${EXE_NAME} PUBLIC BITPIT_ENABLE_MPI)

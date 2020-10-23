@@ -162,7 +162,7 @@ SolverHydroMuscl::~SolverHydroMuscl()
 
 } // SolverHydroMuscl::~SolverHydroMuscl
 
-static SolverBase* SolverHydroMuscl::create(HydroParams& params, ConfigMap& configMap)
+SolverBase* SolverHydroMuscl::create(HydroParams& params, ConfigMap& configMap)
 {
   SolverHydroMuscl* solver = new SolverHydroMuscl(params, configMap);
 
