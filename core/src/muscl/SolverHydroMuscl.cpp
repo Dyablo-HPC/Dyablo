@@ -162,6 +162,13 @@ SolverHydroMuscl::~SolverHydroMuscl()
 
 } // SolverHydroMuscl::~SolverHydroMuscl
 
+SolverBase* SolverHydroMuscl::create(HydroParams& params, ConfigMap& configMap)
+{
+  SolverHydroMuscl* solver = new SolverHydroMuscl(params, configMap);
+
+  return solver;
+}
+
 // =======================================================
 // =======================================================
 void SolverHydroMuscl::resize_solver_data()

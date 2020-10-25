@@ -6,6 +6,7 @@
 #include "shared/utils_hydro.h"
 #include "shared/bitpit_common.h"
 #include "muscl_block/utils_block.h"
+#include "LightOctree.h"
 
 namespace dyablo
 {
@@ -20,14 +21,13 @@ public:
   using index_t = uint32_t;
   using team_policy_t = Kokkos::TeamPolicy<Kokkos::IndexType<index_t>>;
 
-  CopyGhostBlockCellDataFunctor(std::shared_ptr<AMRmesh> pmesh,
+  CopyGhostBlockCellDataFunctor(LightOctree lmesh,
                                 HydroParams params, id2index_t fm,
                                 blockSize_t blockSizes, uint32_t ghostWidth,
                                 uint32_t nbOctsPerGroup, DataArrayBlock U,
                                 DataArrayBlock U_ghost, DataArrayBlock Ugroup,
                                 uint32_t iGroup,
-                                FlagArrayBlock Interface_flags);
-  
+                                InterfaceFlags interface_flags);
   /**
    * @brief Fill ghost cell data of all octants in the group
    * 
@@ -36,23 +36,22 @@ public:
    * Ghost cells of current group octants are filled with values 
    * from neighbor octants. Fills faces, edges and corners.
    **/
-  static void apply(std::shared_ptr<AMRmesh> pmesh, ConfigMap configMap,
+  static void apply(LightOctree lmesh, ConfigMap configMap,
                     HydroParams params, id2index_t fm, blockSize_t blockSizes,
                     uint32_t ghostWidth, uint32_t nbOctsPerGroup,
                     DataArrayBlock U, DataArrayBlock U_ghost,
                     DataArrayBlock Ugroup, uint32_t iGroup,
-                    FlagArrayBlock Interface_flags);
+                    InterfaceFlags interface_flags);
 
   // Called with parallel_for inside apply()
-  void operator()(team_policy_t::member_type member) const;
+  KOKKOS_INLINE_FUNCTION void operator()(team_policy_t::member_type member) const;
 
 public :
   uint32_t nbTeams; //!< number of thread teams
-  //! AMR mesh
-  std::shared_ptr<AMRmesh> pmesh;
+  
 
   //! general parameters
-  HydroParams params;
+  BoundaryConditionType bc_min[3], bc_max[3];
 
   //! field manager
   id2index_t fm;
@@ -89,13 +88,16 @@ public :
   uint32_t iGroup;
 
   //! 2:1 flagging mechanism
-  FlagArrayBlock Interface_flags;
+  InterfaceFlags interface_flags;
 
   // should we copy gravity ?
   bool copy_gravity;
 
   // number of dimensions for gravity
   int ndim;
+  
+  //! AMR mesh
+  LightOctree lmesh;
 };
 
 } // namespace muscl_block

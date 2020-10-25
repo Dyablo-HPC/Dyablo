@@ -10,7 +10,7 @@ namespace dyablo { namespace muscl_block {
 
 // ==================================================================
 // ==================================================================
-UserDataComm::UserDataComm(DataArrayBlock data_, DataArrayBlock ghostData_, id2index_t fm_) :
+UserDataComm::UserDataComm(DataArray_t data_, DataArray_t ghostData_, id2index_t fm_) :
   data(data_),
   ghostData(ghostData_),
   fm(fm_),

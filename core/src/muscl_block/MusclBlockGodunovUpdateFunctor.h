@@ -19,6 +19,7 @@
 
 // utils block
 #include "muscl_block/utils_block.h"
+#include "muscl_block/LightOctree.h"
 
 namespace dyablo
 {
@@ -55,11 +56,7 @@ namespace muscl_block
  */
 class MusclBlockGodunovUpdateFunctor
 {
-
-private:
-  using offsets_t = Kokkos::Array<real_t, 3>;
-  uint32_t nbTeams; //!< number of thread teams
-
+public:
   //! Tag structure for the 2 stages
   struct Slopes
   {
@@ -67,6 +64,9 @@ private:
   struct Fluxes
   {
   }; // stage 2
+private:
+  using offsets_t = Kokkos::Array<real_t, 3>;
+  uint32_t nbTeams; //!< number of thread teams
 
   using team_policy1_t = Kokkos::TeamPolicy<Slopes, Kokkos::IndexType<int32_t>>;
   using thread1_t = team_policy1_t::member_type;
@@ -86,7 +86,7 @@ public:
   /**
    * Perform time integration (MUSCL Godunov).
    *
-   * \param[in]  pmesh pointer to AMR mesh structure
+   * \param[in]  lmesh AMR mesh structure
    * \param[in]  params
    * \param[in]  fm field map
    * \param[in]  Ugroup current time step data (conservative variables)
@@ -95,7 +95,7 @@ public:
    * \param[in]  time step (as cmputed by CFL condition)
    *
    */
-  MusclBlockGodunovUpdateFunctor(std::shared_ptr<AMRmesh> pmesh,
+  MusclBlockGodunovUpdateFunctor(LightOctree lmesh,
                                  HydroParams params,
                                  id2index_t fm,
                                  blockSize_t blockSizes,
@@ -108,8 +108,8 @@ public:
                                  DataArrayBlock U_ghost,
                                  DataArrayBlock U2,
                                  DataArrayBlock Qgroup,
-                                 FlagArrayBlock Interface_flags,
-                                 real_t dt) : pmesh(pmesh),
+                                 InterfaceFlags interface_flags,
+                                 real_t dt) : lmesh(lmesh),
                                               params(params),
                                               fm(fm),
                                               blockSizes(blockSizes),
@@ -122,7 +122,7 @@ public:
                                               U_ghost(U_ghost),
                                               U2(U2),
                                               Qgroup(Qgroup),
-                                              Interface_flags(Interface_flags),
+                                              interface_flags(interface_flags),
                                               dt(dt)
   {
 
@@ -163,7 +163,7 @@ public:
   }; // constructor
 
   // static method which does it all: create and execute functor
-  static void apply(std::shared_ptr<AMRmesh> pmesh,
+  static void apply(LightOctree lmesh,
                     ConfigMap configMap,
                     HydroParams params,
                     id2index_t fm,
@@ -177,17 +177,17 @@ public:
                     DataArrayBlock U_ghost,
                     DataArrayBlock U2,
                     DataArrayBlock Qgroup,
-                    FlagArrayBlock Interface_flags,
+                    InterfaceFlags interface_flags,
                     real_t dt)
   {
 
     // instantiate functor
-    MusclBlockGodunovUpdateFunctor functor(pmesh, params, fm,
+    MusclBlockGodunovUpdateFunctor functor(lmesh, params, fm,
                                            blockSizes, ghostWidth,
                                            nbOcts, nbOctsPerGroup, iGroup,
                                            Ugroup, U, U_ghost, U2,
                                            Qgroup,
-                                           Interface_flags,
+                                           interface_flags,
                                            dt);
 
     uint32_t nbTeams_ = configMap.getInteger("amr", "nbTeams", 16);
@@ -235,18 +235,12 @@ public:
                                       GravityField &g0,
                                       GravityField &g1) const
   {
-
-    uint8_t codim = 1;
-
     const uint32_t &bx = blockSizes[IX];
     const uint32_t &by = blockSizes[IY];
 
-    uint8_t iface = face + 2 * dir;
-
-    std::vector<uint32_t> neigh;
-    std::vector<bool> is_ghost;
-
-    pmesh->findNeighbours(iOct, iface, codim, neigh, is_ghost);
+    LightOctree::offset_t offset = {0,0,0};
+    offset[dir] = (face==FACE_LEFT) ? -1 : 1;
+    LightOctree::NeighborList neighbors = lmesh.findNeighbors({iOct,false}, offset);
 
     uint32_t ii, jj; // Coords of the first neighbour
     uint8_t iNeigh = 0;
@@ -288,28 +282,28 @@ public:
       HydroState2d &q = (ip == 0 ? q0 : q1);
       GravityField &g = (ip == 0 ? g0 : g1);
       HydroState2d u;
-      if (is_ghost[iNeigh])
+      if (neighbors[iNeigh].isGhost)
       {
-        u[ID] = U_ghost(index_border, fm[ID], neigh[iNeigh]);
-        u[IP] = U_ghost(index_border, fm[IP], neigh[iNeigh]);
-        u[IU] = U_ghost(index_border, fm[IU], neigh[iNeigh]);
-        u[IV] = U_ghost(index_border, fm[IV], neigh[iNeigh]);
+        u[ID] = U_ghost(index_border, fm[ID], neighbors[iNeigh].iOct);
+        u[IP] = U_ghost(index_border, fm[IP], neighbors[iNeigh].iOct);
+        u[IU] = U_ghost(index_border, fm[IU], neighbors[iNeigh].iOct);
+        u[IV] = U_ghost(index_border, fm[IV], neighbors[iNeigh].iOct);
 
         if (params.gravity_type & GRAVITY_FIELD) {
-          g[IX] = U_ghost(index_border, fm[IGX], neigh[iNeigh]);
-          g[IY] = U_ghost(index_border, fm[IGY], neigh[iNeigh]);
+          g[IX] = U_ghost(index_border, fm[IGX], neighbors[iNeigh].iOct);
+          g[IY] = U_ghost(index_border, fm[IGY], neighbors[iNeigh].iOct);
         }
       }
       else
       {
-        u[ID] = U(index_border, fm[ID], neigh[iNeigh]);
-        u[IP] = U(index_border, fm[IP], neigh[iNeigh]);
-        u[IU] = U(index_border, fm[IU], neigh[iNeigh]);
-        u[IV] = U(index_border, fm[IV], neigh[iNeigh]);
+        u[ID] = U(index_border, fm[ID], neighbors[iNeigh].iOct);
+        u[IP] = U(index_border, fm[IP], neighbors[iNeigh].iOct);
+        u[IU] = U(index_border, fm[IU], neighbors[iNeigh].iOct);
+        u[IV] = U(index_border, fm[IV], neighbors[iNeigh].iOct);
 
         if (params.gravity_type & GRAVITY_FIELD) {
-          g[IX] = U(index_border, fm[IGX], neigh[iNeigh]);
-          g[IY] = U(index_border, fm[IGY], neigh[iNeigh]);
+          g[IX] = U(index_border, fm[IGX], neighbors[iNeigh].iOct);
+          g[IY] = U(index_border, fm[IGY], neighbors[iNeigh].iOct);
         }
       }
 
@@ -445,6 +439,7 @@ public:
       const real_t drgt = slope_type * (qPlus - q);
       const real_t dcen = HALF_F * (qPlus - qMinus);
       const real_t dsgn = (dcen >= ZERO_F) ? ONE_F : -ONE_F;
+      if( std::isnan(dlft) or std::isnan(drgt)  ) return std::nan("");
       const real_t slop = fmin(FABS(dlft), FABS(drgt));
       real_t dlim = slop;
       if ((dlft * drgt) <= ZERO_F)
@@ -497,6 +492,7 @@ public:
       const real_t drgt = slope_type * (qPlus - q);
       const real_t dcen = HALF_F * (qPlus - qMinus);
       const real_t dsgn = (dcen >= ZERO_F) ? ONE_F : -ONE_F;
+      if( std::isnan(dlft) or std::isnan(drgt)  ) return std::nan("");
       const real_t slop = fmin(FABS(dlft), FABS(drgt));
       real_t dlim = slop;
       if ((dlft * drgt) <= ZERO_F)
@@ -937,8 +933,8 @@ public:
     while (iOct < iOctNextGroup and iOct < nbOcts)
     {
       // compute dx / dy
-      const real_t dx = pmesh->getSize(iOct) * Lx / bx;
-      const real_t dy = pmesh->getSize(iOct) * Ly / by;
+      const real_t dx = lmesh.getSize({iOct,false}) * Lx / bx;
+      const real_t dy = lmesh.getSize({iOct,false}) * Ly / by;
 
       // TODO : Factor the update of U2 in an inline function instea of repeating the same block
       // of code again and again
@@ -961,7 +957,7 @@ public:
       const real_t scale_y_nc = dt * dSy_nc / dV;
 
       // We update the cells at the LEFT border if they have non-conformal neighbours
-      if (Interface_flags(iOct_local) & INTERFACE_XMIN_NC)
+      if (interface_flags.isFaceNonConformal(iOct_local, FACE_LEFT))
       {
         const uint32_t ii = 0;
         Kokkos::parallel_for(
@@ -983,7 +979,7 @@ public:
 
               // fluxes will be accumulated in qcons
               HydroState2d qcons = {0.0, 0.0, 0.0, 0.0};
-              if (Interface_flags(iOct_local) & INTERFACE_XMIN_BIGGER)
+              if (interface_flags.isFaceBigger(iOct_local, FACE_LEFT))
               {
                 // step 1: compute flux (Riemann solver) with centered values
                 HydroState2d qR = qprim;
@@ -999,7 +995,7 @@ public:
                 qcons += flux * scale_x_c;
               }
               // If we are bigger than the neighbors we sum two fluxes coming from the small cells
-              else if (Interface_flags(iOct_local) & INTERFACE_XMIN_SMALLER)
+              else if (interface_flags.isFaceSmaller(iOct_local, FACE_LEFT))
               {
                 // step 1: get the states of both neighbour cell
                 HydroState2d qR = qprim;
@@ -1031,7 +1027,7 @@ public:
       }
 
       // We update the cells at the RIGHT border if they have non-conformal neighbours
-      if (Interface_flags(iOct_local) & INTERFACE_XMAX_NC)
+      if (interface_flags.isFaceNonConformal(iOct_local, FACE_RIGHT))
       {
         const uint32_t ii = bx - 1;
         Kokkos::parallel_for(
@@ -1052,7 +1048,7 @@ public:
 
               // fluxes will be accumulated in qcons
               HydroState2d qcons = {0.0, 0.0, 0.0, 0.0};
-              if (Interface_flags(iOct_local) & INTERFACE_XMAX_BIGGER)
+              if (interface_flags.isFaceBigger(iOct_local, FACE_RIGHT))
               {
                 // step 1: compute flux (Riemann solver) with centered values
                 HydroState2d qL = qprim;
@@ -1068,7 +1064,7 @@ public:
                 // step 2: accumulate flux in current cell
                 qcons -= flux * scale_x_c;
               }
-              else if (Interface_flags(iOct_local) & INTERFACE_XMAX_SMALLER)
+              else if (interface_flags.isFaceSmaller(iOct_local, FACE_RIGHT))
               {
                 // step 1: get the states of both neighbour cells
                 HydroState2d qL = qprim;
@@ -1101,7 +1097,7 @@ public:
       }
 
       // We update the cells at the BOTTOM border if they have non-conformal neighbours
-      if (Interface_flags(iOct_local) & INTERFACE_YMIN_NC)
+      if (interface_flags.isFaceNonConformal(iOct_local, FACE_BOTTOM))
       {
         const uint32_t jj = 0;
         Kokkos::parallel_for(
@@ -1124,7 +1120,7 @@ public:
               // fluxes will be accumulated in qcons
               HydroState2d qcons = {0.0, 0.0, 0.0, 0.0};
 
-              if (Interface_flags(iOct_local) & INTERFACE_YMIN_BIGGER)
+              if (interface_flags.isFaceBigger(iOct_local, FACE_BOTTOM))
               {
                 // step 1: Swap u and v in states
                 HydroState2d qL = get_prim_variables<HydroState2d>(ig - bx_g, iOct_local);
@@ -1145,7 +1141,7 @@ public:
                 my_swap(flux[IU], flux[IV]);
                 qcons += flux * scale_y_c;
               }
-              else if (Interface_flags(iOct_local) & INTERFACE_YMIN_SMALLER)
+              else if (interface_flags.isFaceSmaller(iOct_local, FACE_BOTTOM))
               {
                 // step 1: get the states of both neighbour cells
                 HydroState2d qR = qprim;
@@ -1186,7 +1182,7 @@ public:
       }
 
       // We update the cells at the TOP border if they have non-conformal neighbours
-      if (Interface_flags(iOct_local) & INTERFACE_YMAX_NC)
+      if (interface_flags.isFaceNonConformal(iOct_local, FACE_TOP))
       {
         const uint32_t jj = by - 1;
         Kokkos::parallel_for(
@@ -1208,7 +1204,7 @@ public:
               // fluxes will be accumulated in qcons
               HydroState2d qcons = {0.0, 0.0, 0.0, 0.0};
 
-              if (Interface_flags(iOct_local) & INTERFACE_YMAX_BIGGER)
+              if (interface_flags.isFaceBigger(iOct_local, FACE_TOP))
               {
                 // step 1: Swap u and v in states
                 HydroState2d qR = get_prim_variables<HydroState2d>(ig + bx_g, iOct_local);
@@ -1228,7 +1224,7 @@ public:
                 my_swap(flux[IU], flux[IV]);
                 qcons -= flux * scale_y_c;
               }
-              else if (Interface_flags(iOct_local) & INTERFACE_YMAX_SMALLER)
+              else if (interface_flags.isFaceSmaller(iOct_local, FACE_TOP))
               {
                 // step1: get the states of both neighbour cells
                 HydroState2d qL = qprim;
@@ -1299,8 +1295,8 @@ public:
     {
 
       // compute dx / dy
-      const real_t dx = pmesh->getSize(iOct) * Lx / bx;
-      const real_t dy = pmesh->getSize(iOct) * Ly / by;
+      const real_t dx = lmesh.getSize({iOct,false}) * Lx / bx;
+      const real_t dy = lmesh.getSize({iOct,false}) * Ly / by;
 
       const real_t dtdx = dt / dx;
       const real_t dtdy = dt / dy;
@@ -1323,8 +1319,8 @@ public:
 
             // the following condition makes sure we stay inside
             // the inner block
-            if (i >= 0 and i < bx and
-                j >= 0 and j < by)
+            if (/*i >= 0 and*/ i < bx and
+                /*j >= 0 and*/ j < by)
             {
               // get current location primitive variables state
               HydroState2d qprim = get_prim_variables<HydroState2d>(ig, iOct_local);
@@ -1382,22 +1378,22 @@ public:
               };
 
               // compute from left face along x dir
-              if (i > 0 or !(Interface_flags(iOct_local) & INTERFACE_XMIN_NC))
+              if (i > 0 or interface_flags.isFaceConformal(iOct_local, FACE_LEFT))
               {
                 process_axis(IX, FACE_LEFT);
               }
               // compute flux from right face along x dir
-              if (i < bx - 1 or !(Interface_flags(iOct_local) & INTERFACE_XMAX_NC))
+              if (i < bx - 1 or interface_flags.isFaceConformal(iOct_local, FACE_RIGHT))
               {
                 process_axis(IX, FACE_RIGHT);
               }
               // compute flux from left face along y dir
-              if (j > 0 or !(Interface_flags(iOct_local) & INTERFACE_YMIN_NC))
+              if (j > 0 or interface_flags.isFaceConformal(iOct_local, FACE_BOTTOM))
               {
                 process_axis(IY, FACE_LEFT);
               }
               // compute flux from right face along y dir
-              if (j < by - 1 or !(Interface_flags(iOct_local) & INTERFACE_YMAX_NC))
+              if (j < by - 1 or interface_flags.isFaceConformal(iOct_local, FACE_TOP))
               {
                 process_axis(IY, FACE_RIGHT);
               }
@@ -1442,8 +1438,8 @@ public:
     {
 
       // compute dx / dy
-      const real_t dx = (iOct < nbOcts) ? pmesh->getSize(iOct) / bx : 1.0;
-      const real_t dy = (iOct < nbOcts) ? pmesh->getSize(iOct) / by : 1.0;
+      const real_t dx = (iOct < nbOcts) ? lmesh.getSize({iOct,false}) / bx : 1.0;
+      const real_t dy = (iOct < nbOcts) ? lmesh.getSize({iOct,false}) / by : 1.0;
 
       const real_t dtdx = dt / dx;
       const real_t dtdy = dt / dy;
@@ -1749,9 +1745,9 @@ public:
     while (iOct < iOctNextGroup and iOct < nbOcts)
     {
       // compute dx / dy
-      const real_t dx = pmesh->getSize(iOct) * Lx / bx;
-      const real_t dy = pmesh->getSize(iOct) * Ly / by;
-      const real_t dz = pmesh->getSize(iOct) * Lz / bz;
+      const real_t dx = lmesh.getSize({iOct,false}) * Lx / bx;
+      const real_t dy = lmesh.getSize({iOct,false}) * Ly / by;
+      const real_t dz = lmesh.getSize({iOct,false}) * Lz / bz;
 
       const real_t dtdx = dt / dx;
       const real_t dtdy = dt / dy;
@@ -1776,9 +1772,9 @@ public:
 
             // the following condition makes sure we stay inside
             // the inner block
-            if (i >= 0 and i < bx and
-                j >= 0 and j < by and
-                k >= 0 and k < bz )
+            if (/*i >= 0 and*/ i < bx and
+                /*j >= 0 and*/ j < by and
+                /*k >= 0 and*/ k < bz )
             {
               // get current location primitive variables state
               HydroState3d qprim = get_prim_variables<HydroState3d>(ig, iOct_local);
@@ -1836,32 +1832,32 @@ public:
               };
 
               // compute from left face along x dir
-              if (i > 0 or !(Interface_flags(iOct_local) & INTERFACE_XMIN_NC))
+              if (i > 0 or interface_flags.isFaceConformal(iOct_local, FACE_LEFT))
               {
                 process_axis(IX, FACE_LEFT);
               }
               // compute flux from right face along x dir
-              if (i < bx - 1 or !(Interface_flags(iOct_local) & INTERFACE_XMAX_NC))
+              if (i < bx - 1 or interface_flags.isFaceConformal(iOct_local, FACE_RIGHT))
               {
                 process_axis(IX, FACE_RIGHT);
               }
               // compute flux from left face along y dir
-              if (j > 0 or !(Interface_flags(iOct_local) & INTERFACE_YMIN_NC))
+              if (j > 0 or interface_flags.isFaceConformal(iOct_local, FACE_BOTTOM))
               {
                 process_axis(IY, FACE_LEFT);
               }
               // compute flux from right face along y dir
-              if (j < by - 1 or !(Interface_flags(iOct_local) & INTERFACE_YMAX_NC))
+              if (j < by - 1 or interface_flags.isFaceConformal(iOct_local, FACE_TOP))
               {
                 process_axis(IY, FACE_RIGHT);
               }
               // compute flux from left face along y dir
-              if (k > 0 or !(Interface_flags(iOct_local) & INTERFACE_ZMIN_NC))
+              if (k > 0 or interface_flags.isFaceConformal(iOct_local, FACE_REAR))
               {
                 process_axis(IZ, FACE_LEFT);
               }
               // compute flux from right face along y dir
-              if (k < bz - 1 or !(Interface_flags(iOct_local) & INTERFACE_ZMAX_NC))
+              if (k < bz - 1 or interface_flags.isFaceConformal(iOct_local, FACE_FRONT))
               {
                 process_axis(IZ, FACE_RIGHT);
               }
@@ -1937,7 +1933,7 @@ public:
   } // operator () - fluxes and update
 
   //! bitpit/PABLO amr mesh object
-  std::shared_ptr<AMRmesh> pmesh;
+  LightOctree lmesh;
 
   //! general parameters
   HydroParams params;
@@ -1992,7 +1988,7 @@ public:
   DataArrayBlock Qgroup;
 
   //! flags at interface for 2:1 ratio
-  FlagArrayBlock Interface_flags;
+  InterfaceFlags interface_flags;
 
   //! time step
   real_t dt;

@@ -234,7 +234,6 @@ public:
                          policy, functor);
   }
   
-  KOKKOS_INLINE_FUNCTION
   void operator()(const size_t& iOct) const
   {
     // get cell level

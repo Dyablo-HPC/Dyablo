@@ -6,12 +6,10 @@ namespace muscl_block
 {
 
 CopyGhostBlockCellDataFunctor::CopyGhostBlockCellDataFunctor(
-    std::shared_ptr<AMRmesh> pmesh, HydroParams params, id2index_t fm,
+    LightOctree lmesh, HydroParams params, id2index_t fm,
     blockSize_t blockSizes, uint32_t ghostWidth, uint32_t nbOctsPerGroup,
     DataArrayBlock U, DataArrayBlock U_ghost, DataArrayBlock Ugroup,
-    uint32_t iGroup, FlagArrayBlock Interface_flags) :
-  pmesh(pmesh),
-  params(params),
+    uint32_t iGroup, InterfaceFlags interface_flags) :
   fm(fm),
   blockSizes(blockSizes),
   ghostWidth(ghostWidth),
@@ -20,8 +18,16 @@ CopyGhostBlockCellDataFunctor::CopyGhostBlockCellDataFunctor(
   U_ghost(U_ghost),
   Ugroup(Ugroup),
   iGroup(iGroup),
-  Interface_flags(Interface_flags)
+  interface_flags(interface_flags),
+  lmesh(lmesh)
 {
+    bc_min[IX] = params.boundary_type_xmin;
+    bc_max[IX] = params.boundary_type_xmax;
+    bc_min[IY] = params.boundary_type_ymin;
+    bc_max[IY] = params.boundary_type_ymax;
+    bc_min[IZ] = params.boundary_type_zmin;
+    bc_max[IZ] = params.boundary_type_zmax;
+
   // in 2d, bz and bz_g are not used
   blockSizes[IZ] = (params.dimType == THREE_D) ? blockSizes[IZ] : 1;
   bx_g           = blockSizes[IX] + 2 * ghostWidth;
@@ -33,45 +39,14 @@ CopyGhostBlockCellDataFunctor::CopyGhostBlockCellDataFunctor(
   ndim         = (params.dimType == THREE_D ? 3 : 2);
 }
 
-void CopyGhostBlockCellDataFunctor::apply(
-    std::shared_ptr<AMRmesh> pmesh, ConfigMap configMap, HydroParams params,
-    id2index_t fm, blockSize_t blockSizes, uint32_t ghostWidth,
-    uint32_t nbOctsPerGroup, DataArrayBlock U, DataArrayBlock U_ghost,
-    DataArrayBlock Ugroup, uint32_t iGroup, FlagArrayBlock Interface_flags)
-{
-  CopyGhostBlockCellDataFunctor functor(pmesh,
-                                        params,
-                                        fm,
-                                        blockSizes,
-                                        ghostWidth,
-                                        nbOctsPerGroup,
-                                        U,
-                                        U_ghost,
-                                        Ugroup,
-                                        iGroup,
-                                        Interface_flags);
-
-  // using kokkos team execution policy
-  uint32_t nbTeams_ = configMap.getInteger("amr", "nbTeams", 16);
-  functor.nbTeams   = nbTeams_;
-  // create execution policy
-  team_policy_t policy(nbTeams_,
-                       Kokkos::AUTO() /* team size chosen by kokkos */);
-
-  // launch computation (parallel kernel)
-  Kokkos::parallel_for("dyablo::muscl_block::CopyGhostBlockCellDataFunctor",
-                       policy,
-                       functor);
-}
-
 namespace{
 
 using Functor = CopyGhostBlockCellDataFunctor;
 
 /// replaces std::max({v0,v1,...})
-uint32_t max_n(uint32_t v) { return v; }
+KOKKOS_INLINE_FUNCTION uint32_t max_n(uint32_t v) { return v; }
 template <typename T0, typename... Ts>
-T0 max_n(T0 v0, T0 v1, Ts... vs)
+KOKKOS_INLINE_FUNCTION T0 max_n(T0 v0, T0 v1, Ts... vs)
 {
   return v0 > max_n(v1, vs...) ? v0 : max_n(v1, vs...);
 }
@@ -87,7 +62,7 @@ using coord_g_t = Kokkos::Array<int32_t, 3>;
  * @param ghostWidth ghost width in group data
  **/
 template <int ndim>
-uint32_t coord_g_to_index(  coord_g_t   coords, 
+KOKKOS_INLINE_FUNCTION uint32_t coord_g_to_index(  coord_g_t   coords, 
                             blockSize_t bSizes,
                             uint32_t    ghostWidth)
 {
@@ -135,7 +110,7 @@ struct get_pos_t{
  * @return See struct get_pos_t
  **/
 template< int ndim, DIR_ID dir >
-get_pos_t get_pos( const Functor& f, Functor::index_t index )
+KOKKOS_INLINE_FUNCTION get_pos_t get_pos( const Functor& f, Functor::index_t index )
 {
     get_pos_t res = {};
 
@@ -268,11 +243,12 @@ using CellData = HydroState3d;
  * @param is_ghost is neighbor octant a ghost octant?
  **/
 template <int ndim>
-CellData get_cell_data_same_size( const Functor& f, uint32_t iOct_neigh, coord_t pos_in_neighbor, bool is_ghost)
+KOKKOS_INLINE_FUNCTION CellData get_cell_data_same_size( const Functor& f, const LightOctree::OctantIndex& neigh, coord_t pos_in_neighbor)
 {
     CellData res;
     uint32_t index_in_neighbor = coord_to_index_g<ndim>( pos_in_neighbor, f.blockSizes, 0 );
-    if (is_ghost)
+    uint32_t iOct_neigh = neigh.iOct;
+    if (neigh.isGhost)
     {
         res[ID] = f.U_ghost(index_in_neighbor, f.fm[ID], iOct_neigh);
         res[IP] = f.U_ghost(index_in_neighbor, f.fm[IP], iOct_neigh);
@@ -326,9 +302,9 @@ CellData get_cell_data_same_size( const Functor& f, uint32_t iOct_neigh, coord_t
  * @note cell_physical_pos is necessary to determine in which sub-octant to fetch (see y in example above)
  **/
 template <int ndim >
-CellData get_cell_data_larger( const Functor& f, uint32_t iOct_neigh, coord_t pos_in_neighbor, bool is_ghost, real_t cell_physical_pos[3])
+KOKKOS_INLINE_FUNCTION CellData get_cell_data_larger( const Functor& f, const LightOctree::OctantIndex& neigh, coord_t pos_in_neighbor, real_t cell_physical_pos[3])
 {
-    bitpit::darray3 neighbor_center = is_ghost ? f.pmesh->getCenter(f.pmesh->getGhostOctant(iOct_neigh)) : f.pmesh->getCenter(iOct_neigh);
+    LightOctree::pos_t neighbor_center = f.lmesh.getCenter(neigh);
 
     for( ComponentIndex3D current_dim : {IX, IY, IZ} )
     {
@@ -339,7 +315,7 @@ CellData get_cell_data_larger( const Functor& f, uint32_t iOct_neigh, coord_t po
             pos_in_neighbor[current_dim] += f.blockSizes[current_dim]/2;
     }
 
-    return get_cell_data_same_size<ndim>( f, iOct_neigh, pos_in_neighbor, is_ghost );
+    return get_cell_data_same_size<ndim>( f, neigh, pos_in_neighbor );
 }
 
 template< int ndim >
@@ -373,7 +349,7 @@ int neighbor_count = (ndim == 2) ? 2 : 4;
  * @note cell_physical_pos is necessary to determine in which sub-octant cell is in local octant
  **/
 template <int ndim>
-CellData get_cell_data_smaller( const Functor& f, const std::vector<uint32_t>& iOcts_neigh, coord_t pos_in_neighbor, const std::vector<bool>& is_ghost, real_t cell_physical_pos[3])
+KOKKOS_INLINE_FUNCTION CellData get_cell_data_smaller( const Functor& f, const LightOctree::NeighborList& neighs, coord_t pos_in_neighbor, real_t cell_physical_pos[3])
 {                
     // Get position of first cell in neighbor (as if it was same size)
     coord_t c0_neighbor = pos_in_neighbor; 
@@ -386,14 +362,16 @@ CellData get_cell_data_smaller( const Functor& f, const std::vector<uint32_t>& i
     assert( f.blockSizes[IX]%2 == 0 && f.blockSizes[IY]%2 == 0 && ( ndim ==2 || f.blockSizes[IZ]%2 == 0 )  );
     // Find which sub-octant contains the cell to fill
     int8_t suboctant = -1;
-    for( size_t i=0; i<iOcts_neigh.size(); i++ )
+    for( size_t i=0; i<neighs.size(); i++ )
     {        
-        real_t npx = is_ghost[i] ? f.pmesh->getXghost(iOcts_neigh[i]) : f.pmesh->getX(iOcts_neigh[i]);
-        real_t npy = is_ghost[i] ? f.pmesh->getYghost(iOcts_neigh[i]) : f.pmesh->getY(iOcts_neigh[i]);
-        real_t npz = is_ghost[i] ? f.pmesh->getZghost(iOcts_neigh[i]) : f.pmesh->getZ(iOcts_neigh[i]);
-        real_t neighbor_size = is_ghost[i] ? f.pmesh->getSizeGhost(iOcts_neigh[i]) : f.pmesh->getSize(iOcts_neigh[i]);
+        LightOctree::pos_t np = f.lmesh.getCorner( neighs[i] );
 
-        bitpit::darray3 neighbor_min = {npx,npy,npz};
+        real_t npx = np[IX];
+        real_t npy = np[IY];
+        real_t npz = np[IZ];
+        real_t neighbor_size = f.lmesh.getSize( neighs[i] );
+
+        LightOctree::pos_t neighbor_min = {npx,npy,npz};
 
         if(   ( neighbor_min[IX] < cell_physical_pos[IX] &&  cell_physical_pos[IX] < neighbor_min[IX] + neighbor_size )
           and ( neighbor_min[IY] < cell_physical_pos[IY] &&  cell_physical_pos[IY] < neighbor_min[IY] + neighbor_size )
@@ -440,7 +418,7 @@ CellData get_cell_data_smaller( const Functor& f, const std::vector<uint32_t>& i
                 // 0|_|_|_|  |   |
                 // 2|_|_|_|  |___|_...
 
-                CellData d = get_cell_data_same_size<ndim>( f, iOcts_neigh[suboctant], pos_in_smaller, is_ghost[suboctant] );
+                CellData d = get_cell_data_same_size<ndim>( f, neighs[suboctant], pos_in_smaller );
 
                 for( size_t i=0; i<res.size(); i++ )
                     res[i] += d[i];
@@ -463,7 +441,7 @@ CellData get_cell_data_smaller( const Functor& f, const std::vector<uint32_t>& i
  * @param cell_physical_pos physical position of cell to fetch
  **/ 
 template < int ndim, DIR_ID dir >
-CellData get_cell_data_border( const Functor& f, uint32_t iOct_local, coord_g_t pos_in_local, real_t cell_center_physical[3])
+KOKKOS_INLINE_FUNCTION CellData get_cell_data_border( const Functor& f, uint32_t iOct_local, coord_g_t pos_in_local, real_t cell_center_physical[3])
 {
 
     // normal momentum sign
@@ -473,24 +451,16 @@ CellData get_cell_data_border( const Functor& f, uint32_t iOct_local, coord_g_t 
                             pos_in_local[IY],
                             pos_in_local[IZ]};
 
-    BoundaryConditionType bc_min[3], bc_max[3];
-    bc_min[IX] = f.params.boundary_type_xmin;
-    bc_max[IX] = f.params.boundary_type_xmax;
-    bc_min[IY] = f.params.boundary_type_ymin;
-    bc_max[IY] = f.params.boundary_type_ymax;
-    bc_min[IZ] = f.params.boundary_type_zmin;
-    bc_max[IZ] = f.params.boundary_type_zmax;
-
     // absorbing border : we just copy/mirror data 
     // from the last inner cells into ghost cells
     for( ComponentIndex3D current_dim : {IX, IY, IZ} )
     {
-        if(     bc_min[current_dim] == BC_ABSORBING 
+        if(     f.bc_min[current_dim] == BC_ABSORBING 
                 && cell_center_physical[current_dim] < f.tree_min[current_dim])
         { // Left border
             coord_in[current_dim] = 0;
         }
-        else if(bc_max[current_dim] == BC_ABSORBING 
+        else if(f.bc_max[current_dim] == BC_ABSORBING 
                 && cell_center_physical[current_dim] > f.tree_max[current_dim])
         { // Right border
             coord_in[current_dim] = f.blockSizes[current_dim]-1;
@@ -502,13 +472,13 @@ CellData get_cell_data_border( const Functor& f, uint32_t iOct_local, coord_g_t 
     // normal momentum
     for( ComponentIndex3D current_dim : {IX, IY, IZ} )
     {
-        if(bc_min[current_dim] == BC_REFLECTING 
+        if(f.bc_min[current_dim] == BC_REFLECTING 
             && cell_center_physical[current_dim] < f.tree_min[current_dim])
         {
             coord_in[current_dim] = -1 - pos_in_local[current_dim];
             sign[current_dim] = -1.0;
         }
-        else if(bc_max[current_dim] == BC_REFLECTING 
+        else if(f.bc_max[current_dim] == BC_REFLECTING 
                 && cell_center_physical[current_dim] > f.tree_max[current_dim])
         {
             coord_in[current_dim] = (f.blockSizes[current_dim]-1) - (pos_in_local[current_dim]-f.blockSizes[current_dim]);
@@ -536,123 +506,6 @@ CellData get_cell_data_border( const Functor& f, uint32_t iOct_local, coord_g_t 
     return res;
 }
 
-
-/**
- * Table to convert neighbor relative position to "iface" parameter for findNeighbors()
- * If neighbor octant is at position (x, y, z) relative to local octant (-1<=x,y,z<=1)
- * iface for findNeighbors() is iface_from_pos[z+1][y+1][x+1]-1
- * 
- * In 2D : offset = (x,y,0) => iface = iface_from_pos[0][y+1][x+1]-1
- * 
- * Has been generated by https://gitlab.maisondelasimulation.fr/pkestene/dyablo/-/snippets/3
- **/
-constexpr uint8_t iface_from_pos[3][3][3] = {
-                        {{ 1, 3, 2 },
-                            { 1, 5, 2 },
-                            { 3, 4, 4 }},
-                        {{ 5, 3, 6 },
-                            { 1, 0, 2 },
-                            { 7, 4, 8 }},
-                        {{ 5, 11, 6 },
-                            { 9, 6, 10 },
-                            { 7, 12, 8 }}};
-constexpr uint8_t CODIM_NODE = 3;
-constexpr uint8_t CODIM_EDGE = 2;
-constexpr uint8_t CODIM_FACE = 1;
-
-/** 
- * When neighbor is larger, it is returned only in one `findNeighbours()` request
- * Sometimes `findNeighbours()` edge/node returns 0 neighbors because the only neighbor has already been returned by findNeighbour
- * on a lower codimension request. In this case, actual edge/node neighbor has to be searched in lower codimention neighbors
- * 
- * @param iOct_global index of local octant
- * @param neighbor neighbor position relative to local octant ( (-1,0,0) is left neighbor )
- **/
-template < int ndim >
-void fix_missing_corner_neighbor( const Functor& f, uint32_t iOct_global, const coord_g_t& neighbor, const real_t cellPos[3], std::vector<uint32_t>& res_iOct_neighbors, std::vector<bool>& res_isghost_neighbors)
-{
-    /// Check if position `cellPos` is inside neighbor designated by search_codim and search_iface
-    /// @returns true if cell is inside and sets res_iOct_neighbors and res_isGhost_neighbors accordingly, false otherwise
-    auto check_neighbor = [&](uint8_t search_codim, uint8_t search_iface)
-    {   
-        std::vector<uint32_t> iOct_neighbors;
-        std::vector<bool> isghost_neighbors;
-
-        f.pmesh->findNeighbours(iOct_global, search_iface, search_codim, iOct_neighbors, isghost_neighbors);
-        if( iOct_neighbors.size() == 1 ) // Looking only for bigger neighbors
-        {
-            bitpit::darray3 neigh_min = isghost_neighbors[0] ? 
-                f.pmesh->getCoordinates(f.pmesh->getGhostOctant(iOct_neighbors[0])) : 
-                f.pmesh->getCoordinates(iOct_neighbors[0]);
-            real_t oct_size = isghost_neighbors[0] ? 
-                f.pmesh->getSize(f.pmesh->getGhostOctant(iOct_neighbors[0])) : 
-                f.pmesh->getSize(iOct_neighbors[0]);
-            bitpit::darray3 neigh_max = {
-                    neigh_min[IX] + oct_size,
-                    neigh_min[IY] + oct_size,
-                    neigh_min[IZ] + oct_size
-            };
-
-            if( neigh_min[IX] < cellPos[IX] && cellPos[IX] < neigh_max[IX] 
-            &&  neigh_min[IY] < cellPos[IY] && cellPos[IY] < neigh_max[IY]
-            && ((ndim==2) || (neigh_min[IZ] < cellPos[IZ] && cellPos[IZ] < neigh_max[IZ])) )
-            {
-                res_iOct_neighbors = iOct_neighbors;
-                res_isghost_neighbors = isghost_neighbors;
-                return true;
-            }
-        }
-        return false;        
-    };
-
-    // Determine neighbor codimension (node/edge/face)
-    int codim = 0;
-    codim += std::abs(neighbor[IX]);
-    codim += std::abs(neighbor[IY]);
-    codim += std::abs(neighbor[IZ]);
-
-    if(ndim == 2)
-    {
-        assert( codim == CODIM_EDGE ); // In 2D, only edges can have this issue
-        // Search both faces connected to edge:
-        uint8_t search_codim = CODIM_FACE; 
-        uint8_t search_iface_x = iface_from_pos[0][1][neighbor[IX]+1]-1;
-        if( check_neighbor(search_codim, search_iface_x) ) return;
-        uint8_t search_iface_y = iface_from_pos[0][neighbor[IY]+1][1]-1;
-        if( check_neighbor(search_codim, search_iface_y) ) return;
-        assert(false); // Failed to find neighbor...
-    }
-    else 
-    {
-        assert( codim == CODIM_NODE || codim == CODIM_EDGE ); // In 3D, edges and node can have this issue
-
-        if(codim == CODIM_NODE) // search direction is a node (corner)
-        {
-            // Search the 3 edges connected to the node
-            for(int i=0; i<3; i++)
-            {
-                uint8_t search_neighbor[3] = {(uint8_t)(neighbor[IX]+1), (uint8_t)(neighbor[IY]+1), (uint8_t)(neighbor[IZ]+1)};
-                search_neighbor[i] = 1; // Search edges that have 2 coordinate in common
-                uint8_t search_iface = iface_from_pos[search_neighbor[IZ]][search_neighbor[IY]][search_neighbor[IX]]-1;
-                if( check_neighbor(CODIM_EDGE, search_iface) ) return;
-            }
-        }
-        // Search connected faces
-        for(int i=0; i<3; i++)
-        {
-            uint8_t search_neighbor[3] = {1,1,1};
-            search_neighbor[i] = neighbor[i]+1; // Search faces that have 1 coordinate in common
-            if( search_neighbor[IX] != 1 || search_neighbor[IY] != 1 || search_neighbor[IZ] != 1 ) // Only 2 faces when initially edge (0,0,0 not a neighbor)
-            {
-                uint8_t search_iface = iface_from_pos[search_neighbor[IZ]][search_neighbor[IY]][search_neighbor[IX]]-1;
-                if( check_neighbor(CODIM_FACE, search_iface) ) return;
-            }
-        }
-        assert(false); // Failed to find neighbor...
-    }     
-}
-
-
 /**
  * @brief Fetch data associated to a cell from a neighbor octant.
  * 
@@ -670,13 +523,13 @@ void fix_missing_corner_neighbor( const Functor& f, uint32_t iOct_global, const 
  * @return Cell data fetched from neighbor
  **/
 template < int ndim, DIR_ID dir >
-CellData get_cell_data( const Functor& f, uint32_t iOct_local, coord_g_t neighbor, coord_t pos_in_neighbor, coord_g_t pos_in_local )
+KOKKOS_INLINE_FUNCTION CellData get_cell_data( const Functor& f, uint32_t iOct_local, coord_g_t neighbor_, coord_t pos_in_neighbor, coord_g_t pos_in_local )
 {
     uint32_t iOct_global = iOct_local + f.iGroup * f.nbOctsPerGroup;
 
-    // Compute cell physical position
-    bitpit::darray3 oct_origin = f.pmesh->getCoordinates(iOct_global);
-    real_t oct_size = f.pmesh->getSize(iOct_global);
+    LightOctree::offset_t neighbor = {(int8_t)neighbor_[IX],(int8_t)neighbor_[IY],(int8_t)neighbor_[IZ]};
+    LightOctree::pos_t oct_origin = f.lmesh.getCorner({iOct_global, false});
+    real_t oct_size = f.lmesh.getSize({iOct_global, false});
     real_t cell_size[3] = {
         oct_size/f.blockSizes[IX],
         oct_size/f.blockSizes[IY],
@@ -687,30 +540,14 @@ CellData get_cell_data( const Functor& f, uint32_t iOct_local, coord_g_t neighbo
         oct_origin[IY] + pos_in_local[IY] * cell_size[IY] + cell_size[IY]/2,
         (ndim == 2) ? 0 : oct_origin[IZ] + pos_in_local[IZ] * cell_size[IZ] + cell_size[IZ]/2
     };
-    
-    // Determine codimension
-    int count_dims = 0;
-    count_dims += std::abs(neighbor[IX]);
-    count_dims += std::abs(neighbor[IY]);
-    count_dims += std::abs(neighbor[IZ]);
-   
-    uint8_t pablo_codim = count_dims;
-
-    BoundaryConditionType bc_min[3], bc_max[3];
-    bc_min[IX] = f.params.boundary_type_xmin;
-    bc_max[IX] = f.params.boundary_type_xmax;
-    bc_min[IY] = f.params.boundary_type_ymin;
-    bc_max[IY] = f.params.boundary_type_ymax;
-    bc_min[IZ] = f.params.boundary_type_zmin;
-    bc_max[IZ] = f.params.boundary_type_zmax;
 
     // Shift periodic position
     for( ComponentIndex3D current_dim : {IX, IY, IZ} )
     {
-        if( bc_min[current_dim] == BC_PERIODIC 
+        if( f.bc_min[current_dim] == BC_PERIODIC 
             && cellPos[current_dim] < f.tree_min[current_dim] )
             cellPos[current_dim] += f.tree_max[current_dim] - f.tree_min[current_dim];
-        if( bc_max[current_dim] == BC_PERIODIC 
+        if( f.bc_max[current_dim] == BC_PERIODIC 
             && cellPos[current_dim] > f.tree_max[current_dim] )
             cellPos[current_dim] -= f.tree_max[current_dim] - f.tree_min[current_dim];
     }
@@ -723,37 +560,26 @@ CellData get_cell_data( const Functor& f, uint32_t iOct_local, coord_g_t neighbo
         return CellData({0,1.11}); // Boundary conditions are set later in the kernel;
     }
 
-    int neighbor_pos_z = (ndim==2) ? 0 : neighbor[IZ]+1;
-    uint8_t pablo_iface = iface_from_pos[neighbor_pos_z][neighbor[IY]+1][neighbor[IX]+1] - 1;
+    LightOctree::NeighborList neighbors = f.lmesh.findNeighbors({iOct_global,false}, neighbor);
 
-    std::vector<uint32_t> iOct_neighbors;
-    std::vector<bool> isghost_neighbors;
-    f.pmesh->findNeighbours(iOct_global, pablo_iface, pablo_codim, iOct_neighbors, isghost_neighbors);
-
-    uint32_t oct_level = f.pmesh->getLevel(iOct_global);
-
-    if(iOct_neighbors.size() == 0) 
-    {
-        fix_missing_corner_neighbor<ndim>(f, iOct_global, neighbor, cellPos, iOct_neighbors, isghost_neighbors);
-    }
+    uint32_t oct_level = f.lmesh.getLevel({iOct_global,false});
     
-    if(iOct_neighbors.size() == 0) return CellData({0,1.22});
-    assert(iOct_neighbors.size() > 0); //Should have at least one neighbor (Boundaries already taken care of)
+    assert(neighbors.size() > 0); //Should have at least one neighbor (Boundaries already taken care of)
+    if(neighbors.size() == 0) return CellData({std::nan(""),std::nan(""),std::nan(""),std::nan(""),std::nan("")});
 
     // All neighbors are on same level as neighbor[0]
-    uint32_t neigh_level = isghost_neighbors[0] ? f.pmesh->getLevel(f.pmesh->getGhostOctant(iOct_neighbors[0])) : f.pmesh->getLevel(iOct_neighbors[0]);
-
+    uint32_t neigh_level = f.lmesh.getLevel(neighbors[0]);
     if( neigh_level == oct_level ) 
     {
-        return get_cell_data_same_size<ndim>(f, iOct_neighbors[0], pos_in_neighbor, isghost_neighbors[0]);
+        return get_cell_data_same_size<ndim>(f, neighbors[0], pos_in_neighbor);
     }
     else if( neigh_level > oct_level ) 
     {
-        return get_cell_data_smaller<ndim>(f, iOct_neighbors, pos_in_neighbor, isghost_neighbors, cellPos);
+        return get_cell_data_smaller<ndim>(f, neighbors, pos_in_neighbor, cellPos);
     }
     else //if( neigh_level < oct_level ) 
     {
-        return get_cell_data_larger<ndim>(f, iOct_neighbors[0], pos_in_neighbor, isghost_neighbors[0], cellPos);
+        return get_cell_data_larger<ndim>(f, neighbors[0], pos_in_neighbor, cellPos);
     }
 }
 
@@ -766,7 +592,7 @@ CellData get_cell_data( const Functor& f, uint32_t iOct_local, coord_g_t neighbo
  * @param data cell data to write
  **/
 template <int ndim>
-void write_cell_data( const Functor& f, uint32_t iOct_g, coord_g_t pos_in_local, const CellData& data )
+KOKKOS_INLINE_FUNCTION void write_cell_data( const Functor& f, uint32_t iOct_g, coord_g_t pos_in_local, const CellData& data )
 {
     uint32_t index_cur = coord_g_to_index<ndim>( pos_in_local, f.blockSizes, f.ghostWidth );
     f.Ugroup(index_cur, f.fm[ID], iOct_g) = data[ID];
@@ -798,7 +624,7 @@ void write_cell_data( const Functor& f, uint32_t iOct_g, coord_g_t pos_in_local,
  *              (see get_pos() for the detail of the mapping index -> cell position)
  **/
 template< int ndim, DIR_ID dir >
-void fill_ghost_faces( const Functor& f, uint32_t iOct_g, Functor::index_t index )
+KOKKOS_INLINE_FUNCTION void fill_ghost_faces( const Functor& f, uint32_t iOct_g, Functor::index_t index )
 {
     // Compute positions as if neighbor was same size
     get_pos_t p = get_pos<ndim, dir>(f, index);
@@ -819,7 +645,7 @@ void fill_ghost_faces( const Functor& f, uint32_t iOct_g, Functor::index_t index
  * Similar to fill_ghost_faces() but for boundary cells
  **/
 template< int ndim, DIR_ID dir >
-void fill_boundary_faces( const Functor& f, uint32_t iOct_local, Functor::index_t index )
+KOKKOS_INLINE_FUNCTION void fill_boundary_faces( const Functor& f, uint32_t iOct_local, Functor::index_t index )
 {
     // Compute positions as if neighbor was same size
     get_pos_t p = get_pos<ndim, dir>(f, index);
@@ -828,8 +654,8 @@ void fill_boundary_faces( const Functor& f, uint32_t iOct_local, Functor::index_
     {
         uint32_t iOct_global = iOct_local + f.iGroup * f.nbOctsPerGroup;
 
-        bitpit::darray3 oct_origin = f.pmesh->getCoordinates(iOct_global);
-        real_t oct_size = f.pmesh->getSize(iOct_global);
+        LightOctree::pos_t oct_origin = f.lmesh.getCorner({iOct_global, false});
+        real_t oct_size = f.lmesh.getSize({iOct_global, false});
         real_t cell_size[3] = {
             oct_size/f.blockSizes[IX],
             oct_size/f.blockSizes[IY],
@@ -847,7 +673,7 @@ void fill_boundary_faces( const Functor& f, uint32_t iOct_local, Functor::index_
         {
             CellData cellData = get_cell_data_border<ndim, dir>(f, iOct_local, p.pos_in_local, cellPos);
             write_cell_data<ndim>( f, iOct_local, p.pos_in_local, cellData );
-        }    
+        }  
     }
 }
 
@@ -857,7 +683,7 @@ void fill_boundary_faces( const Functor& f, uint32_t iOct_local, Functor::index_
  * Iterate over Octants assigned to the team and copy ghost cells data from neighbor octants. 
  **/
 template< int ndim >
-void fill_ghosts(const Functor& f, Functor::team_policy_t::member_type member)
+KOKKOS_INLINE_FUNCTION void fill_ghosts(const Functor& f, Functor::team_policy_t::member_type member)
 {
     static_assert(ndim == 2 || ndim == 3 , "CopyFaceBlockCellData only supports 2D and 3D");
 
@@ -873,7 +699,7 @@ void fill_ghosts(const Functor& f, Functor::team_policy_t::member_type member)
     // octant id inside the Ugroup data array
     uint32_t iOct_g = member.league_rank();
     // total number of octants
-    uint32_t nbOcts = f.pmesh->getNumOctants();
+    uint32_t nbOcts = f.lmesh.getNumOctants();
     // compute first octant index after current group
     uint32_t iOctNextGroup = (iGroup + 1) * nbOctsPerGroup;   
 
@@ -884,7 +710,7 @@ void fill_ghosts(const Functor& f, Functor::team_policy_t::member_type member)
 
     while (iOct < iOctNextGroup and iOct < nbOcts)
     {
-      f.Interface_flags(iOct_g) = INTERFACE_NONE;
+      f.interface_flags.resetFlags(iOct_g);
 
       // perform "vectorized" loop inside a given block data
       Kokkos::parallel_for(
@@ -899,7 +725,7 @@ void fill_ghosts(const Functor& f, Functor::team_policy_t::member_type member)
         }); // end TeamVectorRange
     
         member.team_barrier();
-        if( f.pmesh->getBound(iOct) ) //This octant has ghosts outside of global domain
+        //if( f.lmesh.getBound({iOct,false}) ) //This octant has ghosts outside of global domain
         {
             Kokkos::parallel_for(
                 Kokkos::TeamVectorRange(member, nbCells),
@@ -923,13 +749,43 @@ void fill_ghosts(const Functor& f, Functor::team_policy_t::member_type member)
 
 } //namespace
 
-void CopyGhostBlockCellDataFunctor::operator()(team_policy_t::member_type member) const
+KOKKOS_INLINE_FUNCTION void CopyGhostBlockCellDataFunctor::operator()(team_policy_t::member_type member) const
 {
-    if (params.dimType == TWO_D)
+    if (ndim==2)
       fill_ghosts<2>(*this, member);
 
-    if (params.dimType == THREE_D)
+    if (ndim==3)
       fill_ghosts<3>(*this, member);
+}
+
+void CopyGhostBlockCellDataFunctor::apply(
+    LightOctree lmesh, ConfigMap configMap, HydroParams params,
+    id2index_t fm, blockSize_t blockSizes, uint32_t ghostWidth,
+    uint32_t nbOctsPerGroup, DataArrayBlock U, DataArrayBlock U_ghost,
+    DataArrayBlock Ugroup, uint32_t iGroup, InterfaceFlags interface_flags)
+{
+  CopyGhostBlockCellDataFunctor functor(lmesh,
+                                        params,
+                                        fm,
+                                        blockSizes,
+                                        ghostWidth,
+                                        nbOctsPerGroup,
+                                        U,
+                                        U_ghost,
+                                        Ugroup,
+                                        iGroup,
+                                        interface_flags);
+
+  // using kokkos team execution policy
+  uint32_t nbTeams_ = configMap.getInteger("amr", "nbTeams", 16);
+  functor.nbTeams = nbTeams_;
+  // create execution policy
+  team_policy_t policy(nbTeams_,
+                       Kokkos::AUTO() /* team size chosen by kokkos */);
+  // launch computation (parallel kernel)
+  Kokkos::parallel_for("dyablo::muscl_block::CopyGhostBlockCellDataFunctor",
+                       policy,
+                       functor);
 }
 
 } // namespace muscl_block

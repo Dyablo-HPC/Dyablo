@@ -67,7 +67,6 @@ public:
   }
 
   // Actual initialization operator
-  KOKKOS_INLINE_FUNCTION
   void operator()(thread_t member) const {
     uint32_t iOct = member.league_rank();
 
@@ -97,7 +96,7 @@ public:
       // Iterating on all cells
       Kokkos::parallel_for(
         Kokkos::TeamVectorRange(member, nbCells),
-        KOKKOS_LAMBDA(const int32_t index) {
+        [=](const int32_t index) {
 	  coord_t iCoord;
           uint32_t& ix = iCoord[IX];                   
 
@@ -191,7 +190,6 @@ public:
     Kokkos::parallel_for("dyablo::muscl_block::InitShuOsherRefineFunctor", policy, functor);
   }
 
-  KOKKOS_INLINE_FUNCTION
   void operator()(const uint32_t &iOct) const {
     uint8_t level = pmesh->getLevel(iOct);
     

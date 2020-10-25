@@ -12,17 +12,18 @@ set (muscl_block_SRCS
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitDoubleMachReflection.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitRayleighTaylor.cpp
   )
+  # add MPI user data communication interface
+  if (DYABLO_USE_MPI)
+    list(APPEND muscl_block_SRCS
+      ${CMAKE_CURRENT_SOURCE_DIR}/UserDataComm.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/UserDataLB.cpp)
+  endif(DYABLO_USE_MPI)
 
-# add MPI user data communication interface
-if (DYABLO_USE_MPI)
-  list(APPEND muscl_block_SRCS
-    ${CMAKE_CURRENT_SOURCE_DIR}/UserDataComm.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/UserDataLB.cpp)
-endif(DYABLO_USE_MPI)
 
 add_library(muscl_block
   ${muscl_block_SRCS}
   )
+#target_compile_options(muscl_block PUBLIC "-G")
 target_include_directories(muscl_block
   PUBLIC
   ${CMAKE_SOURCE_DIR}/src) 

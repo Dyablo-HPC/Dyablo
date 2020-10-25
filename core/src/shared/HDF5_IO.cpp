@@ -488,7 +488,8 @@ HDF5_Writer::write_quadrant_attribute(DataArrayBlockHost  datah,
     // - data.extent(2) is the total number of oct in current MPI process
     DataArrayScalar dataVar = DataArrayScalar("scalar_array_for_hdf5_io", nbCellsPerOct*nbOcts);
 
-    Kokkos::parallel_for(nbOcts, KOKKOS_LAMBDA (uint32_t iOct) {
+    Kokkos::parallel_for( Kokkos::RangePolicy<Kokkos::OpenMP>(0, nbOcts), 
+        KOKKOS_LAMBDA (uint32_t iOct) {
         for (uint32_t iCell=0; iCell<nbCellsPerOct; ++iCell)
           dataVar(iCell + nbCellsPerOct*iOct) = datah(iCell,fm[iVar],iOct);
       });

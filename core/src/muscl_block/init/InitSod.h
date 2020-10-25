@@ -86,7 +86,6 @@ class InitSodDataFunctor {
     Kokkos::parallel_for("dyablo::muscl_block::InitSodDataFunctor", policy, functor);
   }
 
-  KOKKOS_INLINE_FUNCTION
   void operator()(thread_t member) const {
     uint32_t iOct = member.league_rank();
     
@@ -181,7 +180,6 @@ public:
     Kokkos::parallel_for("dyablo::muscl_block::InitSodRefineFunctor", policy, functor);
   }; // end apply
 
-  KOKKOS_INLINE_FUNCTION
   void operator() (const size_t &iOct) const {
 
     // Getting current level

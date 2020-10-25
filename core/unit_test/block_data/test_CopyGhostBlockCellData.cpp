@@ -27,7 +27,6 @@
 #include "muscl_block/SolverHydroMusclBlock.h"
 
 #include "muscl_block/CopyInnerBlockCellData.h"
-#include "muscl_block/CopyFaceBlockCellData.h"
 #include "muscl_block/ConvertToPrimitivesHydroFunctor.h"
 #include "muscl_block/CopyCornerBlockCellData.h"
 

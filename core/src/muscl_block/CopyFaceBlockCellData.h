@@ -116,7 +116,7 @@ public:
                                DataArrayBlock U_ghost,
                                DataArrayBlock Ugroup,
                                uint32_t iGroup,
-                               FlagArrayBlock Interface_flags) :
+                               InterfaceFlags interface_flags) :
     pmesh(pmesh), params(params), 
     fm(fm), blockSizes(blockSizes), 
     ghostWidth(ghostWidth),
@@ -125,7 +125,7 @@ public:
     U_ghost(U_ghost),
     Ugroup(Ugroup), 
     iGroup(iGroup),
-    Interface_flags(Interface_flags)
+    interface_flags(interface_flags)
   {
 
     // in 2d, bz and bz_g are not used
@@ -151,7 +151,7 @@ public:
                     DataArrayBlock U_ghost,
                     DataArrayBlock Ugroup,
                     uint32_t iGroup,
-                    FlagArrayBlock Interface_flags)
+                    InterfaceFlags interface_flags)
   {
 
     CopyFaceBlockCellDataFunctor functor(pmesh, params, fm, 
@@ -159,7 +159,7 @@ public:
                                          nbOctsPerGroup, 
                                          U, U_ghost, Ugroup,
                                          iGroup,
-                                         Interface_flags);
+                                         interface_flags);
 
     /*
      * using kokkos team execution policy
@@ -943,7 +943,7 @@ public:
         //   printf("[neigh is larger] iOct_global=%d iOct_local=%2d iOct_neigh=%2d ---- \n",iOct, iOct_local, iOct_neigh);
 
         // Setting interface flag to "bigger"
-        Interface_flags(iOct_local) |= (1 << (iface + 6));
+        interface_flags.setFaceBigger(iOct_local, iface);
 	
         NEIGH_LOC loc = get_relative_position_2d(iOct, iOct_neigh, isghost[0], dir, face, NEIGH_IS_LARGER);
 
@@ -970,7 +970,7 @@ public:
     {
 
       // Setting interface flag to "smaller"
-      Interface_flags(iOct_local) |= (1<<iface);
+      interface_flags.setFaceSmaller(iOct_local, iface);
 
       // if (index_in==0)
       //   printf("[neigh has smaller size] iOct_global=%d iOct_local=%2d iOct_neigh0=%2d iOct_neigh1=%2d -- dir=%d face=%d\n",
@@ -1025,7 +1025,7 @@ public:
 
     while (iOct < iOctNextGroup and iOct < nbOcts)
     {
-      Interface_flags(iOct_g) = INTERFACE_NONE;
+      interface_flags.resetFlags(iOct_g);
 
       // perform "vectorized" loop inside a given block data
       Kokkos::parallel_for(
@@ -1104,7 +1104,7 @@ public:
   uint32_t iGroup;
 
   //! 2:1 flagging mechanism
-  FlagArrayBlock Interface_flags;
+  InterfaceFlags interface_flags;
 
   // should we copy gravity ?
   bool copy_gravity;

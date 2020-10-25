@@ -19,6 +19,11 @@
 #include "shared/utils_hydro.h"
 
 #include "utils_block.h"
+#include "muscl_block/LightOctree.h"
+
+#ifdef __CUDA_ARCH__
+#include "math_constants.h"
+#endif
 
 namespace dyablo { namespace muscl_block {
 
@@ -41,18 +46,18 @@ public:
 
   void setNbTeams(uint32_t nbTeams_) {nbTeams = nbTeams_;}; 
 
-  ComputeDtHydroFunctor(std::shared_ptr<AMRmesh> pmesh,
+  ComputeDtHydroFunctor(LightOctree lmesh,
 			HydroParams    params,
 			id2index_t     fm,
                         blockSize_t    blockSizes,
 			DataArrayBlock Udata) :
-    pmesh(pmesh), params(params),
+    lmesh(lmesh), params(params),
     fm(fm), blockSizes(blockSizes),
     Udata(Udata)
-  {};
+  {}
   
   // static method which does it all: create and execute functor
-  static void apply(std::shared_ptr<AMRmesh> pmesh,
+  static void apply(LightOctree lmesh,
 		    ConfigMap      configMap,
                     HydroParams    params,
 		    id2index_t     fm,
@@ -61,7 +66,7 @@ public:
 		    double        &invDt)
   {
     
-    ComputeDtHydroFunctor functor(pmesh, params, fm, blockSizes, Udata);
+    ComputeDtHydroFunctor functor(lmesh, params, fm, blockSizes, Udata);
 
     // kokkos execution policy
     uint32_t nbTeams_ = configMap.getInteger("amr","nbTeams",16);
@@ -99,7 +104,7 @@ public:
     //uint32_t iCell = member.team_rank();
 
     // total number of octants (of current MPI processor)
-    uint32_t nbOct = pmesh->getNumOctants();
+    uint32_t nbOct = lmesh.getNumOctants();
 
     const int& bx = blockSizes[IX];
     const int& by = blockSizes[IY];
@@ -122,11 +127,11 @@ public:
     while (iOct < nbOct) {
 
       // get cell level
-      uint8_t level = pmesh->getLevel(iOct);
+      uint8_t level = lmesh.getLevel({iOct,false});
       
       // retrieve cell size from mesh
-      real_t dx = pmesh->levelToSize(level) * Lx / bx;
-      real_t dy = pmesh->levelToSize(level) * Ly / by;
+      real_t dx = lmesh.getSize({iOct,false}) * Lx / bx;
+      real_t dy = lmesh.getSize({iOct,false}) * Ly / by;
 
       // initialialize cell id
       uint32_t iCell = member.team_rank();
@@ -172,7 +177,7 @@ public:
   {
     uint32_t iOct = member.league_rank();
 
-    uint32_t nbOct = pmesh->getNumOctants();
+    uint32_t nbOct = lmesh.getNumOctants();
 
     const int& bx = blockSizes[IX];
     const int& by = blockSizes[IY];
@@ -195,12 +200,12 @@ public:
     while (iOct < nbOct) {
 
       // get cell level
-      uint8_t level = pmesh->getLevel(iOct);
+      uint8_t level = lmesh.getLevel({iOct,false});
       
       // retrieve cell size from mesh
-      real_t dx = pmesh->levelToSize(level) * Lx / blockSizes[IX];
-      real_t dy = pmesh->levelToSize(level) * Ly / blockSizes[IY];
-      real_t dz = pmesh->levelToSize(level) * Lz / blockSizes[IZ];
+      real_t dx = lmesh.getSize({iOct,false}) * Lx / blockSizes[IX];
+      real_t dy = lmesh.getSize({iOct,false}) * Ly / blockSizes[IY];
+      real_t dz = lmesh.getSize({iOct,false}) * Lz / blockSizes[IZ];
 
       uint32_t iCell = member.team_rank();
       while (iCell < nbCells) {
@@ -271,7 +276,7 @@ public:
   } // join
 
   //! AMR mesh
-  std::shared_ptr<AMRmesh> pmesh;
+  LightOctree lmesh;
   
   //! general parameters
   HydroParams  params;

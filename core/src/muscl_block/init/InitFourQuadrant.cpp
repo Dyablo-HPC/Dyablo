@@ -74,8 +74,10 @@ void init_four_quadrant(SolverHydroMusclBlock *psolver)
   /*
    * perform user data init
    */
-  InitFourQuadrantDataFunctor::apply(amr_mesh, params, configMap, fm, psolver->blockSizes, psolver->U);
-
+  InitFourQuadrantDataFunctor::apply(amr_mesh, params, configMap, fm, psolver->blockSizes, psolver->Uhost);
+  
+  // upload data on device
+  Kokkos::deep_copy(psolver->U, psolver->Uhost);
 } // init_four_quadrant
 
 } // namespace muscl_block
