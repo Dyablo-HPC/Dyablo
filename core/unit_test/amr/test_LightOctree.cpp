@@ -43,7 +43,7 @@ void run_test()
   // ================================
 
   /**<Instantation of a nDimensional pablo uniform object.*/
-  bitpit::PabloUniform amr_mesh(dim);
+  dyablo::AMRmesh amr_mesh(dim);
 
   // Set 2:1 balance
   // codim 1 ==> balance through faces
@@ -171,7 +171,7 @@ void run_test()
     std::cout << "                              \n";
 
     // shared_ptr without a deleter
-    std::shared_ptr<bitpit::PabloUniform> mesh_ptr(&amr_mesh, [](bitpit::PabloUniform*){});
+    std::shared_ptr<dyablo::AMRmesh> mesh_ptr(&amr_mesh, [](dyablo::AMRmesh*){});
     // Create LightOctree
     HydroParams params;
     params.level_max = 3;
@@ -344,7 +344,7 @@ void run_test()
 
 
     // Create LightOctree
-    std::shared_ptr<bitpit::PabloUniform> mesh_ptr(&amr_mesh, [](bitpit::PabloUniform*){});
+    std::shared_ptr<dyablo::AMRmesh> mesh_ptr(&amr_mesh, [](dyablo::AMRmesh*){});
     HydroParams params;
     params.level_max = 3;
     muscl_block::LightOctree mesh( mesh_ptr, params );

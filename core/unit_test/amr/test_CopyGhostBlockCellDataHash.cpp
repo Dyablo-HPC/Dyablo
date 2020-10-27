@@ -312,7 +312,7 @@ void run_test()
    *
    */
 
-  bitpit::PabloUniform amr_mesh(dim);
+  dyablo::AMRmesh amr_mesh(dim);
 
   // Set 2:1 balance
   // codim 1 ==> balance through faces

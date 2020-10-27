@@ -3,7 +3,7 @@
 
 #include "shared/kokkos_shared.h"
 #include "shared/amr_key.h" // for amr_key_t typedef
-#include "shared/bitpit_common.h"  // for type AMRmesh = bitpit::PabloUniform
+#include "shared/bitpit_common.h"  // for type AMRmesh
 #include "shared/enums.h"
 
 #include "shared/morton_utils.h" // for compute_morton_key
