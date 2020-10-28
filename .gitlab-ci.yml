@@ -2,71 +2,119 @@
 # validate this script with :
 # https://gitlab.maisondelasimulation.fr/pkestene/dyablo/-/ci/lint
 #
+image: "arnodurocher/dyablo-ci:cuda-11.0"
 
 stages:
-  - build_openmp
-  - build_cuda
+  - build
+  - run
+  - render
   - test
 
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
 
-build_openmp:
-  stage: build_openmp
+# Global before and after script to log machine info
+before_script:
+  - date
+  - lscpu
+
+after_script:
+  - date
+
+# Build Dyablo
+.build_template: &build_definition
+  stage: build
+  artifacts:
+    paths:
+      - build
+    expire_in: 1 week
+
+build::openmp:
+  <<: *build_definition
   tags:
-    - kokkos-openmp
+    - docker
+  script:
+    - ci/build-openmp.sh
+
+.build_cuda_template: &build_cuda_definition
+  <<: *build_definition
+  before_script:
+    - date
+    - nvcc --version
+  tags:
+    - docker-cuda
+  script:
+    - ci/build-cuda.sh
+
+build::cuda:
+  <<: *build_cuda_definition
+
+build::cuda-10.2:
+  <<: *build_cuda_definition
+  image: "arnodurocher/dyablo-ci:cuda-10.2"
+  when: manual
+
+build::cuda-9.2:
+  <<: *build_cuda_definition
+  image: "arnodurocher/dyablo-ci:cuda-9.2"
+  when: manual
+
+# Run unit tests
+.test_template: &test_definition
+  stage: test
+  script: ci/run_unit_tests.sh
+
+.openmp_template: &openmp_definition
+  needs: 
+    - build::openmp
+  tags:
+    - docker
+
+.cuda_template: &cuda_definition
   before_script:
     - date
     - lscpu
-  script:
-    - mkdir build_openmp
-    - cd build_openmp
-    - cmake -DDYABLO_ENABLE_UNIT_TESTING=ON ..
-    - make -j `nproc`
+    - nvidia-smi
+  needs: 
+    - build::cuda
+  tags:
+    - docker-cuda
+
+test::openmp:
+  <<: *test_definition
+  <<: *openmp_definition
+
+test::cuda:
+  <<: *test_definition
+  <<: *cuda_definition
+
+# Run examples (optional)
+.run_template: &run_definition
+  stage: run
+  image: "arnodurocher/dyablo-ci:cuda-11.0-visu"
+  when: manual
   artifacts:
     paths:
-      - build_openmp
+      - render.png
     expire_in: 1 week
-  after_script:
-    - date
 
-build_cuda:
-  stage: build_cuda
-  tags:
-    - kokkos-cuda
-  before_script:
-    - date
-    - lscpu
-    - lspci | grep VGA
-  script:
-    - mkdir build_cuda
-    - cd build_cuda
-    - cmake -DDYABLO_ENABLE_UNIT_TESTING=ON -DKokkos_ENABLE_CUDA=ON -DKokkos_ARCH='PASCAL61' ..
-    - make -j `nproc`
-  artifacts:
-    paths:
-      - build_cuda
-    expire_in: 1 week
-  after_script:
-    - date
+run::blast_3D_block::openmp:
+  <<: *run_definition
+  <<: *openmp_definition
+  script: 
+    - ci/run_testcase.sh test_blast_3D_block.ini
+    - ci/render.sh visu_blast_3D_block.pvsm
 
-# run some interesting tests here
-test:openmp:
-  stage: test
-  dependencies: 
-    - build_openmp
-  tags:
-    - kokkos-openmp
-  script: "cd build_openmp; make dyablo-test"
-  after_script:
-    - date
+run::blast_3D_block::cuda:
+  <<: *run_definition
+  <<: *cuda_definition
+  script: 
+    - ci/run_testcase.sh test_blast_3D_block.ini
+    - ci/render.sh visu_blast_3D_block.pvsm
 
-test:cuda:
-  stage: test
-  dependencies: 
-    - build_cuda
-  tags:
-    - kokkos-cuda
-  script: "cd build_cuda; make dyablo-test"
-  after_script:
-    - date
+# Read ci/Readme.md for instructions on how to add new testcases
+
+
+
+
+
