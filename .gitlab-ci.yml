@@ -89,20 +89,45 @@ test::cuda:
   <<: *cuda_definition
 
 # Run examples (optional)
+# ===============================
 .run_template: &run_definition
   stage: run
   image: "arnodurocher/dyablo-ci:cuda-11.0-visu"
   when: manual
   artifacts:
     paths:
-      - render.png
+      - "*.png"
     expire_in: 1 week
 
+# Run multiple testcases
+# -------------------------
+run::run_all::openmp_4mpi:
+  <<: *run_definition
+  <<: *openmp_definition
+  script: 
+    - ci/run_and_render_all.sh
+
+run::run_all::cuda_4mpi:
+  <<: *run_definition
+  <<: *cuda_definition
+  script: 
+    - ci/run_and_render_all.sh
+
+# Run separate testcases
+# -------------------------
+# Blast 3D block based testcase
 run::blast_3D_block::openmp:
   <<: *run_definition
   <<: *openmp_definition
   script: 
     - ci/run_testcase.sh test_blast_3D_block.ini
+    - ci/render.sh visu_blast_3D_block.pvsm
+
+run::blast_3D_block::openmp_4mpi:
+  <<: *run_definition
+  <<: *openmp_definition
+  script: 
+    - ci/run_testcase_mpi.sh test_blast_3D_block.ini 4
     - ci/render.sh visu_blast_3D_block.pvsm
 
 run::blast_3D_block::cuda:
@@ -111,6 +136,73 @@ run::blast_3D_block::cuda:
   script: 
     - ci/run_testcase.sh test_blast_3D_block.ini
     - ci/render.sh visu_blast_3D_block.pvsm
+
+run::blast_3D_block::cuda_4mpi:
+  <<: *run_definition
+  <<: *cuda_definition
+  script: 
+    - ci/run_testcase_mpi.sh test_blast_3D_block.ini 4
+    - ci/render.sh visu_blast_3D_block.pvsm
+
+# Blast 3D cell based testcase
+run::blast_3D_cell::openmp:
+  <<: *run_definition
+  <<: *openmp_definition
+  script: 
+    - ci/run_testcase.sh test_blast_3D.ini
+    - ci/render.sh visu_blast_3D_cell.pvsm
+
+run::blast_3D_cell::openmp_4mpi:
+  <<: *run_definition
+  <<: *openmp_definition
+  script: 
+    - ci/run_testcase_mpi.sh test_blast_3D.ini 4
+    - ci/render.sh visu_blast_3D_cell.pvsm
+
+# Blast 2D block based testcase
+run::blast_2D_block::openmp:
+  <<: *run_definition
+  <<: *openmp_definition
+  script: 
+    - ci/run_testcase.sh test_blast_2D_block.ini
+    - ci/render.sh visu_blast_2D_block.pvsm
+
+run::blast_2D_block::openmp_4mpi:
+  <<: *run_definition
+  <<: *openmp_definition
+  script: 
+    - ci/run_testcase_mpi.sh test_blast_2D_block.ini 4
+    - ci/render.sh visu_blast_2D_block.pvsm
+
+run::blast_2D_block::cuda:
+  <<: *run_definition
+  <<: *cuda_definition
+  script: 
+    - ci/run_testcase.sh test_blast_2D_block.ini
+    - ci/render.sh visu_blast_2D_block.pvsm
+
+run::blast_2D_block::cuda_4mpi:
+  <<: *run_definition
+  <<: *cuda_definition
+  script: 
+    - ci/run_testcase_mpi.sh test_blast_2D_block.ini 4
+    - ci/render.sh visu_blast_2D_block.pvsm
+
+# Blast 2D cell based testcase
+run::blast_2D_cell::openmp:
+  <<: *run_definition
+  <<: *openmp_definition
+  script: 
+    - ci/run_testcase.sh test_blast_2D.ini
+    - ci/render.sh visu_blast_2D_cell.pvsm
+
+run::blast_2D_cell::openmp_4mpi:
+  <<: *run_definition
+  <<: *openmp_definition
+  script: 
+    - ci/run_testcase_mpi.sh test_blast_2D.ini 4
+    - ci/render.sh visu_blast_2D_cell.pvsm
+
 
 # Read ci/Readme.md for instructions on how to add new testcases
 
