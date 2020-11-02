@@ -29,4 +29,4 @@ run_and_render test_blast_2D_block.ini visu_blast_2D_block.pvsm blast_2d_block.p
 run_and_render test_blast_2D.ini visu_blast_2D_cell.pvsm blast_2d_cell.png 
 
 echo "${err_count}/${run_count} runs failed"
-exit $has_errors
+exit $err_count

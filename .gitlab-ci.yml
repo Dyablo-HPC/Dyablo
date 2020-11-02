@@ -6,8 +6,8 @@ image: "arnodurocher/dyablo-ci:cuda-11.0"
 
 stages:
   - build
+  - run_all
   - run
-  - render
   - test
 
 variables:
@@ -101,15 +101,17 @@ test::cuda:
 
 # Run multiple testcases
 # -------------------------
-run::run_all::openmp_4mpi:
+run_all::openmp_4mpi:
   <<: *run_definition
   <<: *openmp_definition
+  stage: run_all
   script: 
     - ci/run_and_render_all.sh
 
-run::run_all::cuda_4mpi:
+run_all::cuda_4mpi:
   <<: *run_definition
   <<: *cuda_definition
+  stage: run_all
   script: 
     - ci/run_and_render_all.sh
 
