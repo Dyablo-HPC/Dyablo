@@ -12,8 +12,7 @@
 #include "shared/FieldManager.h"
 #include "shared/HydroState.h"
 
-#include "bitpit_PABLO.hpp"
-#include "shared/bitpit_common.h"
+#include "shared/LightOctree.h"
 
 // utils hydro
 #include "shared/utils_hydro.h"

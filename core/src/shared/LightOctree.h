@@ -11,7 +11,6 @@
 #include "Kokkos_Macros.hpp"
 
 namespace dyablo { 
-namespace muscl_block {
 
 /**
  * Table to convert neighbor relative position to "iface" parameter for findNeighbors()
@@ -560,4 +559,3 @@ using LightOctree = LightOctree_pablo;
 #endif
 
 } //namespace dyablo
-} //namespace muscl_block
