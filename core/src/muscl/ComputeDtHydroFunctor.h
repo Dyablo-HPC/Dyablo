@@ -17,6 +17,10 @@
 // hydro utils
 #include "shared/utils_hydro.h"
 
+#ifdef __CUDA_ARCH__
+#include "math_constants.h"
+#endif
+
 namespace dyablo { namespace muscl {
 
 /*************************************************/

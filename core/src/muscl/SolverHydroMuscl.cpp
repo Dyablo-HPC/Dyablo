@@ -812,12 +812,21 @@ void SolverHydroMuscl::map_userdata_after_adapt()
   //amr_mesh->adapt(true);
   uint32_t nbOcts = amr_mesh->getNumOctants();
   Kokkos::resize(U, nbOcts, nbVars);
+
+  // TODO : map userdata on GPU
+  auto Uhost = Kokkos::create_mirror_view(U);
+  auto Ughost_host = Kokkos::create_mirror_view(Ughost);
+  auto U2_host = Kokkos::create_mirror_view(U2);
+
+  Kokkos::deep_copy(Ughost_host, Ughost);
+  Kokkos::deep_copy(U2_host, U2);
   
   // reset U
-  Kokkos::parallel_for("dyablo::muscl::SolverHydroMuscl reset U", nbOcts, 
-                       KOKKOS_LAMBDA(const size_t i) {
+  Kokkos::parallel_for("dyablo::muscl::SolverHydroMuscl reset U", 
+                       Kokkos::RangePolicy<Kokkos::OpenMP>(0,nbOcts), 
+                       [=](const size_t i) {
                          for (int ivar=0; ivar<nbVars; ++ivar)
-                           U(i,fm[ivar])=0.0;
+                           Uhost(i,fm[ivar])=0.0;
                        });
   
   /*
@@ -830,40 +839,41 @@ void SolverHydroMuscl::map_userdata_after_adapt()
   // TODO : make this loop a parallel_for ?
   // TODO
   for (uint32_t iOct=0; iOct<nbOcts; ++iOct) {
-    
+
     amr_mesh->getMapping(iOct, mapper, isghost);
 
     // test is current cell is new upon a coarsening operation
-    if ( amr_mesh->getIsNewC(iOct) ) {
-
-      for (int j=0; j<m_nbChildren; ++j) {
-
-	if (isghost[j]) {
-	  
-          for (int ivar=0; ivar<nbVars; ++ivar)
-	    U(iOct, fm[ivar]) += Ughost(mapper[j],fm[ivar]) / m_nbChildren;
-
-        } else {
-
+    if (amr_mesh->getIsNewC(iOct))
+    {
+      for (int j = 0; j < m_nbChildren; ++j)
+      {
+        if (isghost[j])
+        {
           for (int ivar = 0; ivar < nbVars; ++ivar)
-            U(iOct, fm[ivar]) += U2(mapper[j], fm[ivar]) / m_nbChildren;
+            Uhost(iOct, fm[ivar]) += Ughost_host(mapper[j], fm[ivar]) / m_nbChildren;
         }
-
+        else
+        {
+          for (int ivar = 0; ivar < nbVars; ++ivar)
+            Uhost(iOct, fm[ivar]) += U2_host(mapper[j], fm[ivar]) / m_nbChildren;
+        }
       }
+    }
+    else
+    {
 
-    } else {
-      
       // current cell is just an old cell or new upon a refinement,
       // so we just copy data
       
       for (int ivar = 0; ivar < nbVars; ++ivar)
-        U(iOct, fm[ivar]) = U2(mapper[0], fm[ivar]);
+        Uhost(iOct, fm[ivar]) = U2_host(mapper[0], fm[ivar]);
     }
   }
 
   // now U contains the most up to date data after mesh adaptation
   // we can resize U2 for the next time-step
   Kokkos::resize(U2, U.extent(0), U.extent(1));
+  Kokkos::deep_copy(U, Uhost);
   
   m_timers[TIMER_AMR_CYCLE_MAP_USERDATA]->stop();
 

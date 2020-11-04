@@ -69,10 +69,9 @@ public:
     InitFourQuadrantDataFunctor functor(pmesh, params, fm, Udata,
 					configNumber,
 					U0, U1, U2, U3, xt, yt);
-    Kokkos::parallel_for("dyablo::muscl::InitFourQuadrantDataFunctor", pmesh->getNumOctants(), functor);
+    Kokkos::parallel_for("dyablo::muscl::InitFourQuadrantDataFunctor", Kokkos::RangePolicy<Kokkos::OpenMP>(0, pmesh->getNumOctants()), functor);
   }
   
-  KOKKOS_INLINE_FUNCTION
   void operator()(const size_t& i) const
   {
     
@@ -170,11 +169,10 @@ public:
     
     // iterate functor for refinement
     InitFourQuadrantRefineFunctor functor(pmesh, params, level_refine, xt, yt);
-    Kokkos::parallel_for("dyablo::muscl::InitFourQuadrantRefineFunctor", pmesh->getNumOctants(), functor);
+    Kokkos::parallel_for("dyablo::muscl::InitFourQuadrantRefineFunctor", Kokkos::RangePolicy<Kokkos::OpenMP>(0, pmesh->getNumOctants()), functor);
     
   }
   
-  KOKKOS_INLINE_FUNCTION
   void operator()(const size_t& i) const
   {
 

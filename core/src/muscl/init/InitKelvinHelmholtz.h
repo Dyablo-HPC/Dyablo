@@ -65,10 +65,9 @@ public:
                                            Udata);
 
     Kokkos::parallel_for("dyablo::muscl::InitKelvinHelmholtzDataFunctor",
-                         pmesh->getNumOctants(), functor);
+                         Kokkos::RangePolicy<Kokkos::OpenMP>(0, pmesh->getNumOctants()), functor);
   }
 
-  KOKKOS_INLINE_FUNCTION
   void operator()(const size_t &i) const {
 
     // Kelvin Helmholtz problem parameters
@@ -254,10 +253,9 @@ public:
     InitKelvinHelmholtzRefineFunctor functor(pmesh, params, blastParams,
                                              level_refine);
     Kokkos::parallel_for("dyablo::muscl::InitKelvinHelmholtzRefineFunctor", 
-                         pmesh->getNumOctants(), functor);
+                         Kokkos::RangePolicy<Kokkos::OpenMP>(0, pmesh->getNumOctants()), functor);
   }
 
-  KOKKOS_INLINE_FUNCTION
   void operator()(const size_t &i) const 
   {
 

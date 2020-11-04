@@ -146,11 +146,12 @@ private:
   //! adapt mesh and recompute connectivity
   void adapt_mesh();
 
-  //! map data from old U to new U after adapting mesh
-  void map_userdata_after_adapt();
-
   //! mesh load balancing with data communication
   void load_balance_userdata();
+
+  //! map data from old U to new U after adapting mesh
+  public : // GLITCHY : has to be public because it contains a KOKKOS_LAMBDA
+  void map_userdata_after_adapt();
 
 }; // class SolverHydroMuscl
 
