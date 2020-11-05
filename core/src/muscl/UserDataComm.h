@@ -9,7 +9,7 @@
 #define MUSCL_USER_DATA_COMM_H_
 
 #include "bitpit_PABLO.hpp" // for DataCommInterface
-#include "shared/kokkos_shared.h" // for type DataArray
+#include "shared/kokkos_shared.h" // for type DataArrayHost
 
 #include "shared/FieldManager.h" // for id2index_t type
 
@@ -27,10 +27,10 @@ class UserDataComm : public bitpit::DataCommInterface<UserDataComm>
 public:
 
   //! bulk data owned by current MPI process
-  DataArray data;
+  DataArrayHost data;
 
   //! ghost data, owned by a different MPI process
-  DataArray ghostData;
+  DataArrayHost ghostData;
   
   //! FieldMap object for mapping field variable (ID, IP, IU, IV, ...)
   //! to actual index
@@ -72,7 +72,7 @@ public:
   /**
    * Constructor.
    */
-  UserDataComm(DataArray data_, DataArray ghostData_, id2index_t fm_);
+  UserDataComm(DataArrayHost data_, DataArrayHost ghostData_, id2index_t fm_);
 
   /**
    * Destructor.

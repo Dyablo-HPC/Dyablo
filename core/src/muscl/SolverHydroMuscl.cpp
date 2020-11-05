@@ -697,37 +697,37 @@ void SolverHydroMuscl::synchronize_ghost_data(UserDataCommType t)
   // 1. resize ghost array
   // 2. create UserDataComm object
   // 3. perform MPI communications
+
+  auto exchange_ghosts = [&]( DataArray& A, DataArray& Aghost )
+  {
+    Kokkos::resize(Aghost, nghosts, A.extent(1));
+
+    auto A_host = Kokkos::create_mirror_view(A);
+    auto Aghost_host = Kokkos::create_mirror_view(Aghost);
+    Kokkos::deep_copy(A_host, A);
+
+    UserDataComm data_comm(A_host, Aghost_host, fm);
+    amr_mesh->communicate(data_comm);
+
+    Kokkos::deep_copy(Aghost, Aghost_host);
+  };
   
   switch(t) {
   case UserDataCommType::UDATA: {
-    Kokkos::resize(Ughost, nghosts, U.extent(1));
-    UserDataComm data_comm(U, Ughost, fm);
-    amr_mesh->communicate(data_comm);
+    exchange_ghosts(U, Ughost);
     break;
   }
   case UserDataCommType::QDATA : {
-    Kokkos::resize(Qghost, nghosts, Q.extent(1));
-    UserDataComm data_comm(Q, Qghost, fm);
-    amr_mesh->communicate(data_comm);
+    exchange_ghosts(Q, Qghost);
     break;
   }
   case UserDataCommType::SLOPES : {
-    {
-      Kokkos::resize(Slopes_x_ghost, nghosts, Q.extent(1));
-      UserDataComm data_comm(Slopes_x, Slopes_x_ghost, fm);
-      amr_mesh->communicate(data_comm);
-    }
-    {
-      Kokkos::resize(Slopes_y_ghost, nghosts, Q.extent(1));
-      UserDataComm data_comm(Slopes_y, Slopes_y_ghost, fm);
-      amr_mesh->communicate(data_comm);
-    }
+    exchange_ghosts(Slopes_x, Slopes_x_ghost);
+    exchange_ghosts(Slopes_y, Slopes_y_ghost);
     if (params.dimType==THREE_D) {
-      Kokkos::resize(Slopes_z_ghost, nghosts, Q.extent(1));
-      UserDataComm data_comm(Slopes_z, Slopes_z_ghost, fm);
-      amr_mesh->communicate(data_comm);
+      exchange_ghosts(Slopes_z, Slopes_z_ghost);
     }
-    
+    break;
   } // end case SLOPES
 
   } // end switch
@@ -897,11 +897,21 @@ void SolverHydroMuscl::load_balance_userdata()
   {
     uint8_t levels = 4;
 
-    UserDataLB data_lb(U, Ughost, fm);
+    auto U_host = Kokkos::create_mirror_view(U);
+    auto Ughost_host = Kokkos::create_mirror_view(Ughost);
+    Kokkos::deep_copy(U_host, U);
+    Kokkos::deep_copy(Ughost_host, Ughost);
+
+    UserDataLB data_lb(U_host, Ughost_host, fm);
     amr_mesh->loadBalance(data_lb, levels);
 
-    // we probably need to resize U2, ....
-    Kokkos::resize(U2,U.extent(0),U.extent(1));
+    // we probably need to resize U, ....
+    Kokkos::resize(U,U_host.extent(0),U_host.extent(1));
+    Kokkos::resize(Ughost,Ughost_host.extent(0),Ughost_host.extent(1));
+    Kokkos::resize(U2,U_host.extent(0),U_host.extent(1));
+
+    Kokkos::deep_copy(U, U_host);
+    Kokkos::deep_copy(Ughost, Ughost_host);  
 
   }
 #endif // BITPIT_ENABLE_MPI==1

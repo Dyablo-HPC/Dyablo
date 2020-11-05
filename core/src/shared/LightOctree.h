@@ -214,8 +214,8 @@ public:
             bitpit::bvector periodic = pmesh->getPeriodic();
             // Maybe really no neighbor if outside domain
             if( ( periodic[2*IX] or ( 0.0 <= cellPos[IX] && cellPos[IX] < 1.0 ) )
-             or ( periodic[2*IY] or ( 0.0 <= cellPos[IY] && cellPos[IY] < 1.0 ) )
-             or ( periodic[2*IZ] or ( 0.0 <= cellPos[IZ] && cellPos[IZ] < 1.0 ) ) )
+             and ( periodic[2*IY] or ( 0.0 <= cellPos[IY] && cellPos[IY] < 1.0 ) )
+             and ( periodic[2*IZ] or ( 0.0 <= cellPos[IZ] && cellPos[IZ] < 1.0 ) ) )
             {
                 //Get periodic position inside domain
                 if(periodic[2*IX]) cellPos[IX] -= std::floor(cellPos[IX]/1.0);
@@ -223,6 +223,10 @@ public:
                 if(periodic[2*IZ]) cellPos[IZ] -= std::floor(cellPos[IZ]/1.0);
 
                 fix_missing_corner_neighbor(iOct.iOct, offset, cellPos, neighbors);
+            }
+            else
+            {
+                assert(false); // This is undefined behavior ( see LightOctree_base::findNeighbors doc )
             }
         }
         else
