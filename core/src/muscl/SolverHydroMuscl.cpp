@@ -125,6 +125,8 @@ SolverHydroMuscl::SolverHydroMuscl(HydroParams& params,
   // copy U into U2
   Kokkos::deep_copy(U2,U);
 
+  amr_lmesh = LightOctree(amr_mesh, params);
+
   // compute initialize time step
   compute_dt();
 
@@ -332,7 +334,7 @@ double SolverHydroMuscl::compute_dt_local()
   auto fm = fieldMgr.get_id2index();
 
   // call device functor - compute invDt
-  ComputeDtHydroFunctor::apply(amr_mesh, params, fm, U, invDt);
+  ComputeDtHydroFunctor::apply(amr_lmesh, params, fm, U, invDt);
 
   dt = params.settings.cfl/invDt;
 
@@ -490,7 +492,7 @@ void SolverHydroMuscl::reconstruct_gradients(DataArray Udata)
     Kokkos::resize(Slopes_z, Udata.extent(0), Udata.extent(1));  
 
   // call device functor
-  ReconstructGradientsHydroFunctor::apply(amr_mesh, params, fm, 
+  ReconstructGradientsHydroFunctor::apply(amr_lmesh, params, fm, 
                                           Q, Qghost, Slopes_x, Slopes_y, Slopes_z);
   
 } // SolverHydroMuscl::reconstruct_gradients
@@ -518,7 +520,7 @@ void SolverHydroMuscl::compute_fluxes_and_update(DataArray data_in,
     Kokkos::resize(Fluxes, U.extent(0), U.extent(1));
     
     // stored out fluxes in Fluxes
-    ComputeFluxesAndUpdateHydroFunctor::apply(amr_mesh, params, fm,
+    ComputeFluxesAndUpdateHydroFunctor::apply(amr_lmesh, params, fm,
                                               data_in, Fluxes,
                                               Q, Qghost,
                                               Slopes_x,
@@ -536,7 +538,7 @@ void SolverHydroMuscl::compute_fluxes_and_update(DataArray data_in,
 
   } else {
 
-    ComputeFluxesAndUpdateHydroFunctor::apply(amr_mesh, params, fm,
+    ComputeFluxesAndUpdateHydroFunctor::apply(amr_lmesh, params, fm,
                                               data_in, data_out,
                                               Q, Qghost,
                                               Slopes_x,
@@ -757,7 +759,7 @@ void SolverHydroMuscl::mark_cells()
   // Note: Ughost is up to date, update at the beginning of do_amr_cycle
 
   // call device functor to flag for refine/coarsen
-  MarkCellsHydroFunctor::apply(amr_mesh, params, fm, Udata, Ughost,
+  MarkCellsHydroFunctor::apply(amr_mesh, amr_lmesh, params, fm, Udata, Ughost,
                                eps_refine, eps_coarsen);
 
   m_timers[TIMER_AMR_CYCLE_MARK_CELLS]->stop();
@@ -776,6 +778,8 @@ void SolverHydroMuscl::adapt_mesh()
 
   // 2. re-compute connectivity
   amr_mesh->updateConnectivity();
+
+  amr_lmesh = LightOctree(amr_mesh, params);
   
   m_timers[TIMER_AMR_CYCLE_ADAPT_MESH]->stop();
 
@@ -912,6 +916,8 @@ void SolverHydroMuscl::load_balance_userdata()
 
     Kokkos::deep_copy(U, U_host);
     Kokkos::deep_copy(Ughost, Ughost_host);  
+
+    amr_lmesh = LightOctree(amr_mesh, params);
 
   }
 #endif // BITPIT_ENABLE_MPI==1

@@ -22,6 +22,7 @@
 #include "shared/HydroParams.h"
 #include "shared/kokkos_shared.h"
 #include "shared/FieldManager.h"
+#include "shared/LightOctree.h"
 
 // for IO
 #include <shared/HDF5_IO.h>
@@ -48,6 +49,8 @@ public:
    * Static creation method called by the solver factory.
    */
   static SolverBase* create(HydroParams& params, ConfigMap& configMap);
+
+  LightOctree amr_lmesh;
 
   DataArray     U;     /*!< hydrodynamics conservative variables arrays at t_n */
   DataArrayHost Uhost; /*!< mirror DataArray U on host memory space */

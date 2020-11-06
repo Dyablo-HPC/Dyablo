@@ -39,7 +39,7 @@ public:
   /**
    * Compute Riemann fluxes and update current cell only.
    *
-   * \param[in]  pmesh pointer to AMR mesh structure
+   * \param[in]  lmesh LightOctree structure
    * \param[in]  params
    * \param[in]  fm field map
    * \param[in]  Data_in current time step data (conservative variables)
@@ -54,7 +54,7 @@ public:
    * \param[in]  Slopes_z_ghost limited slopes along z axis, ghost cells
    *
    */
-  ComputeFluxesAndUpdateHydroFunctor(std::shared_ptr<AMRmesh> pmesh,
+  ComputeFluxesAndUpdateHydroFunctor(LightOctree lmesh,
                                      HydroParams params,
                                      id2index_t    fm,
                                      DataArray Data_in,
@@ -68,7 +68,7 @@ public:
                                      DataArray Slopes_y_ghost,
                                      DataArray Slopes_z_ghost,
                                      real_t    dt) :
-    lmesh(pmesh, params),
+    lmesh(lmesh),
     params(params),
     fm(fm),
     Data_in(Data_in),
@@ -85,7 +85,7 @@ public:
   {};
   
   // static method which does it all: create and execute functor
-  static void apply(std::shared_ptr<AMRmesh> pmesh,
+  static void apply(LightOctree lmesh,
 		    HydroParams params,
 		    id2index_t  fm,
 		    DataArray Data_in,
@@ -100,13 +100,13 @@ public:
 		    DataArray SlopeZ_ghost,
                     real_t    dt)
   {
-    ComputeFluxesAndUpdateHydroFunctor functor(pmesh, params, fm, 
+    ComputeFluxesAndUpdateHydroFunctor functor(lmesh, params, fm, 
                                                Data_in, Data_out,
                                                Qdata, Qdata_ghost,
                                                SlopeX,SlopeY,SlopeZ,
                                                SlopeX_ghost,SlopeY_ghost,SlopeZ_ghost,
                                                dt);
-    Kokkos::parallel_for("dyablo::muscl::ComputeFluxesAndUpdateHydroFunctor", pmesh->getNumOctants(), functor);
+    Kokkos::parallel_for("dyablo::muscl::ComputeFluxesAndUpdateHydroFunctor", lmesh.getNumOctants(), functor);
   }
 
   // =======================================================================

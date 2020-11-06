@@ -30,7 +30,7 @@ public:
   /**
    * Mark cells for refine/coarsen functor.
    *
-   * \param[in] pmesh AMRmesh Pablo data structure
+   * \param[in] lmesh LightOctree data structure
    * \param[in] params
    * \param[in] fm field map to access user data
    * \param[in] Udata conservative variables
@@ -39,7 +39,7 @@ public:
    * \param[in] eps_coarsen is a threshold, we do unrefine when criterium is smaller than this value
    *
    */
-  MarkCellsHydroFunctor(std::shared_ptr<AMRmesh> pmesh,
+  MarkCellsHydroFunctor(LightOctree lmesh,
                         HydroParams params,
                         id2index_t  fm,
                         DataArray   Udata,
@@ -47,7 +47,7 @@ public:
                         Kokkos::View<int8_t*> marker,
                         real_t      eps_refine,
                         real_t      eps_coarsen) :
-    lmesh(pmesh, params),
+    lmesh(lmesh),
     params(params),
     fm(fm),
     Udata(Udata), 
@@ -59,6 +59,7 @@ public:
   
   //! static method which does it all: create and execute functor
   static void apply(std::shared_ptr<AMRmesh> pmesh,
+        LightOctree lmesh,
 		    HydroParams params,
 		    id2index_t  fm,
                     DataArray   Udata,
@@ -66,10 +67,10 @@ public:
                     real_t      eps_refine,
                     real_t      eps_coarsen)
   {
-    uint32_t nbOct = pmesh->getNumOctants();
+    uint32_t nbOct = lmesh.getNumOctants();
 
     Kokkos::View<int8_t*> marker("MarkCellsHydroFunctor markers", nbOct);
-    MarkCellsHydroFunctor functor(pmesh, params, fm, 
+    MarkCellsHydroFunctor functor(lmesh, params, fm, 
                                   Udata, Udata_ghost,
                                   marker,
                                   eps_refine, 

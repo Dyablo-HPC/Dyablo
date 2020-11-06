@@ -37,7 +37,7 @@ public:
   /**
    * Reconstruct gradients functor constructor.
    *
-   * \param[in] pmesh AMRmesh Pablo data structure
+   * \param[in] lmesh LightOctree data structure
    * \param[in] params
    * \param[in] fm field map to access user data
    * \param[in] Qdata primitive variables
@@ -47,7 +47,7 @@ public:
    * \param[out] SlopeZ limited slopes along z data array
    *
    */
-  ReconstructGradientsHydroFunctor(std::shared_ptr<AMRmesh> pmesh,
+  ReconstructGradientsHydroFunctor(LightOctree lmesh,
 				   HydroParams params,
 				   id2index_t    fm,
 				   DataArray Qdata,
@@ -55,7 +55,7 @@ public:
 				   DataArray SlopeX,
 				   DataArray SlopeY,
 				   DataArray SlopeZ) :
-    lmesh(pmesh, params), 
+    lmesh(lmesh), 
     params(params),
     fm(fm),
     Qdata(Qdata), 
@@ -66,7 +66,7 @@ public:
   {};
   
   // static method which does it all: create and execute functor
-  static void apply(std::shared_ptr<AMRmesh> pmesh,
+  static void apply(LightOctree lmesh,
 		    HydroParams params,
 		    id2index_t  fm,
                     DataArray Qdata,
@@ -75,10 +75,10 @@ public:
 		    DataArray SlopeY,
 		    DataArray SlopeZ)
   {
-    ReconstructGradientsHydroFunctor functor(pmesh, params, fm, 
+    ReconstructGradientsHydroFunctor functor(lmesh, params, fm, 
                                              Qdata, Qdata_ghost,
                                              SlopeX, SlopeY, SlopeZ);
-    Kokkos::parallel_for("dyablo::muscl::ReconstructGradientsHydroFunctor", pmesh->getNumOctants(), functor);
+    Kokkos::parallel_for("dyablo::muscl::ReconstructGradientsHydroFunctor", lmesh.getNumOctants(), functor);
   }
 
   // =============================================================

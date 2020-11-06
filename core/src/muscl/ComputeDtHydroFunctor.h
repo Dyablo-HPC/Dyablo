@@ -34,15 +34,15 @@ namespace dyablo { namespace muscl {
 class ComputeDtHydroFunctor {
 
 public:
-  ComputeDtHydroFunctor(std::shared_ptr<AMRmesh> pmesh,
+  ComputeDtHydroFunctor(LightOctree lmesh,
 			HydroParams   params,
 			id2index_t    fm,
 			DataArray     Udata) :
-    lmesh(pmesh, params), params(params), fm(fm), Udata(Udata)
+    lmesh(lmesh), params(params), fm(fm), Udata(Udata)
   {};
   
   // static method which does it all: create and execute functor
-  static void apply(std::shared_ptr<AMRmesh> pmesh,
+  static void apply(LightOctree lmesh,
 		    HydroParams   params,
 		    id2index_t    fm,
                     DataArray     Udata,
@@ -51,8 +51,8 @@ public:
     
     // iterate functor for refinement
     
-    ComputeDtHydroFunctor functor(pmesh, params, fm, Udata);
-    Kokkos::parallel_reduce(pmesh->getNumOctants(), functor, invDt);
+    ComputeDtHydroFunctor functor(lmesh, params, fm, Udata);
+    Kokkos::parallel_reduce(lmesh.getNumOctants(), functor, invDt);
   }
 
   // ====================================================================
