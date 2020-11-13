@@ -118,7 +118,8 @@ public:
   };
   
   // static method which does it all: create and execute functor
-  static void apply(std::shared_ptr<AMRmesh> pmesh,
+  // Returns the number of octants that need to be refined
+  static uint32_t apply(std::shared_ptr<AMRmesh> pmesh,
                     LightOctree lmesh,
 		    ConfigMap      configMap,
                     HydroParams    params,
@@ -152,11 +153,12 @@ public:
     
     team_policy_t policy (nbTeams_,
                           Kokkos::AUTO() /* team size chosen by kokkos */);
-
+    uint32_t need_refine = 0;
     // Compute markers for every octant
-    Kokkos::parallel_for("dyablo::muscl_block::MarkOctantsHydroFunctor",
+    Kokkos::parallel_reduce("dyablo::muscl_block::MarkOctantsHydroFunctor",
                          policy, 
-                         functor);
+                            functor,
+                            Kokkos::Sum<uint32_t>(need_refine));
     
     //Feed markers to PABLO octree
     {
@@ -175,7 +177,7 @@ public:
         pmesh->setMarker(iOct_global, markers_host(iOct_local));
       }
     }
-
+    return need_refine;
   } // apply
 
   // ======================================================
@@ -234,7 +236,7 @@ public:
   // ======================================================
   // ======================================================
   KOKKOS_INLINE_FUNCTION
-  void functor_2d(const thread_t& member) const
+  void functor_2d(const thread_t& member, uint32_t need_refine) const
   {
     
     // iOct must span the range [iGroup*nbOctsPerGroup ,
@@ -290,6 +292,9 @@ public:
       else
         markers(iOct_local)=0;
       
+      if(markers(iOct_local)==1)
+        need_refine ++;
+      
       iOct       += nbTeams;
       iOct_local += nbTeams;
       
@@ -343,7 +348,7 @@ public:
   } // compute_second_derivative
 
   KOKKOS_INLINE_FUNCTION
-  void functor_3d(const thread_t &member) const
+  void functor_3d(const thread_t &member, uint32_t& need_refine) const
   {
     // iOct must span the range [iGroup*nbOctsPerGroup ,
     // (iGroup+1)*nbOctsPerGroup [
@@ -416,6 +421,9 @@ public:
       else
         markers(iOct_local)=0; 
 
+      if(markers(iOct_local)==1)
+        need_refine ++;
+
       iOct += nbTeams;
       iOct_local += nbTeams;
 
@@ -423,15 +431,15 @@ public:
   }   // operator ()
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(const thread_t& member) const
+  void operator()(const thread_t& member, uint32_t& need_refine) const
   {
     if( params.dimType == TWO_D )
     {
-      functor_2d(member);
+      functor_2d(member, need_refine);
     }
     else
     {
-      functor_3d(member);
+      functor_3d(member, need_refine);
     }   
 
   }

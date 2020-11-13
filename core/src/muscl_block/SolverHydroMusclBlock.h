@@ -214,7 +214,8 @@ private:
   void synchronize_ghost_data(UserDataCommType t);
 
   //! mark cells for refinement
-  void mark_cells();
+  //! @returns number of octants that need to be refined
+  uint32_t mark_cells();
 
   //! adapt mesh and recompute connectivity
   void adapt_mesh();

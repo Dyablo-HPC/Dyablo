@@ -342,13 +342,21 @@ void SolverHydroMusclBlock::do_amr_cycle()
   synchronize_ghost_data(UserDataCommType::UDATA);
   
   // 2. mark cell for refinement / coarsening + adapt mesh
-  mark_cells();
+  uint32_t need_refine = mark_cells();
 
+  if( need_refine > 0 )
+  {
   // 3. adapt mesh + re-compute connectivity
   adapt_mesh();
 
   // 4. map data to new data array
   map_userdata_after_adapt();
+  }
+  else
+  {
+    Kokkos::deep_copy(U,U2);
+  }
+
 
   m_timers[TIMER_AMR_CYCLE]->stop();
 
@@ -828,7 +836,7 @@ void SolverHydroMusclBlock::synchronize_ghost_data(UserDataCommType t)
 
 // =======================================================
 // =======================================================
-void SolverHydroMusclBlock::mark_cells()
+uint32_t SolverHydroMusclBlock::mark_cells()
 {
 
   // retrieve available / allowed names: fieldManager, and field map (fm)
@@ -847,6 +855,8 @@ void SolverHydroMusclBlock::mark_cells()
 
   // number of group of octants, rounding to upper value
   uint32_t nbGroup = (nbOcts + nbOctsPerGroup - 1) / nbOctsPerGroup;
+
+  uint32_t need_refine = 0;
 
   for (uint32_t iGroup = 0; iGroup < nbGroup; ++iGroup) {
 
@@ -870,7 +880,8 @@ void SolverHydroMusclBlock::mark_cells()
 
     // finaly apply refine criterion : 
     // call device functor to flag for refine/coarsen
-    MarkOctantsHydroFunctor::apply(amr_mesh, lmesh, configMap, params, fm,
+    need_refine += MarkOctantsHydroFunctor::apply(
+                                   amr_mesh, lmesh, configMap, params, fm,
                                    blockSizes, ghostWidth,
                                    nbOcts, nbOctsPerGroup,
                                    Qgroup, iGroup,
@@ -880,7 +891,9 @@ void SolverHydroMusclBlock::mark_cells()
 
   } // end for iGroup
 
+  std::cout << "Need refine : " << need_refine << std::endl;
 
+  return need_refine;
 } // SolverHydroMusclBlock::mark_cells
 
 // =======================================================
