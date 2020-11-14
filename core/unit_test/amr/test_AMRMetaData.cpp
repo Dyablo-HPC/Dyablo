@@ -43,7 +43,7 @@ void run_test()
   // ================================
 
   /**<Instantation of a nDimensional pablo uniform object.*/
-  bitpit::PabloUniform amr_mesh(dim);
+  dyablo::AMRmesh amr_mesh(dim);
 
   // Set 2:1 balance
   // codim 1 ==> balance through faces

@@ -47,13 +47,13 @@ void writeVTK(AMRmesh&         amr_mesh,
   }
 
   //auto nodes = amr_mesh.getNodes();
-  int nofNodes = amr_mesh.getNodes().size();
+  int nofNodes = amr_mesh.getNodesCount();
   int nofOctants = amr_mesh.getConnectivity().size();
   int nofAll = nofOctants;
   out << "<?xml version=\"1.0\"?>" << std::endl
       << "<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" byte_order=\"BigEndian\">" << std::endl
       << "  <UnstructuredGrid>" << std::endl
-      << "    <Piece NumberOfCells=\"" << amr_mesh.getConnectivity().size() << "\" NumberOfPoints=\"" << amr_mesh.getNodes().size() << "\">" << std::endl;
+      << "    <Piece NumberOfCells=\"" << amr_mesh.getConnectivity().size() << "\" NumberOfPoints=\"" << nofNodes << "\">" << std::endl;
   out << "      <CellData>\n";
 
   // write data array scalar fields in ascii
@@ -87,11 +87,10 @@ void writeVTK(AMRmesh&         amr_mesh,
   
   for(int i = 0; i < nofNodes; i++)
     {
-      for(int j = 0; j < 3; ++j){
-	if (j==0) out << std::setprecision(6) << amr_mesh.getMap().mapX(amr_mesh.getNodes()[i][j]) << " ";
-	if (j==1) out << std::setprecision(6) << amr_mesh.getMap().mapY(amr_mesh.getNodes()[i][j]) << " ";
-	if (j==2) out << std::setprecision(6) << amr_mesh.getMap().mapZ(amr_mesh.getNodes()[i][j]) << " ";
-      }
+      bitpit::darray3 node_pos = amr_mesh.getNodeCoordinates(i);
+      out << std::setprecision(6) << node_pos[IX] << " ";
+      out << std::setprecision(6) << node_pos[IY] << " ";
+      out << std::setprecision(6) << node_pos[IZ] << " ";
       if((i+1)%4==0 && i!=nofNodes-1)
 	out << std::endl << "          ";
     }
@@ -241,13 +240,13 @@ void writeTest(AMRmesh               &amr_mesh,
   }
 
   //auto nodes = amr_mesh.getNodes();
-  int nofNodes = amr_mesh.getNodes().size();
+  int nofNodes = amr_mesh.getNodesCount();
   int nofOctants = amr_mesh.getConnectivity().size();
   int nofAll = nofOctants;
   out << "<?xml version=\"1.0\"?>" << std::endl
       << "<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" byte_order=\"BigEndian\">" << std::endl
       << "  <UnstructuredGrid>" << std::endl
-      << "    <Piece NumberOfCells=\"" << amr_mesh.getConnectivity().size() << "\" NumberOfPoints=\"" << amr_mesh.getNodes().size() << "\">" << std::endl;
+      << "    <Piece NumberOfCells=\"" << amr_mesh.getConnectivity().size() << "\" NumberOfPoints=\"" << nofNodes << "\">" << std::endl;
   out << "      <CellData>\n";
 
   // write data array scalar fields in ascii
@@ -275,11 +274,10 @@ void writeTest(AMRmesh               &amr_mesh,
   
   for(int i = 0; i < nofNodes; i++)
     {
-      for(int j = 0; j < 3; ++j){
-	if (j==0) out << std::setprecision(6) << amr_mesh.getMap().mapX(amr_mesh.getNodes()[i][j]) << " ";
-	if (j==1) out << std::setprecision(6) << amr_mesh.getMap().mapY(amr_mesh.getNodes()[i][j]) << " ";
-	if (j==2) out << std::setprecision(6) << amr_mesh.getMap().mapZ(amr_mesh.getNodes()[i][j]) << " ";
-      }
+      bitpit::darray3 node_pos = amr_mesh.getNodeCoordinates(i);
+      out << std::setprecision(6) << node_pos[IX] << " ";
+      out << std::setprecision(6) << node_pos[IY] << " ";
+      out << std::setprecision(6) << node_pos[IZ] << " ";
       if((i+1)%4==0 && i!=nofNodes-1)
 	out << std::endl << "          ";
     }
@@ -424,13 +422,13 @@ void writeTest(AMRmesh             &amr_mesh,
   }
 
   //auto nodes = amr_mesh.getNodes();
-  int nofNodes = amr_mesh.getNodes().size();
+  int nofNodes = amr_mesh.getNodesCount();
   int nofOctants = amr_mesh.getConnectivity().size();
   int nofAll = nofOctants;
   out << "<?xml version=\"1.0\"?>" << std::endl
       << "<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" byte_order=\"BigEndian\">" << std::endl
       << "  <UnstructuredGrid>" << std::endl
-      << "    <Piece NumberOfCells=\"" << amr_mesh.getConnectivity().size() << "\" NumberOfPoints=\"" << amr_mesh.getNodes().size() << "\">" << std::endl;
+      << "    <Piece NumberOfCells=\"" << amr_mesh.getConnectivity().size() << "\" NumberOfPoints=\"" << nofNodes << "\">" << std::endl;
   out << "      <CellData>\n";
 
   // write data array scalar fields in ascii
@@ -458,11 +456,10 @@ void writeTest(AMRmesh             &amr_mesh,
   
   for(int i = 0; i < nofNodes; i++)
     {
-      for(int j = 0; j < 3; ++j){
-	if (j==0) out << std::setprecision(6) << amr_mesh.getMap().mapX(amr_mesh.getNodes()[i][j]) << " ";
-	if (j==1) out << std::setprecision(6) << amr_mesh.getMap().mapY(amr_mesh.getNodes()[i][j]) << " ";
-	if (j==2) out << std::setprecision(6) << amr_mesh.getMap().mapZ(amr_mesh.getNodes()[i][j]) << " ";
-      }
+      bitpit::darray3 node_pos = amr_mesh.getNodeCoordinates(i);
+      out << std::setprecision(6) << node_pos[IX] << " ";
+      out << std::setprecision(6) << node_pos[IY] << " ";
+      out << std::setprecision(6) << node_pos[IZ] << " ";
       if((i+1)%4==0 && i!=nofNodes-1)
 	out << std::endl << "          ";
     }

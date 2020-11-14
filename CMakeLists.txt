@@ -117,8 +117,9 @@ if ( (NOT BITPIT_FOUND) OR FORCE_BITPIT_BUILD )
   #
   set_property(DIRECTORY PROPERTY EP_BASE ${CMAKE_BINARY_DIR}/external)
   ExternalProject_Add (bitpit_external
-    URL https://github.com/pkestene/bitpit/archive/bitpit-1.7.0-devel-dyablo-v0.2.tar.gz
-    URL_MD5 5d7a8672b711addc01708ac483d74b5c
+    #URL https://github.com/pkestene/bitpit/archive/bitpit-1.7.0-devel-dyablo-v0.2.tar.gz
+    #URL_MD5 5d7a8672b711addc01708ac483d74b5c
+    SOURCE_DIR ${PROJECT_SOURCE_DIR}/external/bitpit
     UPDATE_COMMAND ""
     CMAKE_ARGS
       -DCMAKE_CXX_COMPILER=${BITPIT_COMPILER}

@@ -287,7 +287,7 @@ void run()
   int iter = 0;
 
   /**<Instantation of a 2D pablo uniform object.*/
-  bitpit::PabloUniform pablo7(2);
+  dyablo::AMRmesh pablo7(2);
 
   /**<Set NO 2:1 balance for the octree.*/
   int idx = 0;

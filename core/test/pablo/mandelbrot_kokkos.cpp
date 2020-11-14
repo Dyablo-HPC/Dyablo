@@ -19,8 +19,8 @@
 
 #include "bitpit_PABLO.hpp"
 #include "shared/kokkos_shared.h"
-//#include "shared/bitpit_common.h" // for AMRmesh type
-using AMRmesh = bitpit::PabloUniform;
+#include "shared/bitpit_common.h" // for AMRmesh type
+using dyablo::AMRmesh;
 
 //using namespace bitpit;
 
