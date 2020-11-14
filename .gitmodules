@@ -5,3 +5,7 @@
 [submodule "external/backward-cpp"]
 	path = external/backward-cpp
 	url = https://github.com/bombela/backward-cpp.git
+[submodule "external/bitpit"]
+	path = external/bitpit
+	url = https://github.com/pkestene/bitpit.git
+	branch = PABLO.fix.periodic.neighbours-dyablo
