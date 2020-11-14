@@ -38,7 +38,6 @@ add_backward(${EXE_NAME})
 configure_file(test_four_quadrant_2D.ini test_four_quadrant_2D.ini COPYONLY)
 configure_file(test_four_quadrant_2D_block.ini test_four_quadrant_2D_block.ini COPYONLY)
 configure_file(test_blast_2D.ini test_blast_2D.ini COPYONLY)
-configure_file(test_blast_3D.ini test_blast_3D.ini COPYONLY)
 configure_file(test_sod_2D.ini test_sod_2D.ini COPYONLY)
 configure_file(test_sod_2D_block.ini test_sod_2D_block.ini COPYONLY)
 configure_file(test_isentropic_vortex_2D.ini test_isentropic_vortex_2D.ini COPYONLY)
@@ -54,3 +53,17 @@ configure_file(test_implode_3D.ini test_implode_3D.ini COPYONLY)
 configure_file(test_blast_2D_block.ini test_blast_2D_block.ini COPYONLY)
 configure_file(test_implode_2D_block.ini test_implode_2D_block.ini COPYONLY)
 configure_file(test_double_mach_reflection_2D_block.ini test_double_mach_reflection_2D_block COPYONLY)
+
+# Files for gitlab-ci testcases
+# Blast 3D block based 
+configure_file(test_blast_3D_block.ini test_blast_3D_block.ini COPYONLY)
+configure_file(visu_blast_3D_block.pvsm visu_blast_3D_block.pvsm COPYONLY)
+# Blast 3D cell based 
+configure_file(test_blast_3D.ini test_blast_3D.ini COPYONLY)
+configure_file(visu_blast_3D_cell.pvsm visu_blast_3D_cell.pvsm COPYONLY)
+# Blast 2D block based
+configure_file(test_blast_2D_block.ini test_blast_2D_block.ini COPYONLY)
+configure_file(visu_blast_2D_block.pvsm visu_blast_2D_block.pvsm COPYONLY)
+# Blast 2D cell based 
+configure_file(test_blast_2D.ini test_blast_2D.ini COPYONLY)
+configure_file(visu_blast_2D_cell.pvsm visu_blast_2D_cell.pvsm COPYONLY)
