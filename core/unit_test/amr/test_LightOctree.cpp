@@ -15,6 +15,7 @@
 #include <mpi.h>
 #endif // DYABLO_USE_MPI
 
+#include "utils/monitoring/SimpleTimer.h"
 #include "shared/LightOctree.h"
 
 #include <iostream>
@@ -469,11 +470,115 @@ void run_test()
 
 } // dyablo
 
+//template< typename LightOctree_t >
+void test_perf()
+{
+  constexpr int level_min = 5; //! Min AMR level
+  constexpr int level_max = 8; //! Max AMR level
+  constexpr int ndim = 3; //! 3D
+  // Refine cells at distance between min and max from center of box
+  constexpr real_t refine_circle_radius_min = 0.20; 
+  constexpr real_t refine_circle_radius_max = 0.25;
 
+  std::cout << "\n\n\n";
+  std::cout << "==================================\n";
+  std::cout << "   LightOctree perf \n";
+  std::cout << "==================================\n";
+
+  std::cout << "Setup PABLO mesh ..." << std::endl;
+  dyablo::AMRmesh amr_mesh(ndim);
+  {
+    //uint8_t CODIM_FACE = 1;
+    //uint8_t CODIM_EDGE = 2;
+    uint8_t CODIM_CORNER = 3;
+    amr_mesh.setBalanceCodimension(CODIM_CORNER);
+    uint32_t idx=0;
+    amr_mesh.setBalance(idx,true);
+    amr_mesh.setPeriodic(0);
+    amr_mesh.setPeriodic(1);
+    amr_mesh.setPeriodic(2);
+    amr_mesh.setPeriodic(3);
+    amr_mesh.setPeriodic(4);
+    amr_mesh.setPeriodic(5);
+    // Global refine until level_min
+    for(int i=0; i<level_min; i++)
+      amr_mesh.adaptGlobalRefine();
+    // Refine over a circle until level_max
+    for(int level=level_min; level<level_max; level++)
+    {
+      for(uint32_t iOct=0; iOct<amr_mesh.getNumOctants(); iOct++)
+      {
+        auto center = amr_mesh.getCenter(iOct);
+        center[IX] -= 0.5;
+        center[IY] -= 0.5;
+        center[IZ] -= 0.5;
+        real_t d2 = center[IX]*center[IX] + center[IY]*center[IY] + center[IZ]*center[IZ];
+
+        real_t rmin2 = refine_circle_radius_min*refine_circle_radius_min;
+        real_t rmax2 = refine_circle_radius_max*refine_circle_radius_max;
+        if( rmin2 <= d2 && d2 <= rmax2 )
+        {
+          amr_mesh.setMarker(iOct, 1);
+        }
+      }
+      amr_mesh.adapt();
+      amr_mesh.updateConnectivity();
+    }
+  }
+  uint64_t nbOct = amr_mesh.getNumOctants();
+  std::cout << " Octant count : " << nbOct << std::endl;
+
+  using LightOctree_t = dyablo::LightOctree_hashmap;
+
+  std::cout << "Construct LightOctree..." << std::endl;
+  HydroParams params;
+  params.level_max = level_max;
+  // Create shared_ptr with empty deleter;
+  std::shared_ptr<dyablo::AMRmesh> amr_mesh_ptr(&amr_mesh,[](dyablo::AMRmesh* f) {});
+
+  SimpleTimer time_lmesh_construct;
+  LightOctree_t lmesh(amr_mesh_ptr, params);
+  Kokkos::fence();
+  time_lmesh_construct.stop();
+  std::cout << "Done in " << time_lmesh_construct.elapsed()*1000 << " ms (cpu after fence)" << std::endl;
+
+  std::cout << "Measure LightOctree access performance..." << std::endl;
+  {
+    Kokkos::View<uint32_t*[5]> neighbors_view("neighbors", nbOct); //(size,n1,n2,n3,n4)
+
+    SimpleTimer time_lmesh_findneighbors;
+    Kokkos::parallel_for( "LightOctree_access_neighbors", nbOct,
+                          KOKKOS_LAMBDA( uint32_t iOct ){
+      for(int i=0; i<3*3*3; i++)
+      {
+        int8_t nz = i/(3*3);
+        int8_t ny = (i-nz*3*3)/3;
+        int8_t nx = i-ny*3-nz*3*3;
+        LightOctree_t::offset_t neigh = {(int8_t)(nx-1),(int8_t)(ny-1),(int8_t)(nz-1)};
+
+        if(neigh[IX]==0 && neigh[IY]==0 && neigh[IZ]==0) return;
+
+        LightOctree_t::NeighborList ns = lmesh.findNeighbors({iOct,false}, neigh);
+        neighbors_view(iOct, 0) = ns.size();
+        for(int k=0; k<ns.size(); k++)
+        {
+          neighbors_view(iOct, k+1) = ns[k].iOct;
+        }
+      }
+    }); 
+
+    auto neighbors_view_host = Kokkos::create_mirror_view(neighbors_view);
+    Kokkos::fence();
+
+    time_lmesh_findneighbors.stop();
+    std::cout << "Done in " << time_lmesh_findneighbors.elapsed()*1000 << " ms (cpu after fence)" << std::endl;
+  }
+
+}
 
 BOOST_AUTO_TEST_SUITE(dyablo)
 
-BOOST_AUTO_TEST_CASE(test_LightOctree)
+BOOST_AUTO_TEST_CASE(test_LightOctree_2D)
 {
 
   // always run this test
@@ -481,7 +586,7 @@ BOOST_AUTO_TEST_CASE(test_LightOctree)
   
 } 
 
-BOOST_AUTO_TEST_CASE(test_AMRMetaData3d)
+BOOST_AUTO_TEST_CASE(test_LightOctree_3D)
 {
 
   // allow this test to be manually disabled
@@ -490,6 +595,15 @@ BOOST_AUTO_TEST_CASE(test_AMRMetaData3d)
     run_test<3>();
   
 } 
+
+
+BOOST_AUTO_TEST_CASE(test_LightOctree_hashmap_perf) 
+// This test is disabled by default, enable it with 
+{
+  test_perf();  
+}
+
+
 
 BOOST_AUTO_TEST_SUITE_END() /* dyablo */
 
