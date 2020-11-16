@@ -934,7 +934,7 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
 
   //amr_mesh->adapt(true);
   uint32_t nocts = amr_mesh->getNumOctants();
-  Kokkos::resize(U, nbCellsPerOct, nbFields, nocts);
+  Kokkos::realloc(U, nbCellsPerOct, nbFields, nocts);
 
   auto U_host = create_mirror_view(U);
   auto U2_host = create_mirror_view(U2);
@@ -1164,7 +1164,7 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
 
   // now U contains the most up to date data after mesh adaptation
   // we can resize U2 for the next time-step
-  Kokkos::resize(U2, U.extent(0), U.extent(1), U.extent(2));
+  Kokkos::realloc(U2, U.extent(0), U.extent(1), U.extent(2));
   Kokkos::deep_copy(U, U_host);
   
   m_timers[TIMER_AMR_CYCLE_MAP_USERDATA]->stop();
