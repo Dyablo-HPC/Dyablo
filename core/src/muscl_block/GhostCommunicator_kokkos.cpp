@@ -5,61 +5,33 @@
 namespace dyablo{
 namespace muscl_block{
 
-namespace {
-
-/**
- * Callback class to serialize/deserialize user data for PABLO MPI communication
- * (block based version)
- */
-class UserDataComm : public bitpit::DataCommInterface<UserDataComm>
-{
-
-public:
-  using Ghost_id_view_t = Kokkos::View<uint32_t*>;
-
-  UserDataComm(std::vector<std::vector<uint32_t>>& ioct_recv_matrix, std::vector<std::vector<uint32_t>>& ioct_send_matrix)
-  : ioct_recv_matrix(ioct_recv_matrix),
-    ioct_send_matrix(ioct_send_matrix)
-  {
-  }
-
-  /**
-   * read data to communicate to neighbor MPI processes.
-   */
-  template<class Buffer>
-  void gather(Buffer & buff, int rank, const uint32_t iOct_origin) {
-    ioct_send_matrix[rank].push_back(iOct_origin);
-    buff << iOct_origin;
-  } // gather
-
-  /**
-   * Fill ghosts with data received from neighbor MPI processes.
-   */
-  template<class Buffer>
-  void scatter(Buffer & buff, int rank, const uint32_t iOct_dest) {
-    uint32_t iOct_origin;
-    buff >> iOct_origin;
-    ioct_recv_matrix[rank].push_back(iOct_dest);
-  } // scatter
-
-  std::vector<std::vector<uint32_t>>& ioct_recv_matrix; //! Octants recieved from each rank
-  std::vector<std::vector<uint32_t>>& ioct_send_matrix; //! Octants send to each rank
-}; // class UserDataComm
-
-} //namespace
-
 GhostCommunicator_kokkos::GhostCommunicator_kokkos( std::shared_ptr<AMRmesh> amr_mesh )
 {
-  using View_t = UserDataComm::Ghost_id_view_t; 
-  
+  constexpr int GHOST_COMM_TAG = 951;
+
   this->nbghosts = amr_mesh->getNumGhosts();
+  int nb_proc = hydroSimu::GlobalMpiSession::getNProc();  
 
-  int nb_proc = hydroSimu::GlobalMpiSession::getNProc();
-  ioct_recv_matrix = std::vector<std::vector<uint32_t>>(nb_proc);
-  ioct_send_matrix = std::vector<std::vector<uint32_t>>(nb_proc);
+  std::vector<int> send_sizes(nb_proc);
+  {
+    //! Map that contains ghost to send to each rank : rank -> [iOcts]
+    std::map<int, std::vector<uint32_t>> ghost_map = amr_mesh->getBordersPerProc();
+    this->ioct_send_matrix = std::vector<std::vector<uint32_t>>(nb_proc);
+    for( auto& p : ghost_map )
+    {
+      int rank = p.first;
+      std::vector<uint32_t>& iOcts_source = p.second;
+      ioct_send_matrix[rank] = iOcts_source;
+      send_sizes[rank] = iOcts_source.size();
+    }
+  }
+  this->recv_sizes = std::vector<int> (nb_proc);
+  {
+    MPI_Alltoall( send_sizes.data(), 1, MPI_INT, 
+                  recv_sizes.data(), 1, MPI_INT,
+                  MPI_COMM_WORLD );
+  }
 
-  UserDataComm comm(ioct_recv_matrix, ioct_send_matrix);
-  amr_mesh->com_metadata(comm);
 }
 
 void GhostCommunicator_kokkos::exchange_ghosts(DataArray_t& U, DataArray_t& Ughost) const
@@ -98,7 +70,7 @@ void GhostCommunicator_kokkos::exchange_ghosts(DataArray_t& U, DataArray_t& Ugho
   std::vector<DataArray_t::HostMirror> recv_buffers(nb_proc);
   for(int rank=0; rank<nb_proc; rank++)
   {
-    Kokkos::realloc(recv_buffers[rank], ncells, nfields, ioct_recv_matrix[rank].size());
+    Kokkos::realloc(recv_buffers[rank], ncells, nfields, recv_sizes[rank]);
     mpi_requests.push_back(nullptr);
     MPI_Irecv( recv_buffers[rank].data(), recv_buffers[rank].size(), MPI_DOUBLE,
                rank, 0, MPI_COMM_WORLD, &mpi_requests.back() );
@@ -106,16 +78,18 @@ void GhostCommunicator_kokkos::exchange_ghosts(DataArray_t& U, DataArray_t& Ugho
 
   MPI_Waitall(mpi_requests.size(), mpi_requests.data(), MPI_STATUSES_IGNORE);
 
+  uint32_t iOct_offset = 0;
   for(int rank=0; rank<nb_proc; rank++)
   {
-    for( size_t i=0; i<ioct_recv_matrix[rank].size(); i++  )
+    for( int i=0; i<recv_sizes[rank]; i++  )
     {
-      uint32_t iOct_ghost = ioct_recv_matrix[rank][i];
+      uint32_t iOct_ghost = iOct_offset + i;
       for (uint32_t f=0; f<nfields; ++f) {
         for (uint32_t c=0; c<ncells; ++c)
           Ughost_host(c, f, iOct_ghost) = recv_buffers[rank](c, f, i);
       }      
     }
+    iOct_offset+=recv_sizes[rank];
   }
 
   Kokkos::deep_copy(Ughost, Ughost_host);
