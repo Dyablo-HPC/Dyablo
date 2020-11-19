@@ -55,12 +55,14 @@ public:
      **/
     void exchange_ghosts(DataArray_t& U, DataArray_t& Ughost) const;
 private:
-    std::vector<std::vector<uint32_t>> ioct_send_matrix; //! Octants to send to each rank
-    std::vector<int> recv_sizes; //! number of octants recieved from each rank
-    uint32_t nbghosts;
+    Kokkos::View<uint32_t*> recv_sizes, send_sizes; //!Number of octants to send/recv for each proc
+    Kokkos::View<uint32_t*>::HostMirror recv_sizes_host, send_sizes_host; //!Number of octants to send/recv for each proc
+    Kokkos::View<uint32_t*> send_iOcts; //! List of octants to send (first send_sizes[0] iOcts to send to rank[0] and so on...)
+    uint32_t nbghosts_recv;
 };
 
 using GhostCommunicator = GhostCommunicator_kokkos;
+//using GhostCommunicator = GhostCommunicator_pablo;
 
 
 }//namespace muscl_block
