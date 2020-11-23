@@ -5,6 +5,7 @@
 #ifndef MUSCL_BLOCK_UTILS_H_
 #define MUSCL_BLOCK_UTILS_H_
 
+#include "shared/enums.h"
 #include "shared/kokkos_shared.h"
 
 namespace dyablo { namespace muscl_block {
