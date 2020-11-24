@@ -118,6 +118,7 @@ if ( (NOT BITPIT_FOUND) OR FORCE_BITPIT_BUILD )
   # anyway PABLO is not at all in a shape to pass nvcc_wrapper compilation
   # anyway we won't use PABLO internal structure in the core Kokkos
   # computing functors
+  set(BITPIT_COMPILER  ${CMAKE_CXX_COMPILER} CACHE STRING "compiler used to build bitpit")
   set_property(DIRECTORY PROPERTY EP_BASE ${CMAKE_BINARY_DIR}/external)
   ExternalProject_Add (bitpit_external
     #URL https://github.com/pkestene/bitpit/archive/bitpit-1.7.0-devel-dyablo-v0.2.tar.gz
@@ -125,7 +126,7 @@ if ( (NOT BITPIT_FOUND) OR FORCE_BITPIT_BUILD )
     SOURCE_DIR ${PROJECT_SOURCE_DIR}/external/bitpit
     UPDATE_COMMAND ""
     CMAKE_ARGS
-      -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+      -DCMAKE_CXX_COMPILER=${BITPIT_COMPILER}
       -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
       -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
       -DENABLE_MPI=${DYABLO_USE_MPI}
@@ -176,12 +177,16 @@ set(Kokkos_ARCH  "" CACHE STRING "Kokkos arch (KEPLER37, PASCAL60, ...)")
 
 find_package(Kokkos 3.1 QUIET)
 
-set(KOKKOS_CXX_COMPILER  ${CMAKE_CXX_COMPILER} CACHE STRING "compiler used to build kokkos and kokkos kernels (cmake compiler if CUDA is not enabled, if CUDA enabled, set to nvcc_wrapper internally)")
+set(KOKKOS_COMPILER_CONFIG ${CMAKE_CXX_COMPILER})
 if (Kokkos_ENABLE_CUDA)
   enable_language(CUDA)
-  set(KOKKOS_CXX_COMPILER "${PROJECT_SOURCE_DIR}/external/kokkos/bin/nvcc_wrapper")
+  # /!\ Changing CUDA compiler for something else than the one in system path 
+  # (for instance with cmake -DCMAKE_CUDA_COMPILER) is not supported by nvcc_wrapper
+  set(KOKKOS_COMPILER_CONFIG "${PROJECT_SOURCE_DIR}/external/kokkos/bin/nvcc_wrapper")
   # TODO : add a way ton configure sm arch and backend compilers for nvcc_wrapper
 endif()
+
+set(KOKKOS_CXX_COMPILER  ${KOKKOS_COMPILER_CONFIG} CACHE STRING "compiler used to build kokkos (default to cmake compiler if CUDA is not enabled, if CUDA enabled, set to nvcc_wrapper internally)")
 
 if ( (NOT Kokkos_FOUND) OR FORCE_KOKKOS_BUILD )
 
@@ -190,6 +195,7 @@ if ( (NOT Kokkos_FOUND) OR FORCE_KOKKOS_BUILD )
 
   message( STATUS "== Setup kokkos ExternalProject ==" )
 
+  # /!\ Hwloc is not checked during superbuild : find_package() could fail at Kokkos configure step
   set(Kokkos_HWLOC_DIR  "" CACHE STRING "Directory containing hwloc library for Kokkos ( Kokkos will find system HWLOC if this directory doesn't contain HWLOC )")
 
   list (APPEND KOKKOS_CMAKE_ARGS
@@ -207,7 +213,6 @@ if ( (NOT Kokkos_FOUND) OR FORCE_KOKKOS_BUILD )
   if (Kokkos_ENABLE_CUDA)
     list (APPEND KOKKOS_CMAKE_ARGS
       -DKokkos_ENABLE_CUDA=${Kokkos_ENABLE_CUDA}
-      -DKokkos_CUDA_DIR=${CUDA_TOOLKIT_ROOT_DIR}
       -DKokkos_ENABLE_CUDA_LAMBDA=${Kokkos_ENABLE_CUDA_LAMBDA}
       -DKokkos_ENABLE_CUDA_CONSTEXPR=${Kokkos_ENABLE_CUDA_CONSTEXPR}
       -DKokkos_ENABLE_CUDA_UVM=${Kokkos_ENABLE_CUDA_UVM}
@@ -263,9 +268,11 @@ if (DYABLO_USE_HDF5)
   endif()
 endif()
 
+set(DYABLO_CXX_COMPILER  ${KOKKOS_CXX_COMPILER} CACHE STRING "compiler used to build dyablo (should be the same as KOKKOS_CXX_COMPILER)")
+
 # default arguments - common to all platform
 list (APPEND DYABLO_CMAKE_ARGS
-  -DCMAKE_CXX_COMPILER=${KOKKOS_CXX_COMPILER}
+  -DCMAKE_CXX_COMPILER=${DYABLO_CXX_COMPILER}
   -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
   -DDYABLO_USE_HDF5=${DYABLO_USE_HDF5}
