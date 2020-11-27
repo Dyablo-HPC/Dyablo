@@ -128,4 +128,9 @@ dyablo_add_test(utest_GhostCommunicator
 dyablo_add_test(utest_LoadBalance
   block_data/test_LoadBalance.cpp
   main.cpp)
+  
+dyablo_add_test(utest_MapUserData
+  block_data/test_MapUserData.cpp
+  main.cpp)
+
 

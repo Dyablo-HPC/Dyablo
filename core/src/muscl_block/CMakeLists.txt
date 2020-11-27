@@ -1,6 +1,7 @@
 set (muscl_block_SRCS
   ${CMAKE_CURRENT_SOURCE_DIR}/SolverHydroMusclBlock.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/CopyGhostBlockCellData.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/MapUserData.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitSod.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitBlast.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitImplode.cpp
