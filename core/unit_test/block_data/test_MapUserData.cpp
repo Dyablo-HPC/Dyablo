@@ -25,7 +25,7 @@ namespace muscl_block
 
 // =======================================================================
 // =======================================================================
-void run_test(int argc, char *argv[])
+void run_test(int ndim)
 {
   std::cout << "// =========================================\n";
   std::cout << "// Testing MapUserData ...\n";
@@ -34,7 +34,6 @@ void run_test(int argc, char *argv[])
   std::cout << "Create mesh..." << std::endl;
   std::shared_ptr<AMRmesh> amr_mesh; //solver->amr_mesh 
   {
-    int ndim = 3;
     amr_mesh = std::make_shared<AMRmesh>(ndim);
     amr_mesh->setBalanceCodimension(ndim);
     uint32_t idx = 0;
@@ -58,7 +57,7 @@ void run_test(int argc, char *argv[])
 
   uint32_t bx = 8;
   uint32_t by = 8;
-  uint32_t bz = 8;
+  uint32_t bz = (ndim==3)?8:1;
   uint32_t nbCellsPerOct = bx*by*bz;
   uint32_t nbfields = 3;
   uint32_t nbOcts = amr_mesh->getNumOctants();
@@ -113,16 +112,16 @@ void run_test(int argc, char *argv[])
   {
     std::cout << "Coarsen/Refine octants" << std::endl;
 
-    for( uint32_t iOct=1; iOct<nbOcts; iOct++ )
-    {
-      amr_mesh->setMarker(iOct , -1);
-      //amr_mesh->setMarker(iOct , 1); // replate previous line with this to check refinement thorougly
-    }
+     for( uint32_t iOct=1; iOct<nbOcts; iOct++ )
+     {
+       amr_mesh->setMarker(iOct , -1);
+       //amr_mesh->setMarker(iOct , 1); // replate previous line with this to check refinement thorougly
+     }
 
-    // Refine 0 because it is at an MPI boundary 
-    // 2:1 balance should create cells that are neither coarsened nor refined
+    // // Refine 0 because it is at an MPI boundary 
+    // // 2:1 balance should create cells that are neither coarsened nor refined
     amr_mesh->setMarker((uint32_t)0 , 1);
-    // Refine a random octant in the middle
+    // // Refine a random octant in the middle
     amr_mesh->setMarker(nbOcts/2 , 1);
 
     amr_mesh->adapt(true);
@@ -175,6 +174,10 @@ void run_test(int argc, char *argv[])
           expected_z += ((cz%2)?-1:1) * oct_size/(2*bz);
         }
 
+        if(ndim==2)
+          expected_z = oct_size_initial/(2*bz);
+
+
         BOOST_CHECK_CLOSE( Unew_host(c, IX, iOct), expected_x , 0.0001);
         BOOST_CHECK_CLOSE( Unew_host(c, IY, iOct), expected_y , 0.0001);
         BOOST_CHECK_CLOSE( Unew_host(c, IZ, iOct), expected_z , 0.0001);
@@ -192,11 +195,17 @@ BOOST_AUTO_TEST_SUITE(dyablo)
 
 BOOST_AUTO_TEST_SUITE(muscl_block)
 
-BOOST_AUTO_TEST_CASE(test_MapUserData)
+BOOST_AUTO_TEST_CASE(test_MapUserData_2D)
 {
 
-  run_test(boost::unit_test::framework::master_test_suite().argc,
-           boost::unit_test::framework::master_test_suite().argv);
+  run_test(2);
+
+}
+
+BOOST_AUTO_TEST_CASE(test_MapUserData_3D)
+{
+
+  run_test(3);
 
 }
 

@@ -30,81 +30,95 @@ public:
     /**
      * In this constructor we translate the results of ParaTree::getMapping()
      * and store it into a Kokkos::view so it can be used on device
-     * The current algorithm is sequential because the relative position of 
-     * the old octant compared to the new is deduced by the order in which the octants appear (morton order)
      * 
-     * TODO : Optimize this!
-     * Ideas : 
-     *  - compute relative position without relying on octant order in list to be able to use OpenMP
+     * Optimization ideas : 
      *  - modify PABLO to get direct access to the mapping list and deep_copy it directly
      *  - Use the hashmap in LightOctree_hashmap (before + after) to compute the mapping
      **/     
 
-    constexpr int ndim = 3;
+    int ndim = amr_mesh->getDim();
+    int nsuboctants = (ndim==3) ? 8 : 4;
     uint32_t nbOcts = amr_mesh->getNumOctants();
 
-    std::vector<OctMapping> data_vector;
-    data_vector.reserve(1.1 * nbOcts);
+    // Scan the mappings to get total number of pairs and offset for each pair
+    Kokkos::View<uint32_t*>::HostMirror offset("offset", nbOcts+1);
+    Kokkos::parallel_scan(Kokkos::RangePolicy<Kokkos::OpenMP>( 0, nbOcts),
+                          [=](const int iOct, int& update, const bool final)
+    {
+      int local_count = amr_mesh->getIsNewC(iOct) ? nsuboctants : 1;
+      
+      update += local_count;
+      if(final)
+      {
+        offset(iOct+1) = update;
+      }
+    });
 
-    uint8_t child_id = 0; // Id of the child if we're refining
-    for (uint32_t iOct=0; iOct < nbOcts; ++iOct)
+    uint32_t nbPairs = offset(nbOcts);
+    Kokkos::realloc(data, nbPairs);
+    auto data_host = Kokkos::create_mirror_view(data);
+
+    Kokkos::parallel_for("AMR_Remapper::construct",
+                         Kokkos::RangePolicy<Kokkos::OpenMP>( 0, nbOcts),
+                         [=](uint32_t iOct)
     {
       std::vector<uint32_t> mapper;
       std::vector<bool> isghost;
       amr_mesh->getMapping(iOct, mapper, isghost);
 
-      if ( amr_mesh->getIsNewC(iOct) ) 
+      if ( amr_mesh->getIsNewC(iOct) ) // Coarsened octant
       {
+        assert( mapper.size() == nsuboctants);
+
         for( size_t i=0; i<mapper.size(); i++ )
         {
           // We assume that octants are in morton order in the mapper vector
-          uint8_t px = morton_extract_bits<ndim, IX>(i);
-          uint8_t py = morton_extract_bits<ndim, IY>(i);
-          uint8_t pz = morton_extract_bits<ndim, IZ>(i);
+          uint8_t pz = i/4;
+          uint8_t py = (i-pz*4)/2;
+          uint8_t px = i - pz*4 - py*2;
 
-          data_vector.push_back({
+          data_host(offset(iOct)+i) = {
             iOct, mapper[i],
             -1, {px, py, pz},
             isghost[i]
-          });
+          };
         }
       }
-      else if ( amr_mesh->getIsNewR(iOct) ) 
+      else if ( amr_mesh->getIsNewR(iOct) ) // Refined octant
       {
+        assert( mapper.size() == 1);
+
         uint32_t iOct_src = mapper[0];
         assert( !isghost[0] );
         
         // iOct_src will appear 2^ndim times as a source value for all its children
-        // We assume that his children iOct will apear in morton order
-        uint8_t px = morton_extract_bits<ndim, IX>(child_id);
-        uint8_t py = morton_extract_bits<ndim, IY>(child_id);
-        uint8_t pz = morton_extract_bits<ndim, IZ>(child_id);
+        // Find relative position according to parity of the discrete position of the octant
+        auto pos = amr_mesh->getCenter(iOct);
+        real_t oct_size = amr_mesh->getSize(iOct);
 
-        data_vector.push_back({
+        uint8_t px = static_cast<int>(pos[IX] / oct_size) % 2;
+        uint8_t py = static_cast<int>(pos[IY] / oct_size) % 2;
+        uint8_t pz = static_cast<int>(pos[IZ] / oct_size) % 2;
+
+        data_host(offset(iOct)) = {
             iOct, iOct_src,
             1, {px, py, pz},
             false
-          });
-        
-        child_id++;
-        if (child_id == std::pow(2, ndim) )
-          child_id = 0;
+          };
       }
-      else
+      else // Copied octant
       {
+        assert( mapper.size() == 1);
+
         uint32_t iOct_src = mapper[0];
         assert( !isghost[0] );
-        data_vector.push_back({
+        data_host(offset(iOct)) = {
             iOct, iOct_src,
             0
-        });
+        };
       }
-    }
+    });
 
-    Kokkos::View<OctMapping*, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged> > 
-          data_host(data_vector.data(), data_vector.size());
-
-    Kokkos::realloc(data, data_vector.size());
     Kokkos::deep_copy(data, data_host);
   }
 
@@ -149,6 +163,7 @@ struct FunctorData{
   DataArrayBlock Usrc_ghost;
   DataArrayBlock Udest;
   uint32_t bx, by, bz;
+  uint8_t ndim;
 };
 
 /**
@@ -239,8 +254,7 @@ void fill_cell_newCoarse( const FunctorData& d,
   uint32_t iCell_dst = get_iCell_in_bigger_cell(iCell_src, 
                                                 d.bx, d.by, d.bz,
                                                 level_diff, m.sub_pos);
-  int ndim = 3;
-  uint32_t suboctant_count = std::pow( 2, level_diff*ndim ); 
+  uint32_t suboctant_count = std::pow( 2, level_diff*d.ndim ); 
   for( uint32_t iField=0; iField<d.nbFields; iField++ )
   {
     // Source can be a ghost when dst has just been coarsened
@@ -277,7 +291,8 @@ void MapUserDataFunctor::apply( std::shared_ptr<AMRmesh> amr_mesh,
     Usrc,
     Usrc_ghost,
     Udest,
-    blockSizes[IX], blockSizes[IY], blockSizes[IZ]
+    blockSizes[IX], blockSizes[IY], blockSizes[IZ],
+    amr_mesh->getDim()
   };
 
   // using kokkos team execution policy
