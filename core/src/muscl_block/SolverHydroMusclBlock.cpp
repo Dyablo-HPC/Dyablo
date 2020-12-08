@@ -987,7 +987,7 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
             uint8_t j1 = j>>1;
             
             // index of the receiving cell in new octant
-            uint8_t iCell = i1 + bx*j1;
+            uint32_t iCell = i1 + bx*j1;
             
             // octant id to one of the child (to average)
             // iOctChild is in range [0, 2**dim-1]
@@ -1042,7 +1042,7 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
               uint8_t k1 = k>>1;
               
               // index of the receiving cell in new octant
-              uint8_t iCell = i1 + bx*j1 + bx*by*k1;
+              uint32_t iCell = i1 + bx*j1 + bx*by*k1;
               
               // octant id to one of the child (to average)
               // iOctChild is in range [0, 2**dim-1]
