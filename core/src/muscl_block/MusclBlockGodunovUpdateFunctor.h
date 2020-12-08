@@ -9,8 +9,7 @@
 #include "shared/FieldManager.h"
 #include "shared/HydroState.h"
 
-#include "bitpit_PABLO.hpp"
-#include "shared/bitpit_common.h"
+#include "shared/LightOctree.h"
 #include "shared/RiemannSolvers.h"
 #include "shared/bc_utils.h"
 
@@ -19,7 +18,7 @@
 
 // utils block
 #include "muscl_block/utils_block.h"
-#include "muscl_block/LightOctree.h"
+
 
 namespace dyablo
 {

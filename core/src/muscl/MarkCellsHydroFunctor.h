@@ -30,7 +30,7 @@ public:
   /**
    * Mark cells for refine/coarsen functor.
    *
-   * \param[in] pmesh AMRmesh Pablo data structure
+   * \param[in] lmesh LightOctree data structure
    * \param[in] params
    * \param[in] fm field map to access user data
    * \param[in] Udata conservative variables
@@ -39,24 +39,27 @@ public:
    * \param[in] eps_coarsen is a threshold, we do unrefine when criterium is smaller than this value
    *
    */
-  MarkCellsHydroFunctor(std::shared_ptr<AMRmesh> pmesh,
+  MarkCellsHydroFunctor(LightOctree lmesh,
                         HydroParams params,
                         id2index_t  fm,
                         DataArray   Udata,
                         DataArray   Udata_ghost,
+                        Kokkos::View<int8_t*> marker,
                         real_t      eps_refine,
                         real_t      eps_coarsen) :
-    pmesh(pmesh),
+    lmesh(lmesh),
     params(params),
     fm(fm),
     Udata(Udata), 
     Udata_ghost(Udata_ghost),
+    marker(marker),
     epsilon_refine(eps_refine),
     epsilon_coarsen(eps_coarsen)
   {};
   
   //! static method which does it all: create and execute functor
   static void apply(std::shared_ptr<AMRmesh> pmesh,
+        LightOctree lmesh,
 		    HydroParams params,
 		    id2index_t  fm,
                     DataArray   Udata,
@@ -64,11 +67,23 @@ public:
                     real_t      eps_refine,
                     real_t      eps_coarsen)
   {
-    MarkCellsHydroFunctor functor(pmesh, params, fm, 
+    uint32_t nbOct = lmesh.getNumOctants();
+
+    Kokkos::View<int8_t*> marker("MarkCellsHydroFunctor markers", nbOct);
+    MarkCellsHydroFunctor functor(lmesh, params, fm, 
                                   Udata, Udata_ghost,
+                                  marker,
                                   eps_refine, 
                                   eps_coarsen);
-    Kokkos::parallel_for("dyablo::muscl::MarkCellsHydroFunctor", pmesh->getNumOctants(), functor);
+    Kokkos::parallel_for("dyablo::muscl::MarkCellsHydroFunctor", nbOct, functor);
+
+    auto marker_host = Kokkos::create_mirror_view(marker);
+    Kokkos::deep_copy(marker_host, marker);
+
+    for( uint32_t i=0; i<nbOct; i++ )
+    {
+      pmesh->setMarker(i, marker_host(i));
+    }
   } // apply
 
   /**
@@ -126,73 +141,63 @@ public:
 
   } // update_epsilon
 
+  template<uint8_t dir>
   KOKKOS_INLINE_FUNCTION
-  void operator()(const size_t i) const
+  bool face_along_axis(uint8_t iface) const
   {
-    
+    return ( iface>>1 == dir );
+
+  } // face_along_axis
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(const uint32_t i) const
+  {
     const int dim = this->params.dimType == TWO_D ? 2 : 3;
-    
-    // codim=1 ==> faces
-    // codim=2 ==> edges
-    const int codim = 1;
     
     // number of faces per cell
     uint8_t nfaces = 2*dim;
 
     real_t epsilon = 0.0;
 
-    // this vector contains quad ids
-    // corresponding to neighbors
-    std::vector<uint32_t> neigh; // through a given face
-    std::vector<uint32_t> neigh_all; // all neighbors
+    for (uint8_t iface=0; iface<nfaces; ++iface) 
+    {
+      // Generate neighbor relative position from iface
+      LightOctree::offset_t offset = {0};
+      if( face_along_axis<IX>(iface) ) offset[IX] = (iface & 0x1) == 0 ? -1 : 1;
+      if( face_along_axis<IY>(iface) ) offset[IY] = (iface & 0x1) == 0 ? -1 : 1;
+      if( face_along_axis<IZ>(iface) ) offset[IZ] = (iface & 0x1) == 0 ? -1 : 1;
 
-    // this vector contains ghost status of each neighbors
-    std::vector<bool> isghost; // through a given face
-    std::vector<bool> isghost_all; // all neighbors
+      LightOctree::NeighborList neighbors = lmesh.findNeighbors( {i, false}, offset );
 
-    // only sweep neighbors through faces
-    for (uint8_t iface=0; iface<nfaces; ++iface) {
-      pmesh->findNeighbours(i,iface,codim,neigh,isghost);
-      
-      // insert data into all neighbor lists
-      neigh_all.insert(neigh_all.end(), neigh.begin(), neigh.end());
-      isghost_all.insert(isghost_all.end(), isghost.begin(), isghost.end());
+      for( int j=0; j<neighbors.size(); j++ )
+      {
+        epsilon = update_epsilon(epsilon, i, neighbors[j].iOct, neighbors[j].isGhost);
+      }
     }
-
-    // now that we have all neighbors, 
-    // we can start apply refinement criterium
-
-    // sweep neighbors to compute minmod limited gradient
-    for (uint16_t j = 0; j < neigh_all.size(); ++j) {
-      
-      // neighbor index
-      uint32_t i_n = neigh_all[j];
-            
-      epsilon = update_epsilon(epsilon, i, i_n, isghost_all[j]);  
-      
-    } // end update epsilon
     
     // now epsilon has been computed, we can mark / flag cells for 
     // refinement or coarsening
 
     // get current cell level
-    uint8_t level = pmesh->getLevel(i);
+    uint8_t level = lmesh.getLevel({i,false});
 
     // epsilon too large, set octant to be refined
     if ( level < params.level_max and epsilon > epsilon_refine )
-      pmesh->setMarker(i,1);
-
+      marker(i) = 1;
     // epsilon too small, set octant to be coarsened
-    if ( level > params.level_min and epsilon < epsilon_coarsen)
-      pmesh->setMarker(i,-1);
+    else if ( level > params.level_min and epsilon < epsilon_coarsen)
+      marker(i) = -1;
+    else 
+      marker(i) = 0;
     
   } // operator ()
   
-  std::shared_ptr<AMRmesh> pmesh;
+  LightOctree lmesh;
   HydroParams  params;
   id2index_t   fm;
   DataArray    Udata;
   DataArray    Udata_ghost;
+  Kokkos::View<int8_t*> marker;
   real_t       epsilon_refine;
   real_t       epsilon_coarsen;
 

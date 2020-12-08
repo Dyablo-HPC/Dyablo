@@ -15,6 +15,10 @@
 // utils hydro
 #include "shared/utils_hydro.h"
 
+#ifdef __CUDA_ARCH__
+#include "math_constants.h"
+#endif
+
 namespace dyablo { namespace muscl {
 
 /*************************************************/
@@ -33,7 +37,7 @@ public:
   /**
    * Reconstruct gradients functor constructor.
    *
-   * \param[in] pmesh AMRmesh Pablo data structure
+   * \param[in] lmesh LightOctree data structure
    * \param[in] params
    * \param[in] fm field map to access user data
    * \param[in] Qdata primitive variables
@@ -43,7 +47,7 @@ public:
    * \param[out] SlopeZ limited slopes along z data array
    *
    */
-  ReconstructGradientsHydroFunctor(std::shared_ptr<AMRmesh> pmesh,
+  ReconstructGradientsHydroFunctor(LightOctree lmesh,
 				   HydroParams params,
 				   id2index_t    fm,
 				   DataArray Qdata,
@@ -51,7 +55,7 @@ public:
 				   DataArray SlopeX,
 				   DataArray SlopeY,
 				   DataArray SlopeZ) :
-    pmesh(pmesh), 
+    lmesh(lmesh), 
     params(params),
     fm(fm),
     Qdata(Qdata), 
@@ -62,7 +66,7 @@ public:
   {};
   
   // static method which does it all: create and execute functor
-  static void apply(std::shared_ptr<AMRmesh> pmesh,
+  static void apply(LightOctree lmesh,
 		    HydroParams params,
 		    id2index_t  fm,
                     DataArray Qdata,
@@ -71,10 +75,10 @@ public:
 		    DataArray SlopeY,
 		    DataArray SlopeZ)
   {
-    ReconstructGradientsHydroFunctor functor(pmesh, params, fm, 
+    ReconstructGradientsHydroFunctor functor(lmesh, params, fm, 
                                              Qdata, Qdata_ghost,
                                              SlopeX, SlopeY, SlopeZ);
-    Kokkos::parallel_for("dyablo::muscl::ReconstructGradientsHydroFunctor", pmesh->getNumOctants(), functor);
+    Kokkos::parallel_for("dyablo::muscl::ReconstructGradientsHydroFunctor", lmesh.getNumOctants(), functor);
   }
 
   // =============================================================
@@ -152,13 +156,18 @@ public:
 
   } // update_minmod
 
+  template<uint8_t dir>
   KOKKOS_INLINE_FUNCTION
-  void compute_limited_slopes(const size_t i) const 
+  bool face_along_axis(uint8_t iface) const
+  {
+    return ( iface>>1 == dir );
+
+  } // face_along_axis
+
+  KOKKOS_INLINE_FUNCTION
+  void compute_limited_slopes(const uint32_t i) const 
   {
     const int dim = this->params.dimType == TWO_D ? 2 : 3;
-    // codim=1 ==> faces
-    // codim=2 ==> edges
-    const int codim = 1;
     
     // number of faces per cell
     uint8_t nfaces = 2*dim;
@@ -166,35 +175,38 @@ public:
     const int nbvar = params.nbvar;
 
     // temp variables for gradient
-    Kokkos::Array<real_t,3> grad;
+    Kokkos::Array<real_t,3> grad = {};
 
-    grad[IX] = 0;
-    grad[IY] = 0;
-    grad[IZ] = 0;
-
+    constexpr int MAX_NEIGHBORS = 6*4;
     // this vector contains quad ids
     // corresponding to neighbors
-    std::vector<uint32_t> neigh; // through a given face
-    std::vector<uint32_t> neigh_all; // all neighbors
-
+    Kokkos::Array<uint32_t, MAX_NEIGHBORS> neigh_all; // through a given face
     // this vector contains ghost status of each neighbors
-    std::vector<bool> isghost; // through a given face
-    std::vector<bool> isghost_all; // all neighbors
-
+    Kokkos::Array<bool, MAX_NEIGHBORS> isghost_all; // through a given face
+    int nb_neigh = 0;
     // only sweep neighbors through faces
     for (uint8_t iface=0; iface<nfaces; ++iface) {
-      pmesh->findNeighbours(i,iface,codim,neigh,isghost);
+      // Generate neighbor relative position from iface
+      LightOctree::offset_t offset = {0};
+      if( face_along_axis<IX>(iface) ) offset[IX] = (iface & 0x1) == 0 ? -1 : 1;
+      if( face_along_axis<IY>(iface) ) offset[IY] = (iface & 0x1) == 0 ? -1 : 1;
+      if( face_along_axis<IZ>(iface) ) offset[IZ] = (iface & 0x1) == 0 ? -1 : 1;
+
+      LightOctree::NeighborList neighbors = lmesh.findNeighbors( {i, false}, offset );
       
-      // insert data into all neighbor lists
-      neigh_all.insert(neigh_all.end(), neigh.begin(), neigh.end());
-      isghost_all.insert(isghost_all.end(), isghost.begin(), isghost.end());
+      for(int j=0; j<neighbors.size(); j++)
+      {
+        neigh_all[nb_neigh] = neighbors[j].iOct;
+        isghost_all[nb_neigh] = neighbors[j].isGhost;
+        nb_neigh++;
+      }
     }
 
     // current cell center coordinates
-    bitpit::darray3 xyz_c = pmesh->getCenter(i);
+    LightOctree::pos_t xyz_c = lmesh.getCenter({i,false});
 
     // current cell size
-    double dx = pmesh->getSize(i);
+    double dx = lmesh.getSize({i,false});
 
     // now that we have all neighbors, 
     // we can start computing gradient components
@@ -219,16 +231,14 @@ public:
 #endif // __CUDA_ARCH__
 
       // sweep neighbors to compute minmod limited gradient
-      for (uint16_t j = 0; j < neigh_all.size(); ++j) {
+      for (uint16_t j = 0; j < nb_neigh; ++j) {
 
         // neighbor index
         uint32_t i_n = neigh_all[j];
 
         // neighbor cell center coordinates
         // if neighbor is a ghost cell, we need to modifiy xyz_c
-        bitpit::darray3 xyz_n = pmesh->getCenter(i_n);
-        if (isghost_all[j])
-          xyz_n = pmesh->getCenterGhost(i_n);
+        LightOctree::pos_t xyz_n = lmesh.getCenter({i_n,isghost_all[j]});
 
         grad[IX] = update_minmod(grad[IX], i, i_n, isghost_all[j],
                                  dx, xyz_c[IX], xyz_n[IX],
@@ -270,7 +280,7 @@ public:
     
   } // operator ()
   
-  std::shared_ptr<AMRmesh> pmesh;
+  LightOctree lmesh;
   HydroParams params;
   id2index_t   fm;
   DataArray    Qdata;

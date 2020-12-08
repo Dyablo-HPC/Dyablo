@@ -15,8 +15,7 @@
 #include <mpi.h>
 #endif // DYABLO_USE_MPI
 
-#include "shared/AMRMetaData.h"
-#include "muscl_block/LightOctree.h"
+#include "shared/LightOctree.h"
 
 #include <iostream>
 
@@ -175,7 +174,7 @@ void run_test()
     // Create LightOctree
     HydroParams params;
     params.level_max = 3;
-    muscl_block::LightOctree mesh( mesh_ptr, params );
+    LightOctree mesh( mesh_ptr, params );
 
     // for( int level=0; level<3; level++ )
     // {
@@ -194,9 +193,9 @@ void run_test()
         
         int8_t y = (i/3);
         int8_t x = (i-3*y); 
-        muscl_block::LightOctree::offset_t offset{(int8_t)(x-1),(int8_t)(y-1),0};
+        LightOctree::offset_t offset{(int8_t)(x-1),(int8_t)(y-1),0};
 
-        muscl_block::LightOctree::NeighborList ns = mesh.findNeighbors( {ioct,false}, offset );
+        LightOctree::NeighborList ns = mesh.findNeighbors( {ioct,false}, offset );
         actual_neighbors(y,x) = ns[0].iOct;
       } );
       std::cout << "[DONE]" << std::endl;
@@ -347,7 +346,7 @@ void run_test()
     std::shared_ptr<dyablo::AMRmesh> mesh_ptr(&amr_mesh, [](dyablo::AMRmesh*){});
     HydroParams params;
     params.level_max = 3;
-    muscl_block::LightOctree mesh( mesh_ptr, params );
+    LightOctree mesh( mesh_ptr, params );
 
     auto test_oct = [&]( uint32_t ioct, uint32_t first_neighbor[3][3][3]){
       std::cout << "Octant " << ioct << " :" << std::endl;
@@ -361,9 +360,9 @@ void run_test()
         int8_t z = (i/(3*3));
         int8_t y = (i-z*3*3)/3;
         int8_t x = (i-3*y-3*3*z); 
-        muscl_block::LightOctree::offset_t offset{(int8_t)(x-1),(int8_t)(y-1),(int8_t)(z-1)};
+        LightOctree::offset_t offset{(int8_t)(x-1),(int8_t)(y-1),(int8_t)(z-1)};
 
-        muscl_block::LightOctree::NeighborList ns = mesh.findNeighbors( {ioct,false}, offset );
+        LightOctree::NeighborList ns = mesh.findNeighbors( {ioct,false}, offset );
         actual_neighbors(z,y,x) = ns[0].iOct;
       } );
       std::cout << "[DONE]" << std::endl;

@@ -67,7 +67,9 @@ void init_blast(SolverHydroMuscl *psolver)
   /*
    * perform user data init
    */
-  InitBlastDataFunctor::apply(amr_mesh, params, configMap, fm, psolver->U);
+  InitBlastDataFunctor::apply(amr_mesh, params, configMap, fm, psolver->Uhost);
+
+  Kokkos::deep_copy(psolver->U, psolver->Uhost);
 
 } // init_blast
 

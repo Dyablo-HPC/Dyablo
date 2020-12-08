@@ -12,11 +12,14 @@
 #include "shared/HydroState.h"
 #include "shared/problems/initRiemannConfig2d.h"
 
-#include "bitpit_PABLO.hpp"
-#include "shared/bitpit_common.h"
+#include "shared/LightOctree.h"
 
 // hydro utils
 #include "shared/utils_hydro.h"
+
+#ifdef __CUDA_ARCH__
+#include "math_constants.h"
+#endif
 
 namespace dyablo { namespace muscl {
 
@@ -31,15 +34,15 @@ namespace dyablo { namespace muscl {
 class ComputeDtHydroFunctor {
 
 public:
-  ComputeDtHydroFunctor(std::shared_ptr<AMRmesh> pmesh,
+  ComputeDtHydroFunctor(LightOctree lmesh,
 			HydroParams   params,
 			id2index_t    fm,
 			DataArray     Udata) :
-    pmesh(pmesh), params(params), fm(fm), Udata(Udata)
+    lmesh(lmesh), params(params), fm(fm), Udata(Udata)
   {};
   
   // static method which does it all: create and execute functor
-  static void apply(std::shared_ptr<AMRmesh> pmesh,
+  static void apply(LightOctree lmesh,
 		    HydroParams   params,
 		    id2index_t    fm,
                     DataArray     Udata,
@@ -48,8 +51,8 @@ public:
     
     // iterate functor for refinement
     
-    ComputeDtHydroFunctor functor(pmesh, params, fm, Udata);
-    Kokkos::parallel_reduce(pmesh->getNumOctants(), functor, invDt);
+    ComputeDtHydroFunctor functor(lmesh, params, fm, Udata);
+    Kokkos::parallel_reduce(lmesh.getNumOctants(), functor, invDt);
   }
 
   // ====================================================================
@@ -71,7 +74,7 @@ public:
   // ====================================================================
   // ====================================================================
   KOKKOS_INLINE_FUNCTION
-  void operator_2d(const size_t& i, real_t &invDt) const
+  void operator_2d(const uint32_t& i, real_t &invDt) const
   {
 
     // 2D version
@@ -80,11 +83,8 @@ public:
     real_t c = 0.0;
     real_t vx, vy;
 
-    // get cell level
-    uint8_t level = pmesh->getLevel(i);
-
     // retrieve cell size from mesh
-    real_t dx = pmesh->levelToSize(level);
+    real_t dx = lmesh.getSize({i,false});
     
     // get local conservative variable
     uLoc[ID] = Udata(i,fm[ID]);
@@ -110,19 +110,16 @@ public:
   // ====================================================================
   // ====================================================================
   KOKKOS_INLINE_FUNCTION
-  void operator_3d(const size_t& i, real_t &invDt) const
+  void operator_3d(const uint32_t& i, real_t &invDt) const
   {
     
     HydroState3d uLoc; // conservative variables in current cell
     HydroState3d qLoc; // primitive    variables in current cell
     real_t c = 0.0;
     real_t vx, vy, vz;
-    
-    // get cell level
-    uint8_t level = pmesh->getLevel(i);
 
     // retrieve cell size from mesh
-    real_t dx = pmesh->levelToSize(level);
+    real_t dx = lmesh.getSize({i,false});
 
     // get local conservative variable
     uLoc[ID] = Udata(i,fm[ID]);
@@ -173,7 +170,7 @@ public:
     }
   } // join
 
-  std::shared_ptr<AMRmesh> pmesh;
+  LightOctree lmesh;
   HydroParams  params;
   id2index_t   fm;
   DataArray    Udata;

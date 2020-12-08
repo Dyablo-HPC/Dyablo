@@ -13,8 +13,8 @@ namespace dyablo { namespace muscl {
 
 // ==================================================================
 // ==================================================================
-UserDataLB::UserDataLB(DataArray& data_, 
-                       DataArray& ghostdata_, 
+UserDataLB::UserDataLB(DataArrayHost& data_, 
+                       DataArrayHost& ghostdata_, 
                        id2index_t fm_) :
   data(data_),
   ghostdata(ghostdata_),
@@ -63,20 +63,24 @@ void UserDataLB::move(const uint32_t from, const uint32_t to)
 void UserDataLB::assign(uint32_t stride, uint32_t length)
 {
   
-  DataArray dataCopy("dataLBcopy");
+  DataArrayHost dataCopy("dataLBcopy");
   Kokkos::resize(dataCopy,length,nbVars);
   
-  Kokkos::parallel_for("dyablo::muscl::UserDataLB::assign copy data to dataCopy",length, KOKKOS_LAMBDA(size_t &i) {
+  Kokkos::parallel_for("dyablo::muscl::UserDataLB::assign copy data to dataCopy",
+    Kokkos::RangePolicy<Kokkos::OpenMP>( 0, length ), 
+    [=](size_t &i) {
       for (uint32_t ivar=0; ivar<nbVars; ++ivar)
-	dataCopy(i,fm[ivar]) = data(i+stride,fm[ivar]);
+	      dataCopy(i,fm[ivar]) = data(i+stride,fm[ivar]);
     });
   
   //data = dataCopy;
   //Kokkos::resize(data,length,nbVars);
-  Kokkos::parallel_for("dyablo::muscl::UserDataLB::assign copy dataCopy to data",length, KOKKOS_LAMBDA(size_t &i) {
-      for (uint32_t ivar=0; ivar<nbVars; ++ivar)
-        data(i,fm[ivar]) = dataCopy(i,fm[ivar]);
-    });
+  Kokkos::parallel_for("dyablo::muscl::UserDataLB::assign copy dataCopy to data",
+      Kokkos::RangePolicy<Kokkos::OpenMP>( 0, length ), 
+      [=](size_t &i) {
+        for (uint32_t ivar=0; ivar<nbVars; ++ivar)
+          data(i,fm[ivar]) = dataCopy(i,fm[ivar]);
+      });
 
 }; // UserDataLB::assign
 

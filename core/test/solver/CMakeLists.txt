@@ -13,11 +13,8 @@ target_include_directories(${EXE_NAME}
   ${CMAKE_BINARY_DIR}/src
   )
 
-if( NOT Kokkos_ENABLE_CUDA )
-  target_link_libraries(${EXE_NAME} muscl)
-endif()
-
 target_link_libraries(${EXE_NAME}
+  muscl
   config
   Kokkos::kokkos
   dl

@@ -52,10 +52,9 @@ public:
     InitSodDataFunctor functor(pmesh, params, fm, Udata);
 
     Kokkos::parallel_for("dyablo::muscl::InitSodDataFunctor", 
-                         pmesh->getNumOctants(), functor);
+                         Kokkos::RangePolicy<Kokkos::OpenMP>(0, pmesh->getNumOctants()), functor);
   }
-  
-  KOKKOS_INLINE_FUNCTION
+
   void operator()(const size_t& i) const
   {
         
@@ -126,11 +125,10 @@ public:
     InitSodRefineFunctor functor(pmesh, params, 
                                  level_refine);
     Kokkos::parallel_for("dyablo::muscl::InitSodRefineFunctor", 
-                         pmesh->getNumOctants(), functor);
+                         Kokkos::RangePolicy<Kokkos::OpenMP>(0, pmesh->getNumOctants()), functor);
     
   }
-  
-  KOKKOS_INLINE_FUNCTION
+
   void operator()(const size_t& i) const
   {
 
