@@ -141,6 +141,11 @@ public:
     {
         return pmesh->getNumOctants();
     }
+    //! @copydoc LightOctree_base::getNdim()
+    KOKKOS_INLINE_FUNCTION uint8_t getNdim() const
+    {
+        return ndim;
+    }
     //! @copydoc LightOctree_base::getBound()
     bool getBound(const OctantIndex& iOct)  const
     {
@@ -243,6 +248,13 @@ public:
         return neighbors;
     }
 
+    // ------------------------
+    // Only in LightOctree_pablo
+    // ------------------------
+    std::shared_ptr<AMRmesh> getMesh() const{
+        return pmesh;
+    }
+
 protected:
     std::shared_ptr<AMRmesh> pmesh; //! PABLO mesh to relay requests to
     uint8_t ndim; //! 2D or 3D
@@ -337,7 +349,7 @@ public:
     LightOctree_hashmap( std::shared_ptr<AMRmesh> pmesh, const HydroParams& params )
     : oct_map(pmesh->getNumOctants()+pmesh->getNumGhosts()),
       oct_data("LightOctree::oct_data", pmesh->getNumOctants()+pmesh->getNumGhosts(), OCT_DATA_COUNT),
-      numOctants(pmesh->getNumOctants()) , max_level(params.level_max), ndim(pmesh->getDim())
+      numOctants(pmesh->getNumOctants()) , min_level(params.level_min), max_level(params.level_max), ndim(pmesh->getDim())
     {
         std::cout << "LightOctree rehash ..." << std::endl;
         init(pmesh, params);
@@ -346,6 +358,11 @@ public:
     KOKKOS_INLINE_FUNCTION uint32_t getNumOctants() const
     {
         return numOctants;
+    }
+    //! @copydoc LightOctree_base::getNdim()
+    KOKKOS_INLINE_FUNCTION uint8_t getNdim() const
+    {
+        return ndim;
     }
     // bool getBound(const OctantIndex& iOct)  const
     // {
@@ -459,6 +476,49 @@ public:
         return res;
     }
 
+    // ------------------------
+    // Only in LightOctree_hashmap
+    // ------------------------
+    /**
+     * Get octant containing position pos
+     **/
+    KOKKOS_INLINE_FUNCTION
+    OctantIndex getiOctFromPos(const pos_t& pos) const
+    {
+        assert( 0 < pos[IX] && pos[IX] < 1 );
+        assert( 0 < pos[IY] && pos[IY] < 1 );
+        if(ndim == 3)
+            assert( 0 < pos[IZ] && pos[IZ] < 1 );
+        else
+            assert( pos[IZ] == 0 );
+        morton_t morton;
+        {
+            index_t<3> logical_coords;
+            uint32_t octant_count = std::pow( 2, max_level );
+            real_t octant_size = 1.0/octant_count;
+            logical_coords[IX] = std::floor(pos[IX]/octant_size);
+            logical_coords[IY] = std::floor(pos[IY]/octant_size);
+            logical_coords[IZ] = (ndim-2)*std::floor(pos[IZ]/octant_size);
+
+            morton = compute_morton_key( logical_coords );
+        }
+
+        for(uint8_t level=max_level; level>=min_level; level--)
+        {
+            auto it = oct_map.find(get_key(level, morton));
+
+            if( oct_map.valid_at(it) ) 
+            {
+                return oct_map.value_at(it);
+            }
+
+            morton = morton >> 3;
+        }
+
+        assert(false); //Could not find octant at this position
+        return {};
+    }
+
 private:
     using morton_t = uint64_t; //! Type of morton index
     using level_t = uint8_t; //! Type for level
@@ -495,6 +555,7 @@ private:
     }
 
     int numOctants; //! Number of local octants (no ghosts)
+    level_t min_level; //! Coarser level of the octree
     level_t max_level; //! Finer level of the octree
     int ndim; //! 2D or 3D
     

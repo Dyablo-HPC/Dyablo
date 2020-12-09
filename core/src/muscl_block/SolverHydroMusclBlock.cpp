@@ -885,9 +885,7 @@ void SolverHydroMusclBlock::adapt_mesh()
   amr_mesh->adapt(true);
 
   // 2. re-compute connectivity
-  amr_mesh->updateConnectivity();
-
-  lmesh = LightOctree(amr_mesh, params);
+  amr_mesh->updateConnectivity();  
   
   m_timers[TIMER_AMR_CYCLE_ADAPT_MESH]->stop();
 
@@ -904,7 +902,10 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
 
   m_timers[TIMER_AMR_CYCLE_MAP_USERDATA]->start();
 
-  MapUserDataFunctor::apply( amr_mesh, configMap, blockSizes,
+  LightOctree lmesh_old = lmesh;
+  lmesh = LightOctree(amr_mesh, params);
+
+  MapUserDataFunctor::apply( lmesh_old, lmesh, configMap, blockSizes,
                       U2, Ughost, U );
 
   // now U contains the most up to date data after mesh adaptation

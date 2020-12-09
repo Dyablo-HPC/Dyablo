@@ -16,6 +16,7 @@
 
 #include "muscl_block/utils_block.h"
 #include "shared/bitpit_common.h"
+#include "shared/LightOctree.h"
 
 namespace dyablo
 {
@@ -108,7 +109,10 @@ void run_test(int ndim)
     Kokkos::deep_copy( Ughost, Ughost_host );
   }
 
-
+  HydroParams params;
+  params.level_min = 1;
+  params.level_max = 8;
+  LightOctree lmesh_old(amr_mesh, params);
   {
     std::cout << "Coarsen/Refine octants" << std::endl;
 
@@ -127,6 +131,7 @@ void run_test(int ndim)
     amr_mesh->adapt(true);
     amr_mesh->updateConnectivity();
   }
+  LightOctree lmesh_new(amr_mesh, params);
 
   char* empty;
   ConfigMap configMap(empty, 0); //Use default values
@@ -134,7 +139,7 @@ void run_test(int ndim)
 
   std::cout << "Remap user data..." << std::endl;
 
-  MapUserDataFunctor::apply(amr_mesh, configMap,
+  MapUserDataFunctor::apply(lmesh_old, lmesh_new, configMap,
                             {bx, by, bz}, 
                             U, Ughost, Unew);
 

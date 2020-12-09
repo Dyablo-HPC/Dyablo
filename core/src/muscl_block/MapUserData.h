@@ -7,10 +7,11 @@ namespace dyablo
 {
 
 class AMRmesh;
+class LightOctree_hashmap;
+class LightOctree_pablo;
 
 namespace muscl_block
 {
-
 /// @brief Kokkos functor to fill new octants from refinement/coarsening
 class MapUserDataFunctor
 {
@@ -24,7 +25,16 @@ public:
    *                   octants into new octant
    * @param Udest Used data for newly refined AMR tree. This will be resized inside this function
    **/
-  static void apply(  std::shared_ptr<AMRmesh> amr_mesh,
+  static void apply(  const LightOctree_pablo& lmesh_old,
+                      const LightOctree_pablo& lmesh_new,
+                      ConfigMap configMap,
+                      blockSize_t blockSizes,
+                      DataArrayBlock Usrc,
+                      DataArrayBlock Usrc_ghost,
+                      DataArrayBlock& Udest  );
+
+  static void apply(  const LightOctree_hashmap& lmesh_old,
+                      const LightOctree_hashmap& lmesh_new,
                       ConfigMap configMap,
                       blockSize_t blockSizes,
                       DataArrayBlock Usrc,
