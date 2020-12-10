@@ -9,11 +9,11 @@ run_and_render(){
     ini_file=$1
     pvsm_file=$2
     png_outfile=$3
-    ci/run_testcase_mpi.sh $ini_file 4
+    .gitlab-ci/run_testcase_mpi.sh $ini_file 4
     if [ $? -eq 0 ]
     then
 	    echo "run ${ini_file} success"
-        ci/render.sh $pvsm_file
+        .gitlab-ci/render.sh $pvsm_file
         mv render.png $png_outfile
     else
 	    echo "run ${ini_file} fail"
