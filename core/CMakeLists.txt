@@ -89,20 +89,38 @@ if (DYABLO_USE_MPI)
     message(STATUS "MPI libraries: " ${MPI_CXX_LIBRARIES})
     
     #set(CMAKE_EXE_LINKER_FLAGS ${MPI_CXX_LINK_FLAGS})
-    find_program(OMPI_INFO
-      NAMES ompi_info
-      HINTS ${MPI_CXX_LIBRARIES}/../bin)
+    if(Kokkos_ENABLE_CUDA)
+      find_program(OMPI_INFO
+        NAMES ompi_info
+        PATHS ${MPI_CXX_LIBRARIES}/../bin)
     
-    # Full command line to probe if cuda support in MPI implementation is enabled
-    # ompi_info --parsable --all | grep mpi_built_with_cuda_support:value
-    if (OMPI_INFO)
-      execute_process(COMMAND ${OMPI_INFO}
-        OUTPUT_VARIABLE _output)
-      if ( (_output MATCHES "smcuda") OR (DYABLO_USE_MPI_CUDA_AWARE_ENFORCED) )
-        message(STATUS "Found OpenMPI with CUDA support built.")
+      message( STATUS "MPI checking CUDA support..." )
+      # Full command line to probe if cuda support in MPI implementation is enabled
+      # ompi_info --parsable --all | grep mpi_built_with_cuda_support:value
+      if (OMPI_INFO)
+        message( STATUS "  Found ompi_info" )
+        execute_process(COMMAND ${OMPI_INFO}
+          OUTPUT_VARIABLE _output)
+        if ( (_output MATCHES "smcuda") )
+          message( STATUS "  OpenMPI is CUDA Aware" )
+          set(MPI_CUDA_AWARE_DETECTED ON)
+        else()
+          message( STATUS "  OpenMPI is NOT CUDA Aware" )
+        endif()
       else()
-        message(WARNING "OpenMPI found, but it is not built with CUDA support.")
-        add_compile_options(-DMPI_CUDA_AWARE_OFF)
+	# Not using OpenMPI and not enforcing CUDA Aware flag -> Warning
+	if (NOT DYABLO_USE_MPI_CUDA_AWARE_ENFORCED)
+          message( WARNING "  Could not find ompi_info. MPI is supposed NOT CUDA Aware. (To override, set DYABLO_USE_MPI_CUDA_AWARE_ENFORCED)")
+	endif()
+      endif()
+      if( DYABLO_USE_MPI_CUDA_AWARE_ENFORCED OR MPI_CUDA_AWARE_DETECTED )
+        message(STATUS "MPI CUDA Aware : ON")
+        add_compile_options(-DMPI_IS_CUDA_AWARE)
+        if( NOT MPI_CUDA_AWARE_DETECTED )
+          message( WARNING "Dyablo uses CUDA Aware MPI calls but could not determine if MPI supports CUDA !" )
+        endif()
+      else()
+        message(STATUS "MPI CUDA Aware : OFF")
       endif()
     endif()
   else()

@@ -121,4 +121,8 @@ dyablo_add_test(utest_MusclBlockGodunovUpdateFunctor
   block_data/test_MusclBlockGodunovUpdateFunctor.cpp
   main.cpp)
 
+dyablo_add_test(utest_GhostCommunicator
+  block_data/test_GhostCommunicator.cpp
+  main.cpp)
+
 

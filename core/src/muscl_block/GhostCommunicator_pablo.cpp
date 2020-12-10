@@ -1,25 +1,13 @@
-/*
- * \file UserDataComm.h
- *
- * \author Pierre Kestener
- *
- * MPI ghost synchronization.
- */
-#ifndef MUSCL_BLOCK_USER_DATA_COMM_H_
-#define MUSCL_BLOCK_USER_DATA_COMM_H_
+#include "GhostCommunicator.h"
 
-#include "bitpit_PABLO.hpp" // for DataCommInterface
-#include "shared/kokkos_shared.h" // for type DataArray
+namespace dyablo{
+namespace muscl_block{
 
-#include "shared/FieldManager.h" // for id2index_t type
-
-namespace dyablo { namespace muscl_block {
+namespace {
 
 /**
- * Main class for user data communication for MUSCL/Hancock scheme.
- *
- * \note This class will have to be slightly refactored when
- * we will start using Kokkos/Cuda backend.
+ * Callback class to serialize/deserialize user data for PABLO MPI communication
+ * (block based version)
  */
 class UserDataComm : public bitpit::DataCommInterface<UserDataComm>
 {
@@ -33,9 +21,6 @@ public:
   //! ghost data, owned by a different MPI process
   DataArray_t ghostData;
   
-  //! FieldMap object for mapping field variable (ID, IP, IU, IV, ...)
-  //! to actual index
-  id2index_t  fm;
 
   //! number of scalar fields per cell
   uint32_t nbFields;
@@ -44,10 +29,17 @@ public:
   uint32_t nbCellsPerOct;
 
   //! number of bytes per cell to exchange
-  size_t fixedSize() const;
+  size_t fixedSize() const
+  {
+    return 0; 
+  }
 
   //! don't used, since fixed size is returning non-zero
-  size_t size(const uint32_t iOct) const;
+  size_t size(const uint32_t iOct) const
+  {
+    BITPIT_UNUSED(iOct);
+    return sizeof(real_t)*nbCellsPerOct*nbFields;
+  }
 
   /**
    * read data to communicate to neighbor MPI processes.
@@ -78,17 +70,39 @@ public:
   /**
    * Constructor.
    */
-  UserDataComm(DataArray_t data_, DataArray_t ghostData_, id2index_t fm_);
+  UserDataComm(DataArray_t data_, DataArray_t ghostData_) :
+    data(data_),
+    ghostData(ghostData_),
+    nbFields(data_.extent(1)),
+    nbCellsPerOct(data_.extent(0))
+  {
+  }; // UserDataComm::UserDataComm
 
   /**
    * Destructor.
    */
-  ~UserDataComm();
+  ~UserDataComm(){};
   
 }; // class UserDataComm
 
-} // namespace muscl_block
+} //namespace
 
-} // namespace dyablo
+void GhostCommunicator_pablo::exchange_ghosts(DataArray_t& U, DataArray_t& Ughost) const
+{
+    uint32_t nghosts = amr_mesh->getNumGhosts();
+    Kokkos::realloc(Ughost, U.extent(0), U.extent(1), nghosts);
 
-#endif // MUSCL_BLOCK_USER_DATA_COMM_H_
+    // Copy Data to host for MPI communication 
+    DataArray_t::HostMirror U_host = Kokkos::create_mirror_view(U);
+    DataArray_t::HostMirror Ughost_host = Kokkos::create_mirror_view(Ughost);
+    Kokkos::deep_copy(U_host, U);
+
+    UserDataComm data_comm(U_host, Ughost_host);
+    amr_mesh->communicate(data_comm);
+
+    // Copy back ghosts to Device
+    Kokkos::deep_copy(Ughost, Ughost_host);
+}
+
+}//namespace muscl_block
+}//namespace dyablo

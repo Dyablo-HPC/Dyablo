@@ -31,9 +31,9 @@
 // Block data related functors
 #include "muscl_block/CopyInnerBlockCellData.h"
 #include "muscl_block/CopyGhostBlockCellData.h"
+#include "muscl_block/GhostCommunicator.h"
 
 #if BITPIT_ENABLE_MPI==1
-#include "muscl_block/UserDataComm.h"
 #include "muscl_block/UserDataLB.h"
 #endif
 
@@ -802,19 +802,8 @@ void SolverHydroMusclBlock::synchronize_ghost_data(UserDataCommType t)
   
   switch(t) {
   case UserDataCommType::UDATA: {
-    Kokkos::resize(Ughost, U.extent(0), U.extent(1), nghosts);
-
-    // Copy Data to host for MPI communication 
-    DataArrayBlockHost U_host = Kokkos::create_mirror_view(U);
-    DataArrayBlockHost Ughost_host = Kokkos::create_mirror_view(Ughost);
-    Kokkos::deep_copy(U_host, U);
-
-    UserDataComm data_comm(U_host, Ughost_host, fm);
-    amr_mesh->communicate(data_comm);
-
-    // Copy back ghosts to Device
-    Kokkos::deep_copy(Ughost, Ughost_host);
-    break;
+    GhostCommunicator comm(amr_mesh);
+    comm.exchange_ghosts(U, Ughost);
   }
   default:
     break;
