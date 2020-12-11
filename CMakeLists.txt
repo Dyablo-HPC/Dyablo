@@ -88,13 +88,6 @@ find_package(BITPIT CONFIG QUIET)
 # retrieve BITPIT_DIR as given on the command line
 set(MY_BITPIT_DIR ${BITPIT_DIR})
 
-# enforce a CPU build of BITPIT/PABLO
-# anyway PABLO is a CPU library
-# anyway PABLO is not at all in a shape to pass nvcc_wrapper compilation
-# anyway we won't use PABLO internal structure in the core Kokkos
-# computing functors
-set(BITPIT_COMPILER  "g++" CACHE STRING "compiler used to build bitpit")
-
 # list of dependencies to build before dyablo itself;
 # currently the only dependency is bitpit external project;
 # kokkos is still built inline
@@ -112,9 +105,20 @@ if ( (NOT BITPIT_FOUND) OR FORCE_BITPIT_BUILD )
 
   list (APPEND DEPENDENCIES bitpit_external)
 
+  message( STATUS "== Setup bitpit ExternalProject ==" )
+
+  #find bitpit dependencies
+  find_package( LibXml2 REQUIRED )
+  find_package( MPI REQUIRED COMPONENTS C CXX )
+
   #
   # build our custom BitPit version
-  #
+  # enforce a CPU build of BITPIT/PABLO
+  # anyway PABLO is a CPU library
+  # anyway PABLO is not at all in a shape to pass nvcc_wrapper compilation
+  # anyway we won't use PABLO internal structure in the core Kokkos
+  # computing functors
+  set(BITPIT_COMPILER  ${CMAKE_CXX_COMPILER} CACHE STRING "compiler used to build bitpit")
   set_property(DIRECTORY PROPERTY EP_BASE ${CMAKE_BINARY_DIR}/external)
   ExternalProject_Add (bitpit_external
     #URL https://github.com/pkestene/bitpit/archive/bitpit-1.7.0-devel-dyablo-v0.2.tar.gz
@@ -126,6 +130,9 @@ if ( (NOT BITPIT_FOUND) OR FORCE_BITPIT_BUILD )
       -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
       -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
       -DENABLE_MPI=${DYABLO_USE_MPI}
+      -DMPI_C_COMPILER=${MPI_C_COMPILER}
+      -DMPI_CXX_COMPILER=${MPI_CXX_COMPILER}
+      -DLIBXML2_LIBRARY=${LIBXML2_LIBRARY}
       -DBITPIT_MODULE_LA=OFF
       -DBITPIT_MODULE_CG=OFF
       -DBITPIT_MODULE_DISCRETIZATION=OFF
@@ -170,22 +177,33 @@ set(Kokkos_ARCH  "" CACHE STRING "Kokkos arch (KEPLER37, PASCAL60, ...)")
 
 find_package(Kokkos 3.1 QUIET)
 
+set(KOKKOS_COMPILER_CONFIG ${CMAKE_CXX_COMPILER})
+if (Kokkos_ENABLE_CUDA)
+  enable_language(CUDA)
+  # /!\ Changing CUDA compiler for something else than the one in system path 
+  # (for instance with cmake -DCMAKE_CUDA_COMPILER) is not supported by nvcc_wrapper
+  set(KOKKOS_COMPILER_CONFIG "${PROJECT_SOURCE_DIR}/external/kokkos/bin/nvcc_wrapper")
+  # TODO : add a way ton configure sm arch and backend compilers for nvcc_wrapper
+endif()
+
+set(KOKKOS_CXX_COMPILER  ${KOKKOS_COMPILER_CONFIG} CACHE STRING "compiler used to build kokkos (default to cmake compiler if CUDA is not enabled, if CUDA enabled, set to nvcc_wrapper internally)")
+
 if ( (NOT Kokkos_FOUND) OR FORCE_KOKKOS_BUILD )
 
   # enforce kokkos build before dyablo
   list (APPEND DEPENDENCIES kokkos_external)
 
-  set(KOKKOS_COMPILER  "g++" CACHE STRING "compiler used to build kokkos (defaults to g++ if CUDA is not enabled, if CUDA enabled, set to nvcc_wrapper internally)")
+  message( STATUS "== Setup kokkos ExternalProject ==" )
 
-  if (Kokkos_ENABLE_CUDA)
-    set(KOKKOS_COMPILER ${PROJECT_SOURCE_DIR}/external/kokkos/bin/nvcc_wrapper)
-  endif()
+  # /!\ Hwloc is not checked during superbuild : find_package() could fail at Kokkos configure step
+  set(Kokkos_HWLOC_DIR  "" CACHE STRING "Directory containing hwloc library for Kokkos ( Kokkos will find system HWLOC if this directory doesn't contain HWLOC )")
 
   list (APPEND KOKKOS_CMAKE_ARGS
     -DCMAKE_INSTALL_PREFIX:PATH=${PROJECT_BINARY_DIR}/external/Install/kokkos_external
-    -DCMAKE_CXX_COMPILER=${KOKKOS_COMPILER}
+    -DCMAKE_CXX_COMPILER=${KOKKOS_CXX_COMPILER}
     -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
     -DKokkos_ENABLE_HWLOC=${Kokkos_ENABLE_HWLOC}
+    -DKokkos_HWLOC_DIR=${Kokkos_HWLOC_DIR}
     -DKokkos_ENABLE_OPENMP=${Kokkos_ENABLE_OPENMP}
     -DKokkos_ENABLE_DEBUG=${Kokkos_ENABLE_DEBUG}
     -DKokkos_ENABLE_DEBUG_BOUNDS_CHECK=${Kokkos_ENABLE_DEBUG_BOUNDS_CHECK}
@@ -201,14 +219,6 @@ if ( (NOT Kokkos_FOUND) OR FORCE_KOKKOS_BUILD )
       -DKokkos_ARCH_${Kokkos_ARCH}=ON
       )
   endif()
-
-  # clear cmake cache if necessary
-  # set (KOKKOS_CMAKE_CACHE ${PROJECT_BINARY_DIR}/external/Build/kokkos_external/CMakeCache.txt)
-  # if (EXISTS ${KOKKOS_CMAKE_CACHE})
-  #   # if we are here, it means Kokkos was already build once, and FORCE_KOKKOS_BUILD is true
-  #   # ==> erase cmake cache, to make sure cmake configuration is re-run
-  #   file(REMOVE ${KOKKOS_CMAKE_CACHE})
-  # endif()
 
   #
   # build kokkos
@@ -232,8 +242,7 @@ endif()
 #####################################
 #####################################
 
-# at some point we should also build kokkos using ExternalProject, instead of including
-# its build system into dyablo
+message( STATUS "== Setup Dyablo ExternalProject ==" )
 
 #
 # prepare cmake arguments list
@@ -243,21 +252,37 @@ set (DYABLO_CMAKE_ARGS)
 # if CUDA is enable, you need to be careful about the version of boost
 option(DYABLO_ENABLE_UNIT_TESTING "Enable unit testing" OFF)
 
-set(DYABLO_COMPILER ${KOKKOS_COMPILER} CACHE STRING "compiler used to build dyablo (defaults to the same as for kokkos)")
-
-if (Kokkos_ENABLE_CUDA)
-  set(DYABLO_COMPILER ${PROJECT_SOURCE_DIR}/external/kokkos/bin/nvcc_wrapper)
+# Check external dependencies
+if( DYABLO_USE_MPI )
+  find_package(MPI REQUIRED)
 endif()
+# hdf5
+if (DYABLO_USE_HDF5)
+  if (DYABLO_USE_MPI)
+    set(HDF5_PREFER_PARALLEL TRUE)
+  endif(DYABLO_USE_MPI)
+  set( HDF5_PREFER_PARALLEL ON )
+  find_package( HDF5 REQUIRED COMPONENTS C)
+  if( DYABLO_USE_MPI AND NOT HDF5_IS_PARALLEL )
+    message( FATAL_ERROR "HDF5 library must be parallel when compiling Dyablo with MPI" )
+  endif()
+endif()
+
+set(DYABLO_CXX_COMPILER  ${KOKKOS_CXX_COMPILER} CACHE STRING "compiler used to build dyablo (should be the same as KOKKOS_CXX_COMPILER)")
 
 # default arguments - common to all platform
 list (APPEND DYABLO_CMAKE_ARGS
-  -DCMAKE_CXX_COMPILER=${DYABLO_COMPILER}
+  -DCMAKE_CXX_COMPILER=${DYABLO_CXX_COMPILER}
+  -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
   -DDYABLO_USE_HDF5=${DYABLO_USE_HDF5}
-  -DDYABLO_USE_PNETCDF=${DYABLO_USE_PNETCDF}
-  -DDYABLO_USE_VTK=${DYABLO_USE_VTK}
+  -DHDF5_C_COMPILER_EXECUTABLE=${HDF5_C_COMPILER_EXECUTABLE}
   -DDYABLO_USE_MPI=${DYABLO_USE_MPI}
+  -DMPI_C_COMPILER=${MPI_C_COMPILER}
+  -DMPI_CXX_COMPILER=${MPI_CXX_COMPILER}
   -DDYABLO_USE_MPI_CUDA_AWARE_ENFORCED=${DYABLO_USE_MPI_CUDA_AWARE_ENFORCED}
+  -DDYABLO_USE_PNETCDF=${DYABLO_USE_PNETCDF}
+  -DDYABLO_USE_VTK=${DYABLO_USE_VTK}  
   -DDYABLO_USE_DOUBLE=${DYABLO_USE_DOUBLE}
   -DDYABLO_USE_FPE_DEBUG=${DYABLO_USE_FPE_DEBUG}
   -DDYABLO_BUILD_DOC=${DYABLO_BUILD_DOC}
