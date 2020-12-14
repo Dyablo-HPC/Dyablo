@@ -884,6 +884,10 @@ void SolverHydroMusclBlock::adapt_mesh()
   // 1. adapt mesh with mapper enabled
   amr_mesh->adapt(true);
 
+  // Verify that adapt() doesn't need another iteration
+  assert(amr_mesh->check21Balance());
+  assert(!amr_mesh->checkToAdapt());
+
   // 2. re-compute connectivity
   amr_mesh->updateConnectivity();  
   
