@@ -93,7 +93,7 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
    * setup parameters related to block AMR
    */
 
-  ghostWidth = configMap.getInteger("amr", "ghostwidth", 2);
+  ghostWidth = params.ghostWidth;
 
   bx = configMap.getInteger("amr", "bx", 0);
   by = configMap.getInteger("amr", "by", 0);
