@@ -7,6 +7,7 @@
 
 #include "shared/enums.h"
 #include "shared/kokkos_shared.h"
+#include "shared/enums.h"
 
 namespace dyablo { namespace muscl_block {
 
@@ -209,6 +210,23 @@ uint32_t coord_to_index_g(coord_t     coords,
   return res;
 
 } // coord_to_index_g
+
+KOKKOS_INLINE_FUNCTION
+uint32_t coord_to_index(coord_t     coords, 
+                          uint32_t    bx,
+                          uint32_t    by,
+                          uint32_t    bz)
+{
+
+  const uint32_t i = coords[IX];
+  const uint32_t j = coords[IY];
+  const uint32_t k = coords[IZ];
+
+  uint32_t res = i + bx*j + bx*by*k;
+
+  return res;
+
+} // coord_to_index
 
 class InterfaceFlags
 {

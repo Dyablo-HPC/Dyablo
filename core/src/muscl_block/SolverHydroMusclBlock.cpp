@@ -33,6 +33,8 @@
 #include "muscl_block/CopyGhostBlockCellData.h"
 #include "muscl_block/GhostCommunicator.h"
 
+#include "muscl_block/MapUserData.h"
+
 #if BITPIT_ENABLE_MPI==1
 #include "muscl_block/UserDataLB.h"
 #endif
@@ -882,10 +884,12 @@ void SolverHydroMusclBlock::adapt_mesh()
   // 1. adapt mesh with mapper enabled
   amr_mesh->adapt(true);
 
-  // 2. re-compute connectivity
-  amr_mesh->updateConnectivity();
+  // Verify that adapt() doesn't need another iteration
+  assert(amr_mesh->check21Balance());
+  assert(!amr_mesh->checkToAdapt());
 
-  lmesh = LightOctree(amr_mesh, params);
+  // 2. re-compute connectivity
+  amr_mesh->updateConnectivity();  
   
   m_timers[TIMER_AMR_CYCLE_ADAPT_MESH]->stop();
 
@@ -902,259 +906,15 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
 
   m_timers[TIMER_AMR_CYCLE_MAP_USERDATA]->start();
 
-  // TODO : refactor
-  // turn mapper and isghost into Kokkos::View's (instead of
-  // std::vector) so that
-  // one can make the rest of this routine parallel
-  std::vector<uint32_t> mapper;
-  std::vector<bool> isghost;
-  
-  // 
-  int nbFields = params.nbfields;
+  LightOctree lmesh_old = lmesh;
+  lmesh = LightOctree(amr_mesh, params);
 
-    // field manager index array do we really need the field manager here ?
-  auto fm = fieldMgr.get_id2index();
-
-  // at this stage, the numerical scheme has been computed
-  // U contains data at t_n
-  // U2 contains data at t_{n+1}
-  //
-  // so let's just resize U, and remap U2 to U after the mesh adaptation
-
-  //amr_mesh->adapt(true);
-  uint32_t nocts = amr_mesh->getNumOctants();
-  Kokkos::resize(U, nbCellsPerOct, nbFields, nocts);
-
-  auto U_host = create_mirror_view(U);
-  auto U2_host = create_mirror_view(U2);
-  auto Ughost_host = create_mirror_view(Ughost);
-
-  Kokkos::deep_copy(U2_host, U2);
-  Kokkos::deep_copy(Ughost_host, Ughost);
-
-    // reset U
-  Kokkos::parallel_for("dyablo::muscl_block::SolverHydroMusclBlock reset U",
-                       Kokkos::RangePolicy<Kokkos::OpenMP>( 0, nocts), 
-                       [=](const size_t iOct) {
-                          for (uint32_t index=0; index<nbCellsPerOct; ++index) {
-                            for (int ifield=0; ifield<nbFields; ++ifield)
-                              U_host(index,ifield,iOct)=0.0;
-                          }
-                       });
-  /*
-   * Assign to the new octant the average of the old children
-   *  if it is new after a coarsening;
-   * while assign to the new octant the data of the old father
-   *  if it is new after a refinement.
-   *
-   * Important, here we assume mapper containts octant id in the Morton order.
-   * We actually need to know how the old cells are located
-   * relatively one to another to perform correct remapping.
-   */
-  // TODO
-  // TODO : make this loop a parallel_for
-  // TODO
-  uint8_t child_id = 0; // Id of the child if we're refining
-  for (uint32_t iOct=0; iOct < nocts; ++iOct) {
-
-    // fill mapper and isghost for current octant
-    amr_mesh->getMapping(iOct, mapper, isghost);
-
-    // test is current cell is new upon a coarsening operation
-    if ( amr_mesh->getIsNewC(iOct) ) {
-
-      if (params.dimType==TWO_D) {
-        
-        // 2D mapping data to a new coarsened cell
-        
-        // nested for loops to cover the child's blocks
-        for (uint8_t j=0; j < 2*by; ++j)
-          for (uint8_t i=0; i < 2*bx; ++i) {
-            
-            // cell coordinates in new octant
-            uint8_t i1 = i>>1;
-            uint8_t j1 = j>>1;
-            
-            // index of the receiving cell in new octant
-            uint32_t iCell = i1 + bx*j1;
-            
-            // octant id to one of the child (to average)
-            // iOctChild is in range [0, 2**dim-1]
-            uint8_t iOctChild;
-            
-            // convert iOctChild  (morton order) into coordinates
-            // a,b,c can only be 0 or 1 !!!
-            uint8_t a, b;
-              
-            // child cell coordinate inside block
-            uint8_t i2,j2;
-            
-            // take into account in which child we will fetch data
-            a = (i >= bx) ? 1 : 0;
-            b = (j >= by) ? 1 : 0;
-              
-            // make sure i2,j2,k2 live in valid range
-            i2 = i - a*bx;
-            j2 = j - b*by;
-            
-            // make sure i2,j2,k2 live in valid range
-            // i2 = (i >= bx) ? i-bx : i;
-            // j2 = (j >= by) ? j-by : j;
-              
-            // compute child octant id
-            //iOctChild =  a + 2*b;
-            iOctChild = a | (b<<1);
-            
-            uint32_t iCellChild = i2 + bx*j2;
-            
-            for (int ifield = 0; ifield < nbFields; ++ifield) {
-              
-              U_host(iCell, ifield, iOct) += (isghost[iOctChild]) ?
-                Ughost_host(iCellChild, ifield, mapper[iOctChild])/m_nbChildren :
-                U2_host    (iCellChild, ifield, mapper[iOctChild])/m_nbChildren ;
-              
-            } // end for ifield
-          } // end for i,j
-        
-      } else {
-
-        // 3D mapping data to a new coarsened cell
-        
-        // nested for loops to cover the child's blocks
-        for (uint8_t k=0; k < 2*bz; ++k)
-          for (uint8_t j=0; j < 2*by; ++j)
-            for (uint8_t i=0; i < 2*bx; ++i) {
-              
-              // cell coordinates in new octant
-              uint8_t i1 = i>>1;
-              uint8_t j1 = j>>1;
-              uint8_t k1 = k>>1;
-              
-              // index of the receiving cell in new octant
-              uint32_t iCell = i1 + bx*j1 + bx*by*k1;
-              
-              // octant id to one of the child (to average)
-              // iOctChild is in range [0, 2**dim-1]
-              uint8_t iOctChild;
-              
-              // convert iOctChild  (morton order) into coordinates
-              // a,b,c can only be 0 or 1 !!!
-              uint8_t a, b, c;
-              
-              // child cell coordinate inside block
-              uint8_t i2,j2,k2;
-              
-              // take into account in which child we will fetch data
-              a = (i >= bx) ? 1 : 0;
-              b = (j >= by) ? 1 : 0;
-              c = (k >= bz) ? 1 : 0;
-              
-              // make sure i2,j2,k2 live in valid range
-              i2 = i - a*bx;
-              j2 = j - b*by;
-              k2 = k - c*bx;
-              
-              // make sure i2,j2,k2 live in valid range
-              // i2 = (i >= bx) ? i-bx : i;
-              // j2 = (j >= by) ? j-by : j;
-              // k2 = (k >= bz) ? k-bz : k;
-              
-              // compute child octant id
-              //iOctChild =  a + 2*b + 4*c;
-              iOctChild = a | (b<<1) | (c<<2);
-              
-              uint32_t iCellChild = i2 + bx*j2 + bx*by*k2;
-
-              for (int ifield = 0; ifield < nbFields; ++ifield) {
-
-                U_host(iCell, ifield, iOct) += (isghost[iOctChild]) ?
-                  Ughost_host(iCellChild, ifield, mapper[iOctChild])/m_nbChildren :
-                  U2_host    (iCellChild, ifield, mapper[iOctChild])/m_nbChildren ;
-                
-              } // end for ivar
-            } // end for i,j,k
-
-      } // end 2d/3d
-
-    }
-    else if (amr_mesh->getIsNewR(iOct)) {
-      if (params.dimType==TWO_D) {
-        for (uint32_t iCell = 0; iCell < nbCellsPerOct; ++iCell) {
-          // We compute the position of the cell in the block
-          uint32_t j = iCell / bx;
-          uint32_t i = iCell - j*bx;
-          
-          // Depending on the child we shift the actual position
-          if (child_id & 0x1)
-            i += bx;
-          if (child_id & 0x2)
-            j += by;
-          
-          // Indices corresponding to the parents
-          uint32_t ii = i / 2;
-          uint32_t jj = j / 2;
-          
-          uint32_t parent_id = ii + jj*bx;
-          
-          for (int ifield = 0; ifield < nbFields; ++ifield) {
-            U_host(iCell, ifield, iOct) = U2_host(parent_id, ifield, mapper[0]);
-          } // end for ivar
-        } // end for iCell
-
-        // Increase the child counter by 1
-        // If we reach 4, we reset the counter
-        child_id++;
-        if (child_id == 4)
-          child_id = 0;
-      }
-      else { // in 3D
-        // TO BE THOROUGHLY TESTED !
-        const uint32_t bxby = bx*by;
-        for (uint32_t iCell = 0; iCell < nbCellsPerOct; ++iCell) {
-          // We compute the position of the cell in the block
-          uint32_t k = iCell / bxby; 
-          uint32_t j = (iCell-k*bxby) / bx;
-          uint32_t i = iCell - j*bx - k*bxby;
-          
-          // Depending on the child we shift the actual position
-          if (child_id & 0x1)
-            i += bx;
-          if (child_id & 0x2)
-            j += by;
-          if (child_id & 0x4)
-            k += bz;
-          
-          // Indices corresponding to the parents
-          uint32_t ii = i / 2;
-          uint32_t jj = j / 2;
-          uint32_t kk = k / 2;
-          
-          uint32_t parent_id = ii + jj*bx + kk*bxby;
-          
-          for (int ifield = 0; ifield < nbFields; ++ifield) {
-            U_host(iCell, ifield, iOct) = U2_host(parent_id, ifield, mapper[0]);
-          } // end for ivat
-        } // end for iCell
-
-        child_id++;
-        if (child_id == 8)
-          child_id = 0;
-      }
-    }
-    else {
-      // current cell is just an old cell so we just copy data
-      for (uint32_t iCell = 0; iCell < nbCellsPerOct; ++iCell) {
-        for (int ifield = 0; ifield < nbFields; ++ifield) {
-          U_host(iCell, ifield, iOct) = U2_host(iCell, ifield, mapper[0]);
-        } // end for ivar
-      } // end vor iCell
-    } // end if isNewC/isNewR
-  } // end for iOct
+  MapUserDataFunctor::apply( lmesh_old, lmesh, configMap, blockSizes,
+                      U2, Ughost, U );
 
   // now U contains the most up to date data after mesh adaptation
   // we can resize U2 for the next time-step
-  Kokkos::resize(U2, U.extent(0), U.extent(1), U.extent(2));
-  Kokkos::deep_copy(U, U_host);
+  Kokkos::realloc(U2, U.extent(0), U.extent(1), U.extent(2));
   
   m_timers[TIMER_AMR_CYCLE_MAP_USERDATA]->stop();
 
