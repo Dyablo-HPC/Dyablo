@@ -239,7 +239,7 @@ errors_t test_isentropic_vortex(int level_min, int level_max, real_t tEnd)
   
   // start computation
   std::cout << "Start computation....\n";
-  solver->m_timers[TIMER_TOTAL]->start();
+  solver->timers.get("total").start();
 
   // Hydrodynamics solver loop
   while ( ! solver->finished() ) {
@@ -249,7 +249,7 @@ errors_t test_isentropic_vortex(int level_min, int level_max, real_t tEnd)
   } // end solver loop
 
   // end of computation
-  solver->m_timers[TIMER_TOTAL]->stop();
+  solver->timers.get("total").stop();
 
   // save last time step
   if (params.nOutput != 0)

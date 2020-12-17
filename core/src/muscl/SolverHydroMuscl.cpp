@@ -273,7 +273,7 @@ void SolverHydroMuscl::init(DataArray Udata)
 void SolverHydroMuscl::do_amr_cycle()
 {
 
-  m_timers[TIMER_AMR_CYCLE]->start();
+  timers.get("AMR").start();
 
   /*
    * Following steps:
@@ -298,7 +298,7 @@ void SolverHydroMuscl::do_amr_cycle()
   // 4. map data to new data array
   map_userdata_after_adapt();
 
-  m_timers[TIMER_AMR_CYCLE]->stop();
+  timers.get("AMR").stop();
 
 } // SolverHydroMuscl::do_amr_cycle
 
@@ -307,12 +307,12 @@ void SolverHydroMuscl::do_amr_cycle()
 void SolverHydroMuscl::do_load_balancing()
 {
 
-  m_timers[TIMER_AMR_CYCLE]->start();
+  timers.get("AMR").start();
   
   // load balance
   load_balance_userdata();
 
-  m_timers[TIMER_AMR_CYCLE]->stop();
+  timers.get("AMR").stop();
 
 } // SolverHydroMuscl::do_load_balancing
 
@@ -375,9 +375,9 @@ void SolverHydroMuscl::next_iteration_impl()
   } // end enable output
   
   // compute new dt
-  m_timers[TIMER_DT]->start();
+  timers.get("dt").start();
   compute_dt();
-  m_timers[TIMER_DT]->stop();
+  timers.get("dt").stop();
   
   // perform one step integration
   godunov_unsplit(m_dt);
@@ -438,7 +438,7 @@ void SolverHydroMuscl::godunov_unsplit_impl(DataArray data_in,
   Kokkos::deep_copy(data_out, data_in);
   
   // start main computation
-  m_timers[TIMER_NUM_SCHEME]->start();
+  timers.get("godunov").start();
 
   // convert conservative variable into primitives ones for the entire domain
   convertToPrimitives(data_in);
@@ -449,7 +449,7 @@ void SolverHydroMuscl::godunov_unsplit_impl(DataArray data_in,
   // compute fluxes (finite volume) and update
   compute_fluxes_and_update(data_in, data_out, dt);
 
-  m_timers[TIMER_NUM_SCHEME]->stop();
+  timers.get("godunov").stop();
   
 } // SolverHydroMuscl::godunov_unsplit_impl
 
@@ -558,7 +558,7 @@ void SolverHydroMuscl::compute_fluxes_and_update(DataArray data_in,
 void SolverHydroMuscl::save_solution_impl()
 {
 
-  m_timers[TIMER_IO]->start();
+  timers.get("outputs").start();
 
   if (params.output_vtk_enabled)
     save_solution_vtk();
@@ -566,7 +566,7 @@ void SolverHydroMuscl::save_solution_impl()
   if (params.output_hdf5_enabled)
     save_solution_hdf5();
 
-  m_timers[TIMER_IO]->stop();
+  timers.get("outputs").stop();
     
 } // SolverHydroMuscl::save_solution_impl()
 
@@ -683,7 +683,7 @@ void SolverHydroMuscl::save_solution_hdf5()
 void SolverHydroMuscl::synchronize_ghost_data(UserDataCommType t)
 {
 
-  m_timers[TIMER_AMR_CYCLE_SYNC_GHOST]->start();
+  timers.get("AMR: MPI ghosts").start();
 
   // retrieve available / allowed names: fieldManager, and field map (fm)
   auto fm = fieldMgr.get_id2index();
@@ -736,7 +736,7 @@ void SolverHydroMuscl::synchronize_ghost_data(UserDataCommType t)
   
 #endif
 
-  m_timers[TIMER_AMR_CYCLE_SYNC_GHOST]->stop();
+  timers.get("AMR: MPI ghosts").stop();
 
 } // SolverHydroMuscl::synchronize_ghost_data
 
@@ -745,7 +745,7 @@ void SolverHydroMuscl::synchronize_ghost_data(UserDataCommType t)
 void SolverHydroMuscl::mark_cells()
 {
 
-  m_timers[TIMER_AMR_CYCLE_MARK_CELLS]->start();
+  timers.get("AMR: mark cells").start();
 
   // retrieve available / allowed names: fieldManager, and field map (fm)
   // necessary to access user data
@@ -762,7 +762,7 @@ void SolverHydroMuscl::mark_cells()
   MarkCellsHydroFunctor::apply(amr_mesh, amr_lmesh, params, fm, Udata, Ughost,
                                eps_refine, eps_coarsen);
 
-  m_timers[TIMER_AMR_CYCLE_MARK_CELLS]->stop();
+  timers.get("AMR: mark cells").stop();
 
 } // SolverHydroMuscl::mark_cells
 
@@ -771,7 +771,7 @@ void SolverHydroMuscl::mark_cells()
 void SolverHydroMuscl::adapt_mesh()
 {
 
-  m_timers[TIMER_AMR_CYCLE_ADAPT_MESH]->start();
+  timers.get("AMR: adapt").start();
 
   // 1. adapt mesh with mapper enabled
   amr_mesh->adapt(true);
@@ -781,7 +781,7 @@ void SolverHydroMuscl::adapt_mesh()
 
   amr_lmesh = LightOctree(amr_mesh, params);
   
-  m_timers[TIMER_AMR_CYCLE_ADAPT_MESH]->stop();
+  timers.get("AMR: adapt").stop();
 
 } // SolverHydroMuscl::adapt_mesh
 
@@ -794,7 +794,7 @@ void SolverHydroMuscl::adapt_mesh()
 void SolverHydroMuscl::map_userdata_after_adapt()
 {
 
-  m_timers[TIMER_AMR_CYCLE_MAP_USERDATA]->start();
+  timers.get("AMR: map userdata").start();
 
   // TODO : make is mapper and isghost Kokkos::View's so that
   // one can make the rest of this routine parallel
@@ -879,7 +879,7 @@ void SolverHydroMuscl::map_userdata_after_adapt()
   Kokkos::resize(U2, U.extent(0), U.extent(1));
   Kokkos::deep_copy(U, Uhost);
   
-  m_timers[TIMER_AMR_CYCLE_MAP_USERDATA]->stop();
+  timers.get("AMR: map userdata").stop();
 
 } // SolverHydroMuscl::map_data_after_adapt
 
@@ -888,7 +888,7 @@ void SolverHydroMuscl::map_userdata_after_adapt()
 void SolverHydroMuscl::load_balance_userdata()
 {
 
-  m_timers[TIMER_AMR_CYCLE_LOAD_BALANCE]->start();
+  timers.get("AMR: load-balance").start();
 
 #if BITPIT_ENABLE_MPI==1
 
@@ -922,7 +922,7 @@ void SolverHydroMuscl::load_balance_userdata()
   }
 #endif // BITPIT_ENABLE_MPI==1
   
-  m_timers[TIMER_AMR_CYCLE_LOAD_BALANCE]->stop();
+  timers.get("AMR: load-balance").stop();
 
 } // SolverHydroMuscl::load_balance_user_data
 

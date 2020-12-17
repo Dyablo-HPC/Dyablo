@@ -34,6 +34,8 @@ public:
     total_time = 0.0;
   }
 
+  CudaTimer(const CudaTimer&) = delete;
+
   ~CudaTimer()
   {
     cudaEventDestroy(startEv);

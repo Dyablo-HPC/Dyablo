@@ -100,28 +100,6 @@ SolverBase::SolverBase (HydroParams& params, ConfigMap& configMap) :
   // statistics
   m_total_num_cell_updates = 0;
   
-  // create the timers - ugly - refactor me - TODO
-  m_timers[TIMER_TOTAL]      = std::make_shared<Timer>();
-  m_timers[TIMER_IO]         = std::make_shared<Timer>();
-  m_timers[TIMER_DT]         = std::make_shared<Timer>();
-  m_timers[TIMER_BOUNDARIES] = std::make_shared<Timer>();
-  m_timers[TIMER_NUM_SCHEME] = std::make_shared<Timer>();
-  m_timers[TIMER_AMR_CYCLE]  = std::make_shared<Timer>();
-  m_timers[TIMER_AMR_CYCLE_SYNC_GHOST]  = std::make_shared<Timer>();
-  m_timers[TIMER_AMR_CYCLE_MARK_CELLS]  = std::make_shared<Timer>();
-  m_timers[TIMER_AMR_CYCLE_ADAPT_MESH]  = std::make_shared<Timer>();
-  m_timers[TIMER_AMR_CYCLE_MAP_USERDATA]  = std::make_shared<Timer>();
-  m_timers[TIMER_AMR_CYCLE_LOAD_BALANCE]  = std::make_shared<Timer>();
-  m_timers[TIMER_AMR_BLOCK_COPY] = std::make_shared<Timer>();
-  m_timers[TIMER_BLOCK_COPY] = std::make_shared<Timer>();
-
-#ifdef DYABLO_USE_MPI
-  //const int nbvar = params.nbvar;
-
-  // TODO
-  
-#endif // DYABLO_USE_MPI
-  
 } // SolverBase::SolverBase
 
 // =======================================================
@@ -394,20 +372,7 @@ void
 SolverBase::print_monitoring_info()
 {
 
-  real_t t_tot   = m_timers[TIMER_TOTAL]->elapsed();
-  real_t t_comp  = m_timers[TIMER_NUM_SCHEME]->elapsed();
-  real_t t_dt    = m_timers[TIMER_DT]->elapsed();
-  real_t t_bound = m_timers[TIMER_BOUNDARIES]->elapsed();
-  real_t t_io    = m_timers[TIMER_IO]->elapsed();
-  real_t t_amr   = m_timers[TIMER_AMR_CYCLE]->elapsed();
-
-  real_t t_amr_sync_ghost   = m_timers[TIMER_AMR_CYCLE_SYNC_GHOST]->elapsed();
-  real_t t_amr_mark_cells   = m_timers[TIMER_AMR_CYCLE_MARK_CELLS]->elapsed();
-  real_t t_amr_adapt_mesh   = m_timers[TIMER_AMR_CYCLE_ADAPT_MESH]->elapsed();
-  real_t t_amr_map_userdata = m_timers[TIMER_AMR_CYCLE_MAP_USERDATA]->elapsed();
-  real_t t_amr_load_balance = m_timers[TIMER_AMR_CYCLE_LOAD_BALANCE]->elapsed();
-
-  //real_t t_block_copy = m_timers[TIMER_BLOCK_COPY]->elapsed();
+  real_t t_tot   = timers.get("total").elapsed();
 
   int myRank = 0;
   int nProcs = 1;
@@ -420,33 +385,7 @@ SolverBase::print_monitoring_info()
   
   // only print on master
   if (myRank == 0) {
-
-    printf("total       time : %5.3f secondes\n", t_tot);
-    printf("godunov     time : %5.3f secondes %5.2f%%\n", t_comp,
-           100 * t_comp / t_tot);
-    printf("compute dt  time : %5.3f secondes %5.2f%%\n", t_dt,
-           100 * t_dt / t_tot);
-    printf("boundaries  time : %5.3f secondes %5.2f%%\n", t_bound,
-           100 * t_bound / t_tot);
-    printf("io          time : %5.3f secondes %5.2f%%\n", t_io,
-           100 * t_io / t_tot);
-
-    // printf("block copy  time : %5.3f secondes %5.2f%%\n", t_block_copy,
-    //        100 * t_block_copy / t_tot);
-
-    printf("amr cycle   time : %5.3f secondes %5.2f%%\n", t_amr,
-           100 * t_amr / t_tot);
-
-    printf("amr cycle sync ghost    : %5.3f secondes %5.2f%%\n",
-           t_amr_sync_ghost, 100 * t_amr_sync_ghost / t_tot);
-    printf("amr cycle mark cells    : %5.3f secondes %5.2f%%\n",
-           t_amr_mark_cells, 100 * t_amr_mark_cells / t_tot);
-    printf("amr cycle adapt mesh    : %5.3f secondes %5.2f%%\n",
-           t_amr_adapt_mesh, 100 * t_amr_adapt_mesh / t_tot);
-    printf("amr cycle map user data : %5.3f secondes %5.2f%%\n",
-           t_amr_map_userdata, 100 * t_amr_map_userdata / t_tot);
-    printf("amr cycle load balance  : %5.3f secondes %5.2f%%\n",
-           t_amr_load_balance, 100 * t_amr_load_balance / t_tot);
+    timers.print();
 
     printf("Perf             : %5.3f number of Mcell-updates/s\n",
            m_total_num_cell_updates / t_tot * 1e-6);
