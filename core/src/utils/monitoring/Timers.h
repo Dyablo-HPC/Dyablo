@@ -2,21 +2,21 @@
 
 #include <map>
 #include <string>
-#include "shared/kokkos_shared.h"
-
-#ifdef KOKKOS_ENABLE_CUDA
-#include "CudaTimer.h"
-#else
-#include "OpenMPTimer.h"
-#endif
+#include <memory>
 
 class Timers{
 public:
-#ifdef KOKKOS_ENABLE_CUDA
-  using Timer = CudaTimer;
-#else
-  using Timer = OpenMPTimer;
-#endif
+  class Timer{
+  public:
+    Timer(const std::string& name);
+    void start();
+    void stop();
+    double elapsed() const;
+  private:
+    struct Timer_pimpl;
+    std::unique_ptr<Timer_pimpl> data;
+    std::string name;
+  };
 
   Timers();
   ~Timers();

@@ -3,18 +3,31 @@
 #include <iostream>
 #include <iomanip>
 
+#include "shared/kokkos_shared.h"
+
+#include "OpenMPTimer.h"
+#ifdef KOKKOS_ENABLE_CUDA
+#include "CudaTimer.h"
+#endif
+
 Timers::Timers()
 {
-  timer_map["___TOTAL___"].start();
+  get("___TOTAL___").start();
 }
 Timers::~Timers()
 {
-  timer_map.at("___TOTAL___").stop();
+  get("___TOTAL___").stop();
 }
 
 Timers::Timer& Timers::get(const std::string& name)
 {
-  return this->timer_map[name];
+  auto it = this->timer_map.find(name);
+  if( it == this->timer_map.end() )
+    it = this->timer_map.emplace(std::piecewise_construct, 
+                                std::forward_as_tuple(name),
+                                std::forward_as_tuple(name) ).first;
+  
+  return it->second;
 }
 
 void Timers::print()
@@ -36,4 +49,42 @@ void Timers::print()
       printf(" time : %5.3f secondes %5.2f%%\n", time, percent);      
     }
   }
+}
+
+struct Timers::Timer::Timer_pimpl{
+  OpenMPTimer omp_timer;
+  #ifdef KOKKOS_ENABLE_CUDA
+  CudaTimer cuda_timer;
+  #endif
+};
+
+Timers::Timer::Timer(const std::string& name)
+: name(name), data(std::make_unique<Timer_pimpl>())
+{}
+
+void Timers::Timer::start()
+{
+  Kokkos::Profiling::pushRegion(this->name);
+  data->omp_timer.start();
+  #ifdef KOKKOS_ENABLE_CUDA
+  data->cuda_timer.start();
+  #endif
+}
+
+void Timers::Timer::stop()
+{
+  Kokkos::Profiling::popRegion();
+  data->omp_timer.stop();
+  #ifdef KOKKOS_ENABLE_CUDA
+  data->cuda_timer.stop();
+  #endif
+}
+
+double Timers::Timer::elapsed() const
+{
+  #ifdef KOKKOS_ENABLE_CUDA
+  return data->cuda_timer.elapsed();
+  #else
+  return data->omp_timer.elapsed();
+  #endif
 }
