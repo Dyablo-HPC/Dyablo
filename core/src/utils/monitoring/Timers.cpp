@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <iomanip>
+#include <cassert>
 
 #include "shared/kokkos_shared.h"
 
@@ -32,21 +33,39 @@ Timers::Timer& Timers::get(const std::string& name)
 
 void Timers::print()
 {
+  using Mode = Timer::Elapsed_mode_t;
   Timers::Timer& timer_tot = get("___TOTAL___");
   timer_tot.stop();
-  double t_tot = timer_tot.elapsed();
+  double t_tot_CPU = timer_tot.elapsed(Mode::ELAPSED_CPU);
+  std::cout << "Total elapsed time (CPU) : " << t_tot_CPU;
+  #ifdef KOKKOS_ENABLE_CUDA
+  double t_tot_GPU = timer_tot.elapsed(Mode::ELAPSED_GPU);
+  std::cout << " , (GPU) : " << t_tot_GPU;
+  #endif
+  std::cout << std::endl;
   timer_tot.start();
-  std::cout << "Total elapsed time : " << t_tot << std::endl;
+  
+  
 
   for( const auto& p : this->timer_map )
   {
     const std::string& name = p.first;
     if( name != "___TOTAL___" )
     {
-      double time = p.second.elapsed();
-      double percent = 100 * time / t_tot;
-      std::cout << std::left << std::setw(25) << name;
-      printf(" time : %5.3f secondes %5.2f%%\n", time, percent);      
+      {
+        double time_CPU = p.second.elapsed(Mode::ELAPSED_CPU);
+        double percent_CPU = 100 * time_CPU / t_tot_CPU;
+        std::cout << std::left << std::setw(25) << name;
+        printf(" time (CPU) : %5.3f \ts (%5.2f%%)", time_CPU, percent_CPU);
+      }
+      #ifdef KOKKOS_ENABLE_CUDA
+      {
+        double time_GPU = p.second.elapsed(Mode::ELAPSED_GPU);
+        double percent_GPU = 100 * time_GPU / t_tot_GPU;
+        printf(" , (GPU) : %5.3f \ts (%5.2f%%)", time_GPU, percent_GPU);
+      }
+      #endif 
+      std::cout << std::endl;  
     }
   }
 }
@@ -80,11 +99,17 @@ void Timers::Timer::stop()
   #endif
 }
 
-double Timers::Timer::elapsed() const
+double Timers::Timer::elapsed(Timers::Timer::Elapsed_mode_t em) const
 {
+  if(em == ELAPSED_CPU)
+    return data->omp_timer.elapsed();
   #ifdef KOKKOS_ENABLE_CUDA
-  return data->cuda_timer.elapsed();
-  #else
-  return data->omp_timer.elapsed();
+  else if( em == ELAPSED_GPU )
+    return data->cuda_timer.elapsed();
   #endif
+  else
+  {
+    assert(false); // Unknown/incompatible elapsed mode
+    return 0;
+  }
 }

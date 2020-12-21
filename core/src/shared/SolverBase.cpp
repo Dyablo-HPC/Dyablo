@@ -372,7 +372,7 @@ void
 SolverBase::print_monitoring_info()
 {
 
-  real_t t_tot   = timers.get("total").elapsed();
+  real_t t_tot   = timers.get("total").elapsed(Timers::Timer::Elapsed_mode_t::ELAPSED_CPU);
 
   int myRank = 0;
   int nProcs = 1;

@@ -635,7 +635,7 @@ void SolverHydroMusclBlock::print_monitoring_info()
   if (myRank == 0) {
     timers.print();
 
-    real_t t_tot   = timers.get("total").elapsed();
+    real_t t_tot   = timers.get("total").elapsed(Timers::Timer::Elapsed_mode_t::ELAPSED_CPU);
 
     printf("Perf             : %5.3f number of Mcell-updates/s\n",
            1.0 * m_total_num_cell_updates * (bx*by*bz) / t_tot * 1e-6);

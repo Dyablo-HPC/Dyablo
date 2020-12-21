@@ -11,11 +11,16 @@ public:
     Timer(const std::string& name);
     void start();
     void stop();
-    double elapsed() const;
+    enum Elapsed_mode_t
+    {
+      ELAPSED_CPU,
+      ELAPSED_GPU
+    };
+    double elapsed(Elapsed_mode_t mode) const;
   private:
     struct Timer_pimpl;
-    std::unique_ptr<Timer_pimpl> data;
     std::string name;
+    std::unique_ptr<Timer_pimpl> data;
   };
 
   Timers();
