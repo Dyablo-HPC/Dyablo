@@ -2,36 +2,36 @@
  * \file CudaTimer.h
  * \brief A simple timer class for CUDA based on events.
  *
- * \author Pierre Kestener
- * \date 30 Oct 2010
+ * \author Pierre Kestener, Arnaud Durocher
+ * \date Jan 2020
  *
  */
 #ifndef DYABLO_UTILS_MONITORING_CUDA_TIMER_H_
 #define DYABLO_UTILS_MONITORING_CUDA_TIMER_H_
 
+#include <queue>
 #include <cuda_runtime.h>
 
 /**
  * \brief a simple timer for CUDA kernel using CUDA events.
  * \sa https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__EVENT.html
- * CUDA kernels run asynchronously from CPU, 
- * so don't use CPU timing routines.
+ * 
+ * This timer uses a CUDA event queue to avoid using cudaEventSychronize() to accumulate measured times
+ * start()/stop() create new cudaEvent_t handles and adds it to an event queue
+ * cudaEventQuery() is called periodically (during start() and elapsed()) to empty the queue and accumulate time
+ * CPU synchronization (cudaEventSynchronize()) is performed only in elapsed() (and reset())
  */
 class CudaTimer
 {
 protected:
-  //! CUDA start and stop events
-  cudaEvent_t startEv, stopEv;
-
+  //! queue CUDA start and stop events
+  std::queue<cudaEvent_t> startEv_queue, stopEv_queue;
   //! total accumulated duration
-  double total_time;
-  bool pending = false;
+  double total_time;  
 
 public:
   CudaTimer()
   {
-    cudaEventCreate(&startEv);
-    cudaEventCreate(&stopEv);
     total_time = 0.0;
   }
 
@@ -39,51 +39,82 @@ public:
 
   ~CudaTimer()
   {
-    cudaEventDestroy(startEv);
-    cudaEventDestroy(stopEv);
+    empty_queue();
   }
 
-  //! start timer, push a start even in a cuda stream
+  /**
+   * @brief start timer
+   * push a start even in a cuda stream 
+   * also check events termination (cudaEventQuery()) and accumulate times
+   **/
   void start()
   {
-    if(pending)
-      sync();
+    cudaEvent_t startEv;
+    cudaEventCreate(&startEv);
     cudaEventRecord(startEv, 0);
+    startEv_queue.push(startEv);
+
+    accumulate_finished();
   }
 
-  //! reset accumulated duration
+  //! reset accumulated duration and empty the queue
   void reset()
   {
+    empty_queue();
     total_time = 0.0;
-    pending = false;
   }
 
-  //! stop timer and accumulate time in seconds
+  //! stop timer, push a stop event in a cuda stream
   void stop()
   {
+    cudaEvent_t stopEv;
+    cudaEventCreate(&stopEv);
     cudaEventRecord(stopEv, 0);
-    pending=true;
+    stopEv_queue.push(stopEv);
   }
 
-  //! return elapsed time in seconds (as record in total_time)
+  /**
+   * return total elapsed time in seconds
+   * Performs a CPU synchronization (cudaEventSynchronize()) and flushes event queue 
+   **/
   double elapsed()
   {
-    if(pending) sync();
+    empty_queue();
+
     return total_time;
   }
 
 private:
-  void sync()
+  /// Wait for events and flush queue
+  void empty_queue()
   {
-    float gpuTime;
-    cudaEventSynchronize(stopEv);
+    // Wait for last cuda event
+    if(!stopEv_queue.empty())
+      cudaEventSynchronize(stopEv_queue.front());
 
-    // get elapsed time in milliseconds
-    cudaEventElapsedTime(&gpuTime, startEv, stopEv);
+    accumulate_finished();
+  
+    assert(startEv_queue.empty());
+    assert(stopEv_queue.empty());
+  }
 
-    // accumulate duration in seconds
-    total_time += (double)1e-3*gpuTime;
-    pending=false;
+  /// Flush finished events from the queue
+  void accumulate_finished()
+  {
+    while( !stopEv_queue.empty() and (cudaSuccess == cudaEventQuery(stopEv_queue.front())) )
+    {
+      // get elapsed time in milliseconds
+      float gpuTime;
+      cudaEventElapsedTime(&gpuTime, startEv_queue.front(), stopEv_queue.front());
+
+      cudaEventDestroy(startEv_queue.front());
+      cudaEventDestroy(stopEv_queue.front());
+
+      // accumulate duration in seconds
+      total_time += (double)1e-3*gpuTime;
+      startEv_queue.pop();
+      stopEv_queue.pop();
+    }
   }
 
 }; // class CudaTimer
