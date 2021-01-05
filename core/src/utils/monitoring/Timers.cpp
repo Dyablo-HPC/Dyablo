@@ -12,12 +12,13 @@
 #endif
 
 Timers::Timers()
+: timer_total("Total")
 {
-  get("___TOTAL___").start();
+  timer_total.start();
 }
 Timers::~Timers()
 {
-  get("___TOTAL___").stop();
+  timer_total.stop();
 }
 
 Timers::Timer& Timers::get(const std::string& name)
@@ -26,47 +27,40 @@ Timers::Timer& Timers::get(const std::string& name)
   if( it == this->timer_map.end() )
     it = this->timer_map.emplace(std::piecewise_construct, 
                                 std::forward_as_tuple(name),
-                                std::forward_as_tuple(name) ).first;
-  
+                                std::forward_as_tuple(name) ).first; 
   return it->second;
 }
 
 void Timers::print()
 {
   using Mode = Timer::Elapsed_mode_t;
-  Timers::Timer& timer_tot = get("___TOTAL___");
-  timer_tot.stop();
-  double t_tot_CPU = timer_tot.elapsed(Mode::ELAPSED_CPU);
+  timer_total.stop();
+  double t_tot_CPU = timer_total.elapsed(Mode::ELAPSED_CPU);
   std::cout << "Total elapsed time (CPU) : " << t_tot_CPU;
   #ifdef KOKKOS_ENABLE_CUDA
-  double t_tot_GPU = timer_tot.elapsed(Mode::ELAPSED_GPU);
+  double t_tot_GPU = timer_total.elapsed(Mode::ELAPSED_GPU);
   std::cout << " , (GPU) : " << t_tot_GPU;
   #endif
   std::cout << std::endl;
-  timer_tot.start();
+  timer_total.start();
   
-  
-
   for( const auto& p : this->timer_map )
   {
     const std::string& name = p.first;
-    if( name != "___TOTAL___" )
     {
-      {
-        double time_CPU = p.second.elapsed(Mode::ELAPSED_CPU);
-        double percent_CPU = 100 * time_CPU / t_tot_CPU;
-        std::cout << std::left << std::setw(25) << name;
-        printf(" time (CPU) : %5.3f \ts (%5.2f%%)", time_CPU, percent_CPU);
-      }
-      #ifdef KOKKOS_ENABLE_CUDA
-      {
-        double time_GPU = p.second.elapsed(Mode::ELAPSED_GPU);
-        double percent_GPU = 100 * time_GPU / t_tot_GPU;
-        printf(" , (GPU) : %5.3f \ts (%5.2f%%)", time_GPU, percent_GPU);
-      }
-      #endif 
-      std::cout << std::endl;  
+      double time_CPU = p.second.elapsed(Mode::ELAPSED_CPU);
+      double percent_CPU = 100 * time_CPU / t_tot_CPU;
+      std::cout << std::left << std::setw(25) << name;
+      printf(" time (CPU) : %5.3f \ts (%5.2f%%)", time_CPU, percent_CPU);
     }
+    #ifdef KOKKOS_ENABLE_CUDA
+    {
+      double time_GPU = p.second.elapsed(Mode::ELAPSED_GPU);
+      double percent_GPU = 100 * time_GPU / t_tot_GPU;
+      printf(" , (GPU) : %5.3f \ts (%5.2f%%)", time_GPU, percent_GPU);
+    }
+    #endif 
+    std::cout << std::endl;  
   }
 }
 
@@ -75,6 +69,7 @@ struct Timers::Timer::Timer_pimpl{
   #ifdef KOKKOS_ENABLE_CUDA
   CudaTimer cuda_timer;
   #endif
+  bool running = false;
 };
 
 Timers::Timer::Timer(const std::string& name)
@@ -83,6 +78,9 @@ Timers::Timer::Timer(const std::string& name)
 
 void Timers::Timer::start()
 {
+  assert(!data->running);
+  data->running=true;
+
   Kokkos::Profiling::pushRegion(this->name);
   data->omp_timer.start();
   #ifdef KOKKOS_ENABLE_CUDA
@@ -92,6 +90,9 @@ void Timers::Timer::start()
 
 void Timers::Timer::stop()
 {
+  assert(data->running);
+  data->running=false;
+
   Kokkos::Profiling::popRegion();
   data->omp_timer.stop();
   #ifdef KOKKOS_ENABLE_CUDA
@@ -101,6 +102,8 @@ void Timers::Timer::stop()
 
 double Timers::Timer::elapsed(Timers::Timer::Elapsed_mode_t em) const
 {
+  assert(!data->running);
+
   if(em == ELAPSED_CPU)
     return data->omp_timer.elapsed();
   #ifdef KOKKOS_ENABLE_CUDA

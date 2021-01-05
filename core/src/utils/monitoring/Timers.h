@@ -33,4 +33,5 @@ public:
 
 private:
   std::map<std::string, Timer> timer_map;
+  Timer timer_total;
 };
