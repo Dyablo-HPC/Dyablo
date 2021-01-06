@@ -24,8 +24,42 @@
 class CudaTimer
 {
 protected:
+  class CUDAEvent{
+  public:    
+    CUDAEvent(){
+      cudaEventCreate(&event);
+      cudaEventRecord(event, 0);
+    }
+    
+    CUDAEvent(const CUDAEvent& ) = delete;
+    
+    ~CUDAEvent(){
+      cudaEventDestroy(event);
+    }
+    bool check() const
+    {
+      return cudaEventQuery(event) == cudaSuccess;
+    }
+    void wait() const
+    {
+      cudaEventSynchronize(event);
+    }
+    /// Elapsed time in seconds
+    static double elapsed(const CUDAEvent& begin, const CUDAEvent& end)
+    {
+      assert(begin.check());
+      assert(end.check());
+
+      float gpuTime;
+      cudaEventElapsedTime(&gpuTime, begin.event, end.event);
+      return 1e-3*gpuTime;
+    }
+  private:
+    cudaEvent_t event;
+  };
+
   //! queue CUDA start and stop events
-  std::queue<cudaEvent_t> startEv_queue, stopEv_queue;
+  std::queue<CUDAEvent> startEv_queue, stopEv_queue;
   //! total accumulated duration
   double total_time;  
 
@@ -35,13 +69,6 @@ public:
     total_time = 0.0;
   }
 
-  CudaTimer(const CudaTimer&) = delete;
-
-  ~CudaTimer()
-  {
-    empty_queue();
-  }
-
   /**
    * @brief start timer
    * push a start even in a cuda stream 
@@ -49,10 +76,7 @@ public:
    **/
   void start()
   {
-    cudaEvent_t startEv;
-    cudaEventCreate(&startEv);
-    cudaEventRecord(startEv, 0);
-    startEv_queue.push(startEv);
+    startEv_queue.emplace();
 
     accumulate_finished();
   }
@@ -67,10 +91,7 @@ public:
   //! stop timer, push a stop event in a cuda stream
   void stop()
   {
-    cudaEvent_t stopEv;
-    cudaEventCreate(&stopEv);
-    cudaEventRecord(stopEv, 0);
-    stopEv_queue.push(stopEv);
+    stopEv_queue.emplace();
   }
 
   /**
@@ -90,7 +111,7 @@ private:
   {
     // Wait for last cuda event
     if(!stopEv_queue.empty())
-      cudaEventSynchronize(stopEv_queue.front());
+      stopEv_queue.front().wait();
 
     accumulate_finished();
   
@@ -101,17 +122,10 @@ private:
   /// Flush finished events from the queue
   void accumulate_finished()
   {
-    while( !stopEv_queue.empty() and (cudaSuccess == cudaEventQuery(stopEv_queue.front())) )
+    while( !stopEv_queue.empty() and stopEv_queue.front().check() )
     {
-      // get elapsed time in milliseconds
-      float gpuTime;
-      cudaEventElapsedTime(&gpuTime, startEv_queue.front(), stopEv_queue.front());
+      total_time += CUDAEvent::elapsed(startEv_queue.front(), stopEv_queue.front());
 
-      cudaEventDestroy(startEv_queue.front());
-      cudaEventDestroy(stopEv_queue.front());
-
-      // accumulate duration in seconds
-      total_time += (double)1e-3*gpuTime;
       startEv_queue.pop();
       stopEv_queue.pop();
     }
