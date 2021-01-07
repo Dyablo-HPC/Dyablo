@@ -839,6 +839,8 @@ void SolverHydroMusclBlock::mark_cells()
   // number of group of octants, rounding to upper value
   uint32_t nbGroup = (nbOcts + nbOctsPerGroup - 1) / nbOctsPerGroup;
 
+  MarkOctantsHydroFunctor::markers_t markers(nbOcts);
+
   for (uint32_t iGroup = 0; iGroup < nbGroup; ++iGroup) {
 
     m_timers[TIMER_AMR_BLOCK_COPY]->start();
@@ -861,16 +863,19 @@ void SolverHydroMusclBlock::mark_cells()
 
     // finaly apply refine criterion : 
     // call device functor to flag for refine/coarsen
-    MarkOctantsHydroFunctor::apply(amr_mesh, lmesh, configMap, params, fm,
+    MarkOctantsHydroFunctor::apply(lmesh, configMap, params, fm,
                                    blockSizes, ghostWidth,
                                    nbOcts, nbOctsPerGroup,
                                    Qgroup, iGroup,
-                                   error_min, error_max);
+                                   error_min, error_max,
+                                   markers);
 
     m_timers[TIMER_AMR_CYCLE_MARK_CELLS]->stop();
 
   } // end for iGroup
 
+
+  MarkOctantsHydroFunctor::set_markers_pablo(markers, amr_mesh);
 
 } // SolverHydroMusclBlock::mark_cells
 
