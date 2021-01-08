@@ -352,7 +352,7 @@ public:
       numOctants(pmesh->getNumOctants()) , min_level(params.level_min), max_level(params.level_max), ndim(pmesh->getDim())
     {
         std::cout << "LightOctree rehash ..." << std::endl;
-        init(pmesh, params);
+        init(pmesh, params, oct_data, oct_map, numOctants);
     }
     //! @copydoc LightOctree_base::getNumOctants()
     KOKKOS_INLINE_FUNCTION uint32_t getNumOctants() const
@@ -547,46 +547,76 @@ private:
         assert( morton == (res >> shift) ); // Loss of data from shift
         return res;
     };
-    //! Get octant index in oct_data from an OctantIndex
-    KOKKOS_INLINE_FUNCTION uint32_t get_ioct_local(const OctantIndex& oct) const
+    KOKKOS_INLINE_FUNCTION static uint32_t get_ioct_local(const OctantIndex& oct, uint32_t numOctants)
     {
         // Ghosts are stored after non-ghosts
         return oct.isGhost*numOctants + oct.iOct;
     }
+    //! Get octant index in oct_data from an OctantIndex
+    KOKKOS_INLINE_FUNCTION uint32_t get_ioct_local(const OctantIndex& oct) const
+    {
+        // Ghosts are stored after non-ghosts
+        return get_ioct_local(oct, numOctants);
+    }
 
-    int numOctants; //! Number of local octants (no ghosts)
+    uint32_t numOctants; //! Number of local octants (no ghosts)
     level_t min_level; //! Coarser level of the octree
     level_t max_level; //! Finer level of the octree
     int ndim; //! 2D or 3D
     
+public: // init() has to be public for KOKKOS_LAMBDA
 
     /**
      * Fetches data from pmesh and fill hashmap
      **/
-    void init(std::shared_ptr<AMRmesh> pmesh, const HydroParams& params)
+    static void init(std::shared_ptr<AMRmesh> pmesh, const HydroParams& params, oct_data_t& oct_data, oct_map_t& oct_map, uint32_t numOctants)
     {   
-        oct_data_t::HostMirror oct_data_host("LightOctree::oct_data_host", pmesh->getNumOctants()+pmesh->getNumGhosts(), OCT_DATA_COUNT);
-        oct_map_t::HostMirror oct_map_host( pmesh->getNumOctants()+pmesh->getNumGhosts());
+        const uint32_t numOctants_tot =  pmesh->getNumOctants()+pmesh->getNumGhosts();
+        
+        // Copy mesh data from PABLO tree to LightOctree
+        {   
+            oct_data_t::HostMirror oct_data_host = Kokkos::create_mirror_view(oct_data);
+            LightOctree_pablo mesh_pablo(pmesh, params);
 
-        LightOctree_pablo mesh_pablo(pmesh, params);
+            Kokkos::parallel_for( "LightOctree_hashmap::copydata", 
+                                Kokkos::RangePolicy<Kokkos::OpenMP>(0, numOctants_tot),
+                                [=]( uint32_t ioct_local )
+            {
+                OctantIndex oct = {ioct_local, false};
+                if( ioct_local >= numOctants )
+                {
+                    oct.iOct -= numOctants;
+                    oct.isGhost = true;
+                }
 
-        // Get octant data using LightOctree_pablo and 
-        // insert Octant in oct_data_host and oct_map_host
-        auto add_octant = [&](const OctantIndex& oct)
+                pos_t c = mesh_pablo.getCorner(oct);
+                uint8_t level = mesh_pablo.getLevel(oct);
+
+                oct_data_host(ioct_local, ICORNERX) = c[IX];
+                oct_data_host(ioct_local, ICORNERY) = c[IY];
+                oct_data_host(ioct_local, ICORNERZ) = c[IZ];
+                oct_data_host(ioct_local, ILEVEL) = level;
+            });
+
+            // Copy data to device
+            Kokkos::deep_copy(oct_data,oct_data_host);
+        }
+
+        // Put octants into hashmap on device
+        Kokkos::parallel_for( "LightOctree_hashmap::rehash", 
+                              numOctants_tot,
+                              KOKKOS_LAMBDA(uint32_t ioct_local)
         {
-            pos_t c = mesh_pablo.getCorner(oct);
-            uint8_t level = mesh_pablo.getLevel(oct);
-
-            uint32_t ioct_local = get_ioct_local(oct);
-            oct_data_host(ioct_local, ICORNERX) = c[IX];
-            oct_data_host(ioct_local, ICORNERY) = c[IY];
-            oct_data_host(ioct_local, ICORNERZ) = c[IZ];
-            oct_data_host(ioct_local, ILEVEL) = level;
+            pos_t c;
+            c[IX] = oct_data(ioct_local, static_cast<int>(ICORNERX));
+            c[IY] = oct_data(ioct_local, ICORNERY);
+            c[IZ] = oct_data(ioct_local, ICORNERZ);
+            uint8_t level = oct_data(ioct_local, ILEVEL);
 
             uint32_t octant_count = std::pow( 2, level );
             real_t octant_size = 1.0/octant_count;
             real_t eps = octant_size/8; // To avoid rounding error when computing logical coords
-            auto periodic_coord = [&](real_t pos) -> int32_t
+                auto periodic_coord = [=](real_t pos) -> int32_t
             {
                 int32_t grid_pos = std::floor((pos+eps)/octant_size);
                 return (grid_pos+octant_count) % octant_count; // Only works if grid_pos>-octant_count
@@ -598,22 +628,16 @@ private:
             };
             morton_t morton = compute_morton_key(logical_coords);
 
-            oct_map_t::insert_result inserted = oct_map_host.insert( get_key(level, morton), oct );
+            OctantIndex ioct = {ioct_local, false};
+            if( ioct_local >= numOctants )
+            {
+                ioct.iOct -= numOctants;
+                ioct.isGhost = true;
+            }
+
+            oct_map_t::insert_result inserted = oct_map.insert( get_key(level, morton), ioct );
             assert(inserted.success());
-        };
-        // Insert local octants
-        for(uint32_t iOct = 0; iOct < pmesh->getNumOctants(); iOct++)
-        {
-            add_octant({iOct, false});
-        }
-        // Inser ghost octants
-        for(uint32_t iOct = 0; iOct < pmesh->getNumGhosts(); iOct++)
-        {
-            add_octant({iOct, true});
-        }
-        // Copy data and hashmap to device
-        Kokkos::deep_copy(oct_map,oct_map_host);
-        Kokkos::deep_copy(oct_data,oct_data_host);
+        });
     }
 };
 
