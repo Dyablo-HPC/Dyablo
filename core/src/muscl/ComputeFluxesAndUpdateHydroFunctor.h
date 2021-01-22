@@ -11,7 +11,6 @@
 
 #include "shared/LightOctree.h"
 #include "shared/RiemannSolvers.h"
-#include "shared/bc_utils.h"
 
 // utils hydro
 #include "shared/utils_hydro.h"
@@ -686,7 +685,7 @@ public:
         const double &x = xyz_c[IX];
         const double &y = xyz_c[IY];
         
-        if ( is_at_border<XMIN>(dx,x) and iface == 0 ) {
+        if ( lmesh.isBoundary({i, false}, XMIN))  {
           if (params.boundary_type_xmin == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -698,7 +697,7 @@ public:
           }
         }
         
-        if ( is_at_border<XMAX>(dx,x) and iface == 1 ) {
+        if ( lmesh.isBoundary({i, false}, XMAX) ) {
           if (params.boundary_type_xmax == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -710,7 +709,7 @@ public:
           }
         }
           
-        if ( is_at_border<YMIN>(dx,y) and iface == 2 ) {
+        if ( lmesh.isBoundary({i, false}, YMIN) ) {
           if (params.boundary_type_ymin == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -722,7 +721,7 @@ public:
           }
         }
         
-        if ( is_at_border<YMAX>(dx,y) and iface == 3 ) {
+        if ( lmesh.isBoundary({i, false}, YMAX) ) {
           if (params.boundary_type_ymax == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -948,7 +947,7 @@ public:
         const double &y = xyz_c[IY];
         const double &z = xyz_c[IZ];
 
-        if ( is_at_border<XMIN>(dx,x) and iface == 0 ) {
+        if ( lmesh.isBoundary({i, false}, XMIN) ) {
           if (params.boundary_type_xmin == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -960,7 +959,7 @@ public:
           }
         }
         
-        if ( is_at_border<XMAX>(dx,x) and iface == 1 ) {
+        if ( lmesh.isBoundary({i, false}, XMAX) ) {
           if (params.boundary_type_xmax == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -972,7 +971,7 @@ public:
           }
         }
           
-        if ( is_at_border<YMIN>(dx,y) and iface == 2 ) {
+        if ( lmesh.isBoundary({i, false}, YMIN) ) {
           if (params.boundary_type_ymin == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -984,7 +983,7 @@ public:
           }
         }
         
-        if ( is_at_border<YMAX>(dx,y) and iface == 3 ) {
+        if ( lmesh.isBoundary({i, false}, YMAX) ) {
           if (params.boundary_type_ymax == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -996,7 +995,7 @@ public:
           }
         }
 
-        if ( is_at_border<ZMIN>(dx,z) and iface == 4 ) {
+        if ( lmesh.isBoundary({i, false}, ZMIN) ) {
           if (params.boundary_type_zmin == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -1008,7 +1007,7 @@ public:
           }
         }
         
-        if ( is_at_border<ZMAX>(dx,z) and iface == 5 ) {
+        if ( lmesh.isBoundary({i, false}, ZMAX) ) {
           if (params.boundary_type_zmax == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;

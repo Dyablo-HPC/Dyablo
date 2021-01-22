@@ -11,7 +11,6 @@
 
 #include "shared/LightOctree.h"
 #include "shared/RiemannSolvers.h"
-#include "shared/bc_utils.h"
 
 // utils hydro
 #include "shared/utils_hydro.h"

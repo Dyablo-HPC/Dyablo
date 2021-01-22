@@ -118,6 +118,12 @@ public:
      * @note Requesting a neighbor outside the domain when PABLO octree is not periodic is undefined behavior
      **/
     NeighborList findNeighbors( const OctantIndex& iOct, const offset_t& offset ) const;
+
+    /// Is the given face of the given oct an external boundary ?
+    bool isBoundary(const OctantIndex& iOct, uint8_t iFace) const;
+
+    /// Boundary Conditions ///
+    BoundaryConditionType boundary_type[6]; 
 };
 
 /**
@@ -135,7 +141,14 @@ public:
 
     LightOctree_pablo( std::shared_ptr<AMRmesh> pmesh, const HydroParams& params )
     : pmesh(pmesh), ndim(pmesh->getDim())
-    {}
+    {
+      boundary_type[FACE_XMIN] = params.boundary_type_xmin;
+      boundary_type[FACE_XMAX] = params.boundary_type_xmax;
+      boundary_type[FACE_YMIN] = params.boundary_type_ymin;
+      boundary_type[FACE_YMAX] = params.boundary_type_ymax;
+      boundary_type[FACE_ZMIN] = params.boundary_type_zmin;
+      boundary_type[FACE_ZMAX] = params.boundary_type_zmax;
+    }
     //! @copydoc LightOctree_base::getNumOctants()
     uint32_t getNumOctants() const
     {
@@ -248,6 +261,33 @@ public:
         return neighbors;
     }
 
+    /**
+     * @copydoc LightOctree_base::isBoundary()
+     **/
+    bool isBoundary(const OctantIndex& iOct, uint8_t iFace) const {
+      real_t dh = getSize(iOct);
+      
+      if (boundary_type[iFace] == BC_PERIODIC)
+        return false;
+
+      pos_t center = getCenter(iOct);
+      real_t pos;
+      if (iFace <= XMAX)
+        pos = center[0];
+      else if (iFace <= YMAX)
+        pos = center[1];
+      else
+        pos = center[2];
+        
+      if ((iFace == XMIN or iFace == YMIN or iFace == ZMIN) and pos - dh < 0)
+        return true;
+      if ((iFace == XMAX or iFace == YMAX or iFace == ZMAX) and pos + dh > 1.0)
+        return true;
+
+      return false;
+    }
+
+
     // ------------------------
     // Only in LightOctree_pablo
     // ------------------------
@@ -353,6 +393,13 @@ public:
     {
         std::cout << "LightOctree rehash ..." << std::endl;
         init(pmesh, params, oct_data, oct_map, numOctants);
+
+        boundary_type[FACE_XMIN] = params.boundary_type_xmin;
+        boundary_type[FACE_XMAX] = params.boundary_type_xmax;
+        boundary_type[FACE_YMIN] = params.boundary_type_ymin;
+        boundary_type[FACE_YMAX] = params.boundary_type_ymax;
+        boundary_type[FACE_ZMIN] = params.boundary_type_zmin;
+        boundary_type[FACE_ZMAX] = params.boundary_type_zmax;
     }
     //! @copydoc LightOctree_base::getNumOctants()
     KOKKOS_INLINE_FUNCTION uint32_t getNumOctants() const
@@ -474,6 +521,33 @@ public:
             }            
         }
         return res;
+    }
+
+    /**
+     * @copydoc LightOctree_base::isBoundary()
+     **/
+    KOKKOS_INLINE_FUNCTION
+    bool isBoundary(const OctantIndex& iOct, uint8_t iFace) const {
+      real_t dh = getSize(iOct);
+      
+      if (boundary_type[iFace] == BC_PERIODIC)
+        return false;
+
+      pos_t center = getCenter(iOct);
+      real_t pos;
+      if (iFace <= XMAX)
+        pos = center[0];
+      else if (iFace <= YMAX)
+        pos = center[1];
+      else
+        pos = center[2];
+        
+      if ((iFace == XMIN or iFace == YMIN or iFace == ZMIN) and pos - dh < 0)
+        return true;
+      if ((iFace == XMAX or iFace == YMAX or iFace == ZMAX) and pos + dh > 1.0)
+        return true;
+
+      return false;
     }
 
     // ------------------------
