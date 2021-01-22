@@ -161,6 +161,9 @@ public:
 
     for (uint8_t iface=0; iface<nfaces; ++iface) 
     {
+      if (lmesh.isBoundary({i, false}, iface))
+        continue;
+
       // Generate neighbor relative position from iface
       LightOctree::offset_t offset = {0};
       if( face_along_axis<IX>(iface) ) offset[IX] = (iface & 0x1) == 0 ? -1 : 1;
