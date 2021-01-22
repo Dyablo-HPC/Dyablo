@@ -238,6 +238,8 @@ public:
 
     LightOctree::offset_t offset = {0,0,0};
     offset[dir] = (face==FACE_LEFT) ? -1 : 1;
+
+    // If non-conformal, there's necessarily a neighbor !
     LightOctree::NeighborList neighbors = lmesh.findNeighbors({iOct,false}, offset);
 
     uint32_t ii, jj; // Coords of the first neighbour

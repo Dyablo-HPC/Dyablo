@@ -264,26 +264,22 @@ public:
     /**
      * @copydoc LightOctree_base::isBoundary()
      **/
-    bool isBoundary(const OctantIndex& iOct, uint8_t iFace) const {
+    bool isBoundary(const OctantIndex& iOct, const offset_t& offset) const {
       real_t dh = getSize(iOct);
-      
-      if (boundary_type[iFace] == BC_PERIODIC)
-        return false;
 
       pos_t center = getCenter(iOct);
-      real_t pos;
-      if (iFace <= XMAX)
-        pos = center[0];
-      else if (iFace <= YMAX)
-        pos = center[1];
-      else
-        pos = center[2];
-        
-      if ((iFace == XMIN or iFace == YMIN or iFace == ZMIN) and pos - dh < 0)
-        return true;
-      if ((iFace == XMAX or iFace == YMAX or iFace == ZMAX) and pos + dh > 1.0)
-        return true;
+      for (int iDir=0; iDir < 3; ++iDir) {
+        if (offset[iDir] != 0) {
+          uint8_t iface = iDir * 2 + (offset[iDir] == 1 ? 1 : 0);
+          if (boundary_type[iface] == BC_PERIODIC)
+            continue;
 
+        real_t pos = center[iDir] + offset[iDir] * dh;
+        if (pos < 0.0 or pos > 1.0)
+          return true;
+        }
+      }
+       
       return false;
     }
 
@@ -527,26 +523,22 @@ public:
      * @copydoc LightOctree_base::isBoundary()
      **/
     KOKKOS_INLINE_FUNCTION
-    bool isBoundary(const OctantIndex& iOct, uint8_t iFace) const {
+    bool isBoundary(const OctantIndex& iOct, const offset_t& offset) const {
       real_t dh = getSize(iOct);
-      
-      if (boundary_type[iFace] == BC_PERIODIC)
-        return false;
 
       pos_t center = getCenter(iOct);
-      real_t pos;
-      if (iFace <= XMAX)
-        pos = center[0];
-      else if (iFace <= YMAX)
-        pos = center[1];
-      else
-        pos = center[2];
-        
-      if ((iFace == XMIN or iFace == YMIN or iFace == ZMIN) and pos - dh < 0)
-        return true;
-      if ((iFace == XMAX or iFace == YMAX or iFace == ZMAX) and pos + dh > 1.0)
-        return true;
+      for (int iDir=0; iDir < 3; ++iDir) {
+        if (offset[iDir] != 0) {
+          uint8_t iface = iDir * 2 + (offset[iDir] == 1 ? 1 : 0);
+          if (boundary_type[iface] == BC_PERIODIC)
+            continue;
 
+        real_t pos = center[iDir] + offset[iDir] * dh;
+        if (pos < 0.0 or pos > 1.0)
+          return true;
+        }
+      }
+       
       return false;
     }
 

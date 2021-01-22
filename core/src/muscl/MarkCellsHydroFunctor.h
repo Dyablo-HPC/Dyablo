@@ -161,14 +161,15 @@ public:
 
     for (uint8_t iface=0; iface<nfaces; ++iface) 
     {
-      if (lmesh.isBoundary({i, false}, iface))
-        continue;
 
       // Generate neighbor relative position from iface
       LightOctree::offset_t offset = {0};
       if( face_along_axis<IX>(iface) ) offset[IX] = (iface & 0x1) == 0 ? -1 : 1;
       if( face_along_axis<IY>(iface) ) offset[IY] = (iface & 0x1) == 0 ? -1 : 1;
       if( face_along_axis<IZ>(iface) ) offset[IZ] = (iface & 0x1) == 0 ? -1 : 1;
+
+      if (lmesh.isBoundary({i, false}, offset))
+        continue;
 
       LightOctree::NeighborList neighbors = lmesh.findNeighbors( {i, false}, offset );
 

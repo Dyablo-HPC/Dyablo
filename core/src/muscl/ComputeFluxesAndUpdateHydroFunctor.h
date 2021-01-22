@@ -664,7 +664,9 @@ public:
       if( face_along_axis<IX>(iface) ) offset[IX] = (iface & 0x1) == 0 ? -1 : 1;
       if( face_along_axis<IY>(iface) ) offset[IY] = (iface & 0x1) == 0 ? -1 : 1;
 
-      LightOctree::NeighborList neighbors = lmesh.findNeighbors( {i, false}, offset );
+      LightOctree::NeighborList neighbors {0};
+      if (!lmesh.isBoundary({i, false}, offset))
+        lmesh.findNeighbors( {i, false}, offset );
 
       //===================================================
       //
@@ -685,7 +687,7 @@ public:
         const double &x = xyz_c[IX];
         const double &y = xyz_c[IY];
         
-        if ( lmesh.isBoundary({i, false}, XMIN))  {
+        if ( lmesh.isBoundary({i, false}, {-1, 0, 0}))  {
           if (params.boundary_type_xmin == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -697,7 +699,7 @@ public:
           }
         }
         
-        if ( lmesh.isBoundary({i, false}, XMAX) ) {
+        if ( lmesh.isBoundary({i, false}, {1, 0, 0}) ) {
           if (params.boundary_type_xmax == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -709,7 +711,7 @@ public:
           }
         }
           
-        if ( lmesh.isBoundary({i, false}, YMIN) ) {
+        if ( lmesh.isBoundary({i, false}, {0, -1, 0}) ) {
           if (params.boundary_type_ymin == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -721,7 +723,7 @@ public:
           }
         }
         
-        if ( lmesh.isBoundary({i, false}, YMAX) ) {
+        if ( lmesh.isBoundary({i, false}, {0, 1, 0}) ) {
           if (params.boundary_type_ymax == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -925,7 +927,9 @@ public:
       if( face_along_axis<IY>(iface) ) offset[IY] = (iface & 0x1) == 0 ? -1 : 1;
       if( face_along_axis<IZ>(iface) ) offset[IZ] = (iface & 0x1) == 0 ? -1 : 1;
 
-      LightOctree::NeighborList neighbors = lmesh.findNeighbors( {i, false}, offset );
+      LightOctree::NeighborList neighbors {0};
+      if (!lmesh.isBoundary( {i, false}, offset )) 
+        neighbors = lmesh.findNeighbors( {i, false}, offset );
 
       //===================================================
       //
@@ -947,7 +951,7 @@ public:
         const double &y = xyz_c[IY];
         const double &z = xyz_c[IZ];
 
-        if ( lmesh.isBoundary({i, false}, XMIN) ) {
+        if ( lmesh.isBoundary({i, false}, {-1, 0, 0}) ) {
           if (params.boundary_type_xmin == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -959,7 +963,7 @@ public:
           }
         }
         
-        if ( lmesh.isBoundary({i, false}, XMAX) ) {
+        if ( lmesh.isBoundary({i, false}, {1, 0, 0}) ) {
           if (params.boundary_type_xmax == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -971,7 +975,7 @@ public:
           }
         }
           
-        if ( lmesh.isBoundary({i, false}, YMIN) ) {
+        if ( lmesh.isBoundary({i, false}, {0, -1, 0}) ) {
           if (params.boundary_type_ymin == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -983,7 +987,7 @@ public:
           }
         }
         
-        if ( lmesh.isBoundary({i, false}, YMAX) ) {
+        if ( lmesh.isBoundary({i, false}, {0, 1, 0}) ) {
           if (params.boundary_type_ymax == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -995,7 +999,7 @@ public:
           }
         }
 
-        if ( lmesh.isBoundary({i, false}, ZMIN) ) {
+        if ( lmesh.isBoundary({i, false}, {0, 0, -1}) ) {
           if (params.boundary_type_zmin == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -1007,7 +1011,7 @@ public:
           }
         }
         
-        if ( lmesh.isBoundary({i, false}, ZMAX) ) {
+        if ( lmesh.isBoundary({i, false}, {0, 0, 1}) ) {
           if (params.boundary_type_zmax == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
