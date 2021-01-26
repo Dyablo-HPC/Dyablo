@@ -76,10 +76,24 @@ public:
     // get cell center coordinate in the unit domain
     // FIXME : need to refactor AMRmesh interface to use Kokkos::Array
     std::array<double,3> center = pmesh->getCenter(i);
+
+    real_t x = center[0];
+    real_t y = center[1];
+    real_t z = center[2];
+
+    // Quadrant size
+    const real_t qx = 1.0 / bParams.blast_nx;
+    const real_t qy = 1.0 / bParams.blast_ny;
+    const real_t qz = 1.0 / bParams.blast_nz;
     
-    const real_t x = center[0];
-    const real_t y = center[1];
-    const real_t z = center[2];
+    const int qix = (int)(x / qx);
+    const int qiy = (int)(y / qy);
+    const int qiz = (int)(z / qz);
+
+    // Rescaling position wrt the current blast quadrant
+    x = (x - qix * qx) / qx;
+    y = (y - qiy * qy) / qy;
+    z = (z - qiz * qz) / qz;
     
     real_t d2 = 
       (x-blast_center_x)*(x-blast_center_x)+
@@ -174,13 +188,28 @@ public:
       // FIXME : need to refactor AMRmesh interface to use Kokkos::Array
       std::array<double,3> center = pmesh->getCenter(i);
       
-      const real_t x = center[0];
-      const real_t y = center[1];
-      const real_t z = center[2];
+      real_t x = center[0];
+      real_t y = center[1];
+      real_t z = center[2];
 
-      double cellSize2 = pmesh->getSize(i)*0.75;
+      // Quadrant size
+      const real_t qx = 1.0 / bParams.blast_nx;
+      const real_t qy = 1.0 / bParams.blast_ny;
+      const real_t qz = 1.0 / bParams.blast_nz;
       
-      bool should_refine = false;
+      const int qix = (int)(x / qx);
+      const int qiy = (int)(y / qy);
+      const int qiz = (int)(z / qz);
+
+      // Rescaling position wrt the current blast quadrant
+      x = (x - qix * qx) / qx;
+      y = (y - qiy * qy) / qy;
+      z = (z - qiz * qz) / qz;
+
+      double cellSize = pmesh->getSize(i)*0.75;
+      
+      // We refine if the current size is bigger than a cell
+      bool should_refine = (cellSize > std::min({qx, qy, qz}));
 
       real_t d2 = 
         (x-blast_center_x)*(x-blast_center_x)+
@@ -189,11 +218,11 @@ public:
       if (params.dimType == THREE_D)
         d2 += (z-blast_center_z)*(z-blast_center_z);
 
-      if ( fabs(sqrt(d2) - radius) < cellSize2 )
-	should_refine = true;
+      if ( fabs(sqrt(d2) - radius) < cellSize )
+	      should_refine = true;
       
       if (should_refine)
-	pmesh->setMarker(i, 1);
+	      pmesh->setMarker(i, 1);
 
     } // end if level == level_refine
     

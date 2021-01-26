@@ -59,9 +59,9 @@ public:
   
   // static method which does it all: create and execute functor
   static void apply(std::shared_ptr<AMRmesh> pmesh,
-		    HydroParams    params,
+		                HydroParams    params,
                     ConfigMap      configMap,
-		    id2index_t     fm,
+		                id2index_t     fm,
                     blockSize_t    blockSizes,
                     DataArrayBlockHost Udata_h)
   {
@@ -154,6 +154,20 @@ public:
           real_t y = y0 + iy*cellSize + cellSize/2;
           real_t z = z0 + iz*cellSize + cellSize/2;
 
+          // Quadrant size
+          const real_t qx = 1.0 / bParams.blast_nx;
+          const real_t qy = 1.0 / bParams.blast_ny;
+          const real_t qz = 1.0 / bParams.blast_nz;
+          
+          const int qix = (int)(x / qx);
+          const int qiy = (int)(y / qy);
+          const int qiz = (int)(z / qz);
+
+          // Rescaling position wrt the current blast quadrant
+          x = (x - qix * qx) / qx;
+          y = (y - qiy * qy) / qy;
+          z = (z - qiz * qz) / qz;
+
           // initialize
           real_t d2 = 
             (x-blast_center_x)*(x-blast_center_x)+
@@ -234,8 +248,8 @@ public:
   // static method which does it all: create and execute functor
   static void apply(std::shared_ptr<AMRmesh> pmesh,
                     ConfigMap     configMap,
-		    HydroParams   params,
-		    int           level_refine)
+                    HydroParams   params,
+                    int           level_refine)
   {
     BlastParams blastParams = BlastParams(configMap);
 
@@ -272,13 +286,27 @@ public:
       // FIXME : need to refactor AMRmesh interface to use Kokkos::Array
       std::array<double,3> center = pmesh->getCenter(iOct);
       
-      const real_t x = center[0];
-      const real_t y = center[1];
-      const real_t z = center[2];
+      real_t x = center[0];
+      real_t y = center[1];
+      real_t z = center[2];
+
+      // Quadrant size
+      const real_t qx = 1.0 / bParams.blast_nx;
+      const real_t qy = 1.0 / bParams.blast_ny;
+      const real_t qz = 1.0 / bParams.blast_nz;
+      
+      const int qix = (int)(x / qx);
+      const int qiy = (int)(y / qy);
+      const int qiz = (int)(z / qz);
+
+      // Rescaling position wrt the current blast quadrant
+      x = (x - qix * qx) / qx;
+      y = (y - qiy * qy) / qy;
+      z = (z - qiz * qz) / qz;
 
       double cellSize2 = pmesh->getSize(iOct)*0.75;
       
-      bool should_refine = false;
+      bool should_refine = (cellSize2 > std::min({qx, qy, qz}));
 
       real_t d2 = 
         (x-blast_center_x)*(x-blast_center_x)+
@@ -288,10 +316,10 @@ public:
         d2 += (z-blast_center_z)*(z-blast_center_z);
 
       if ( fabs(sqrt(d2) - radius) < cellSize2 )
-	should_refine = true;
+      	should_refine = true;
       
       if (should_refine)
-	pmesh->setMarker(iOct, 1);
+	      pmesh->setMarker(iOct, 1);
 
     } // end if level == level_refine
     
