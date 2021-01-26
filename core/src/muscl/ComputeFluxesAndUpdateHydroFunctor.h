@@ -666,7 +666,7 @@ public:
 
       LightOctree::NeighborList neighbors {0};
       if (!lmesh.isBoundary({i, false}, offset))
-        lmesh.findNeighbors( {i, false}, offset );
+        neighbors = lmesh.findNeighbors( {i, false}, offset );
 
       //===================================================
       //
@@ -676,18 +676,11 @@ public:
       // is current cell touching the external border ?
       //===================================================
       if (neighbors.size()==0) {
-
         HydroState2d qr_c, qr_n; 
         
         // take care of border conditions (in case of open or
         //reflective border)
-        
-        // get x,y,z coordinate at current cell center
-        const LightOctree::pos_t xyz_c = lmesh.getCenter({i,false});
-        const double &x = xyz_c[IX];
-        const double &y = xyz_c[IY];
-        
-        if ( lmesh.isBoundary({i, false}, {-1, 0, 0}))  {
+        if ( offset[IX] == -1 and lmesh.isBoundary({i, false}, {-1, 0, 0}))  {
           if (params.boundary_type_xmin == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -699,7 +692,7 @@ public:
           }
         }
         
-        if ( lmesh.isBoundary({i, false}, {1, 0, 0}) ) {
+        if ( offset[IX] == 1 and lmesh.isBoundary({i, false}, {1, 0, 0}) ) {
           if (params.boundary_type_xmax == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -711,7 +704,7 @@ public:
           }
         }
           
-        if ( lmesh.isBoundary({i, false}, {0, -1, 0}) ) {
+        if ( offset[IY] == -1 and lmesh.isBoundary({i, false}, {0, -1, 0}) ) {
           if (params.boundary_type_ymin == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -723,7 +716,7 @@ public:
           }
         }
         
-        if ( lmesh.isBoundary({i, false}, {0, 1, 0}) ) {
+        if ( offset[IY] == 1 and lmesh.isBoundary({i, false}, {0, 1, 0}) ) {
           if (params.boundary_type_ymax == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -944,13 +937,6 @@ public:
 
         // take care of border conditions (in case of open or
         // reflective border)
-        
-        // get x,y,z coordinate at current cell center
-        const LightOctree::pos_t xyz_c = lmesh.getCenter({i,false});
-        const double &x = xyz_c[IX];
-        const double &y = xyz_c[IY];
-        const double &z = xyz_c[IZ];
-
         if ( lmesh.isBoundary({i, false}, {-1, 0, 0}) ) {
           if (params.boundary_type_xmin == BC_ABSORBING) {
             qr_n = qprim;

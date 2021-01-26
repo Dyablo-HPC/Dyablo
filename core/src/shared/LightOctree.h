@@ -120,7 +120,7 @@ public:
     NeighborList findNeighbors( const OctantIndex& iOct, const offset_t& offset ) const;
 
     /// Is the given face of the given oct an external boundary ?
-    bool isBoundary(const OctantIndex& iOct, uint8_t iFace) const;
+    bool isBoundary(const OctantIndex& iOct, const offset_t& offset) const;
 
     /// Boundary Conditions ///
     BoundaryConditionType boundary_type[6]; 
@@ -265,6 +265,8 @@ public:
      * @copydoc LightOctree_base::isBoundary()
      **/
     bool isBoundary(const OctantIndex& iOct, const offset_t& offset) const {
+      assert( !iOct.isGhost );
+      
       real_t dh = getSize(iOct);
 
       pos_t center = getCenter(iOct);
@@ -274,9 +276,9 @@ public:
           if (boundary_type[iface] == BC_PERIODIC)
             continue;
 
-        real_t pos = center[iDir] + offset[iDir] * dh;
-        if (pos < 0.0 or pos > 1.0)
-          return true;
+          real_t pos = center[iDir] + offset[iDir] * dh;
+          if (pos < 0.0 or pos > 1.0)
+            return true;
         }
       }
        
@@ -533,9 +535,10 @@ public:
           if (boundary_type[iface] == BC_PERIODIC)
             continue;
 
-        real_t pos = center[iDir] + offset[iDir] * dh;
-        if (pos < 0.0 or pos > 1.0)
-          return true;
+          real_t pos = center[iDir] + offset[iDir] * dh;
+          if (pos < 0.0 or pos > 1.0) {
+            return true;
+          }
         }
       }
        
