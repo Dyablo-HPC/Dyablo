@@ -11,7 +11,6 @@
 
 #include "shared/LightOctree.h"
 #include "shared/RiemannSolvers.h"
-#include "shared/bc_utils.h"
 
 // utils hydro
 #include "shared/utils_hydro.h"
@@ -665,7 +664,9 @@ public:
       if( face_along_axis<IX>(iface) ) offset[IX] = (iface & 0x1) == 0 ? -1 : 1;
       if( face_along_axis<IY>(iface) ) offset[IY] = (iface & 0x1) == 0 ? -1 : 1;
 
-      LightOctree::NeighborList neighbors = lmesh.findNeighbors( {i, false}, offset );
+      LightOctree::NeighborList neighbors {0};
+      if (!lmesh.isBoundary({i, false}, offset))
+        neighbors = lmesh.findNeighbors( {i, false}, offset );
 
       //===================================================
       //
@@ -675,18 +676,11 @@ public:
       // is current cell touching the external border ?
       //===================================================
       if (neighbors.size()==0) {
-
         HydroState2d qr_c, qr_n; 
         
         // take care of border conditions (in case of open or
         //reflective border)
-        
-        // get x,y,z coordinate at current cell center
-        const LightOctree::pos_t xyz_c = lmesh.getCenter({i,false});
-        const double &x = xyz_c[IX];
-        const double &y = xyz_c[IY];
-        
-        if ( is_at_border<XMIN>(dx,x) and iface == 0 ) {
+        if ( offset[IX] == -1 and lmesh.isBoundary({i, false}, {-1, 0, 0}))  {
           if (params.boundary_type_xmin == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -698,7 +692,7 @@ public:
           }
         }
         
-        if ( is_at_border<XMAX>(dx,x) and iface == 1 ) {
+        if ( offset[IX] == 1 and lmesh.isBoundary({i, false}, {1, 0, 0}) ) {
           if (params.boundary_type_xmax == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -710,7 +704,7 @@ public:
           }
         }
           
-        if ( is_at_border<YMIN>(dx,y) and iface == 2 ) {
+        if ( offset[IY] == -1 and lmesh.isBoundary({i, false}, {0, -1, 0}) ) {
           if (params.boundary_type_ymin == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -722,7 +716,7 @@ public:
           }
         }
         
-        if ( is_at_border<YMAX>(dx,y) and iface == 3 ) {
+        if ( offset[IY] == 1 and lmesh.isBoundary({i, false}, {0, 1, 0}) ) {
           if (params.boundary_type_ymax == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -926,7 +920,9 @@ public:
       if( face_along_axis<IY>(iface) ) offset[IY] = (iface & 0x1) == 0 ? -1 : 1;
       if( face_along_axis<IZ>(iface) ) offset[IZ] = (iface & 0x1) == 0 ? -1 : 1;
 
-      LightOctree::NeighborList neighbors = lmesh.findNeighbors( {i, false}, offset );
+      LightOctree::NeighborList neighbors {0};
+      if (!lmesh.isBoundary( {i, false}, offset )) 
+        neighbors = lmesh.findNeighbors( {i, false}, offset );
 
       //===================================================
       //
@@ -941,14 +937,7 @@ public:
 
         // take care of border conditions (in case of open or
         // reflective border)
-        
-        // get x,y,z coordinate at current cell center
-        const LightOctree::pos_t xyz_c = lmesh.getCenter({i,false});
-        const double &x = xyz_c[IX];
-        const double &y = xyz_c[IY];
-        const double &z = xyz_c[IZ];
-
-        if ( is_at_border<XMIN>(dx,x) and iface == 0 ) {
+        if ( lmesh.isBoundary({i, false}, {-1, 0, 0}) ) {
           if (params.boundary_type_xmin == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -960,7 +949,7 @@ public:
           }
         }
         
-        if ( is_at_border<XMAX>(dx,x) and iface == 1 ) {
+        if ( lmesh.isBoundary({i, false}, {1, 0, 0}) ) {
           if (params.boundary_type_xmax == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -972,7 +961,7 @@ public:
           }
         }
           
-        if ( is_at_border<YMIN>(dx,y) and iface == 2 ) {
+        if ( lmesh.isBoundary({i, false}, {0, -1, 0}) ) {
           if (params.boundary_type_ymin == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -984,7 +973,7 @@ public:
           }
         }
         
-        if ( is_at_border<YMAX>(dx,y) and iface == 3 ) {
+        if ( lmesh.isBoundary({i, false}, {0, 1, 0}) ) {
           if (params.boundary_type_ymax == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -996,7 +985,7 @@ public:
           }
         }
 
-        if ( is_at_border<ZMIN>(dx,z) and iface == 4 ) {
+        if ( lmesh.isBoundary({i, false}, {0, 0, -1}) ) {
           if (params.boundary_type_zmin == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -1008,7 +997,7 @@ public:
           }
         }
         
-        if ( is_at_border<ZMAX>(dx,z) and iface == 5 ) {
+        if ( lmesh.isBoundary({i, false}, {0, 0, 1}) ) {
           if (params.boundary_type_zmax == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;

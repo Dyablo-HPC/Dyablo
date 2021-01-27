@@ -192,6 +192,9 @@ public:
       if( face_along_axis<IY>(iface) ) offset[IY] = (iface & 0x1) == 0 ? -1 : 1;
       if( face_along_axis<IZ>(iface) ) offset[IZ] = (iface & 0x1) == 0 ? -1 : 1;
 
+      if (lmesh.isBoundary( {i, false}, offset ))
+        continue;
+
       LightOctree::NeighborList neighbors = lmesh.findNeighbors( {i, false}, offset );
       
       for(int j=0; j<neighbors.size(); j++)
