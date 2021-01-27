@@ -114,7 +114,7 @@ void GhostCommunicator_kokkos::exchange_ghosts(DataArray_t& U, DataArray_t& Ugho
                           Kokkos::ALL, 
                           std::make_pair(iOct_offset,iOct_range_end) );
 
-      mpi_requests.push_back(nullptr);
+      mpi_requests.push_back(MPI_REQUEST_NULL);
       MPI_Isend( send_buffer_rank.data(), send_buffer_rank.size(), MPI_DOUBLE,
                 rank, 0, MPI_COMM_WORLD, &mpi_requests.back() );
 
@@ -137,7 +137,7 @@ void GhostCommunicator_kokkos::exchange_ghosts(DataArray_t& U, DataArray_t& Ugho
                           Kokkos::ALL, 
                           std::make_pair(iOct_offset,iOct_range_end) );
 
-      mpi_requests.push_back(nullptr);
+      mpi_requests.push_back(MPI_REQUEST_NULL);
       MPI_Irecv( recv_buffer_rank.data(), recv_buffer_rank.size(), MPI_DOUBLE,
                 rank, 0, MPI_COMM_WORLD, &mpi_requests.back() );
 
