@@ -122,8 +122,6 @@ public:
     /// Is the given face of the given oct an external boundary ?
     bool isBoundary(const OctantIndex& iOct, const offset_t& offset) const;
 
-    /// Boundary Conditions ///
-    BoundaryConditionType boundary_type[6]; 
 };
 
 /**
@@ -142,12 +140,9 @@ public:
     LightOctree_pablo( std::shared_ptr<AMRmesh> pmesh, const HydroParams& params )
     : pmesh(pmesh), ndim(pmesh->getDim())
     {
-      boundary_type[FACE_XMIN] = params.boundary_type_xmin;
-      boundary_type[FACE_XMAX] = params.boundary_type_xmax;
-      boundary_type[FACE_YMIN] = params.boundary_type_ymin;
-      boundary_type[FACE_YMAX] = params.boundary_type_ymax;
-      boundary_type[FACE_ZMIN] = params.boundary_type_zmin;
-      boundary_type[FACE_ZMAX] = params.boundary_type_zmax;
+        is_periodic[IX] = pmesh->getPeriodic(IX);
+        is_periodic[IY] = pmesh->getPeriodic(IY);
+        is_periodic[IZ] = pmesh->getPeriodic(IZ);
     }
     //! @copydoc LightOctree_base::getNumOctants()
     uint32_t getNumOctants() const
@@ -260,31 +255,23 @@ public:
 
         return neighbors;
     }
-
-    /**
-     * @copydoc LightOctree_base::isBoundary()
-     **/
+    /// @copydoc LightOctree_base::isBoundary()
     bool isBoundary(const OctantIndex& iOct, const offset_t& offset) const {
       assert( !iOct.isGhost );
-      
-      real_t dh = getSize(iOct);
-
-      pos_t center = getCenter(iOct);
-      for (int iDir=0; iDir < 3; ++iDir) {
-        if (offset[iDir] != 0) {
-          uint8_t iface = iDir * 2 + (offset[iDir] == 1 ? 1 : 0);
-          if (boundary_type[iface] == BC_PERIODIC)
-            continue;
-
-          real_t pos = center[iDir] + offset[iDir] * dh;
-          if (pos < 0.0 or pos > 1.0)
-            return true;
-        }
-      }
-       
-      return false;
+      real_t dh = this->getSize(iOct);
+      pos_t center = this->getCenter(iOct);    
+      pos_t pos {
+          center[IX] + offset[IX]*dh,
+          center[IY] + offset[IY]*dh,
+          center[IZ] + offset[IZ]*dh
+      };
+  
+      //       Not periodic   and     not inside domain
+      // in at least one dimension
+      return (!this->is_periodic[IX] && !( 0<pos[IX] && pos[IX]<1 ))
+          || (!this->is_periodic[IY] && !( 0<pos[IY] && pos[IY]<1 ))
+          || (!this->is_periodic[IZ] && !( 0<pos[IX] && pos[IZ]<1 )) ;      
     }
-
 
     // ------------------------
     // Only in LightOctree_pablo
@@ -296,6 +283,7 @@ public:
 protected:
     std::shared_ptr<AMRmesh> pmesh; //! PABLO mesh to relay requests to
     uint8_t ndim; //! 2D or 3D
+    Kokkos::Array<bool,3> is_periodic;
 
 private:
     /** 
@@ -389,15 +377,11 @@ public:
       oct_data("LightOctree::oct_data", pmesh->getNumOctants()+pmesh->getNumGhosts(), OCT_DATA_COUNT),
       numOctants(pmesh->getNumOctants()) , min_level(params.level_min), max_level(params.level_max), ndim(pmesh->getDim())
     {
+        is_periodic[IX] = pmesh->getPeriodic(IX);
+        is_periodic[IY] = pmesh->getPeriodic(IY);
+        is_periodic[IZ] = pmesh->getPeriodic(IZ);
         std::cout << "LightOctree rehash ..." << std::endl;
         init(pmesh, params, oct_data, oct_map, numOctants);
-
-        boundary_type[FACE_XMIN] = params.boundary_type_xmin;
-        boundary_type[FACE_XMAX] = params.boundary_type_xmax;
-        boundary_type[FACE_YMIN] = params.boundary_type_ymin;
-        boundary_type[FACE_YMAX] = params.boundary_type_ymax;
-        boundary_type[FACE_ZMIN] = params.boundary_type_zmin;
-        boundary_type[FACE_ZMAX] = params.boundary_type_zmax;
     }
     //! @copydoc LightOctree_base::getNumOctants()
     KOKKOS_INLINE_FUNCTION uint32_t getNumOctants() const
@@ -520,29 +504,23 @@ public:
         }
         return res;
     }
-
-    /**
-     * @copydoc LightOctree_base::isBoundary()
-     **/
+    /// @copydoc LightOctree_base::isBoundary()
     KOKKOS_INLINE_FUNCTION
     bool isBoundary(const OctantIndex& iOct, const offset_t& offset) const {
-      real_t dh = getSize(iOct);
-
-      pos_t center = getCenter(iOct);
-      for (int iDir=0; iDir < 3; ++iDir) {
-        if (offset[iDir] != 0) {
-          uint8_t iface = iDir * 2 + (offset[iDir] == 1 ? 1 : 0);
-          if (boundary_type[iface] == BC_PERIODIC)
-            continue;
-
-          real_t pos = center[iDir] + offset[iDir] * dh;
-          if (pos < 0.0 or pos > 1.0) {
-            return true;
-          }
-        }
-      }
-       
-      return false;
+      assert( !iOct.isGhost );
+      real_t dh = this->getSize(iOct);
+      pos_t center = this->getCenter(iOct);    
+      pos_t pos {
+          center[IX] + offset[IX]*dh,
+          center[IY] + offset[IY]*dh,
+          center[IZ] + offset[IZ]*dh
+      };
+  
+      //       Not periodic   and     not inside domain
+      // in at least one dimension
+      return (!this->is_periodic[IX] && !( 0<pos[IX] && pos[IX]<1 ))
+          || (!this->is_periodic[IY] && !( 0<pos[IY] && pos[IY]<1 ))
+          || (!this->is_periodic[IZ] && !( 0<pos[IX] && pos[IZ]<1 )) ;            
     }
 
     // ------------------------
@@ -631,7 +609,8 @@ private:
     uint32_t numOctants; //! Number of local octants (no ghosts)
     level_t min_level; //! Coarser level of the octree
     level_t max_level; //! Finer level of the octree
-    int ndim; //! 2D or 3D
+    int ndim; //! 2D or 3D 
+    Kokkos::Array<bool,3> is_periodic;   
     
 public: // init() has to be public for KOKKOS_LAMBDA
 
