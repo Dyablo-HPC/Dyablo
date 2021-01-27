@@ -115,7 +115,8 @@ public:
      * ```
      *
      * @note findNeighbor(), unlike PABLO's, always returns all neighbors in corner 
-     * @note Requesting a neighbor outside the domain when PABLO octree is not periodic is undefined behavior
+     * @note Requesting a neighbor outside the domain when PABLO octree is not periodic returns 
+     *       an empty neighbor list (but you should use isBoundary() if you only want to test that)
      **/
     NeighborList findNeighbors( const OctantIndex& iOct, const offset_t& offset ) const;
 
@@ -198,6 +199,9 @@ public:
     NeighborList findNeighbors( const OctantIndex& iOct, const offset_t& offset )  const
     {
         assert( !iOct.isGhost );
+
+        if( this->isBoundary(iOct, offset) )
+            return NeighborList{0,{}};
 
         // Determine codimension
         int count_dims = 0;
@@ -432,6 +436,9 @@ public:
     KOKKOS_INLINE_FUNCTION NeighborList findNeighbors( const OctantIndex& iOct, const offset_t& offset )  const
     {
         assert( !iOct.isGhost );
+
+        if( this->isBoundary(iOct, offset) )
+            return NeighborList{0,{}};
 
         // Compute physical position of neighbor
         pos_t c = getCenter(iOct);
