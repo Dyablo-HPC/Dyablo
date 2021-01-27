@@ -563,6 +563,8 @@ KOKKOS_INLINE_FUNCTION CellData get_cell_data( const Functor& f, uint32_t iOct_l
     }
 
     //LightOctree::NeighborList neighbors = f.lmesh.findNeighbors({iOct_global,false}, neighbor);
+    if(ndim==2)
+        assert(neighbor[IZ]==0);
     LightOctree::NeighborList neighbors = neighbor_cache(neighbor[IX]+1,neighbor[IY]+1,neighbor[IZ]+1);
 
     uint32_t oct_level = f.lmesh.getLevel({iOct_global,false});
@@ -721,15 +723,19 @@ KOKKOS_INLINE_FUNCTION void fill_ghosts(const Functor& f, Functor::team_policy_t
         f.interface_flags.resetFlags(iOct_g);
       });
 
+      int n_neighbors = (ndim==2) ? 3*3 : 3*3*3;
+
       Kokkos::parallel_for(
-        Kokkos::TeamVectorRange(member, 3*3*3),
+        Kokkos::TeamVectorRange(member, n_neighbors),
         KOKKOS_LAMBDA(const Functor::index_t index)
       {
-        if(index == 1+3+3*3) return; //{0,0,0} is not a neighbor
-
         uint8_t iz = index/(3*3);
         uint8_t iy = (index-iz*3*3)/3;
         uint8_t ix = index - iz*3*3 - iy*3;
+
+        if(ndim==2) iz = 1;
+
+        if(ix==1 && iy==1 & iz==1) return;
 
         LightOctree::offset_t offset = {ix-1,iy-1,iz-1};
 
