@@ -206,7 +206,8 @@ public:
       y = (y - qiy * qy) / qy;
       z = (z - qiz * qz) / qz;
 
-      double cellSize = pmesh->getSize(i)*0.75;
+      // 0.87 > sqrt(3)/2 : distance between center to edge
+      double cellSize = pmesh->getSize(i)*0.87;
       
       // We refine if the current size is bigger than a cell
       bool should_refine = (cellSize > std::min({qx, qy, qz}));

@@ -304,7 +304,8 @@ public:
       y = (y - qiy * qy) / qy;
       z = (z - qiz * qz) / qz;
 
-      double cellSize2 = pmesh->getSize(iOct)*0.75;
+      // 0.87 > sqrt(3)/2 : distance between center to edge in 3D
+      double cellSize2 = pmesh->getSize(iOct)*0.87;
       
       bool should_refine = (cellSize2 > std::min({qx, qy, qz}));
 
