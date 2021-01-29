@@ -11,6 +11,34 @@
 #include "CudaTimer.h"
 #endif
 
+#ifdef DYABLO_DISABLE_TIMERS
+
+Timers::Timers()
+: timer_total("Total")
+{}
+Timers::~Timers()
+{}
+Timers::Timer& Timers::get(const std::string& name)
+{
+  static Timer dummy("");
+  return dummy;
+}
+void Timers::print()
+{
+  std::cout << "(Timers are disabled)" << std::endl;
+}
+struct Timers::Timer::Timer_pimpl {};
+Timers::Timer::Timer(const std::string& name)
+{}
+void Timers::Timer::start()
+{}
+void Timers::Timer::stop()
+{}
+double Timers::Timer::elapsed(Timers::Timer::Elapsed_mode_t em) const
+{return 0;}
+
+#else
+
 Timers::Timers()
 : timer_total("Total")
 {
@@ -116,3 +144,5 @@ double Timers::Timer::elapsed(Timers::Timer::Elapsed_mode_t em) const
     return 0;
   }
 }
+
+#endif
