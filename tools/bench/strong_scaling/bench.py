@@ -2,6 +2,15 @@
 
 from math import log2
 import os
+import sys
+import subprocess
+
+
+machine_threads_per_node=40
+machine_gpus_per_nodes=4
+
+executable_path="./test_solver"
+template_dir=os.path.dirname(os.path.realpath(__file__))
 
 # Replace keys from params in src with values from params and write to dst
 def replace_in_file(src_filename, dst_filename, params):
@@ -18,12 +27,12 @@ def replace_in_file(src_filename, dst_filename, params):
     f_out.close()
 
 
-def generate_testcase( problem_size, block_size, amr_frequency, group_size, nb_nodes, mpi_per_node ):
+def run_testcase( problem_size, block_size, amr_frequency, group_size, nb_nodes, mpi_per_node ):
   
-  dst_dir = "run_"+str(problem_size)+"_"+str(block_size)+"x"+str(block_size)+"_"+str(nb_nodes)+"x"+str(gpus_per_node)+"gpu_amr"+str(amr_frequency)+"_group"+str(group_size)
+  dst_dir = "bench/run_"+str(problem_size)+"_"+str(block_size)+"x"+str(block_size)+"_"+str(nb_nodes)+"nodesx"+str(mpi_per_node)+"mpi_amr"+str(amr_frequency)+"_group"+str(group_size)
 
   # Create blast.ini
-  ini_src = "blast_tmpl.ini"
+  ini_src = os.path.join(template_dir, "blast_tmpl.ini")
   ini_dst = os.path.join(dst_dir, "blast.ini")
 
   ini_params = {}
@@ -37,24 +46,33 @@ def generate_testcase( problem_size, block_size, amr_frequency, group_size, nb_n
   replace_in_file(ini_src, ini_dst, ini_params)
 
   # Create job.slurm
-  slurm_src = "job_tmpl.slurm"
+  slurm_src = os.path.join(template_dir, "job_tmpl.slurm")
   slurm_dst = os.path.join(dst_dir, "job.slurm")
 
-  jz_threads_per_node=40
-  jz_gpus_per_nodes=4
   slurm_params = {}
-  slurm_params["<nb_mpi>"] = nb_mpi
-  slurm_params["<nb_gpus>"] = jz_gpus_per_node
-  slurm_params["<nb_threads>"] = int(jz_threads_per_node/mpi_per_node)
+  slurm_params["<nb_nodes>"] = nb_nodes
+  slurm_params["<nb_mpi>"] = nb_nodes*mpi_per_node
+  slurm_params["<nb_gpus>"] = machine_gpus_per_nodes
+  slurm_params["<nb_threads>"] = int(machine_threads_per_node/mpi_per_node)
 
   replace_in_file(slurm_src, slurm_dst, slurm_params)
 
+  # Safely create a simlink to executable in bench dir
+  try:
+    os.unlink(os.path.join(dst_dir, "test_solver"))
+  except FileNotFoundError:
+    pass
+  os.symlink(os.path.realpath(executable_path), os.path.join(dst_dir, "test_solver"))
 
-generate_testcase( problem_size=1024, block_size=8, amr_frequency=1, group_size=2048, nb_nodes=1, mpi_per_node=1 )
-generate_testcase( problem_size=1024, block_size=8, amr_frequency=1, group_size=2048, nb_nodes=1, mpi_per_node=2 )
-generate_testcase( problem_size=1024, block_size=8, amr_frequency=1, group_size=2048, nb_nodes=1, mpi_per_node=4 )
-generate_testcase( problem_size=1024, block_size=8, amr_frequency=1, group_size=2048, nb_nodes=1, mpi_per_node=8 )
-generate_testcase( problem_size=1024, block_size=8, amr_frequency=1, group_size=2048, nb_nodes=2, mpi_per_node=4 )
+  p = subprocess.Popen(["sbatch", "job.slurm"], cwd=dst_dir)
+  p.wait()
+
+
+#run_testcase( problem_size=1024, block_size=8, amr_frequency=1, group_size=2048, nb_nodes=1, mpi_per_node=1 )
+run_testcase( problem_size=1024, block_size=8, amr_frequency=1, group_size=2048, nb_nodes=1, mpi_per_node=2 )
+#run_testcase( problem_size=1024, block_size=8, amr_frequency=1, group_size=2048, nb_nodes=1, mpi_per_node=4 )
+#run_testcase( problem_size=1024, block_size=8, amr_frequency=1, group_size=2048, nb_nodes=1, mpi_per_node=8 )
+#run_testcase( problem_size=1024, block_size=8, amr_frequency=1, group_size=2048, nb_nodes=2, mpi_per_node=4 )
 
 
     
