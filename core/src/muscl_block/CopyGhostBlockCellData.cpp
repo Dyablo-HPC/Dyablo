@@ -506,6 +506,8 @@ KOKKOS_INLINE_FUNCTION CellData get_cell_data_border( const Functor& f, uint32_t
     return res;
 }
 
+using NeighborCache = Kokkos::View<LightOctree::NeighborList[3][3][3], Kokkos::DefaultExecutionSpace::scratch_memory_space >;
+
 /**
  * @brief Fetch data associated to a cell from a neighbor octant.
  * 
@@ -523,7 +525,7 @@ KOKKOS_INLINE_FUNCTION CellData get_cell_data_border( const Functor& f, uint32_t
  * @return Cell data fetched from neighbor
  **/
 template < int ndim, DIR_ID dir >
-KOKKOS_INLINE_FUNCTION CellData get_cell_data( const Functor& f, uint32_t iOct_local, coord_g_t neighbor_, coord_t pos_in_neighbor, coord_g_t pos_in_local )
+KOKKOS_INLINE_FUNCTION CellData get_cell_data( const Functor& f, uint32_t iOct_local, coord_g_t neighbor_, coord_t pos_in_neighbor, coord_g_t pos_in_local, const NeighborCache& neighbor_cache )
 {
     uint32_t iOct_global = iOct_local + f.iGroup * f.nbOctsPerGroup;
 
@@ -560,7 +562,10 @@ KOKKOS_INLINE_FUNCTION CellData get_cell_data( const Functor& f, uint32_t iOct_l
         return CellData({0,1.11}); // Boundary conditions are set later in the kernel;
     }
 
-    LightOctree::NeighborList neighbors = f.lmesh.findNeighbors({iOct_global,false}, neighbor);
+    //LightOctree::NeighborList neighbors = f.lmesh.findNeighbors({iOct_global,false}, neighbor);
+    if(ndim==2)
+        assert(neighbor[IZ]==0);
+    LightOctree::NeighborList neighbors = neighbor_cache(neighbor[IX]+1,neighbor[IY]+1,neighbor[IZ]+1);
 
     uint32_t oct_level = f.lmesh.getLevel({iOct_global,false});
     
@@ -624,7 +629,7 @@ KOKKOS_INLINE_FUNCTION void write_cell_data( const Functor& f, uint32_t iOct_g, 
  *              (see get_pos() for the detail of the mapping index -> cell position)
  **/
 template< int ndim, DIR_ID dir >
-KOKKOS_INLINE_FUNCTION void fill_ghost_faces( const Functor& f, uint32_t iOct_g, Functor::index_t index )
+KOKKOS_INLINE_FUNCTION void fill_ghost_faces( const Functor& f, uint32_t iOct_g, Functor::index_t index, const NeighborCache& neighbor_cache )
 {
     // Compute positions as if neighbor was same size
     get_pos_t p = get_pos<ndim, dir>(f, index);
@@ -632,7 +637,7 @@ KOKKOS_INLINE_FUNCTION void fill_ghost_faces( const Functor& f, uint32_t iOct_g,
     if( p.in_domain )
     {
         // Get data from neighbor position + position inside neighbor
-        CellData data = get_cell_data<ndim, dir>( f, iOct_g, p.neighbor_pos, p.pos_in_neighbor, p.pos_in_local );
+        CellData data = get_cell_data<ndim, dir>( f, iOct_g, p.neighbor_pos, p.pos_in_neighbor, p.pos_in_local, neighbor_cache );
 
         // Write data to local cell
         write_cell_data<ndim>( f, iOct_g, p.pos_in_local, data );
@@ -708,9 +713,36 @@ KOKKOS_INLINE_FUNCTION void fill_ghosts(const Functor& f, Functor::team_policy_t
     uint32_t nbcells_face_Z = (ndim==2) ? 0 : f.bx_g*f.by_g*ghostWidth;
     uint32_t nbCells = 2*max_n(nbcells_face_X, nbcells_face_Y, nbcells_face_Z);
 
+    NeighborCache neighbor_cache(member.team_scratch(0));
+
     while (iOct < iOctNextGroup and iOct < nbOcts)
     {
-      f.interface_flags.resetFlags(iOct_g);
+      Kokkos::single( Kokkos::PerTeam(member), 
+                      [=]()
+      {
+        f.interface_flags.resetFlags(iOct_g);
+      });
+
+      int n_neighbors = (ndim==2) ? 3*3 : 3*3*3;
+
+      Kokkos::parallel_for(
+        Kokkos::TeamVectorRange(member, n_neighbors),
+        KOKKOS_LAMBDA(const Functor::index_t index)
+      {
+        uint8_t iz = index/(3*3);
+        uint8_t iy = (index-iz*3*3)/3;
+        uint8_t ix = index - iz*3*3 - iy*3;
+
+        if(ndim==2) iz = 1;
+
+        if(ix==1 && iy==1 & iz==1) return;
+
+        LightOctree::offset_t offset = {ix-1,iy-1,iz-1};
+
+        neighbor_cache(ix,iy,iz) = f.lmesh.findNeighbors({iOct,false}, offset);
+      });
+
+      member.team_barrier();
 
       // perform "vectorized" loop inside a given block data
       Kokkos::parallel_for(
@@ -718,14 +750,13 @@ KOKKOS_INLINE_FUNCTION void fill_ghosts(const Functor& f, Functor::team_policy_t
         KOKKOS_LAMBDA(const Functor::index_t index)
         {
           // compute face X,left (left)
-          fill_ghost_faces<ndim, DIR_X>(f, iOct_g, index);
-          fill_ghost_faces<ndim, DIR_Y>(f, iOct_g, index);
+          fill_ghost_faces<ndim, DIR_X>(f, iOct_g, index, neighbor_cache);
+          fill_ghost_faces<ndim, DIR_Y>(f, iOct_g, index, neighbor_cache);
           if(ndim == 3)
-            fill_ghost_faces<ndim, DIR_Z>(f, iOct_g, index);          
+            fill_ghost_faces<ndim, DIR_Z>(f, iOct_g, index, neighbor_cache);          
         }); // end TeamVectorRange
     
-        member.team_barrier();
-        //if( f.lmesh.getBound({iOct,false}) ) //This octant has ghosts outside of global domain
+        if( f.lmesh.getBound({iOct,false}) ) //This octant has ghosts outside of global domain
         {
             Kokkos::parallel_for(
                 Kokkos::TeamVectorRange(member, nbCells),
@@ -784,7 +815,7 @@ void CopyGhostBlockCellDataFunctor::apply(
                        Kokkos::AUTO() /* team size chosen by kokkos */);
   // launch computation (parallel kernel)
   Kokkos::parallel_for("dyablo::muscl_block::CopyGhostBlockCellDataFunctor",
-                       policy,
+                       policy.set_scratch_size(0, Kokkos::PerTeam(NeighborCache::shmem_size())),
                        functor);
 }
 

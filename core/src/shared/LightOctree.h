@@ -397,11 +397,6 @@ public:
     {
         return ndim;
     }
-    // bool getBound(const OctantIndex& iOct)  const
-    // {
-    //     assert( !iOct.isGhost );
-    //     return pmesh->getBound(iOct.iOct);
-    // }
     //! @copydoc LightOctree_base::getCenter()
     KOKKOS_INLINE_FUNCTION pos_t getCenter(const OctantIndex& iOct)  const
     {
@@ -421,6 +416,10 @@ public:
             oct_data(get_ioct_local(iOct), ICORNERY),
             oct_data(get_ioct_local(iOct), ICORNERZ),
         };
+    }
+    KOKKOS_INLINE_FUNCTION bool getBound(const OctantIndex& iOct)  const
+    {
+         return oct_data(get_ioct_local(iOct), ISBOUND);
     }
     //! @copydoc LightOctree_base::getSize()
     KOKKOS_INLINE_FUNCTION real_t getSize(const OctantIndex& iOct)  const
@@ -587,6 +586,7 @@ private:
         ICORNERY, 
         ICORNERZ, 
         ILEVEL,
+        ISBOUND,
         OCT_DATA_COUNT
     };
     using oct_data_t = DataArray;
@@ -646,11 +646,13 @@ public: // init() has to be public for KOKKOS_LAMBDA
 
                 pos_t c = mesh_pablo.getCorner(oct);
                 uint8_t level = mesh_pablo.getLevel(oct);
+                bool is_bound = !oct.isGhost && mesh_pablo.getBound(oct);
 
                 oct_data_host(ioct_local, ICORNERX) = c[IX];
                 oct_data_host(ioct_local, ICORNERY) = c[IY];
                 oct_data_host(ioct_local, ICORNERZ) = c[IZ];
                 oct_data_host(ioct_local, ILEVEL) = level;
+                oct_data_host(ioct_local, ISBOUND) = is_bound;
             });
 
             // Copy data to device
