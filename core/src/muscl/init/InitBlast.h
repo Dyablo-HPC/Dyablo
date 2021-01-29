@@ -154,8 +154,8 @@ public:
   // static method which does it all: create and execute functor
   static void apply(std::shared_ptr<AMRmesh> pmesh,
                     ConfigMap     configMap,
-		    HydroParams   params,
-		    int           level_refine)
+		                HydroParams   params,
+		                int           level_refine)
   {
     BlastParams blastParams = BlastParams(configMap);
 
@@ -195,33 +195,43 @@ public:
       // Quadrant size
       const real_t qx = 1.0 / bParams.blast_nx;
       const real_t qy = 1.0 / bParams.blast_ny;
-      const real_t qz = 1.0 / bParams.blast_nz;
+      const real_t qz = (params.dimType == THREE_D ? 1.0 / bParams.blast_nz : 1.0);
       
       const int qix = (int)(x / qx);
       const int qiy = (int)(y / qy);
-      const int qiz = (int)(z / qz);
+      const int qiz = (params.dimType == THREE_D ? (int)(z / qz) : 0);
 
       // Rescaling position wrt the current blast quadrant
       x = (x - qix * qx) / qx;
       y = (y - qiy * qy) / qy;
       z = (z - qiz * qz) / qz;
 
-      // 0.87 > sqrt(3)/2 : distance between center to edge
-      double cellSize = pmesh->getSize(i)*0.87;
+      // Two refinement criteria are used : 
+      //  1- If the cell size is larger than a quadrant we refine
+      //  2- If the distance to the blast is smaller than the size of
+      //     half a diagonal we refine
+
+      real_t cellSize = pmesh->getSize(i);
       
-      // We refine if the current size is bigger than a cell
       bool should_refine = (cellSize > std::min({qx, qy, qz}));
 
-      real_t d2 = 
-        (x-blast_center_x)*(x-blast_center_x)+
-        (y-blast_center_y)*(y-blast_center_y);  
-
+      real_t d2 = std::pow(x - blast_center_x, 2) +
+                  std::pow(y - blast_center_y, 2);
       if (params.dimType == THREE_D)
-        d2 += (z-blast_center_z)*(z-blast_center_z);
+        d2 += std::pow(z - blast_center_z, 2);
 
-      if ( fabs(sqrt(d2) - radius) < cellSize )
-	      should_refine = true;
-      
+      // Cell diag is calculated to be in the units of a quadrant
+      const real_t cx = cellSize / qx;
+      const real_t cy = cellSize / qy;
+      const real_t cz = cellSize / qz;
+
+      real_t cellDiag = (params.dimType == THREE_D 
+                          ? sqrt(cx*cx+cy*cy+cz*cz) * 0.5
+                          : sqrt(cx*cx+cy*cy) * 0.5);
+
+      if (fabs(sqrt(d2) - radius) < cellDiag)
+        should_refine = true; 
+
       if (should_refine)
 	      pmesh->setMarker(i, 1);
 
