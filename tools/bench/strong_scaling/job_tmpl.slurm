@@ -3,7 +3,7 @@
 # This is meant to be used on Jean Zay
 
 #SBATCH -J dyablo
-#SBATCH -n <nb_mpi> -c <nb_threads> --gres=gpu:<nb_gpus>
+#SBATCH -N <nb_nodes> -n <nb_mpi> -c <nb_threads> --gres=gpu:<nb_gpus>
 #SBATCH -A sah@gpu --qos=qos_gpu-dev
 #SBATCH --exclusive
 #SBATCH -o log.out
