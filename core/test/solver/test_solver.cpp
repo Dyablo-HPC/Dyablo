@@ -35,12 +35,14 @@ int main(int argc, char *argv[])
 
   using namespace dyablo;
 
+    Kokkos::initialize(argc, argv);
+  
   // Create MPI session if MPI enabled
 #ifdef DYABLO_USE_MPI
   hydroSimu::GlobalMpiSession mpiSession(&argc,&argv);
 #endif // DYABLO_USE_MPI
   
-  Kokkos::initialize(argc, argv);
+
 
   int rank = 0;
   int nRanks = 1;
