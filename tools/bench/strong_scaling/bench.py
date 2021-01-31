@@ -6,6 +6,8 @@ import sys
 import subprocess
 
 
+job_tmpl="job_tmpl_cpu.slurm"
+#job_tmpl="job_tmpl_gpu.slurm"
 machine_threads_per_node=40
 machine_gpus_per_nodes=4
 
@@ -46,7 +48,7 @@ def run_testcase( problem_size, block_size, amr_frequency, group_size, nb_nodes,
   replace_in_file(ini_src, ini_dst, ini_params)
 
   # Create job.slurm
-  slurm_src = os.path.join(template_dir, "job_tmpl.slurm")
+  slurm_src = os.path.join(template_dir, job_tmpl)
   slurm_dst = os.path.join(dst_dir, "job.slurm")
 
   slurm_params = {}
@@ -67,13 +69,67 @@ def run_testcase( problem_size, block_size, amr_frequency, group_size, nb_nodes,
   p = subprocess.Popen(["sbatch", "job.slurm"], cwd=dst_dir)
   p.wait()
 
-
+#GPU runs
+#run_testcase( problem_size=1024, block_size=4, amr_frequency=1, group_size=2048, nb_nodes=1, mpi_per_node=1 )
+#run_testcase( problem_size=1024, block_size=4, amr_frequency=1, group_size=2048, nb_nodes=1, mpi_per_node=4 )
+#run_testcase( problem_size=1024, block_size=4, amr_frequency=1, group_size=2048, nb_nodes=1, mpi_per_node=8 )
+#run_testcase( problem_size=1024, block_size=4, amr_frequency=1, group_size=2048, nb_nodes=1, mpi_per_node=20 )
+#run_testcase( problem_size=1024, block_size=4, amr_frequency=1, group_size=2048, nb_nodes=2, mpi_per_node=4 )
+#run_testcase( problem_size=1024, block_size=4, amr_frequency=1, group_size=2048, nb_nodes=2, mpi_per_node=8 )
+  
 #run_testcase( problem_size=1024, block_size=8, amr_frequency=1, group_size=2048, nb_nodes=1, mpi_per_node=1 )
-run_testcase( problem_size=1024, block_size=8, amr_frequency=1, group_size=2048, nb_nodes=1, mpi_per_node=2 )
+#run_testcase( problem_size=1024, block_size=8, amr_frequency=1, group_size=2048, nb_nodes=1, mpi_per_node=2 )
 #run_testcase( problem_size=1024, block_size=8, amr_frequency=1, group_size=2048, nb_nodes=1, mpi_per_node=4 )
 #run_testcase( problem_size=1024, block_size=8, amr_frequency=1, group_size=2048, nb_nodes=1, mpi_per_node=8 )
+#run_testcase( problem_size=1024, block_size=8, amr_frequency=1, group_size=2048, nb_nodes=1, mpi_per_node=20 )
+
 #run_testcase( problem_size=1024, block_size=8, amr_frequency=1, group_size=2048, nb_nodes=2, mpi_per_node=4 )
+#run_testcase( problem_size=1024, block_size=8, amr_frequency=1, group_size=2048, nb_nodes=2, mpi_per_node=8 )
+#run_testcase( problem_size=1024, block_size=8, amr_frequency=1, group_size=2048, nb_nodes=2, mpi_per_node=20 )
 
 
+#run_testcase( problem_size=1024, block_size=16, amr_frequency=1, group_size=512, nb_nodes=1, mpi_per_node=1 )
+#run_testcase( problem_size=1024, block_size=16, amr_frequency=1, group_size=512, nb_nodes=1, mpi_per_node=2 )
+#run_testcase( problem_size=1024, block_size=16, amr_frequency=1, group_size=512, nb_nodes=1, mpi_per_node=4 )
+#run_testcase( problem_size=1024, block_size=16, amr_frequency=1, group_size=512, nb_nodes=1, mpi_per_node=8 )
+#run_testcase( problem_size=1024, block_size=16, amr_frequency=1, group_size=512, nb_nodes=1, mpi_per_node=20 )
+
+#run_testcase( problem_size=1024, block_size=16, amr_frequency=1, group_size=512, nb_nodes=2, mpi_per_node=4 )
+#run_testcase( problem_size=1024, block_size=16, amr_frequency=1, group_size=512, nb_nodes=2, mpi_per_node=8 )
+#run_testcase( problem_size=1024, block_size=16, amr_frequency=1, group_size=512, nb_nodes=2, mpi_per_node=20 )
+
+#CPU runs
+#run_testcase( problem_size=1024, block_size=4, amr_frequency=1, group_size=512, nb_nodes=1, mpi_per_node=1 )
+#run_testcase( problem_size=1024, block_size=4, amr_frequency=1, group_size=512, nb_nodes=1, mpi_per_node=2 )
+#run_testcase( problem_size=1024, block_size=4, amr_frequency=1, group_size=512, nb_nodes=1, mpi_per_node=4 )
+#run_testcase( problem_size=1024, block_size=4, amr_frequency=1, group_size=512, nb_nodes=1, mpi_per_node=8 )
+#run_testcase( problem_size=1024, block_size=4, amr_frequency=1, group_size=512, nb_nodes=1, mpi_per_node=20 )
+#run_testcase( problem_size=1024, block_size=4, amr_frequency=1, group_size=512, nb_nodes=1, mpi_per_node=40 )
+#run_testcase( problem_size=1024, block_size=4, amr_frequency=1, group_size=512, nb_nodes=2, mpi_per_node=8 )
+#run_testcase( problem_size=1024, block_size=4, amr_frequency=1, group_size=512, nb_nodes=2, mpi_per_node=40 )
+#run_testcase( problem_size=1024, block_size=4, amr_frequency=1, group_size=512, nb_nodes=4, mpi_per_node=8 )
+#run_testcase( problem_size=1024, block_size=4, amr_frequency=1, group_size=512, nb_nodes=4, mpi_per_node=40 )
+#run_testcase( problem_size=1024, block_size=4, amr_frequency=1, group_size=512, nb_nodes=8, mpi_per_node=40 )
+#run_testcase( problem_size=1024, block_size=4, amr_frequency=1, group_size=512, nb_nodes=16, mpi_per_node=40 )
+
+#run_testcase( problem_size=1024, block_size=8, amr_frequency=1, group_size=512, nb_nodes=1, mpi_per_node=1 )
+#run_testcase( problem_size=1024, block_size=8, amr_frequency=1, group_size=512, nb_nodes=1, mpi_per_node=4 )
+#run_testcase( problem_size=1024, block_size=8, amr_frequency=1, group_size=512, nb_nodes=1, mpi_per_node=8 )
+#run_testcase( problem_size=1024, block_size=8, amr_frequency=1, group_size=512, nb_nodes=2, mpi_per_node=8 )
+#run_testcase( problem_size=1024, block_size=8, amr_frequency=1, group_size=512, nb_nodes=4, mpi_per_node=8 )
+#run_testcase( problem_size=1024, block_size=8, amr_frequency=1, group_size=512, nb_nodes=2, mpi_per_node=40 )
+#run_testcase( problem_size=1024, block_size=8, amr_frequency=1, group_size=512, nb_nodes=4, mpi_per_node=40 )
+#run_testcase( problem_size=1024, block_size=8, amr_frequency=1, group_size=512, nb_nodes=8, mpi_per_node=40 )
+#run_testcase( problem_size=1024, block_size=8, amr_frequency=1, group_size=512, nb_nodes=16, mpi_per_node=40 )
+
+#run_testcase( problem_size=1024, block_size=16, amr_frequency=1, group_size=512, nb_nodes=1, mpi_per_node=1 )
+#run_testcase( problem_size=1024, block_size=16, amr_frequency=1, group_size=512, nb_nodes=1, mpi_per_node=4 )
+#run_testcase( problem_size=1024, block_size=16, amr_frequency=1, group_size=512, nb_nodes=1, mpi_per_node=8 )
+#run_testcase( problem_size=1024, block_size=16, amr_frequency=1, group_size=512, nb_nodes=2, mpi_per_node=8 )
+#run_testcase( problem_size=1024, block_size=16, amr_frequency=1, group_size=512, nb_nodes=4, mpi_per_node=8 )
+#run_testcase( problem_size=1024, block_size=16, amr_frequency=1, group_size=128, nb_nodes=2, mpi_per_node=40 )
+#run_testcase( problem_size=1024, block_size=16, amr_frequency=1, group_size=128, nb_nodes=4, mpi_per_node=40 )
+#run_testcase( problem_size=1024, block_size=16, amr_frequency=1, group_size=128, nb_nodes=8, mpi_per_node=40 )
+#run_testcase( problem_size=1024, block_size=16, amr_frequency=1, group_size=128, nb_nodes=16, mpi_per_node=40 )
     
 
