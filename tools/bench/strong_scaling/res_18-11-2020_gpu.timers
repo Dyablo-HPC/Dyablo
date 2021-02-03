@@ -1,0 +1,112 @@
+run_1024_16x16_1gpu_amr10/log.out:total       time : 138.923 secondes
+run_1024_16x16_1gpu_amr10/log.out:godunov     time : 56.281 secondes 40.51%
+run_1024_16x16_1gpu_amr10/log.out:compute dt  time : 0.488 secondes  0.35%
+run_1024_16x16_1gpu_amr10/log.out:boundaries  time : 0.000 secondes  0.00%
+run_1024_16x16_1gpu_amr10/log.out:io          time : 8.537 secondes  6.14%
+run_1024_16x16_1gpu_amr10/log.out:block copy  time : 9.394 secondes  6.76%
+run_1024_16x16_1gpu_amr10/log.out:amr cycle   time : 25.220 secondes 18.15%
+run_1024_16x16_1gpu/log.out:total       time : 222.081 secondes
+run_1024_16x16_1gpu/log.out:godunov     time : 56.412 secondes 25.40%
+run_1024_16x16_1gpu/log.out:compute dt  time : 0.410 secondes  0.18%
+run_1024_16x16_1gpu/log.out:boundaries  time : 0.000 secondes  0.00%
+run_1024_16x16_1gpu/log.out:io          time : 9.402 secondes  4.23%
+run_1024_16x16_1gpu/log.out:block copy  time : 9.441 secondes  4.25%
+run_1024_16x16_1gpu/log.out:amr cycle   time : 99.060 secondes 44.61%
+run_1024_16x16_2gpu_amr10/log.out:total       time : 119.561 secondes
+run_1024_16x16_2gpu_amr10/log.out:godunov     time : 29.699 secondes 24.84%
+run_1024_16x16_2gpu_amr10/log.out:compute dt  time : 0.494 secondes  0.41%
+run_1024_16x16_2gpu_amr10/log.out:boundaries  time : 0.000 secondes  0.00%
+run_1024_16x16_2gpu_amr10/log.out:io          time : 5.354 secondes  4.48%
+run_1024_16x16_2gpu_amr10/log.out:block copy  time : 4.625 secondes  3.87%
+run_1024_16x16_2gpu_amr10/log.out:amr cycle   time : 19.933 secondes 16.67%
+run_1024_16x16_2gpu/log.out:total       time : 189.101 secondes
+run_1024_16x16_2gpu/log.out:godunov     time : 29.806 secondes 15.76%
+run_1024_16x16_2gpu/log.out:compute dt  time : 0.601 secondes  0.32%
+run_1024_16x16_2gpu/log.out:boundaries  time : 0.000 secondes  0.00%
+run_1024_16x16_2gpu/log.out:io          time : 5.325 secondes  2.82%
+run_1024_16x16_2gpu/log.out:block copy  time : 4.688 secondes  2.48%
+run_1024_16x16_2gpu/log.out:amr cycle   time : 89.698 secondes 47.43%
+run_1024_16x16_4gpu_amr10/log.out:total       time : 88.264 secondes
+run_1024_16x16_4gpu_amr10/log.out:godunov     time : 17.931 secondes 20.32%
+run_1024_16x16_4gpu_amr10/log.out:compute dt  time : 0.562 secondes  0.64%
+run_1024_16x16_4gpu_amr10/log.out:boundaries  time : 0.000 secondes  0.00%
+run_1024_16x16_4gpu_amr10/log.out:io          time : 6.593 secondes  7.47%
+run_1024_16x16_4gpu_amr10/log.out:block copy  time : 2.328 secondes  2.64%
+run_1024_16x16_4gpu_amr10/log.out:amr cycle   time : 13.296 secondes 15.06%
+run_1024_16x16_4gpu/log.out:total       time : 141.137 secondes
+run_1024_16x16_4gpu/log.out:godunov     time : 17.986 secondes 12.74%
+run_1024_16x16_4gpu/log.out:compute dt  time : 0.585 secondes  0.41%
+run_1024_16x16_4gpu/log.out:boundaries  time : 0.000 secondes  0.00%
+run_1024_16x16_4gpu/log.out:io          time : 6.325 secondes  4.48%
+run_1024_16x16_4gpu/log.out:block copy  time : 2.357 secondes  1.67%
+run_1024_16x16_4gpu/log.out:amr cycle   time : 66.379 secondes 47.03%
+run_1024_32x32_1gpu_amr10/log.out:total       time : 202.573 secondes
+run_1024_32x32_1gpu_amr10/log.out:godunov     time : 83.120 secondes 41.03%
+run_1024_32x32_1gpu_amr10/log.out:compute dt  time : 1.152 secondes  0.57%
+run_1024_32x32_1gpu_amr10/log.out:boundaries  time : 0.000 secondes  0.00%
+run_1024_32x32_1gpu_amr10/log.out:io          time : 14.452 secondes  7.13%
+run_1024_32x32_1gpu_amr10/log.out:block copy  time : 9.132 secondes  4.51%
+run_1024_32x32_1gpu_amr10/log.out:amr cycle   time : 21.680 secondes 10.70%
+run_1024_32x32_1gpu/log.out:total       time : 285.556 secondes
+run_1024_32x32_1gpu/log.out:godunov     time : 83.443 secondes 29.22%
+run_1024_32x32_1gpu/log.out:compute dt  time : 1.002 secondes  0.35%
+run_1024_32x32_1gpu/log.out:boundaries  time : 0.000 secondes  0.00%
+run_1024_32x32_1gpu/log.out:io          time : 14.579 secondes  5.11%
+run_1024_32x32_1gpu/log.out:block copy  time : 9.127 secondes  3.20%
+run_1024_32x32_1gpu/log.out:amr cycle   time : 105.167 secondes 36.83%
+run_1024_4x4_1gpu_amr10/log.out:total       time : 252.253 secondes
+run_1024_4x4_1gpu_amr10/log.out:godunov     time : 107.240 secondes 42.51%
+run_1024_4x4_1gpu_amr10/log.out:compute dt  time : 0.209 secondes  0.08%
+run_1024_4x4_1gpu_amr10/log.out:boundaries  time : 0.000 secondes  0.00%
+run_1024_4x4_1gpu_amr10/log.out:io          time : 5.455 secondes  2.16%
+run_1024_4x4_1gpu_amr10/log.out:block copy  time : 18.009 secondes  7.14%
+run_1024_4x4_1gpu_amr10/log.out:amr cycle   time : 92.722 secondes 36.76%
+run_1024_4x4_1gpu/log.out:total       time : 1067.893 secondes
+run_1024_4x4_1gpu/log.out:godunov     time : 109.441 secondes 10.25%
+run_1024_4x4_1gpu/log.out:compute dt  time : 0.214 secondes  0.02%
+run_1024_4x4_1gpu/log.out:boundaries  time : 0.000 secondes  0.00%
+run_1024_4x4_1gpu/log.out:io          time : 5.172 secondes  0.48%
+run_1024_4x4_1gpu/log.out:block copy  time : 18.219 secondes  1.71%
+run_1024_4x4_1gpu/log.out:amr cycle   time : 913.969 secondes 85.59%
+run_1024_8x8_1gpu_amr10/log.out:total       time : 142.140 secondes
+run_1024_8x8_1gpu_amr10/log.out:godunov     time : 54.297 secondes 38.20%
+run_1024_8x8_1gpu_amr10/log.out:compute dt  time : 0.305 secondes  0.21%
+run_1024_8x8_1gpu_amr10/log.out:boundaries  time : 0.000 secondes  0.00%
+run_1024_8x8_1gpu_amr10/log.out:io          time : 6.962 secondes  4.90%
+run_1024_8x8_1gpu_amr10/log.out:block copy  time : 11.847 secondes  8.33%
+run_1024_8x8_1gpu_amr10/log.out:amr cycle   time : 32.307 secondes 22.73%
+run_1024_8x8_1gpu/log.out:total       time : 341.884 secondes
+run_1024_8x8_1gpu/log.out:godunov     time : 54.844 secondes 16.04%
+run_1024_8x8_1gpu/log.out:compute dt  time : 0.259 secondes  0.08%
+run_1024_8x8_1gpu/log.out:boundaries  time : 0.000 secondes  0.00%
+run_1024_8x8_1gpu/log.out:io          time : 6.083 secondes  1.78%
+run_1024_8x8_1gpu/log.out:block copy  time : 11.879 secondes  3.47%
+run_1024_8x8_1gpu/log.out:amr cycle   time : 238.740 secondes 69.83%
+run_1024_8x8_2gpu_amr10/log.out:total       time : 97.535 secondes
+run_1024_8x8_2gpu_amr10/log.out:godunov     time : 27.857 secondes 28.56%
+run_1024_8x8_2gpu_amr10/log.out:compute dt  time : 0.436 secondes  0.45%
+run_1024_8x8_2gpu_amr10/log.out:boundaries  time : 0.000 secondes  0.00%
+run_1024_8x8_2gpu_amr10/log.out:io          time : 9.651 secondes  9.89%
+run_1024_8x8_2gpu_amr10/log.out:block copy  time : 5.875 secondes  6.02%
+run_1024_8x8_2gpu_amr10/log.out:amr cycle   time : 22.779 secondes 23.35%
+run_1024_8x8_2gpu/log.out:total       time : 243.467 secondes
+run_1024_8x8_2gpu/log.out:godunov     time : 28.124 secondes 11.55%
+run_1024_8x8_2gpu/log.out:compute dt  time : 0.580 secondes  0.24%
+run_1024_8x8_2gpu/log.out:boundaries  time : 0.000 secondes  0.00%
+run_1024_8x8_2gpu/log.out:io          time : 5.421 secondes  2.23%
+run_1024_8x8_2gpu/log.out:block copy  time : 5.928 secondes  2.43%
+run_1024_8x8_2gpu/log.out:amr cycle   time : 173.372 secondes 71.21%
+run_1024_8x8_4gpu_amr10/log.out:total       time : 59.707 secondes
+run_1024_8x8_4gpu_amr10/log.out:godunov     time : 15.630 secondes 26.18%
+run_1024_8x8_4gpu_amr10/log.out:compute dt  time : 0.379 secondes  0.63%
+run_1024_8x8_4gpu_amr10/log.out:boundaries  time : 0.000 secondes  0.00%
+run_1024_8x8_4gpu_amr10/log.out:io          time : 6.226 secondes 10.43%
+run_1024_8x8_4gpu_amr10/log.out:block copy  time : 2.953 secondes  4.95%
+run_1024_8x8_4gpu_amr10/log.out:amr cycle   time : 13.395 secondes 22.43%
+run_1024_8x8_4gpu/log.out:total       time : 151.841 secondes
+run_1024_8x8_4gpu/log.out:godunov     time : 15.906 secondes 10.48%
+run_1024_8x8_4gpu/log.out:compute dt  time : 0.181 secondes  0.12%
+run_1024_8x8_4gpu/log.out:boundaries  time : 0.000 secondes  0.00%
+run_1024_8x8_4gpu/log.out:io          time : 7.899 secondes  5.20%
+run_1024_8x8_4gpu/log.out:block copy  time : 2.977 secondes  1.96%
+run_1024_8x8_4gpu/log.out:amr cycle   time : 104.508 secondes 68.83%

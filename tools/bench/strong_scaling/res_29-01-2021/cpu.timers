@@ -40,6 +40,13 @@ bench/run_1024_16x16_2nodesx8mpi_amr1_group128/log.out:boundaries  time : 0.000 
 bench/run_1024_16x16_2nodesx8mpi_amr1_group128/log.out:io          time : 5.155 secondes  2.03%
 bench/run_1024_16x16_2nodesx8mpi_amr1_group128/log.out:block copy  time : 12.276 secondes  4.84%
 bench/run_1024_16x16_2nodesx8mpi_amr1_group128/log.out:amr cycle   time : 96.296 secondes 37.99%
+bench/run_1024_4x4_16nodesx8mpi_amr1_group512/log.out:total       time : 57.152 secondes
+bench/run_1024_4x4_16nodesx8mpi_amr1_group512/log.out:godunov     time : 10.900 secondes 19.07%
+bench/run_1024_4x4_16nodesx8mpi_amr1_group512/log.out:compute dt  time : 0.915 secondes  1.60%
+bench/run_1024_4x4_16nodesx8mpi_amr1_group512/log.out:boundaries  time : 0.000 secondes  0.00%
+bench/run_1024_4x4_16nodesx8mpi_amr1_group512/log.out:io          time : 4.515 secondes  7.90%
+bench/run_1024_4x4_16nodesx8mpi_amr1_group512/log.out:block copy  time : 4.163 secondes  7.28%
+bench/run_1024_4x4_16nodesx8mpi_amr1_group512/log.out:amr cycle   time : 37.621 secondes 65.83%
 bench/run_1024_4x4_1nodesx10mpi_amr1_group512/log.out:total       time : 495.553 secondes
 bench/run_1024_4x4_1nodesx10mpi_amr1_group512/log.out:godunov     time : 161.371 secondes 32.56%
 bench/run_1024_4x4_1nodesx10mpi_amr1_group512/log.out:compute dt  time : 4.395 secondes  0.89%
@@ -103,6 +110,13 @@ bench/run_1024_4x4_4nodesx8mpi_amr1_group512/log.out:boundaries  time : 0.000 se
 bench/run_1024_4x4_4nodesx8mpi_amr1_group512/log.out:io          time : 4.469 secondes  2.97%
 bench/run_1024_4x4_4nodesx8mpi_amr1_group512/log.out:block copy  time : 15.873 secondes 10.54%
 bench/run_1024_4x4_4nodesx8mpi_amr1_group512/log.out:amr cycle   time : 93.256 secondes 61.90%
+bench/run_1024_4x4_8nodesx8mpi_amr1_group512/log.out:total       time : 83.367 secondes
+bench/run_1024_4x4_8nodesx8mpi_amr1_group512/log.out:godunov     time : 18.736 secondes 22.47%
+bench/run_1024_4x4_8nodesx8mpi_amr1_group512/log.out:compute dt  time : 1.577 secondes  1.89%
+bench/run_1024_4x4_8nodesx8mpi_amr1_group512/log.out:boundaries  time : 0.000 secondes  0.00%
+bench/run_1024_4x4_8nodesx8mpi_amr1_group512/log.out:io          time : 4.877 secondes  5.85%
+bench/run_1024_4x4_8nodesx8mpi_amr1_group512/log.out:block copy  time : 8.071 secondes  9.68%
+bench/run_1024_4x4_8nodesx8mpi_amr1_group512/log.out:amr cycle   time : 52.105 secondes 62.50%
 bench/run_1024_8x8_1nodesx10mpi_amr1_group512/log.out:total       time : 313.845 secondes
 bench/run_1024_8x8_1nodesx10mpi_amr1_group512/log.out:godunov     time : 179.669 secondes 57.25%
 bench/run_1024_8x8_1nodesx10mpi_amr1_group512/log.out:compute dt  time : 3.105 secondes  0.99%
@@ -166,3 +180,10 @@ bench/run_1024_8x8_4nodesx8mpi_amr1_group512/log.out:boundaries  time : 0.000 se
 bench/run_1024_8x8_4nodesx8mpi_amr1_group512/log.out:io          time : 4.511 secondes  4.42%
 bench/run_1024_8x8_4nodesx8mpi_amr1_group512/log.out:block copy  time : 7.988 secondes  7.82%
 bench/run_1024_8x8_4nodesx8mpi_amr1_group512/log.out:amr cycle   time : 42.609 secondes 41.72%
+bench/run_1024_8x8_8nodesx8mpi_amr1_group256/log.out:total       time : 62.213 secondes
+bench/run_1024_8x8_8nodesx8mpi_amr1_group256/log.out:godunov     time : 21.757 secondes 34.97%
+bench/run_1024_8x8_8nodesx8mpi_amr1_group256/log.out:compute dt  time : 1.107 secondes  1.78%
+bench/run_1024_8x8_8nodesx8mpi_amr1_group256/log.out:boundaries  time : 0.000 secondes  0.00%
+bench/run_1024_8x8_8nodesx8mpi_amr1_group256/log.out:io          time : 6.119 secondes  9.84%
+bench/run_1024_8x8_8nodesx8mpi_amr1_group256/log.out:block copy  time : 3.960 secondes  6.36%
+bench/run_1024_8x8_8nodesx8mpi_amr1_group256/log.out:amr cycle   time : 31.167 secondes 50.10%
