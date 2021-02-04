@@ -327,7 +327,7 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
 void SolverHydroMusclBlock::do_amr_cycle()
 {
 
-  m_timers[TIMER_AMR_CYCLE]->start();
+  timers.get("AMR").start();
 
   /*
    * Following steps:
@@ -352,7 +352,7 @@ void SolverHydroMusclBlock::do_amr_cycle()
   // 4. map data to new data array
   map_userdata_after_adapt();
 
-  m_timers[TIMER_AMR_CYCLE]->stop();
+  timers.get("AMR").stop();
 
 } // SolverHydroMusclBlock::do_amr_cycle
 
@@ -361,12 +361,12 @@ void SolverHydroMusclBlock::do_amr_cycle()
 void SolverHydroMusclBlock::do_load_balancing()
 {
 
-  m_timers[TIMER_AMR_CYCLE]->start();
+  timers.get("AMR").start();
   
   // load balance
   load_balance_userdata();
 
-  m_timers[TIMER_AMR_CYCLE]->stop();
+  timers.get("AMR").stop();
 
 } // SolverHydroMusclBlock::do_load_balancing
 
@@ -429,9 +429,9 @@ void SolverHydroMusclBlock::next_iteration_impl()
   } // end enable output
   
   // compute new dt
-  m_timers[TIMER_DT]->start();
+  timers.get("dt").start();
   compute_dt();
-  m_timers[TIMER_DT]->stop();
+  timers.get("dt").stop();
   
   // perform one step integration
   godunov_unsplit(m_dt);
@@ -504,7 +504,7 @@ void SolverHydroMusclBlock::godunov_unsplit_impl(DataArrayBlock data_in,
 
   for (uint32_t iGroup = 0; iGroup < nbGroup; ++iGroup) {
 
-    m_timers[TIMER_BLOCK_COPY]->start();
+    timers.get("block copy").start();
 
     // copy data_in (current group of octants) to Ugroup (inner cells)
     fill_block_data_inner(data_in, iGroup);
@@ -512,10 +512,10 @@ void SolverHydroMusclBlock::godunov_unsplit_impl(DataArrayBlock data_in,
     // update ghost cells of all octant in current group of octants
     fill_block_data_ghost(data_in, iGroup);
 
-    m_timers[TIMER_BLOCK_COPY]->stop();
+    timers.get("block copy").stop();
 
     // start main computation
-    m_timers[TIMER_NUM_SCHEME]->start();
+    timers.get("godunov").start();
 
     // now ghost cells in current group are ok
     // convert conservative variable into primitives ones for the given group
@@ -565,7 +565,7 @@ void SolverHydroMusclBlock::godunov_unsplit_impl(DataArrayBlock data_in,
                                           interface_flags,
                                           dt);
 
-    m_timers[TIMER_NUM_SCHEME]->stop();
+    timers.get("godunov").stop();
 
   } // end for iGroup
 
@@ -605,7 +605,7 @@ void SolverHydroMusclBlock::convertToPrimitives(uint32_t iGroup)
 void SolverHydroMusclBlock::save_solution_impl()
 {
 
-  m_timers[TIMER_IO]->start();
+  timers.get("outputs").start();
 
   if (params.output_vtk_enabled)
     save_solution_vtk();
@@ -613,7 +613,7 @@ void SolverHydroMusclBlock::save_solution_impl()
   if (params.output_hdf5_enabled)
     save_solution_hdf5();
 
-  m_timers[TIMER_IO]->stop();
+  timers.get("outputs").stop();
     
 } // SolverHydroMusclBlock::save_solution_impl()
 
@@ -621,22 +621,6 @@ void SolverHydroMusclBlock::save_solution_impl()
 // =======================================================
 void SolverHydroMusclBlock::print_monitoring_info()
 {
-
-  real_t t_tot   = m_timers[TIMER_TOTAL]->elapsed();
-  real_t t_comp  = m_timers[TIMER_NUM_SCHEME]->elapsed();
-  real_t t_dt    = m_timers[TIMER_DT]->elapsed();
-  real_t t_bound = m_timers[TIMER_BOUNDARIES]->elapsed();
-  real_t t_io    = m_timers[TIMER_IO]->elapsed();
-  real_t t_amr   = m_timers[TIMER_AMR_CYCLE]->elapsed();
-
-  real_t t_amr_sync_ghost   = m_timers[TIMER_AMR_CYCLE_SYNC_GHOST]->elapsed();
-  real_t t_amr_mark_cells   = m_timers[TIMER_AMR_CYCLE_MARK_CELLS]->elapsed();
-  real_t t_amr_adapt_mesh   = m_timers[TIMER_AMR_CYCLE_ADAPT_MESH]->elapsed();
-  real_t t_amr_map_userdata = m_timers[TIMER_AMR_CYCLE_MAP_USERDATA]->elapsed();
-  real_t t_amr_load_balance = m_timers[TIMER_AMR_CYCLE_LOAD_BALANCE]->elapsed();
-
-  real_t t_amr_block_copy = m_timers[TIMER_AMR_BLOCK_COPY]->elapsed();
-  real_t t_block_copy = m_timers[TIMER_BLOCK_COPY]->elapsed();
 
   int myRank = 0;
   int nProcs = 1;
@@ -649,35 +633,9 @@ void SolverHydroMusclBlock::print_monitoring_info()
   
   // only print on master
   if (myRank == 0) {
+    timers.print();
 
-    printf("total       time : %5.3f secondes\n", t_tot);
-    printf("godunov     time : %5.3f secondes %5.2f%%\n", t_comp,
-           100 * t_comp / t_tot);
-    printf("compute dt  time : %5.3f secondes %5.2f%%\n", t_dt,
-           100 * t_dt / t_tot);
-    printf("boundaries  time : %5.3f secondes %5.2f%%\n", t_bound,
-           100 * t_bound / t_tot);
-    printf("io          time : %5.3f secondes %5.2f%%\n", t_io,
-           100 * t_io / t_tot);
-
-    printf("block copy  time : %5.3f secondes %5.2f%%\n", t_block_copy,
-           100 * t_block_copy / t_tot);
-
-    printf("amr cycle   time : %5.3f secondes %5.2f%%\n", t_amr,
-           100 * t_amr / t_tot);
-
-    printf("amr cycle sync ghost    : %5.3f secondes %5.2f%%\n",
-           t_amr_sync_ghost, 100 * t_amr_sync_ghost / t_tot);
-    printf("amr cycle mark cells    : %5.3f secondes %5.2f%%\n",
-           t_amr_mark_cells, 100 * t_amr_mark_cells / t_tot);
-    printf("amr block copy          : %5.3f secondes %5.2f%%\n",
-           t_amr_mark_cells, 100 * t_amr_block_copy / t_tot);
-    printf("amr cycle adapt mesh    : %5.3f secondes %5.2f%%\n",
-           t_amr_adapt_mesh, 100 * t_amr_adapt_mesh / t_tot);
-    printf("amr cycle map user data : %5.3f secondes %5.2f%%\n",
-           t_amr_map_userdata, 100 * t_amr_map_userdata / t_tot);
-    printf("amr cycle load balance  : %5.3f secondes %5.2f%%\n",
-           t_amr_load_balance, 100 * t_amr_load_balance / t_tot);
+    real_t t_tot   = timers.get("total").elapsed(Timers::Timer::Elapsed_mode_t::ELAPSED_CPU);
 
     printf("Perf             : %5.3f number of Mcell-updates/s\n",
            1.0 * m_total_num_cell_updates * (bx*by*bz) / t_tot * 1e-6);
@@ -785,7 +743,7 @@ void SolverHydroMusclBlock::save_solution_hdf5()
 void SolverHydroMusclBlock::synchronize_ghost_data(UserDataCommType t)
 {
 
-  m_timers[TIMER_AMR_CYCLE_SYNC_GHOST]->start();
+  timers.get("AMR: MPI ghosts").start();
 
 #if BITPIT_ENABLE_MPI==1
 
@@ -813,7 +771,7 @@ void SolverHydroMusclBlock::synchronize_ghost_data(UserDataCommType t)
   
 #endif // BITPIT_ENABLE_MPI==1
 
-  m_timers[TIMER_AMR_CYCLE_SYNC_GHOST]->stop();
+  timers.get("AMR: MPI ghosts").stop();
 
 } // SolverHydroMusclBlock::synchronize_ghost_data
 
@@ -843,7 +801,7 @@ void SolverHydroMusclBlock::mark_cells()
 
   for (uint32_t iGroup = 0; iGroup < nbGroup; ++iGroup) {
 
-    m_timers[TIMER_AMR_BLOCK_COPY]->start();
+    timers.get("AMR: block copy").start();
 
     // copy data_in (current group of octants) to Ugroup (inner cells)
     fill_block_data_inner(Udata, iGroup);
@@ -851,9 +809,9 @@ void SolverHydroMusclBlock::mark_cells()
     // update ghost cells of all octant in current group of octants
     fill_block_data_ghost(Udata, iGroup);
 
-    m_timers[TIMER_AMR_BLOCK_COPY]->stop();
+    timers.get("AMR: block copy").stop();
 
-    m_timers[TIMER_AMR_CYCLE_MARK_CELLS]->start();
+    timers.get("AMR: mark cells").start();
 
     // now ghost cells in current group are ok
     // convert conservative variable into primitives ones for the given group
@@ -870,7 +828,7 @@ void SolverHydroMusclBlock::mark_cells()
                                    error_min, error_max,
                                    markers);
 
-    m_timers[TIMER_AMR_CYCLE_MARK_CELLS]->stop();
+    timers.get("AMR: mark cells").stop();
 
   } // end for iGroup
 
@@ -884,7 +842,7 @@ void SolverHydroMusclBlock::mark_cells()
 void SolverHydroMusclBlock::adapt_mesh()
 {
 
-  m_timers[TIMER_AMR_CYCLE_ADAPT_MESH]->start();
+  timers.get("AMR: adapt").start();
 
   // 1. adapt mesh with mapper enabled
   amr_mesh->adapt(true);
@@ -896,7 +854,7 @@ void SolverHydroMusclBlock::adapt_mesh()
   // 2. re-compute connectivity
   amr_mesh->updateConnectivity();  
   
-  m_timers[TIMER_AMR_CYCLE_ADAPT_MESH]->stop();
+  timers.get("AMR: adapt").stop();
 
 } // SolverHydroMusclBlock::adapt_mesh
 
@@ -909,7 +867,7 @@ void SolverHydroMusclBlock::adapt_mesh()
 void SolverHydroMusclBlock::map_userdata_after_adapt()
 {
 
-  m_timers[TIMER_AMR_CYCLE_MAP_USERDATA]->start();
+  timers.get("AMR: map userdata").start();
 
   LightOctree lmesh_old = lmesh;
   lmesh = LightOctree(amr_mesh, params);
@@ -921,7 +879,7 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
   // we can resize U2 for the next time-step
   Kokkos::realloc(U2, U.extent(0), U.extent(1), U.extent(2));
   
-  m_timers[TIMER_AMR_CYCLE_MAP_USERDATA]->stop();
+  timers.get("AMR: map userdata").stop();
 
 } // SolverHydroMusclBlock::map_data_after_adapt
 
@@ -930,7 +888,7 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
 void SolverHydroMusclBlock::load_balance_userdata()
 {
 
-  m_timers[TIMER_AMR_CYCLE_LOAD_BALANCE]->start();
+  timers.get("AMR: load-balance").start();
 
 #if BITPIT_ENABLE_MPI==1
 
@@ -966,7 +924,7 @@ void SolverHydroMusclBlock::load_balance_userdata()
   }
 #endif // BITPIT_ENABLE_MPI==1
   
-  m_timers[TIMER_AMR_CYCLE_LOAD_BALANCE]->stop();
+  timers.get("AMR: load-balance").stop();
 
 } // SolverHydroMusclBlock::load_balance_user_data
 
