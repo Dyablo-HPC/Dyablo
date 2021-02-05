@@ -44,10 +44,10 @@ public:
   
   // static method which does it all: create and execute functor
   static void apply(std::shared_ptr<AMRmesh> pmesh,
-		    HydroParams   params,
-                    ConfigMap     configMap,
-		    id2index_t    fm,
-                    DataArrayHost     Udata)
+		                HydroParams              params,
+                    ConfigMap                configMap,
+		                id2index_t               fm,
+                    DataArrayHost            Udata)
   {
     BlastParams blastParams = BlastParams(configMap);
     
@@ -85,15 +85,16 @@ public:
     const real_t qx = 1.0 / bParams.blast_nx;
     const real_t qy = 1.0 / bParams.blast_ny;
     const real_t qz = 1.0 / bParams.blast_nz;
-    
+    const real_t q = std::min({qx, qy, qz});
+
     const int qix = (int)(x / qx);
     const int qiy = (int)(y / qy);
     const int qiz = (int)(z / qz);
 
     // Rescaling position wrt the current blast quadrant
-    x = (x - qix * qx) / qx;
-    y = (y - qiy * qy) / qy;
-    z = (z - qiz * qz) / qz;
+    x = (x - qix * qx) / q - (qx/q - 1) * 0.5;
+    y = (y - qiy * qy) / q - (qy/q - 1) * 0.5;
+    z = (z - qiz * qz) / q - (qz/q - 1) * 0.5;
     
     real_t d2 = 
       (x-blast_center_x)*(x-blast_center_x)+
@@ -196,15 +197,16 @@ public:
       const real_t qx = 1.0 / bParams.blast_nx;
       const real_t qy = 1.0 / bParams.blast_ny;
       const real_t qz = (params.dimType == THREE_D ? 1.0 / bParams.blast_nz : 1.0);
-      
+      const real_t q = std::min({qx, qy, qz});
+
       const int qix = (int)(x / qx);
       const int qiy = (int)(y / qy);
       const int qiz = (params.dimType == THREE_D ? (int)(z / qz) : 0);
-
+      
       // Rescaling position wrt the current blast quadrant
-      x = (x - qix * qx) / qx;
-      y = (y - qiy * qy) / qy;
-      z = (z - qiz * qz) / qz;
+      x = (x - qix * qx) / q - (qx/q - 1) * 0.5;
+      y = (y - qiy * qy) / q - (qy/q - 1) * 0.5;
+      z = (z - qiz * qz) / q - (qz/q - 1) * 0.5;
 
       // Two refinement criteria are used : 
       //  1- If the cell size is larger than a quadrant we refine
@@ -221,9 +223,9 @@ public:
         d2 += std::pow(z - blast_center_z, 2);
 
       // Cell diag is calculated to be in the units of a quadrant
-      const real_t cx = cellSize / qx;
-      const real_t cy = cellSize / qy;
-      const real_t cz = cellSize / qz;
+      const real_t cx = cellSize / q;
+      const real_t cy = cellSize / q;
+      const real_t cz = cellSize / q;
 
       real_t cellDiag = (params.dimType == THREE_D 
                           ? sqrt(cx*cx+cy*cy+cz*cz) * 0.5

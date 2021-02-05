@@ -158,15 +158,16 @@ public:
           const real_t qx = 1.0 / bParams.blast_nx;
           const real_t qy = 1.0 / bParams.blast_ny;
           const real_t qz = 1.0 / bParams.blast_nz;
+          const real_t q = std::min({qx, qy, qz});
           
           const int qix = (int)(x / qx);
           const int qiy = (int)(y / qy);
           const int qiz = (int)(z / qz);
 
           // Rescaling position wrt the current blast quadrant
-          x = (x - qix * qx) / qx;
-          y = (y - qiy * qy) / qy;
-          z = (z - qiz * qz) / qz;
+          x = (x - qix * qx) / q - (qx/q - 1) * 0.5;
+          y = (y - qiy * qy) / q - (qy/q - 1) * 0.5;
+          z = (z - qiz * qz) / q - (qz/q - 1) * 0.5;
 
           // initialize
           real_t d2 = 
@@ -294,15 +295,16 @@ public:
       const real_t qx = 1.0 / bParams.blast_nx;
       const real_t qy = 1.0 / bParams.blast_ny;
       const real_t qz = (params.dimType == THREE_D ? 1.0 / bParams.blast_nz : 1.0);
-      
+      const real_t q = std::min({qx, qy, qz});
+
       const int qix = (int)(x / qx);
       const int qiy = (int)(y / qy);
       const int qiz = (int)(z / qz);
 
       // Rescaling position wrt the current blast quadrant
-      x = (x - qix * qx) / qx;
-      y = (y - qiy * qy) / qy;
-      z = (z - qiz * qz) / qz;
+      x = (x - qix * qx) / q - (qx/q - 1) * 0.5;
+      y = (y - qiy * qy) / q - (qy/q - 1) * 0.5;
+      z = (z - qiz * qz) / q - (qz/q - 1) * 0.5;
 
       // Two refinement criteria are used : 
       //  1- If the cell size is larger than a quadrant we refine
