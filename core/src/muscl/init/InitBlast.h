@@ -44,9 +44,9 @@ public:
   
   // static method which does it all: create and execute functor
   static void apply(std::shared_ptr<AMRmesh> pmesh,
-		                HydroParams              params,
+                    HydroParams              params,
                     ConfigMap                configMap,
-		                id2index_t               fm,
+                    id2index_t               fm,
                     DataArrayHost            Udata)
   {
     BlastParams blastParams = BlastParams(configMap);
@@ -155,8 +155,8 @@ public:
   // static method which does it all: create and execute functor
   static void apply(std::shared_ptr<AMRmesh> pmesh,
                     ConfigMap     configMap,
-		                HydroParams   params,
-		                int           level_refine)
+                    HydroParams   params,
+                    int           level_refine)
   {
     BlastParams blastParams = BlastParams(configMap);
 
