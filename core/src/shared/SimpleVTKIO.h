@@ -29,7 +29,7 @@ namespace dyablo {
  * \param[in] names2index a map of names (of scalar field to save) to id (to fm)
  * \param[in] configMap a ConfigMap object to access input parameter file data (ini file format)
  */
-void writeVTK(AMRmesh         &amr_mesh,
+void writeVTK(PABLO_mesh         &amr_mesh,
 	      std::string      filenameSuffix,
 	      DataArray        data,
 	      id2index_t       fm,
@@ -40,7 +40,7 @@ void writeVTK(AMRmesh         &amr_mesh,
 /**
  * Write a  Kokkos::View<double*> (see also ParaTree::writeTest).
  */
-void writeTest(AMRmesh               &amr_mesh,
+void writeTest(PABLO_mesh               &amr_mesh,
 	       std::string            filenameSuffix,
 	       Kokkos::View<double*>  data);
 
@@ -51,7 +51,7 @@ void writeTest(AMRmesh               &amr_mesh,
  * for testing ideas when kokkos refactoring still underway (i.e. not
  * finished).
  */
-void writeTest(AMRmesh               &amr_mesh,
+void writeTest(PABLO_mesh               &amr_mesh,
 	       std::string            filenameSuffix,
 	       std::vector<double>    data);
 

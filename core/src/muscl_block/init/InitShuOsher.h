@@ -91,7 +91,7 @@ public:
       const real_t dx = octSize/bx;
 
       // coordinates of the lower left corner
-      const real_t x0 = pmesh->getNode(iOct, 0)[IX];
+      const real_t x0 = pmesh->getCoordinates(iOct)[IX];
 
       // Iterating on all cells
       Kokkos::parallel_for(

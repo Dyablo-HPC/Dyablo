@@ -95,8 +95,8 @@ public:
       const real_t cellSize = octSize/bx;
 
       // coordinates of the lower left corner
-      const real_t x0 = pmesh->getNode(iOct, 0)[IX];
-      const real_t y0 = pmesh->getNode(iOct, 0)[IY];
+      const real_t x0 = pmesh->getCoordinates(iOct)[IX];
+      const real_t y0 = pmesh->getCoordinates(iOct)[IY];
       
       const real_t gamma0 = params.settings.gamma0;
 

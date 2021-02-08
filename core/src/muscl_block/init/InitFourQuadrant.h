@@ -114,8 +114,8 @@ public:
       const real_t dx = octSize/bx;
       const real_t dy = octSize/by;
 
-      const real_t x0 = pmesh->getNode(iOct, 0)[IX];
-      const real_t y0 = pmesh->getNode(iOct, 0)[IY];
+      const real_t x0 = pmesh->getCoordinates(iOct)[IX];
+      const real_t y0 = pmesh->getCoordinates(iOct)[IY];
 
       Kokkos::parallel_for(
         Kokkos::TeamVectorRange(member, nbCells),

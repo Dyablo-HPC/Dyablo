@@ -566,32 +566,32 @@ void SolverHydroMuscl::save_solution_impl()
 void SolverHydroMuscl::save_solution_vtk() 
 {
 
-  // retrieve available / allowed names: fieldManager, and field map (fm)
-  auto fm = fieldMgr.get_id2index();
+  // // retrieve available / allowed names: fieldManager, and field map (fm)
+  // auto fm = fieldMgr.get_id2index();
 
-  // number of macroscopic variables,
-  // scalar fields : density, velocity, phase field, etc...
-  //int nbVar = fieldMgr.numScalarField;
+  // // number of macroscopic variables,
+  // // scalar fields : density, velocity, phase field, etc...
+  // //int nbVar = fieldMgr.numScalarField;
 
-  // a map containing ID and name of the variable to write
-  str2int_t names2index; // this is initially empty
-  build_var_to_write_map(names2index, params, configMap);
+  // // a map containing ID and name of the variable to write
+  // str2int_t names2index; // this is initially empty
+  // build_var_to_write_map(names2index, params, configMap);
   
-  // prepare suffix string
-  std::ostringstream strsuf;
-  strsuf << "iter";
-  strsuf.width(7);
-  strsuf.fill('0');
-  strsuf << m_iteration;
+  // // prepare suffix string
+  // std::ostringstream strsuf;
+  // strsuf << "iter";
+  // strsuf.width(7);
+  // strsuf.fill('0');
+  // strsuf << m_iteration;
   
-  writeVTK(*amr_mesh, strsuf.str(), U, fm, names2index, configMap);
+  // writeVTK(*amr_mesh, strsuf.str(), U, fm, names2index, configMap);
 
-  if (params.debug_output) {
-    writeVTK(*amr_mesh, strsuf.str(), Slopes_x, fm, names2index, configMap, "_slope_x");
-    writeVTK(*amr_mesh, strsuf.str(), Slopes_y, fm, names2index, configMap, "_slope_y");
-    if (params.dimType==THREE_D)
-      writeVTK(*amr_mesh, strsuf.str(), Slopes_z, fm, names2index, configMap, "_slope_z");
-  }
+  // if (params.debug_output) {
+  //   writeVTK(*amr_mesh, strsuf.str(), Slopes_x, fm, names2index, configMap, "_slope_x");
+  //   writeVTK(*amr_mesh, strsuf.str(), Slopes_y, fm, names2index, configMap, "_slope_y");
+  //   if (params.dimType==THREE_D)
+  //     writeVTK(*amr_mesh, strsuf.str(), Slopes_z, fm, names2index, configMap, "_slope_z");
+  // }
 
 } // SolverHydroMuscl::save_solution_vtk
 

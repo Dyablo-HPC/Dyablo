@@ -88,7 +88,7 @@ void run(std::string input_filename)
 
 
   /// Instantation of a 2D pablo uniform object.
-  std::shared_ptr<dyablo::AMRmesh> amr_mesh = std::make_shared<dyablo::AMRmesh>(2);
+  std::shared_ptr<dyablo::AMRmesh> amr_mesh = std::make_shared<dyablo::AMRmesh>(2, 2, std::array<bool,3>({true,true,true}));
 
   amr_mesh->adaptGlobalRefine();
   //amr_mesh->adaptGlobalRefine();

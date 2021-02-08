@@ -128,9 +128,9 @@ public:
       // const real_t zc = center[2];
 
       // coordinates of the lower left corner
-      const real_t x0 = pmesh->getNode(iOct, 0)[IX];
-      const real_t y0 = pmesh->getNode(iOct, 0)[IY];
-      const real_t z0 = pmesh->getNode(iOct, 0)[IZ];
+      const real_t x0 = pmesh->getCoordinates(iOct)[IX];
+      const real_t y0 = pmesh->getCoordinates(iOct)[IY];
+      const real_t z0 = pmesh->getCoordinates(iOct)[IZ];
 
       Kokkos::parallel_for(
         Kokkos::TeamVectorRange(member, nbCells),

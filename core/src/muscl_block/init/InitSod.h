@@ -99,7 +99,7 @@ class InitSodDataFunctor {
       // Extracting position of the current cell
       const real_t octSize  = pmesh->getSize(iOct);
       const real_t dx       = octSize / bx;
-      const real_t x0 = pmesh->getNode(iOct, 0)[IX];
+      const real_t x0 = pmesh->getCoordinates(iOct)[IX];
 
       Kokkos::parallel_for(
 	Kokkos::TeamVectorRange(member, nbCells),
