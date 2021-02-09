@@ -6,7 +6,6 @@
 namespace dyablo
 {
 
-class AMRmesh;
 class LightOctree_hashmap;
 class LightOctree_pablo;
 

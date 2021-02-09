@@ -164,14 +164,14 @@ public:
     //! @copydoc LightOctree_base::getCenter()
     pos_t getCenter(const OctantIndex& iOct)  const
     {
-        bitpit::darray3 pcenter = iOct.isGhost ? pmesh->getCenter(pmesh->getGhostOctant(iOct.iOct)) : pmesh->getCenter(iOct.iOct);
+        bitpit::darray3 pcenter = iOct.isGhost ? pmesh->getCenterGhost(iOct.iOct) : pmesh->getCenter(iOct.iOct);
         return {pcenter[0], pcenter[1], pcenter[2]};
     }
     //! @copydoc LightOctree_base::getCorner()
     pos_t getCorner(const OctantIndex& iOct)  const
     {
         bitpit::darray3 pmin = iOct.isGhost ? 
-                pmesh->getCoordinates(pmesh->getGhostOctant(iOct.iOct)) : 
+                pmesh->getCoordinatesGhost(iOct.iOct) : 
                 pmesh->getCoordinates(iOct.iOct);
         return {pmin[IX], pmin[1], pmin[2]};
     }
@@ -179,7 +179,7 @@ public:
     real_t getSize(const OctantIndex& iOct)  const
     {
         real_t oct_size = iOct.isGhost ? 
-                pmesh->getSize(pmesh->getGhostOctant(iOct.iOct)) : 
+                pmesh->getSizeGhost(iOct.iOct) : 
                 pmesh->getSize(iOct.iOct);
         return oct_size;
     }
@@ -187,7 +187,7 @@ public:
     uint8_t getLevel(const OctantIndex& iOct)  const
     {
         uint8_t oct_level = iOct.isGhost ? 
-                pmesh->getLevel(pmesh->getGhostOctant(iOct.iOct)) : 
+                pmesh->getLevelGhost(iOct.iOct) : 
                 pmesh->getLevel(iOct.iOct);
         return oct_level;
     }
@@ -698,10 +698,10 @@ public: // init() has to be public for KOKKOS_LAMBDA
     }
 };
 
-#ifdef KOKKOS_ENABLE_CUDA
+//#ifdef KOKKOS_ENABLE_CUDA
 using LightOctree = LightOctree_hashmap;
-#else
-using LightOctree = LightOctree_pablo;
-#endif
+//#else
+//using LightOctree = LightOctree_pablo;
+//#endif
 
 } //namespace dyablo
