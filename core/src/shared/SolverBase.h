@@ -14,7 +14,7 @@
 
 #include "utils/monitoring/Timers.h"
 
-#include "shared/bitpit_common.h"
+#include "shared/amr/AMRmesh.h"
 
 //! this enum helps identifying the type of solver used
 enum solver_type_t {

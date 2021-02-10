@@ -4,7 +4,7 @@ namespace dyablo {
 
 // ==================================================
 // ==================================================
-void writeVTK(PABLO_mesh&         amr_mesh,
+void writeVTK(AMRmesh_pablo&         amr_mesh,
 	      std::string      filenameSuffix,
 	      DataArray        data,
 	      id2index_t       fm,
@@ -204,7 +204,7 @@ void writeVTK(PABLO_mesh&         amr_mesh,
 
 // =======================================================
 // =======================================================
-void writeTest(PABLO_mesh               &amr_mesh,
+void writeTest(AMRmesh_pablo               &amr_mesh,
 	       std::string            filenameSuffix,
 	       Kokkos::View<double*>  data)
 {
@@ -391,7 +391,7 @@ void writeTest(PABLO_mesh               &amr_mesh,
 
 // =======================================================
 // =======================================================
-void writeTest(PABLO_mesh  &amr_mesh,
+void writeTest(AMRmesh_pablo  &amr_mesh,
 	       std::string          filenameSuffix,
 	       std::vector<double>  data)
 {

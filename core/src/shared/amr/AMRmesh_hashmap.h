@@ -1,70 +1,18 @@
-#ifndef BITPIT_COMMON_H_
-#define BITPIT_COMMON_H_
+#pragma once
 
-#include "bitpit_PABLO.hpp"
+#include <vector>
+#include "mpi.h"
 
 #include "utils/mpiUtils/GlobalMpiSession.h"
+#include "shared/kokkos_shared.h"
 
 namespace dyablo {
 
-//! bitpit Pablo object type alias
-//using AMRmesh = bitpit::PabloUniform;
-
-class PABLO_mesh : public bitpit::PabloUniform
-{
-public:
-    using bitpit::PabloUniform::PabloUniform;
-
-    uint32_t getNodesCount(){
-        return bitpit::ParaTree::getNodes().size();
-    }
-
-    double getXghost( uint32_t iOct ) const
-    {
-        return getX(getGhostOctant(iOct));
-    }
-
-    double getYghost( uint32_t iOct ) const
-    {
-        return getY(getGhostOctant(iOct));
-    }
-
-    double getZghost( uint32_t iOct ) const
-    {
-        return getZ(getGhostOctant(iOct));
-    }
-
-    double getSizeGhost( uint32_t iOct ) const
-    {
-        return getSize(getGhostOctant(iOct));
-    }
-
-    bitpit::darray3 getCenterGhost( uint32_t iOct ) const 
-    {
-        return getCenter(getGhostOctant(iOct));
-    }
-
-    bitpit::darray3 getCoordinatesGhost( uint32_t iOct ) const 
-    {
-        return getCoordinates(getGhostOctant(iOct));
-    }
-
-    uint8_t getLevelGhost( uint32_t iOct ) const 
-    {
-        return getLevel(getGhostOctant(iOct));
-    }
-
-    // /** Get the logical coordinates of the nodes
-    //  * \return Constant reference to the nodes matrix [nnodes*3] with the coordinates of the nodes.
-    //  */
-    // const bitpit::LocalTree::u32arr3vector &
-    // getNodes() const {
-    //     return this->getNodes();
-    // }
-    
-};
-
-class AMRmesh_hashmap : protected PABLO_mesh
+/**
+ * AMR mesh without PABLO 
+ * This uses the PabloUniform interface + some methods to access ghost octants
+ **/
+class AMRmesh_hashmap
 {
 private: 
     uint8_t dim;
@@ -84,18 +32,18 @@ public:
     {
         return dim;
     }
-    bitpit::bvector getPeriodic() const
+
+    std::vector<bool> getPeriodic() const
     {
         return {periodic[0],periodic[0],periodic[1],periodic[1],periodic[2],periodic[2]};
     }
+
     bool getPeriodic(uint8_t i) const
     {
         assert(i<2*dim);
         return periodic[i/2];
     }
-    //using PABLO_mesh::getDim;
-    //using PABLO_mesh::getPeriodic;
-    
+
     //MPI
     int getRank() const
     {
@@ -128,20 +76,13 @@ public:
         loadBalance();
     }
 
-    const std::map<int, bitpit::u32vector>& getBordersPerProc() const
+    const std::map<int, std::vector<uint32_t>>& getBordersPerProc() const
     {
-        static std::map<int, bitpit::u32vector> dummy;
+        static std::map<int, std::vector<uint32_t>> dummy;
         if( getNproc()>1 )
             assert(false); // getBordersPerProc cannot run in parallel yet
         return dummy;
     }
-
-    //using PABLO_mesh::getRank;
-    //using PABLO_mesh::getNproc;
-    //using PABLO_mesh::getComm;
-    //using PABLO_mesh::loadBalance;
-    //using PABLO_mesh::communicate;
-    //using PABLO_mesh::getBordersPerProc;
 
     uint32_t getNumOctants() const
     {
@@ -160,13 +101,7 @@ public:
         if( getNproc()>1 )
             assert(false); // getGlobalNumOctants cannot run in parallel yet
         return local_octs_count;
-    }
-
-    //Get global state of mesh
-    //using PABLO_mesh::getNumOctants;   
-    //using PABLO_mesh::getNumGhosts;   
-    //using PABLO_mesh::getGlobalNumOctants;   
-    
+    } 
     
     bool getBound( uint32_t idx ) const
     {
@@ -236,19 +171,7 @@ public:
             assert(false); // getGlobalIdx cannot run in parallel yet
         return idx;
     }
-    
-    //Get octant info
-    //using PABLO_mesh::getBound;
-    //using PABLO_mesh::getCenter;
-    //using PABLO_mesh::getCoordinates;
-    //using PABLO_mesh::getLevel;
-    //using PABLO_mesh::getSize;
-    //using PABLO_mesh::getCenterGhost;
-    //using PABLO_mesh::getCoordinatesGhost;
-    //using PABLO_mesh::getSizeGhost;
-    //using PABLO_mesh::getLevelGhost;
-    //using PABLO_mesh::getGlobalIdx;
-    
+
     bool getIsNewC(uint32_t idx) const
     {
         assert(false); //getIsNewC cannot be used without PABLO
@@ -266,10 +189,7 @@ public:
         assert(false); //getMapping cannot be used without PABLO
     }
 
-    void adaptGlobalRefine()
-    {
-        #error "todo"
-    }
+    void adaptGlobalRefine();
 
     void setMarker(uint32_t iOct, int marker)
     {
@@ -280,17 +200,6 @@ public:
     {
         //TODO
     }
-
-    // Adapt
-    //using PABLO_mesh::adaptGlobalRefine;
-    //using PABLO_mesh::setMarker;
-    //using PABLO_mesh::adapt;
-    // using PABLO_mesh::getIsNewC;
-    // using PABLO_mesh::getIsNewR;
-    // using PABLO_mesh::getMapping;
-    //Debug only
-    //using PABLO_mesh::check21Balance;
-    //using PABLO_mesh::checkToAdapt;
 
     bool check21Balance()
     {
@@ -303,18 +212,8 @@ public:
         //TODO
         return false;
     }
-
-    // Connectivity and nodes
     void computeConnectivity(){}
     void updateConnectivity(){}
-    //using PABLO_mesh::getConnectivity;
-    //using PABLO_mesh::getNnodes;
-    //using PABLO_mesh::getNode;
-    //using PABLO_mesh::getNodes;
-    //using PABLO_mesh::getNodeCoordinates;
-
-    //Misc
-    //using PABLO_mesh::getLog;
 
     /**
      * @param dim number of dimensions 2D/3D
@@ -325,46 +224,21 @@ public:
      * @param periodic set perodicity for each dimension (last is ignored in 2D)
      **/
     AMRmesh_hashmap( int dim, int balance_codim, const std::array<bool,3>& periodic )
-        : PABLO_mesh(dim), dim(dim), periodic(periodic)
+        : dim(dim), periodic(periodic)
     {
         assert(dim == 2 || dim == 3);
         assert(balance_codim <= dim);
-
-        this->setBalanceCodimension(balance_codim);
-        uint32_t idx = 0;
-        this->setBalance(idx,true);
-        if(periodic[0])
-        {
-            this->setPeriodic(0);
-            this->setPeriodic(1);
-        }
-        if(periodic[1])
-        {
-            this->setPeriodic(2);
-            this->setPeriodic(3);
-        }
-        if(dim>=3 && periodic[2])
-        {
-            this->setPeriodic(4);
-            this->setPeriodic(5);
-        }
 
         this->local_octs_count = 1;
         this->local_octs_coord = oct_view_t("local_octs_coord", 1);
     }
     
     void findNeighbours(uint32_t iOct, uint8_t iface, uint8_t codim , 
-                        bitpit::u32vector& neighbor_iOcts, bitpit::bvector& neighbor_isGhost) const
+                        std::vector<uint32_t>& neighbor_iOcts, std::vector<bool>& neighbor_isGhost) const
     {
         assert(false); // findneighbours() cannot be used without PABLO
     }
-
-
-
 };
-
-using AMRmesh = AMRmesh_hashmap;
 
 } // namespace dyablo
 
-#endif // BITPIT_COMMON_H_

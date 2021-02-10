@@ -8,7 +8,7 @@
 #include <boost/test/unit_test.hpp>
 
 #include "muscl_block/utils_block.h"
-#include "shared/bitpit_common.h"
+#include "shared/amr/AMRmesh.h"
 
 #include "muscl_block/UserDataLB.h"
 

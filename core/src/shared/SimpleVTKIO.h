@@ -8,7 +8,7 @@
 #include "shared/kokkos_shared.h"
 #include "shared/FieldManager.h"
 
-#include "shared/bitpit_common.h"
+#include "shared/amr/AMRmesh.h"
 
 #include "shared/io_utils.h"
 
@@ -29,7 +29,7 @@ namespace dyablo {
  * \param[in] names2index a map of names (of scalar field to save) to id (to fm)
  * \param[in] configMap a ConfigMap object to access input parameter file data (ini file format)
  */
-void writeVTK(PABLO_mesh         &amr_mesh,
+void writeVTK(AMRmesh_pablo         &amr_mesh,
 	      std::string      filenameSuffix,
 	      DataArray        data,
 	      id2index_t       fm,
@@ -40,7 +40,7 @@ void writeVTK(PABLO_mesh         &amr_mesh,
 /**
  * Write a  Kokkos::View<double*> (see also ParaTree::writeTest).
  */
-void writeTest(PABLO_mesh               &amr_mesh,
+void writeTest(AMRmesh_pablo               &amr_mesh,
 	       std::string            filenameSuffix,
 	       Kokkos::View<double*>  data);
 
@@ -51,7 +51,7 @@ void writeTest(PABLO_mesh               &amr_mesh,
  * for testing ideas when kokkos refactoring still underway (i.e. not
  * finished).
  */
-void writeTest(PABLO_mesh               &amr_mesh,
+void writeTest(AMRmesh_pablo               &amr_mesh,
 	       std::string            filenameSuffix,
 	       std::vector<double>    data);
 

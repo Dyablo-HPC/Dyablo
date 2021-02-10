@@ -5,7 +5,7 @@
 
 #include "shared/morton_utils.h"
 #include "shared/kokkos_shared.h"
-#include "shared/bitpit_common.h"
+#include "shared/amr/AMRmesh.h"
 #include "shared/HydroParams.h"
 #include "Kokkos_UnorderedMap.hpp"
 #include "Kokkos_Macros.hpp"

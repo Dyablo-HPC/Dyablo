@@ -10,7 +10,7 @@
 
 #include "shared/kokkos_shared.h" // for DataArray, DataArrayHost
 
-#include "shared/bitpit_common.h"
+#include "shared/amr/AMRmesh.h"
 
 namespace dyablo {
 

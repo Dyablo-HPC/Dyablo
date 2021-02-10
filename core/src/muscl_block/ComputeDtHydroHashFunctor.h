@@ -14,7 +14,7 @@
 #include "shared/problems/initRiemannConfig2d.h"
 
 #include "shared/AMRMetaData.h"
-#include "shared/bitpit_common.h"
+#include "shared/amr/AMRmesh.h"
 
 // hydro utils
 #include "shared/utils_hydro.h"

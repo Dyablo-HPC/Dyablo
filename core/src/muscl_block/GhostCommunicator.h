@@ -1,7 +1,7 @@
 #pragma once
 
 #include "shared/kokkos_shared.h"
-#include "shared/bitpit_common.h"
+#include "shared/amr/AMRmesh.h"
 
 namespace dyablo{
 namespace muscl_block{

@@ -17,7 +17,7 @@
 #include "muscl_block/utils_block.h"
 
 #include "bitpit_PABLO.hpp"
-#include "shared/bitpit_common.h"
+#include "shared/amr/AMRmesh.h"
 
 namespace dyablo { namespace muscl_block {
 

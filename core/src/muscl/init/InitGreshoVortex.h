@@ -13,7 +13,7 @@
 #include "shared/problems/GreshoVortexParams.h"
 
 #include "bitpit_PABLO.hpp"
-#include "shared/bitpit_common.h"
+#include "shared/amr/AMRmesh.h"
 
 namespace dyablo {
 namespace muscl {

@@ -12,7 +12,7 @@
 #include "bitpit_PABLO.hpp"
 #include "shared/RiemannSolvers.h"
 #include "shared/bc_utils.h"
-#include "shared/bitpit_common.h"
+#include "shared/amr/AMRmesh.h"
 
 // utils hydro
 #include "shared/utils_hydro.h"

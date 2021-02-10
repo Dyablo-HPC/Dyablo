@@ -10,7 +10,7 @@
 #include "muscl_block/GhostCommunicator.h"
 
 #include "muscl_block/utils_block.h"
-#include "shared/bitpit_common.h"
+#include "shared/amr/AMRmesh.h"
 
 namespace dyablo
 {

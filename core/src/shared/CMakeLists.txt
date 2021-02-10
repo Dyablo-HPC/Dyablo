@@ -10,6 +10,7 @@ target_sources (shared
   ${CMAKE_CURRENT_SOURCE_DIR}/utils.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/io_utils.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/SimpleVTKIO.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh_hashmap.cpp
   )
 
 if (DYABLO_USE_HDF5)
