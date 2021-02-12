@@ -2,6 +2,7 @@
 
 #include <vector>
 #include "mpi.h"
+#include "Kokkos_UnorderedMap.hpp"
 
 #include "utils/mpiUtils/GlobalMpiSession.h"
 #include "shared/kokkos_shared.h"
@@ -14,18 +15,24 @@ namespace dyablo {
  **/
 class AMRmesh_hashmap
 {
-private: 
-    uint8_t dim;
-    std::array<bool,3> periodic;
-
-    uint64_t local_octs_count;
+public:
     enum octs_coord_id{
         IX, IY, IZ,
         LEVEL,
         NUM_OCTS_COORDS
     };
     using oct_view_t = Kokkos::View< uint16_t*[NUM_OCTS_COORDS] > ;
+    using markers_t = Kokkos::UnorderedMap<uint32_t, int>;
+
+private: 
+    uint8_t dim;
+    std::array<bool,3> periodic;
+
+    uint32_t local_octs_count;
     oct_view_t local_octs_coord;
+    markers_t markers;    
+
+    uint8_t level_min, level_max;
 
 public:
     uint8_t getDim() const
@@ -190,16 +197,9 @@ public:
     }
 
     void adaptGlobalRefine();
-
-    void setMarker(uint32_t iOct, int marker)
-    {
-        //TODO
-    }
-
-    void adapt(bool dummy = true)
-    {
-        //TODO
-    }
+    void setMarkersCapacity(uint32_t capa);
+    void setMarker(uint32_t iOct, int marker);
+    void adapt(bool dummy = true);
 
     bool check21Balance()
     {
@@ -223,15 +223,7 @@ public:
      *               3 ==> balance through faces, edges and corner (3D only)
      * @param periodic set perodicity for each dimension (last is ignored in 2D)
      **/
-    AMRmesh_hashmap( int dim, int balance_codim, const std::array<bool,3>& periodic )
-        : dim(dim), periodic(periodic)
-    {
-        assert(dim == 2 || dim == 3);
-        assert(balance_codim <= dim);
-
-        this->local_octs_count = 1;
-        this->local_octs_coord = oct_view_t("local_octs_coord", 1);
-    }
+    AMRmesh_hashmap( int dim, int balance_codim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max);
     
     void findNeighbours(uint32_t iOct, uint8_t iface, uint8_t codim , 
                         std::vector<uint32_t>& neighbor_iOcts, std::vector<bool>& neighbor_isGhost) const

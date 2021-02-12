@@ -138,7 +138,7 @@ public:
     LightOctree_pablo(const LightOctree_pablo& ) = default;
 
 
-    LightOctree_pablo( std::shared_ptr<AMRmesh> pmesh, const HydroParams& params )
+    LightOctree_pablo( std::shared_ptr<AMRmesh> pmesh, uint8_t level_min, uint8_t level_max )
     : pmesh(pmesh), ndim(pmesh->getDim())
     {
         is_periodic[IX] = pmesh->getPeriodic(2*IX);
@@ -376,16 +376,16 @@ public:
     LightOctree_hashmap() = default;
     LightOctree_hashmap(const LightOctree_hashmap& lmesh) = default;
 
-    LightOctree_hashmap( std::shared_ptr<AMRmesh> pmesh, const HydroParams& params )
+    LightOctree_hashmap( std::shared_ptr<AMRmesh> pmesh, uint8_t level_min, uint8_t level_max )
     : oct_map(pmesh->getNumOctants()+pmesh->getNumGhosts()),
       oct_data("LightOctree::oct_data", pmesh->getNumOctants()+pmesh->getNumGhosts(), OCT_DATA_COUNT),
-      numOctants(pmesh->getNumOctants()) , min_level(params.level_min), max_level(params.level_max), ndim(pmesh->getDim())
+      numOctants(pmesh->getNumOctants()) , min_level(level_min), max_level(level_max), ndim(pmesh->getDim())
     {
         is_periodic[IX] = pmesh->getPeriodic(2*IX);
         is_periodic[IY] = pmesh->getPeriodic(2*IY);
         is_periodic[IZ] = pmesh->getPeriodic(2*IZ);
         std::cout << "LightOctree rehash ..." << std::endl;
-        init(pmesh, params, oct_data, oct_map, numOctants);
+        init(pmesh, oct_data, oct_map, numOctants, min_level, max_level);
     }
     //! @copydoc LightOctree_base::getNumOctants()
     KOKKOS_INLINE_FUNCTION uint32_t getNumOctants() const
@@ -533,6 +533,26 @@ public:
     // Only in LightOctree_hashmap
     // ------------------------
     /**
+     * Get octant from logical position
+     **/
+    KOKKOS_INLINE_FUNCTION
+    OctantIndex getiOctFromCoordinates(uint16_t ix, uint16_t iy, uint16_t iz, uint16_t level) const
+    {
+        assert( ix < std::pow( 2, level )  );
+        assert( iy < std::pow( 2, level )  );
+        if(ndim == 3)
+            assert( iz < std::pow( 2, level )  );
+        else 
+            assert( iz == 0  );
+
+        morton_t morton = compute_morton_key( ix, iy, iz );
+        auto it = oct_map.find(get_key(level, morton));
+
+        assert( oct_map.valid_at(it) );
+
+        return oct_map.value_at(it);
+    }
+    /**
      * Get octant containing position pos
      **/
     KOKKOS_INLINE_FUNCTION
@@ -624,14 +644,14 @@ public: // init() has to be public for KOKKOS_LAMBDA
     /**
      * Fetches data from pmesh and fill hashmap
      **/
-    static void init(std::shared_ptr<AMRmesh> pmesh, const HydroParams& params, oct_data_t& oct_data, oct_map_t& oct_map, uint32_t numOctants)
+    static void init(std::shared_ptr<AMRmesh> pmesh, oct_data_t& oct_data, oct_map_t& oct_map, uint32_t numOctants, uint8_t min_level, uint8_t max_level)
     {   
-        const uint32_t numOctants_tot =  pmesh->getNumOctants()+pmesh->getNumGhosts();
+        const uint32_t numOctants_tot = pmesh->getNumOctants()+pmesh->getNumGhosts();
         
         // Copy mesh data from PABLO tree to LightOctree
         {   
             oct_data_t::HostMirror oct_data_host = Kokkos::create_mirror_view(oct_data);
-            LightOctree_pablo mesh_pablo(pmesh, params);
+            LightOctree_pablo mesh_pablo(pmesh, min_level, max_level);
 
             Kokkos::parallel_for( "LightOctree_hashmap::copydata", 
                                 Kokkos::RangePolicy<Kokkos::OpenMP>(0, numOctants_tot),
@@ -660,8 +680,8 @@ public: // init() has to be public for KOKKOS_LAMBDA
         }
 
         // Put octants into hashmap on device
-        Kokkos::parallel_for( "LightOctree_hashmap::rehash", 
-                              numOctants_tot,
+        Kokkos::parallel_for( "LightOctree_hashmap::hash",
+                              Kokkos::RangePolicy<>(0, numOctants_tot),
                               KOKKOS_LAMBDA(uint32_t ioct_local)
         {
             pos_t c;

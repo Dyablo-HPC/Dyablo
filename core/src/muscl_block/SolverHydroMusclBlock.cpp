@@ -171,7 +171,7 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   // copy U into U2
   Kokkos::deep_copy(U2,U);
 
-  lmesh = LightOctree(amr_mesh, params);
+  lmesh = LightOctree(amr_mesh, params.level_min, params.level_max);
 
   // compute initialize time step
   compute_dt();
@@ -860,7 +860,7 @@ void SolverHydroMusclBlock::map_userdata_after_adapt()
   timers.get("AMR: map userdata").start();
 
   LightOctree lmesh_old = lmesh;
-  lmesh = LightOctree(amr_mesh, params);
+  lmesh = LightOctree(amr_mesh, params.level_min, params.level_max);
 
   MapUserDataFunctor::apply( lmesh_old, lmesh, configMap, blockSizes,
                       U2, Ughost, U );
@@ -910,7 +910,7 @@ void SolverHydroMusclBlock::load_balance_userdata()
     Kokkos::resize(U2,U.extent(0),U.extent(1),U.extent(2));
 
     // Update LightOctree after load balancing
-    lmesh = LightOctree(amr_mesh, params);    
+    lmesh = LightOctree(amr_mesh, params.level_min, params.level_max);    
   }
 #endif // BITPIT_ENABLE_MPI==1
   

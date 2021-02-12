@@ -116,7 +116,7 @@ SolverHydroMuscl::SolverHydroMuscl(HydroParams& params,
   // copy U into U2
   Kokkos::deep_copy(U2,U);
 
-  amr_lmesh = LightOctree(amr_mesh, params);
+  amr_lmesh = LightOctree(amr_mesh, params.level_min, params.level_max);
 
   // compute initialize time step
   compute_dt();
@@ -770,7 +770,7 @@ void SolverHydroMuscl::adapt_mesh()
   // 2. re-compute connectivity
   amr_mesh->updateConnectivity();
 
-  amr_lmesh = LightOctree(amr_mesh, params);
+  amr_lmesh = LightOctree(amr_mesh, params.level_min, params.level_max);
   
   timers.get("AMR: adapt").stop();
 
@@ -908,7 +908,7 @@ void SolverHydroMuscl::load_balance_userdata()
     Kokkos::deep_copy(U, U_host);
     Kokkos::deep_copy(Ughost, Ughost_host);  
 
-    amr_lmesh = LightOctree(amr_mesh, params);
+    amr_lmesh = LightOctree(amr_mesh, params.level_min, params.level_max);
 
   }
 #endif // BITPIT_ENABLE_MPI==1

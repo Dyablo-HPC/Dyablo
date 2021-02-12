@@ -11,7 +11,32 @@ namespace dyablo {
 class AMRmesh_pablo : public bitpit::PabloUniform
 {
 public:
-    using bitpit::PabloUniform::PabloUniform;
+    AMRmesh_pablo( int dim, int balance_codim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max )
+        : PabloUniform(dim)
+    {
+        assert(dim == 2 || dim == 3);
+        assert(balance_codim <= dim);
+
+        this->setBalanceCodimension(balance_codim);
+        uint32_t idx = 0;
+        this->setBalance(idx,true);
+        if(periodic[0])
+        {
+            this->setPeriodic(0);
+            this->setPeriodic(1);
+        }
+        if(periodic[1])
+        {
+            this->setPeriodic(2);
+            this->setPeriodic(3);
+        }
+        if(dim>=3 && periodic[2])
+        {
+            this->setPeriodic(4);
+            this->setPeriodic(5);
+        }
+    }
+    
 
     uint32_t getNodesCount(){
         return bitpit::ParaTree::getNodes().size();
@@ -51,6 +76,8 @@ public:
     {
         return getLevel(getGhostOctant(iOct));
     }
+
+    void setMarkersCapacity(uint32_t capa){}
 };
 
 } // namespace dyablo

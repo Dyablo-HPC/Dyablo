@@ -46,7 +46,7 @@ SolverBase::SolverBase (HydroParams& params, ConfigMap& configMap) :
   };
 
   // create PABLO mesh
-  amr_mesh = std::make_shared<AMRmesh>(m_dim, codim, perodic);
+  amr_mesh = std::make_shared<AMRmesh>(m_dim, codim, perodic, params.level_min, params.level_max);
 
   // set the number of children upon refinement
   m_nbChildren = m_dim == 2 ? 4 : 8;
