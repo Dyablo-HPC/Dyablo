@@ -58,39 +58,42 @@ void AMRmesh_hashmap::setMarker(uint32_t iOct, int marker)
 namespace {
 
 using oct_view_t = AMRmesh_hashmap::oct_view_t;
+using oct_view_device_t = AMRmesh_hashmap::oct_view_device_t;
 using octs_coord_id = AMRmesh_hashmap::octs_coord_id;
 using markers_t = AMRmesh_hashmap::markers_t;
-constexpr octs_coord_id IX = octs_coord_id::IX;
-constexpr octs_coord_id IY = octs_coord_id::IY;
-constexpr octs_coord_id IZ = octs_coord_id::IZ;
-constexpr octs_coord_id LEVEL = octs_coord_id::LEVEL;
+using markers_device_t = AMRmesh_hashmap::markers_device_t;
 
 /// Check il all siblings are marked for coarsening
+KOKKOS_INLINE_FUNCTION
 bool is_full_coarsening(const LightOctree_hashmap& lmesh, 
-                        const oct_view_t& local_octs_coord, 
-                        const markers_t& markers,
+                        const oct_view_device_t& local_octs_coord, 
+                        const markers_device_t& markers,
                         uint32_t iOct)
 {
     //Position in parent octant
-    uint16_t ix = local_octs_coord(iOct, IX);
-    uint16_t iy = local_octs_coord(iOct, IY);
-    uint16_t iz = local_octs_coord(iOct, IZ);
-    uint16_t level = local_octs_coord(iOct, LEVEL);
+    uint16_t ix = local_octs_coord(iOct, octs_coord_id::IX);
+    uint16_t iy = local_octs_coord(iOct, octs_coord_id::IY);
+    uint16_t iz = local_octs_coord(iOct, octs_coord_id::IZ);
+    uint16_t level = local_octs_coord(iOct, octs_coord_id::LEVEL);
     uint16_t target_level = level-1;
 
     int sx = (ix%2==0)?1:-1;
     int sy = (iy%2==0)?1:-1;
     int sz = (iz%2==0)?1:-1;
 
-    for(int8_t z=0; z<2; z++)
+    int8_t ndim = lmesh.getNdim();
+
+    for(int8_t z=0; z<(ndim-1); z++)
         for(int8_t y=0; y<2; y++)
             for(int8_t x=0; x<2; x++)
             {
                 if( x!=0 || y!=0 || z!=0 )
                 {
-                    uint32_t iOct_other = lmesh.findNeighbors({iOct,false},{sx*x,sy*y,sz*z})[0].iOct;
+                    auto ns = lmesh.findNeighbors({iOct,false},{(int8_t)(sx*x),(int8_t)(sy*y),(int8_t)(sz*z)});
+                    assert(ns.size()>0);
+                    uint32_t iOct_other = ns[0].iOct;
                     
-                    uint16_t target_level_n = local_octs_coord(iOct_other, LEVEL);
+                    uint16_t target_level_n = local_octs_coord(iOct_other, octs_coord_id::LEVEL);
                     uint32_t im = markers.find(iOct_other);
                     if( markers.valid_at(im) )
                         target_level_n += markers.value_at(im);
@@ -103,10 +106,10 @@ bool is_full_coarsening(const LightOctree_hashmap& lmesh,
 
 /// Clean markers, remove octants that are only partially coarsened from markers list
 void adapt_clean(   const LightOctree_hashmap& lmesh, 
-                    const oct_view_t& local_octs_coord, 
-                    markers_t& markers )
+                    const oct_view_device_t& local_octs_coord, 
+                    markers_device_t& markers )
 {
-    markers_t markers_out(lmesh.getNumOctants());
+    markers_device_t markers_out(lmesh.getNumOctants());
     
     Kokkos::parallel_for( "adapt::clean", markers.capacity(),
                             KOKKOS_LAMBDA(uint32_t idx)
@@ -128,17 +131,19 @@ void adapt_clean(   const LightOctree_hashmap& lmesh,
 }
 
 /// Returns true if cell needs to be refined to verify 2:1 criterion
+KOKKOS_INLINE_FUNCTION
 bool need_refine_to_balance(const LightOctree_hashmap& lmesh, 
-                        const oct_view_t& local_octs_coord, 
-                        const markers_t& markers,
+                        const oct_view_device_t& local_octs_coord, 
+                        const markers_device_t& markers,
                         uint32_t iOct)
 {
-    uint16_t new_level = local_octs_coord(iOct, LEVEL);
+    uint16_t new_level = local_octs_coord(iOct, octs_coord_id::LEVEL);
     uint32_t idm = markers.find(iOct);
     if( markers.valid_at(idm) )
         new_level += markers.value_at(idm);
 
-    for( int8_t nz=-1; nz<=1; nz++ )
+    int8_t nz_max = lmesh.getNdim() == 2? 0:1;
+    for( int8_t nz=-nz_max; nz<=nz_max; nz++ )
         for( int8_t ny=-1; ny<=1; ny++ )
             for( int8_t nx=-1; nx<=1; nx++ )
             {
@@ -146,10 +151,10 @@ bool need_refine_to_balance(const LightOctree_hashmap& lmesh,
                 {
                     LightOctree_base::NeighborList neighbors = 
                         lmesh.findNeighbors({iOct,false}, {nx,ny,nz});
-                    if(neighbors.size() != 0) 
+                    for(uint32_t n=0; n<neighbors.size(); n++)
                     {
-                        uint32_t iOct_neighbor = neighbors[0].iOct;
-                        uint16_t new_level_neighbor = local_octs_coord(iOct_neighbor, LEVEL);
+                        uint32_t iOct_neighbor = neighbors[n].iOct;
+                        uint16_t new_level_neighbor = local_octs_coord(iOct_neighbor, octs_coord_id::LEVEL);
                         uint32_t idmn = markers.find(iOct_neighbor);
                         if( markers.valid_at(idmn) )
                             new_level_neighbor += markers.value_at(idmn);
@@ -166,11 +171,11 @@ bool need_refine_to_balance(const LightOctree_hashmap& lmesh,
 
 /// Iterate over all octants and modify markers when not verifying 2:1
 bool adapt_21balance_step(  const LightOctree_hashmap& lmesh, 
-                            const oct_view_t& local_octs_coord, 
-                            markers_t& markers)
+                            const oct_view_device_t& local_octs_coord, 
+                            markers_device_t& markers)
 {
     uint32_t nbOcts = lmesh.getNumOctants();
-    markers_t markers_out(nbOcts);
+    markers_device_t markers_out(nbOcts);
 
     int modified = 0;
     Kokkos::parallel_reduce( "adapt::2:1step", nbOcts,
@@ -190,6 +195,8 @@ bool adapt_21balance_step(  const LightOctree_hashmap& lmesh,
         {
             modified_local++;
             marker++;
+
+            assert(marker<=1);
         }
 
         if(marker != 0)
@@ -199,22 +206,24 @@ bool adapt_21balance_step(  const LightOctree_hashmap& lmesh,
 
     markers = markers_out;
 
-    return modified;
+    return modified!=0;
 }
 
 oct_view_t adapt_apply( const oct_view_t& local_octs_coord, 
-                        const markers_t& markers )
+                        const markers_t& markers, uint8_t ndim )
 {
-    int n_refine = 8;
+    int n_refine = (ndim==2) ? 4 : 8;
 
     uint32_t count_refine=0, count_coarsen=0;
-    Kokkos::parallel_reduce( "adapt::count_markers+", markers.capacity(),
+    Kokkos::parallel_reduce( "adapt::count_markers+", 
+                             Kokkos::RangePolicy<Kokkos::OpenMP>(0, markers.capacity()),
                              KOKKOS_LAMBDA(uint32_t im, uint32_t& count_local)
     {
         if( markers.valid_at(im) && markers.value_at(im)==1 )
             count_local++;
     }, count_refine);
-    Kokkos::parallel_reduce( "adapt::count_markers+", markers.capacity(),
+    Kokkos::parallel_reduce( "adapt::count_markers-",  
+                             Kokkos::RangePolicy<Kokkos::OpenMP>(0, markers.capacity()),
                              KOKKOS_LAMBDA(uint32_t im, uint32_t& count_local)
     {
         if( markers.valid_at(im) && markers.value_at(im)==-1 )
@@ -226,7 +235,8 @@ oct_view_t adapt_apply( const oct_view_t& local_octs_coord,
 
     oct_view_t local_octs_coord_out("local_octs_coord", new_size);
 
-    Kokkos::parallel_scan( "adapt::apply", old_size,
+    Kokkos::parallel_scan( "adapt::apply",  
+                            Kokkos::RangePolicy<Kokkos::OpenMP>(0, old_size),
                             KOKKOS_LAMBDA(uint32_t iOct_old, uint32_t& iOct_new, const bool final)
     {
         //Get marker
@@ -248,9 +258,9 @@ oct_view_t adapt_apply( const oct_view_t& local_octs_coord,
             else if( marker == -1 )
             {
                 // Add coarsend octant only for first one in morton order
-                uint16_t ix = local_octs_coord(iOct_old, IX);
-                uint16_t iy = local_octs_coord(iOct_old, IY);
-                uint16_t iz = local_octs_coord(iOct_old, IZ);
+                uint16_t ix = local_octs_coord(iOct_old, octs_coord_id::IX);
+                uint16_t iy = local_octs_coord(iOct_old, octs_coord_id::IY);
+                uint16_t iz = local_octs_coord(iOct_old, octs_coord_id::IZ);
                 if( ix%2==0 && iy%2==0 && iz%2==0 )
                     n_new_octants = 1;
                 else 
@@ -265,10 +275,10 @@ oct_view_t adapt_apply( const oct_view_t& local_octs_coord,
         
         if(final && n_new_octants>0)
         {
-            uint16_t ix = local_octs_coord(iOct_old, IX);
-            uint16_t iy = local_octs_coord(iOct_old, IY);
-            uint16_t iz = local_octs_coord(iOct_old, IZ);
-            uint16_t level = local_octs_coord(iOct_old, LEVEL);
+            uint16_t ix = local_octs_coord(iOct_old, octs_coord_id::IX);
+            uint16_t iy = local_octs_coord(iOct_old, octs_coord_id::IY);
+            uint16_t iz = local_octs_coord(iOct_old, octs_coord_id::IZ);
+            uint16_t level = local_octs_coord(iOct_old, octs_coord_id::LEVEL);
 
             if(marker==1)
             {
@@ -281,10 +291,10 @@ oct_view_t adapt_apply( const oct_view_t& local_octs_coord,
                     uint32_t dy = (j-dz*2*2)/2;
                     uint32_t dx = j-dz*2*2-dy*2;
 
-                    local_octs_coord_out(iOct_new + j, IX) = ix + dx;
-                    local_octs_coord_out(iOct_new + j, IY) = iy + dy;
-                    local_octs_coord_out(iOct_new + j, IZ) = iz + dz;
-                    local_octs_coord_out(iOct_new + j, LEVEL) = level+1;
+                    local_octs_coord_out(iOct_new + j, octs_coord_id::IX) = ix + dx;
+                    local_octs_coord_out(iOct_new + j, octs_coord_id::IY) = iy + dy;
+                    local_octs_coord_out(iOct_new + j, octs_coord_id::IZ) = iz + dz;
+                    local_octs_coord_out(iOct_new + j, octs_coord_id::LEVEL) = level+1;
                 }
             }
             else 
@@ -296,10 +306,10 @@ oct_view_t adapt_apply( const oct_view_t& local_octs_coord,
                     iz /= 2;
                     level -= 1;
                 }
-                local_octs_coord_out(iOct_new, IX) = ix;
-                local_octs_coord_out(iOct_new, IY) = iy;
-                local_octs_coord_out(iOct_new, IZ) = iz;
-                local_octs_coord_out(iOct_new, LEVEL) = level;
+                local_octs_coord_out(iOct_new, octs_coord_id::IX) = ix;
+                local_octs_coord_out(iOct_new, octs_coord_id::IY) = iy;
+                local_octs_coord_out(iOct_new, octs_coord_id::IZ) = iz;
+                local_octs_coord_out(iOct_new, octs_coord_id::LEVEL) = level;
             }            
         }
 
@@ -313,24 +323,34 @@ oct_view_t adapt_apply( const oct_view_t& local_octs_coord,
 
 void AMRmesh_hashmap::adapt(bool dummy)
 {
-    std::shared_ptr<AMRmesh_hashmap> this_sptr(this, [](AMRmesh_hashmap*){});
-    LightOctree_hashmap lmesh(this_sptr, level_min, level_max);
-
     std::cout << "---- Adapt ----" << std::endl;
     std::cout << "Octs before adapt " << local_octs_count << std::endl;
 
-    bool modified = true;
-    while(modified)
+    std::shared_ptr<AMRmesh_hashmap> this_sptr(this, [](AMRmesh_hashmap*){});
+    LightOctree_hashmap lmesh(this_sptr, level_min, level_max);
+
     {
-        adapt_clean(lmesh, local_octs_coord, markers);
-        modified = adapt_21balance_step(lmesh, local_octs_coord, markers);
+        oct_view_device_t local_octs_coord_device("local_octs_coord_device", local_octs_count);
+        markers_device_t markers_device(markers.capacity());
+        Kokkos::deep_copy(local_octs_coord_device, local_octs_coord);
+        Kokkos::deep_copy(markers_device, markers);
+
+        bool modified = true;
+        while(modified)
+        {
+                adapt_clean(lmesh, local_octs_coord_device, markers_device);
+                modified = adapt_21balance_step(lmesh, local_octs_coord_device, markers_device);
+        }
+        adapt_clean(lmesh, local_octs_coord_device, markers_device);
+
+        markers.clear();
+        Kokkos::deep_copy(markers, markers_device);
     }
-    adapt_clean(lmesh, local_octs_coord, markers);
 
-    oct_view_t new_octs = adapt_apply( local_octs_coord, markers );
+    oct_view_t new_octs = adapt_apply( local_octs_coord, markers, dim );
 
-    local_octs_coord = new_octs;
     local_octs_count = new_octs.extent(0);
+    local_octs_coord = new_octs;    
 
     std::cout << "Octs after adapt " << local_octs_count << std::endl;
     std::cout << "---- End Adapt ----" << std::endl;

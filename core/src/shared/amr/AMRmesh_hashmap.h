@@ -21,8 +21,10 @@ public:
         LEVEL,
         NUM_OCTS_COORDS
     };
-    using oct_view_t = Kokkos::View< uint16_t*[NUM_OCTS_COORDS] > ;
-    using markers_t = Kokkos::UnorderedMap<uint32_t, int>;
+    using oct_view_device_t = Kokkos::View< uint16_t*[NUM_OCTS_COORDS] > ;
+    using markers_device_t = Kokkos::UnorderedMap<uint32_t, int>;
+    using oct_view_t = oct_view_device_t::HostMirror ;
+    using markers_t = markers_device_t::HostMirror;
 
 private: 
     uint8_t dim;
@@ -155,21 +157,25 @@ public:
     std::array<real_t, 3> getCenterGhost( uint32_t idx ) const
     {
         assert(false); // getCenterGhost cannot run in parallel yet
+        return {};
     }  
 
     std::array<real_t, 3> getCoordinatesGhost( uint32_t idx ) const
     {
         assert(false); // getCoordinatesGhost cannot run in parallel yet
+        return {};
     }
 
     real_t getSizeGhost( uint32_t idx ) const
     {
         assert(false); // getSizeGhost cannot run in parallel yet
+        return 0;
     }
 
     uint8_t getLevelGhost( uint32_t idx ) const
     {
         assert(false); // getLevelGhost cannot run in parallel yet
+        return 0;
     }
 
     uint32_t getGlobalIdx( uint32_t idx ) const
