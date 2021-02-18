@@ -52,7 +52,10 @@ void AMRmesh_hashmap::setMarker(uint32_t iOct, int marker)
 {
     auto inserted = this->markers.insert( iOct, marker );
 
-    assert(inserted.success());
+    if(inserted.existing())
+        markers.value_at(inserted.index()) = marker;
+    
+    assert(!inserted.failed());
 }
 
 namespace {

@@ -36,6 +36,10 @@ public:
             this->setPeriodic(5);
         }
     }
+
+    explicit AMRmesh_pablo( int dim )
+     : AMRmesh_pablo(dim, 1, {false, false, false}, 1, 20)
+    {}
     
 
     uint32_t getNodesCount(){

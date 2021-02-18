@@ -34,10 +34,9 @@ void run_test(int argc, char *argv[])
   std::shared_ptr<AMRmesh> amr_mesh; //solver->amr_mesh 
   {
     int ndim = 3;
-    amr_mesh = std::make_shared<AMRmesh>(ndim);
-    amr_mesh->setBalanceCodimension(ndim);
-    uint32_t idx = 0;
-    amr_mesh->setBalance(idx,true);
+    amr_mesh = std::make_shared<AMRmesh>(ndim, ndim, std::array<bool,3>{false,false,false}, 3, 5);
+    //uint32_t idx = 0;
+    //amr_mesh->setBalance(idx,true);
     // mr_mesh->setPeriodic(0);
     // amr_mesh->setPeriodic(1);
     // amr_mesh->setPeriodic(2);
@@ -127,9 +126,8 @@ void run_test(int argc, char *argv[])
     DataArrayBlock::HostMirror Ughost_host = Kokkos::create_mirror_view(Ughost);
     for( uint32_t iOct=0; iOct<nbGhosts; iOct++ )
     {
-      auto oct = amr_mesh->getGhostOctant(iOct);
-      bitpit::darray3 oct_pos = amr_mesh->getCoordinates(oct);
-      real_t oct_size = amr_mesh->getSize(oct);
+      bitpit::darray3 oct_pos = amr_mesh->getCoordinatesGhost(iOct);
+      real_t oct_size = amr_mesh->getSizeGhost(iOct);
       
       for( uint32_t c=0; c<nbCellsPerOct; c++ )
       {
@@ -180,9 +178,8 @@ void run_test(int argc, char *argv[])
 
     for( uint32_t iOct=0; iOct<nbOcts; iOct++ )
     {
-      auto oct = amr_mesh->getOctant(iOct);
-      bitpit::darray3 oct_pos = amr_mesh->getCoordinates(oct);
-      real_t oct_size = amr_mesh->getSize(oct);
+      bitpit::darray3 oct_pos = amr_mesh->getCoordinates(iOct);
+      real_t oct_size = amr_mesh->getSize(iOct);
       
       for( uint32_t c=0; c<nbCellsPerOct; c++ )
       {

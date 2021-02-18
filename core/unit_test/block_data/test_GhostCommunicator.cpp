@@ -30,10 +30,10 @@ void run_test(int argc, char *argv[])
   std::shared_ptr<AMRmesh> amr_mesh; //solver->amr_mesh 
   {
     int ndim = 3;
-    amr_mesh = std::make_shared<AMRmesh>(ndim);
-    amr_mesh->setBalanceCodimension(ndim);
-    uint32_t idx = 0;
-    amr_mesh->setBalance(idx,true);
+    amr_mesh = std::make_shared<AMRmesh>(ndim, ndim, std::array<bool,3>{false,false,false}, 3, 5);
+    //amr_mesh->setBalanceCodimension(ndim);
+    //uint32_t idx = 0;
+    //amr_mesh->setBalance(idx,true);
     // mr_mesh->setPeriodic(0);
     // amr_mesh->setPeriodic(1);
     // amr_mesh->setPeriodic(2);
@@ -129,9 +129,8 @@ void run_test(int argc, char *argv[])
 
     for( uint32_t iGhost=0; iGhost<nGhosts; iGhost++ )
     {
-      auto oct = amr_mesh->getGhostOctant(iGhost);
-      bitpit::darray3 oct_pos = amr_mesh->getCoordinates(oct);
-      real_t oct_size = amr_mesh->getSize(oct);
+      bitpit::darray3 oct_pos = amr_mesh->getCoordinatesGhost(iGhost);
+      real_t oct_size = amr_mesh->getSizeGhost(iGhost);
       
       for( uint32_t c=0; c<nbCellsPerOct; c++ )
       {

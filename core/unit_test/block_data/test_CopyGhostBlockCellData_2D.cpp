@@ -133,10 +133,12 @@ void run_test(int argc, char *argv[])
   std::cout << "Create mesh..." << std::endl;
   std::shared_ptr<AMRmesh> amr_mesh; //solver->amr_mesh 
   int ndim = 2;
-  amr_mesh = std::make_shared<AMRmesh>(ndim);
-  amr_mesh->setBalanceCodimension(ndim);
-  uint32_t idx = 0;
-  amr_mesh->setBalance(idx,true);
+  params.level_min = 4;
+  params.level_max = 5;
+  amr_mesh = std::make_shared<AMRmesh>(ndim,ndim,std::array<bool,3>{false,false,false},params.level_min,params.level_max);
+  //amr_mesh->setBalanceCodimension(ndim);
+  //uint32_t idx = 0;
+  //amr_mesh->setBalance(idx,true);
   // amr_mesh->setPeriodic(0);
   // amr_mesh->setPeriodic(1);
   // amr_mesh->setPeriodic(2);
@@ -162,8 +164,6 @@ void run_test(int argc, char *argv[])
 
   amr_mesh->adapt();
   amr_mesh->updateConnectivity();
-  params.level_min = 4;
-  params.level_max = 5;
 
   uint32_t nbOctsPerGroup = 64;
   uint32_t iGroup = 0;
@@ -223,12 +223,14 @@ void run_test(int argc, char *argv[])
   // Define print functions as lambdas
   // Print info about original local (iGroup set in main()) octant
   auto show_octant = [&](uint32_t iOct_local){  
+    //#define DEBUG_PRINT
+    #ifdef DEBUG_PRINT
     uint32_t iOct_global = iOct_local + iGroup * nbOctsPerGroup;
 
     std::cout << "Looking at octant id = " << iOct_global << "\n";
     // octant location
-    double x = amr_mesh->getX(iOct_global);
-    double y = amr_mesh->getY(iOct_global);
+    double x = amr_mesh->getCoordinates(iOct_global)[IX];
+    double y = amr_mesh->getCoordinates(iOct_global)[IY];
     std::cout << "Octant location : x=" << x << " y=" << y << "\n";
     auto print_neighbor_status = [&]( int codim, int iface)
     { 
@@ -242,7 +244,7 @@ void run_test(int argc, char *argv[])
       else if(iOct_neighbors.size() == 1)
       {
         uint32_t neigh_level = isghost_neighbors[0] ? 
-                    amr_mesh->getLevel(amr_mesh->getGhostOctant(iOct_neighbors[0])) : 
+                    amr_mesh->getLevelGhost(iOct_neighbors[0]) : 
                     amr_mesh->getLevel(iOct_neighbors[0]);
         if ( amr_mesh->getLevel(iOct_global) > neigh_level )
           std::cout << "( bigger  )";
@@ -299,6 +301,7 @@ void run_test(int argc, char *argv[])
       }
       std::cout << "\n";
     }
+    #endif
   };
 
   // Print info about final local octant (with ghosts)
@@ -333,7 +336,7 @@ void run_test(int argc, char *argv[])
   std::cout << "Testing CopyGhostBlockCellDataFunctor....\n";
   {
     InterfaceFlags interface_flags(nbOctsPerGroup); //solver->interface_flags
-    LightOctree lmesh(amr_mesh,params);
+    LightOctree lmesh(amr_mesh,params.level_min,params.level_max);
     CopyGhostBlockCellDataFunctor::apply(lmesh,
                                         configMap,
                                         params, 
@@ -389,8 +392,8 @@ void run_test(int argc, char *argv[])
       uint32_t iOct_global = iOct_local + iGroup * nbOctsPerGroup;
       const real_t octSize = amr_mesh->getSize(iOct_global);
       const real_t cellSize = octSize/bx;
-      const real_t x0 = amr_mesh->getNode(iOct_global, 0)[IX];
-      const real_t y0 = amr_mesh->getNode(iOct_global, 0)[IY];
+      const real_t x0 = amr_mesh->getCoordinates(iOct_global)[IX];
+      const real_t y0 = amr_mesh->getCoordinates(iOct_global)[IY];
       real_t x = x0 + ix*cellSize - ghostWidth*cellSize + cellSize/2;
       real_t y = y0 + iy*cellSize - ghostWidth*cellSize + cellSize/2;
       real_t z = 0;      

@@ -79,6 +79,10 @@ public:
         if( getNproc()>1 )
             assert(false); // Loadbalance cannot run in parallel yet
     }
+    void loadBalance(uint8_t level)
+    {
+        loadBalance();    
+    }
     template< typename T >
     void loadBalance(T&, uint8_t level)
     {
