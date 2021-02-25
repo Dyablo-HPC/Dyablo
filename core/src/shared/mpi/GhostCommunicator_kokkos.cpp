@@ -86,8 +86,8 @@ namespace{
                 const DataArray_t& Usrc , uint32_t iOct_src,
                 uint32_t elt_index)
   {
-    uint32_t i1 = elt_index / Udest.extent(1);
-    uint32_t i0 = elt_index % Udest.extent(1);
+    uint32_t i1 = elt_index / Udest.extent(0);
+    uint32_t i0 = elt_index % Udest.extent(0);
 
     Udest(i0, i1, iOct_dest) = Usrc(i0, i1, iOct_src);
   }
