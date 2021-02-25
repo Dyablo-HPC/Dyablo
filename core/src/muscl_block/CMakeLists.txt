@@ -17,8 +17,6 @@ set (muscl_block_SRCS
   # add MPI user data communication interface
   if (DYABLO_USE_MPI)
     list(APPEND muscl_block_SRCS
-      ${CMAKE_CURRENT_SOURCE_DIR}/GhostCommunicator_pablo.cpp
-      ${CMAKE_CURRENT_SOURCE_DIR}/GhostCommunicator_kokkos.cpp
       ${CMAKE_CURRENT_SOURCE_DIR}/UserDataLB.cpp)
   endif(DYABLO_USE_MPI)
 

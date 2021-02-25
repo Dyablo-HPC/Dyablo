@@ -79,8 +79,8 @@ private:
     void exchange_ghosts_aux( const DataArray_t& U, DataArray_t& Ughost) const;
 };
 
-using GhostCommunicator = GhostCommunicator_kokkos;
-//using GhostCommunicator = GhostCommunicator_pablo;
+//using GhostCommunicator = GhostCommunicator_kokkos;
+using GhostCommunicator = GhostCommunicator_pablo;
 
 
 }//namespace muscl_block

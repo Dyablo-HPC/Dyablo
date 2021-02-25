@@ -31,7 +31,7 @@
 // Block data related functors
 #include "muscl_block/CopyInnerBlockCellData.h"
 #include "muscl_block/CopyGhostBlockCellData.h"
-#include "muscl_block/GhostCommunicator.h"
+#include "shared/mpi/GhostCommunicator.h"
 
 #include "muscl_block/MapUserData.h"
 

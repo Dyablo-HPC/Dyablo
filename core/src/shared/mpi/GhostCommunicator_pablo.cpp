@@ -43,7 +43,7 @@ public:
   /// Fill MPI buffers with data to send to neighbor MPI processes.
   template<class Buffer>
   std::enable_if_t< DataArray_t::rank == 3, void> 
-  gather(Buffer & buff, const uint32_t iOct) {
+  gather(Buffer & buff, const uint32_t iOct) const {
     for(uint32_t i1=0; i1<data.extent(1); i1++)
       for(uint32_t i0=0; i0<data.extent(0); i0++)
       {
@@ -54,7 +54,7 @@ public:
   /// Fill ghosts with data received from neighbor MPI processes.
   template<class Buffer>
   std::enable_if_t< DataArray_t::rank == 3, void> 
-  scatter(Buffer & buff, const uint32_t iOct) {
+  scatter(Buffer & buff, const uint32_t iOct) const {
     for(uint32_t i1=0; i1<data.extent(1); i1++)
       for(uint32_t i0=0; i0<data.extent(0); i0++)
       {
