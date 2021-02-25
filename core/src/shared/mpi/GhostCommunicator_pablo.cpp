@@ -58,7 +58,7 @@ public:
     for(uint32_t i1=0; i1<data.extent(1); i1++)
       for(uint32_t i0=0; i0<data.extent(0); i0++)
       {
-        buff >> data( i0, i1, iOct );
+        buff >> ghostData( i0, i1, iOct );
       }
   }
 
