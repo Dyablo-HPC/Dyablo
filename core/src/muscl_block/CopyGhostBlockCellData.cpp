@@ -725,6 +725,8 @@ KOKKOS_INLINE_FUNCTION void fill_ghosts(const Functor& f, Functor::team_policy_t
 
       int n_neighbors = (ndim==2) ? 3*3 : 3*3*3;
 
+      member.team_barrier();
+
       Kokkos::parallel_for(
         Kokkos::TeamVectorRange(member, n_neighbors),
         KOKKOS_LAMBDA(const Functor::index_t index)
