@@ -737,7 +737,7 @@ KOKKOS_INLINE_FUNCTION void fill_ghosts(const Functor& f, Functor::team_policy_t
 
         if(ndim==2) iz = 1;
 
-        if(ix==1 && iy==1 & iz==1) return;
+        if(ix==1 && iy==1 && iz==1) return;
 
         LightOctree::offset_t offset = {ix-1,iy-1,iz-1};
 

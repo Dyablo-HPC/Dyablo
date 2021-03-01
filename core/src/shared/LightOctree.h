@@ -141,9 +141,9 @@ public:
     LightOctree_pablo( std::shared_ptr<AMRmesh> pmesh, const HydroParams& params )
     : pmesh(pmesh), ndim(pmesh->getDim())
     {
-        is_periodic[IX] = pmesh->getPeriodic(IX);
-        is_periodic[IY] = pmesh->getPeriodic(IY);
-        is_periodic[IZ] = pmesh->getPeriodic(IZ);
+        is_periodic[IX] = pmesh->getPeriodic(2*IX);
+        is_periodic[IY] = pmesh->getPeriodic(2*IY);
+        is_periodic[IZ] = pmesh->getPeriodic(2*IZ);
     }
     //! @copydoc LightOctree_base::getNumOctants()
     uint32_t getNumOctants() const
@@ -274,7 +274,7 @@ public:
       // in at least one dimension
       return (!this->is_periodic[IX] && !( 0<pos[IX] && pos[IX]<1 ))
           || (!this->is_periodic[IY] && !( 0<pos[IY] && pos[IY]<1 ))
-          || (!this->is_periodic[IZ] && !( 0<pos[IX] && pos[IZ]<1 )) ;      
+          || (ndim == 3 && (!this->is_periodic[IZ] && !( 0<pos[IZ] && pos[IZ]<1 ))) ;      
     }
 
     // ------------------------
@@ -381,9 +381,9 @@ public:
       oct_data("LightOctree::oct_data", pmesh->getNumOctants()+pmesh->getNumGhosts(), OCT_DATA_COUNT),
       numOctants(pmesh->getNumOctants()) , min_level(params.level_min), max_level(params.level_max), ndim(pmesh->getDim())
     {
-        is_periodic[IX] = pmesh->getPeriodic(IX);
-        is_periodic[IY] = pmesh->getPeriodic(IY);
-        is_periodic[IZ] = pmesh->getPeriodic(IZ);
+        is_periodic[IX] = pmesh->getPeriodic(2*IX);
+        is_periodic[IY] = pmesh->getPeriodic(2*IY);
+        is_periodic[IZ] = pmesh->getPeriodic(2*IZ);
         std::cout << "LightOctree rehash ..." << std::endl;
         init(pmesh, params, oct_data, oct_map, numOctants);
     }
@@ -526,7 +526,7 @@ public:
       // in at least one dimension
       return (!this->is_periodic[IX] && !( 0<pos[IX] && pos[IX]<1 ))
           || (!this->is_periodic[IY] && !( 0<pos[IY] && pos[IY]<1 ))
-          || (!this->is_periodic[IZ] && !( 0<pos[IX] && pos[IZ]<1 )) ;            
+          || (ndim == 3 && (!this->is_periodic[IZ] && !( 0<pos[IZ] && pos[IZ]<1 ))) ;            
     }
 
     // ------------------------
