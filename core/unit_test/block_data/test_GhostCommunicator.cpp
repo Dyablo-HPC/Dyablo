@@ -18,6 +18,94 @@ namespace dyablo
 namespace muscl_block
 {
 
+template<typename T>
+void print_array( std::ostream& out, const std::vector<T>& v )
+{
+  for( const auto& e : v )
+    out << e << " ";
+  out << std::endl;
+}
+
+void output_vtk( const AMRmesh& mesh )
+{
+  uint32_t nofCubes = mesh.getNumOctants() + mesh.getNumGhosts();
+
+  std::vector<double> cell_data(nofCubes);
+
+  std::vector<double> nodes_Coordinates(nofCubes*8*3);
+  std::vector<uint32_t> cells_Connectivity(nofCubes*8);
+  std::vector<uint32_t> cells_offsets(nofCubes);
+  std::vector<int> cells_types(nofCubes, 11);
+
+  for(uint32_t i=0; i<nofCubes; i++)
+  {
+    real_t px, py, pz, size;
+
+    if( i<mesh.getNumOctants() )
+    {
+      px = mesh.getCoordinates(i)[IX];
+      py = mesh.getCoordinates(i)[IY];
+      pz = mesh.getCoordinates(i)[IZ];
+      size = mesh.getSize(i);
+    }
+    else
+    {
+      uint32_t iOct = i-mesh.getNumOctants();
+      px = mesh.getCoordinatesGhost(iOct)[IX];
+      py = mesh.getCoordinatesGhost(iOct)[IY];
+      pz = mesh.getCoordinatesGhost(iOct)[IZ];
+      size = mesh.getSizeGhost(iOct);
+      cell_data[i] = 1;
+    }
+
+    for( int16_t dz=0; dz<2; dz++ )
+    for( int16_t dy=0; dy<2; dy++ )
+    for( int16_t dx=0; dx<2; dx++ )
+    {
+      int di = dx + 2*dy + 4*dz;
+      nodes_Coordinates[3*(8*i+di) + IX] = px + size * dx;
+      nodes_Coordinates[3*(8*i+di) + IY] = py + size * dy;
+      nodes_Coordinates[3*(8*i+di) + IZ] = pz + size * dz;
+      cells_Connectivity[8*i+di] = 8*i+di;
+    }
+
+    cells_offsets[i] = 8*i+8;
+  }
+
+  std::string filename = std::string("mesh_test_GhostCommunicator_")+std::to_string(hydroSimu::GlobalMpiSession::getRank())+".vtu";
+
+  std::ofstream out( filename );
+  out << "<?xml version=\"1.0\"?>"                                                      << std::endl;
+  out << "<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" byte_order=\"BigEndian\">" << std::endl;
+  out << "  <UnstructuredGrid>"                                                         << std::endl;
+  out << "    <Piece NumberOfCells=\"" << nofCubes << "\" NumberOfPoints=\"" << nofCubes*8 << "\">" << std::endl;
+  out << "      <Points>"                                                               << std::endl;
+  out << "        <DataArray type=\"Float64\" Name=\"Coordinates\" NumberOfComponents=\"3\" format=\"ascii\">" << std::endl;
+  print_array(out, nodes_Coordinates);
+  out << "        </DataArray>"                                                         << std::endl;
+  out << "      </Points>"                                                              << std::endl;
+  out << "      <CellData>"                                                             << std::endl;
+  out << "        <DataArray type=\"Float64\" Name=\"data\" NumberOfComponents=\"1\" format=\"ascii\">" << std::endl;
+  print_array(out, cell_data);
+  out << "        </DataArray>"                                                         << std::endl;
+  out << "      </CellData>"                                                            << std::endl;
+  out << "      <Cells>"                                                                << std::endl;
+  out << "        <DataArray type=\"UInt32\" Name=\"connectivity\" NumberOfComponents=\"1\" format=\"ascii\">" << std::endl;
+  print_array(out, cells_Connectivity);
+  out << "        </DataArray>"                                                         << std::endl;
+  out << "        <DataArray type=\"UInt32\" Name=\"offsets\" NumberOfComponents=\"1\" format=\"ascii\">" << std::endl;
+  print_array(out, cells_offsets);
+  out << "        </DataArray>"                                                         << std::endl;
+  out << "        <DataArray type=\"UInt8\" Name=\"types\" NumberOfComponents=\"1\" format=\"ascii\">" << std::endl;
+  print_array(out, cells_types);
+  out << "        </DataArray>"                                                         << std::endl;
+  out << "      </Cells>"                                                               << std::endl;
+  out << "    </Piece>"                                                                 << std::endl;
+  out << "  </UnstructuredGrid>"                                                        << std::endl;
+  out << "</VTKFile>"                                                                   << std::endl;
+
+}
+
 // =======================================================================
 // =======================================================================
 void run_test(int argc, char *argv[])
@@ -78,6 +166,8 @@ void run_test(int argc, char *argv[])
     amr_mesh->adapt();
     amr_mesh->loadBalance();
     amr_mesh->updateConnectivity();
+
+    output_vtk(*amr_mesh);
   }
 
   uint32_t bx = 8;
