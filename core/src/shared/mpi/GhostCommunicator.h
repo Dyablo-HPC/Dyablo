@@ -69,6 +69,7 @@ public:
      **/
     void exchange_ghosts(const DataArrayBlock& U, DataArrayBlock& Ughost) const;
     void exchange_ghosts(const Kokkos::View<uint16_t**, Kokkos::LayoutLeft>& U, Kokkos::View<uint16_t**, Kokkos::LayoutLeft>& Ughost) const;
+    void exchange_ghosts(const Kokkos::View<int*, Kokkos::LayoutLeft>& U, Kokkos::View<int*, Kokkos::LayoutLeft>& Ughost) const;
 private:
     Kokkos::View<uint32_t*> recv_sizes, send_sizes; //!Number of octants to send/recv for each proc
     Kokkos::View<uint32_t*>::HostMirror recv_sizes_host, send_sizes_host; //!Number of octants to send/recv for each proc
@@ -79,8 +80,8 @@ private:
     void exchange_ghosts_aux( const DataArray_t& U, DataArray_t& Ughost) const;
 };
 
-//using GhostCommunicator = GhostCommunicator_kokkos;
-using GhostCommunicator = GhostCommunicator_pablo;
+using GhostCommunicator = GhostCommunicator_kokkos;
+//using GhostCommunicator = GhostCommunicator_pablo;
 
 
 }//namespace muscl_block

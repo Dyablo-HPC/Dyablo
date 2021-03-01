@@ -8,7 +8,6 @@ namespace muscl_block{
 GhostCommunicator_kokkos::GhostCommunicator_kokkos( std::shared_ptr<AMRmesh> amr_mesh )
 {
   int nb_proc = hydroSimu::GlobalMpiSession::getNProc();
-  this->nbghosts_recv = amr_mesh->getNumGhosts();
 
   //! Get map that contains ghost to send to each rank from PABLO : rank -> [iOcts]
   const std::map<int, std::vector<uint32_t>>& ghost_map = amr_mesh->getBordersPerProc();
@@ -18,12 +17,19 @@ GhostCommunicator_kokkos::GhostCommunicator_kokkos( std::shared_ptr<AMRmesh> amr
     Kokkos::realloc(this->send_sizes, nb_proc);
     this->send_sizes_host = Kokkos::create_mirror_view(this->send_sizes);  
     uint32_t nbGhostSend = 0; 
-    for( auto& p : ghost_map )
+    for(int rank=0; rank<nb_proc; rank++)
     {
-      int rank = p.first;
-      const std::vector<uint32_t>& iOcts_source = p.second;
-      send_sizes_host(rank) = iOcts_source.size();
-      nbGhostSend += iOcts_source.size();
+      auto it = ghost_map.find(rank);
+      if(it==ghost_map.end())
+      {
+        send_sizes_host(rank) = 0;
+      }
+      else
+      {
+        const std::vector<uint32_t>& iOcts_source = it->second;
+        send_sizes_host(rank) = iOcts_source.size();
+        nbGhostSend += iOcts_source.size();
+      }
     }
     // Copy number of octants to recieve to device (host + device are up to date)
     Kokkos::deep_copy(send_sizes, send_sizes_host);
@@ -58,6 +64,9 @@ GhostCommunicator_kokkos::GhostCommunicator_kokkos( std::shared_ptr<AMRmesh> amr
                   MPI_COMM_WORLD );
     // Copy number of octants to recieve to device (host + device are up to date)
     Kokkos::deep_copy(recv_sizes, recv_sizes_host);
+    this->nbghosts_recv = 0;
+    for(int i=0; i<nb_proc; i++)
+      this->nbghosts_recv += recv_sizes_host(i);
   }
 }
 
@@ -124,6 +133,7 @@ namespace{
   template<> MPI_Datatype get_MPI_Datatype<double>() {return MPI_DOUBLE;}
   //template<> MPI_Datatype get_MPI_Datatype<float>() {return MPI_FLOAT;}
   template<> MPI_Datatype get_MPI_Datatype<unsigned short>() {return MPI_UNSIGNED_SHORT;}
+  template<> MPI_Datatype get_MPI_Datatype<int>() {return MPI_INT;}
 } // namespace
 
 template< typename DataArray_t >
@@ -208,8 +218,7 @@ void GhostCommunicator_kokkos::exchange_ghosts_aux( const DataArray_t& U, DataAr
       // This only works if DataArray_t is LayoutLeft
       // Otherwise, subview is not contiguous and this is necessary for MPI
       MPIBuffer_t recv_buffer_rank 
-        = get_subview( mpi_recv_buffers, iOct_offset,iOct_range_end );
-
+        = get_subview( mpi_recv_buffers, iOct_offset, iOct_range_end );
       mpi_requests.push_back(MPI_REQUEST_NULL);
       MPI_Irecv( recv_buffer_rank.data(), recv_buffer_rank.size(), mpi_type,
                 rank, 0, MPI_COMM_WORLD, &mpi_requests.back() );
@@ -232,6 +241,11 @@ void GhostCommunicator_kokkos::exchange_ghosts(const DataArrayBlock& U, DataArra
 }
 
 void GhostCommunicator_kokkos::exchange_ghosts(const Kokkos::View<uint16_t**, Kokkos::LayoutLeft>& U, Kokkos::View<uint16_t**, Kokkos::LayoutLeft>& Ughost) const
+{
+  exchange_ghosts_aux(U, Ughost);
+}
+
+void GhostCommunicator_kokkos::exchange_ghosts(const Kokkos::View<int*, Kokkos::LayoutLeft>& U, Kokkos::View<int*, Kokkos::LayoutLeft>& Ughost) const
 {
   exchange_ghosts_aux(U, Ughost);
 }

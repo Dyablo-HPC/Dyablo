@@ -21,7 +21,7 @@ public:
         LEVEL,
         NUM_OCTS_COORDS
     };
-    using oct_view_device_t = Kokkos::View< uint16_t*[NUM_OCTS_COORDS] > ;
+    using oct_view_device_t = Kokkos::View<uint16_t**, Kokkos::LayoutLeft> ;
     using markers_device_t = Kokkos::UnorderedMap<uint32_t, int>;
     using oct_view_t = oct_view_device_t::HostMirror ;
     using markers_t = markers_device_t::HostMirror;
@@ -30,9 +30,16 @@ private:
     uint8_t dim;
     std::array<bool,3> periodic;
 
-    uint32_t local_octs_count;
-    oct_view_t local_octs_coord;
-    markers_t markers;    
+    uint32_t total_octs_count; /// Total number of octs across all MPIs 
+    uint32_t global_id_begin; /// Global index of first local octant (number of octs in lower rank MPIs)
+    
+    oct_view_t local_octs_coord; /// Local octants data
+    oct_view_t ghost_octs_coord; /// Ghost Octants data
+    markers_t markers;
+
+    bool sequential_mesh = true; /// Mesh is sequential before the first loadbalance() call
+
+    std::map<int, std::vector<uint32_t>> local_octants_to_send; /// rank -> array of remote ghosts to send to rank
 
     uint8_t level_min, level_max;
 
@@ -73,54 +80,39 @@ public:
         assert(false); // communicate() cannot be used without PABLO
     }
     
-    void loadBalance()
-    {
-        //TODO
-        if( getNproc()>1 )
-            assert(false); // Loadbalance cannot run in parallel yet
-    }
-    void loadBalance(uint8_t level)
-    {
-        loadBalance();    
-    }
+    void loadBalance(uint8_t level=0);
+
     template< typename T >
     void loadBalance(T&, uint8_t level)
     {
         loadBalance();
+        std::cout << "WARNING : load balancing does not communicate user data" << std::endl; 
+        //TODO : remove and load balance without UserData communication (need to implement MPI messages outside of this interface)
+        //assert(false); // loadBalance( UserCommLB ) cannot be used without PABLO
     }
 
-    const std::map<int, std::vector<uint32_t>>& getBordersPerProc() const
-    {
-        static std::map<int, std::vector<uint32_t>> dummy;
-        if( getNproc()>1 )
-            assert(false); // getBordersPerProc cannot run in parallel yet
-        return dummy;
-    }
+    const std::map<int, std::vector<uint32_t>>& getBordersPerProc() const;
 
     uint32_t getNumOctants() const
     {
-        return local_octs_count;
+        return local_octs_coord.extent(1);
     }
 
     uint32_t getNumGhosts() const
     {
-        if( getNproc()>1 )
-            assert(false); // getNumGhosts cannot run in parallel yet
-        return 0;
+        return ghost_octs_coord.extent(1);
     }
 
     uint32_t getGlobalNumOctants() const
     {
-        if( getNproc()>1 )
-            assert(false); // getGlobalNumOctants cannot run in parallel yet
-        return local_octs_count;
+        return total_octs_count;
     } 
-    
+
     bool getBound( uint32_t idx ) const
     {
-        uint16_t ix = local_octs_coord(idx, IX);
-        uint16_t iy = local_octs_coord(idx, IY);
-        uint16_t iz = local_octs_coord(idx, IZ);
+        uint16_t ix = local_octs_coord(IX, idx);
+        uint16_t iy = local_octs_coord(IY, idx);
+        uint16_t iz = local_octs_coord(IZ, idx);
         uint16_t level = getLevel(idx);
 
         uint32_t last_oct = std::pow(2, level)-1;
@@ -133,13 +125,14 @@ public:
         std::array<real_t, 3> corner = getCoordinates(idx);
         real_t size = getSize(idx);
         return { corner[IX]+size/2, corner[IY]+size/2, corner[IZ]+size/2 };
-    }  
+    }
+
 
     std::array<real_t, 3> getCoordinates( uint32_t idx ) const
     {
-        uint16_t ix = local_octs_coord(idx, IX);
-        uint16_t iy = local_octs_coord(idx, IY);
-        uint16_t iz = local_octs_coord(idx, IZ);
+        uint16_t ix = local_octs_coord(IX, idx);
+        uint16_t iy = local_octs_coord(IY, idx);
+        uint16_t iz = local_octs_coord(IZ, idx);
 
         real_t size = getSize(idx);
 
@@ -155,38 +148,42 @@ public:
 
     uint8_t getLevel( uint32_t idx ) const
     {
-        return local_octs_coord(idx, LEVEL);
+        return local_octs_coord(LEVEL, idx);
     }
 
     std::array<real_t, 3> getCenterGhost( uint32_t idx ) const
     {
-        assert(false); // getCenterGhost cannot run in parallel yet
-        return {};
+        std::array<real_t, 3> corner = getCoordinatesGhost(idx);
+        real_t size = getSizeGhost(idx);
+        return { corner[IX]+size/2, corner[IY]+size/2, corner[IZ]+size/2 };
     }  
 
     std::array<real_t, 3> getCoordinatesGhost( uint32_t idx ) const
     {
-        assert(false); // getCoordinatesGhost cannot run in parallel yet
-        return {};
+        uint16_t ix = ghost_octs_coord(IX, idx);
+        uint16_t iy = ghost_octs_coord(IY, idx);
+        uint16_t iz = ghost_octs_coord(IZ, idx);
+
+        real_t size = getSizeGhost(idx);
+
+        return {ix*size, iy*size, iz*size};
     }
 
     real_t getSizeGhost( uint32_t idx ) const
     {
-        assert(false); // getSizeGhost cannot run in parallel yet
-        return 0;
+        uint16_t level = getLevelGhost(idx);
+
+        return 1.0/std::pow(2,level);
     }
 
     uint8_t getLevelGhost( uint32_t idx ) const
     {
-        assert(false); // getLevelGhost cannot run in parallel yet
-        return 0;
+        return ghost_octs_coord(LEVEL, idx);
     }
 
     uint32_t getGlobalIdx( uint32_t idx ) const
     {
-        if( getNproc()>1 )
-            assert(false); // getGlobalIdx cannot run in parallel yet
-        return idx;
+        return global_id_begin+idx;
     }
 
     bool getIsNewC(uint32_t idx) const

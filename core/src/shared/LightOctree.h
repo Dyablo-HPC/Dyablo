@@ -48,6 +48,23 @@ public:
     {
         uint32_t iOct; //! PABLO's Octant index
         bool isGhost; //! Is this a MPI ghost octant?
+
+        KOKKOS_INLINE_FUNCTION static uint32_t OctantIndex_to_iOctLocal(const OctantIndex& oct, uint32_t numOctants)
+        {
+            // Ghosts are stored after non-ghosts
+            return oct.isGhost*numOctants + oct.iOct;
+        }
+
+        KOKKOS_INLINE_FUNCTION static OctantIndex iOctLocal_to_OctantIndex(uint32_t ioct_local, uint32_t numOctants)
+        {
+            OctantIndex oct = {ioct_local, false};
+            if( ioct_local >= numOctants )
+            {
+                oct.iOct -= numOctants;
+                oct.isGhost = true;
+            }
+            return oct;
+        }
     };
     /// Physical cell position
     using pos_t = Kokkos::Array<real_t,3>;
@@ -621,16 +638,12 @@ private:
         assert( morton == (res >> shift) ); // Loss of data from shift
         return res;
     };
-    KOKKOS_INLINE_FUNCTION static uint32_t get_ioct_local(const OctantIndex& oct, uint32_t numOctants)
-    {
-        // Ghosts are stored after non-ghosts
-        return oct.isGhost*numOctants + oct.iOct;
-    }
+    
     //! Get octant index in oct_data from an OctantIndex
     KOKKOS_INLINE_FUNCTION uint32_t get_ioct_local(const OctantIndex& oct) const
     {
         // Ghosts are stored after non-ghosts
-        return get_ioct_local(oct, numOctants);
+        return OctantIndex::OctantIndex_to_iOctLocal(oct, numOctants);
     }
 
     uint32_t numOctants; //! Number of local octants (no ghosts)
@@ -657,12 +670,7 @@ public: // init() has to be public for KOKKOS_LAMBDA
                                 Kokkos::RangePolicy<Kokkos::OpenMP>(0, numOctants_tot),
                                 [=]( uint32_t ioct_local )
             {
-                OctantIndex oct = {ioct_local, false};
-                if( ioct_local >= numOctants )
-                {
-                    oct.iOct -= numOctants;
-                    oct.isGhost = true;
-                }
+                OctantIndex oct = OctantIndex::iOctLocal_to_OctantIndex( ioct_local, numOctants );
 
                 pos_t c = mesh_pablo.getCorner(oct);
                 uint8_t level = mesh_pablo.getLevel(oct);
