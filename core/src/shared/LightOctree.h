@@ -274,7 +274,7 @@ public:
       // in at least one dimension
       return (!this->is_periodic[IX] && !( 0<pos[IX] && pos[IX]<1 ))
           || (!this->is_periodic[IY] && !( 0<pos[IY] && pos[IY]<1 ))
-          || (!this->is_periodic[IZ] && !( 0<pos[IX] && pos[IZ]<1 )) ;      
+          || (!this->is_periodic[IZ] && !( 0<pos[IZ] && pos[IZ]<1 )) ;      
     }
 
     // ------------------------
