@@ -75,12 +75,14 @@ void exchange_ghosts_aux( const std::shared_ptr<AMRmesh>& amr_mesh,
   uint32_t nghosts = amr_mesh->getNumGhosts();
   Kokkos::realloc(Ughost, U.extent(0), U.extent(1), nghosts);
 
+  using DataArray_host_t = typename DataArray_t::HostMirror;
+
   // Copy Data to host for MPI communication 
-  typename DataArray_t::HostMirror U_host = Kokkos::create_mirror_view(U);
-  typename DataArray_t::HostMirror Ughost_host = Kokkos::create_mirror_view(Ughost);
+  DataArray_host_t U_host = Kokkos::create_mirror_view(U);
+  DataArray_host_t Ughost_host = Kokkos::create_mirror_view(Ughost);
   Kokkos::deep_copy(U_host, U);
 
-  UserDataComm<DataArray_t> data_comm(U_host, Ughost_host);
+  UserDataComm<DataArray_host_t> data_comm(U_host, Ughost_host);
   amr_mesh->communicate(data_comm);
 
   // Copy back ghosts to Device

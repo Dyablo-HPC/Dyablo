@@ -81,6 +81,7 @@ using markers_t = AMRmesh_hashmap::markers_t;
 using markers_device_t = AMRmesh_hashmap::markers_device_t;
 using OctantIndex = LightOctree_base::OctantIndex;
 
+KOKKOS_INLINE_FUNCTION
 Kokkos::Array<uint16_t, 3> oct_getpos(  const oct_view_device_t& local_octs_coord, 
                                         const oct_view_device_t& ghost_octs_coord,
                                         const OctantIndex& iOct)
@@ -101,6 +102,7 @@ Kokkos::Array<uint16_t, 3> oct_getpos(  const oct_view_device_t& local_octs_coor
     return pos;
 }
 
+KOKKOS_INLINE_FUNCTION
 uint16_t oct_getlevel(  const oct_view_device_t& local_octs_coord, 
                         const oct_view_device_t& ghost_octs_coord,
                         const OctantIndex& iOct)

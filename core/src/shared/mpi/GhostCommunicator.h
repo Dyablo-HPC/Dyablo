@@ -76,6 +76,7 @@ private:
     Kokkos::View<uint32_t*> send_iOcts; //! List of octants to send (first send_sizes[0] iOcts to send to rank[0] and so on...)
     uint32_t nbghosts_recv;
 
+public:
     template< typename DataArray_t >
     void exchange_ghosts_aux( const DataArray_t& U, DataArray_t& Ughost) const;
 };

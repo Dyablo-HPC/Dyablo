@@ -73,6 +73,7 @@ GhostCommunicator_kokkos::GhostCommunicator_kokkos( std::shared_ptr<AMRmesh> amr
 namespace{
   template<typename DataArray_t>
   std::enable_if_t< DataArray_t::rank == 1, void> 
+  KOKKOS_INLINE_FUNCTION
   copy_element(  const DataArray_t& Udest, uint32_t iOct_dest, 
                       const DataArray_t& Usrc , uint32_t iOct_src,
                       uint32_t elt_index)
@@ -81,7 +82,8 @@ namespace{
   }
 
   template<typename DataArray_t>
-  std::enable_if_t< DataArray_t::rank == 2, void> 
+  std::enable_if_t< DataArray_t::rank == 2, void>  
+  KOKKOS_INLINE_FUNCTION
   copy_element(  const DataArray_t& Udest, uint32_t iOct_dest, 
                       const DataArray_t& Usrc , uint32_t iOct_src,
                       uint32_t elt_index)
@@ -89,7 +91,8 @@ namespace{
     Udest(elt_index, iOct_dest) = Usrc(elt_index, iOct_src);
   }
 
-  template<typename DataArray_t>
+  template<typename DataArray_t> 
+  KOKKOS_INLINE_FUNCTION
   std::enable_if_t< DataArray_t::rank == 3, void> 
   copy_element( const DataArray_t& Udest, uint32_t iOct_dest, 
                 const DataArray_t& Usrc , uint32_t iOct_src,
