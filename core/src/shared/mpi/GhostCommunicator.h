@@ -60,6 +60,7 @@ private:
 class GhostCommunicator_kokkos : public GhostCommunicator_base
 {
 public:
+    GhostCommunicator_kokkos( const std::map<int, std::vector<uint32_t>>& ghost_map );
     GhostCommunicator_kokkos( std::shared_ptr<AMRmesh> amr_mesh );
     
     /**

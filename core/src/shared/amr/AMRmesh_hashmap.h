@@ -80,15 +80,19 @@ public:
         assert(false); // communicate() cannot be used without PABLO
     }
     
-    void loadBalance(uint8_t level=0);
+    /**
+     * \brief Change octants distribution to redistribute the load
+     * \return a map contianig exchanged octants to create 
+     *         a GhostCommunicator_kokkos to communicate user data of migrated octants
+     **/
+    
+    std::map<int, std::vector<uint32_t>> loadBalance(uint8_t level=0);
 
     template< typename T >
     void loadBalance(T&, uint8_t level)
     {
-        loadBalance();
-        std::cout << "WARNING : load balancing does not communicate user data" << std::endl; 
-        //TODO : remove and load balance without UserData communication (need to implement MPI messages outside of this interface)
-        //assert(false); // loadBalance( UserCommLB ) cannot be used without PABLO
+        if(this->getNproc() > 1)
+            assert(false); // loadBalance( UserCommLB ) cannot be used without PABLO : User data are not exchanged
     }
 
     const std::map<int, std::vector<uint32_t>>& getBordersPerProc() const;

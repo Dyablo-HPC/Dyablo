@@ -6,11 +6,12 @@ namespace dyablo{
 namespace muscl_block{
 
 GhostCommunicator_kokkos::GhostCommunicator_kokkos( std::shared_ptr<AMRmesh> amr_mesh )
+  : GhostCommunicator_kokkos(amr_mesh->getBordersPerProc())
+{}
+
+GhostCommunicator_kokkos::GhostCommunicator_kokkos( const std::map<int, std::vector<uint32_t>>& ghost_map )
 {
   int nb_proc = hydroSimu::GlobalMpiSession::getNProc();
-
-  //! Get map that contains ghost to send to each rank from PABLO : rank -> [iOcts]
-  const std::map<int, std::vector<uint32_t>>& ghost_map = amr_mesh->getBordersPerProc();
 
   //Compute send sizes
   {

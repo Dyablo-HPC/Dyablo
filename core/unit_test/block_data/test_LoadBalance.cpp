@@ -9,8 +9,7 @@
 
 #include "muscl_block/utils_block.h"
 #include "shared/amr/AMRmesh.h"
-
-#include "muscl_block/UserDataLB.h"
+#include "shared/mpi/GhostCommunicator.h"
 
 #ifdef DYABLO_USE_MPI
 #include "utils/mpiUtils/GlobalMpiSession.h"
@@ -147,20 +146,11 @@ void run_test(int argc, char *argv[])
   {
     uint8_t levels = 4;
 
-    // Copy Data to host for MPI communication 
-    DataArrayBlockHost U_host = Kokkos::create_mirror_view(U);
-    DataArrayBlockHost Ughost_host = Kokkos::create_mirror_view(Ughost);
-    Kokkos::deep_copy(U_host, U);
-    Kokkos::deep_copy(Ughost_host, Ughost);
-    id2index_t fm = {0,1,2};
-    UserDataLB data_lb(U_host, Ughost_host, fm);
-    amr_mesh->loadBalance(data_lb, levels);
-
-    // Copy back cell data to Device
-    Kokkos::resize(Ughost, Ughost_host.extent(0), Ughost_host.extent(1), Ughost_host.extent(2));
-    Kokkos::deep_copy(Ughost, Ughost_host);
-    Kokkos::resize(U, U_host.extent(0), U_host.extent(1), U_host.extent(2));
-    Kokkos::deep_copy(U, U_host);
+    auto iocts_to_exchange = amr_mesh->loadBalance(levels);
+    muscl_block::GhostCommunicator_kokkos loadbalance_exchange(iocts_to_exchange);
+    DataArrayBlock U_new;
+    loadbalance_exchange.exchange_ghosts(U, U_new);
+    U = U_new;
   }
 
   // Test U

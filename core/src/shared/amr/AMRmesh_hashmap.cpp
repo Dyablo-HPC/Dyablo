@@ -684,14 +684,8 @@ void AMRmesh_hashmap::adapt(bool dummy)
     std::cout << "---- End Adapt ----" << std::endl;
 }
 
-void AMRmesh_hashmap::loadBalance(uint8_t level)
+std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(uint8_t level)
 {
-    // LoadBalance does something only during initial load-scattering
-    if(!sequential_mesh)
-    {
-        std::cout << "WARNING : load balancing does nothing after first scattering" << std::endl; 
-        return;
-    }
     sequential_mesh = false;
 
     std::cout << "---- LoadBalance (distribute) ----" << std::endl;
@@ -701,50 +695,60 @@ void AMRmesh_hashmap::loadBalance(uint8_t level)
     uint32_t mpi_rank = this->getRank();
     uint32_t mpi_size = this->getNproc();
 
-    // TODO : mpi comm to get intervals when not scattering
     std::vector<uint32_t> new_intervals(mpi_size+1);
-    for(uint32_t i=0; i<=mpi_size; i++)
-    {
-        uint32_t idx = (this->total_octs_count*i)/mpi_size ;
-        new_intervals[i] = idx;
-    }
-
     std::vector<morton_t> morton_intervals(mpi_size+1);
-    if( getRank() == 0)
+    std::map<int, std::vector<uint32_t>> loadbalance_to_send;
     {
-        // TODO : compute morton_intervals when not scattering (+ keeping levels together )
-        for(uint32_t i=1; i<mpi_size; i++)
+        // Get evenly distributed initial intervals
+        for(uint32_t i=0; i<=mpi_size; i++)
         {
-            uint32_t idx = new_intervals[i];
-            uint16_t ix = local_octs_coord(IX, idx);
-            uint16_t iy = local_octs_coord(IY, idx);
-            uint16_t iz = local_octs_coord(IZ, idx);
-            uint16_t level = local_octs_coord(LEVEL, idx);
-            morton_intervals[i] = get_morton_smaller(ix,iy,iz,level,level_max);
+            uint32_t idx = (this->total_octs_count*i)/mpi_size ;
+            new_intervals[i] = idx;
         }
-        morton_intervals[0] = 0;
-        morton_intervals[mpi_size] = std::numeric_limits<morton_t>::max();
+
+        // List octants to exchange
+        for( uint32_t rank=0; rank<mpi_size; rank++ )
+        {
+            int32_t to_send_begin = std::max((int32_t)new_intervals[rank]-(int32_t)this->global_id_begin, 0);
+            int32_t to_send_end   = std::min((int32_t)new_intervals[rank+1]-(int32_t)this->global_id_begin, (int32_t)this->getNumOctants());
+            
+            if( to_send_begin < to_send_end )
+            {
+                std::vector<uint32_t> to_send_rank(to_send_end-to_send_begin);
+                for(int32_t i=0; i<to_send_end-to_send_begin; i++)
+                {
+                    to_send_rank[i] = i+to_send_begin;
+                }
+                loadbalance_to_send[rank] = to_send_rank;
+            }
+        }
+
+        // Exchange 
+        {   //TODO : avoid CPU/GPU transfers
+            muscl_block::GhostCommunicator_kokkos loadbalance_communicator( loadbalance_to_send );
+            oct_view_device_t local_octs_coord_old( "local_octs_coord_old", local_octs_coord.layout() );
+            oct_view_device_t local_octs_coord_new;
+            Kokkos::deep_copy(local_octs_coord_old , this->local_octs_coord );
+            loadbalance_communicator.exchange_ghosts(local_octs_coord_old, local_octs_coord_new);
+            Kokkos::realloc(this->local_octs_coord, local_octs_coord_new.layout());
+            Kokkos::deep_copy( this->local_octs_coord, local_octs_coord_new );
+        }
+
+        assert( getNumOctants() > 0 ); // Cannot adapt() with an empty local mesh after initial scatter
+        uint32_t idx = 0;
+        uint16_t ix = local_octs_coord(IX, idx);
+        uint16_t iy = local_octs_coord(IY, idx);
+        uint16_t iz = local_octs_coord(IZ, idx);
+        uint16_t level = local_octs_coord(LEVEL, idx);
+        morton_intervals[mpi_rank] = get_morton_smaller(ix,iy,iz,level,level_max); 
+        MPI_Allgather(MPI_IN_PLACE, 1, MPI_UINT64_T, morton_intervals.data(), 1, MPI_UINT64_T, MPI_COMM_WORLD); 
+        morton_intervals[mpi_size] = std::numeric_limits<morton_t>::max(); 
     }
 
-    MPI_Bcast( morton_intervals.data(), mpi_size+1, MPI_UINT64_T, 0, MPI_COMM_WORLD );
+    this->global_id_begin = new_intervals[mpi_rank];
 
     std::cout << "Rank " << this->getRank() << ": iOct interval [" << new_intervals[mpi_rank] << ", " << new_intervals[mpi_rank+1] << "[" << std::endl;
     std::cout << "Rank " << this->getRank() << ": morton interval [" << morton_intervals[mpi_rank] << ", " << morton_intervals[mpi_rank+1] << "[" << std::endl;
-
-    // TODO send/recv octs data
-    std::vector<int> sendcounts(mpi_size), displs(mpi_size);
-    for(uint32_t rank=0; rank<mpi_size; rank++)
-    {
-        sendcounts[rank] = NUM_OCTS_COORDS * (new_intervals[rank+1]-new_intervals[rank]);
-        displs[rank] = NUM_OCTS_COORDS * new_intervals[rank];
-    }
-    uint32_t recv_count = new_intervals[mpi_rank+1]-new_intervals[mpi_rank];
-
-    oct_view_t local_octs_coords_old = this->local_octs_coord;
-    this->global_id_begin = new_intervals[mpi_rank];
-    this->local_octs_coord = oct_view_t("local_octs_coords", NUM_OCTS_COORDS, recv_count);
-    MPI_Scatterv( local_octs_coords_old.data(), sendcounts.data(), displs.data(), MPI_UINT16_T,
-                  this->local_octs_coord.data(), NUM_OCTS_COORDS * recv_count, MPI_UINT16_T, 0, MPI_COMM_WORLD);
 
     std::set< std::pair<int, uint32_t> > local_octants_to_send_set = discover_ghosts(morton_intervals, local_octs_coord, level_max, dim, periodic);
 
@@ -765,7 +769,9 @@ void AMRmesh_hashmap::loadBalance(uint8_t level)
 
     std::cout << "Rank " << this->getRank() << ": octs after loadbalance " << this->getNumOctants() << std::endl;
     std::cout << "Rank " << this->getRank() << ": ghosts after loadbalance " << this->getNumGhosts() << std::endl;
-    std::cout << "---- End LoadBalance----" << std::endl;    
+    std::cout << "---- End LoadBalance----" << std::endl;
+
+    return loadbalance_to_send;
 }
 
 const std::map<int, std::vector<uint32_t>>& AMRmesh_hashmap::getBordersPerProc() const

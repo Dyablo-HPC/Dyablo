@@ -891,23 +891,15 @@ void SolverHydroMusclBlock::load_balance_userdata()
   {
     uint8_t levels = 4;
 
-    // Copy Data to host for MPI communication 
-    DataArrayBlockHost U_host = Kokkos::create_mirror_view(U);
-    DataArrayBlockHost Ughost_host = Kokkos::create_mirror_view(Ughost);
-    Kokkos::deep_copy(U_host, U);
-    Kokkos::deep_copy(Ughost_host, Ughost);
+    auto octs_to_exchange = amr_mesh->loadBalance(levels);
+    GhostCommunicator_kokkos lb_comm(octs_to_exchange);
+    DataArrayBlock U_new;
+    lb_comm.exchange_ghosts(U, U_new);
+    this->U = U_new;
 
-    UserDataLB data_lb(U_host, Ughost_host, fm);
-    amr_mesh->loadBalance(data_lb, levels);
-
-    // Copy back cell data to Device
-    Kokkos::resize(Ughost, Ughost_host.extent(0), Ughost_host.extent(1), Ughost_host.extent(2));
-    Kokkos::deep_copy(Ughost, Ughost_host);
-    Kokkos::resize(U, U_host.extent(0), U_host.extent(1), U_host.extent(2));
-    Kokkos::deep_copy(U, U_host);
-
-    // we probably need to resize U2, ....
-    Kokkos::resize(U2,U.extent(0),U.extent(1),U.extent(2));
+    // we probably need to resize arrays, ....
+    Kokkos::resize(U2,U.layout());
+    Kokkos::realloc(Ughost, Ughost.extent(0), Ughost.extent(1), amr_mesh->getNumGhosts());
 
     // Update LightOctree after load balancing
     lmesh = LightOctree(amr_mesh, params.level_min, params.level_max);    
