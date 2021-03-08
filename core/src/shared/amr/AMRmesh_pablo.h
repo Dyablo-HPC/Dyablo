@@ -1,6 +1,7 @@
 #pragma once
 
 #include "bitpit_PABLO.hpp"
+#include "muscl_block/UserDataLB.h"
 
 namespace dyablo {
 
@@ -82,6 +83,21 @@ public:
     }
 
     void setMarkersCapacity(uint32_t capa){}
+
+    void loadBalance_userdata( uint8_t compact_levels, DataArrayBlock& U )
+    {
+        // Copy Data to host for MPI communication 
+        DataArrayBlockHost U_host = Kokkos::create_mirror_view(U);
+        Kokkos::deep_copy(U_host, U);
+        
+        DataArrayBlockHost Ughost_host; // Dummy ghost array
+        
+        muscl_block::UserDataLB data_lb(U_host, Ughost_host);
+        ParaTree::loadBalance<muscl_block::UserDataLB>(data_lb, compact_levels);
+
+        Kokkos::realloc(U, U_host.layout());
+        Kokkos::deep_copy(U, U_host);
+    }
 };
 
 } // namespace dyablo

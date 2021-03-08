@@ -891,11 +891,7 @@ void SolverHydroMusclBlock::load_balance_userdata()
   {
     uint8_t levels = 3;
 
-    auto octs_to_exchange = amr_mesh->loadBalance(levels);
-    GhostCommunicator_kokkos lb_comm(octs_to_exchange);
-    DataArrayBlock U_new;
-    lb_comm.exchange_ghosts(U, U_new);
-    this->U = U_new;
+    amr_mesh->loadBalance_userdata(levels, U);
 
     // we probably need to resize arrays, ....
     Kokkos::resize(U2,U.layout());

@@ -95,6 +95,8 @@ public:
             assert(false); // loadBalance( UserCommLB ) cannot be used without PABLO : User data are not exchanged
     }
 
+    void loadBalance_userdata( int compact_levels, DataArrayBlock& userData );
+
     const std::map<int, std::vector<uint32_t>>& getBordersPerProc() const;
 
     uint32_t getNumOctants() const
@@ -244,4 +246,3 @@ public:
 };
 
 } // namespace dyablo
-

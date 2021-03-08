@@ -871,6 +871,23 @@ std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(uint8_t level)
     return loadbalance_to_send;
 }
 
+namespace{
+template < typename View_t >
+void AMRmesh_hashmap_loadBalance( AMRmesh_hashmap& mesh, int compact_levels, View_t& userData )
+{
+    auto octs_to_exchange = mesh.loadBalance(compact_levels);
+    muscl_block::GhostCommunicator_kokkos lb_comm(octs_to_exchange);
+    View_t userData_new;
+    lb_comm.exchange_ghosts(userData, userData_new);
+    userData = userData_new;
+}
+} // namespace
+
+void AMRmesh_hashmap::loadBalance_userdata( int compact_levels, DataArrayBlock& userData )
+{
+    AMRmesh_hashmap_loadBalance(*this, compact_levels, userData);
+}
+
 const std::map<int, std::vector<uint32_t>>& AMRmesh_hashmap::getBordersPerProc() const
 {
     return local_octants_to_send;

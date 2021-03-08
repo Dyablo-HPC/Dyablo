@@ -146,11 +146,7 @@ void run_test(int argc, char *argv[])
   {
     uint8_t levels = 4;
 
-    auto iocts_to_exchange = amr_mesh->loadBalance(levels);
-    muscl_block::GhostCommunicator_kokkos loadbalance_exchange(iocts_to_exchange);
-    DataArrayBlock U_new;
-    loadbalance_exchange.exchange_ghosts(U, U_new);
-    U = U_new;
+    amr_mesh->loadBalance_userdata(levels, U);
   }
 
   // Test U
