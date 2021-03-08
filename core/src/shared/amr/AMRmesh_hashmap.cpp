@@ -403,12 +403,21 @@ morton_t shift_level( morton_t m, uint16_t from_level, uint16_t to_level  )
         return m >> -3*ldiff;
 }
 
-    // Compute morton at level_max;
+// Compute morton at level_max;
 morton_t get_morton_smaller(uint16_t ix, uint16_t iy, uint16_t iz, uint16_t level, uint16_t level_max)
 {
     morton_t morton = compute_morton_key( ix,iy,iz );
     return shift_level(morton, level, level_max);
 };
+
+morton_t get_morton_smaller(const oct_view_t& local_octs_coord, uint32_t idx, uint16_t level_max)
+{
+    uint16_t ix = local_octs_coord(octs_coord_id::IX, idx);
+    uint16_t iy = local_octs_coord(octs_coord_id::IY, idx);
+    uint16_t iz = local_octs_coord(octs_coord_id::IZ, idx);
+    uint16_t level = local_octs_coord(octs_coord_id::LEVEL, idx);
+    return get_morton_smaller(ix,iy,iz,level,level_max);
+}
 
 std::set< std::pair<int, uint32_t> > discover_ghosts(
         const std::vector<morton_t>& morton_intervals,
@@ -641,11 +650,7 @@ void AMRmesh_hashmap::adapt(bool dummy)
         {
             assert( getNumOctants() > 0 ); // Cannot adapt() with an empty local mesh after initial scatter
             uint32_t idx = 0;
-            uint16_t ix = local_octs_coord(IX, idx);
-            uint16_t iy = local_octs_coord(IY, idx);
-            uint16_t iz = local_octs_coord(IZ, idx);
-            uint16_t level = local_octs_coord(LEVEL, idx);
-            morton_intervals[mpi_rank] = get_morton_smaller(ix,iy,iz,level,level_max); 
+            morton_intervals[mpi_rank] = get_morton_smaller(local_octs_coord, idx, level_max); 
             MPI_Allgather(MPI_IN_PLACE, 1, MPI_UINT64_T, morton_intervals.data(), 1, MPI_UINT64_T, MPI_COMM_WORLD); 
             morton_intervals[mpi_size] = std::numeric_limits<morton_t>::max(); 
         }
@@ -686,8 +691,6 @@ void AMRmesh_hashmap::adapt(bool dummy)
 
 std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(uint8_t level)
 {
-    sequential_mesh = false;
-
     std::cout << "---- LoadBalance (distribute) ----" << std::endl;
     std::cout << "Rank " << this->getRank() << ": octs before LoadBalance " << this->getNumOctants() << std::endl;
     std::cout << "Rank " << this->getRank() << ": ghosts before LoadBalance " << this->getNumGhosts() << std::endl;
@@ -700,11 +703,92 @@ std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(uint8_t level)
     std::map<int, std::vector<uint32_t>> loadbalance_to_send;
     {
         // Get evenly distributed initial intervals
+        int nb_mortons = 0;
+        uint32_t iOct_begin = this->global_id_begin;
+        uint32_t iOct_end = this->global_id_begin+this->getNumOctants();
         for(uint32_t i=0; i<=mpi_size; i++)
         {
             uint32_t idx = (this->total_octs_count*i)/mpi_size ;
             new_intervals[i] = idx;
+            // For each ixd inside old domain, compute morton
+            // and fill morton_intervals for this rank
+            if( iOct_begin <= idx && idx < iOct_end )
+            {
+                morton_intervals[i] = get_morton_smaller(local_octs_coord, idx-iOct_begin, level_max); 
+                nb_mortons++;
+            }
         }
+
+        // allgather morton_intervals
+        {
+            std::vector<int> morton_recv_count(mpi_size);
+            morton_recv_count[mpi_rank] = nb_mortons;
+            MPI_Allgather(  MPI_IN_PLACE,0,0,
+                            morton_recv_count.data(), 1, MPI_INT, 
+                            MPI_COMM_WORLD );
+            std::vector<int> morton_recv_displ(mpi_size+1);
+            std::partial_sum(morton_recv_count.begin(), morton_recv_count.end(), 
+                            ++morton_recv_displ.begin()); 
+            assert(morton_recv_displ[mpi_size] == mpi_size);       
+            MPI_Allgatherv( MPI_IN_PLACE, 0, 0,
+                            morton_intervals.data(), morton_recv_count.data(), morton_recv_displ.data(), MPI_UINT64_T, MPI_COMM_WORLD);
+            morton_intervals[0] = 0;
+            morton_intervals[mpi_size] = std::numeric_limits<morton_t>::max();
+            for(uint32_t rank=0; rank<mpi_size; rank++)
+            {
+                // Truncate suboctants to keep `level` levels of suboctants compact
+                morton_intervals[rank] = (morton_intervals[rank] >> (3*level)) << (3*level);
+            }
+            assert(morton_intervals[mpi_rank] < morton_intervals[mpi_rank+1] ); // Empty morton interval not supported
+        }
+
+        std::cout << "Rank " << this->getRank() << ": morton interval [" << morton_intervals[mpi_rank] << ", " << morton_intervals[mpi_rank+1] << "[" << std::endl;
+
+        // Compute `new_intervals` corresponding to `morton_intervals`
+        {
+            assert( sequential_mesh || this->getNumOctants() > 0 ); // Cannot have a process with 0 octants (except during initial distribution)
+
+            uint64_t old_morton_interval_begin = this->getNumOctants() == 0 ? 0 : ( get_morton_smaller(local_octs_coord, 0, level_max) >> (3*level) ) << (3*level);
+            uint64_t old_morton_interval_end = this->getNumOctants() == 0 ? 0 : (( get_morton_smaller(local_octs_coord, this->getNumOctants()-1, level_max) >> (3*level) ) + 1 ) << (3*level);
+
+            int nb_local_pivots=0;
+            for(uint32_t rank=0; rank<=mpi_size; rank++)
+            {
+                if( old_morton_interval_begin <= morton_intervals[rank] && morton_intervals[rank] < old_morton_interval_end ) // Determine if pivot is inside of local process
+                {
+                    // find first local octant with morton >= morton_interval[rank]
+                    uint32_t pivot = this->getNumOctants();
+                    // TODO use binary search to find pivot
+                    for(uint32_t iOct=0; iOct<this->getNumOctants(); iOct++)
+                    {
+                        uint64_t morton = get_morton_smaller(local_octs_coord, iOct, level_max);
+                        if( morton >= morton_intervals[rank]  )
+                        {
+                            pivot = iOct;
+                            break;
+                        }
+                    }
+                    nb_local_pivots++;
+                    new_intervals[rank] = pivot+this->global_id_begin;
+                }
+            }
+
+            // Compute and allgather pivots
+            std::vector<int> pivots_recv_count(mpi_size);
+            pivots_recv_count[mpi_rank] = nb_local_pivots;
+            MPI_Allgather(  MPI_IN_PLACE,0,0,
+                            pivots_recv_count.data(), 1, MPI_INT, 
+                            MPI_COMM_WORLD );
+            std::vector<int> pivots_recv_displ(mpi_size+1);
+            std::partial_sum(pivots_recv_count.begin(), pivots_recv_count.end(), 
+                            ++pivots_recv_displ.begin()); 
+            assert(pivots_recv_displ[mpi_size] == mpi_size);       
+            MPI_Allgatherv( MPI_IN_PLACE, 0, 0,
+                            new_intervals.data(), pivots_recv_count.data(), pivots_recv_displ.data(), MPI_UINT32_T, MPI_COMM_WORLD);
+            new_intervals[mpi_size] = this->total_octs_count;
+
+        }
+        std::cout << "Rank " << this->getRank() << ": iOct interval [" << new_intervals[mpi_rank] << ", " << new_intervals[mpi_rank+1] << "[" << std::endl;
 
         // List octants to exchange
         for( uint32_t rank=0; rank<mpi_size; rank++ )
@@ -734,21 +818,14 @@ std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(uint8_t level)
             Kokkos::deep_copy( this->local_octs_coord, local_octs_coord_new );
         }
 
-        assert( getNumOctants() > 0 ); // Cannot adapt() with an empty local mesh after initial scatter
-        uint32_t idx = 0;
-        uint16_t ix = local_octs_coord(IX, idx);
-        uint16_t iy = local_octs_coord(IY, idx);
-        uint16_t iz = local_octs_coord(IZ, idx);
-        uint16_t level = local_octs_coord(LEVEL, idx);
-        morton_intervals[mpi_rank] = get_morton_smaller(ix,iy,iz,level,level_max); 
-        MPI_Allgather(MPI_IN_PLACE, 1, MPI_UINT64_T, morton_intervals.data(), 1, MPI_UINT64_T, MPI_COMM_WORLD); 
-        morton_intervals[mpi_size] = std::numeric_limits<morton_t>::max(); 
+        this->global_id_begin = new_intervals[mpi_rank];
+
+        std::cout << "Rank " << this->getRank() << ": actual morton interval [" << get_morton_smaller(local_octs_coord, 0, level_max) << ", " << get_morton_smaller(local_octs_coord, getNumOctants()-1, level_max) << "]" << std::endl;
+        assert( get_morton_smaller(local_octs_coord, 0, level_max) >= morton_intervals[mpi_rank] );
+        assert( get_morton_smaller(local_octs_coord, getNumOctants()-1, level_max) < morton_intervals[mpi_rank+1] );
+
+        sequential_mesh = false;
     }
-
-    this->global_id_begin = new_intervals[mpi_rank];
-
-    std::cout << "Rank " << this->getRank() << ": iOct interval [" << new_intervals[mpi_rank] << ", " << new_intervals[mpi_rank+1] << "[" << std::endl;
-    std::cout << "Rank " << this->getRank() << ": morton interval [" << morton_intervals[mpi_rank] << ", " << morton_intervals[mpi_rank+1] << "[" << std::endl;
 
     std::set< std::pair<int, uint32_t> > local_octants_to_send_set = discover_ghosts(morton_intervals, local_octs_coord, level_max, dim, periodic);
 
