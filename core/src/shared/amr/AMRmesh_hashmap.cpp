@@ -572,6 +572,27 @@ void exchange_markers(AMRmesh_hashmap& mesh, AMRmesh_hashmap::markers_device_t& 
     });
 }
 
+std::vector<morton_t> compute_current_morton_intervals(const AMRmesh_hashmap& mesh, const oct_view_t& local_octs_coord, uint8_t level_max)
+{
+    int mpi_rank = mesh.getRank();
+    int mpi_size = mesh.getNproc();
+
+    // Allgather here ensures that old_morton_interval_begin/end for each process forms is a partition of [0,+inf[
+    // When there is no local octant, current interval must be determined by using values of neighbor processes, 
+    // otherwise we could just recieve old_morton_interval_end from next rank
+    std::vector<morton_t> old_morton_intervals(mpi_size+1);
+    old_morton_intervals[mpi_rank] = mesh.getNumOctants() == 0 ? (morton_t)-1 : get_morton_smaller(local_octs_coord, 0, level_max);
+    MPI_Allgather(  MPI_IN_PLACE, 0, 0,
+                    old_morton_intervals.data(), 1, MPI_INT64_T,
+                    MPI_COMM_WORLD);
+    old_morton_intervals[mpi_size] = std::numeric_limits<morton_t>::max();
+    for(int i=mpi_size-1; i>=0; i--)
+    {
+        if( old_morton_intervals[i] == (morton_t)-1 )
+            old_morton_intervals[i] = old_morton_intervals[i+1];
+    }
+    return old_morton_intervals;
+}
 
 } // namespace
 
@@ -640,22 +661,7 @@ void AMRmesh_hashmap::adapt(bool dummy)
     {
         // Compute morton intervals to discover ghosts
         // Each process writes morton of first octant then communicate
-        std::vector<morton_t> morton_intervals(mpi_size+1);
-        if(this->sequential_mesh)
-        {
-            morton_intervals = std::vector<morton_t> (mpi_size+1, std::numeric_limits<morton_t>::max());
-            morton_intervals[0] = 0;
-        }
-        else
-        {
-            assert( getNumOctants() > 0 ); // Cannot adapt() with an empty local mesh after initial scatter
-            uint32_t idx = 0;
-            morton_intervals[mpi_rank] = get_morton_smaller(local_octs_coord, idx, level_max); 
-            MPI_Allgather(MPI_IN_PLACE, 1, MPI_UINT64_T, morton_intervals.data(), 1, MPI_UINT64_T, MPI_COMM_WORLD); 
-            morton_intervals[mpi_size] = std::numeric_limits<morton_t>::max(); 
-        }
-        
-        
+        std::vector<morton_t> morton_intervals = compute_current_morton_intervals(*this, local_octs_coord, level_max);
         
         // Discover ghosts
         std::set< std::pair<int, uint32_t> > local_octants_to_send_set = discover_ghosts(morton_intervals, local_octs_coord, level_max, dim, periodic);
@@ -691,7 +697,7 @@ void AMRmesh_hashmap::adapt(bool dummy)
 
 std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(uint8_t level)
 {
-    std::cout << "---- LoadBalance (distribute) ----" << std::endl;
+    std::cout << "---- LoadBalance ----" << std::endl;
     std::cout << "Rank " << this->getRank() << ": octs before LoadBalance " << this->getNumOctants() << std::endl;
     std::cout << "Rank " << this->getRank() << ": ghosts before LoadBalance " << this->getNumGhosts() << std::endl;
 
@@ -739,17 +745,21 @@ std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(uint8_t level)
                 // Truncate suboctants to keep `level` levels of suboctants compact
                 morton_intervals[rank] = (morton_intervals[rank] >> (3*level)) << (3*level);
             }
-            assert(morton_intervals[mpi_rank] < morton_intervals[mpi_rank+1] ); // Empty morton interval not supported
+            assert(morton_intervals[mpi_rank] <= morton_intervals[mpi_rank+1] );
         }
 
-        std::cout << "Rank " << this->getRank() << ": morton interval [" << morton_intervals[mpi_rank] << ", " << morton_intervals[mpi_rank+1] << "[" << std::endl;
+        std::cout << "Rank " << this->getRank() << ": new morton interval [" << morton_intervals[mpi_rank] << ", " << morton_intervals[mpi_rank+1] << "[" << std::endl;
 
         // Compute `new_intervals` corresponding to `morton_intervals`
         {
-            assert( sequential_mesh || this->getNumOctants() > 0 ); // Cannot have a process with 0 octants (except during initial distribution)
+            uint64_t old_morton_interval_begin, old_morton_interval_end;
+            {
+                auto old_morton_intervals = compute_current_morton_intervals(*this, local_octs_coord, level_max);
+                old_morton_interval_begin = old_morton_intervals[mpi_rank];
+                old_morton_interval_end = old_morton_intervals[mpi_rank+1];
+            }            
 
-            uint64_t old_morton_interval_begin = this->getNumOctants() == 0 ? 0 : ( get_morton_smaller(local_octs_coord, 0, level_max) >> (3*level) ) << (3*level);
-            uint64_t old_morton_interval_end = this->getNumOctants() == 0 ? 0 : (( get_morton_smaller(local_octs_coord, this->getNumOctants()-1, level_max) >> (3*level) ) + 1 ) << (3*level);
+            std::cout << "Rank " << this->getRank() << ": old morton interval [" << old_morton_interval_begin << ", " << old_morton_interval_end << "[" << std::endl;
 
             int nb_local_pivots=0;
             for(uint32_t rank=0; rank<=mpi_size; rank++)
@@ -820,9 +830,17 @@ std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(uint8_t level)
 
         this->global_id_begin = new_intervals[mpi_rank];
 
+        if( getNumOctants() != 0 )
+        {
         std::cout << "Rank " << this->getRank() << ": actual morton interval [" << get_morton_smaller(local_octs_coord, 0, level_max) << ", " << get_morton_smaller(local_octs_coord, getNumOctants()-1, level_max) << "]" << std::endl;
         assert( get_morton_smaller(local_octs_coord, 0, level_max) >= morton_intervals[mpi_rank] );
         assert( get_morton_smaller(local_octs_coord, getNumOctants()-1, level_max) < morton_intervals[mpi_rank+1] );
+        }
+        else 
+        {
+            std::cout << "Rank " << this->getRank() << ": actual morton interval [EMPTY]" << std::endl;
+            std::cout << "WARNING : Rank has 0 octant, this is probably not okay" << std::endl;
+        }
 
         sequential_mesh = false;
     }
@@ -847,6 +865,8 @@ std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(uint8_t level)
     std::cout << "Rank " << this->getRank() << ": octs after loadbalance " << this->getNumOctants() << std::endl;
     std::cout << "Rank " << this->getRank() << ": ghosts after loadbalance " << this->getNumGhosts() << std::endl;
     std::cout << "---- End LoadBalance----" << std::endl;
+
+    assert(this->getNumOctants() > 0); // Process cannot be empty
 
     return loadbalance_to_send;
 }

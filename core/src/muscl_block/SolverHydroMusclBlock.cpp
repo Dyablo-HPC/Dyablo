@@ -889,7 +889,7 @@ void SolverHydroMusclBlock::load_balance_userdata()
    * Preserve the family compact up to 4 levels over the max deep reached
    * in the octree. */
   {
-    uint8_t levels = 4;
+    uint8_t levels = 3;
 
     auto octs_to_exchange = amr_mesh->loadBalance(levels);
     GhostCommunicator_kokkos lb_comm(octs_to_exchange);
