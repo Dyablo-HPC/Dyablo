@@ -2,7 +2,7 @@
 
 #include "shared/kokkos_shared.h"
 #include "shared/morton_utils.h"
-#include "shared/LightOctree.h"
+#include "shared/amr/LightOctree.h"
 
 namespace dyablo
 {

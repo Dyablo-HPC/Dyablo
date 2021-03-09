@@ -16,7 +16,7 @@
 #endif // DYABLO_USE_MPI
 
 #include "utils/monitoring/SimpleTimer.h"
-#include "shared/LightOctree.h"
+#include "shared/amr/LightOctree.h"
 
 #include <iostream>
 

@@ -22,7 +22,7 @@
 #include "shared/HydroParams.h"
 #include "shared/kokkos_shared.h"
 #include "shared/FieldManager.h"
-#include "shared/LightOctree.h"
+#include "shared/amr/LightOctree.h"
 
 // for IO
 #include <shared/HDF5_IO.h>

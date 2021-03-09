@@ -23,7 +23,7 @@
 #include "shared/kokkos_shared.h"
 #include "shared/FieldManager.h"
 #include "muscl_block/utils_block.h"
-#include "shared/LightOctree.h"
+#include "shared/amr/LightOctree.h"
 
 
 // for IO

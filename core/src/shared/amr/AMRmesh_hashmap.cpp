@@ -1,6 +1,6 @@
 #include "AMRmesh_hashmap.h"
 
-#include "shared/LightOctree.h"
+#include "shared/amr/LightOctree.h"
 #include "shared/morton_utils.h"
 //#include "utils/io/AMRMesh_output_vtk.h"
 

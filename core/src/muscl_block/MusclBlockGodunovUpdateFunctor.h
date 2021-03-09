@@ -9,7 +9,7 @@
 #include "shared/FieldManager.h"
 #include "shared/HydroState.h"
 
-#include "shared/LightOctree.h"
+#include "shared/amr/LightOctree.h"
 #include "shared/RiemannSolvers.h"
 
 // utils hydro
