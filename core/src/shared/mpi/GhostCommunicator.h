@@ -61,7 +61,13 @@ class GhostCommunicator_kokkos : public GhostCommunicator_base
 {
 public:
     GhostCommunicator_kokkos( const std::map<int, std::vector<uint32_t>>& ghost_map );
-    GhostCommunicator_kokkos( std::shared_ptr<AMRmesh> amr_mesh );
+    GhostCommunicator_kokkos( std::shared_ptr<AMRmesh> amr_mesh )
+     : GhostCommunicator_kokkos(amr_mesh->getBordersPerProc())
+    {}
+
+    GhostCommunicator_kokkos( std::shared_ptr<AMRmesh_hashmap> amr_mesh )
+     : GhostCommunicator_kokkos(amr_mesh->getBordersPerProc())
+    {}
     
     /**
      * @copydoc GhostCommunicator_base::exchange_ghosts

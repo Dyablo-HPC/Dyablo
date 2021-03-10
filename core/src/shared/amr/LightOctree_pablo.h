@@ -130,7 +130,7 @@ public:
             cellPos[IX] += offset[IX]*cellSize*0.6;
             cellPos[IY] += offset[IY]*cellSize*0.6;
             cellPos[IZ] += offset[IZ]*cellSize*0.6;
-            bitpit::bvector periodic = pmesh->getPeriodic();
+            auto periodic = pmesh->getPeriodic();
             // Maybe really no neighbor if outside domain
             if( ( periodic[2*IX] or ( 0.0 <= cellPos[IX] && cellPos[IX] < 1.0 ) )
              and ( periodic[2*IY] or ( 0.0 <= cellPos[IY] && cellPos[IY] < 1.0 ) )

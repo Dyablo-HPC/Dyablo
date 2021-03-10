@@ -192,8 +192,6 @@ void MarkOctantsHydroFunctor::set_markers_pablo(markers_t markers, std::shared_p
   auto markers_iOcts = markers.getiOcts_host();
   auto markers_markers = markers.getMarkers_host();
 
-  pmesh->setMarkersCapacity( markers_iOcts.size() );
-
   Kokkos::parallel_for( "MarkOctantsHydroFunctor::set_markers_pablo", 
                         Kokkos::RangePolicy<Kokkos::OpenMP>(0,markers.size()),
                         [=](uint32_t i)

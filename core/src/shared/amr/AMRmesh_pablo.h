@@ -41,7 +41,15 @@ public:
     explicit AMRmesh_pablo( int dim )
      : AMRmesh_pablo(dim, 1, {false, false, false}, 1, 20)
     {}
-    
+
+    std::array<bool, 6> getPeriodic() const{
+        bitpit::bvector p = PabloUniform::getPeriodic();        
+        if( p.size() == 4 )
+            return {p[0], p[1], p[2], p[3], false, false};
+        else //if( p.size() == 6 )
+            return {p[0], p[1], p[2], p[3], p[4], p[5]};
+    }  
+    using PabloUniform::getPeriodic;
 
     uint32_t getNodesCount(){
         return bitpit::ParaTree::getNodes().size();

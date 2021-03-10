@@ -49,7 +49,7 @@ public:
         return dim;
     }
 
-    std::vector<bool> getPeriodic() const
+    std::array<bool, 6> getPeriodic() const
     {
         return {periodic[0],periodic[0],periodic[1],periodic[1],periodic[2],periodic[2]};
     }

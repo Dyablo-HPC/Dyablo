@@ -16,7 +16,8 @@ public:
     LightOctree_hashmap() = default;
     LightOctree_hashmap(const LightOctree_hashmap& lmesh) = default;
 
-    LightOctree_hashmap( std::shared_ptr<AMRmesh> pmesh, uint8_t level_min, uint8_t level_max )
+    template < typename AMRmesh_t >
+    LightOctree_hashmap( std::shared_ptr<AMRmesh_t> pmesh, uint8_t level_min, uint8_t level_max )
     : oct_map(pmesh->getNumOctants()+pmesh->getNumGhosts()),
       oct_data("LightOctree::oct_data", pmesh->getNumOctants()+pmesh->getNumGhosts(), OCT_DATA_COUNT),
       numOctants(pmesh->getNumOctants()) , min_level(level_min), max_level(level_max), ndim(pmesh->getDim())
@@ -280,14 +281,15 @@ public: // init() has to be public for KOKKOS_LAMBDA
     /**
      * Fetches data from pmesh and fill hashmap
      **/
-    static void init(std::shared_ptr<AMRmesh> pmesh, oct_data_t& oct_data, oct_map_t& oct_map, uint32_t numOctants, uint8_t min_level, uint8_t max_level)
+    // TODO make a specialization for AMRmesh_hashmap that directly copies Kokkos::Arrays
+    template < typename AMRmesh_t >
+    static void init(std::shared_ptr<AMRmesh_t> pmesh, oct_data_t& oct_data, oct_map_t& oct_map, uint32_t numOctants, uint8_t min_level, uint8_t max_level)
     {   
         const uint32_t numOctants_tot = pmesh->getNumOctants()+pmesh->getNumGhosts();
         
         // Copy mesh data from PABLO tree to LightOctree
         {   
             oct_data_t::HostMirror oct_data_host = Kokkos::create_mirror_view(oct_data);
-            LightOctree_pablo mesh_pablo(pmesh, min_level, max_level);
 
             Kokkos::parallel_for( "LightOctree_hashmap::copydata", 
                                 Kokkos::RangePolicy<Kokkos::OpenMP>(0, numOctants_tot),
@@ -295,9 +297,13 @@ public: // init() has to be public for KOKKOS_LAMBDA
             {
                 OctantIndex oct = OctantIndex::iOctLocal_to_OctantIndex( ioct_local, numOctants );
 
-                pos_t c = mesh_pablo.getCorner(oct);
-                uint8_t level = mesh_pablo.getLevel(oct);
-                bool is_bound = !oct.isGhost && mesh_pablo.getBound(oct);
+                auto c = oct.isGhost ? 
+                        pmesh->getCoordinatesGhost(oct.iOct):
+                        pmesh->getCoordinates(oct.iOct);
+                uint8_t level = oct.isGhost ? 
+                        pmesh->getLevelGhost(oct.iOct):
+                        pmesh->getLevel(oct.iOct);
+                bool is_bound = !oct.isGhost && pmesh->getBound(oct.iOct);
 
                 oct_data_host(ioct_local, ICORNERX) = c[IX];
                 oct_data_host(ioct_local, ICORNERY) = c[IY];
