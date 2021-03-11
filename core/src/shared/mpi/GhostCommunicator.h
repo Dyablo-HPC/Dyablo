@@ -39,8 +39,9 @@ public:
 class GhostCommunicator_pablo : public GhostCommunicator_base
 {
 public:
-    GhostCommunicator_pablo( std::shared_ptr<AMRmesh> amr_mesh )
-        : amr_mesh(amr_mesh)
+    template< typename AMRmesh_t >
+    GhostCommunicator_pablo( std::shared_ptr<AMRmesh_t> amr_mesh )
+        : amr_mesh(amr_mesh->getMesh())
     {}
     
      /**
@@ -50,7 +51,7 @@ public:
      **/
     void exchange_ghosts(const DataArrayBlock& U, DataArrayBlock& Ughost) const;
 private:
-    std::shared_ptr<AMRmesh> amr_mesh;  
+    AMRmesh_pablo& amr_mesh;  
 };
 
 /**

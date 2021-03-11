@@ -135,7 +135,7 @@ public:
     });
   }
 
-  AMR_Remapper(std::shared_ptr<AMRmesh> amr_mesh)
+  AMR_Remapper(const AMRmesh_pablo* amr_mesh)
   {
     /**
      * In this constructor we translate the results of ParaTree::getMapping()

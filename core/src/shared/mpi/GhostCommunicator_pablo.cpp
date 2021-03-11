@@ -67,12 +67,12 @@ public:
 }; // class UserDataComm
 
 template< typename DataArray_t >
-void exchange_ghosts_aux( const std::shared_ptr<AMRmesh>& amr_mesh, 
+void exchange_ghosts_aux( AMRmesh_pablo& amr_mesh, 
                           const DataArray_t& U, DataArray_t& Ughost)
 {
-  assert(U.extent( DataArray_t::rank-1 ) == amr_mesh->getNumOctants()); // Last index must be iOct
+  assert(U.extent( DataArray_t::rank-1 ) == amr_mesh.getNumOctants()); // Last index must be iOct
 
-  uint32_t nghosts = amr_mesh->getNumGhosts();
+  uint32_t nghosts = amr_mesh.getNumGhosts();
   Kokkos::realloc(Ughost, U.extent(0), U.extent(1), nghosts);
 
   using DataArray_host_t = typename DataArray_t::HostMirror;
@@ -83,7 +83,7 @@ void exchange_ghosts_aux( const std::shared_ptr<AMRmesh>& amr_mesh,
   Kokkos::deep_copy(U_host, U);
 
   UserDataComm<DataArray_host_t> data_comm(U_host, Ughost_host);
-  amr_mesh->communicate(data_comm);
+  amr_mesh.communicate(data_comm);
 
   // Copy back ghosts to Device
   Kokkos::deep_copy(Ughost, Ughost_host);

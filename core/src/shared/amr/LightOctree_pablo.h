@@ -39,9 +39,15 @@ public:
     LightOctree_pablo() = default;
     LightOctree_pablo(const LightOctree_pablo& ) = default;
 
+    template< typename AMRmesh_t >
+    LightOctree_pablo( std::shared_ptr<AMRmesh_t> pmesh, uint8_t level_min, uint8_t level_max )
+     : LightOctree_pablo(pmesh->getMesh(), level_min, level_max)
+    {
+        static_assert( std::is_same<AMRmesh_t, AMRmesh_impl<AMRmesh_pablo>>::value, "LightOctree_pablo is only compatible with AMRmesh_pablo" );
+    }
 
-    LightOctree_pablo( std::shared_ptr<AMRmesh> pmesh, uint8_t level_min, uint8_t level_max )
-    : pmesh(pmesh), ndim(pmesh->getDim())
+    LightOctree_pablo( AMRmesh_pablo& pmesh_, uint8_t level_min, uint8_t level_max )
+    : pmesh(&pmesh_), ndim(pmesh->getDim())
     {
         is_periodic[IX] = pmesh->getPeriodic(IX);
         is_periodic[IY] = pmesh->getPeriodic(IY);
@@ -182,12 +188,12 @@ public:
     // ------------------------
     // Only in LightOctree_pablo
     // ------------------------
-    std::shared_ptr<AMRmesh> getMesh() const{
+    AMRmesh_pablo* getMesh() const{
         return pmesh;
     }
 
 protected:
-    std::shared_ptr<AMRmesh> pmesh; //! PABLO mesh to relay requests to
+    AMRmesh_pablo* pmesh; //! PABLO mesh to relay requests to
     uint8_t ndim; //! 2D or 3D
     Kokkos::Array<bool,3> is_periodic;
 

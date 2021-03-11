@@ -162,6 +162,11 @@ public:
   bool checkToAdapt()
   { return Impl::checkToAdapt(); }
   
+  Impl& getMesh()
+  {
+    return *this;
+  }
+  
   //TODO hide implementation details
   const std::map<int, std::vector<uint32_t>>& getBordersPerProc() const
   { return Impl::getBordersPerProc(); }
@@ -183,9 +188,9 @@ public:
   { return Impl::getIsNewR(idx); }
   void getMapping(uint32_t & idx, std::vector<uint32_t> & mapper, std::vector<bool> & isghost) const
   { Impl::getMapping(idx, mapper, isghost); }
-  void findNeighbours(uint32_t iOct, uint8_t iface, uint8_t codim , 
-                      std::vector<uint32_t>& neighbor_iOcts, std::vector<bool>& neighbor_isGhost) const
-  { return Impl::findNeighbours(iOct, iface, codim, neighbor_iOcts, neighbor_isGhost); }
+  //void findNeighbours(uint32_t iOct, uint8_t iface, uint8_t codim , 
+  //                    std::vector<uint32_t>& neighbor_iOcts, std::vector<bool>& neighbor_isGhost) const
+  //{ return Impl::findNeighbours(iOct, iface, codim, neighbor_iOcts, neighbor_isGhost); }
 
 };
 
