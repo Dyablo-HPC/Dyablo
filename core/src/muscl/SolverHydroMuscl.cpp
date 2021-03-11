@@ -29,8 +29,9 @@
 // compute functor for low Mach flows
 #include "muscl/UpdateRSSTHydroFunctor.h"
 
+#include "shared/mpi/GhostCommunicator.h"
+
 #if BITPIT_ENABLE_MPI==1
-#include "muscl/UserDataComm.h"
 #include "muscl/UserDataLB.h"
 #endif
 
@@ -690,35 +691,23 @@ void SolverHydroMuscl::synchronize_ghost_data(UserDataCommType t)
   // 1. resize ghost array
   // 2. create UserDataComm object
   // 3. perform MPI communications
-
-  auto exchange_ghosts = [&]( DataArray& A, DataArray& Aghost )
-  {
-    Kokkos::resize(Aghost, nghosts, A.extent(1));
-
-    auto A_host = Kokkos::create_mirror_view(A);
-    auto Aghost_host = Kokkos::create_mirror_view(Aghost);
-    Kokkos::deep_copy(A_host, A);
-
-    UserDataComm data_comm(A_host, Aghost_host, fm);
-    amr_mesh->communicate(data_comm);
-
-    Kokkos::deep_copy(Aghost, Aghost_host);
-  };
   
+  muscl_block::GhostCommunicator comm(amr_mesh);
+
   switch(t) {
   case UserDataCommType::UDATA: {
-    exchange_ghosts(U, Ughost);
+    comm.exchange_ghosts(U, Ughost);
     break;
   }
   case UserDataCommType::QDATA : {
-    exchange_ghosts(Q, Qghost);
+    comm.exchange_ghosts(Q, Qghost);
     break;
   }
   case UserDataCommType::SLOPES : {
-    exchange_ghosts(Slopes_x, Slopes_x_ghost);
-    exchange_ghosts(Slopes_y, Slopes_y_ghost);
+    comm.exchange_ghosts(Slopes_x, Slopes_x_ghost);
+    comm.exchange_ghosts(Slopes_y, Slopes_y_ghost);
     if (params.dimType==THREE_D) {
-      exchange_ghosts(Slopes_z, Slopes_z_ghost);
+      comm.exchange_ghosts(Slopes_z, Slopes_z_ghost);
     }
     break;
   } // end case SLOPES

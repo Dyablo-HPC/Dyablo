@@ -50,6 +50,9 @@ public:
      * Copy data back to host and call Paratree::communicate()
      **/
     void exchange_ghosts(const DataArrayBlock& U, DataArrayBlock& Ughost) const;
+    
+    /// Note : octant index for DataArray is leftmost subscript
+    void exchange_ghosts(const DataArray& U, DataArray& Ughost) const;
 private:
     AMRmesh_pablo& amr_mesh;  
 };
@@ -89,8 +92,8 @@ public:
     void exchange_ghosts_aux( const DataArray_t& U, DataArray_t& Ughost) const;
 };
 
-using GhostCommunicator = GhostCommunicator_kokkos;
-//using GhostCommunicator = GhostCommunicator_pablo;
+//using GhostCommunicator = GhostCommunicator_kokkos;
+using GhostCommunicator = GhostCommunicator_pablo;
 
 
 }//namespace muscl_block

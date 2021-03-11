@@ -3,7 +3,7 @@
 #include "AMRmesh_pablo.h"
 #include "AMRmesh_hashmap.h"
 
-#define DYABLO_USE_GPU_MESH
+//#define DYABLO_USE_GPU_MESH
 
 namespace dyablo{
 
@@ -161,7 +161,7 @@ public:
   { return Impl::check21Balance(); }
   bool checkToAdapt()
   { return Impl::checkToAdapt(); }
-  
+
   Impl& getMesh()
   {
     return *this;
@@ -172,9 +172,9 @@ public:
   { return Impl::getBordersPerProc(); }
 
   //TODO remove pablo-specific methods
-  template< typename T >
-  void communicate(T& t)
-  { Impl::communicate(t); }
+  // template< typename T >
+  // void communicate(T& t)
+  // { Impl::communicate(t); }
   void computeConnectivity()
   { Impl::computeConnectivity(); }
   void updateConnectivity()

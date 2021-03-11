@@ -19,22 +19,30 @@ namespace {
  *      }
  *  }
  * ```
+* @tparam iOct_pos is the position of the iOct parameter in the array subscripts
+ *         ex when iOct pos = 1 in a 3D array : buff << data( i0, iOct, i1 );
  **/
-template<int N, typename Buffer, typename DataArray_t, typename... Args>
-std::enable_if_t< N == DataArray_t::rank-1 >
+template<int N, int iOct_pos, typename Buffer, typename DataArray_t, typename... Args>
+std::enable_if_t< N == -1 >
 gather_aux(Buffer& buff, const DataArray_t& data, uint32_t iOct, Args... is)
 {
-  buff << data( is..., iOct );
+  buff << data( is... );
 }
-template<int N, typename Buffer, typename DataArray_t, typename... Args>
+template<int N, int iOct_pos, typename Buffer, typename DataArray_t, typename... Args>
 void gather_aux(Buffer& buff, DataArray_t& data, uint32_t iOct, Args... is)
 {
-  for(size_t i=0; i<data.extent(DataArray_t::rank-2-N); i++)
+  if( N == iOct_pos )
   {
-    gather_aux<N+1>(buff, data, iOct, i, is...);
+    gather_aux<N-1, iOct_pos>(buff, data, iOct, iOct, is...);
+  }
+  else
+  {
+    for(size_t i=0; i<data.extent(N); i++)
+    {
+      gather_aux<N-1, iOct_pos>(buff, data, iOct, i, is...);
+    }
   }
 }
-
 
 /** 
  * @function scatter_aux
@@ -50,19 +58,28 @@ void gather_aux(Buffer& buff, DataArray_t& data, uint32_t iOct, Args... is)
  *     }
  * }
  * ```
+ * @tparam iOct_pos is the position of the iOct parameter in the array subscripts
+ *         ex when iOct pos = 1 in a 3D array : buff >> ghostData( i0, iOct, i1 );
  **/  
-template<int N, typename Buffer, typename DataArray_t, typename... Args>
-std::enable_if_t< N == DataArray_t::rank-1 >
+template<int N, int iOct_pos, typename Buffer, typename DataArray_t, typename... Args>
+std::enable_if_t< N == -1 >
 scatter_aux(Buffer& buff, const DataArray_t& data, uint32_t iOct, Args... is)
 {
-  buff >> data( is..., iOct );
+  buff >> data( is... );
 }
-template<int N, typename Buffer, typename DataArray_t, typename... Args>
+template<int N, int iOct_pos, typename Buffer, typename DataArray_t, typename... Args>
 void scatter_aux(Buffer& buff, DataArray_t& data, uint32_t iOct, Args... is)
 {
-  for(size_t i=0; i<data.extent(DataArray_t::rank-2-N); i++)
+  if( N == iOct_pos )
   {
-    scatter_aux<N+1>(buff, data, iOct, i, is...);
+    scatter_aux<N-1, iOct_pos>(buff, data, iOct, iOct, is...);
+  }
+  else
+  {
+    for(size_t i=0; i<data.extent(N); i++)
+    {
+      scatter_aux<N-1, iOct_pos>(buff, data, iOct, i, is...);
+    }
   }
 }
 
@@ -70,8 +87,8 @@ void scatter_aux(Buffer& buff, DataArray_t& data, uint32_t iOct, Args... is)
  * Callback class to serialize/deserialize user data for PABLO MPI communication
  * (block based version)
  */
-template<typename DataArray_t>
-class UserDataComm : public bitpit::DataCommInterface<UserDataComm<DataArray_t>>
+template<typename DataArray_t, int iOct_pos>
+class UserDataComm : public bitpit::DataCommInterface<UserDataComm<DataArray_t, iOct_pos>>
 {
 
 public:
@@ -104,27 +121,29 @@ public:
 
   template<class Buffer>
   void gather(Buffer & buff, const uint32_t iOct) const {
-    gather_aux<0>( buff, data, iOct );
+    gather_aux<DataArray_t::rank-1, iOct_pos>( buff, data, iOct );
   }
 
   /// Fill ghosts with data received from neighbor MPI processes.
   template<class Buffer>
   void scatter(Buffer & buff, const uint32_t iOct) const {
-    scatter_aux<0>( buff, ghostData, iOct );
+    scatter_aux<DataArray_t::rank-1, iOct_pos>( buff, ghostData, iOct );
   }
 
   ~UserDataComm(){};
   
 }; // class UserDataComm
 
-template< typename DataArray_t >
+template< typename DataArray_t, int iOct_pos = DataArray_t::rank-1 >
 void exchange_ghosts_aux( AMRmesh_pablo& amr_mesh, 
                           const DataArray_t& U, DataArray_t& Ughost)
 {
-  assert(U.extent( DataArray_t::rank-1 ) == amr_mesh.getNumOctants()); // Last index must be iOct
+  assert(U.extent( iOct_pos ) == amr_mesh.getNumOctants()); // Last index must be iOct
 
   uint32_t nghosts = amr_mesh.getNumGhosts();
-  Kokkos::realloc(Ughost, U.extent(0), U.extent(1), nghosts);
+  auto Ughost_layout = U.layout();
+  Ughost_layout.dimension[iOct_pos] = nghosts;
+  Kokkos::realloc(Ughost, Ughost_layout);
 
   using DataArray_host_t = typename DataArray_t::HostMirror;
 
@@ -133,19 +152,23 @@ void exchange_ghosts_aux( AMRmesh_pablo& amr_mesh,
   DataArray_host_t Ughost_host = Kokkos::create_mirror_view(Ughost);
   Kokkos::deep_copy(U_host, U);
 
-  UserDataComm<DataArray_host_t> data_comm(U_host, Ughost_host);
+  UserDataComm<DataArray_host_t, iOct_pos> data_comm(U_host, Ughost_host);
   amr_mesh.communicate(data_comm);
 
   // Copy back ghosts to Device
   Kokkos::deep_copy(Ughost, Ughost_host);
 }
 
-
 } //namespace
 
 void GhostCommunicator_pablo::exchange_ghosts(const DataArrayBlock& U, DataArrayBlock& Ughost) const
 {
     exchange_ghosts_aux(amr_mesh, U, Ughost);
+}
+
+void GhostCommunicator_pablo::exchange_ghosts(const DataArray& U, DataArray& Ughost) const
+{
+    exchange_ghosts_aux<DataArray, 0>(amr_mesh, U, Ughost);
 }
 
 }//namespace muscl_block
