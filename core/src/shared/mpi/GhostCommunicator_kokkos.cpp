@@ -68,60 +68,57 @@ GhostCommunicator_kokkos::GhostCommunicator_kokkos( const std::map<int, std::vec
 }
 
 namespace{
-  template<typename DataArray_t>
-  std::enable_if_t< DataArray_t::rank == 1, void> 
+  template<int N, typename DataArray_t, typename... Args>
   KOKKOS_INLINE_FUNCTION
-  copy_element(  const DataArray_t& Udest, uint32_t iOct_dest, 
+  std::enable_if_t< DataArray_t::rank-1 == N , void> 
+  copy_element_aux( const DataArray_t& Udest, uint32_t iOct_dest, 
                       const DataArray_t& Usrc , uint32_t iOct_src,
-                      uint32_t elt_index)
+                    uint32_t elt_index, Args... is)
   {
-    Udest(iOct_dest) = Usrc(iOct_src);
+    Udest(is..., iOct_dest) = Usrc(is..., iOct_src);
   }
-
-  template<typename DataArray_t>
-  std::enable_if_t< DataArray_t::rank == 2, void>  
+  template<int N, typename DataArray_t, typename... Args>
   KOKKOS_INLINE_FUNCTION
-  copy_element(  const DataArray_t& Udest, uint32_t iOct_dest, 
+  std::enable_if_t< DataArray_t::rank-1 != N , void> 
+  copy_element_aux( const DataArray_t& Udest, uint32_t iOct_dest, 
                       const DataArray_t& Usrc , uint32_t iOct_src,
-                      uint32_t elt_index)
+                    uint32_t elt_index, Args... is)
   {
-    Udest(elt_index, iOct_dest) = Usrc(elt_index, iOct_src);
+    uint32_t current_dim_size = Udest.extent(N);
+    uint32_t rem = elt_index%current_dim_size;
+    uint32_t div = elt_index/current_dim_size;
+    copy_element_aux<N+1>(Udest, iOct_dest, Usrc, iOct_src, div, is..., rem);
   }
-
+  /**
+   * Generic way copy octant data in an n-dimensional Kokkos view 
+   * form Usrc to Udest
+   * @param elt_inex is the linearized index to elements of octant
+   **/
   template<typename DataArray_t> 
   KOKKOS_INLINE_FUNCTION
-  std::enable_if_t< DataArray_t::rank == 3, void> 
-  copy_element( const DataArray_t& Udest, uint32_t iOct_dest, 
+  void copy_element(  const DataArray_t& Udest, uint32_t iOct_dest, 
                 const DataArray_t& Usrc , uint32_t iOct_src,
                 uint32_t elt_index)
   {
-    uint32_t i1 = elt_index / Udest.extent(0);
-    uint32_t i0 = elt_index % Udest.extent(0);
-
-    Udest(i0, i1, iOct_dest) = Usrc(i0, i1, iOct_src);
+    copy_element_aux<0>(Udest, iOct_dest, Usrc, iOct_src, elt_index);
   }
 
-  template<typename DataArray_t>
-  std::enable_if_t< DataArray_t::rank == 1, DataArray_t> 
-  get_subview( const DataArray_t& U, uint32_t iOct_begin, uint32_t iOct_end)
-  {
-    return Kokkos::subview( U, std::make_pair(iOct_begin, iOct_end) );
-  }
 
-  template<typename DataArray_t>
-  std::enable_if_t< DataArray_t::rank == 2, DataArray_t> 
-  get_subview( const DataArray_t& U, uint32_t iOct_begin, uint32_t iOct_end)
+  /**
+   * Generic way to get a subview of an an n-dimensional Kokkos view
+   * with Kokkos::ALL, ..., std::make_pair(iOct_begin, iOct_end) as parameters
+   **/
+  template<typename DataArray_t, typename... Args>
+  std::enable_if_t< sizeof...(Args) == DataArray_t::rank-1, DataArray_t > 
+  get_subview( const DataArray_t& U, uint32_t iOct_begin, uint32_t iOct_end, Args... is)
   {
-    return Kokkos::subview( U, Kokkos::ALL, 
-                            std::make_pair(iOct_begin,iOct_end) );
+    return Kokkos::subview( U, is..., std::make_pair(iOct_begin, iOct_end) );
   }
-
-  template<typename DataArray_t>
-  std::enable_if_t< DataArray_t::rank == 3, DataArray_t> 
-  get_subview( const DataArray_t& U, uint32_t iOct_begin, uint32_t iOct_end)
+  template<typename DataArray_t, typename... Args>
+  std::enable_if_t< sizeof...(Args) != DataArray_t::rank-1, DataArray_t > 
+  get_subview( const DataArray_t& U, uint32_t iOct_begin, uint32_t iOct_end, Args... is)
   {
-    return Kokkos::subview( U, Kokkos::ALL, Kokkos::ALL, 
-                            std::make_pair(iOct_begin,iOct_end) );
+    return get_subview(U, iOct_begin, iOct_end, Kokkos::ALL(), is...);
   }
 
   template<typename T> MPI_Datatype get_MPI_Datatype()
