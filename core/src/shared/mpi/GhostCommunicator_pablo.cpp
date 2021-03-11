@@ -5,6 +5,67 @@ namespace muscl_block{
 
 namespace {
 
+/** 
+ * @function gather_aux
+ * Auxiliary function for UserDataComm::gather()
+ * This is used to generate different gather() versions according to rank of view
+ * Equivalent DataArray_t::rank == 3 :
+ * ```
+ *  void gather(Buffer & buff, const uint32_t iOct) const {
+ *    for(uint32_t i1=0; i1<data.extent(1); i1++)
+ *      for(uint32_t i0=0; i0<data.extent(0); i0++)
+ *      {
+ *        buff << data( i0, i1, iOct );
+ *      }
+ *  }
+ * ```
+ **/
+template<int N, typename Buffer, typename DataArray_t, typename... Args>
+std::enable_if_t< N == DataArray_t::rank-1 >
+gather_aux(Buffer& buff, const DataArray_t& data, uint32_t iOct, Args... is)
+{
+  buff << data( is..., iOct );
+}
+template<int N, typename Buffer, typename DataArray_t, typename... Args>
+void gather_aux(Buffer& buff, DataArray_t& data, uint32_t iOct, Args... is)
+{
+  for(size_t i=0; i<data.extent(DataArray_t::rank-2-N); i++)
+  {
+    gather_aux<N+1>(buff, data, iOct, i, is...);
+  }
+}
+
+
+/** 
+ * @function scatter_aux
+ * Auxiliary function for UserDataComm::scatter()
+ * This is used to generate different scatter() versions according to rank of view
+ * Equivalent DataArray_t::rank == 3 :
+ * ```
+ * void scatter(Buffer & buff, const uint32_t iOct) const {
+ *   for(uint32_t i1=0; i1<data.extent(1); i1++)
+ *     for(uint32_t i0=0; i0<data.extent(0); i0++)
+ *     {
+ *       buff >> ghostData( i0, i1, iOct );
+ *     }
+ * }
+ * ```
+ **/  
+template<int N, typename Buffer, typename DataArray_t, typename... Args>
+std::enable_if_t< N == DataArray_t::rank-1 >
+scatter_aux(Buffer& buff, const DataArray_t& data, uint32_t iOct, Args... is)
+{
+  buff >> data( is..., iOct );
+}
+template<int N, typename Buffer, typename DataArray_t, typename... Args>
+void scatter_aux(Buffer& buff, DataArray_t& data, uint32_t iOct, Args... is)
+{
+  for(size_t i=0; i<data.extent(DataArray_t::rank-2-N); i++)
+  {
+    scatter_aux<N+1>(buff, data, iOct, i, is...);
+  }
+}
+
 /**
  * Callback class to serialize/deserialize user data for PABLO MPI communication
  * (block based version)
@@ -40,26 +101,16 @@ public:
     return sizeof(typename DataArray_t::value_type)*elts_per_oct;
   }
 
-  /// Fill MPI buffers with data to send to neighbor MPI processes.
+
   template<class Buffer>
-  std::enable_if_t< DataArray_t::rank == 3, void> 
-  gather(Buffer & buff, const uint32_t iOct) const {
-    for(uint32_t i1=0; i1<data.extent(1); i1++)
-      for(uint32_t i0=0; i0<data.extent(0); i0++)
-      {
-        buff << data( i0, i1, iOct );
-      }
+  void gather(Buffer & buff, const uint32_t iOct) const {
+    gather_aux<0>( buff, data, iOct );
   }
 
   /// Fill ghosts with data received from neighbor MPI processes.
   template<class Buffer>
-  std::enable_if_t< DataArray_t::rank == 3, void> 
-  scatter(Buffer & buff, const uint32_t iOct) const {
-    for(uint32_t i1=0; i1<data.extent(1); i1++)
-      for(uint32_t i0=0; i0<data.extent(0); i0++)
-      {
-        buff >> ghostData( i0, i1, iOct );
-      }
+  void scatter(Buffer & buff, const uint32_t iOct) const {
+    scatter_aux<0>( buff, ghostData, iOct );
   }
 
   ~UserDataComm(){};
