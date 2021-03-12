@@ -140,7 +140,7 @@ template< typename DataArray_t, int iOct_pos = DataArray_t::rank-1 >
 void exchange_ghosts_aux( AMRmesh_pablo& amr_mesh, 
                           const DataArray_t& U, DataArray_t& Ughost)
 {
-  assert(U.extent( iOct_pos ) == amr_mesh.getNumOctants()); // Last index must be iOct
+  assert(U.extent( iOct_pos ) == amr_mesh.getNumOctants()); // Specified index must be iOct
 
   uint32_t nghosts = amr_mesh.getNumGhosts();
   auto Ughost_layout = U.layout();

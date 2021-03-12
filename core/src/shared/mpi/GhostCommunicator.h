@@ -82,7 +82,7 @@ public:
     void exchange_ghosts(const Kokkos::View<uint16_t**, Kokkos::LayoutLeft>& U, Kokkos::View<uint16_t**, Kokkos::LayoutLeft>& Ughost) const;
     void exchange_ghosts(const Kokkos::View<int*, Kokkos::LayoutLeft>& U, Kokkos::View<int*, Kokkos::LayoutLeft>& Ughost) const;
 
-    /// NOT WORKING YET
+    /// note : iOct_pos is 0 for DataArray. (See exchange_ghosts_aux)
     void exchange_ghosts(const DataArray& U, DataArray& Ughost) const;
 private:
     Kokkos::View<uint32_t*> recv_sizes, send_sizes; //!Number of octants to send/recv for each proc
@@ -91,7 +91,16 @@ private:
     uint32_t nbghosts_recv;
 
 public:
-    template< typename DataArray_t >
+    /**
+     * Generic function to exchange octant data stored un a Kokkos View
+     * @tparam is the Kokkos::View type. It must be Kokkos::LayoutLeft
+     * @tparam iOct_pos position of iOct coordinate in U. When iOct is not leftmost 
+     *         coordinate (iOct_pos = DataArray_t::rank-1), packing/unpacking is less efficient 
+     *         because data needs to be transposed.
+     * @param U is local octant data with iOct_pos-nth subscript the octant index
+     * @param Ughost is the ghost octant data to fill, it will be resized to match the number of ghost octants
+     **/
+    template< typename DataArray_t, int iOct_pos = DataArray_t::rank-1 >
     void exchange_ghosts_aux( const DataArray_t& U, DataArray_t& Ughost) const;
 };
 
