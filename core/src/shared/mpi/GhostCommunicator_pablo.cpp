@@ -23,13 +23,14 @@ namespace {
  *         ex when iOct pos = 1 in a 3D array : buff << data( i0, iOct, i1 );
  **/
 template<int N, int iOct_pos, typename Buffer, typename DataArray_t, typename... Args>
-std::enable_if_t< N == -1 >
+std::enable_if_t< N == -1, void >
 gather_aux(Buffer& buff, const DataArray_t& data, uint32_t iOct, Args... is)
 {
   buff << data( is... );
 }
 template<int N, int iOct_pos, typename Buffer, typename DataArray_t, typename... Args>
-void gather_aux(Buffer& buff, DataArray_t& data, uint32_t iOct, Args... is)
+std::enable_if_t< N >= 0, void >
+gather_aux(Buffer& buff, DataArray_t& data, uint32_t iOct, Args... is)
 {
   if( N == iOct_pos )
   {
@@ -62,13 +63,14 @@ void gather_aux(Buffer& buff, DataArray_t& data, uint32_t iOct, Args... is)
  *         ex when iOct pos = 1 in a 3D array : buff >> ghostData( i0, iOct, i1 );
  **/  
 template<int N, int iOct_pos, typename Buffer, typename DataArray_t, typename... Args>
-std::enable_if_t< N == -1 >
+std::enable_if_t< N == -1, void >
 scatter_aux(Buffer& buff, const DataArray_t& data, uint32_t iOct, Args... is)
 {
   buff >> data( is... );
 }
 template<int N, int iOct_pos, typename Buffer, typename DataArray_t, typename... Args>
-void scatter_aux(Buffer& buff, DataArray_t& data, uint32_t iOct, Args... is)
+std::enable_if_t< N >= 0, void >
+scatter_aux(Buffer& buff, DataArray_t& data, uint32_t iOct, Args... is)
 {
   if( N == iOct_pos )
   {
