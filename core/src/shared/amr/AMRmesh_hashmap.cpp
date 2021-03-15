@@ -64,6 +64,7 @@ void AMRmesh_hashmap::setMarkersCapacity(uint32_t capa)
 
 void AMRmesh_hashmap::setMarker(uint32_t iOct, int marker)
 {
+    if(marker==0) return;
     auto inserted = this->markers.insert( iOct, marker );
 
     if(inserted.existing())
@@ -884,6 +885,11 @@ void AMRmesh_hashmap_loadBalance( AMRmesh_hashmap& mesh, int compact_levels, Vie
 } // namespace
 
 void AMRmesh_hashmap::loadBalance_userdata( int compact_levels, DataArrayBlock& userData )
+{
+    AMRmesh_hashmap_loadBalance(*this, compact_levels, userData);
+}
+
+void AMRmesh_hashmap::loadBalance_userdata( int compact_levels, DataArray& userData )
 {
     AMRmesh_hashmap_loadBalance(*this, compact_levels, userData);
 }

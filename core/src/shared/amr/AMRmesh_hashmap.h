@@ -96,6 +96,7 @@ public:
     }
 
     void loadBalance_userdata( int compact_levels, DataArrayBlock& userData );
+    void loadBalance_userdata( int compact_levels, DataArray& userData );
 
     const std::map<int, std::vector<uint32_t>>& getBordersPerProc() const;
 
