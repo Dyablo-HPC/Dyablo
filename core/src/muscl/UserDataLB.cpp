@@ -14,11 +14,10 @@ namespace dyablo { namespace muscl {
 // ==================================================================
 // ==================================================================
 UserDataLB::UserDataLB(DataArrayHost& data_, 
-                       DataArrayHost& ghostdata_, 
-                       id2index_t fm_) :
+                       DataArrayHost& ghostdata_ )
+  :
   data(data_),
   ghostdata(ghostdata_),
-  fm(fm_),
   nbVars(data_.extent(1))
 {
 }; // UserDataLB::UserDataLB
@@ -54,7 +53,7 @@ void UserDataLB::move(const uint32_t from, const uint32_t to)
 {
 
   for (uint32_t ivar=0; ivar<nbVars; ++ivar)
-    data(to,fm[ivar]) = data(from,fm[ivar]);
+    data(to,ivar) = data(from,ivar);
 
 }; // UserDataLB::move
 
@@ -70,7 +69,7 @@ void UserDataLB::assign(uint32_t stride, uint32_t length)
     Kokkos::RangePolicy<Kokkos::OpenMP>( 0, length ), 
     [=](size_t &i) {
       for (uint32_t ivar=0; ivar<nbVars; ++ivar)
-	      dataCopy(i,fm[ivar]) = data(i+stride,fm[ivar]);
+	      dataCopy(i,ivar) = data(i+stride,ivar);
     });
   
   //data = dataCopy;
@@ -79,7 +78,7 @@ void UserDataLB::assign(uint32_t stride, uint32_t length)
       Kokkos::RangePolicy<Kokkos::OpenMP>( 0, length ), 
       [=](size_t &i) {
         for (uint32_t ivar=0; ivar<nbVars; ++ivar)
-          data(i,fm[ivar]) = dataCopy(i,fm[ivar]);
+          data(i,ivar) = dataCopy(i,ivar);
       });
 
 }; // UserDataLB::assign

@@ -880,13 +880,8 @@ void SolverHydroMusclBlock::load_balance_userdata()
 
   timers.get("AMR: load-balance").start();
 
-#if BITPIT_ENABLE_MPI==1
-
-  // retrieve available / allowed names: fieldManager, and field map (fm)
-  auto fm = fieldMgr.get_id2index();
-
   /* (Load)Balance the octree over the processes with communicating the data.
-   * Preserve the family compact up to 4 levels over the max deep reached
+   * Preserve the family compact up to 3 levels over the max deep reached
    * in the octree. */
   {
     uint8_t levels = 3;
@@ -900,7 +895,6 @@ void SolverHydroMusclBlock::load_balance_userdata()
     // Update LightOctree after load balancing
     lmesh = LightOctree(amr_mesh, params.level_min, params.level_max);    
   }
-#endif // BITPIT_ENABLE_MPI==1
   
   timers.get("AMR: load-balance").stop();
 

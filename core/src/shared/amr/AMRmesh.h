@@ -137,6 +137,8 @@ public:
    **/
   void loadBalance_userdata( int compact_levels, DataArrayBlock& userData )
   { Impl::loadBalance_userdata(compact_levels, userData); }
+  void loadBalance_userdata( int compact_levels, DataArray& userData )
+  { Impl::loadBalance_userdata(compact_levels, userData); }
 
   /**
    * Set marker for refinement 
@@ -179,9 +181,9 @@ public:
   { Impl::computeConnectivity(); }
   void updateConnectivity()
   { Impl::updateConnectivity(); }
-  template< typename T >
-  void loadBalance(T& t, uint8_t level)
-  { Impl::loadBalance(t,level); }
+  // template< typename T >
+  // void loadBalance(T& t, uint8_t level)
+  // { Impl::loadBalance(t,level); }
   // bool getIsNewC(uint32_t idx)
   // { return Impl::getIsNewC(idx); }
   // bool getIsNewR(uint32_t idx) const

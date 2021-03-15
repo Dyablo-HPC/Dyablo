@@ -795,37 +795,21 @@ void SolverHydroMuscl::load_balance_userdata()
 
   timers.get("AMR: load-balance").start();
 
-#if BITPIT_ENABLE_MPI==1
-
-  // retrieve available / allowed names: fieldManager, and field map (fm)
-  auto fm = fieldMgr.get_id2index();
-
   /* (Load)Balance the octree over the processes with communicating the data.
-   * Preserve the family compact up to 4 levels over the max deep reached
+   * Preserve the family compact up to 3 levels over the max deep reached
    * in the octree. */
   {
     uint8_t levels = 4;
 
-    auto U_host = Kokkos::create_mirror_view(U);
-    auto Ughost_host = Kokkos::create_mirror_view(Ughost);
-    Kokkos::deep_copy(U_host, U);
-    Kokkos::deep_copy(Ughost_host, Ughost);
+    amr_mesh->loadBalance_userdata(levels, U);
 
-    UserDataLB data_lb(U_host, Ughost_host, fm);
-    amr_mesh->loadBalance(data_lb, levels);
+    // we probably need to resize arrays, ....
+    Kokkos::resize(U2,U.layout());
+    Kokkos::realloc(Ughost, amr_mesh->getNumGhosts(), Ughost.extent(1));
 
-    // we probably need to resize U, ....
-    Kokkos::resize(U,U_host.extent(0),U_host.extent(1));
-    Kokkos::resize(Ughost,Ughost_host.extent(0),Ughost_host.extent(1));
-    Kokkos::resize(U2,U_host.extent(0),U_host.extent(1));
-
-    Kokkos::deep_copy(U, U_host);
-    Kokkos::deep_copy(Ughost, Ughost_host);  
-
-    amr_lmesh = LightOctree(amr_mesh, params.level_min, params.level_max);
-
+    // Update LightOctree after load balancing
+    amr_lmesh = LightOctree(amr_mesh, params.level_min, params.level_max);    
   }
-#endif // BITPIT_ENABLE_MPI==1
   
   timers.get("AMR: load-balance").stop();
 

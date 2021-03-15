@@ -35,10 +35,6 @@ public:
   DataArrayHost& data;
   DataArrayHost& ghostdata;
 
-  //! FieldMap object for mapping field variable (ID, IP, IU, IV, ...)
-  //! to actual index
-  id2index_t  fm;
-
   //! number of scalar variables per cell
   uint32_t nbVars;
 
@@ -55,14 +51,14 @@ public:
   template<class Buffer>
   void gather(Buffer & buff, const uint32_t e) {
     for (uint32_t ivar=0; ivar<nbVars; ++ivar)
-      buff << data(e,fm[ivar]);
+      buff << data(e,ivar);
   };
 
   //! write data received from another MPI process
   template<class Buffer>
   void scatter(Buffer & buff, const uint32_t e) {
     for (uint32_t ivar=0; ivar<nbVars; ++ivar)
-      buff >> data(e,fm[ivar]);
+      buff >> data(e,ivar);
   };
 
   /**
@@ -83,7 +79,7 @@ public:
   /**
    * Constructor.
    */
-  UserDataLB(DataArrayHost& data_, DataArrayHost& ghostdata_, id2index_t fm_);
+  UserDataLB(DataArrayHost& data_, DataArrayHost& ghostdata_);
   
   /**
    * Destructor.
