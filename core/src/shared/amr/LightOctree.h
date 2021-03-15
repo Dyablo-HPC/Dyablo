@@ -5,10 +5,10 @@
 
 namespace dyablo { 
 
-//#ifdef KOKKOS_ENABLE_CUDA
+#ifdef KOKKOS_ENABLE_CUDA
 using LightOctree = LightOctree_hashmap;
-//#else
-//using LightOctree = LightOctree_pablo;
-//#endif
+#else
+using LightOctree = LightOctree_pablo;
+#endif
 
 } //namespace dyablo

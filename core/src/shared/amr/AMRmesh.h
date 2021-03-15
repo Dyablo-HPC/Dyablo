@@ -3,7 +3,7 @@
 #include "AMRmesh_pablo.h"
 #include "AMRmesh_hashmap.h"
 
-#define DYABLO_USE_GPU_MESH
+//#define DYABLO_USE_GPU_MESH
 
 namespace dyablo{
 
