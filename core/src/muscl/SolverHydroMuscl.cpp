@@ -31,6 +31,8 @@
 
 #include "shared/mpi/GhostCommunicator.h"
 
+#include "muscl/MapUserData.h"
+
 #if BITPIT_ENABLE_MPI==1
 #include "muscl/UserDataLB.h"
 #endif
@@ -758,8 +760,6 @@ void SolverHydroMuscl::adapt_mesh()
 
   // 2. re-compute connectivity
   amr_mesh->updateConnectivity();
-
-  amr_lmesh = LightOctree(amr_mesh, params.level_min, params.level_max);
   
   timers.get("AMR: adapt").stop();
 
@@ -773,91 +773,16 @@ void SolverHydroMuscl::adapt_mesh()
  */
 void SolverHydroMuscl::map_userdata_after_adapt()
 {
-
   timers.get("AMR: map userdata").start();
 
-  // TODO : make is mapper and isghost Kokkos::View's so that
-  // one can make the rest of this routine parallel
-  std::vector<uint32_t> mapper;
-  std::vector<bool> isghost;
-  
-  // 
-  int nbVars = params.nbvar;
+  LightOctree lmesh_old = this->amr_lmesh;
+  this->amr_lmesh = LightOctree(amr_mesh, params.level_min, params.level_max);
 
-    // field manager index array
-  auto fm = fieldMgr.get_id2index();
-
-  // at this stage, the numerical scheme has been computed
-  // U contains data at t_n
-  // U2 contains data at t_{n+1}
-  //
-  // so let's just resize U, and remap U2 to U after the mesh adaptation
-
-  //amr_mesh->adapt(true);
-  uint32_t nbOcts = amr_mesh->getNumOctants();
-  Kokkos::resize(U, nbOcts, nbVars);
-
-  // TODO : map userdata on GPU
-  auto Uhost = Kokkos::create_mirror_view(U);
-  auto Ughost_host = Kokkos::create_mirror_view(Ughost);
-  auto U2_host = Kokkos::create_mirror_view(U2);
-
-  Kokkos::deep_copy(Ughost_host, Ughost);
-  Kokkos::deep_copy(U2_host, U2);
-  
-  // reset U
-  Kokkos::parallel_for("dyablo::muscl::SolverHydroMuscl reset U", 
-                       Kokkos::RangePolicy<Kokkos::OpenMP>(0,nbOcts), 
-                       [=](const size_t i) {
-                         for (int ivar=0; ivar<nbVars; ++ivar)
-                           Uhost(i,fm[ivar])=0.0;
-                       });
-  
-  /*
-   * Assign to the new octant the average of the old children
-   *  if it is new after a coarsening;
-   * while assign to the new octant the data of the old father
-   *  if it is new after a refinement.
-   */
-  // TODO
-  // TODO : make this loop a parallel_for ?
-  // TODO
-  for (uint32_t iOct=0; iOct<nbOcts; ++iOct) {
-
-    amr_mesh->getMapping(iOct, mapper, isghost);
-
-    // test is current cell is new upon a coarsening operation
-    if (amr_mesh->getIsNewC(iOct))
-    {
-      for (int j = 0; j < m_nbChildren; ++j)
-      {
-        if (isghost[j])
-        {
-          for (int ivar = 0; ivar < nbVars; ++ivar)
-            Uhost(iOct, fm[ivar]) += Ughost_host(mapper[j], fm[ivar]) / m_nbChildren;
-        }
-        else
-        {
-          for (int ivar = 0; ivar < nbVars; ++ivar)
-            Uhost(iOct, fm[ivar]) += U2_host(mapper[j], fm[ivar]) / m_nbChildren;
-        }
-      }
-    }
-    else
-    {
-
-      // current cell is just an old cell or new upon a refinement,
-      // so we just copy data
-      
-      for (int ivar = 0; ivar < nbVars; ++ivar)
-        Uhost(iOct, fm[ivar]) = U2_host(mapper[0], fm[ivar]);
-    }
-  }
+  MapUserDataFunctor::apply( lmesh_old, this->amr_lmesh, configMap, U2, Ughost, U );
 
   // now U contains the most up to date data after mesh adaptation
   // we can resize U2 for the next time-step
-  Kokkos::resize(U2, U.extent(0), U.extent(1));
-  Kokkos::deep_copy(U, Uhost);
+  Kokkos::realloc(U2, U.layout());
   
   timers.get("AMR: map userdata").stop();
 

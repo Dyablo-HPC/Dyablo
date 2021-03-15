@@ -3,7 +3,7 @@
 #include "AMRmesh_pablo.h"
 #include "AMRmesh_hashmap.h"
 
-#define DYABLO_USE_GPU_MESH
+//#define DYABLO_USE_GPU_MESH
 
 namespace dyablo{
 
@@ -182,12 +182,12 @@ public:
   template< typename T >
   void loadBalance(T& t, uint8_t level)
   { Impl::loadBalance(t,level); }
-  bool getIsNewC(uint32_t idx)
-  { return Impl::getIsNewC(idx); }
-  bool getIsNewR(uint32_t idx) const
-  { return Impl::getIsNewR(idx); }
-  void getMapping(uint32_t & idx, std::vector<uint32_t> & mapper, std::vector<bool> & isghost) const
-  { Impl::getMapping(idx, mapper, isghost); }
+  // bool getIsNewC(uint32_t idx)
+  // { return Impl::getIsNewC(idx); }
+  // bool getIsNewR(uint32_t idx) const
+  // { return Impl::getIsNewR(idx); }
+  // void getMapping(uint32_t & idx, std::vector<uint32_t> & mapper, std::vector<bool> & isghost) const
+  // { Impl::getMapping(idx, mapper, isghost); }
   //void findNeighbours(uint32_t iOct, uint8_t iface, uint8_t codim , 
   //                    std::vector<uint32_t>& neighbor_iOcts, std::vector<bool>& neighbor_isGhost) const
   //{ return Impl::findNeighbours(iOct, iface, codim, neighbor_iOcts, neighbor_isGhost); }
