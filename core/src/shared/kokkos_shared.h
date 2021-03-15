@@ -27,7 +27,7 @@ enum KokkosLayout {
  * first index is leaf id (curvilinear index along the Morton curve)
  * last index is hydro variable
  */
-using DataArray     = Kokkos::View<real_t**, Device>;
+using DataArray     = Kokkos::View<real_t**, Kokkos::LayoutLeft, Device>;
 using DataArrayHost = DataArray::HostMirror;
 
 /**
