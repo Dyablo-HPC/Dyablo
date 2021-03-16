@@ -134,7 +134,7 @@ public:
 
       Kokkos::parallel_for(
         Kokkos::TeamVectorRange(member, nbCells),
-        KOKKOS_LAMBDA(const int32_t index) {
+        [=](const int32_t index) {
 
           // convert index into ix,iy,iz of local cell inside
           // block
