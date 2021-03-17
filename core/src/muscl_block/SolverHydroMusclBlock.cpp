@@ -77,19 +77,9 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
  
   long long int total_mem_size = 0;
 
-  /*
-   * memory pre-allocation.
-   *
-   * Note that Uhost is not just a view to U, Uhost will be used
-   * to save data from multiple other device array.
-   * That's why we didn't use create_mirror_view to initialize Uhost.
-   */
-
-  // minimal number of cells only used for initial memory allocation
-  // afterwards memory resizing will append
-  uint64_t nbOcts = 1<<params.level_min;
-  
-  nbOcts = params.dimType == TWO_D ? nbOcts * nbOcts :  nbOcts * nbOcts * nbOcts;
+  // Initial number of octants
+  // User data will be reallocated after AMR mesh initialization
+  uint64_t nbOcts = 1;
 
   /*
    * setup parameters related to block AMR

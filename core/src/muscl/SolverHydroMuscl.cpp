@@ -72,18 +72,9 @@ SolverHydroMuscl::SolverHydroMuscl(HydroParams& params,
  
   long long int total_mem_size = 0;
 
-  /*
-   * memory pre-allocation.
-   *
-   * Note that Uhost is not just a view to U, Uhost will be used
-   * to save data from multiple other device array.
-   * That's why we didn't use create_mirror_view to initialize Uhost.
-   */
-
-  // minimal number of cells
-  uint64_t nbCells = 1<<params.level_min;
-  
-  nbCells = params.dimType == TWO_D ? nbCells * nbCells :  nbCells * nbCells * nbCells;
+  // Initial number of octants
+  // User data will be reallocated after AMR mesh initialization
+  uint64_t nbCells = 1;
   
   U     = DataArray("U", nbCells, nbvar);
   Uhost = Kokkos::create_mirror(U);
