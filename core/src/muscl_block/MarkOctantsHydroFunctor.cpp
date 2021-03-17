@@ -82,6 +82,8 @@ void MarkOctantsHydroFunctor::apply(
   const uint32_t by_g = by + 2*ghostWidth;
   //const uint32_t bz_g = three_d?(bz + 2*ghostWidth):1;
   const uint32_t nbCellsPerBlock = bx*by*bz;
+  const uint32_t ghostWidth_z = (three_d ? ghostWidth : 0);
+
 
   constexpr int nrefvar = 2;
   Kokkos::Array<int, nrefvar> ref_var = {fm[ID], fm[IP]};  
@@ -111,7 +113,7 @@ void MarkOctantsHydroFunctor::apply(
         const uint32_t j = (iCellInner - k*bx*by) / bx;
         const uint32_t i = iCellInner - k*bx*by - j*bx;
 
-        uint32_t iCell = i+ghostWidth + bx_g * (j+ghostWidth) + bx_g*by_g*(k+ghostWidth);
+        uint32_t iCell = i+ghostWidth + bx_g * (j+ghostWidth) + bx_g*by_g*(k+ghostWidth_z);
 
         for (int ivar = 0; ivar < nrefvar; ++ivar)
         {
