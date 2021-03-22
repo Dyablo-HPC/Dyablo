@@ -44,10 +44,10 @@ public:
   
   // static method which does it all: create and execute functor
   static void apply(std::shared_ptr<AMRmesh> pmesh,
-		    HydroParams   params,
-                    ConfigMap     configMap,
-		    id2index_t    fm,
-                    DataArrayHost     Udata)
+                    HydroParams              params,
+                    ConfigMap                configMap,
+                    id2index_t               fm,
+                    DataArrayHost            Udata)
   {
     BlastParams blastParams = BlastParams(configMap);
     
@@ -76,10 +76,25 @@ public:
     // get cell center coordinate in the unit domain
     // FIXME : need to refactor AMRmesh interface to use Kokkos::Array
     std::array<double,3> center = pmesh->getCenter(i);
-    
-    const real_t x = center[0];
-    const real_t y = center[1];
-    const real_t z = center[2];
+
+    real_t x = center[0];
+    real_t y = center[1];
+    real_t z = center[2];
+
+    // Quadrant size
+    const real_t qx = 1.0 / bParams.blast_nx;
+    const real_t qy = 1.0 / bParams.blast_ny;
+    const real_t qz = 1.0 / bParams.blast_nz;
+    const real_t q = std::min({qx, qy, qz});
+
+    const int qix = (int)(x / qx);
+    const int qiy = (int)(y / qy);
+    const int qiz = (int)(z / qz);
+
+    // Rescaling position wrt the current blast quadrant
+    x = (x - qix * qx) / q - (qx/q - 1) * 0.5;
+    y = (y - qiy * qy) / q - (qy/q - 1) * 0.5;
+    z = (z - qiz * qz) / q - (qz/q - 1) * 0.5;
     
     real_t d2 = 
       (x-blast_center_x)*(x-blast_center_x)+
@@ -140,8 +155,8 @@ public:
   // static method which does it all: create and execute functor
   static void apply(std::shared_ptr<AMRmesh> pmesh,
                     ConfigMap     configMap,
-		    HydroParams   params,
-		    int           level_refine)
+                    HydroParams   params,
+                    int           level_refine)
   {
     BlastParams blastParams = BlastParams(configMap);
 
@@ -174,26 +189,53 @@ public:
       // FIXME : need to refactor AMRmesh interface to use Kokkos::Array
       std::array<double,3> center = pmesh->getCenter(i);
       
-      const real_t x = center[0];
-      const real_t y = center[1];
-      const real_t z = center[2];
+      real_t x = center[0];
+      real_t y = center[1];
+      real_t z = center[2];
 
-      double cellSize2 = pmesh->getSize(i)*0.75;
+      // Quadrant size
+      const real_t qx = 1.0 / bParams.blast_nx;
+      const real_t qy = 1.0 / bParams.blast_ny;
+      const real_t qz = (params.dimType == THREE_D ? 1.0 / bParams.blast_nz : 1.0);
+      const real_t q = std::min({qx, qy, qz});
+
+      const int qix = (int)(x / qx);
+      const int qiy = (int)(y / qy);
+      const int qiz = (params.dimType == THREE_D ? (int)(z / qz) : 0);
       
-      bool should_refine = false;
+      // Rescaling position wrt the current blast quadrant
+      x = (x - qix * qx) / q - (qx/q - 1) * 0.5;
+      y = (y - qiy * qy) / q - (qy/q - 1) * 0.5;
+      z = (z - qiz * qz) / q - (qz/q - 1) * 0.5;
 
-      real_t d2 = 
-        (x-blast_center_x)*(x-blast_center_x)+
-        (y-blast_center_y)*(y-blast_center_y);  
+      // Two refinement criteria are used : 
+      //  1- If the cell size is larger than a quadrant we refine
+      //  2- If the distance to the blast is smaller than the size of
+      //     half a diagonal we refine
 
+      real_t cellSize = pmesh->getSize(i);
+      
+      bool should_refine = (cellSize > std::min({qx, qy, qz}));
+
+      real_t d2 = std::pow(x - blast_center_x, 2) +
+                  std::pow(y - blast_center_y, 2);
       if (params.dimType == THREE_D)
-        d2 += (z-blast_center_z)*(z-blast_center_z);
+        d2 += std::pow(z - blast_center_z, 2);
 
-      if ( fabs(sqrt(d2) - radius) < cellSize2 )
-	should_refine = true;
-      
+      // Cell diag is calculated to be in the units of a quadrant
+      const real_t cx = cellSize / q;
+      const real_t cy = cellSize / q;
+      const real_t cz = cellSize / q;
+
+      real_t cellDiag = (params.dimType == THREE_D 
+                          ? sqrt(cx*cx+cy*cy+cz*cz) * 0.5
+                          : sqrt(cx*cx+cy*cy) * 0.5);
+
+      if (fabs(sqrt(d2) - radius) < cellDiag)
+        should_refine = true; 
+
       if (should_refine)
-	pmesh->setMarker(i, 1);
+	      pmesh->setMarker(i, 1);
 
     } // end if level == level_refine
     
