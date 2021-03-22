@@ -6,7 +6,7 @@
 #include "shared/utils_hydro.h"
 #include "shared/bitpit_common.h"
 #include "muscl_block/utils_block.h"
-#include "LightOctree.h"
+#include "shared/LightOctree.h"
 
 namespace dyablo
 {

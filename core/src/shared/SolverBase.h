@@ -12,12 +12,7 @@
 #include "shared/HDF5_IO.h"
 #endif // DYABLO_USE_HDF5
 
-// for timer
-#ifdef KOKKOS_ENABLE_CUDA
-#include "utils/monitoring/CudaTimer.h"
-#else
-#include "utils/monitoring/OpenMPTimer.h"
-#endif
+#include "utils/monitoring/Timers.h"
 
 #include "shared/bitpit_common.h"
 
@@ -28,23 +23,6 @@ enum solver_type_t {
   SOLVER_MUSCL_HANCOCK_BLOCK=2
 };
 
-//! enum for identifying timers
-enum TimerIds {
-  TIMER_TOTAL = 0,
-  TIMER_IO = 1,
-  TIMER_DT = 2,
-  TIMER_BOUNDARIES = 3,
-  TIMER_NUM_SCHEME = 4,
-  TIMER_AMR_CYCLE = 5,
-  TIMER_AMR_CYCLE_SYNC_GHOST = 6,
-  TIMER_AMR_CYCLE_MARK_CELLS = 7,
-  TIMER_AMR_CYCLE_ADAPT_MESH = 8,
-  TIMER_AMR_CYCLE_MAP_USERDATA = 9,
-  TIMER_AMR_CYCLE_LOAD_BALANCE = 10,
-  TIMER_AMR_BLOCK_COPY = 11,
-  TIMER_BLOCK_COPY = 12,
-  TIMER_NB = 13 // number of TIMERs, do not remove
-}; // enum TimerIds
 
 namespace dyablo {
 
@@ -191,15 +169,8 @@ public:
   //! Number of variables to saved
   //int m_write_variables_number;
 
-  //! timers
-#ifdef KOKKOS_ENABLE_CUDA
-  using Timer = CudaTimer;
-#else
-  using Timer = OpenMPTimer;
-#endif
-  using TimerMap = std::map<int, std::shared_ptr<Timer> >;
-  TimerMap m_timers;
-
+  Timers timers;
+  
   void save_data(DataArray             U,
 		 DataArray::HostMirror Uh,
 		 int iStep,

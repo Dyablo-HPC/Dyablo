@@ -10,7 +10,7 @@ namespace dyablo { namespace muscl {
 
 // ==================================================================
 // ==================================================================
-UserDataComm::UserDataComm(DataArray data_, DataArray ghostData_, id2index_t fm_) :
+UserDataComm::UserDataComm(DataArrayHost data_, DataArrayHost ghostData_, id2index_t fm_) :
   data(data_),
   ghostData(ghostData_),
   fm(fm_),

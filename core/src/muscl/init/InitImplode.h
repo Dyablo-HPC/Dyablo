@@ -56,10 +56,9 @@ public:
     InitImplodeDataFunctor functor(pmesh, params, implodeParams, fm, Udata);
     
     Kokkos::parallel_for("dyablo::muscl::InitImplodeDataFunctor", 
-                         pmesh->getNumOctants(), functor);
+                         Kokkos::RangePolicy<Kokkos::OpenMP>(0, pmesh->getNumOctants()), functor);
   }
-  
-  KOKKOS_INLINE_FUNCTION
+
   void operator()(const size_t& i) const
   {
     

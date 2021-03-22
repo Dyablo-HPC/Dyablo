@@ -49,10 +49,9 @@ public:
     // data init functor
     InitGreshoVortexDataFunctor functor(pmesh, params, gvParams, fm, Udata);
 
-    Kokkos::parallel_for("dyablo::muscl::InitGreshoVortexDataFunctor", pmesh->getNumOctants(), functor);
+    Kokkos::parallel_for("dyablo::muscl::InitGreshoVortexDataFunctor", Kokkos::RangePolicy<Kokkos::OpenMP>(0, pmesh->getNumOctants()), functor);
   }
 
-  KOKKOS_INLINE_FUNCTION
   void operator()(const size_t &i) const {
 
     // get cell center coordinate in the unit domain
@@ -154,10 +153,9 @@ public:
     // iterate functor for refinement
     InitGreshoVortexRefineFunctor functor(pmesh, params, gvParams,
                                           level_refine);
-    Kokkos::parallel_for("dyablo::muscl::InitGreshoVortexRefineFunctor", pmesh->getNumOctants(), functor);
+    Kokkos::parallel_for("dyablo::muscl::InitGreshoVortexRefineFunctor", Kokkos::RangePolicy<Kokkos::OpenMP>(0, pmesh->getNumOctants()), functor);
   }
 
-  KOKKOS_INLINE_FUNCTION
   void operator()(const size_t &i) const {
 
     // get cell level

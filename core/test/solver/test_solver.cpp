@@ -109,22 +109,18 @@ int main(int argc, char *argv[])
   if (solver_name.find("Muscl_Block") != std::string::npos) {
     solver = muscl_block::SolverHydroMusclBlock::create(params, configMap);
   } else {
-#ifdef KOKKOS_ENABLE_CUDA
-    assert(false); //SolverHydroMuscl not compatible with CUDA backend
-#else
     solver = muscl::SolverHydroMuscl::create(params, configMap);
-#endif
   }
 
   // start computation
   if (rank==0) std::cout << "Start computation....\n";
-  solver->m_timers[TIMER_TOTAL]->start();
+  solver->timers.get("total").start();
 
   // Hydrodynamics solver time loop
   solver->run();
 
   // end of computation
-  solver->m_timers[TIMER_TOTAL]->stop();
+  solver->timers.get("total").stop();
 
   // save last time step
   if (params.nOutput != 0)

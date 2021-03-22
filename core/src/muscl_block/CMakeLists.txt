@@ -1,6 +1,8 @@
 set (muscl_block_SRCS
   ${CMAKE_CURRENT_SOURCE_DIR}/SolverHydroMusclBlock.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/CopyGhostBlockCellData.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/MapUserData.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/MarkOctantsHydroFunctor.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitSod.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitBlast.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitImplode.cpp
@@ -15,7 +17,8 @@ set (muscl_block_SRCS
   # add MPI user data communication interface
   if (DYABLO_USE_MPI)
     list(APPEND muscl_block_SRCS
-      ${CMAKE_CURRENT_SOURCE_DIR}/UserDataComm.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/GhostCommunicator_pablo.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/GhostCommunicator_kokkos.cpp
       ${CMAKE_CURRENT_SOURCE_DIR}/UserDataLB.cpp)
   endif(DYABLO_USE_MPI)
 

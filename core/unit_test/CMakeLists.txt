@@ -121,4 +121,16 @@ dyablo_add_test(utest_MusclBlockGodunovUpdateFunctor
   block_data/test_MusclBlockGodunovUpdateFunctor.cpp
   main.cpp)
 
+dyablo_add_test(utest_GhostCommunicator
+  block_data/test_GhostCommunicator.cpp
+  main.cpp)
+
+dyablo_add_test(utest_LoadBalance
+  block_data/test_LoadBalance.cpp
+  main.cpp)
+  
+dyablo_add_test(utest_MapUserData
+  block_data/test_MapUserData.cpp
+  main.cpp)
+
 

@@ -32,8 +32,8 @@ public:
   // pass by copy (Kokkos::View), watchout data and ghostdata
   // will surely be reassigned, so calling code must be aware of
   // that.
-  DataArray& data;
-  DataArray& ghostdata;
+  DataArrayHost& data;
+  DataArrayHost& ghostdata;
 
   //! FieldMap object for mapping field variable (ID, IP, IU, IV, ...)
   //! to actual index
@@ -67,14 +67,14 @@ public:
 
   /**
    * extract the range of data [stride, stride+length[ and
-   * re-assign DataArray data
+   * re-assign DataArrayHost data
    */
   void assign(uint32_t stride, uint32_t length);
 
-  //! resize DataArray data
+  //! resize DataArrayHost data
   void resize(uint32_t newSize);
 
-  //! resize DataArray ghostdata
+  //! resize DataArrayHost ghostdata
   void resizeGhost(uint32_t newSize);
 
   //! not sure we really need it
@@ -83,7 +83,7 @@ public:
   /**
    * Constructor.
    */
-  UserDataLB(DataArray& data_, DataArray& ghostdata_, id2index_t fm_);
+  UserDataLB(DataArrayHost& data_, DataArrayHost& ghostdata_, id2index_t fm_);
   
   /**
    * Destructor.

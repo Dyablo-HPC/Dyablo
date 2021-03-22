@@ -54,10 +54,9 @@ public:
     InitIsentropicVortexDataFunctor functor(pmesh, params, ivParams, fm, Udata);
 
     Kokkos::parallel_for("dyablo::muscl::InitIsentropicVortexDataFunctor", 
-                         pmesh->getNumOctants(), functor);
+                         Kokkos::RangePolicy<Kokkos::OpenMP>(0, pmesh->getNumOctants()), functor);
   }
 
-  KOKKOS_INLINE_FUNCTION
   void operator()(const size_t &i) const {
 
     // get cell center coordinate in the unit domain
@@ -168,10 +167,9 @@ public:
     InitIsentropicVortexRefineFunctor functor(pmesh, params, ivParams,
                                               level_refine);
     Kokkos::parallel_for("dyablo::muscl::InitIsentropicVortexRefineFunctor", 
-                         pmesh->getNumOctants(), functor);
+                         Kokkos::RangePolicy<Kokkos::OpenMP>(0, pmesh->getNumOctants()), functor);
   }
 
-  KOKKOS_INLINE_FUNCTION
   void operator()(const size_t &i) const {
 
     // get cell level

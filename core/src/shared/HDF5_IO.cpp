@@ -521,8 +521,8 @@ HDF5_Writer::write_quadrant_mach_number(DataArrayBlockHost datah,
 
     DataArrayScalar mach_number = DataArrayScalar("mach_number", nbCellsPerOct*nbOcts);
 
-    Kokkos::parallel_for(
-      nbOcts, KOKKOS_LAMBDA(uint32_t iOct) {
+    Kokkos::parallel_for( Kokkos::RangePolicy<Kokkos::OpenMP>(0, nbOcts), 
+      KOKKOS_LAMBDA(uint32_t iOct) {
         for (uint32_t iCell = 0; iCell < nbCellsPerOct; ++iCell) {
           
           real_t d = datah(iCell, fm[ID], iOct);
@@ -581,8 +581,8 @@ HDF5_Writer::write_quadrant_pressure(DataArrayBlockHost datah,
 
     DataArrayScalar pressure = DataArrayScalar("P", nbCellsPerOct*nbOcts);
 
-    Kokkos::parallel_for(
-      nbOcts, KOKKOS_LAMBDA(uint32_t iOct) {
+    Kokkos::parallel_for( Kokkos::RangePolicy<Kokkos::OpenMP>(0, nbOcts), 
+      KOKKOS_LAMBDA(uint32_t iOct) {
         for (uint32_t iCell = 0; iCell < nbCellsPerOct; ++iCell) {
           
           real_t d = datah(iCell, fm[ID], iOct);
@@ -632,8 +632,8 @@ HDF5_Writer::write_quadrant_id(DataArrayBlockHost datah)
 
     DataArrayScalar id_table = DataArrayScalar("iOct", nbCellsPerOct*nbOcts);
 
-    Kokkos::parallel_for(
-      nbOcts, KOKKOS_LAMBDA(uint32_t iOct) {
+    Kokkos::parallel_for( Kokkos::RangePolicy<Kokkos::OpenMP>(0, nbOcts), 
+      KOKKOS_LAMBDA(uint32_t iOct) {
         for (uint32_t iCell = 0; iCell < nbCellsPerOct; ++iCell) {
           
           // pressure

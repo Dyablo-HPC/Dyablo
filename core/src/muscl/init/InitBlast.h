@@ -37,7 +37,7 @@ public:
                        HydroParams   params,
                        BlastParams   bParams,
                        id2index_t    fm,
-                       DataArray     Udata) :
+                       DataArrayHost Udata) :
     pmesh(pmesh), params(params), bParams(bParams),
     fm(fm), Udata(Udata)
   {};
@@ -47,17 +47,16 @@ public:
 		    HydroParams   params,
                     ConfigMap     configMap,
 		    id2index_t    fm,
-                    DataArray     Udata)
+                    DataArrayHost     Udata)
   {
     BlastParams blastParams = BlastParams(configMap);
     
     // data init functor
     InitBlastDataFunctor functor(pmesh, params, blastParams, fm, Udata);
 
-    Kokkos::parallel_for("dyablo::muscl::InitBlastDataFunctor", pmesh->getNumOctants(), functor);
+    Kokkos::parallel_for("dyablo::muscl::InitBlastDataFunctor", Kokkos::RangePolicy<Kokkos::OpenMP>(0, pmesh->getNumOctants()), functor);
   }
   
-  KOKKOS_INLINE_FUNCTION
   void operator()(const size_t& i) const
   {
     
@@ -110,7 +109,7 @@ public:
   HydroParams  params;
   BlastParams  bParams;
   id2index_t   fm;
-  DataArray    Udata;
+  DataArrayHost    Udata;
   
 }; // InitBlastDataFunctor
 
@@ -149,11 +148,10 @@ public:
     // iterate functor for refinement
     InitBlastRefineFunctor functor(pmesh, params, blastParams, 
                                    level_refine);
-    Kokkos::parallel_for("dyablo::muscl::InitBlastRefineFunctor", pmesh->getNumOctants(), functor);
+    Kokkos::parallel_for("dyablo::muscl::InitBlastRefineFunctor", Kokkos::RangePolicy<Kokkos::OpenMP>(0, pmesh->getNumOctants()), functor);
     
   }
   
-  KOKKOS_INLINE_FUNCTION
   void operator()(const size_t& i) const
   {
 

@@ -9,17 +9,15 @@
 #include "shared/FieldManager.h"
 #include "shared/HydroState.h"
 
-#include "bitpit_PABLO.hpp"
-#include "shared/bitpit_common.h"
+#include "shared/LightOctree.h"
 #include "shared/RiemannSolvers.h"
-#include "shared/bc_utils.h"
 
 // utils hydro
 #include "shared/utils_hydro.h"
 
 // utils block
 #include "muscl_block/utils_block.h"
-#include "muscl_block/LightOctree.h"
+
 
 namespace dyablo
 {
@@ -240,6 +238,8 @@ public:
 
     LightOctree::offset_t offset = {0,0,0};
     offset[dir] = (face==FACE_LEFT) ? -1 : 1;
+
+    // If non-conformal, there's necessarily a neighbor !
     LightOctree::NeighborList neighbors = lmesh.findNeighbors({iOct,false}, offset);
 
     uint32_t ii, jj; // Coords of the first neighbour

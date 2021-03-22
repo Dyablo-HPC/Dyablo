@@ -12,14 +12,13 @@
 #include "shared/HydroState.h"
 #include "shared/problems/initRiemannConfig2d.h"
 
-#include "bitpit_PABLO.hpp"
-#include "shared/bitpit_common.h"
+// AMR utils
+#include "shared/LightOctree.h"
 
 // hydro utils
 #include "shared/utils_hydro.h"
 
 #include "utils_block.h"
-#include "muscl_block/LightOctree.h"
 
 #ifdef __CUDA_ARCH__
 #include "math_constants.h"

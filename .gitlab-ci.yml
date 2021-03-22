@@ -1,5 +1,5 @@
 #
-# validate this script with :
+# validate this script with:
 # https://gitlab.maisondelasimulation.fr/pkestene/dyablo/-/ci/lint
 #
 image: "arnodurocher/dyablo-ci:cuda-11.0"
@@ -22,7 +22,7 @@ after_script:
   - date
 
 # Build Dyablo
-.build_template: &build_definition
+.build_template:
   stage: build
   artifacts:
     paths:
@@ -30,47 +30,47 @@ after_script:
     expire_in: 1 week
 
 build::openmp:
-  <<: *build_definition
+  extends: .build_template
   tags:
     - docker
   script:
-    - ci/build-openmp.sh
+    - .gitlab-ci/build-openmp.sh
 
-.build_cuda_template: &build_cuda_definition
-  <<: *build_definition
+.build_cuda_template:
+  extends: .build_template
   before_script:
     - date
     - nvcc --version
   tags:
     - docker-cuda
   script:
-    - ci/build-cuda.sh
+    - .gitlab-ci/build-cuda.sh
 
 build::cuda:
-  <<: *build_cuda_definition
+  extends: .build_cuda_template
 
 build::cuda-10.2:
-  <<: *build_cuda_definition
+  extends: .build_cuda_template
   image: "arnodurocher/dyablo-ci:cuda-10.2"
   when: manual
 
 build::cuda-9.2:
-  <<: *build_cuda_definition
+  extends: .build_cuda_template
   image: "arnodurocher/dyablo-ci:cuda-9.2"
   when: manual
 
 # Run unit tests
-.test_template: &test_definition
+.test_template:
   stage: test
-  script: ci/run_unit_tests.sh
+  script: .gitlab-ci/run_unit_tests.sh
 
-.openmp_template: &openmp_definition
+.openmp_template:
   needs: 
     - build::openmp
   tags:
     - docker
 
-.cuda_template: &cuda_definition
+.cuda_template:
   before_script:
     - date
     - lscpu
@@ -81,16 +81,18 @@ build::cuda-9.2:
     - docker-cuda
 
 test::openmp:
-  <<: *test_definition
-  <<: *openmp_definition
+  extends: 
+    - .test_template
+    - .openmp_template
 
 test::cuda:
-  <<: *test_definition
-  <<: *cuda_definition
+  extends: 
+    - .test_template
+    - .cuda_template
 
 # Run examples (optional)
 # ===============================
-.run_template: &run_definition
+.run_template:
   stage: run
   image: "arnodurocher/dyablo-ci:cuda-11.0-visu"
   when: manual
@@ -102,108 +104,122 @@ test::cuda:
 # Run multiple testcases
 # -------------------------
 run_all::openmp_4mpi:
-  <<: *run_definition
-  <<: *openmp_definition
+  extends:  
+    - .run_template
+    - .openmp_template
   stage: run_all
   script: 
-    - ci/run_and_render_all.sh
+    - .gitlab-ci/run_and_render_all.sh
 
 run_all::cuda_4mpi:
-  <<: *run_definition
-  <<: *cuda_definition
+  extends:  
+    - .run_template
+    - .cuda_template
   stage: run_all
   script: 
-    - ci/run_and_render_all.sh
+    - .gitlab-ci/run_and_render_all.sh
 
 # Run separate testcases
 # -------------------------
 # Blast 3D block based testcase
 run::blast_3D_block::openmp:
-  <<: *run_definition
-  <<: *openmp_definition
+  extends:  
+    - .run_template
+    - .openmp_template
   script: 
-    - ci/run_testcase.sh test_blast_3D_block.ini
-    - ci/render.sh visu_blast_3D_block.pvsm
+    - .gitlab-ci/run_testcase.sh test_blast_3D_block.ini
+    - .gitlab-ci/render.sh visu_blast_3D_block.pvsm
 
 run::blast_3D_block::openmp_4mpi:
-  <<: *run_definition
-  <<: *openmp_definition
+  extends:  
+    - .run_template
+    - .openmp_template
   script: 
-    - ci/run_testcase_mpi.sh test_blast_3D_block.ini 4
-    - ci/render.sh visu_blast_3D_block.pvsm
+    - .gitlab-ci/run_testcase_mpi.sh test_blast_3D_block.ini 4
+    - .gitlab-ci/render.sh visu_blast_3D_block.pvsm
 
 run::blast_3D_block::cuda:
-  <<: *run_definition
-  <<: *cuda_definition
+  extends:  
+    - .run_template
+    - .cuda_template
   script: 
-    - ci/run_testcase.sh test_blast_3D_block.ini
-    - ci/render.sh visu_blast_3D_block.pvsm
+    - .gitlab-ci/run_testcase.sh test_blast_3D_block.ini
+    - .gitlab-ci/render.sh visu_blast_3D_block.pvsm
 
 run::blast_3D_block::cuda_4mpi:
-  <<: *run_definition
-  <<: *cuda_definition
+  extends:  
+    - .run_template
+    - .cuda_template
   script: 
-    - ci/run_testcase_mpi.sh test_blast_3D_block.ini 4
-    - ci/render.sh visu_blast_3D_block.pvsm
+    - .gitlab-ci/run_testcase_mpi.sh test_blast_3D_block.ini 4
+    - .gitlab-ci/render.sh visu_blast_3D_block.pvsm
 
 # Blast 3D cell based testcase
 run::blast_3D_cell::openmp:
-  <<: *run_definition
-  <<: *openmp_definition
+  extends:  
+    - .run_template
+    - .openmp_template
   script: 
-    - ci/run_testcase.sh test_blast_3D.ini
-    - ci/render.sh visu_blast_3D_cell.pvsm
+    - .gitlab-ci/run_testcase.sh test_blast_3D.ini
+    - .gitlab-ci/render.sh visu_blast_3D_cell.pvsm
 
 run::blast_3D_cell::openmp_4mpi:
-  <<: *run_definition
-  <<: *openmp_definition
+  extends:  
+    - .run_template
+    - .openmp_template
   script: 
-    - ci/run_testcase_mpi.sh test_blast_3D.ini 4
-    - ci/render.sh visu_blast_3D_cell.pvsm
+    - .gitlab-ci/run_testcase_mpi.sh test_blast_3D.ini 4
+    - .gitlab-ci/render.sh visu_blast_3D_cell.pvsm
 
 # Blast 2D block based testcase
 run::blast_2D_block::openmp:
-  <<: *run_definition
-  <<: *openmp_definition
+  extends:  
+    - .run_template
+    - .openmp_template
   script: 
-    - ci/run_testcase.sh test_blast_2D_block.ini
-    - ci/render.sh visu_blast_2D_block.pvsm
+    - .gitlab-ci/run_testcase.sh test_blast_2D_block.ini
+    - .gitlab-ci/render.sh visu_blast_2D_block.pvsm
 
 run::blast_2D_block::openmp_4mpi:
-  <<: *run_definition
-  <<: *openmp_definition
+  extends:  
+    - .run_template
+    - .openmp_template
   script: 
-    - ci/run_testcase_mpi.sh test_blast_2D_block.ini 4
-    - ci/render.sh visu_blast_2D_block.pvsm
+    - .gitlab-ci/run_testcase_mpi.sh test_blast_2D_block.ini 4
+    - .gitlab-ci/render.sh visu_blast_2D_block.pvsm
 
 run::blast_2D_block::cuda:
-  <<: *run_definition
-  <<: *cuda_definition
+  extends:  
+    - .run_template
+    - .cuda_template
   script: 
-    - ci/run_testcase.sh test_blast_2D_block.ini
-    - ci/render.sh visu_blast_2D_block.pvsm
+    - .gitlab-ci/run_testcase.sh test_blast_2D_block.ini
+    - .gitlab-ci/render.sh visu_blast_2D_block.pvsm
 
 run::blast_2D_block::cuda_4mpi:
-  <<: *run_definition
-  <<: *cuda_definition
+  extends:  
+    - .run_template
+    - .cuda_template
   script: 
-    - ci/run_testcase_mpi.sh test_blast_2D_block.ini 4
-    - ci/render.sh visu_blast_2D_block.pvsm
+    - .gitlab-ci/run_testcase_mpi.sh test_blast_2D_block.ini 4
+    - .gitlab-ci/render.sh visu_blast_2D_block.pvsm
 
 # Blast 2D cell based testcase
 run::blast_2D_cell::openmp:
-  <<: *run_definition
-  <<: *openmp_definition
+  extends:  
+    - .run_template
+    - .openmp_template
   script: 
-    - ci/run_testcase.sh test_blast_2D.ini
-    - ci/render.sh visu_blast_2D_cell.pvsm
+    - .gitlab-ci/run_testcase.sh test_blast_2D.ini
+    - .gitlab-ci/render.sh visu_blast_2D_cell.pvsm
 
 run::blast_2D_cell::openmp_4mpi:
-  <<: *run_definition
-  <<: *openmp_definition
+  extends:  
+    - .run_template
+    - .openmp_template
   script: 
-    - ci/run_testcase_mpi.sh test_blast_2D.ini 4
-    - ci/render.sh visu_blast_2D_cell.pvsm
+    - .gitlab-ci/run_testcase_mpi.sh test_blast_2D.ini 4
+    - .gitlab-ci/render.sh visu_blast_2D_cell.pvsm
 
 
 # Read ci/Readme.md for instructions on how to add new testcases

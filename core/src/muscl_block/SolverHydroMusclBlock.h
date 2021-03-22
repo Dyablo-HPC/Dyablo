@@ -23,7 +23,7 @@
 #include "shared/kokkos_shared.h"
 #include "shared/FieldManager.h"
 #include "muscl_block/utils_block.h"
-#include "muscl_block/LightOctree.h"
+#include "shared/LightOctree.h"
 
 
 // for IO
@@ -61,7 +61,7 @@ private:
   //! enum use in synchronize ghost data operation to
   //! identify which variables need to be exchange by MPI
   enum class UserDataCommType {UDATA, QDATA, SLOPES};
-
+  
 public:
 
   SolverHydroMusclBlock(HydroParams& params, ConfigMap& configMap);

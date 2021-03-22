@@ -9,10 +9,8 @@
 #include "shared/FieldManager.h"
 #include "shared/HydroState.h"
 
-#include "bitpit_PABLO.hpp"
-#include "shared/bitpit_common.h"
+#include "shared/LightOctree.h"
 #include "shared/RiemannSolvers.h"
-#include "shared/bc_utils.h"
 
 // utils hydro
 #include "shared/utils_hydro.h"
@@ -40,7 +38,7 @@ public:
   /**
    * Compute Riemann fluxes and update current cell only.
    *
-   * \param[in]  pmesh pointer to AMR mesh structure
+   * \param[in]  lmesh LightOctree structure
    * \param[in]  params
    * \param[in]  fm field map
    * \param[in]  Data_in current time step data (conservative variables)
@@ -55,7 +53,7 @@ public:
    * \param[in]  Slopes_z_ghost limited slopes along z axis, ghost cells
    *
    */
-  ComputeFluxesAndUpdateHydroFunctor(std::shared_ptr<AMRmesh> pmesh,
+  ComputeFluxesAndUpdateHydroFunctor(LightOctree lmesh,
                                      HydroParams params,
                                      id2index_t    fm,
                                      DataArray Data_in,
@@ -69,7 +67,7 @@ public:
                                      DataArray Slopes_y_ghost,
                                      DataArray Slopes_z_ghost,
                                      real_t    dt) :
-    pmesh(pmesh),
+    lmesh(lmesh),
     params(params),
     fm(fm),
     Data_in(Data_in),
@@ -86,7 +84,7 @@ public:
   {};
   
   // static method which does it all: create and execute functor
-  static void apply(std::shared_ptr<AMRmesh> pmesh,
+  static void apply(LightOctree lmesh,
 		    HydroParams params,
 		    id2index_t  fm,
 		    DataArray Data_in,
@@ -101,13 +99,13 @@ public:
 		    DataArray SlopeZ_ghost,
                     real_t    dt)
   {
-    ComputeFluxesAndUpdateHydroFunctor functor(pmesh, params, fm, 
+    ComputeFluxesAndUpdateHydroFunctor functor(lmesh, params, fm, 
                                                Data_in, Data_out,
                                                Qdata, Qdata_ghost,
                                                SlopeX,SlopeY,SlopeZ,
                                                SlopeX_ghost,SlopeY_ghost,SlopeZ_ghost,
                                                dt);
-    Kokkos::parallel_for("dyablo::muscl::ComputeFluxesAndUpdateHydroFunctor", pmesh->getNumOctants(), functor);
+    Kokkos::parallel_for("dyablo::muscl::ComputeFluxesAndUpdateHydroFunctor", lmesh.getNumOctants(), functor);
   }
 
   // =======================================================================
@@ -120,7 +118,7 @@ public:
     real_t tmp(a); a=b; b=tmp;
   } // swap
   
-  // =======================================================================
+  // =======================================q================================
   // =======================================================================
   template<uint8_t dir>
   KOKKOS_INLINE_FUNCTION
@@ -178,11 +176,8 @@ public:
      * or
      * - current cell is smaller than neighbor
      */
-    const real_t size_c = pmesh->getSize(i);
-    const real_t size_n = isghost_n ? 
-      pmesh->getSizeGhost(i_n) : 
-      pmesh->getSize(i_n);
-
+    const real_t size_c = lmesh.getSize({i,false});
+    const real_t size_n = lmesh.getSize({i_n,isghost_n});
 
     /*
      * current cell (c) is smaller or has same size as neighbor (n)
@@ -229,10 +224,8 @@ public:
      */
     if (size_c > size_n) {
 
-      const bitpit::darray3 xyz_c = pmesh->getCenter(i);
-      const bitpit::darray3 xyz_n = isghost_n ? 
-        pmesh->getCenterGhost(i_n) :
-        pmesh->getCenter(i_n);
+      const LightOctree::pos_t xyz_c = lmesh.getCenter({i,false});
+      const LightOctree::pos_t xyz_n = lmesh.getCenter({i_n,isghost_n});
 
       // along x axis
       if (face_along_axis<IX>(iface)) {
@@ -310,10 +303,8 @@ public:
      * or
      * - current cell is larger than neighbor
      */
-    const real_t size_c = pmesh->getSize(i);
-    const real_t size_n = isghost_n ? 
-      pmesh->getSizeGhost(i_n) : 
-      pmesh->getSize(i_n);
+    const real_t size_c = lmesh.getSize({i,false});
+    const real_t size_n = lmesh.getSize({i_n,isghost_n});
 
     /*
      * current cell (c) is larger than neighbor (n) or same size
@@ -360,10 +351,8 @@ public:
      */
     if (size_c < size_n) {
 
-      const bitpit::darray3 xyz_c = pmesh->getCenter(i);
-      const bitpit::darray3 xyz_n = isghost_n ? 
-        pmesh->getCenterGhost(i_n) : 
-        pmesh->getCenter(i_n);      
+      const LightOctree::pos_t xyz_c = lmesh.getCenter({i,false});
+      const LightOctree::pos_t xyz_n = lmesh.getCenter({i_n,isghost_n});    
 
       // along x axis
       if (face_along_axis<IX>(iface)) {
@@ -630,12 +619,9 @@ public:
   // =======================================================================
   // =======================================================================
   KOKKOS_INLINE_FUNCTION
-  void operator_2d(const size_t i) const 
+  void operator_2d(const uint32_t i) const 
   {
     constexpr int dim = 2;
-    // codim=1 ==> faces
-    // codim=2 ==> edges
-    const int codim = 1;
     
     // number of faces per cell
     uint8_t nfaces = 2*dim;
@@ -643,17 +629,10 @@ public:
     const int nbvar = params.nbvar;
 
     // current cell size
-    real_t dx = pmesh->getSize(i);
+    real_t dx = lmesh.getSize({i,false});
     
     // current cell volume
     real_t dV = dx*dx*dx;
-
-    // this vector contains quad ids
-    // corresponding to neighbors
-    std::vector<uint32_t> neigh; // through a given face
-
-    // this vector contains ghost status of each neighbors
-    std::vector<bool> isghost; // through a given face
 
     // current cell center state (primitive variables)
     HydroState2d qprim;
@@ -680,8 +659,14 @@ public:
     // iterate neighbors through a given face
     for (uint8_t iface = 0; iface < nfaces; ++iface) {
       
-      // find neighbors Id
-      pmesh->findNeighbours(i, iface, codim, neigh, isghost);
+      // Generate neighbor relative position from iface
+      LightOctree::offset_t offset = {0};
+      if( face_along_axis<IX>(iface) ) offset[IX] = (iface & 0x1) == 0 ? -1 : 1;
+      if( face_along_axis<IY>(iface) ) offset[IY] = (iface & 0x1) == 0 ? -1 : 1;
+
+      LightOctree::NeighborList neighbors {0};
+      if (!lmesh.isBoundary({i, false}, offset))
+        neighbors = lmesh.findNeighbors( {i, false}, offset );
 
       //===================================================
       //
@@ -690,19 +675,12 @@ public:
       //
       // is current cell touching the external border ?
       //===================================================
-      if (neigh.size()==0) {
-
+      if (neighbors.size()==0) {
         HydroState2d qr_c, qr_n; 
         
         // take care of border conditions (in case of open or
         //reflective border)
-        
-        // get x,y,z coordinate at current cell center
-        const bitpit::darray3 xyz_c = pmesh->getCenter(i);
-        const double &x = xyz_c[IX];
-        const double &y = xyz_c[IY];
-        
-        if ( is_at_border<XMIN>(dx,x) and iface == 0 ) {
+        if ( offset[IX] == -1 and lmesh.isBoundary({i, false}, {-1, 0, 0}))  {
           if (params.boundary_type_xmin == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -714,7 +692,7 @@ public:
           }
         }
         
-        if ( is_at_border<XMAX>(dx,x) and iface == 1 ) {
+        if ( offset[IX] == 1 and lmesh.isBoundary({i, false}, {1, 0, 0}) ) {
           if (params.boundary_type_xmax == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -726,7 +704,7 @@ public:
           }
         }
           
-        if ( is_at_border<YMIN>(dx,y) and iface == 2 ) {
+        if ( offset[IY] == -1 and lmesh.isBoundary({i, false}, {0, -1, 0}) ) {
           if (params.boundary_type_ymin == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -738,7 +716,7 @@ public:
           }
         }
         
-        if ( is_at_border<YMAX>(dx,y) and iface == 3 ) {
+        if ( offset[IY] == 1 and lmesh.isBoundary({i, false}, {0, 1, 0}) ) {
           if (params.boundary_type_ymax == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -780,7 +758,7 @@ public:
         
         // current face area:
         // if neighbor is smaller, flux is divided by the number of sub-faces
-        // else only one interface (neigh.size = 1)
+        // else only one interface (neighbors.size = 1)
         real_t dS = dx*dx;
         real_t scale = dt*dS/dV;
 
@@ -797,20 +775,21 @@ public:
           qcons[IV] -= flux[IV]*scale;
         }
       
-      } // end neigh.size == 0
+      } // end neighbors.size == 0
 
       //===================================================
       // Deal with bulk cells (no face with zero neighbors)
       //
       // sweep neighbors accross face identified by iface
       //===================================================
-      for (uint16_t j = 0; j < neigh.size(); ++j) {
+      for (uint16_t j = 0; j < neighbors.size(); ++j) {
 
-        uint32_t i_n = neigh[j];
+        uint32_t i_n = neighbors[j].iOct;
+        bool isghost_n = neighbors[j].isGhost;
 
         // 0. retrieve primitive variables in neighbor cell
         HydroState2d qprim_n;
-        if (isghost[j]) {
+        if (isghost_n) {
           for (uint8_t ivar = 0; ivar < nbvar; ++ivar)
             qprim_n[ivar] = Qdata_ghost(i_n, fm[ivar]);
         } else {
@@ -821,15 +800,15 @@ public:
         // 1. reconstruct primitive variables on both sides of current interface (iface)
 
         // current cell reconstruction  (primitive variables)
-        const real_t dx_over_2 = pmesh->getSize(i)/2;
-        const offsets_t offsets = get_reconstruct_offsets_current(i, i_n, isghost[j], iface);
+        const real_t dx_over_2 = lmesh.getSize({i,false})/2;
+        const offsets_t offsets = get_reconstruct_offsets_current(i, i_n, isghost_n, iface);
         HydroState2d qr_c = reconstruct_state_2d(qprim, i, false, offsets, dx_over_2, dt);
 
         // neighbor cell reconstruction (primitive variables)
-        const real_t size_n = isghost[j] ? pmesh->getSizeGhost(i_n) : pmesh->getSize(i_n);
+        const real_t size_n = lmesh.getSize({i_n,isghost_n});
         const real_t dx_over_2_n = size_n/2;
-        const offsets_t offsets_n = get_reconstruct_offsets_neighbor(i, i_n, isghost[j], iface);
-        HydroState2d qr_n = reconstruct_state_2d(qprim_n, i_n, isghost[j], offsets_n, dx_over_2_n, dt);
+        const offsets_t offsets_n = get_reconstruct_offsets_neighbor(i, i_n, isghost_n, iface);
+        HydroState2d qr_n = reconstruct_state_2d(qprim_n, i_n, isghost_n, offsets_n, dx_over_2_n, dt);
         
 
         // 2. we now have "qleft / qright" state ready to solver Riemann problem
@@ -863,8 +842,8 @@ public:
         
         // current face area:
         // if neighbor is smaller, flux is divided by the number of sub-faces
-        // else only one interface (neigh.size = 1)
-        real_t dS = dx*dx / neigh.size();
+        // else only one interface (neighbors.size = 1)
+        real_t dS = dx*dx / neighbors.size();
         real_t scale = dt*dS/dV;
 
         // iface = 0 or 2
@@ -895,13 +874,9 @@ public:
   // =======================================================================
   // =======================================================================
   KOKKOS_INLINE_FUNCTION
-  void operator_3d(const size_t i) const 
+  void operator_3d(const uint32_t i) const 
   {
-  
     constexpr int dim = 3;
-    // codim=1 ==> faces
-    // codim=2 ==> edges
-    const int codim = 1;
     
     // number of faces per cell
     uint8_t nfaces = 2*dim;
@@ -909,17 +884,10 @@ public:
     const int nbvar = params.nbvar;
 
     // current cell size
-    real_t dx = pmesh->getSize(i);
+    real_t dx = lmesh.getSize({i,false});
     
     // current cell volume
     real_t dV = dx*dx*dx;
-
-    // this vector contains quad ids
-    // corresponding to neighbors
-    std::vector<uint32_t> neigh; // through a given face
-
-    // this vector contains ghost status of each neighbors
-    std::vector<bool> isghost; // through a given face
 
     // current cell center state (primitive variables)
     HydroState3d qprim;
@@ -946,8 +914,15 @@ public:
     // iterate neighbors through a given face
     for (uint8_t iface = 0; iface < nfaces; ++iface) {
       
-      // find neighbors Id
-      pmesh->findNeighbours(i, iface, codim, neigh, isghost);
+      // Generate neighbor relative position from iface
+      LightOctree::offset_t offset = {0};
+      if( face_along_axis<IX>(iface) ) offset[IX] = (iface & 0x1) == 0 ? -1 : 1;
+      if( face_along_axis<IY>(iface) ) offset[IY] = (iface & 0x1) == 0 ? -1 : 1;
+      if( face_along_axis<IZ>(iface) ) offset[IZ] = (iface & 0x1) == 0 ? -1 : 1;
+
+      LightOctree::NeighborList neighbors {0};
+      if (!lmesh.isBoundary( {i, false}, offset )) 
+        neighbors = lmesh.findNeighbors( {i, false}, offset );
 
       //===================================================
       //
@@ -956,20 +931,13 @@ public:
       //
       // is current cell touching the external border ?
       //===================================================
-      if (neigh.size() == 0) {
+      if (neighbors.size() == 0) {
 
         HydroState3d qr_c, qr_n;
 
         // take care of border conditions (in case of open or
         // reflective border)
-        
-        // get x,y,z coordinate at current cell center
-        const bitpit::darray3 xyz_c = pmesh->getCenter(i);
-        const double &x = xyz_c[IX];
-        const double &y = xyz_c[IY];
-        const double &z = xyz_c[IZ];
-
-        if ( is_at_border<XMIN>(dx,x) and iface == 0 ) {
+        if ( lmesh.isBoundary({i, false}, {-1, 0, 0}) ) {
           if (params.boundary_type_xmin == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -981,7 +949,7 @@ public:
           }
         }
         
-        if ( is_at_border<XMAX>(dx,x) and iface == 1 ) {
+        if ( lmesh.isBoundary({i, false}, {1, 0, 0}) ) {
           if (params.boundary_type_xmax == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -993,7 +961,7 @@ public:
           }
         }
           
-        if ( is_at_border<YMIN>(dx,y) and iface == 2 ) {
+        if ( lmesh.isBoundary({i, false}, {0, -1, 0}) ) {
           if (params.boundary_type_ymin == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -1005,7 +973,7 @@ public:
           }
         }
         
-        if ( is_at_border<YMAX>(dx,y) and iface == 3 ) {
+        if ( lmesh.isBoundary({i, false}, {0, 1, 0}) ) {
           if (params.boundary_type_ymax == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -1017,7 +985,7 @@ public:
           }
         }
 
-        if ( is_at_border<ZMIN>(dx,z) and iface == 4 ) {
+        if ( lmesh.isBoundary({i, false}, {0, 0, -1}) ) {
           if (params.boundary_type_zmin == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -1029,7 +997,7 @@ public:
           }
         }
         
-        if ( is_at_border<ZMAX>(dx,z) and iface == 5 ) {
+        if ( lmesh.isBoundary({i, false}, {0, 0, 1}) ) {
           if (params.boundary_type_zmax == BC_ABSORBING) {
             qr_n = qprim;
             qr_c = qprim;
@@ -1079,7 +1047,7 @@ public:
         
         // current face area:
         // if neighbor is smaller, flux is divided by the number of sub-faces
-        // else only one interface (neigh.size = 1)
+        // else only one interface (neighbors.size = 1)
         real_t dS = dx*dx;
         real_t scale = dt*dS/dV;
 
@@ -1098,20 +1066,21 @@ public:
           qcons[IW] -= flux[IW]*scale;
         }
 
-      } // end neigh.size() == 0
+      } // end neighbors.size() == 0
 
       //===================================================
       // Deal with bulk cells (no face with zero neighbors)
       //
       // sweep neighbors accross face identified by iface
       //===================================================
-      for (uint16_t j = 0; j < neigh.size(); ++j) {
+      for (uint16_t j = 0; j < neighbors.size(); ++j) {
 
-        uint32_t i_n = neigh[j];
+        uint32_t i_n = neighbors[j].iOct;
+        bool isghost_n = neighbors[j].isGhost;
 
         // 0. retrieve primitive variables in neighbor cell
         HydroState3d qprim_n;
-        if (isghost[j]) {
+        if (isghost_n) {
           for (uint8_t ivar = 0; ivar < nbvar; ++ivar)
             qprim_n[ivar] = Qdata_ghost(i_n, fm[ivar]);
         } else {
@@ -1122,15 +1091,15 @@ public:
         // 1. reconstruct primitive variables on both sides of current interface (iface)
 
         // current cell reconstruction  (primitive variables)
-        const real_t dx_over_2 = pmesh->getSize(i)/2;
-        const offsets_t offsets = get_reconstruct_offsets_current(i, i_n, isghost[j], iface);
+        const real_t dx_over_2 = lmesh.getSize({i,false})/2;
+        const offsets_t offsets = get_reconstruct_offsets_current(i, i_n, isghost_n, iface);
         HydroState3d qr_c = reconstruct_state_3d(qprim, i, false, offsets, dx_over_2, dt);
 
         // neighbor cell reconstruction (primitive variables)
-        const real_t size_n = isghost[j] ? pmesh->getSizeGhost(i_n) : pmesh->getSize(i_n);
+        const real_t size_n = lmesh.getSize({i_n,isghost_n});
         const real_t dx_over_2_n = size_n/2;
-        const offsets_t offsets_n = get_reconstruct_offsets_neighbor(i, i_n, isghost[j], iface);
-        HydroState3d qr_n = reconstruct_state_3d(qprim_n, i_n, isghost[j], offsets_n, dx_over_2_n, dt);
+        const offsets_t offsets_n = get_reconstruct_offsets_neighbor(i, i_n, isghost_n, iface);
+        HydroState3d qr_n = reconstruct_state_3d(qprim_n, i_n, isghost_n, offsets_n, dx_over_2_n, dt);
 
         // 2. we now have "qleft / qright" state ready to solver Riemann problem
         HydroState3d flux;
@@ -1170,8 +1139,8 @@ public:
         
         // current face area:
         // if neighbor is smaller, flux is divided by the number of sub-faces
-        // else only one interface (neigh.size = 1)
-        real_t dS = dx*dx / neigh.size();
+        // else only one interface (neighbors.size = 1)
+        real_t dS = dx*dx / neighbors.size();
         real_t scale = dt*dS/dV;
 
         // iface = 0, 2 or 4
@@ -1216,7 +1185,7 @@ public:
     
   } // operator ()
   
-  std::shared_ptr<AMRmesh> pmesh;
+  LightOctree  lmesh;
   HydroParams  params;
   id2index_t   fm;
   DataArray    Data_in, Data_out;
