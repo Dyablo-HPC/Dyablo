@@ -16,10 +16,7 @@
 #include "shared/solver_utils.h" // print monitoring information
 #include "shared/FieldManager.h"
 
-#ifdef DYABLO_USE_MPI
-#include "utils/mpiUtils/GlobalMpiSession.h"
-#include <mpi.h>
-#endif // DYABLO_USE_MPI
+#include "shared/DyabloSession.hpp"
 
 #include "muscl/SolverHydroMuscl.h"
 #include "muscl_block/SolverHydroMusclBlock.h"
@@ -32,63 +29,8 @@
 // ===============================================================
 int main(int argc, char *argv[])
 {
-
   using namespace dyablo;
-
-  // Create MPI session if MPI enabled
-#ifdef DYABLO_USE_MPI
-  hydroSimu::GlobalMpiSession mpiSession(&argc,&argv);
-#endif // DYABLO_USE_MPI
-  
-  Kokkos::initialize(argc, argv);
-
-  int rank = 0;
-  int nRanks = 1;
-
-  {
-    std::cout << "##########################\n";
-    std::cout << "KOKKOS CONFIG             \n";
-    std::cout << "##########################\n";
-
-    std::ostringstream msg;
-    std::cout << "Kokkos configuration" << std::endl;
-    if ( Kokkos::hwloc::available() ) {
-      msg << "hwloc( NUMA[" << Kokkos::hwloc::get_available_numa_count()
-          << "] x CORE["    << Kokkos::hwloc::get_available_cores_per_numa()
-          << "] x HT["      << Kokkos::hwloc::get_available_threads_per_core()
-          << "] )"
-          << std::endl ;
-    }
-    Kokkos::print_configuration( msg );
-    std::cout << msg.str();
-    std::cout << "##########################\n";
-
-#ifdef DYABLO_USE_MPI
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &nRanks);
-# ifdef KOKKOS_ENABLE_CUDA
-    {
-
-      // To enable kokkos accessing multiple GPUs don't forget to
-      // add option "--ndevices=X" where X is the number of GPUs
-      // you want to use per node.
-
-      // on a large cluster, the scheduler should assign ressources
-      // in a way that each MPI task is mapped to a different GPU
-      // let's cross-checked that:
-      
-      int cudaDeviceId;
-      cudaGetDevice(&cudaDeviceId);
-      std::cout << "I'm MPI task #" << rank << " (out of " << nRanks << ")"
-		<< " pinned to GPU #" << cudaDeviceId << "\n";
-      
-    }
-# endif // KOKKOS_ENABLE_CUDA
-#endif // DYABLO_USE_MPI
-  }    // end kokkos config
-
-  // banner
-  //if (rank==0) print_version_info();
+  shared::DyabloSession mpi_session(argc, argv);
 
   /*
    * read parameter file and initialize a ConfigMap object
@@ -113,7 +55,7 @@ int main(int argc, char *argv[])
   }
 
   // start computation
-  if (rank==0) std::cout << "Start computation....\n";
+  if (mpi_session.getRank()==0) std::cout << "Start computation....\n";
   solver->timers.get("total").start();
 
   // Hydrodynamics solver time loop
@@ -126,14 +68,12 @@ int main(int argc, char *argv[])
   if (params.nOutput != 0)
     solver->save_solution();
   
-  if (rank==0) printf("final time is %f\n", solver->m_t);
+  if (mpi_session.getRank()==0) printf("final time is %f\n", solver->m_t);
   
   solver->print_monitoring_info();
   
   delete solver;
 
-  Kokkos::finalize();
-  
   return EXIT_SUCCESS;
 
 } // end main
