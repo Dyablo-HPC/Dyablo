@@ -91,19 +91,6 @@ public:
   //! MPI ghost octant array
   DataArrayBlock     Ughost;
 
-  /*
-   * arrays used for piece wise computation
-   */
-
-  //! fixed size array of block data with ghost replacing U 
-  //! and U2 when applying numerical scheme
-  DataArrayBlock Ugroup;
-
-  //! hydrodynamics primitive - array of octant's block data
-  DataArrayBlock Qgroup;
-
-  //! 2:1 interface flags
-  InterfaceFlags interface_flags;
   //! fluxes - only usefull when low Mach RSST computation is activated
   //! flux accumulator - array of octant's block data
   DataArrayBlock Fluxes;
