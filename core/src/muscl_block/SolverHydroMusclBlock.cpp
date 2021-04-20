@@ -22,7 +22,6 @@
 // Compute functors
 #include "muscl_block/ComputeDtHydroFunctor.h"
 #include "muscl_block/ConvertToPrimitivesHydroFunctor.h"
-#include "muscl_block/MusclBlockGodunovUpdateFunctor.h"
 #include "muscl_block/MarkOctantsHydroFunctor.h"
 
 // // compute functor for low Mach flows
@@ -34,6 +33,7 @@
 #include "shared/mpi/GhostCommunicator.h"
 
 #include "muscl_block/MapUserData.h"
+#include "muscl_block/update/MusclBlockUpdate.h"
 
 #if BITPIT_ENABLE_MPI==1
 #include "muscl_block/UserDataLB.h"
@@ -57,11 +57,7 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   SolverBase(params, configMap),
   U(), Uhost(), U2(), Ughost(), 
   Ugroup(), 
-  Qgroup(),
-  interface_flags(),
-  Slopes_x(), 
-  Slopes_y(), 
-  Slopes_z()
+  Qgroup()
 #ifdef DYABLO_USE_HDF5
   , hdf5_writer(std::make_shared<HDF5_Writer>(amr_mesh, configMap, params))
 #endif // DYABLO_USE_HDF5
@@ -145,12 +141,6 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
 
   // all intermediate data array are sized upon nbOctsPerGroup
 
-  Slopes_x = DataArrayBlock("Slope_x", nbCellsPerOct_g, nbvar, nbOctsPerGroup);
-  Slopes_y = DataArrayBlock("Slope_y", nbCellsPerOct_g, nbvar, nbOctsPerGroup);
-  
-  if (m_dim == 3)
-    Slopes_z = DataArrayBlock("Slope_z", nbCellsPerOct_g, nbvar, nbOctsPerGroup);
-  
   if (m_dim==2)
     total_mem_size += nbCellsPerOct_g*nbOctsPerGroup*nbvar * sizeof(real_t) * 2;// 1+1 for Slopes_x+Slopes_y
   else
@@ -479,85 +469,16 @@ void SolverHydroMusclBlock::godunov_unsplit_impl(DataArrayBlock data_in,
   // we need conservative variables in ghost cell to be up to date
   synchronize_ghost_data(UserDataCommType::UDATA);
 
-  // retrieve available / allowed names: fieldManager, and field map (fm)
-  // necessary to access user data
-  auto fm = fieldMgr.get_id2index();
-
-  // copy data_in into data_out (not necessary)
-  // data_out = data_in;
-  Kokkos::deep_copy(data_out, data_in);
-  
-  uint32_t nbOcts = amr_mesh->getNumOctants();
-
-  // number of group of octants, rounding to upper value
-  uint32_t nbGroup = (nbOcts + nbOctsPerGroup - 1) / nbOctsPerGroup;
-
-  for (uint32_t iGroup = 0; iGroup < nbGroup; ++iGroup) {
-
-    timers.get("block copy").start();
-
-    // copy data_in (current group of octants) to Ugroup (inner cells)
-    fill_block_data_inner(data_in, iGroup);
-
-    // update ghost cells of all octant in current group of octants
-    fill_block_data_ghost(data_in, iGroup);
-
-    timers.get("block copy").stop();
-
-    // start main computation
-    timers.get("godunov").start();
-
-    // now ghost cells in current group are ok
-    // convert conservative variable into primitives ones for the given group
-    // input is  Ugroup
-    // output is Qgroup
-    convertToPrimitives(iGroup);
-
-    // perform time integration :
-
-    /*
-     * algorithmic variant using shared memory, but no extra
-     * heap memory
-     */
-    // MusclBlockSharedGodunovUpdateFunctor::apply(amr_mesh,
-    //                                             configMap,
-    //                                             params,
-    //                                             fm,
-    //                                             blockSizes,
-    //                                             ghostWidth,
-    //                                             nbOcts,
-    //                                             nbOctsPerGroup,
-    //                                             iGroup,
-    //                                             Ugroup,
-    //                                             data_out,
-    //                                             Qgroup,
-    //                                             dt);
-
-    /*
-     * algorithmic variant not using shared memory, so extra
-     * heap memory is required (array SlopesX, ... are regular
-     * Kokkos::View arrays sized upon the group of octant)
-     */
-    MusclBlockGodunovUpdateFunctor::apply(lmesh,
-                                          configMap,
-                                          params,
-                                          fm,
-                                          blockSizes,
-                                          ghostWidth,
-                                          nbOcts,
-                                          nbOctsPerGroup,
-                                          iGroup,
-                                          Ugroup,
-                                          U,
-                                          Ughost,
-                                          data_out,
-                                          Qgroup,
-                                          interface_flags,
-                                          dt);
-
-    timers.get("godunov").stop();
-
-  } // end for iGroup
+  MusclBlockUpdate godunov_updater(
+    configMap,
+    params,
+    lmesh, 
+    fieldMgr.get_id2index(),
+    nbOctsPerGroup,
+    bx, by, bz,
+    timers
+  );
+  godunov_updater.update(data_in, Ughost, data_out, dt);
 
 } // SolverHydroMusclBlock::godunov_unsplit_impl
 

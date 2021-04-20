@@ -23,13 +23,9 @@
 #include <mpi.h>
 #endif // DYABLO_USE_MPI
 
-#include "muscl/SolverHydroMuscl.h"
 #include "muscl_block/SolverHydroMusclBlock.h"
 
-#include "muscl_block/CopyInnerBlockCellData.h"
-#include "muscl_block/CopyGhostBlockCellData.h"
-#include "muscl_block/ConvertToPrimitivesHydroFunctor.h"
-#include "muscl_block/MusclBlockGodunovUpdateFunctor.h"
+#include "muscl_block/update/MusclBlockUpdate.h"
 #include "muscl_block/ComputeDtHydroFunctor.h"
 
 using Device = Kokkos::DefaultExecutionSpace;
@@ -40,15 +36,10 @@ namespace dyablo {
 
 namespace muscl_block {
 
-// =======================================================================
-// =======================================================================
 void run_test(int argc, char *argv[]) {
 
-  /*
-   * testing MusclBlockGodunovUpdateFunctor
-   */
   std::cout << "// =========================================\n";
-  std::cout << "// Testing MusclBlockGodunovUpdateFunctor...\n";
+  std::cout << "// Testing MusclBlockUpdate (2D) ...\n";
   std::cout << "// =========================================\n";
 
   /*
@@ -76,7 +67,7 @@ void run_test(int argc, char *argv[]) {
   }
 
   // anyway create the right solver
-  SolverHydroMusclBlock* solver = new SolverHydroMusclBlock(params, configMap);
+  std::unique_ptr<SolverHydroMusclBlock> solver = std::make_unique<SolverHydroMusclBlock>(params, configMap);
 
   // by now, init condition must have been called
 
@@ -136,10 +127,6 @@ void run_test(int argc, char *argv[]) {
 
   std::cout << "Using nbCellsPerOct_g (number of cells per octant with ghots) = " << nbCellsPerOct_g << "\n";
   std::cout << "Using nbOctsPerGroup (number of octant per group) = " << nbOctsPerGroup << "\n";
-
-  DataArrayBlock Ugroup = DataArrayBlock("Ugroup", nbCellsPerOct_g, params.nbvar, nbOctsPerGroup);
-  DataArrayBlock Qgroup = DataArrayBlock("Qgroup", nbCellsPerOct_g, params.nbvar, nbOctsPerGroup);
-  DataArrayBlockHost Qgroup_host = Kokkos::create_mirror_view(Qgroup);
   
   uint32_t iGroup = 1;
 
@@ -174,11 +161,6 @@ void run_test(int argc, char *argv[]) {
     std::cout << "\n";
   }
 
-  std::cout << "Ugroup sizes = " 
-            << Ugroup.extent(0) << " "
-            << Ugroup.extent(1) << " "
-            << Ugroup.extent(2) << "\n";
-
   // first copy inner cells
 
   params.gravity_type = GRAVITY_NONE;
@@ -186,81 +168,6 @@ void run_test(int argc, char *argv[]) {
   //uint32_t nbOcts = solver->amr_mesh->getNumOctants();
 
   LightOctree lmesh(solver->amr_mesh,params.level_min,params.level_max);
-
-  CopyInnerBlockCellDataFunctor::apply(configMap, params, fm, 
-                                       blockSizes,
-                                       ghostWidth, 
-                                       nbOcts,
-                                       nbOctsPerGroup,
-                                       solver->U, Ugroup,
-                                       iGroup);
-
-  {
-    
-    CopyGhostBlockCellDataFunctor::apply(lmesh,
-                                        configMap,
-                                        params, 
-                                        fm,
-                                        blockSizes,
-                                        ghostWidth,
-                                        nbOctsPerGroup,
-                                        solver->U, 
-                                        solver->Ughost, 
-                                        Ugroup, 
-                                        iGroup,
-                                        solver->interface_flags);
-    // CopyFaceBlockCellDataFunctor::apply(solver->amr_mesh,
-    //                                     configMap,
-    //                                     params, 
-    //                                     fm,
-    //                                     blockSizes,
-    //                                     ghostWidth,
-    //                                     nbOctsPerGroup,
-    //                                     solver->U, 
-    //                                     solver->Ughost, 
-    //                                     Ugroup, 
-    //                                     iGroup,
-    //                                     solver->interface_flags);
-    
-    // CopyCornerBlockCellDataFunctor::apply(solver->amr_mesh,
-    //                                       configMap,
-    //                                       params,
-    //                                       fm,
-    //                                       blockSizes,
-    //                                       ghostWidth,
-    //                                       nbOctsPerGroup,
-    //                                       solver->U,
-    //                                       solver->Ughost,
-    //                                       Ugroup,
-    //                                       iGroup,
-    //                                       solver->interface_flags);
-  }
-
-  // also testing ConvertToPrimitivesHydroFunctor
-  {
-    ConvertToPrimitivesHydroFunctor::apply(configMap,
-                                           params, 
-                                           fm,
-                                           blockSizes,
-                                           ghostWidth,
-                                           nbOcts,
-                                           nbOctsPerGroup,
-                                           iGroup,
-                                           Ugroup, 
-                                           Qgroup);
-
-
-    Kokkos::deep_copy(Qgroup_host, Qgroup);
-    for (uint32_t iy = 0; iy < by_g; ++iy) {
-      for (uint32_t ix = 0; ix < bx_g; ++ix) {
-        uint32_t index = ix + bx_g * iy;
-        printf("%5f ", Qgroup_host(index, fm[ID], iOct_local));
-      }
-      std::cout << "\n";
-    }
-    std::cout << "\n";
-
-  } // end testing ConvertToPrimitivesHydroFunctor
 
   // compute CFL constraint
   real_t invDt;
@@ -270,51 +177,26 @@ void run_test(int argc, char *argv[]) {
                                fm,
                                blockSizes,
                                solver->U,
-                               invDt);
-  
-  
+                               invDt);  
   real_t dt = params.settings.cfl / invDt;
 
   printf("CFL dt = %f\n",dt);
 
   // testing MusclBlockGodunovUpdateFunctor
   {
+    MusclBlockUpdate godunov_updater(
+      configMap,
+      params,
+      lmesh, 
+      fm,
+      nbOctsPerGroup,
+      bx, by, bz,
+      solver->timers
+    );
+    godunov_updater.update(solver->U, solver->Ughost, solver->U2, dt);
 
-    MusclBlockGodunovUpdateFunctor::apply(lmesh,
-                                          configMap,
-                                          params, 
-                                          fm,
-                                          blockSizes,
-                                          ghostWidth,
-                                          nbOcts,
-                                          nbOctsPerGroup,
-                                          iGroup,
-                                          Ugroup,
-                                          solver->U,
-                                          solver->Ughost,
-                                          solver->U2,
-                                          Qgroup, 
-                                          solver->interface_flags,
-                                          dt);
-    Kokkos::deep_copy(Qgroup_host, Qgroup);
-    for (uint32_t iy = 0; iy < by_g; ++iy) {
-      for (uint32_t ix = 0; ix < bx_g; ++ix) {
-        uint32_t index = ix + bx_g * iy;
-        printf("%5f ", Qgroup_host(index, fm[ID], iOct_local));
-      }
-      std::cout << "\n";
-    }
-    std::cout << "\n";
-
-    // for (uint32_t iy = 0; iy < by_g; ++iy) {
-    //   for (uint32_t ix = 0; ix < bx_g; ++ix) {
-    //     uint32_t index = ix + bx_g * iy;
-    //     printf("%5f ", Ugroup(index, fm[ID], iOct_local));
-    //   }
-    //   std::cout << "\n";
-    // }
-    // std::cout << "\n";
     Kokkos::deep_copy( solver->Uhost, solver->U);
+    std::cout << "Printing U data (after update) from iOct = " << iOct_global << "\n";
     for (uint32_t iy = 0; iy < by; ++iy) {
       for (uint32_t ix = 0; ix < bx; ++ix) {
         uint32_t index = ix + bx * iy;
@@ -323,8 +205,9 @@ void run_test(int argc, char *argv[]) {
       std::cout << "\n";
     }
     std::cout << "\n";
-
+    
     DataArrayBlockHost U2_host = Kokkos::create_mirror_view(solver->U2);
+    std::cout << "Printing U2 data (after update) from iOct = " << iOct_global << "\n";
     Kokkos::deep_copy( U2_host, solver->U2);
     for (uint32_t iy = 0; iy < by; ++iy) {
       for (uint32_t ix = 0; ix < bx; ++ix) {
@@ -335,8 +218,6 @@ void run_test(int argc, char *argv[]) {
     }
     std::cout << "\n";
   }
-
-  delete solver;
 
 } // run_test
 
@@ -361,79 +242,3 @@ BOOST_AUTO_TEST_SUITE_END() /* muscl_block */
 
 BOOST_AUTO_TEST_SUITE_END() /* dyablo */
 
-
-// old main
-#if 0
-
-// =======================================================================
-// =======================================================================
-// =======================================================================
-int main(int argc, char *argv[]) {
-
-  // Create MPI session if MPI enabled
-#ifdef DYABLO_USE_MPI
-  hydroSimu::GlobalMpiSession mpiSession(&argc,&argv);
-#endif // DYABLO_USE_MPI
-  
-  Kokkos::initialize(argc, argv);
-
-  int rank = 0;
-  int nRanks = 1;
-
-  {
-    std::cout << "##########################\n";
-    std::cout << "KOKKOS CONFIG             \n";
-    std::cout << "##########################\n";
-
-    std::ostringstream msg;
-    std::cout << "Kokkos configuration" << std::endl;
-    if ( Kokkos::hwloc::available() ) {
-      msg << "hwloc( NUMA[" << Kokkos::hwloc::get_available_numa_count()
-          << "] x CORE["    << Kokkos::hwloc::get_available_cores_per_numa()
-          << "] x HT["      << Kokkos::hwloc::get_available_threads_per_core()
-          << "] )"
-          << std::endl ;
-    }
-    Kokkos::print_configuration( msg );
-    std::cout << msg.str();
-    std::cout << "##########################\n";
-
-#ifdef DYABLO_USE_MPI
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &nRanks);
-# ifdef KOKKOS_ENABLE_CUDA
-    {
-
-      // To enable kokkos accessing multiple GPUs don't forget to
-      // add option "--ndevices=X" where X is the number of GPUs
-      // you want to use per node.
-
-      // on a large cluster, the scheduler should assign ressources
-      // in a way that each MPI task is mapped to a different GPU
-      // let's cross-checked that:
-      
-      int cudaDeviceId;
-      cudaGetDevice(&cudaDeviceId);
-      std::cout << "I'm MPI task #" << rank << " (out of " << nRanks << ")"
-		<< " pinned to GPU #" << cudaDeviceId << "\n";
-      
-    }
-# endif // KOKKOS_ENABLE_CUDA
-#endif // DYABLO_USE_MPI
-  }    // end kokkos config
-
-  if (argc < 2) {
-    std::cerr << "Wrong number of arguments.\n\n";
-    std::cerr << "Usage:\n";
-    std::cerr << " ./test_CopyGhostBlockCellData ./parameter_file.ini\n";
-    exit(EXIT_FAILURE);
-  }
-
-  dyablo::muscl_block::run_test(argc, argv);
-
-  Kokkos::finalize();
-
-  return EXIT_SUCCESS;
-}
-
-#endif // old main 

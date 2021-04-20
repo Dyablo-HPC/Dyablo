@@ -104,16 +104,6 @@ public:
 
   //! 2:1 interface flags
   InterfaceFlags interface_flags;
-
-  //! slopes along X dir - array of octant's block data
-  DataArrayBlock Slopes_x;
-
-  //! slopes along Y dir - array of octant's block data
-  DataArrayBlock Slopes_y;
-
-  //! slopes along Z dir - array of octant's block data
-  DataArrayBlock Slopes_z;
-
   //! fluxes - only usefull when low Mach RSST computation is activated
   //! flux accumulator - array of octant's block data
   DataArrayBlock Fluxes;
