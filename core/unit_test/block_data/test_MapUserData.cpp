@@ -15,8 +15,8 @@
 #include "muscl_block/MapUserData.h"
 
 #include "muscl_block/utils_block.h"
-#include "shared/bitpit_common.h"
-#include "shared/LightOctree.h"
+#include "shared/amr/AMRmesh.h"
+#include "shared/amr/LightOctree.h"
 
 namespace dyablo
 {
@@ -33,18 +33,21 @@ void run_test(int ndim)
   std::cout << "// =========================================\n";
 
   std::cout << "Create mesh..." << std::endl;
+  HydroParams params;
+  params.level_min = 1;
+  params.level_max = 8;
   std::shared_ptr<AMRmesh> amr_mesh; //solver->amr_mesh 
   {
-    amr_mesh = std::make_shared<AMRmesh>(ndim);
-    amr_mesh->setBalanceCodimension(ndim);
-    uint32_t idx = 0;
-    amr_mesh->setBalance(idx,true);
-    amr_mesh->setPeriodic(0);
-    amr_mesh->setPeriodic(1);
-    amr_mesh->setPeriodic(2);
-    amr_mesh->setPeriodic(3);
-    amr_mesh->setPeriodic(4);
-    amr_mesh->setPeriodic(5);
+    amr_mesh = std::make_shared<AMRmesh>(ndim, ndim, std::array<bool,3>{false,false,false}, params.level_min, params.level_max );
+    // amr_mesh->setBalanceCodimension(ndim);
+    // uint32_t idx = 0;
+    // amr_mesh->setBalance(idx,true);
+    // amr_mesh->setPeriodic(0);
+    // amr_mesh->setPeriodic(1);
+    // amr_mesh->setPeriodic(2);
+    // amr_mesh->setPeriodic(3);
+    // amr_mesh->setPeriodic(4);
+    // amr_mesh->setPeriodic(5);
 
     amr_mesh->adaptGlobalRefine();
     amr_mesh->adaptGlobalRefine();
@@ -92,8 +95,8 @@ void run_test(int ndim)
     DataArrayBlock::HostMirror Ughost_host = Kokkos::create_mirror_view(Ughost);
     for( uint32_t iOct=0; iOct<amr_mesh->getNumGhosts(); iOct++ )
     {
-      bitpit::darray3 oct_pos = amr_mesh->getCoordinates(amr_mesh->getGhostOctant(iOct));
-      real_t oct_size = amr_mesh->getSize(amr_mesh->getGhostOctant(iOct));
+      bitpit::darray3 oct_pos = amr_mesh->getCoordinatesGhost(iOct);
+      real_t oct_size = amr_mesh->getSizeGhost(iOct);
       
       for( uint32_t c=0; c<nbCellsPerOct; c++ )
       {
@@ -109,10 +112,7 @@ void run_test(int ndim)
     Kokkos::deep_copy( Ughost, Ughost_host );
   }
 
-  HydroParams params;
-  params.level_min = 1;
-  params.level_max = 8;
-  LightOctree lmesh_old(amr_mesh, params);
+  LightOctree lmesh_old(amr_mesh, params.level_min, params.level_max);
   {
     std::cout << "Coarsen/Refine octants" << std::endl;
 
@@ -131,7 +131,7 @@ void run_test(int ndim)
     amr_mesh->adapt(true);
     amr_mesh->updateConnectivity();
   }
-  LightOctree lmesh_new(amr_mesh, params);
+  LightOctree lmesh_new(amr_mesh, params.level_min, params.level_max);
 
   char* empty;
   ConfigMap configMap(empty, 0); //Use default values

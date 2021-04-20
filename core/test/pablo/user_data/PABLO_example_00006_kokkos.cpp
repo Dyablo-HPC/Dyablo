@@ -216,7 +216,7 @@ void run()
   int dim = 2;
 
   /**<Instantation of a 2D pablo uniform object.*/
-  dyablo::AMRmesh pablo6(2);
+  dyablo::AMRmesh_pablo pablo6(2);
 
   /**<Refine globally four level and write the octree.*/
   for (iter=1; iter<5; iter++){

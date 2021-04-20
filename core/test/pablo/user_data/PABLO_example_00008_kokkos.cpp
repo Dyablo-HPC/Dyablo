@@ -71,7 +71,7 @@ void run()
   int iter = 0;
 
   /**<Instantation of a 2D pablo uniform object.*/
-  dyablo::AMRmesh pablo8(2);
+  dyablo::AMRmesh_pablo pablo8(2);
 
   /**<Set NO 2:1 balance for the octree.*/
   int idx = 0;

@@ -12,7 +12,7 @@
 #include "shared/HydroState.h"
 #include "shared/problems/initRiemannConfig2d.h"
 
-#include "shared/LightOctree.h"
+#include "shared/amr/LightOctree.h"
 
 // hydro utils
 #include "shared/utils_hydro.h"

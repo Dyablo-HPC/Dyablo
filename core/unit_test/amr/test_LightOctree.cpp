@@ -16,7 +16,7 @@
 #endif // DYABLO_USE_MPI
 
 #include "utils/monitoring/SimpleTimer.h"
-#include "shared/LightOctree.h"
+#include "shared/amr/LightOctree.h"
 
 #include <iostream>
 
@@ -43,50 +43,32 @@ void run_test()
   // ================================
 
   /**<Instantation of a nDimensional pablo uniform object.*/
-  dyablo::AMRmesh amr_mesh(dim);
-
   // Set 2:1 balance
   // codim 1 ==> balance through faces
   // codim 2 ==> balance through faces and corner
   // codim 3 ==> balance through faces, edges and corner (3D only)
-  int codim = 1; 
-  amr_mesh.setBalanceCodimension(codim);
-  
-  uint32_t idx=0;
-  amr_mesh.setBalance(idx,true);
-
-  /**<set periodic border condition */
-  amr_mesh.setPeriodic(0);
-  amr_mesh.setPeriodic(1);
-  amr_mesh.setPeriodic(2);
-  amr_mesh.setPeriodic(3);
-  if (dim==3)
-  {
-    amr_mesh.setPeriodic(4);
-    amr_mesh.setPeriodic(5);
-  }
+  HydroParams params;
+  params.level_max = 3;
+  int codim = dim; 
+  dyablo::AMRmesh amr_mesh(dim, codim, {true,true,true}, params.level_min, params.level_max);
 
   // stage 1
   amr_mesh.adaptGlobalRefine();
-  amr_mesh.updateConnectivity();
 
   // stage 2
   amr_mesh.setMarker(1,1);
   amr_mesh.adapt(true);
-  amr_mesh.updateConnectivity();
 
   // stage 3
   if (dim==2) 
   {
     amr_mesh.setMarker(3,1);
     amr_mesh.adapt(true);
-    amr_mesh.updateConnectivity();
   }
   else
   {
     amr_mesh.setMarker(5,1);
     amr_mesh.adapt(true);
-    amr_mesh.updateConnectivity();
   }
   std::cout << "Mesh size is " << amr_mesh.getNumOctants() << "\n";
 
@@ -96,14 +78,13 @@ void run_test()
 #endif
 
   /* 
-   * 2d mesh should be exactly like this : 16 octants
-   *
-   *   ___________ __________
-   *  |           |     |    |
-   *  |           |  14 | 15 |
-   *  |    11     |-----+----|
-   *  |           |  12 | 13 |
-   *  |___________|_____|____|
+   * 2d mesh should be exactly like this : 19 octants
+   *   ___________ __________ 
+   *  |     |     |     |    |
+   *  |  13 | 14  |  17 | 18 |
+   *  |-----+-----|-----+----|
+   *  |  11 | 12  |  15 | 16 |
+   *  |_____|____ |_____|____|
    *  |     |     | 8|9 |    |
    *  |  2  |  3  | 6|7 | 10 |
    *  |-----+-----|-----+----|
@@ -115,7 +96,7 @@ void run_test()
 
   /*
    * 3d mesh should be exactly like this : 43 octants
-   *
+   * THIS IS NOT UP TO DATE
    *
    *
    *
@@ -158,11 +139,11 @@ void run_test()
   if (dim==2) 
   {
     std::cout << "   ___________ __________     \n";
-    std::cout << "  |           |     |    |    \n";
-    std::cout << "  |           |  14 | 15 |    \n";
-    std::cout << "  |    11     |-----+----|    \n";
-    std::cout << "  |           |  12 | 13 |    \n";
-    std::cout << "  |___________|_____|____|    \n";
+    std::cout << "  |     |     |     |    |    \n";
+    std::cout << "  |  13 | 14  |  17 | 18 |    \n";
+    std::cout << "  |-----+-----|-----+----|    \n";
+    std::cout << "  |  11 | 12  |  15 | 16 |    \n";
+    std::cout << "  |_____|____ |_____|____|    \n";
     std::cout << "  |     |     | 8|9 |    |    \n";
     std::cout << "  |  2  |  3  | 6|7 | 10 |    \n";
     std::cout << "  |-----+-----|-----+----|    \n";
@@ -173,9 +154,7 @@ void run_test()
     // shared_ptr without a deleter
     std::shared_ptr<dyablo::AMRmesh> mesh_ptr(&amr_mesh, [](dyablo::AMRmesh*){});
     // Create LightOctree
-    HydroParams params;
-    params.level_max = 3;
-    LightOctree mesh( mesh_ptr, params );
+    LightOctree mesh( mesh_ptr, params.level_min, params.level_max );
 
     // for( int level=0; level<3; level++ )
     // {
@@ -286,68 +265,67 @@ void run_test()
 
     uint32_t neighbors_5[3][3] = {{ 7,10, 2},
                                   { 4, 0, 0},
-                                  {14,15,11}};
+                                  {17,18,13}};
     test_oct( 5, neighbors_5 );
 
   } 
   else 
   {
-    std::cout << "            ________________________                                        \n";
-    std::cout << "           /           /           /|                                       \n";
-    std::cout << "          /           /           / |                                       \n";
-    std::cout << "         /   41      /    42     /  |                                       \n";
-    std::cout << "        /           /           /   |                                       \n";
-    std::cout << "       /___________/___________/    |                                       \n";
-    std::cout << "      /           / 39  / 40  / |   |                                       \n";
-    std::cout << "     /   32      /____ /_____/  |   |                                       \n";
-    std::cout << "    /           /  37 / 38  / | |   |               ___________________     \n";
-    std::cout << "   /___________/_____/_____/  |/|  /|              |    |    |         |    \n";
-    std::cout << "   |           |     |     | /| | / |              | 38 | 40 |         |    \n";
-    std::cout << "   |           | 37  | 38  |/ | |/| |              |____|____|    42   |    \n";
-    std::cout << "   |    32     |-----|-----|  |/| |/|              |    |    |         |    \n";
-    std::cout << "   |           | 33  | 34  |  / | | |      <====   | 34 | 36 |         |    \n";
-    std::cout << "   |___________|_____|_____| /| |/ |/              |____|____|_________|    \n";
-    std::cout << "   |     |     |16|17|     |  | | /                |    |    |    |    |    \n";
-    std::cout << "   |  4  |  5  |-----| 20  |  / |/                 | 20 | 22 | 29 | 31 |    \n";
-    std::cout << "   |_____|_____|12|13|_____| /| /                  |____|____|____|____|    \n";
-    std::cout << "   |     |     |     |     |  |/                   |    |    |    |    |    \n";
-    std::cout << "   |  0  |  1  |  8  |  9  |  /            ^       | 9  | 11 | 25 | 27 |    \n";
-    std::cout << "   |_____|_____|_____|_____| /             |z      |____|____|____|____|    \n";
-    std::cout << "                                                                            \n";
-    std::cout << "  Front Half : \n";
-    std::cout << "    ___________ _____ _____     ___________ _____ _____     ___________ _____ _____  \n";
-    std::cout << "   |           |     |     |   |           |     |     |   |           |     |     | \n";
-    std::cout << "   |           | 37  | 38  |   |           | 37  | 38  |   |           | 39  | 40  | \n";
-    std::cout << "   |    32     |-----|-----|   |    32     |-----|-----|   |    32     |-----|-----| \n";
-    std::cout << "   |           | 33  | 34  |   |           | 33  | 34  |   |           | 35  | 36  | \n";
-    std::cout << "   |___________|_____|_____|   |___________|_____|_____|   |___________|_____|_____| \n";
-    std::cout << "   |     |     |16|17|     |   |     |     |18|19|     |   |     |     |     |     | \n";
-    std::cout << "   |  4  |  5  |-----| 20  |   |  4  |  5  |-----| 20  |   |  6  |  7  |  21 | 22  | \n";
-    std::cout << "   |_____|_____|12|13|_____|   |_____|_____|14|15|_____|   |-----|-----|-----|-----| \n";
-    std::cout << "   |     |     |     |     |   |     |     |     |     |   |     |     |     |     | \n";
-    std::cout << "   |  0  |  1  |  8  |  9  |   |  0  |  1  |  8  |  9  |   |  2  |  3  |  10 | 11  | \n";
-    std::cout << "   |_____|_____|_____|_____|   |_____|_____|_____|_____|   |_____|_____|_____|_____| \n";
-    std::cout << "\n";
-    std::cout << "  Back Half \n";
-    std::cout << "    ___________ ___________        ___________ ___________     \n";
-    std::cout << "   |           |           |      |           |           |    \n";
-    std::cout << "   |           |           |      |           |           |    \n";
-    std::cout << "   |    41     |    42     |      |    41     |    42     |    \n";
-    std::cout << "   |           |           |      |           |           |    \n";
-    std::cout << "   |___________|_____ _____|      |___________|_____ _____|    \n";
-    std::cout << "   |           |     |     |      |           |     |     |    \n";
-    std::cout << "   |           |  28 | 29  |      |           |  30 | 31  |    \n";
-    std::cout << "   |    23     |-----|-----|      |    23     |-----|-----|    \n";
-    std::cout << "   |           |     |     |      |           |     |     |    \n";
-    std::cout << "   |           |  24 | 25  |      |           |  26 | 27  |    \n";
-    std::cout << "   |___________|_____|_____|      |___________|_____|_____|    \n";
+    // THIS IS NOT UP TO DATE
+    // std::cout << "            ________________________                                        \n";
+    // std::cout << "           /           /           /|                                       \n";
+    // std::cout << "          /           /           / |                                       \n";
+    // std::cout << "         /   41      /    42     /  |                                       \n";
+    // std::cout << "        /           /           /   |                                       \n";
+    // std::cout << "       /___________/___________/    |                                       \n";
+    // std::cout << "      /           / 39  / 40  / |   |                                       \n";
+    // std::cout << "     /   32      /____ /_____/  |   |                                       \n";
+    // std::cout << "    /           /  37 / 38  / | |   |               ___________________     \n";
+    // std::cout << "   /___________/_____/_____/  |/|  /|              |    |    |         |    \n";
+    // std::cout << "   |           |     |     | /| | / |              | 38 | 40 |         |    \n";
+    // std::cout << "   |           | 37  | 38  |/ | |/| |              |____|____|    42   |    \n";
+    // std::cout << "   |    32     |-----|-----|  |/| |/|              |    |    |         |    \n";
+    // std::cout << "   |           | 33  | 34  |  / | | |      <====   | 34 | 36 |         |    \n";
+    // std::cout << "   |___________|_____|_____| /| |/ |/              |____|____|_________|    \n";
+    // std::cout << "   |     |     |16|17|     |  | | /                |    |    |    |    |    \n";
+    // std::cout << "   |  4  |  5  |-----| 20  |  / |/                 | 20 | 22 | 29 | 31 |    \n";
+    // std::cout << "   |_____|_____|12|13|_____| /| /                  |____|____|____|____|    \n";
+    // std::cout << "   |     |     |     |     |  |/                   |    |    |    |    |    \n";
+    // std::cout << "   |  0  |  1  |  8  |  9  |  /            ^       | 9  | 11 | 25 | 27 |    \n";
+    // std::cout << "   |_____|_____|_____|_____| /             |z      |____|____|____|____|    \n";
+    // std::cout << "                                                                            \n";
+    // std::cout << "  Front Half : \n";
+    // std::cout << "    ___________ _____ _____     ___________ _____ _____     ___________ _____ _____  \n";
+    // std::cout << "   |           |     |     |   |           |     |     |   |           |     |     | \n";
+    // std::cout << "   |           | 37  | 38  |   |           | 37  | 38  |   |           | 39  | 40  | \n";
+    // std::cout << "   |    32     |-----|-----|   |    32     |-----|-----|   |    32     |-----|-----| \n";
+    // std::cout << "   |           | 33  | 34  |   |           | 33  | 34  |   |           | 35  | 36  | \n";
+    // std::cout << "   |___________|_____|_____|   |___________|_____|_____|   |___________|_____|_____| \n";
+    // std::cout << "   |     |     |16|17|     |   |     |     |18|19|     |   |     |     |     |     | \n";
+    // std::cout << "   |  4  |  5  |-----| 20  |   |  4  |  5  |-----| 20  |   |  6  |  7  |  21 | 22  | \n";
+    // std::cout << "   |_____|_____|12|13|_____|   |_____|_____|14|15|_____|   |-----|-----|-----|-----| \n";
+    // std::cout << "   |     |     |     |     |   |     |     |     |     |   |     |     |     |     | \n";
+    // std::cout << "   |  0  |  1  |  8  |  9  |   |  0  |  1  |  8  |  9  |   |  2  |  3  |  10 | 11  | \n";
+    // std::cout << "   |_____|_____|_____|_____|   |_____|_____|_____|_____|   |_____|_____|_____|_____| \n";
+    // std::cout << "\n";
+    // std::cout << "  Back Half \n";
+    // std::cout << "    ___________ ___________        ___________ ___________     \n";
+    // std::cout << "   |           |           |      |           |           |    \n";
+    // std::cout << "   |           |           |      |           |           |    \n";
+    // std::cout << "   |    41     |    42     |      |    41     |    42     |    \n";
+    // std::cout << "   |           |           |      |           |           |    \n";
+    // std::cout << "   |___________|_____ _____|      |___________|_____ _____|    \n";
+    // std::cout << "   |           |     |     |      |           |     |     |    \n";
+    // std::cout << "   |           |  28 | 29  |      |           |  30 | 31  |    \n";
+    // std::cout << "   |    23     |-----|-----|      |    23     |-----|-----|    \n";
+    // std::cout << "   |           |     |     |      |           |     |     |    \n";
+    // std::cout << "   |           |  24 | 25  |      |           |  26 | 27  |    \n";
+    // std::cout << "   |___________|_____|_____|      |___________|_____|_____|    \n";
 
 
     // Create LightOctree
     std::shared_ptr<dyablo::AMRmesh> mesh_ptr(&amr_mesh, [](dyablo::AMRmesh*){});
-    HydroParams params;
-    params.level_max = 3;
-    LightOctree mesh( mesh_ptr, params );
+    LightOctree mesh( mesh_ptr, params.level_min, params.level_max );
 
     auto test_oct = [&]( uint32_t ioct, uint32_t first_neighbor[3][3][3]){
       std::cout << "Octant " << ioct << " :" << std::endl;
@@ -454,15 +432,15 @@ void run_test()
     BOOST_CHECK_EQUAL(octant_data_host(7) , 3  );
 
     uint32_t neighbors_5[3][3][3] = {
-     {{32   ,32   ,35},
+     {{41   ,42   ,49},
       {6    ,7    ,21},
       {2    ,3    ,10}},
-     {{32   ,32   ,33},
+     {{39   ,40   ,47},
       {4    ,5    ,12},
       {0    ,1    ,8 }},
-     {{41   ,41   ,42},
-      {23   ,23   ,30},
-      {23   ,23   ,26}}
+     {{57   ,58   ,65},
+      {29   ,30   ,37},
+      {25   ,26   ,33}}
     };
     test_oct( 5, neighbors_5 );
   }
@@ -486,20 +464,11 @@ void test_perf()
   std::cout << "==================================\n";
 
   std::cout << "Setup PABLO mesh ..." << std::endl;
-  dyablo::AMRmesh amr_mesh(ndim);
+  //uint8_t CODIM_FACE = 1;
+  //uint8_t CODIM_EDGE = 2;
+  int CODIM_CORNER = 3;
+  dyablo::AMRmesh amr_mesh(ndim, CODIM_CORNER, {true,true,true}, level_min, level_max);
   {
-    //uint8_t CODIM_FACE = 1;
-    //uint8_t CODIM_EDGE = 2;
-    uint8_t CODIM_CORNER = 3;
-    amr_mesh.setBalanceCodimension(CODIM_CORNER);
-    uint32_t idx=0;
-    amr_mesh.setBalance(idx,true);
-    amr_mesh.setPeriodic(0);
-    amr_mesh.setPeriodic(1);
-    amr_mesh.setPeriodic(2);
-    amr_mesh.setPeriodic(3);
-    amr_mesh.setPeriodic(4);
-    amr_mesh.setPeriodic(5);
     // Global refine until level_min
     for(int i=0; i<level_min; i++)
       amr_mesh.adaptGlobalRefine();
@@ -522,7 +491,6 @@ void test_perf()
         }
       }
       amr_mesh.adapt();
-      amr_mesh.updateConnectivity();
     }
   }
   uint64_t nbOct = amr_mesh.getNumOctants();
@@ -537,7 +505,7 @@ void test_perf()
   std::shared_ptr<dyablo::AMRmesh> amr_mesh_ptr(&amr_mesh,[](dyablo::AMRmesh* f) {});
 
   SimpleTimer time_lmesh_construct;
-  LightOctree_t lmesh(amr_mesh_ptr, params);
+  LightOctree_t lmesh(amr_mesh_ptr, level_min, level_max);
   Kokkos::fence();
   time_lmesh_construct.stop();
   std::cout << "Done in " << time_lmesh_construct.elapsed()*1000 << " ms (cpu after fence)" << std::endl;

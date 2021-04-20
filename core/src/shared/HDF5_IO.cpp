@@ -753,9 +753,9 @@ HDF5_Writer::io_hdf5_write_coordinates()
       real_t dz = m_bz==0 ? 0 : cellSize/(m_bz)*Lz;
 
       // coordinates of the lower left corner
-      real_t orig_x = m_amr_mesh->getNode(i, 0)[0] * Lx + m_params.xmin;
-      real_t orig_y = m_amr_mesh->getNode(i, 0)[1] * Ly + m_params.ymin;
-      real_t orig_z = m_amr_mesh->getNode(i, 0)[2] * Lz + m_params.zmin;
+      real_t orig_x = m_amr_mesh->getCoordinates(i)[0] * Lx + m_params.xmin;
+      real_t orig_y = m_amr_mesh->getCoordinates(i)[1] * Ly + m_params.ymin;
+      real_t orig_z = m_amr_mesh->getCoordinates(i)[2] * Lz + m_params.zmin;
 
       int inode = 0;
       for (int32_t jz = 0; jz < m_bz+1; ++jz) {
@@ -799,19 +799,45 @@ HDF5_Writer::io_hdf5_write_coordinates()
 
     std::vector<float> data(3 * m_local_num_nodes);
 
+    // total size
+    real_t Lx = m_params.xmax - m_params.xmin;
+    real_t Ly = m_params.ymax - m_params.ymin;
+    real_t Lz = m_params.zmax - m_params.zmin;
+
     /*
      * construct the list of node coordinates
      */
 
+    int ndim = m_amr_mesh->getDim();
     for (uint32_t i = 0; i < m_local_num_quads; ++i) {
+      // retrieve cell size and rescale
+      real_t cellSize = m_amr_mesh->getSize(i);
 
-      for (uint8_t j = 0; j < m_nbNodesPerCell; ++j) {
-        data[3 * m_nbNodesPerCell * i + 3 * j + 0] =
-            m_amr_mesh->getNode(i, j)[0];
-        data[3 * m_nbNodesPerCell * i + 3 * j + 1] =
-            m_amr_mesh->getNode(i, j)[1];
-        data[3 * m_nbNodesPerCell * i + 3 * j + 2] =
-            m_amr_mesh->getNode(i, j)[2];
+      real_t dx = cellSize/Lx;
+      real_t dy = cellSize/Ly;
+      real_t dz = ndim==2 ? 0 : cellSize/Lz;
+
+      real_t orig_x = m_amr_mesh->getCoordinates(i)[0] * Lx + m_params.xmin;
+      real_t orig_y = m_amr_mesh->getCoordinates(i)[1] * Ly + m_params.ymin;
+      real_t orig_z = m_amr_mesh->getCoordinates(i)[2] * Lz + m_params.zmin;
+      
+      int inode = 0;
+      for (int32_t jz = 0; jz < (ndim-1); ++jz) {
+        for (int32_t jy = 0; jy < 2; ++jy) {
+          for (int32_t jx = 0; jx < 2; ++jx) {
+            assert(inode<m_nbNodesPerCell);
+            
+            real_t x = orig_x + jx * dx;
+            real_t y = orig_y + jy * dy;
+            real_t z = orig_z + jz * dz;
+
+            data[3 * m_nbNodesPerCell * i + 3 * inode + 0] = x;
+            data[3 * m_nbNodesPerCell * i + 3 * inode + 1] = y;
+            data[3 * m_nbNodesPerCell * i + 3 * inode + 2] = z;
+
+            ++inode;
+          }
+        }
       }
     }
 

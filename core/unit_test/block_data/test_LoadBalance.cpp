@@ -8,9 +8,8 @@
 #include <boost/test/unit_test.hpp>
 
 #include "muscl_block/utils_block.h"
-#include "shared/bitpit_common.h"
-
-#include "muscl_block/UserDataLB.h"
+#include "shared/amr/AMRmesh.h"
+#include "shared/mpi/GhostCommunicator.h"
 
 #ifdef DYABLO_USE_MPI
 #include "utils/mpiUtils/GlobalMpiSession.h"
@@ -34,10 +33,9 @@ void run_test(int argc, char *argv[])
   std::shared_ptr<AMRmesh> amr_mesh; //solver->amr_mesh 
   {
     int ndim = 3;
-    amr_mesh = std::make_shared<AMRmesh>(ndim);
-    amr_mesh->setBalanceCodimension(ndim);
-    uint32_t idx = 0;
-    amr_mesh->setBalance(idx,true);
+    amr_mesh = std::make_shared<AMRmesh>(ndim, ndim, std::array<bool,3>{false,false,false}, 3, 5);
+    //uint32_t idx = 0;
+    //amr_mesh->setBalance(idx,true);
     // mr_mesh->setPeriodic(0);
     // amr_mesh->setPeriodic(1);
     // amr_mesh->setPeriodic(2);
@@ -127,9 +125,8 @@ void run_test(int argc, char *argv[])
     DataArrayBlock::HostMirror Ughost_host = Kokkos::create_mirror_view(Ughost);
     for( uint32_t iOct=0; iOct<nbGhosts; iOct++ )
     {
-      auto oct = amr_mesh->getGhostOctant(iOct);
-      bitpit::darray3 oct_pos = amr_mesh->getCoordinates(oct);
-      real_t oct_size = amr_mesh->getSize(oct);
+      bitpit::darray3 oct_pos = amr_mesh->getCoordinatesGhost(iOct);
+      real_t oct_size = amr_mesh->getSizeGhost(iOct);
       
       for( uint32_t c=0; c<nbCellsPerOct; c++ )
       {
@@ -149,20 +146,7 @@ void run_test(int argc, char *argv[])
   {
     uint8_t levels = 4;
 
-    // Copy Data to host for MPI communication 
-    DataArrayBlockHost U_host = Kokkos::create_mirror_view(U);
-    DataArrayBlockHost Ughost_host = Kokkos::create_mirror_view(Ughost);
-    Kokkos::deep_copy(U_host, U);
-    Kokkos::deep_copy(Ughost_host, Ughost);
-    id2index_t fm = {0,1,2};
-    UserDataLB data_lb(U_host, Ughost_host, fm);
-    amr_mesh->loadBalance(data_lb, levels);
-
-    // Copy back cell data to Device
-    Kokkos::resize(Ughost, Ughost_host.extent(0), Ughost_host.extent(1), Ughost_host.extent(2));
-    Kokkos::deep_copy(Ughost, Ughost_host);
-    Kokkos::resize(U, U_host.extent(0), U_host.extent(1), U_host.extent(2));
-    Kokkos::deep_copy(U, U_host);
+    amr_mesh->loadBalance_userdata(levels, U);
   }
 
   // Test U
@@ -180,9 +164,8 @@ void run_test(int argc, char *argv[])
 
     for( uint32_t iOct=0; iOct<nbOcts; iOct++ )
     {
-      auto oct = amr_mesh->getOctant(iOct);
-      bitpit::darray3 oct_pos = amr_mesh->getCoordinates(oct);
-      real_t oct_size = amr_mesh->getSize(oct);
+      bitpit::darray3 oct_pos = amr_mesh->getCoordinates(iOct);
+      real_t oct_size = amr_mesh->getSize(iOct);
       
       for( uint32_t c=0; c<nbCellsPerOct; c++ )
       {

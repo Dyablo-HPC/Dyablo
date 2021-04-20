@@ -14,11 +14,9 @@ namespace dyablo { namespace muscl_block {
 // ==================================================================
 // ==================================================================
 UserDataLB::UserDataLB(DataArray_t& data_, 
-                       DataArray_t& ghostdata_, 
-                       id2index_t fm_) :
+                       DataArray_t& ghostdata_) :
   data(data_),
   ghostdata(ghostdata_),
-  fm(fm_),
   nbFields(data_.extent(1)),
   nbCellsPerOct(data_.extent(0))
 {
@@ -58,7 +56,7 @@ void UserDataLB::move(const uint32_t from, const uint32_t to)
 
   for (uint32_t ivar=0; ivar<nbFields; ++ivar)
     for (uint32_t index=0; index<nbCellsPerOct; ++index)
-      data(index,fm[ivar],to) = data(index,fm[ivar],from);
+      data(index,ivar,to) = data(index,ivar,from);
 
 }; // UserDataLB::move
 
@@ -73,7 +71,7 @@ void UserDataLB::assign(uint32_t stride, uint32_t length)
   Kokkos::parallel_for("dyablo::muscl_block::UserDataLB::assign copy data to dataCopy",Policy_t(0, length), KOKKOS_LAMBDA(size_t iOct) {
       for (uint32_t ivar=0; ivar<nbFields; ++ivar)
         for (uint32_t index=0; index<nbCellsPerOct; ++index)
-          dataCopy(index, fm[ivar], iOct) = data(index, fm[ivar], iOct+stride);
+          dataCopy(index, ivar, iOct) = data(index, ivar, iOct+stride);
     });
   
   //data = dataCopy;
@@ -81,7 +79,7 @@ void UserDataLB::assign(uint32_t stride, uint32_t length)
   Kokkos::parallel_for("dyablo::muscl_block::UserDataLB::assign copy dataCopy to data",Policy_t(0, length), KOKKOS_LAMBDA(size_t iOct) {
       for (uint32_t ivar=0; ivar<nbFields; ++ivar)
         for (uint32_t index=0; index<nbCellsPerOct; ++index)
-          data(index,fm[ivar],iOct) = dataCopy(index,fm[ivar],iOct);
+          data(index,ivar,iOct) = dataCopy(index,ivar,iOct);
     });
 
 }; // UserDataLB::assign

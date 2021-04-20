@@ -7,10 +7,11 @@
 
 #include <boost/test/unit_test.hpp>
 
-#include "muscl_block/GhostCommunicator.h"
+#include "shared/mpi/GhostCommunicator.h"
 
 #include "muscl_block/utils_block.h"
-#include "shared/bitpit_common.h"
+#include "shared/amr/AMRmesh.h"
+#include "utils/io/AMRMesh_output_vtk.h"
 
 namespace dyablo
 {
@@ -20,6 +21,47 @@ namespace muscl_block
 
 // =======================================================================
 // =======================================================================
+template<typename Array_t>
+Kokkos::LayoutLeft layout(int bx, int by, int bz, int nbfields, int nbOcts );
+
+real_t& at(const DataArrayBlock::HostMirror& U, uint32_t c, uint32_t f, uint32_t iOct )
+{
+  return U(c,f,iOct);
+}
+int extent(const DataArrayBlock& U, int i)
+{
+  return U.extent(i);
+}
+template<>
+Kokkos::LayoutLeft layout<DataArrayBlock>(int bx, int by, int bz, int nbfields, int nbOcts )
+{
+  return Kokkos::LayoutLeft(bx*by*bz,nbfields,nbOcts);
+}
+
+real_t& at(const DataArray::HostMirror& U, uint32_t c, uint32_t f, uint32_t iOct )
+{
+  return U(iOct,f);
+}
+int extent(const DataArray& U, int i)
+{
+  switch(i){
+    case 1:
+      return U.extent(1);
+    case 2: 
+      return U.extent(0);
+    default:
+      return 1;    
+  }
+}
+template<>
+Kokkos::LayoutLeft layout<DataArray>(int bx, int by, int bz, int nbfields, int nbOcts )
+{
+  return Kokkos::LayoutLeft(nbOcts,nbfields);
+}
+
+
+
+template< typename Array_t >
 void run_test(int argc, char *argv[])
 {
   std::cout << "// =========================================\n";
@@ -30,10 +72,10 @@ void run_test(int argc, char *argv[])
   std::shared_ptr<AMRmesh> amr_mesh; //solver->amr_mesh 
   {
     int ndim = 3;
-    amr_mesh = std::make_shared<AMRmesh>(ndim);
-    amr_mesh->setBalanceCodimension(ndim);
-    uint32_t idx = 0;
-    amr_mesh->setBalance(idx,true);
+    amr_mesh = std::make_shared<AMRmesh>(ndim, ndim, std::array<bool,3>{false,false,false}, 3, 7);
+    //amr_mesh->setBalanceCodimension(ndim);
+    //uint32_t idx = 0;
+    //amr_mesh->setBalance(idx,true);
     // mr_mesh->setPeriodic(0);
     // amr_mesh->setPeriodic(1);
     // amr_mesh->setPeriodic(2);
@@ -44,52 +86,41 @@ void run_test(int argc, char *argv[])
     amr_mesh->adaptGlobalRefine();
     amr_mesh->adaptGlobalRefine();
     amr_mesh->adaptGlobalRefine();
-    // Refine initial 47 (final smaller 47..54)
-    amr_mesh->setMarker(47,1);
-    // Refine around initial 78
-    amr_mesh->setMarker(65 ,1);
-    amr_mesh->setMarker(72 ,1);
-    amr_mesh->setMarker(73 ,1);
-    amr_mesh->setMarker(67 ,1);
-    amr_mesh->setMarker(74 ,1);
-    amr_mesh->setMarker(75 ,1);
-    amr_mesh->setMarker(76 ,1);
-    amr_mesh->setMarker(77 ,1);
-    amr_mesh->setMarker(71 ,1);
-    amr_mesh->setMarker(69 ,1);
-    //78
-    amr_mesh->setMarker(81 ,1);
-    amr_mesh->setMarker(88 ,1);
-    amr_mesh->setMarker(89 ,1);
-    amr_mesh->setMarker(79 ,1);
-    amr_mesh->setMarker(85 ,1);
-    amr_mesh->setMarker(92 ,1);
-    amr_mesh->setMarker(93 ,1);
-    amr_mesh->setMarker(97 ,1);
-    amr_mesh->setMarker(104 ,1);
-    amr_mesh->setMarker(105 ,1);
-    amr_mesh->setMarker(99 ,1);
-    amr_mesh->setMarker(106 ,1);
-    amr_mesh->setMarker(107 ,1);
-    amr_mesh->setMarker(113 ,1);
-    amr_mesh->setMarker(120 ,1);
-    amr_mesh->setMarker(121 ,1);
-
-    amr_mesh->adapt();
     amr_mesh->loadBalance();
+
+    debug::output_vtk("before_initial", *amr_mesh);
+    if( amr_mesh->getRank() == 0 )
+      amr_mesh->setMarker(239 ,1);      
+    amr_mesh->adapt();
+    debug::output_vtk("after_adapt1", *amr_mesh);
+    if( amr_mesh->getRank() == 0 )
+      amr_mesh->setMarker(244 ,1);      
+    amr_mesh->adapt();
+    debug::output_vtk("after_adapt2", *amr_mesh);
+    if( amr_mesh->getRank() == 0 )
+      amr_mesh->setMarker(256 ,1);      
+    amr_mesh->adapt();
+    debug::output_vtk("after_adapt3", *amr_mesh);
+    if( amr_mesh->getRank() == 0 )
+      amr_mesh->setMarker(268 ,1);      
+    amr_mesh->adapt();
+    debug::output_vtk("after_adapt4", *amr_mesh);
+
+    //amr_mesh->loadBalance();
     amr_mesh->updateConnectivity();
   }
 
   uint32_t bx = 8;
   uint32_t by = 8;
   uint32_t bz = 8;
-  uint32_t nbCellsPerOct = bx*by*bz;
   uint32_t nbfields = 3;
   uint32_t nbOcts = amr_mesh->getNumOctants();
+  auto Ulayout = layout<Array_t>(bx,by,bz,nbfields,nbOcts);
 
-  DataArrayBlock U("U", nbCellsPerOct, nbfields, nbOcts );
+  Array_t U("U", Ulayout );
+  uint32_t nbCellsPerOct = extent(U, 0);  
   { // Initialize U
-    DataArrayBlock::HostMirror U_host = Kokkos::create_mirror_view(U);
+    typename Array_t::HostMirror U_host = Kokkos::create_mirror_view(U);
     for( uint32_t iOct=0; iOct<nbOcts; iOct++ )
     {
       bitpit::darray3 oct_pos = amr_mesh->getCoordinates(iOct);
@@ -101,9 +132,9 @@ void run_test(int argc, char *argv[])
         uint32_t cy = (c - cz*bx*by)/bx;
         uint32_t cx = c - cz*bx*by - cy*bx;
 
-        U_host(c, IX, iOct) = oct_pos[IX] + cx*oct_size/bx;
-        U_host(c, IY, iOct) = oct_pos[IY] + cy*oct_size/by;
-        U_host(c, IZ, iOct) = oct_pos[IZ] + cz*oct_size/bz;
+        at(U_host, c, IX, iOct) = oct_pos[IX] + cx*oct_size/bx;
+        at(U_host, c, IY, iOct) = oct_pos[IY] + cy*oct_size/by;
+        at(U_host, c, IZ, iOct) = oct_pos[IZ] + cz*oct_size/bz;
       }
     }
     Kokkos::deep_copy( U, U_host );
@@ -111,7 +142,7 @@ void run_test(int argc, char *argv[])
 
   dyablo::muscl_block::GhostCommunicator ghost_communicator( amr_mesh );
 
-  DataArrayBlock Ughost; //solver->Ughost
+  Array_t Ughost; //solver->Ughost
   ghost_communicator.exchange_ghosts(U, Ughost);
 
   // Test Ughost
@@ -120,18 +151,17 @@ void run_test(int argc, char *argv[])
 
     std::cout << "Check Ughost ( nGhosts=" << nGhosts << ")" << std::endl;
 
-    BOOST_CHECK_EQUAL(Ughost.extent(0), nbCellsPerOct);
-    BOOST_CHECK_EQUAL(Ughost.extent(1), nbfields);
-    BOOST_CHECK_EQUAL(Ughost.extent(2), nGhosts);
+    BOOST_CHECK_EQUAL(extent( Ughost, 0), nbCellsPerOct);
+    BOOST_CHECK_EQUAL(extent( Ughost, 1), nbfields);
+    BOOST_CHECK_EQUAL(extent( Ughost, 2), nGhosts);
 
     auto Ughost_host = Kokkos::create_mirror_view(Ughost);
     Kokkos::deep_copy(Ughost_host, Ughost);
 
     for( uint32_t iGhost=0; iGhost<nGhosts; iGhost++ )
     {
-      auto oct = amr_mesh->getGhostOctant(iGhost);
-      bitpit::darray3 oct_pos = amr_mesh->getCoordinates(oct);
-      real_t oct_size = amr_mesh->getSize(oct);
+      bitpit::darray3 oct_pos = amr_mesh->getCoordinatesGhost(iGhost);
+      real_t oct_size = amr_mesh->getSizeGhost(iGhost);
       
       for( uint32_t c=0; c<nbCellsPerOct; c++ )
       {
@@ -143,9 +173,9 @@ void run_test(int argc, char *argv[])
         real_t expected_y = oct_pos[IY] + cy*oct_size/by;
         real_t expected_z = oct_pos[IZ] + cz*oct_size/bz;
 
-        BOOST_CHECK_CLOSE( Ughost_host(c, IX, iGhost), expected_x , 0.01);
-        BOOST_CHECK_CLOSE( Ughost_host(c, IY, iGhost), expected_y , 0.01);
-        BOOST_CHECK_CLOSE( Ughost_host(c, IZ, iGhost), expected_z , 0.01);
+        BOOST_CHECK_CLOSE( at(Ughost_host, c, IX, iGhost), expected_x , 0.01);
+        BOOST_CHECK_CLOSE( at(Ughost_host, c, IY, iGhost), expected_y , 0.01);
+        BOOST_CHECK_CLOSE( at(Ughost_host, c, IZ, iGhost), expected_z , 0.01);
       }
     }
   }
@@ -160,10 +190,18 @@ BOOST_AUTO_TEST_SUITE(dyablo)
 
 BOOST_AUTO_TEST_SUITE(muscl_block)
 
-BOOST_AUTO_TEST_CASE(test_GhostCommunicator)
+BOOST_AUTO_TEST_CASE(test_GhostCommunicator_block)
 {
 
-  run_test(boost::unit_test::framework::master_test_suite().argc,
+  run_test<DataArrayBlock>(boost::unit_test::framework::master_test_suite().argc,
+           boost::unit_test::framework::master_test_suite().argv);
+
+}
+
+BOOST_AUTO_TEST_CASE(test_GhostCommunicator_cell)
+{
+
+  run_test<DataArray>(boost::unit_test::framework::master_test_suite().argc,
            boost::unit_test::framework::master_test_suite().argv);
 
 }

@@ -13,7 +13,7 @@
 #include "shared/problems/initRiemannConfig2d.h"
 
 // AMR utils
-#include "shared/LightOctree.h"
+#include "shared/amr/LightOctree.h"
 
 // hydro utils
 #include "shared/utils_hydro.h"

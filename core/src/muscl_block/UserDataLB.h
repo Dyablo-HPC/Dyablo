@@ -41,10 +41,6 @@ public:
   DataArray_t& data;
   DataArray_t& ghostdata;
 
-  //! FieldMap object for mapping field variable (ID, IP, IU, IV, ...)
-  //! to actual index
-  id2index_t  fm;
-
   //! number of scalar fields per cell
   uint32_t nbFields;
 
@@ -66,7 +62,7 @@ public:
     // copy block of data
     for (uint32_t ivar=0; ivar<nbFields; ++ivar)
       for (uint32_t index=0; index<nbCellsPerOct; ++index)
-        buff << data(index, fm[ivar], iOct);
+        buff << data(index, ivar, iOct);
   };
 
   //! write data received from another MPI process
@@ -75,7 +71,7 @@ public:
     // copy block of data
     for (uint32_t ivar=0; ivar<nbFields; ++ivar)
       for (uint32_t index=0; index<nbCellsPerOct; ++index)
-        buff >> data(index, fm[ivar], iOct);
+        buff >> data(index, ivar, iOct);
   };
 
   /**
@@ -96,7 +92,7 @@ public:
   /**
    * Constructor.
    */
-  UserDataLB(DataArray_t& data_, DataArray_t& ghostdata_, id2index_t fm_);
+  UserDataLB(DataArray_t& data_, DataArray_t& ghostdata_);
   
   /**
    * Destructor.

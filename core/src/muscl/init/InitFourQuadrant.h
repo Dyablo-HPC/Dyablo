@@ -9,7 +9,7 @@
 #include "shared/problems/initRiemannConfig2d.h"
 
 #include "bitpit_PABLO.hpp"
-#include "shared/bitpit_common.h"
+#include "shared/amr/AMRmesh.h"
 
 namespace dyablo { namespace muscl {
 

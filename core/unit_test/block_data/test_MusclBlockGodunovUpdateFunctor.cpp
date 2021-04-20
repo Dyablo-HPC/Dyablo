@@ -185,7 +185,7 @@ void run_test(int argc, char *argv[]) {
 
   //uint32_t nbOcts = solver->amr_mesh->getNumOctants();
 
-  LightOctree lmesh(solver->amr_mesh,params);
+  LightOctree lmesh(solver->amr_mesh,params.level_min,params.level_max);
 
   CopyInnerBlockCellDataFunctor::apply(configMap, params, fm, 
                                        blockSizes,
