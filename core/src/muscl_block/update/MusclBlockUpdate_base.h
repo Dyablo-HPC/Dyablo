@@ -32,15 +32,5 @@ using MusclBlockUpdateFactory = RegisteringFactory< MusclBlockUpdate,
   uint32_t /*bx*/, uint32_t /*by*/, uint32_t /*bz*/,
   Timers& /*timers*/ >;
 
-class MusclBlockUpdate_legacy;
-
 } //namespace dyablo 
 } //namespace muscl_block
-
-template<>
-inline bool dyablo::muscl_block::MusclBlockUpdateFactory::init()
-{
-  DECLARE_REGISTERED(dyablo::muscl_block::MusclBlockUpdate_legacy);
-
-  return true;
-}

@@ -455,16 +455,18 @@ void SolverHydroMusclBlock::godunov_unsplit_impl(DataArrayBlock data_in,
   // we need conservative variables in ghost cell to be up to date
   synchronize_ghost_data(UserDataCommType::UDATA);
 
-  MusclBlockUpdate godunov_updater(
+  //std::string impl_id = "MusclBlockUpdate_legacy";
+  //std::string impl_id = "MusclBlockUpdate_generic";
+  std::string impl_id = this->configMap.getString("hydro", "update", "MusclBlockUpdate_legacy");
+  std::unique_ptr<MusclBlockUpdate> godunov_updater = MusclBlockUpdateFactory::make_instance( impl_id,
     configMap,
     params,
     lmesh, 
     fieldMgr.get_id2index(),
-    nbOctsPerGroup,
     bx, by, bz,
     timers
   );
-  godunov_updater.update(data_in, Ughost, data_out, dt);
+  godunov_updater->update(data_in, Ughost, data_out, dt);
 
 } // SolverHydroMusclBlock::godunov_unsplit_impl
 

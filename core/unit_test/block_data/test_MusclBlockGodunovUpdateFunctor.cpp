@@ -184,16 +184,15 @@ void run_test(int argc, char *argv[]) {
 
   // testing MusclBlockGodunovUpdateFunctor
   {
-    MusclBlockUpdate godunov_updater(
+    std::unique_ptr<MusclBlockUpdate> godunov_updater = MusclBlockUpdateFactory::make_instance( "MusclBlockUpdate_legacy",
       configMap,
       params,
       lmesh, 
       fm,
-      nbOctsPerGroup,
       bx, by, bz,
       solver->timers
     );
-    godunov_updater.update(solver->U, solver->Ughost, solver->U2, dt);
+    godunov_updater->update(solver->U, solver->Ughost, solver->U2, dt);
 
     Kokkos::deep_copy( solver->Uhost, solver->U);
     std::cout << "Printing U data (after update) from iOct = " << iOct_global << "\n";

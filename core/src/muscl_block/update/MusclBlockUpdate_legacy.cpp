@@ -1,4 +1,4 @@
-#include "muscl_block/update/MusclBlockUpdate.h"
+#include "muscl_block/update/MusclBlockUpdate_legacy.h"
 
 #include "muscl_block/utils_block.h"
 #include "muscl_block/CopyInnerBlockCellData.h"
@@ -12,24 +12,22 @@
 namespace dyablo { 
 namespace muscl_block {
 
-struct MusclBlockUpdate::Data{
+struct MusclBlockUpdate_legacy::Data{
   const ConfigMap& configMap;
   const HydroParams& params;  
   const LightOctree& lmesh;
-  const id2index_t& fm;
-
+  const id2index_t fm;
   uint32_t nbOctsPerGroup;  
   uint32_t bx, by, bz;    
   
   Timers& timers;  
 };
 
-MusclBlockUpdate::MusclBlockUpdate(
+MusclBlockUpdate_legacy::MusclBlockUpdate_legacy(
   const ConfigMap& configMap,
   const HydroParams& params, 
   const LightOctree& lmesh,
   const id2index_t& fm,
-  uint32_t nbOctsPerGroup,
   uint32_t bx, uint32_t by, uint32_t bz,
   Timers& timers )
  : pdata(new Data
@@ -37,15 +35,20 @@ MusclBlockUpdate::MusclBlockUpdate(
     params, 
     lmesh, 
     fm,
-    nbOctsPerGroup,
+    lmesh.getNumOctants(),
     bx, by, bz,
     timers})
+{
+  pdata->nbOctsPerGroup = std::min( 
+      lmesh.getNumOctants(), 
+      (uint32_t)configMap.getInteger("amr","nbOctsPerGroup",lmesh.getNumOctants()));
+
+}
+
+MusclBlockUpdate_legacy::~MusclBlockUpdate_legacy()
 {}
 
-MusclBlockUpdate::~MusclBlockUpdate()
-{}
-
-void MusclBlockUpdate::update(DataArrayBlock U, DataArrayBlock Ughost,
+void MusclBlockUpdate_legacy::update(DataArrayBlock U, DataArrayBlock Ughost,
                                      DataArrayBlock Uout, 
                                      real_t dt)
 {
@@ -141,3 +144,6 @@ void MusclBlockUpdate::update(DataArrayBlock U, DataArrayBlock Ughost,
 
 }// namespace dyablo
 }// namespace muscl_block
+
+FACTORY_REGISTER( dyablo::muscl_block::MusclBlockUpdateFactory, dyablo::muscl_block::MusclBlockUpdate_legacy, "MusclBlockUpdate_legacy" );
+
