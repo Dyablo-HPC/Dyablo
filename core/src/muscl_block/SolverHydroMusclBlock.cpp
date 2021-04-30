@@ -17,7 +17,7 @@
 #include "muscl_block/SolverHydroMusclBlock.h"
 
 // Init conditions functors
-#include "muscl_block/init/HydroInitFunctors.h"
+#include "muscl_block/init/InitialConditions.h"
 
 // Compute functors
 #include "muscl_block/ComputeDtHydroFunctor.h"
@@ -214,76 +214,10 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
   // test if we are performing a re-start run (default : false)
   bool restartEnabled = configMap.getBool("run","restart_enabled",false);
 
-  if (restartEnabled) { // load data from input data file
+  std::string init_name = restartEnabled ? "restart" : m_problem_name;
 
-    init_restart(Udata);
-    
-  } else { // regular initialization
-
-    /*
-     * initialize hydro array at t=0
-     */
-
-    if ( !m_problem_name.compare("implode") ) {
-      
-      init_implode(this);
-      
-    } else if ( !m_problem_name.compare("blast") ) {
-      
-      init_blast(this);
-      
-    }
-    else if ( !m_problem_name.compare("sod") ) {
-      
-      init_sod(this);
-      
-    } else if ( !m_problem_name.compare("kelvin_helmholtz") ) {
-      
-      init_kelvin_helmholtz(this);
-      
-    } else if ( !m_problem_name.compare("gresho_vortex") ) {
-      
-      init_gresho_vortex(this);
-      
-    } else if ( !m_problem_name.compare("four_quadrant") ) {
-      
-      init_four_quadrant(this);
-      
-    } else if ( !m_problem_name.compare("isentropic_vortex") ) {
-      
-      init_isentropic_vortex(this);
-
-    } else if ( !m_problem_name.compare("shu_osher") ) {
-      
-      init_shu_osher(this);
-      
-    } else if ( !m_problem_name.compare("double_mach_reflection") ) {
-
-      init_double_mach_reflection(this);
-      
-    } else if ( !m_problem_name.compare("rayleigh_taylor") ) {
-      
-      init_rayleigh_taylor(this);
-      
-    }   
-    else if ( !m_problem_name.compare("custom") ) {
-      // Don't do anything here, let the user setup their own problem
-    } 
-    else {
-      
-      std::cout << "Problem : " << m_problem_name
-		<< " is not recognized / implemented."
-		<< std::endl;
-      std::cout <<  "Use default - implode" << std::endl;
-      init_implode(this);
-      
-    }  
-    
-    // initialize U2
-    Kokkos::deep_copy(U2,U);
-
-
-  } // end regular initialization
+  InitialConditionsFactory::make_instance(init_name)->init(this);
+  Kokkos::deep_copy(U2,U);
 
 } // SolverHydroMusclBlock::init
 
