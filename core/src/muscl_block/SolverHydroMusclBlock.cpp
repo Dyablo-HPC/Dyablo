@@ -21,7 +21,6 @@
 
 // Compute functors
 #include "muscl_block/ComputeDtHydroFunctor.h"
-#include "muscl_block/GravityFillDataFunctor.h"
 #include "muscl_block/ConvertToPrimitivesHydroFunctor.h"
 #include "muscl_block/MarkOctantsHydroFunctor.h"
 
@@ -34,6 +33,7 @@
 #include "shared/mpi/GhostCommunicator.h"
 
 #include "muscl_block/MapUserData.h"
+#include "muscl_block/gravity/GravitySolver.h"
 
 #if BITPIT_ENABLE_MPI==1
 #include "muscl_block/UserDataLB.h"
@@ -353,21 +353,19 @@ void SolverHydroMusclBlock::next_iteration_impl()
   timers.get("dt").start();
   compute_dt();
   timers.get("dt").stop();
-  
-  auto fm = fieldMgr.get_id2index();
-  uint32_t nbOcts = amr_mesh->getNumOctants();
-  const LightOctree& lmesh = amr_mesh->getLightOctree();
 
   if( params.gravity_type & GRAVITY_FIELD )
   {
-
-    GravityFillDataFunctor::apply(lmesh,
-                                  configMap,
-                                  params,
-                                  fm,
-                                  blockSizes,
-                                  nbOcts,
-                                  U);
+    std::string impl_id = this->configMap.getString("gravity", "solver", "GravitySolver_constant");
+    std::unique_ptr<GravitySolver> gravity_solver = GravitySolverFactory::make_instance( impl_id,
+      configMap,
+      params,
+      amr_mesh->getLightOctree(), 
+      fieldMgr.get_id2index(),
+      bx, by, bz,
+      timers
+    );
+    gravity_solver->update_gravity_field(U, Ughost, U);
   }
   
   // perform one step integration
