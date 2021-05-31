@@ -204,6 +204,11 @@ public:
   {
     return *this;
   }
+
+  Impl& getMesh()
+  {
+    return *this;
+  }
   
   //TODO hide implementation details
   const std::map<int, std::vector<uint32_t>>& getBordersPerProc() const

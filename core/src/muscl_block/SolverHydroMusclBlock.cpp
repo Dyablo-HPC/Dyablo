@@ -33,7 +33,6 @@
 #include "shared/mpi/GhostCommunicator.h"
 
 #include "muscl_block/MapUserData.h"
-#include "muscl_block/update/MusclBlockUpdate.h"
 
 #if BITPIT_ENABLE_MPI==1
 #include "muscl_block/UserDataLB.h"
@@ -155,9 +154,13 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   myRank = params.myRank;
 #endif // DYABLO_USE_MPI
 
+  //std::string godunov_updater_id = "MusclBlockUpdate_legacy";
+  std::string godunov_updater_id = this->configMap.getString("hydro", "update", "MusclBlockUpdate_legacy");
+
   if (myRank==0) {
     std::cout << "##########################" << "\n";
     std::cout << "Solver is " << m_solver_name << "\n";
+    std::cout << "Godunov updater is " << godunov_updater_id << std::endl;
     std::cout << "Problem (init condition) is " << m_problem_name << "\n";
     std::cout << "##########################" << "\n";
     
@@ -167,6 +170,15 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
     std::cout << "Memory requested : " << (total_mem_size / 1e6) << " MBytes\n"; 
     std::cout << "##########################" << "\n";
   }
+
+  this->godunov_updater = MusclBlockUpdateFactory::make_instance( godunov_updater_id,
+    configMap,
+    params,
+    *amr_mesh, 
+    fieldMgr.get_id2index(),
+    bx, by, bz,
+    timers
+  );
 
 } // SolverHydroMusclBlock::SolverHydroMusclBlock
 
@@ -464,17 +476,6 @@ void SolverHydroMusclBlock::godunov_unsplit_impl(DataArrayBlock data_in,
   // we need conservative variables in ghost cell to be up to date
   synchronize_ghost_data(UserDataCommType::UDATA);
 
-  //std::string impl_id = "MusclBlockUpdate_legacy";
-  //std::string impl_id = "MusclBlockUpdate_generic";
-  std::string impl_id = this->configMap.getString("hydro", "update", "MusclBlockUpdate_legacy");
-  std::unique_ptr<MusclBlockUpdate> godunov_updater = MusclBlockUpdateFactory::make_instance( impl_id,
-    configMap,
-    params,
-    *amr_mesh, 
-    fieldMgr.get_id2index(),
-    bx, by, bz,
-    timers
-  );
   godunov_updater->update(data_in, Ughost, data_out, dt);
 
 } // SolverHydroMusclBlock::godunov_unsplit_impl

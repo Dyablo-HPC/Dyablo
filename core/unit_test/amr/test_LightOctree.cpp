@@ -493,13 +493,11 @@ void test_perf()
   uint64_t nbOct = amr_mesh.getNumOctants();
   std::cout << " Octant count : " << nbOct << std::endl;
 
-  using LightOctree_t = dyablo::LightOctree_hashmap;
+  using LightOctree_t = dyablo::LightOctree;
 
   std::cout << "Construct LightOctree..." << std::endl;
   HydroParams params;
   params.level_max = level_max;
-  // Create shared_ptr with empty deleter;
-  std::shared_ptr<dyablo::AMRmesh> amr_mesh_ptr(&amr_mesh,[](dyablo::AMRmesh* f) {});
 
   SimpleTimer time_lmesh_construct;
   const LightOctree_t& lmesh = amr_mesh.getLightOctree();

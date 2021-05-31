@@ -40,7 +40,7 @@ public:
     LightOctree_pablo(const LightOctree_pablo& ) = default;
 
     template< typename AMRmesh_t >
-    LightOctree_pablo( const AMRmesh_t* pmesh, uint8_t level_min, uint8_t level_max )
+    LightOctree_pablo( AMRmesh_t* pmesh, uint8_t level_min, uint8_t level_max )
      : LightOctree_pablo(pmesh->getMesh(), level_min, level_max)
     {
         static_assert( std::is_same<AMRmesh_t, AMRmesh_impl<AMRmesh_pablo>>::value, "LightOctree_pablo is only compatible with AMRmesh_pablo" );

@@ -24,6 +24,7 @@
 #include "shared/FieldManager.h"
 #include "muscl_block/utils_block.h"
 #include "shared/amr/LightOctree.h"
+#include "muscl_block/update/MusclBlockUpdate.h"
 
 
 // for IO
@@ -61,6 +62,8 @@ private:
   //! enum use in synchronize ghost data operation to
   //! identify which variables need to be exchange by MPI
   enum class UserDataCommType {UDATA, QDATA, SLOPES};
+
+  std::unique_ptr<MusclBlockUpdate> godunov_updater;
   
 public:
 
