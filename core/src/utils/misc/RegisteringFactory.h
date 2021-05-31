@@ -6,6 +6,7 @@
 #include <utility>
 #include <stdexcept>
 #include <tuple>
+#include <iostream>
 
 /**
  * A general factory to construct instances of BaseType from an id and constructor parameters
