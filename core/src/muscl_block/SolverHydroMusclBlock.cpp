@@ -147,8 +147,6 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   // copy U into U2
   Kokkos::deep_copy(U2,U);
 
-  lmesh = LightOctree(amr_mesh, params.level_min, params.level_max);
-
   // compute initialize time step
   compute_dt();
 
@@ -295,6 +293,8 @@ void SolverHydroMusclBlock::do_amr_cycle()
 
   timers.get("AMR").start();
 
+  LightOctree lmesh_old = amr_mesh->getLightOctree();
+
   /*
    * Following steps:
    *
@@ -316,7 +316,16 @@ void SolverHydroMusclBlock::do_amr_cycle()
   adapt_mesh();
 
   // 4. map data to new data array
-  map_userdata_after_adapt();
+  timers.get("AMR: map userdata").start();
+
+  MapUserDataFunctor::apply( lmesh_old, amr_mesh->getLightOctree(), configMap, blockSizes,
+                      U2, Ughost, U );
+
+  // now U contains the most up to date data after mesh adaptation
+  // we can resize U2 for the next time-step
+  Kokkos::realloc(U2, U.extent(0), U.extent(1), U.extent(2));
+  
+  timers.get("AMR: map userdata").stop();
 
   timers.get("AMR").stop();
 
@@ -354,7 +363,7 @@ double SolverHydroMusclBlock::compute_dt_local()
   auto fm = fieldMgr.get_id2index();
 
   // call device functor - compute invDt
-  ComputeDtHydroFunctor::apply(lmesh, configMap, 
+  ComputeDtHydroFunctor::apply(amr_mesh->getLightOctree(), configMap, 
                                params, fm,
                                blockSizes, U, invDt);
 
@@ -461,7 +470,7 @@ void SolverHydroMusclBlock::godunov_unsplit_impl(DataArrayBlock data_in,
   std::unique_ptr<MusclBlockUpdate> godunov_updater = MusclBlockUpdateFactory::make_instance( impl_id,
     configMap,
     params,
-    lmesh, 
+    *amr_mesh, 
     fieldMgr.get_id2index(),
     bx, by, bz,
     timers
@@ -686,7 +695,7 @@ void SolverHydroMusclBlock::mark_cells()
                                        nbOctsPerGroup,
                                        U, Ugroup, 
                                        iGroup);
-    CopyGhostBlockCellDataFunctor::apply(lmesh,
+    CopyGhostBlockCellDataFunctor::apply(amr_mesh->getLightOctree(),
                                         configMap,
                                         params,
                                         fm,
@@ -717,7 +726,7 @@ void SolverHydroMusclBlock::mark_cells()
 
     // finaly apply refine criterion : 
     // call device functor to flag for refine/coarsen
-    MarkOctantsHydroFunctor::apply(lmesh, configMap, params, fm,
+    MarkOctantsHydroFunctor::apply(amr_mesh->getLightOctree(), configMap, params, fm,
                                    blockSizes, ghostWidth,
                                    nbOcts, nbOctsPerGroup,
                                    Qgroup, iGroup,
@@ -756,31 +765,6 @@ void SolverHydroMusclBlock::adapt_mesh()
 
 // =======================================================
 // =======================================================
-/**
- * input  U2 contains user data before adapt step
- * output U  will be filled with data after remap
- */
-void SolverHydroMusclBlock::map_userdata_after_adapt()
-{
-
-  timers.get("AMR: map userdata").start();
-
-  LightOctree lmesh_old = lmesh;
-  lmesh = LightOctree(amr_mesh, params.level_min, params.level_max);
-
-  MapUserDataFunctor::apply( lmesh_old, lmesh, configMap, blockSizes,
-                      U2, Ughost, U );
-
-  // now U contains the most up to date data after mesh adaptation
-  // we can resize U2 for the next time-step
-  Kokkos::realloc(U2, U.extent(0), U.extent(1), U.extent(2));
-  
-  timers.get("AMR: map userdata").stop();
-
-} // SolverHydroMusclBlock::map_data_after_adapt
-
-// =======================================================
-// =======================================================
 void SolverHydroMusclBlock::load_balance_userdata()
 {
 
@@ -796,10 +780,8 @@ void SolverHydroMusclBlock::load_balance_userdata()
 
     // we probably need to resize arrays, ....
     Kokkos::resize(U2,U.layout());
-    Kokkos::realloc(Ughost, Ughost.extent(0), Ughost.extent(1), amr_mesh->getNumGhosts());
+    Kokkos::realloc(Ughost, Ughost.extent(0), Ughost.extent(1), amr_mesh->getNumGhosts());  
 
-    // Update LightOctree after load balancing
-    lmesh = LightOctree(amr_mesh, params.level_min, params.level_max);    
   }
   
   timers.get("AMR: load-balance").stop();

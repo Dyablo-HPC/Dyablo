@@ -112,7 +112,7 @@ void run_test(int ndim)
     Kokkos::deep_copy( Ughost, Ughost_host );
   }
 
-  LightOctree lmesh_old(amr_mesh, params.level_min, params.level_max);
+  LightOctree lmesh_old = amr_mesh->getLightOctree();
   {
     std::cout << "Coarsen/Refine octants" << std::endl;
 
@@ -131,7 +131,7 @@ void run_test(int ndim)
     amr_mesh->adapt(true);
     amr_mesh->updateConnectivity();
   }
-  LightOctree lmesh_new(amr_mesh, params.level_min, params.level_max);
+  const LightOctree& lmesh_new = amr_mesh->getLightOctree();
 
   char* empty;
   ConfigMap configMap(empty, 0); //Use default values

@@ -17,7 +17,7 @@ public:
     LightOctree_hashmap(const LightOctree_hashmap& lmesh) = default;
 
     template < typename AMRmesh_t >
-    LightOctree_hashmap( std::shared_ptr<AMRmesh_t> pmesh, uint8_t level_min, uint8_t level_max )
+    LightOctree_hashmap( const AMRmesh_t* pmesh, uint8_t level_min, uint8_t level_max )
     : oct_map(pmesh->getNumOctants()+pmesh->getNumGhosts()),
       oct_data("LightOctree::oct_data", pmesh->getNumOctants()+pmesh->getNumGhosts(), OCT_DATA_COUNT),
       numOctants(pmesh->getNumOctants()) , min_level(level_min), max_level(level_max), ndim(pmesh->getDim())
@@ -283,7 +283,7 @@ public: // init() has to be public for KOKKOS_LAMBDA
      **/
     // TODO make a specialization for AMRmesh_hashmap that directly copies Kokkos::Arrays
     template < typename AMRmesh_t >
-    static void init(std::shared_ptr<AMRmesh_t> pmesh, oct_data_t& oct_data, oct_map_t& oct_map, uint32_t numOctants, uint8_t min_level, uint8_t max_level)
+    static void init(const AMRmesh_t* pmesh, oct_data_t& oct_data, oct_map_t& oct_map, uint32_t numOctants, uint8_t min_level, uint8_t max_level)
     {   
         const uint32_t numOctants_tot = pmesh->getNumOctants()+pmesh->getNumGhosts();
         

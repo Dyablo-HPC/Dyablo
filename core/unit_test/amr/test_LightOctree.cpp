@@ -151,10 +151,8 @@ void run_test()
     std::cout << "  |_____|_____|_____|____|    \n";
     std::cout << "                              \n";
 
-    // shared_ptr without a deleter
-    std::shared_ptr<dyablo::AMRmesh> mesh_ptr(&amr_mesh, [](dyablo::AMRmesh*){});
     // Create LightOctree
-    LightOctree mesh( mesh_ptr, params.level_min, params.level_max );
+    const LightOctree& mesh = amr_mesh.getLightOctree();
 
     // for( int level=0; level<3; level++ )
     // {
@@ -324,8 +322,7 @@ void run_test()
 
 
     // Create LightOctree
-    std::shared_ptr<dyablo::AMRmesh> mesh_ptr(&amr_mesh, [](dyablo::AMRmesh*){});
-    LightOctree mesh( mesh_ptr, params.level_min, params.level_max );
+    const LightOctree& mesh = amr_mesh.getLightOctree();
 
     auto test_oct = [&]( uint32_t ioct, uint32_t first_neighbor[3][3][3]){
       std::cout << "Octant " << ioct << " :" << std::endl;
@@ -505,7 +502,7 @@ void test_perf()
   std::shared_ptr<dyablo::AMRmesh> amr_mesh_ptr(&amr_mesh,[](dyablo::AMRmesh* f) {});
 
   SimpleTimer time_lmesh_construct;
-  LightOctree_t lmesh(amr_mesh_ptr, level_min, level_max);
+  const LightOctree_t& lmesh = amr_mesh.getLightOctree();
   Kokkos::fence();
   time_lmesh_construct.stop();
   std::cout << "Done in " << time_lmesh_construct.elapsed()*1000 << " ms (cpu after fence)" << std::endl;

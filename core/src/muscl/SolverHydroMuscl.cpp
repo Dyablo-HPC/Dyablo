@@ -119,8 +119,6 @@ SolverHydroMuscl::SolverHydroMuscl(HydroParams& params,
   // copy U into U2
   Kokkos::deep_copy(U2,U);
 
-  amr_lmesh = LightOctree(amr_mesh, params.level_min, params.level_max);
-
   // compute initialize time step
   compute_dt();
 
@@ -269,6 +267,8 @@ void SolverHydroMuscl::do_amr_cycle()
 
   timers.get("AMR").start();
 
+  LightOctree lmesh_old = amr_mesh->getLightOctree();
+
   /*
    * Following steps:
    *
@@ -290,7 +290,14 @@ void SolverHydroMuscl::do_amr_cycle()
   adapt_mesh();
 
   // 4. map data to new data array
-  map_userdata_after_adapt();
+  timers.get("AMR: map userdata").start();
+
+  MapUserDataFunctor::apply( lmesh_old, amr_mesh->getLightOctree(), configMap, U2, Ughost, U );
+  // now U contains the most up to date data after mesh adaptation
+  // we can resize U2 for the next time-step
+  Kokkos::realloc(U2, U.layout());
+  
+  timers.get("AMR: map userdata").stop();
 
   timers.get("AMR").stop();
 
@@ -328,7 +335,7 @@ double SolverHydroMuscl::compute_dt_local()
   auto fm = fieldMgr.get_id2index();
 
   // call device functor - compute invDt
-  ComputeDtHydroFunctor::apply(amr_lmesh, params, fm, U, invDt);
+  ComputeDtHydroFunctor::apply(amr_mesh->getLightOctree(), params, fm, U, invDt);
 
   dt = params.settings.cfl/invDt;
 
@@ -486,7 +493,7 @@ void SolverHydroMuscl::reconstruct_gradients(DataArray Udata)
     Kokkos::resize(Slopes_z, Udata.extent(0), Udata.extent(1));  
 
   // call device functor
-  ReconstructGradientsHydroFunctor::apply(amr_lmesh, params, fm, 
+  ReconstructGradientsHydroFunctor::apply(amr_mesh->getLightOctree(), params, fm, 
                                           Q, Qghost, Slopes_x, Slopes_y, Slopes_z);
   
 } // SolverHydroMuscl::reconstruct_gradients
@@ -514,7 +521,7 @@ void SolverHydroMuscl::compute_fluxes_and_update(DataArray data_in,
     Kokkos::resize(Fluxes, U.extent(0), U.extent(1));
     
     // stored out fluxes in Fluxes
-    ComputeFluxesAndUpdateHydroFunctor::apply(amr_lmesh, params, fm,
+    ComputeFluxesAndUpdateHydroFunctor::apply(amr_mesh->getLightOctree(), params, fm,
                                               data_in, Fluxes,
                                               Q, Qghost,
                                               Slopes_x,
@@ -532,7 +539,7 @@ void SolverHydroMuscl::compute_fluxes_and_update(DataArray data_in,
 
   } else {
 
-    ComputeFluxesAndUpdateHydroFunctor::apply(amr_lmesh, params, fm,
+    ComputeFluxesAndUpdateHydroFunctor::apply(amr_mesh->getLightOctree(), params, fm,
                                               data_in, data_out,
                                               Q, Qghost,
                                               Slopes_x,
@@ -741,7 +748,7 @@ void SolverHydroMuscl::mark_cells()
   // Note: Ughost is up to date, update at the beginning of do_amr_cycle
 
   // call device functor to flag for refine/coarsen
-  MarkCellsHydroFunctor::apply(amr_mesh, amr_lmesh, params, fm, Udata, Ughost,
+  MarkCellsHydroFunctor::apply(amr_mesh, amr_mesh->getLightOctree(), params, fm, Udata, Ughost,
                                eps_refine, eps_coarsen);
 
   timers.get("AMR: mark cells").stop();
@@ -767,29 +774,6 @@ void SolverHydroMuscl::adapt_mesh()
 
 // =======================================================
 // =======================================================
-/**
- * input  U2 contains user data before adapt step
- * output U  will be filled with data after remap
- */
-void SolverHydroMuscl::map_userdata_after_adapt()
-{
-  timers.get("AMR: map userdata").start();
-
-  LightOctree lmesh_old = this->amr_lmesh;
-  this->amr_lmesh = LightOctree(amr_mesh, params.level_min, params.level_max);
-
-  MapUserDataFunctor::apply( lmesh_old, this->amr_lmesh, configMap, U2, Ughost, U );
-
-  // now U contains the most up to date data after mesh adaptation
-  // we can resize U2 for the next time-step
-  Kokkos::realloc(U2, U.layout());
-  
-  timers.get("AMR: map userdata").stop();
-
-} // SolverHydroMuscl::map_data_after_adapt
-
-// =======================================================
-// =======================================================
 void SolverHydroMuscl::load_balance_userdata()
 {
 
@@ -806,9 +790,6 @@ void SolverHydroMuscl::load_balance_userdata()
     // we probably need to resize arrays, ....
     Kokkos::resize(U2,U.layout());
     Kokkos::realloc(Ughost, amr_mesh->getNumGhosts(), Ughost.extent(1));
-
-    // Update LightOctree after load balancing
-    amr_lmesh = LightOctree(amr_mesh, params.level_min, params.level_max);    
   }
   
   timers.get("AMR: load-balance").stop();

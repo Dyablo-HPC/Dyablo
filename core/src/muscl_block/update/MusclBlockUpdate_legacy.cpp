@@ -15,7 +15,7 @@ namespace muscl_block {
 struct MusclBlockUpdate_legacy::Data{
   const ConfigMap& configMap;
   const HydroParams& params;  
-  const LightOctree& lmesh;
+  AMRmesh& pmesh;
   const id2index_t fm;
   uint32_t nbOctsPerGroup;  
   uint32_t bx, by, bz;    
@@ -26,22 +26,22 @@ struct MusclBlockUpdate_legacy::Data{
 MusclBlockUpdate_legacy::MusclBlockUpdate_legacy(
   const ConfigMap& configMap,
   const HydroParams& params, 
-  const LightOctree& lmesh,
+  AMRmesh& pmesh,
   const id2index_t& fm,
   uint32_t bx, uint32_t by, uint32_t bz,
   Timers& timers )
  : pdata(new Data
     {configMap, 
     params, 
-    lmesh, 
+    pmesh, 
     fm,
-    lmesh.getNumOctants(),
+    pmesh.getNumOctants(),
     bx, by, bz,
     timers})
 {
   pdata->nbOctsPerGroup = std::min( 
-      lmesh.getNumOctants(), 
-      (uint32_t)configMap.getInteger("amr","nbOctsPerGroup",lmesh.getNumOctants()));
+      pmesh.getNumOctants(), 
+      (uint32_t)configMap.getInteger("amr","nbOctsPerGroup",pmesh.getNumOctants()));
 
 }
 
@@ -55,7 +55,7 @@ void MusclBlockUpdate_legacy::update(DataArrayBlock U, DataArrayBlock Ughost,
   
   const ConfigMap& configMap = pdata->configMap;
   const HydroParams& params = pdata->params;  
-  const LightOctree& lmesh = pdata->lmesh;
+  const LightOctree& lmesh = pdata->pmesh.getLightOctree();
   const id2index_t& fm = pdata->fm;
 
   uint32_t nbOctsPerGroup = pdata->nbOctsPerGroup;  

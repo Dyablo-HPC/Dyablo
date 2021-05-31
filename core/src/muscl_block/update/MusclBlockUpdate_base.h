@@ -14,7 +14,7 @@ public:
   // MusclBlockUpdate(
   //               const ConfigMap& configMap,
   //               const HydroParams& params, 
-  //               const LightOctree& lmesh,
+  //               const AMRmesh& pmesh,
   //               const id2index_t& fm,
   //               uint32_t bx, uint32_t by, uint32_t bz,
   //               Timers& timers );
@@ -27,7 +27,7 @@ public:
 using MusclBlockUpdateFactory = RegisteringFactory< MusclBlockUpdate, 
   const ConfigMap& /*configMap*/,
   const HydroParams& /*params*/, 
-  const LightOctree& /*lmesh*/,
+  AMRmesh& /*pmesh*/,
   const id2index_t& /*fm*/,
   uint32_t /*bx*/, uint32_t /*by*/, uint32_t /*bz*/,
   Timers& /*timers*/ >;

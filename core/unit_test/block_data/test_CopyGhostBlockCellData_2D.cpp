@@ -336,8 +336,7 @@ void run_test(int argc, char *argv[])
   std::cout << "Testing CopyGhostBlockCellDataFunctor....\n";
   {
     InterfaceFlags interface_flags(nbOctsPerGroup); //solver->interface_flags
-    LightOctree lmesh(amr_mesh,params.level_min,params.level_max);
-    CopyGhostBlockCellDataFunctor::apply(lmesh,
+    CopyGhostBlockCellDataFunctor::apply(amr_mesh->getLightOctree(),
                                         configMap,
                                         params, 
                                         fm,

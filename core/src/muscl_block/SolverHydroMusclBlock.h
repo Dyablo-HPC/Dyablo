@@ -77,8 +77,6 @@ public:
     return solver;
   }
 
-  LightOctree lmesh;
-
   //! hydrodynamics conservative variables arrays at t_n - no ghost
   DataArrayBlock     U;
   

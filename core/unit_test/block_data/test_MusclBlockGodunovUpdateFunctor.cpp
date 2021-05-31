@@ -167,11 +167,9 @@ void run_test(int argc, char *argv[]) {
 
   //uint32_t nbOcts = solver->amr_mesh->getNumOctants();
 
-  LightOctree lmesh(solver->amr_mesh,params.level_min,params.level_max);
-
   // compute CFL constraint
   real_t invDt;
-  ComputeDtHydroFunctor::apply(lmesh,
+  ComputeDtHydroFunctor::apply(solver->amr_mesh->getLightOctree(),
                                configMap,
                                params,
                                fm,
@@ -187,7 +185,7 @@ void run_test(int argc, char *argv[]) {
     std::unique_ptr<MusclBlockUpdate> godunov_updater = MusclBlockUpdateFactory::make_instance( "MusclBlockUpdate_legacy",
       configMap,
       params,
-      lmesh, 
+      *(solver->amr_mesh), 
       fm,
       bx, by, bz,
       solver->timers
