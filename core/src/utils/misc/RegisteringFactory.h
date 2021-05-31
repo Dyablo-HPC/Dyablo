@@ -20,14 +20,31 @@ template< typename BaseType, typename... Args>
 class RegisteringFactory{
 public:
   /**
-   * Must be implemented and contains the list of registered class
+   * Must be implemented and contains the list of registered class (in a DECLARE_REGISTERED macro)
+   * This will be called during the first call to make_instance() to verify the classes have actually been registered
+   * 
+   * e.g:
+   * ```
+   * class Impl1;
+   * class Impl2;
+   * class Impl3;
+   * double ImplFactory::init()
+   * {
+   *    DECLARE_REGISTERED(Impl1);
+   *    DECLARE_REGISTERED(Impl2);
+   *    DECLARE_REGISTERED(Impl3);
+   * 
+   *    return true;
+   * }
+   * ```
    **/
   static bool init();
 
   /**
    * Construct an instance of BaseType with the actual dynamic type corresponding to the id registered with FACTORY_REGISTER
    * 
-   * If FACTORY_REGISTER is declared in a different compilation unit, DECLARE_REGISTERED has to be called before make_instance.
+   * @param id a valid identifier from a FACTORY_REGISTER declaration, also listed in RegisteringFactory::init().
+   * @param args... parameters for the constructor of the class to instanciate
    **/
   static std::unique_ptr<BaseType> make_instance(const std::string& id, Args... args )
   {
@@ -50,7 +67,7 @@ public:
     return res;
   }
 
-  /// Register class (see FACTORY_REGISTER instead)
+  /// Register class (do not use directly, use FACTORY_REGISTER instead)
   template<typename T>
   static bool register_class(const std::string& id)
   {
@@ -69,7 +86,7 @@ public:
 
 private:
 
-  /// Base virtual class to store construct<T> as a unifor type in map 
+  /// Base virtual class to store construct<T> as a uniform type in map 
   struct construct_base{
     virtual std::unique_ptr<BaseType> make_instance(Args... args) = 0;
   };
@@ -110,24 +127,27 @@ struct Factory_Registered{
  * 
  * IMPL_TYPE has to be a complete type when FACTORY_REGISTER is called.
  * 
- * FACTORY_REGISTER uses dynamic initialization of a static variable to add the class
- * to the id->class map of the factory "before the main". Dynamic initialization (i.e. registering of the class)
- * may not be triggered if the static variable is not imported to the compilation unit where make_instance() is called
- * (this may happen when the static variable is stripped when linking with a static library).
- * To make sure that class is registered before the call to make_instance(), the static variable used to trigger dynamic initialization 
- * must be referenced in the compilation unit where make_instance() is called (using DECLARE_REGISTERED)
- * 
- * TL;DR : When calling make_instance(), either DECLARE_REGISTERED or FACTORY_REGISTER must appear in the compilation unit to make sure the type is registered
+ * Each FACTORY_REGISTER(Class, name) must have a corresponding 
+ * DECLARE_REGISTERED(Class) in RegisterFactory::init(), or implementation may not be fully registered.
  **/
 #define FACTORY_REGISTER( FACTORY_TYPE, IMPL_TYPE, name ) template<>\
 const bool Factory_Registered<FACTORY_TYPE, IMPL_TYPE>::registered \
             = FACTORY_TYPE::register_class<IMPL_TYPE>( name );
 
 /**
- * Reference an already registered type in the factory
+ * Reference an already registered type in the factory in RegisterFactory::init()
+ * (this macro won't work outside of RegisterFactory::init())
  * 
  * IMPL_TYPE DOES NOT NEED to be a complete type when FACTORY_REGISTER is called.
  * Only a forward-declaration of the type is necessary. This is useful to avoid 
  * importing the whole header of a registered template class.
+ * 
+ * Expanation : FACTORY_REGISTER uses dynamic initialization of a static variable to add the class
+ * to the id->class map of the factory "before the main". Dynamic initialization (i.e. registering of the class)
+ * may not be triggered if the static variable is not imported to the compilation unit where make_instance() is called
+ * (this may happen when the static variable is stripped when linking with a static library).
+ * To make sure that class is registered before the call to make_instance(), the static variable used to trigger dynamic initialization 
+ * must be referenced in the compilation unit where make_instance() is called (using DECLARE_REGISTERED). 
+ * Listing all the registered classes in RegisterFactory::init() ensures that all necessary symbols are imported when RegisterFactory::make_instance() is called.
  **/
 #define DECLARE_REGISTERED( IMPL_TYPE ) if( !Factory_Registered<RegisteringFactory, IMPL_TYPE>::registered ) {throw std::runtime_error("Class not registered");}
