@@ -25,10 +25,7 @@
 #include "muscl_block/utils_block.h"
 #include "shared/amr/LightOctree.h"
 #include "muscl_block/update/MusclBlockUpdate.h"
-
-
-// for IO
-#include <shared/HDF5_IO.h>
+#include "muscl_block/io/IOManager.h"
 
 namespace dyablo { namespace muscl_block {
 
@@ -64,6 +61,7 @@ private:
   enum class UserDataCommType {UDATA, QDATA, SLOPES};
 
   std::unique_ptr<MusclBlockUpdate> godunov_updater;
+  std::unique_ptr<IOManager> io_manager;
   
 public:
 
@@ -173,10 +171,6 @@ public:
   UpdateType updateType;
 
 private:
-
-#ifdef DYABLO_USE_HDF5
-  std::shared_ptr<HDF5_Writer> hdf5_writer;
-#endif // DYABLO_USE_HDF5
 
   //! VTK output
   void save_solution_vtk();

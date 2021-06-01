@@ -79,7 +79,7 @@ void run(std::string input_filename)
   amr_mesh->adaptGlobalRefine();
 
   // create HDF5 writer
-  dyablo::HDF5_Writer writer(amr_mesh, configMap, params);
+  dyablo::HDF5_Writer writer(amr_mesh.get(), configMap, params);
 
   for (int iter=0; iter<2; ++iter) {
 
