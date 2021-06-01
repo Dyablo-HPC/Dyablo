@@ -3,12 +3,18 @@
 #include "AMRmesh_pablo.h"
 #include "AMRmesh_hashmap.h"
 
+#include "shared/amr/LightOctree_forward.h"
+
 //#define DYABLO_USE_GPU_MESH
 
 namespace dyablo{
 
 template < typename Impl >
 class AMRmesh_impl : private Impl{
+private: 
+  std::unique_ptr<LightOctree> lmesh;
+  uint8_t level_min, level_max;
+  bool lmesh_uptodate = false;
 public:
   template< typename T, int N >
   using array_t = std::array<T,N>;
@@ -27,7 +33,7 @@ public:
    * Note : Right after construction Mesh has 1 octant
    **/
   AMRmesh_impl( int dim, int balance_codim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max)
-   : Impl(dim, balance_codim, periodic, level_min, level_max)
+   : Impl(dim, balance_codim, periodic, level_min, level_max), level_min(level_min), level_max(level_max)
   {}
 
   //----- Mesh parameters -----
@@ -42,6 +48,21 @@ public:
   /// Get periodicity of face i (equivalent to getPeriodic()[i])
   bool getPeriodic(uint8_t i) const
   { return Impl::getPeriodic(i); }
+
+  
+  /**
+   * Get the LightOctree associated to the current AMR mesh
+   * May reallocate LightOctree if mesh has been modified
+   **/
+  const LightOctree& getLightOctree()
+  { 
+    // Update LightOctree if needed
+    updateLightOctree();
+    return *lmesh; 
+  }
+  
+  /// Update LightOctree to make sure next call to getLightOctree() will not reallocate
+  void updateLightOctree();
 
   //----- MPI info -----
   /// MPI rank
@@ -126,7 +147,10 @@ public:
    *        all suboctants of octants at level (level_max - compact_level) are kept in the same process
    **/
   void loadBalance(uint8_t compact_levels=0)
-  { Impl::loadBalance(compact_levels); }  
+  { 
+    Impl::loadBalance(compact_levels);
+    lmesh_uptodate = false; 
+  }  
 
   /**
    * @copydoc AMRmesh_impl::loadBalance(uint8)
@@ -136,9 +160,15 @@ public:
    *        are transfered to the new owning mpi rank
    **/
   void loadBalance_userdata( int compact_levels, DataArrayBlock& userData )
-  { Impl::loadBalance_userdata(compact_levels, userData); }
+  { 
+    Impl::loadBalance_userdata(compact_levels, userData); 
+    lmesh_uptodate = false; 
+  }
   void loadBalance_userdata( int compact_levels, DataArray& userData )
-  { Impl::loadBalance_userdata(compact_levels, userData); }
+  { 
+    Impl::loadBalance_userdata(compact_levels, userData); 
+    lmesh_uptodate = false; 
+  }
 
   /**
    * Set marker for refinement 
@@ -153,16 +183,27 @@ public:
    * TODO : remove dummy parameter
    **/
   void adapt(bool dummy = true)
-  { Impl::adapt(dummy); }
+  { 
+    Impl::adapt(dummy); 
+    lmesh_uptodate = false; 
+  }
   /// Refine all octants : same as adapt with all octants marked +1
   void adaptGlobalRefine()
-  { Impl::adaptGlobalRefine(); }
+  { 
+    Impl::adaptGlobalRefine();
+    lmesh_uptodate = false; 
+  }
   
 
   bool check21Balance()
   { return Impl::check21Balance(); }
   bool checkToAdapt()
   { return Impl::checkToAdapt(); }
+
+  const Impl& getMesh() const
+  {
+    return *this;
+  }
 
   Impl& getMesh()
   {
@@ -177,10 +218,10 @@ public:
   // template< typename T >
   // void communicate(T& t)
   // { Impl::communicate(t); }
-  void computeConnectivity()
-  { Impl::computeConnectivity(); }
-  void updateConnectivity()
-  { Impl::updateConnectivity(); }
+  void computeConnectivity() {}
+  // { Impl::computeConnectivity(); }
+  void updateConnectivity() {}
+  // { Impl::updateConnectivity(); }
   // template< typename T >
   // void loadBalance(T& t, uint8_t level)
   // { Impl::loadBalance(t,level); }
@@ -196,6 +237,23 @@ public:
 
 };
 
+} // namespace dyablo
+
+#include "shared/amr/LightOctree.h"
+
+namespace dyablo {
+
+template< typename Impl>
+void AMRmesh_impl<Impl>::updateLightOctree()
+{ 
+  // Update LightOctree if needed
+  if( !lmesh_uptodate )
+  {
+    lmesh = std::make_unique<LightOctree>( this, level_min, level_max );
+    lmesh_uptodate = true;
+  }
+}
+
 //template class AMRmesh_impl<AMRmesh_hashmap>;
 //template class AMRmesh_impl<AMRmesh_pablo>;
 
@@ -204,4 +262,5 @@ using AMRmesh = AMRmesh_impl<AMRmesh_hashmap>;
 #else
 using AMRmesh = AMRmesh_impl<AMRmesh_pablo>;
 #endif
-}
+
+}// namespace dyablo

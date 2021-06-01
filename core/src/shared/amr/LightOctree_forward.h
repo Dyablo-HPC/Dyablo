@@ -1,0 +1,14 @@
+#pragma once
+
+namespace dyablo { 
+
+class LightOctree_hashmap;
+class LightOctree_pablo;
+
+#ifdef KOKKOS_ENABLE_CUDA
+using LightOctree = LightOctree_hashmap;
+#else
+using LightOctree = LightOctree_pablo;
+#endif
+
+} //namespace dyablo
