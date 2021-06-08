@@ -11,6 +11,8 @@ namespace dyablo{
 
 template < typename Impl >
 class AMRmesh_impl : private Impl{
+public:
+  using Impl_t = Impl;
 private: 
   std::unique_ptr<LightOctree> lmesh;
   uint8_t level_min, level_max;
@@ -32,9 +34,9 @@ public:
    * (TODO : clarify level_min/level_max) 
    * Note : Right after construction Mesh has 1 octant
    **/
-  AMRmesh_impl( int dim, int balance_codim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max)
-   : Impl(dim, balance_codim, periodic, level_min, level_max), level_min(level_min), level_max(level_max)
-  {}
+  AMRmesh_impl( int dim, int balance_codim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max);
+
+  ~AMRmesh_impl();
 
   //----- Mesh parameters -----
   /// Get number of dimensions
@@ -239,20 +241,7 @@ public:
 
 } // namespace dyablo
 
-#include "shared/amr/LightOctree.h"
-
 namespace dyablo {
-
-template< typename Impl>
-void AMRmesh_impl<Impl>::updateLightOctree()
-{ 
-  // Update LightOctree if needed
-  if( !lmesh_uptodate )
-  {
-    lmesh = std::make_unique<LightOctree>( this, level_min, level_max );
-    lmesh_uptodate = true;
-  }
-}
 
 //template class AMRmesh_impl<AMRmesh_hashmap>;
 //template class AMRmesh_impl<AMRmesh_pablo>;

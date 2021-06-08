@@ -604,11 +604,10 @@ void AMRmesh_hashmap::adapt(bool dummy)
 
     uint32_t mpi_rank = hydroSimu::GlobalMpiSession::getRank();
     uint32_t mpi_size = hydroSimu::GlobalMpiSession::getNProc();
-
-    std::shared_ptr<AMRmesh_hashmap> this_sptr(this, [](AMRmesh_hashmap*){});
-    LightOctree_hashmap lmesh(this_sptr, level_min, level_max);
     
     {
+        LightOctree_hashmap lmesh(this, level_min, level_max);
+
         oct_view_device_t local_octs_coord_device("local_octs_coord_device", local_octs_coord.layout());
         oct_view_device_t ghost_octs_coord_device("ghost_octs_coord_device", ghost_octs_coord.layout());
         markers_device_t markers_device(markers.capacity()+this->getNumGhosts());
