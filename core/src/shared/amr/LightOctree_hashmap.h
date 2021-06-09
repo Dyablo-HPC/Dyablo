@@ -22,9 +22,9 @@ public:
       oct_data("LightOctree::oct_data", pmesh->getNumOctants()+pmesh->getNumGhosts(), OCT_DATA_COUNT),
       numOctants(pmesh->getNumOctants()) , min_level(level_min), max_level(level_max), ndim(pmesh->getDim())
     {
-        is_periodic[IX] = pmesh->getPeriodic(IX);
-        is_periodic[IY] = pmesh->getPeriodic(IY);
-        is_periodic[IZ] = pmesh->getPeriodic(IZ);
+        is_periodic[IX] = pmesh->getPeriodic(IX*2);
+        is_periodic[IY] = pmesh->getPeriodic(IY*2);
+        is_periodic[IZ] = pmesh->getPeriodic(IZ*2);
         std::cout << "LightOctree rehash ..." << std::endl;
         init(pmesh, oct_data, oct_map, numOctants, min_level, max_level);
     }
