@@ -45,7 +45,7 @@ public:
     LightOctree_hashmap_precompute(const LightOctree_hashmap_precompute& lmesh) = default;
 
     template < typename AMRmesh_t >
-    LightOctree_hashmap_precompute( std::shared_ptr<AMRmesh_t> pmesh, uint8_t level_min, uint8_t level_max )
+    LightOctree_hashmap_precompute( const AMRmesh_t* pmesh, uint8_t level_min, uint8_t level_max )
     : LightOctree_hashmap(pmesh, level_min, level_max), neighbors_precompute("neighbors_precompute", pmesh->getNumOctants(), (ndim==2) ? 3*3 : 3*3*3)
     {
         LightOctree_hashmap_precompute_init(*this, this->neighbors_precompute, ndim);
