@@ -136,7 +136,7 @@ void apply_aux( const AMR_Remapper& remap,
   uint32_t nbFields = Usrc.extent(1);
   uint32_t nbCellsPerOct = Usrc.extent(0);
 
-  Udest = DataArrayBlock("U",  nbCellsPerOct, nbFields, nbOcts);
+  Kokkos::realloc(Udest, nbCellsPerOct, nbFields, nbOcts);
 
   const FunctorData d{
     nbFields,

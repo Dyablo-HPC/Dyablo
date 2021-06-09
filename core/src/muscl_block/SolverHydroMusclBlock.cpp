@@ -67,8 +67,6 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
 
   int nbvar = params.nbvar;
   int nbfields = params.nbfields;
- 
-  long long int total_mem_size = 0;
 
   // Initial number of octants
   // User data will be reallocated after AMR mesh initialization
@@ -122,20 +120,6 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   Uhost = Kokkos::create_mirror(U);
   U2    = DataArrayBlock("U2",nbCellsPerOct, nbfields, nbOcts);
 
-  total_mem_size += nbCellsPerOct*nbOcts*nbfields * sizeof(real_t) * 2;// 1+1+1 for U+U2
-
-  // all intermediate data array are sized upon nbOctsPerGroup
-
-  if (m_dim==2)
-    total_mem_size += nbCellsPerOct_g*nbOctsPerGroup*nbvar * sizeof(real_t) * 2;// 1+1 for Slopes_x+Slopes_y
-  else
-    total_mem_size += nbCellsPerOct_g*nbOctsPerGroup*nbvar * sizeof(real_t) * 3;// 1+1+1 for Slopes_x+Slopes_y+Slopes_z
-
-  if (params.rsst_enabled) {
-    Fluxes = DataArrayBlock("Fluxes", nbCellsPerOct, nbvar, nbOctsPerGroup);
-    total_mem_size += nbCellsPerOct * nbOctsPerGroup * nbvar * sizeof(real_t); //
-  }
-
   // init field manager
   // retrieve available / allowed names: fieldManager, and field map (fm)
   // necessary to access user data
@@ -164,10 +148,12 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
     std::cout << "Problem (init condition) is " << m_problem_name << "\n";
     std::cout << "##########################" << "\n";
     
+    float Udata_mem_size = DataArrayBlock::required_allocation_size( U.extent(0), U.extent(1), U.extent(2) ) * (2 / 1e6) ;
+
     // print parameters on screen
     params.print();
     std::cout << "##########################" << "\n";
-    std::cout << "Memory requested : " << (total_mem_size / 1e6) << " MBytes\n"; 
+    std::cout << "Memory requested (U + U2) : " << Udata_mem_size << " MBytes\n"; 
     std::cout << "##########################" << "\n";
   }
 
@@ -200,10 +186,13 @@ SolverHydroMusclBlock::~SolverHydroMusclBlock()
 // =======================================================
 void SolverHydroMusclBlock::resize_solver_data()
 {
+  size_t U_size_old = DataArrayBlock::required_allocation_size( U.extent(0), U.extent(1), U.extent(2) );
+  size_t U_size_new = DataArrayBlock::required_allocation_size( nbCellsPerOct, params.nbfields, amr_mesh->getNumOctants() );
+  std::cout << "Resize U+U2 : " << 2*U_size_old * (2/1e6) << " -> " << U_size_new * (2/1e6) << " MBytes" << std::endl;
 
-  Kokkos::resize(U, nbCellsPerOct, params.nbfields, amr_mesh->getNumOctants());
-  Kokkos::resize(U2, nbCellsPerOct, params.nbfields, amr_mesh->getNumOctants());
-  Kokkos::resize(Uhost, nbCellsPerOct, params.nbfields, amr_mesh->getNumOctants());
+  Kokkos::realloc(U, nbCellsPerOct, params.nbfields, amr_mesh->getNumOctants());
+  Kokkos::realloc(U2, nbCellsPerOct, params.nbfields, amr_mesh->getNumOctants());
+  Kokkos::realloc(Uhost, nbCellsPerOct, params.nbfields, amr_mesh->getNumOctants());
   // Remember that all other array are fixed sized - nbOctsPerGroup
 
 } // SolverHydroMusclBlock::resize_solver_data
@@ -330,6 +319,8 @@ void SolverHydroMusclBlock::do_amr_cycle()
   // 4. map data to new data array
   timers.get("AMR: map userdata").start();
 
+  std::cout << "Reallocate U + U2 after remap : " << DataArrayBlock::required_allocation_size(U2.extent(0), U2.extent(1), U2.extent(2)) * (2/1e6) 
+            << " -> " << DataArrayBlock::required_allocation_size(U2.extent(0), U2.extent(1), amr_mesh->getNumOctants()) * (2/1e6) << " MBytes" << std::endl;
   MapUserDataFunctor::apply( lmesh_old, amr_mesh->getLightOctree(), configMap, blockSizes,
                       U2, Ughost, U );
 
@@ -780,8 +771,8 @@ void SolverHydroMusclBlock::load_balance_userdata()
     amr_mesh->loadBalance_userdata(levels, U);
 
     // we probably need to resize arrays, ....
-    Kokkos::resize(U2,U.layout());
-    Kokkos::realloc(Ughost, Ughost.extent(0), Ughost.extent(1), amr_mesh->getNumGhosts());  
+    Kokkos::realloc(U2,U.layout());
+    Kokkos::realloc(Ughost, Ughost.extent(0), Ughost.extent(1), amr_mesh->getNumGhosts());
 
   }
   
