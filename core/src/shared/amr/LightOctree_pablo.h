@@ -49,9 +49,9 @@ public:
     LightOctree_pablo( AMRmesh_pablo& pmesh_, uint8_t level_min, uint8_t level_max )
     : pmesh(&pmesh_), ndim(pmesh->getDim())
     {
-        is_periodic[IX] = pmesh->getPeriodic(IX);
-        is_periodic[IY] = pmesh->getPeriodic(IY);
-        is_periodic[IZ] = pmesh->getPeriodic(IZ);
+        is_periodic[IX] = pmesh->getPeriodic(IX*2);
+        is_periodic[IY] = pmesh->getPeriodic(IY*2);
+        is_periodic[IZ] = pmesh->getPeriodic(IZ*2);
     }
     //! @copydoc LightOctree_base::getNumOctants()
     uint32_t getNumOctants() const
@@ -136,16 +136,15 @@ public:
             cellPos[IX] += offset[IX]*cellSize*0.6;
             cellPos[IY] += offset[IY]*cellSize*0.6;
             cellPos[IZ] += offset[IZ]*cellSize*0.6;
-            auto periodic = pmesh->getPeriodic();
             // Maybe really no neighbor if outside domain
-            if( ( periodic[2*IX] or ( 0.0 <= cellPos[IX] && cellPos[IX] < 1.0 ) )
-             and ( periodic[2*IY] or ( 0.0 <= cellPos[IY] && cellPos[IY] < 1.0 ) )
-             and ( periodic[2*IZ] or ( 0.0 <= cellPos[IZ] && cellPos[IZ] < 1.0 ) ) )
+            if( ( is_periodic[IX] or ( 0.0 <= cellPos[IX] && cellPos[IX] < 1.0 ) )
+             and ( is_periodic[IY] or ( 0.0 <= cellPos[IY] && cellPos[IY] < 1.0 ) )
+             and ( is_periodic[IZ] or ( 0.0 <= cellPos[IZ] && cellPos[IZ] < 1.0 ) ) )
             {
                 //Get periodic position inside domain
-                if(periodic[2*IX]) cellPos[IX] -= std::floor(cellPos[IX]/1.0);
-                if(periodic[2*IY]) cellPos[IY] -= std::floor(cellPos[IY]/1.0);
-                if(periodic[2*IZ]) cellPos[IZ] -= std::floor(cellPos[IZ]/1.0);
+                if(is_periodic[IX]) cellPos[IX] -= std::floor(cellPos[IX]/1.0);
+                if(is_periodic[IY]) cellPos[IY] -= std::floor(cellPos[IY]/1.0);
+                if(is_periodic[IZ]) cellPos[IZ] -= std::floor(cellPos[IZ]/1.0);
 
                 fix_missing_corner_neighbor(iOct.iOct, offset, cellPos, neighbors);
             }
@@ -182,7 +181,7 @@ public:
       // in at least one dimension
       return (!this->is_periodic[IX] && !( 0<pos[IX] && pos[IX]<1 ))
           || (!this->is_periodic[IY] && !( 0<pos[IY] && pos[IY]<1 ))
-          || (!this->is_periodic[IZ] && !( 0<pos[IX] && pos[IZ]<1 )) ;      
+          || (ndim==3 && !this->is_periodic[IZ] && !( 0<pos[IZ] && pos[IZ]<1 )) ;      
     }
 
     // ------------------------
