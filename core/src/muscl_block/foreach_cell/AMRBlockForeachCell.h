@@ -27,6 +27,7 @@ public:
 
   using CellIndex = CellArray_impl::CellIndex;
   using CellArray = CellArray_impl::CellArray;
+  using CellArray_ghosted = CellArray_impl::CellArray_ghosted;
 
   /**
    * Represents a group of cells to be iterated upon
@@ -80,7 +81,7 @@ public:
    * CellArray::convert_index may perform a neighbor search to find the corresponding ghost cell
    * (that might be non-conforming, see CellIndex documentation)
    **/
-  CellArray get_patch_array(const DataArrayBlock& U, const DataArrayBlock& Ughost, const LightOctree& lmesh, const id2index_t& fm);
+  CellArray_ghosted get_ghosted_array(const DataArrayBlock& U, const DataArrayBlock& Ughost, const LightOctree& lmesh, const id2index_t& fm);
   /**
    * Allocate a new temporary ghosted cell array local to each patch
    * Only CellIndexes inside the block (+ ghosts) are allowed for Arrays created with this method : 
@@ -224,8 +225,8 @@ AMRBlockForeachCell::get_patch_array(const DataArrayBlock& U, uint32_t gx, uint3
 }
 
 inline
-AMRBlockForeachCell::CellArray 
-AMRBlockForeachCell::get_patch_array(const DataArrayBlock& U, const DataArrayBlock& Ughost,  const LightOctree& lmesh, const id2index_t& fm)
+AMRBlockForeachCell::CellArray_ghosted 
+AMRBlockForeachCell::get_ghosted_array(const DataArrayBlock& U, const DataArrayBlock& Ughost,  const LightOctree& lmesh, const id2index_t& fm)
 {
   const CData& cdata = this->cdata;
   uint32_t bx = cdata.bx;
@@ -236,7 +237,7 @@ AMRBlockForeachCell::get_patch_array(const DataArrayBlock& U, const DataArrayBlo
   assert(U.extent(2) == cdata.lmesh.getNumOctants());
   assert( cdata.ndim != 2 || bz==1 );
 
-  return CellArray{U, bx, by, bz, fm, true, Ughost, lmesh};
+  return CellArray_ghosted(CellArray{U, bx, by, bz, fm}, Ughost, lmesh);
 }
 
 inline

@@ -106,6 +106,7 @@ int main(int argc, char *argv[])
   { // Run with ForeachCell
     using ForeachCell = AMRBlockForeachCell;
     using PatchArray = AMRBlockForeachCell::CellArray;
+    using GhostArray = AMRBlockForeachCell::CellArray_ghosted;
     using CellIndex = AMRBlockForeachCell::CellIndex;
     using o_t = CellIndex::offset_t;
 
@@ -118,7 +119,7 @@ int main(int argc, char *argv[])
     });
 
 
-    PatchArray Uin =  foreach_cell.get_patch_array(U, Ughost, lmesh, fm);
+    GhostArray Uin =  foreach_cell.get_ghosted_array(U, Ughost, lmesh, fm);
     PatchArray Uout = foreach_cell.get_patch_array(U2, 0, 0, 0, fm);
     PatchArray Ugroup = foreach_cell.allocate_patch_tmp("Ugroup", 1, 1, 1, fm, nbFields);
     timers.get("run_foreach_cell").start();
@@ -132,7 +133,6 @@ int main(int argc, char *argv[])
         patch.foreach_cell(Uin, CELL_LAMBDA(const CellIndex& iCell_Uin)
         {
           CellIndex iCell_Ugroup = Ugroup.convert_index(iCell_Uin);
-
 
           real_t u_minus = Ugroup.at(iCell_Ugroup + o_t{-1, 0, 0}, IU );
           real_t u_plus  = Ugroup.at(iCell_Ugroup + o_t{ 1, 0, 0}, IU );

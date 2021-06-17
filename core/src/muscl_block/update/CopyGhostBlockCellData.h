@@ -3,10 +3,11 @@
 namespace dyablo { 
 namespace muscl_block {
 
-template< int ndim >
+template< int ndim, typename Array_t >
 KOKKOS_INLINE_FUNCTION
-HydroState3d getHydroState( const PatchArray& U, const CellIndex& iCell )
+HydroState3d getHydroState( const Array_t& U, const CellIndex& iCell_ )
 {
+  CellIndex iCell = U.convert_index(iCell_);
   HydroState3d res;
   res[ID] = U.at(iCell, ID);
   res[IP] = U.at(iCell, IP);
@@ -16,10 +17,11 @@ HydroState3d getHydroState( const PatchArray& U, const CellIndex& iCell )
   return res;
 }
 
-template< int ndim >
+template< int ndim, typename Array_t >
 KOKKOS_INLINE_FUNCTION
-void setHydroState( const PatchArray& U, const CellIndex& iCell, const HydroState3d& state )
+void setHydroState( const Array_t& U, const CellIndex& iCell_, const HydroState3d& state )
 {
+  CellIndex iCell = U.convert_index(iCell_);
   U.at(iCell, ID) = state[ID];
   U.at(iCell, IP) = state[IP];
   U.at(iCell, IU) = state[IU];
@@ -29,7 +31,7 @@ void setHydroState( const PatchArray& U, const CellIndex& iCell, const HydroStat
 
 template< int ndim >
 KOKKOS_INLINE_FUNCTION
-void copyGhostBlockCellData(const PatchArray& Uin, const CellIndex& iCell_Ugroup,
+void copyGhostBlockCellData(const GhostedArray& Uin, const CellIndex& iCell_Ugroup,
                             const ForeachCell::Patch& patch, 
                             real_t xmin, real_t ymin, real_t zmin, 
                             real_t xmax, real_t ymax, real_t zmax, 
@@ -59,7 +61,7 @@ void copyGhostBlockCellData(const PatchArray& Uin, const CellIndex& iCell_Ugroup
           boundary_offset[IZ] = std::ceil((cell_center[IZ]-zmax)/cell_size[IZ]);
     }
 
-    CellIndex iCell_Ugroup_inside = iCell_Ugroup.getNeighbor_local({ (int8_t)(-boundary_offset[IX]), (int8_t)(-boundary_offset[IY]), (int8_t)(-boundary_offset[IZ]) });
+    CellIndex iCell_Ugroup_inside = iCell_Ugroup.getNeighbor({ (int8_t)(-boundary_offset[IX]), (int8_t)(-boundary_offset[IY]), (int8_t)(-boundary_offset[IZ]) });
 
     CellIndex::offset_t offset_bc{};
     if( xbound == BC_PERIODIC   ) offset_bc[IX] = boundary_offset[IX];
@@ -75,7 +77,7 @@ void copyGhostBlockCellData(const PatchArray& Uin, const CellIndex& iCell_Ugroup
       if( zbound == BC_ABSORBING  ) offset_bc[IZ] = 0;
     }
 
-    iCell_Ugroup_inside = iCell_Ugroup_inside.getNeighbor_local(offset_bc);
+    iCell_Ugroup_inside = iCell_Ugroup_inside.getNeighbor(offset_bc);
 
     iCell_Uin = Uin.convert_index_ghost( iCell_Ugroup_inside );
 
@@ -99,7 +101,7 @@ void copyGhostBlockCellData(const PatchArray& Uin, const CellIndex& iCell_Ugroup
     for( int8_t dj=0; dj<=1; dj++ )
     for( int8_t di=0; di<=1; di++ )
     {
-        CellIndex iCell_ghost = iCell_Uin.getNeighbor_local({di,dj,dk});
+        CellIndex iCell_ghost = iCell_Uin.getNeighbor({di,dj,dk});
         u[ID] += Uin.at(iCell_ghost, ID)/nbCells;
         u[IP] += Uin.at(iCell_ghost, IP)/nbCells;
         u[IU] += Uin.at(iCell_ghost, IU)/nbCells;

@@ -57,6 +57,7 @@ MusclBlockUpdate_generic::~MusclBlockUpdate_generic()
 namespace{
 
 using ForeachCell = AMRBlockForeachCell;
+using GhostedArray = typename AMRBlockForeachCell::CellArray_ghosted;
 using PatchArray = typename AMRBlockForeachCell::CellArray;
 using CellIndex = typename AMRBlockForeachCell::CellIndex;
 
@@ -389,7 +390,7 @@ void update_aux(
   });
 
   // Create abstract PatchArray to access global array from raw DataArrayBlock
-  PatchArray Uin =  foreach_cell.get_patch_array(U_, Ughost_, lmesh, fm);
+  GhostedArray Uin =  foreach_cell.get_ghosted_array(U_, Ughost_, lmesh, fm);
   PatchArray Uout = foreach_cell.get_patch_array(Uout_, 0, 0, 0, fm);
 
   // Create abstract temporary ghosted arrays for patches 

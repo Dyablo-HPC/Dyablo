@@ -11,6 +11,7 @@ namespace CellArray_impl{
 #define CELLINDEX_BOUNDARY CellIndex{{0,true},0,0,0,0,0,0,CellIndex::BOUNDARY}
 
 class CellArray;
+class CellArray_ghosted;
 
 struct CellIndex
 {
@@ -67,9 +68,9 @@ struct CellIndex
 
 
   /**
-   * Compute neighbor index with neighbor-octant search.
+   * Compute neighbor index in a ghosted with neighbor-octant search.
    * 
-   * @param array an array with has_neighborhood()==true compatible with the current CellIndex (same block size)
+   * @param array a ghosted array compatible with the current CellIndex (same block size)
    * 
    * Offseting outside the block returns a CellIndex pointing to the 
    * corresponding neighbor octant. In this case `is_local()==false` and resulting 
@@ -80,20 +81,28 @@ struct CellIndex
    * NOTE : If block size is pair and > 2*offset, smaller siblings are guaranteed to be in the same block
    **/
   KOKKOS_INLINE_FUNCTION
+  CellIndex getNeighbor_ghost( const offset_t& offset, const CellArray_ghosted& array ) const;
+
+  /**
+   * Compute neighbor index with neighbor-octant search.
+   * 
+   * @param array an array compatible with the current CellIndex (same block size)   * 
+   * Offseting outside the block returns an invalid (is_valid()==false) CellIndex.
+   **/
+  KOKKOS_INLINE_FUNCTION
   CellIndex getNeighbor_ghost( const offset_t& offset, const CellArray& array ) const;
 
   /**
    * Compute neighbor index inside local block
-   * Offseting outside the block returns an index with is_valid()==false
-   * is result is_valid(), then it is also is_local()
+   * Offseting outside the local block is undefined behavior
    **/
   KOKKOS_INLINE_FUNCTION
-  CellIndex getNeighbor_local( const offset_t& offset ) const;
+  CellIndex getNeighbor( const offset_t& offset ) const;
 
   KOKKOS_INLINE_FUNCTION
   CellIndex operator+( const offset_t& offset ) const
   {
-    return getNeighbor_local(offset);
+    return getNeighbor(offset);
   }
 };
 
@@ -104,10 +113,39 @@ public:
   View_t U;    
   uint32_t bx,by,bz;
   id2index_t fm;
-  bool has_ghosts = false;
+
+  /**
+   * Convert cell index used for another array into an 
+   * index compatible with current array. 
+   * This method is assuming that the resulting index is valid and in the same block.
+   * Neighbor search is never performed, and a resulting index outside of block results in undefined behavior
+   **/
+  KOKKOS_INLINE_FUNCTION
+  CellIndex convert_index(const CellIndex& iCell) const;
+
+  /**
+   * Same as convert_index, but returns an index with is_valid() == false when resulting index is outside current block
+   **/
+  KOKKOS_INLINE_FUNCTION
+  CellIndex convert_index_ghost(const CellIndex& iCell) const;
+
+  /**
+   *  Get value of field for cell iCell
+   * 
+   * @param iCell must have a block size compatible with array
+   **/
+  KOKKOS_INLINE_FUNCTION
+  real_t& at( const CellIndex& iCell, VarIndex field ) const;
+};
+
+class CellArray_ghosted : public CellArray{
+public :
   View_t Ughost;
   LightOctree lmesh;
-  
+
+  CellArray_ghosted( const CellArray& a, const View_t& Ughost, const LightOctree& lmesh )
+    : CellArray(a), Ughost(Ughost), lmesh(lmesh)
+  {}
 
   /**
    * Convert cell index used for another array into an 
@@ -122,36 +160,20 @@ public:
   CellIndex convert_index_ghost(const CellIndex& iCell) const;
 
   /**
-   * Like convert_index_ghost, but assuming that the resulting index is valid and in the same block.
-   * Neighbor search is never performed, and a resulting index outside of block results in undefined behavior
-   **/
-  KOKKOS_INLINE_FUNCTION
-  CellIndex convert_index(const CellIndex& iCell) const;
-
-  /**
    *  Get value of field for cell iCell
    * 
-   * @param iCell must be a valid cell index. 
-   *              If iCell is originally an index for an array 
-   *              of different shape, it will be automatically converted 
-   *              but the resulting index must be inside local octant
+   * @param iCell must have a block size compatible with array
    **/
   KOKKOS_INLINE_FUNCTION
   real_t& at( const CellIndex& iCell, VarIndex field ) const;
-
-  KOKKOS_INLINE_FUNCTION
-  bool has_neighborhood() const
-  {
-    assert( !Ughost.is_allocated() || this->has_ghosts ); // If Ughost is set lmesh should be too
-
-    return this->has_ghosts;
-  }
 };
 
 CellIndex CellArray::convert_index(const CellIndex& in) const
 {
   assert( in.is_valid() ); // Index needs to be valid for conversion
-  assert( in.is_local() || this->has_neighborhood() ); // Non-local index can't be used when has_neighborhood() == false
+
+  if( in.bx == bx && in.by == by && in.bz == bz )
+    return in;
 
   int32_t gx = ((int32_t)bx-(int32_t)in.bx)/2;
   int32_t gy = ((int32_t)by-(int32_t)in.by)/2;
@@ -174,7 +196,33 @@ CellIndex CellArray::convert_index(const CellIndex& in) const
 CellIndex CellArray::convert_index_ghost(const CellIndex& in) const
 {
   assert( in.is_valid() ); // Index needs to be valid for conversion
-  assert( in.is_local() || this->has_neighborhood() ); // Non-local index can't be used when has_neighborhood() == false
+
+  if( in.bx == bx && in.by == by && in.bz == bz )
+    return in;
+
+  int32_t gx = ((int32_t)bx-(int32_t)in.bx)/2;
+  int32_t gy = ((int32_t)by-(int32_t)in.by)/2;
+  int32_t gz = ((int32_t)bz-(int32_t)in.bz)/2;
+  uint32_t i = in.i + gx;
+  uint32_t j = in.j + gy;
+  uint32_t k = in.k + gz;
+
+  if( i>=bx || j>=by || k>=bz )
+    return CELLINDEX_INVALID;
+
+  // non-local cells keep their non-local status, but not their level difference
+  CellIndex::Status cell_status =  in.is_local()?
+                                      CellIndex::LOCAL_TO_BLOCK
+                                    : CellIndex::SAME_SIZE;
+  return CellIndex{in.iOct, i, j, k, bx, by, bz, cell_status};
+}
+
+CellIndex CellArray_ghosted::convert_index_ghost(const CellIndex& in) const
+{
+  assert( in.is_valid() ); // Index needs to be valid for conversion
+
+  if( in.bx == bx && in.by == by && in.bz == bz )
+    return in;
 
   int32_t gx = ((int32_t)bx-(int32_t)in.bx)/2;
   int32_t gy = ((int32_t)by-(int32_t)in.by)/2;
@@ -184,9 +232,7 @@ CellIndex CellArray::convert_index_ghost(const CellIndex& in) const
   int32_t k = in.k + gz;
 
   if( i<0 || i>=(int32_t)bx || j<0 || j>=(int32_t)by || k<0 || k>=(int32_t)bz )
-  { // Index is outside of block
-    if( this->has_neighborhood() )
-    { // Neighbor search can be performed : find neighbor
+  {   // Index is outside of block : find neighbor
       // Closest position inside block
       uint32_t i_in = (uint32_t)i;
       uint32_t j_in = (uint32_t)j;
@@ -204,11 +250,6 @@ CellIndex CellArray::convert_index_ghost(const CellIndex& in) const
 
       CellIndex iCell_in{in.iOct, i_in, j_in, k_in, bx, by, bz};
       return iCell_in.getNeighbor_ghost( {di,dj,dk}, *this );
-    }
-    else
-    { // Neighbor search can't be performed : invalid
-      return CELLINDEX_INVALID;
-    }
   }
   else
   { // Index is inside block
@@ -220,9 +261,21 @@ CellIndex CellArray::convert_index_ghost(const CellIndex& in) const
   }
 }
 
-real_t& CellArray::at(const CellIndex& iCell_, VarIndex field) const
+real_t& CellArray::at(const CellIndex& iCell, VarIndex field) const
 {
-  CellIndex iCell = this->convert_index(iCell_);
+  assert(bx == iCell.bx);
+  assert(by == iCell.by);
+  assert(bz == iCell.bz);
+
+  uint32_t i = iCell.i + iCell.j*iCell.bx + iCell.k*iCell.bx*iCell.by;
+  return U(i, fm[field], iCell.iOct.iOct%U.extent(2));
+}
+
+real_t& CellArray_ghosted::at(const CellIndex& iCell, VarIndex field) const
+{
+  assert(bx == iCell.bx);
+  assert(by == iCell.by);
+  assert(bz == iCell.bz);
 
   uint32_t i = iCell.i + iCell.j*iCell.bx + iCell.k*iCell.bx*iCell.by;
   if( iCell.iOct.isGhost )
@@ -236,7 +289,7 @@ real_t& CellArray::at(const CellIndex& iCell_, VarIndex field) const
   }
 }
 
-CellIndex CellIndex::getNeighbor_local( const offset_t& offset ) const
+CellIndex CellIndex::getNeighbor( const offset_t& offset ) const
 {
   assert(is_valid());
 
@@ -248,20 +301,20 @@ CellIndex CellIndex::getNeighbor_local( const offset_t& offset ) const
                 ? CellIndex::LOCAL_TO_BLOCK
                 : CellIndex::SAME_SIZE;
 
-  if(res.i >= bx || res.j >= by || res.k >= bz )
-    return CELLINDEX_INVALID;
-  else
-    return res;
+  assert(res.i < bx);
+  assert(res.j < by);
+  assert(res.k < bz);
+ 
+  return res;
 }
 
-CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray& array ) const
+CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_ghosted& array ) const
 {
   assert(this->is_valid());
   assert(this->bx == array.bx );
   assert(this->by == array.by );
   assert(this->bz == array.bz );
   assert(this->is_local());
-  assert(array.has_neighborhood());
 
   const LightOctree& lmesh = array.lmesh;
 
@@ -277,7 +330,7 @@ CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray&
 
   if( oct_offset[IX] == 0 && oct_offset[IY] == 0 && oct_offset[IZ] == 0 )
   { // Neighbor cell is inside local octant
-    CellIndex res = this->getNeighbor_local( offset );
+    CellIndex res = this->getNeighbor( offset );
     assert(res.is_valid() && res.is_local());
     return res;
   }
@@ -406,6 +459,31 @@ CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray&
 
   assert(false); // unhandled case
   return CELLINDEX_INVALID;
+}
+
+CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray& array ) const
+{
+  assert(this->is_valid());
+  assert(this->bx == array.bx );
+  assert(this->by == array.by );
+  assert(this->bz == array.bz );
+  assert(this->is_local());
+
+  uint32_t i = this->i + offset[IX];
+  uint32_t j = this->j + offset[IY];
+  uint32_t k = this->k + offset[IZ];
+
+  if( i>=bx || j>=by || k>=bz )
+  { // Neighbor cell is inside local octant
+    CellIndex res = this->getNeighbor( offset );
+    assert(res.is_valid() && res.is_local());
+    return res;
+  }
+  else
+  { 
+    return CELLINDEX_INVALID;
+  }
+
 }
 
 } // namespace CellArray_impl
