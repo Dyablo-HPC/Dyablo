@@ -258,7 +258,7 @@ if (Kokkos_FOUND)
   message("  Kokkos_ENABLE_CUDA_LAMBDA=${Kokkos_ENABLE_CUDA_LAMBDA}")
   message("  Kokkos_ENABLE_CUDA_CONSTEXPR=${Kokkos_ENABLE_CUDA_CONSTEXPR}")
   message("  Kokkos_ENABLE_CUDA_UVM=${Kokkos_ENABLE_CUDA_UVM}")
-  message("  Kokkos_ARCH_${Kokkos_ARCH}=ON")
+  message("  Kokkos_ARCH=${Kokkos_ARCH}")
 endif(Kokkos_FOUND)
 
 if (Kokkos_ENABLE_CUDA)

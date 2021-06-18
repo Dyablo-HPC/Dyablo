@@ -208,6 +208,14 @@ if ( (NOT Kokkos_FOUND) OR FORCE_KOKKOS_BUILD )
     -DKokkos_ENABLE_DEBUG=${Kokkos_ENABLE_DEBUG}
     -DKokkos_ENABLE_DEBUG_BOUNDS_CHECK=${Kokkos_ENABLE_DEBUG_BOUNDS_CHECK}
     )
+
+  message( STATUS "Enabled architectures for Kokkos:" )
+  foreach(ARCH ${Kokkos_ARCH})
+    list (APPEND KOKKOS_CMAKE_ARGS
+      -DKokkos_ARCH_${ARCH}=ON
+    )
+    message( STATUS "- Kokkos_ARCH_${ARCH}=ON" )
+  endforeach()
   
   # CUDA specific argument
   if (Kokkos_ENABLE_CUDA)
@@ -216,7 +224,6 @@ if ( (NOT Kokkos_FOUND) OR FORCE_KOKKOS_BUILD )
       -DKokkos_ENABLE_CUDA_LAMBDA=${Kokkos_ENABLE_CUDA_LAMBDA}
       -DKokkos_ENABLE_CUDA_CONSTEXPR=${Kokkos_ENABLE_CUDA_CONSTEXPR}
       -DKokkos_ENABLE_CUDA_UVM=${Kokkos_ENABLE_CUDA_UVM}
-      -DKokkos_ARCH_${Kokkos_ARCH}=ON
       )
   endif()
 
