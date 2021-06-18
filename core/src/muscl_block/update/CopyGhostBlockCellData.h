@@ -5,9 +5,8 @@ namespace muscl_block {
 
 template< int ndim, typename Array_t >
 KOKKOS_INLINE_FUNCTION
-HydroState3d getHydroState( const Array_t& U, const CellIndex& iCell_ )
+HydroState3d getHydroState( const Array_t& U, const CellIndex& iCell )
 {
-  CellIndex iCell = U.convert_index(iCell_);
   HydroState3d res;
   res[ID] = U.at(iCell, ID);
   res[IP] = U.at(iCell, IP);
@@ -19,9 +18,8 @@ HydroState3d getHydroState( const Array_t& U, const CellIndex& iCell_ )
 
 template< int ndim, typename Array_t >
 KOKKOS_INLINE_FUNCTION
-void setHydroState( const Array_t& U, const CellIndex& iCell_, const HydroState3d& state )
+void setHydroState( const Array_t& U, const CellIndex& iCell, const HydroState3d& state )
 {
-  CellIndex iCell = U.convert_index(iCell_);
   U.at(iCell, ID) = state[ID];
   U.at(iCell, IP) = state[IP];
   U.at(iCell, IU) = state[IU];

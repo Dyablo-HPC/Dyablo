@@ -337,13 +337,17 @@ void compute_fluxes(ComponentIndex3D dir,
   CellIndex iCell_Source_C = Source.convert_index(iCell_Uout);
   CellIndex iCell_Source_L = iCell_Source_C + offsetm;
   CellIndex iCell_Source_R = iCell_Source_C + offsetp;
+  CellIndex iCell_Slopes_C = Slopes.convert_index(iCell_Uout);
+  CellIndex iCell_Slopes_L = iCell_Slopes_C + offsetm;
+  CellIndex iCell_Slopes_R = iCell_Slopes_C + offsetp;
+
 
   HydroState3d sourceL = getHydroState<ndim>( Source, iCell_Source_L );
   HydroState3d sourceC = getHydroState<ndim>( Source, iCell_Source_C );
   HydroState3d sourceR = getHydroState<ndim>( Source, iCell_Source_R );
-  HydroState3d slopeL  = getHydroState<ndim>( Slopes, iCell_Source_L );
-  HydroState3d slopeC  = getHydroState<ndim>( Slopes, iCell_Source_C );
-  HydroState3d slopeR  = getHydroState<ndim>( Slopes, iCell_Source_R );
+  HydroState3d slopeL  = getHydroState<ndim>( Slopes, iCell_Slopes_L );
+  HydroState3d slopeC  = getHydroState<ndim>( Slopes, iCell_Slopes_C );
+  HydroState3d slopeR  = getHydroState<ndim>( Slopes, iCell_Slopes_R );
 
   HydroState3d fluxL = compute_flux<ndim>( sourceL, sourceC, slopeL, slopeC, dir, smallr, params );
   HydroState3d fluxR = compute_flux<ndim>( sourceC, sourceR, slopeC, slopeR, dir, smallr, params );
