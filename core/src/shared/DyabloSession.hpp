@@ -4,6 +4,8 @@
 #include "utils/mpiUtils/GlobalMpiSession.h"
 #endif // DYABLO_USE_MPI
 
+#include "kokkos_shared.h"
+
 namespace dyablo {
 namespace shared {
 
