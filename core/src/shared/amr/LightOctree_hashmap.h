@@ -11,6 +11,14 @@
 
 namespace dyablo { 
 
+namespace{
+KOKKOS_INLINE_FUNCTION
+uint32_t pow_2( uint8_t n )
+{
+    return 1 << n;
+}
+}
+
 class LightOctree_hashmap : public LightOctree_base{
 public:
     LightOctree_hashmap() = default;
@@ -72,7 +80,7 @@ public:
     //! @copydoc LightOctree_base::getSize()
     KOKKOS_INLINE_FUNCTION real_t getSize(const OctantIndex& iOct)  const
     {
-        return 1.0/std::pow( 2, getLevel(iOct) );
+        return 1.0/pow_2( getLevel(iOct) );
     }
     //! @copydoc LightOctree_base::getLevel()
     KOKKOS_INLINE_FUNCTION uint8_t getLevel(const OctantIndex& iOct)  const
@@ -90,7 +98,7 @@ public:
         // Compute physical position of neighbor
         pos_t c = getCenter(iOct);
         uint8_t level = getLevel(iOct); 
-        uint32_t octant_count = std::pow( 2, level );
+        uint32_t octant_count = pow_2( level );
         real_t octant_size = 1.0/octant_count;
         real_t eps = octant_size/8;
         // Compute logical octant position at this level
@@ -186,10 +194,10 @@ public:
     KOKKOS_INLINE_FUNCTION
     OctantIndex getiOctFromCoordinates(uint16_t ix, uint16_t iy, uint16_t iz, uint16_t level) const
     {
-        assert( ix < std::pow( 2, level )  );
-        assert( iy < std::pow( 2, level )  );
+        assert( ix < pow_2( level )  );
+        assert( iy < pow_2( level )  );
         if(ndim == 3)
-            assert( iz < std::pow( 2, level )  );
+            assert( iz < pow_2( level )  );
         else 
             assert( iz == 0  );
 
@@ -215,7 +223,7 @@ public:
         morton_t morton;
         {
             index_t<3> logical_coords;
-            uint32_t octant_count = std::pow( 2, max_level );
+            uint32_t octant_count = pow_2( max_level );
             real_t octant_size = 1.0/octant_count;
             logical_coords[IX] = std::floor(pos[IX]/octant_size);
             logical_coords[IY] = std::floor(pos[IY]/octant_size);
@@ -336,7 +344,7 @@ public: // init() has to be public for KOKKOS_LAMBDA
             c[IZ] = oct_data(ioct_local, ICORNERZ);
             uint8_t level = oct_data(ioct_local, ILEVEL);
 
-            uint32_t octant_count = std::pow( 2, level );
+            uint32_t octant_count = pow_2( level );
             real_t octant_size = 1.0/octant_count;
             real_t eps = octant_size/8; // To avoid rounding error when computing logical coords
                 auto periodic_coord = [=](real_t pos) -> int32_t
