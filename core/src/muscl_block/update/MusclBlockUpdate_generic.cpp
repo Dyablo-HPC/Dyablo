@@ -212,7 +212,7 @@ void compute_slopes( const PatchArray& Qgroup, const CellIndex& iCell_Sources, i
     HydroState3d qp = getHydroState<ndim>( Qgroup, ib + o_t{ 1, 0, 0});     
 
     sx = compute_slope<ndim>(qm, qc, qp, slope_type);
-    CellIndex iCell_x = SlopesX.convert_index(iCell_Sources);
+    CellIndex iCell_x = SlopesX.convert_index_ghost(iCell_Sources);
     if(iCell_x.is_valid())
     {
       setHydroState<ndim>(SlopesX, iCell_x, sx);
@@ -226,7 +226,7 @@ void compute_slopes( const PatchArray& Qgroup, const CellIndex& iCell_Sources, i
 
     sy = compute_slope<ndim>(qm, qc, qp, slope_type);
 
-    CellIndex iCell_y = SlopesY.convert_index(iCell_Sources);
+    CellIndex iCell_y = SlopesY.convert_index_ghost(iCell_Sources);
     if(iCell_y.is_valid())
     {
       setHydroState<ndim>(SlopesY, iCell_y, sy);
@@ -241,7 +241,7 @@ void compute_slopes( const PatchArray& Qgroup, const CellIndex& iCell_Sources, i
 
     sz = compute_slope<ndim>(qm, qc, qp, slope_type);
 
-    CellIndex iCell_z = SlopesZ.convert_index(iCell_Sources);
+    CellIndex iCell_z = SlopesZ.convert_index_ghost(iCell_Sources);
     if(iCell_z.is_valid())
     {
       setHydroState<ndim>(SlopesZ, iCell_z, sz);

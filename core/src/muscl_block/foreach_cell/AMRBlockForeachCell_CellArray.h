@@ -91,7 +91,7 @@ struct CellIndex
   CellIndex getNeighbor_local( const offset_t& offset ) const;
 
   KOKKOS_INLINE_FUNCTION
-  CellIndex operator+( const offset_t& offset )
+  CellIndex operator+( const offset_t& offset ) const
   {
     return getNeighbor_local(offset);
   }
@@ -119,14 +119,14 @@ public:
    * Neighbor search is never performed on non-local indexes, is_valid()==false when resulting index is outside of block.
    **/
   KOKKOS_INLINE_FUNCTION
-  CellIndex convert_index(const CellIndex& iCell) const;
+  CellIndex convert_index_ghost(const CellIndex& iCell) const;
 
   /**
-   * Like convert_index, but assuming that the resulting index is valid and in the same block.
+   * Like convert_index_ghost, but assuming that the resulting index is valid and in the same block.
    * Neighbor search is never performed, and a resulting index outside of block results in undefined behavior
    **/
   KOKKOS_INLINE_FUNCTION
-  CellIndex convert_index_nocheck(const CellIndex& iCell) const;
+  CellIndex convert_index(const CellIndex& iCell) const;
 
   /**
    *  Get value of field for cell iCell
@@ -148,7 +148,7 @@ public:
   }
 };
 
-CellIndex CellArray::convert_index_nocheck(const CellIndex& in) const
+CellIndex CellArray::convert_index(const CellIndex& in) const
 {
   assert( in.is_valid() ); // Index needs to be valid for conversion
   assert( in.is_local() || this->has_neighborhood() ); // Non-local index can't be used when has_neighborhood() == false
@@ -171,7 +171,7 @@ CellIndex CellArray::convert_index_nocheck(const CellIndex& in) const
   return CellIndex{in.iOct, (uint32_t)i, (uint32_t)j, (uint32_t)k, bx, by, bz, cell_status};
 }
 
-CellIndex CellArray::convert_index(const CellIndex& in) const
+CellIndex CellArray::convert_index_ghost(const CellIndex& in) const
 {
   assert( in.is_valid() ); // Index needs to be valid for conversion
   assert( in.is_local() || this->has_neighborhood() ); // Non-local index can't be used when has_neighborhood() == false
@@ -222,7 +222,7 @@ CellIndex CellArray::convert_index(const CellIndex& in) const
 
 real_t& CellArray::at(const CellIndex& iCell_, VarIndex field) const
 {
-  CellIndex iCell = this->convert_index_nocheck(iCell_);
+  CellIndex iCell = this->convert_index(iCell_);
 
   uint32_t i = iCell.i + iCell.j*iCell.bx + iCell.k*iCell.bx*iCell.by;
   if( iCell.iOct.isGhost )

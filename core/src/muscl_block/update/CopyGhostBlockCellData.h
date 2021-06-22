@@ -36,7 +36,7 @@ void copyGhostBlockCellData(const PatchArray& Uin, const CellIndex& iCell_Ugroup
                             BoundaryConditionType xbound, BoundaryConditionType ybound, BoundaryConditionType zbound, 
                             const PatchArray& Ugroup)
 {
-  CellIndex iCell_Uin = Uin.convert_index(iCell_Ugroup);
+  CellIndex iCell_Uin = Uin.convert_index_ghost(iCell_Ugroup);
   int revert_x = 1, revert_y = 1, revert_z = 1;
   if( iCell_Uin.is_boundary() )
   {
@@ -77,7 +77,7 @@ void copyGhostBlockCellData(const PatchArray& Uin, const CellIndex& iCell_Ugroup
 
     iCell_Ugroup_inside = iCell_Ugroup_inside.getNeighbor_local(offset_bc);
 
-    iCell_Uin = Uin.convert_index( iCell_Ugroup_inside );
+    iCell_Uin = Uin.convert_index_ghost( iCell_Ugroup_inside );
 
     assert( !iCell_Uin.is_boundary() );
   }

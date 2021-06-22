@@ -60,7 +60,7 @@ public:
      *            This is usually a lambda that reads and modify CellArrays at position iCell
      **/
     template <typename Function>
-    void foreach_cell(const CellArray& iter_space, Function f) const;
+    void foreach_cell(const CellArray& iter_space, const Function& f) const;
   private : 
     PData pdata;
   };
@@ -158,6 +158,22 @@ void AMRBlockForeachCell::foreach_patch(const std::string& kernel_name, const Fu
   }
 }
 
+// template <typename Function>
+// struct foreach_cell_functor{
+//   uint32_t nbCellsPerBlock, bx, by, bz;
+//   uint32_t group_begin;
+//   Function f;
+
+//   KOKKOS_INLINE_FUNCTION
+//   void operator()(uint32_t index) const
+//   {
+//     uint32_t iOct = group_begin + index/nbCellsPerBlock;
+//     index = index%nbCellsPerBlock;
+
+//     AMRBlockForeachCell::CellIndex iCell = {{iOct,false}, index, bx, by, bz};
+//     f( iCell );
+//   }
+// };
 
 template <typename Function>
 void AMRBlockForeachCell::Patch::foreach_cell(const CellArray& iter_space, const Function& f) const
@@ -169,6 +185,10 @@ void AMRBlockForeachCell::Patch::foreach_cell(const CellArray& iter_space, const
 
   uint32_t nbOctsInGroup = this->pdata.nbOctsInGroup;
   uint32_t group_begin = this->pdata.group_begin;
+
+  // Kokkos::parallel_for( "AMRBlockForeachCell::Patch::foreach_cell",
+  //     Kokkos::RangePolicy<>(0,nbOctsInGroup*nbCellsPerBlock), 
+  //    foreach_cell_functor<Function>{nbCellsPerBlock, bx, by, bz, group_begin, f});
 
   Kokkos::parallel_for( "AMRBlockForeachCell::Patch::foreach_cell",
       nbOctsInGroup*nbCellsPerBlock, 
