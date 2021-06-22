@@ -158,29 +158,9 @@ void AMRBlockForeachCell::foreach_patch(const std::string& kernel_name, const Fu
   }
 }
 
-template <typename Function>
-struct foreach_cell_functor{
-  uint32_t nbCellsPerBlock, bx, by, bz;
-  uint32_t group_begin;
-  Function f;
-
-  KOKKOS_INLINE_FUNCTION
-  void operator()(uint32_t index) const
-  {
-    uint32_t iOct = group_begin + index/nbCellsPerBlock;
-    index = index%nbCellsPerBlock;
-
-    uint32_t k = index/(bx*by);
-    uint32_t j = (index - k*bx*by)/bx;
-    uint32_t i = index - j*bx - k*bx*by;
-
-    AMRBlockForeachCell::CellIndex iCell = {{iOct,false}, i, j, k, bx, by, bz};
-    f( iCell );
-  }
-};
 
 template <typename Function>
-void AMRBlockForeachCell::Patch::foreach_cell(const CellArray& iter_space, Function f) const
+void AMRBlockForeachCell::Patch::foreach_cell(const CellArray& iter_space, const Function& f) const
 {
   uint32_t bx = iter_space.bx;
   uint32_t by = iter_space.by;
@@ -191,8 +171,19 @@ void AMRBlockForeachCell::Patch::foreach_cell(const CellArray& iter_space, Funct
   uint32_t group_begin = this->pdata.group_begin;
 
   Kokkos::parallel_for( "AMRBlockForeachCell::Patch::foreach_cell",
-      Kokkos::RangePolicy<>(0,nbOctsInGroup*nbCellsPerBlock), 
-      foreach_cell_functor<Function>{nbCellsPerBlock, bx, by, bz, group_begin, f});
+      nbOctsInGroup*nbCellsPerBlock, 
+      KOKKOS_LAMBDA (uint32_t index)
+  {
+    uint32_t iOct = group_begin + index/nbCellsPerBlock;
+    index = index%nbCellsPerBlock;
+
+    uint32_t k = index/(bx*by);
+    uint32_t j = (index - k*bx*by)/bx;
+    uint32_t i = index - j*bx - k*bx*by;
+
+    AMRBlockForeachCell::CellIndex iCell = {{iOct,false}, i, j, k, bx, by, bz};
+    f( iCell );
+  });
 
   //_pdata.member.team_barrier();
 }
