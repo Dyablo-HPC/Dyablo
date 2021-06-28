@@ -221,7 +221,7 @@ AMRBlockForeachCell::get_patch_array(const DataArrayBlock& U, uint32_t gx, uint3
   assert(U.extent(2) >= cdata.lmesh.getNumOctants());
   assert( cdata.ndim != 2 || bz==1 );
 
-  return CellArray{U, bx, by, bz, fm};
+  return CellArray{U, bx, by, bz, (uint32_t)U.extent(2), fm};
 }
 
 inline
@@ -237,7 +237,7 @@ AMRBlockForeachCell::get_ghosted_array(const DataArrayBlock& U, const DataArrayB
   assert(U.extent(2) == cdata.lmesh.getNumOctants());
   assert( cdata.ndim != 2 || bz==1 );
 
-  return CellArray_ghosted(CellArray{U, bx, by, bz, fm}, Ughost, lmesh);
+  return CellArray_ghosted(CellArray{U, bx, by, bz, (uint32_t)U.extent(2), fm}, Ughost, lmesh);
 }
 
 inline
@@ -252,7 +252,7 @@ AMRBlockForeachCell::allocate_patch_tmp(std::string name, int gx, int gy, int gz
   assert( cdata.ndim != 2 || bz==1 );
 
   DataArrayBlock data(name, bx*by*bz, nvars, nbOctsPerGroup);
-  return CellArray{ data, bx, by, bz, fm };
+  return CellArray{ data, bx, by, bz, (uint32_t)data.extent(2), fm };
 }
 
 } // namespace muscl_block

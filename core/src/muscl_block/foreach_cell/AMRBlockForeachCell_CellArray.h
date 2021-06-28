@@ -112,6 +112,7 @@ public:
 
   View_t U;    
   uint32_t bx,by,bz;
+  uint32_t nbOcts;
   id2index_t fm;
 
   /**
@@ -171,6 +172,7 @@ public :
 CellIndex CellArray::convert_index(const CellIndex& in) const
 {
   assert( in.is_valid() ); // Index needs to be valid for conversion
+  assert( in.is_local() ); // cannot access ghosts in CellArray
 
   if( in.bx == bx && in.by == by && in.bz == bz )
     return in;
@@ -186,16 +188,13 @@ CellIndex CellArray::convert_index(const CellIndex& in) const
   assert(j>=0); assert(j<(int32_t)by);
   assert(k>=0); assert(k<(int32_t)bz);
 
-  // non-local cells keep their non-local status, but not their level difference
-  CellIndex::Status cell_status =  in.is_local()?
-                                      CellIndex::LOCAL_TO_BLOCK
-                                    : CellIndex::SAME_SIZE;
-  return CellIndex{in.iOct, (uint32_t)i, (uint32_t)j, (uint32_t)k, bx, by, bz, cell_status};
+  return CellIndex{in.iOct, (uint32_t)i, (uint32_t)j, (uint32_t)k, bx, by, bz, CellIndex::LOCAL_TO_BLOCK};
 }
 
 CellIndex CellArray::convert_index_ghost(const CellIndex& in) const
 {
   assert( in.is_valid() ); // Index needs to be valid for conversion
+  assert( in.is_local() ); // cannot access ghosts in CellArray
 
   if( in.bx == bx && in.by == by && in.bz == bz )
     return in;
@@ -210,11 +209,7 @@ CellIndex CellArray::convert_index_ghost(const CellIndex& in) const
   if( i>=bx || j>=by || k>=bz )
     return CELLINDEX_INVALID;
 
-  // non-local cells keep their non-local status, but not their level difference
-  CellIndex::Status cell_status =  in.is_local()?
-                                      CellIndex::LOCAL_TO_BLOCK
-                                    : CellIndex::SAME_SIZE;
-  return CellIndex{in.iOct, i, j, k, bx, by, bz, cell_status};
+  return CellIndex{in.iOct, i, j, k, bx, by, bz, CellIndex::LOCAL_TO_BLOCK};
 }
 
 CellIndex CellArray_ghosted::convert_index_ghost(const CellIndex& in) const
@@ -268,7 +263,7 @@ real_t& CellArray::at(const CellIndex& iCell, VarIndex field) const
   assert(bz == iCell.bz);
 
   uint32_t i = iCell.i + iCell.j*iCell.bx + iCell.k*iCell.bx*iCell.by;
-  return U(i, fm[field], iCell.iOct.iOct%U.extent(2));
+  return U(i, fm[field], iCell.iOct.iOct%nbOcts);
 }
 
 real_t& CellArray_ghosted::at(const CellIndex& iCell, VarIndex field) const
@@ -285,7 +280,7 @@ real_t& CellArray_ghosted::at(const CellIndex& iCell, VarIndex field) const
   }
   else
   {
-    return U(i, fm[field], iCell.iOct.iOct%U.extent(2));
+    return U(i, fm[field], iCell.iOct.iOct);
   }
 }
 
