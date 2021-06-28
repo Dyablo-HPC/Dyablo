@@ -89,9 +89,9 @@ int main(int argc, char *argv[])
           real_t w_minus = Ugroup(iCell_Ugroup - (bx+2)*(by+2), fm[IW], iOct );
           real_t w_plus  = Ugroup(iCell_Ugroup + (bx+2)*(by+2), fm[IW], iOct );
 
-          U2( iCell, fm[ID], iOct ) = std::log(std::abs(u_minus)) + std::log(std::abs(u_plus)) + 
-                                    std::log(std::abs(v_minus)) + std::log(std::abs(v_plus)) + 
-                                    std::log(std::abs(w_minus)) + std::log(std::abs(w_plus));
+          U2( iCell, fm[ID], iOct ) = u_minus*u_minus + u_plus*u_plus + 
+                                    v_minus*v_minus + v_plus*v_plus + 
+                                    w_minus*w_minus + w_plus*w_plus;
         });
       }
     }
@@ -141,9 +141,9 @@ int main(int argc, char *argv[])
           real_t w_minus = Ugroup.at(iCell_Ugroup + o_t{0, 0, -1}, IW );
           real_t w_plus  = Ugroup.at(iCell_Ugroup + o_t{0, 0,  1}, IW );
 
-          Uout.at(iCell_Uin, ID) = std::log(std::abs(u_minus)) + std::log(std::abs(u_plus)) + 
-                                  std::log(std::abs(v_minus)) + std::log(std::abs(v_plus)) + 
-                                  std::log(std::abs(w_minus)) + std::log(std::abs(w_plus));
+          Uout.at(iCell_Uin, ID) = u_minus*u_minus + u_plus*u_plus + 
+                                    v_minus*v_minus + v_plus*v_plus + 
+                                    w_minus*w_minus + w_plus*w_plus;
         });
       });
     }
