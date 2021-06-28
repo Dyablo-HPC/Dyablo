@@ -182,7 +182,6 @@ void AMRBlockForeachCell::Patch::foreach_cell(const CellArray& iter_space, const
   uint32_t bx = iter_space.bx;
   uint32_t by = iter_space.by;
   uint32_t bz = iter_space.bz;
-  uint32_t nbCellsPerBlock = bx*by*bz;
 
   uint32_t nbOctsInGroup = this->pdata.nbOctsInGroup;
   uint32_t group_begin = this->pdata.group_begin;
@@ -191,6 +190,27 @@ void AMRBlockForeachCell::Patch::foreach_cell(const CellArray& iter_space, const
   //     Kokkos::RangePolicy<>(0,nbOctsInGroup*nbCellsPerBlock), 
   //    foreach_cell_functor<Function>{nbCellsPerBlock, bx, by, bz, group_begin, f});
 
+  // uint32_t vector_size = std::min( (uint32_t)Kokkos::TeamPolicy<>::vector_length_max(), bx );
+  // Kokkos::parallel_for( "AMRBlockForeachCell::Patch::foreach_cell",
+  //   Kokkos::TeamPolicy<>(nbOctsInGroup, Kokkos::AUTO(), vector_size ),
+  //   KOKKOS_LAMBDA( auto m)
+  // {
+  //   uint32_t iOct = group_begin+m.league_rank();
+  //   Kokkos::parallel_for( Kokkos::TeamThreadRange(m, bz*by),
+  //     [&]( uint32_t kj )
+  //   {
+  //     uint32_t k = kj/by;
+  //     uint32_t j = kj%by;
+  //     Kokkos::parallel_for( Kokkos::ThreadVectorRange(m, bx),
+  //     [&]( uint32_t i )
+  //     {
+  //       AMRBlockForeachCell::CellIndex iCell = {{iOct,false}, i, j, k, bx, by, bz};
+  //       f( iCell );
+  //     });
+  //   });
+  // });
+
+  uint32_t nbCellsPerBlock = bx*by*bz;
   Kokkos::parallel_for( "AMRBlockForeachCell::Patch::foreach_cell",
       nbOctsInGroup*nbCellsPerBlock, 
       KOKKOS_LAMBDA (uint32_t index)
