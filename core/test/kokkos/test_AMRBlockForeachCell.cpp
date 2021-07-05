@@ -2,8 +2,14 @@
 #include "shared/DyabloSession.hpp"
 #include "shared/amr/AMRmesh.h"
 #include "shared/amr/LightOctree.h"
-#include "muscl_block/foreach_cell/AMRBlockForeachCell.h"
+#include "muscl_block/foreach_cell/AMRBlockForeachCell_group.h"
+namespace dyablo { 
+namespace muscl_block {
+  using AMRBlockForeachCell = AMRBlockForeachCell_group;
+}
+}
 #include "utils/monitoring/Timers.h"
+
 
 using namespace dyablo;
 using namespace dyablo::muscl_block;

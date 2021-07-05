@@ -8,7 +8,7 @@ namespace muscl_block {
 
 class AMRBlockForeachCell_Patch;
 
-namespace CellArray_impl{
+namespace AMRBlockForeachCell_group_impl{
 
 #define CELLINDEX_INVALID CellIndex{{0,true},0,0,0,0,0,0,CellIndex::INVALID}
 #define CELLINDEX_BOUNDARY CellIndex{{0,true},0,0,0,0,0,0,CellIndex::BOUNDARY}

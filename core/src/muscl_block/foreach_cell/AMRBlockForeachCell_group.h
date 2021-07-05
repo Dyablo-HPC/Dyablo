@@ -1,12 +1,16 @@
 #pragma once
 
-#include "muscl_block/foreach_cell/AMRBlockForeachCell_CellArray.h"
+#include "muscl_block/foreach_cell/AMRBlockForeachCell_group_CellArray.h"
 
 #define PATCH_LAMBDA [&]
 #define CELL_LAMBDA KOKKOS_LAMBDA
 
 namespace dyablo {
 namespace muscl_block {
+
+namespace AMRBlockForeachCell_group_impl{
+
+class AMRBlockForeachCell_Patch;
 
 class AMRBlockForeachCell{
 public:
@@ -25,10 +29,10 @@ private:
 
 public:
 
-  using CellIndex = CellArray_impl::CellIndex;
-  using CellArray_global = CellArray_impl::CellArray_global;
-  using CellArray_global_ghosted = CellArray_impl::CellArray_global_ghosted;
-  using CellArray_patch = CellArray_impl::CellArray_patch;
+  using CellIndex = AMRBlockForeachCell_group_impl::CellIndex;
+  using CellArray_global = AMRBlockForeachCell_group_impl::CellArray_global;
+  using CellArray_global_ghosted = AMRBlockForeachCell_group_impl::CellArray_global_ghosted;
+  using CellArray_patch = AMRBlockForeachCell_group_impl::CellArray_patch;
 
 
   using Patch = AMRBlockForeachCell_Patch;
@@ -109,7 +113,7 @@ public:
    **/
   template <typename View_t, typename Function>
   KOKKOS_INLINE_FUNCTION
-  void foreach_cell(const CellArray_impl::CellArray_base<View_t>& iter_space, const Function& f) const;
+  void foreach_cell(const CellArray_base<View_t>& iter_space, const Function& f) const;
 
   KOKKOS_INLINE_FUNCTION
   CellArray_patch allocate_tmp( const CellArray_patch::Ref& array_ref ) const;
@@ -194,7 +198,7 @@ void AMRBlockForeachCell::foreach_patch(const std::string& kernel_name, const Fu
 // };
 
 template <typename View_t, typename Function>
-void AMRBlockForeachCell_Patch::foreach_cell(const CellArray_impl::CellArray_base<View_t>& iter_space, const Function& f) const
+void AMRBlockForeachCell_Patch::foreach_cell(const CellArray_base<View_t>& iter_space, const Function& f) const
 {
   uint32_t bx = iter_space.bx;
   uint32_t by = iter_space.by;
@@ -296,6 +300,10 @@ AMRBlockForeachCell::CellArray_patch AMRBlockForeachCell::Patch::allocate_tmp(co
 {
   return array_ref;
 }
+
+} // namespace AMRBlockForeachCell_group_impl
+
+using AMRBlockForeachCell_group = AMRBlockForeachCell_group_impl::AMRBlockForeachCell;
 
 } // namespace muscl_block
 } // namespace dyablo
