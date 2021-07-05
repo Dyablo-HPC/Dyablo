@@ -26,45 +26,12 @@ private:
 public:
 
   using CellIndex = CellArray_impl::CellIndex;
-  using CellArray = CellArray_impl::CellArray;
-  using CellArray_ghosted = CellArray_impl::CellArray_ghosted;
+  using CellArray_global = CellArray_impl::CellArray_global;
+  using CellArray_global_ghosted = CellArray_impl::CellArray_global_ghosted;
+  using CellArray_patch = CellArray_impl::CellArray_patch;
 
-  /**
-   * Represents a group of cells to be iterated upon
-   * This is an abstract interface for hyerarchical parallelism on cell arrays 
-   * It enables the allocation of temporary arrays to store intermediate results 
-   * for the current patch
-   **/
-  class Patch{
-  public:
-    struct PData{
-      const CData cdata;
-      uint32_t group_begin, nbOctsInGroup;
-      //Kokkos::TeamPolicy<Kokkos::IndexType<uint32_t>>::member_type member;
-    };
 
-    KOKKOS_INLINE_FUNCTION
-    Patch( const PData& pdata );
-
-    using pos_t = Kokkos::Array<real_t, 3>;
-
-    KOKKOS_INLINE_FUNCTION
-    pos_t getCellSize( const CellIndex& iCell ) const;
-    
-    KOKKOS_INLINE_FUNCTION
-    pos_t getCellCenter( const CellIndex& iCell ) const;
-
-    /**
-     * Apply the user-defined function f to every cell of the patch
-     * @param iter_space : the iCell parameter in f will take every valid position inside iter_space
-     * @param f : a const CellIndex& iCell -> void function 
-     *            This is usually a lambda that reads and modify CellArrays at position iCell
-     **/
-    template <typename Function>
-    void foreach_cell(const CellArray& iter_space, const Function& f) const;
-  private : 
-    PData pdata;
-  };
+  using Patch = AMRBlockForeachCell_Patch;
 
   /**
    * Create a new Patch::CellArray from a global array with ghost zone
@@ -73,7 +40,7 @@ public:
    * when CellIndex is outside the block (when iter_space is ghosted, or an offset was applied), 
    * CellArray::convert_index returns an index with status == invalid (no neighbor search is performed)
    **/
-  CellArray get_patch_array(const DataArrayBlock& U, uint32_t gx, uint32_t gy, uint32_t gz, const id2index_t& fm);
+  CellArray_global get_global_array(const DataArrayBlock& U, uint32_t gx, uint32_t gy, uint32_t gz, const id2index_t& fm);
   /**
    * Create a new Patch::CellArray from a global array and its ghosts
    * The slice of U corresponding to the current patch will be exposed inside foreach_patch.
@@ -81,14 +48,16 @@ public:
    * CellArray::convert_index may perform a neighbor search to find the corresponding ghost cell
    * (that might be non-conforming, see CellIndex documentation)
    **/
-  CellArray_ghosted get_ghosted_array(const DataArrayBlock& U, const DataArrayBlock& Ughost, const LightOctree& lmesh, const id2index_t& fm);
+  CellArray_global_ghosted get_ghosted_array(const DataArrayBlock& U, const DataArrayBlock& Ughost, const LightOctree& lmesh, const id2index_t& fm);
   /**
-   * Allocate a new temporary ghosted cell array local to each patch
+   * Reserve a new temporary ghosted cell array local to each patch. 
+   * Actual array has to be created with Patch::allocate_tmp() inside the foreach_patch loop.
+   * (Actual allocation may happen anywhere between calls to reserve_patch_tmp() and allocate_tmp() )
    * Only CellIndexes inside the block (+ ghosts) are allowed for Arrays created with this method : 
    * For CellIndexes outside the block (when iter_space is has more ghosts, or an offset was applied),
    * CellArray::convert_index returns an index with status == invalid (no neighbor search is performed) 
    **/
-  CellArray allocate_patch_tmp(std::string name, int gx, int gy, int gz, const id2index_t& fm, int nvars);
+  CellArray_patch::Ref reserve_patch_tmp(std::string name, int gx, int gy, int gz, const id2index_t& fm, int nvars);
 
   /**
    * Call the user-defined function f for each patch
@@ -100,18 +69,66 @@ public:
   void foreach_patch(const std::string& kernel_name, const Function& f) const;
 };
 
+/**
+ * Represents a group of cells to be iterated upon
+ * This is an abstract interface for hyerarchical parallelism on cell arrays 
+ * It enables the allocation of temporary arrays to store intermediate results 
+ * for the current patch
+ **/
+class AMRBlockForeachCell_Patch{
+public:
+  friend AMRBlockForeachCell;
+  friend AMRBlockForeachCell::CellArray_patch;
+
+  using CellIndex = AMRBlockForeachCell::CellIndex;
+  using CellArray_patch = AMRBlockForeachCell::CellArray_patch;
+  using CData = AMRBlockForeachCell::CData;
+
+  struct PData{
+    const CData cdata;
+    uint32_t group_begin, nbOctsInGroup;
+    //Kokkos::TeamPolicy<Kokkos::IndexType<uint32_t>>::member_type member;
+  };
+
+  KOKKOS_INLINE_FUNCTION
+  AMRBlockForeachCell_Patch( const PData& pdata );
+
+  using pos_t = Kokkos::Array<real_t, 3>;
+
+  KOKKOS_INLINE_FUNCTION
+  pos_t getCellSize( const CellIndex& iCell ) const;
+  
+  KOKKOS_INLINE_FUNCTION
+  pos_t getCellCenter( const CellIndex& iCell ) const;
+
+  /**
+   * Apply the user-defined function f to every cell of the patch
+   * @param iter_space : the iCell parameter in f will take every valid position inside iter_space
+   * @param f : a const CellIndex& iCell -> void function 
+   *            This is usually a lambda that reads and modify CellArrays at position iCell
+   **/
+  template <typename View_t, typename Function>
+  KOKKOS_INLINE_FUNCTION
+  void foreach_cell(const CellArray_impl::CellArray_base<View_t>& iter_space, const Function& f) const;
+
+  KOKKOS_INLINE_FUNCTION
+  CellArray_patch allocate_tmp( const CellArray_patch::Ref& array_ref ) const;
+private : 
+  PData pdata;
+};
+
 inline
 AMRBlockForeachCell::AMRBlockForeachCell(const CData& cdata)
   : cdata(cdata)
 {}
 
 inline
-AMRBlockForeachCell::Patch::Patch(const AMRBlockForeachCell::Patch::PData& pdata)
+AMRBlockForeachCell_Patch::AMRBlockForeachCell_Patch(const AMRBlockForeachCell_Patch::PData& pdata)
   : pdata(pdata)
 {}
 
 KOKKOS_INLINE_FUNCTION
-AMRBlockForeachCell::Patch::pos_t AMRBlockForeachCell::Patch::getCellSize( const CellIndex& iCell ) const
+AMRBlockForeachCell::Patch::pos_t AMRBlockForeachCell_Patch::getCellSize( const CellIndex& iCell ) const
 {
   const CData& cdata = this->pdata.cdata;
   const LightOctree& lmesh = cdata.lmesh;
@@ -176,8 +193,8 @@ void AMRBlockForeachCell::foreach_patch(const std::string& kernel_name, const Fu
 //   }
 // };
 
-template <typename Function>
-void AMRBlockForeachCell::Patch::foreach_cell(const CellArray& iter_space, const Function& f) const
+template <typename View_t, typename Function>
+void AMRBlockForeachCell_Patch::foreach_cell(const CellArray_impl::CellArray_base<View_t>& iter_space, const Function& f) const
 {
   uint32_t bx = iter_space.bx;
   uint32_t by = iter_space.by;
@@ -230,8 +247,8 @@ void AMRBlockForeachCell::Patch::foreach_cell(const CellArray& iter_space, const
 }
 
 inline
-AMRBlockForeachCell::CellArray 
-AMRBlockForeachCell::get_patch_array(const DataArrayBlock& U, uint32_t gx, uint32_t gy, uint32_t gz, const id2index_t& fm)
+AMRBlockForeachCell::CellArray_global 
+AMRBlockForeachCell::get_global_array(const DataArrayBlock& U, uint32_t gx, uint32_t gy, uint32_t gz, const id2index_t& fm)
 {
   const CData& cdata = this->cdata;
   uint32_t bx = cdata.bx+2*gx;
@@ -241,11 +258,11 @@ AMRBlockForeachCell::get_patch_array(const DataArrayBlock& U, uint32_t gx, uint3
   assert(U.extent(2) >= cdata.lmesh.getNumOctants());
   assert( cdata.ndim != 2 || bz==1 );
 
-  return CellArray{U, bx, by, bz, (uint32_t)U.extent(2), fm};
+  return CellArray_global{U, bx, by, bz, (uint32_t)U.extent(2), fm};
 }
 
 inline
-AMRBlockForeachCell::CellArray_ghosted 
+AMRBlockForeachCell::CellArray_global_ghosted 
 AMRBlockForeachCell::get_ghosted_array(const DataArrayBlock& U, const DataArrayBlock& Ughost,  const LightOctree& lmesh, const id2index_t& fm)
 {
   const CData& cdata = this->cdata;
@@ -257,12 +274,12 @@ AMRBlockForeachCell::get_ghosted_array(const DataArrayBlock& U, const DataArrayB
   assert(U.extent(2) == cdata.lmesh.getNumOctants());
   assert( cdata.ndim != 2 || bz==1 );
 
-  return CellArray_ghosted(CellArray{U, bx, by, bz, (uint32_t)U.extent(2), fm}, Ughost, lmesh);
+  return CellArray_global_ghosted(CellArray_global{U, bx, by, bz, (uint32_t)U.extent(2), fm}, Ughost, lmesh);
 }
 
 inline
-AMRBlockForeachCell::CellArray 
-AMRBlockForeachCell::allocate_patch_tmp(std::string name, int gx, int gy, int gz, const id2index_t& fm, int nvars)
+AMRBlockForeachCell::CellArray_patch::Ref
+AMRBlockForeachCell::reserve_patch_tmp(std::string name, int gx, int gy, int gz, const id2index_t& fm, int nvars)
 {
   const CData& cdata = this->cdata;
   uint32_t bx = cdata.bx+2*gx;
@@ -272,7 +289,12 @@ AMRBlockForeachCell::allocate_patch_tmp(std::string name, int gx, int gy, int gz
   assert( cdata.ndim != 2 || bz==1 );
 
   DataArrayBlock data(name, bx*by*bz, nvars, nbOctsPerGroup);
-  return CellArray{ data, bx, by, bz, (uint32_t)data.extent(2), fm };
+  return CellArray_patch({ data, bx, by, bz, (uint32_t)data.extent(2), fm });
+}
+
+AMRBlockForeachCell::CellArray_patch AMRBlockForeachCell::Patch::allocate_tmp(const AMRBlockForeachCell::CellArray_patch::Ref& array_ref) const
+{
+  return array_ref;
 }
 
 } // namespace muscl_block

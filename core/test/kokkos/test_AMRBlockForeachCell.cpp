@@ -105,8 +105,9 @@ int main(int argc, char *argv[])
 
   { // Run with ForeachCell
     using ForeachCell = AMRBlockForeachCell;
-    using PatchArray = AMRBlockForeachCell::CellArray;
-    using GhostArray = AMRBlockForeachCell::CellArray_ghosted;
+    using PatchArray = AMRBlockForeachCell::CellArray_patch;
+    using GlobalArray = AMRBlockForeachCell::CellArray_global;
+    using GhostArray = AMRBlockForeachCell::CellArray_global_ghosted;
     using CellIndex = AMRBlockForeachCell::CellIndex;
     using o_t = CellIndex::offset_t;
 
@@ -120,8 +121,8 @@ int main(int argc, char *argv[])
 
 
     GhostArray Uin =  foreach_cell.get_ghosted_array(U, Ughost, lmesh, fm);
-    PatchArray Uout = foreach_cell.get_patch_array(U2, 0, 0, 0, fm);
-    PatchArray Ugroup = foreach_cell.allocate_patch_tmp("Ugroup", 1, 1, 1, fm, nbFields);
+    GlobalArray Uout = foreach_cell.get_global_array(U2, 0, 0, 0, fm);
+    PatchArray::Ref Ugroup_ = foreach_cell.reserve_patch_tmp("Ugroup", 1, 1, 1, fm, nbFields);
     timers.get("run_foreach_cell").start();
 
     for(int i=0; i<ITER; i++)
@@ -129,6 +130,8 @@ int main(int argc, char *argv[])
       foreach_cell.foreach_patch( "ForeachCell_test",
         PATCH_LAMBDA( const ForeachCell::Patch& patch )
       {
+        PatchArray Ugroup = patch.allocate_tmp(Ugroup_);
+        
         // Copy non ghosted array Uin into temporary ghosted Ugroup with two ghosts
         patch.foreach_cell(Uin, CELL_LAMBDA(const CellIndex& iCell_Uin)
         {
@@ -148,11 +151,11 @@ int main(int argc, char *argv[])
       });
     }
 
-    timers.get("run_foreach_cell").stop();
-
     auto U2_host = Kokkos::create_mirror_view(U2);
     Kokkos::deep_copy(U2_host, U2);
     std::cout << U2_host(0,0,0) << std::endl;
+
+    timers.get("run_foreach_cell").stop();
   }
 
 

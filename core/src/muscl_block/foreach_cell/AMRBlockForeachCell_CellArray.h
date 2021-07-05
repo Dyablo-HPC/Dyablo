@@ -5,13 +5,20 @@
 
 namespace dyablo {
 namespace muscl_block {
+
+class AMRBlockForeachCell_Patch;
+
 namespace CellArray_impl{
 
 #define CELLINDEX_INVALID CellIndex{{0,true},0,0,0,0,0,0,CellIndex::INVALID}
 #define CELLINDEX_BOUNDARY CellIndex{{0,true},0,0,0,0,0,0,CellIndex::BOUNDARY}
 
-class CellArray;
-class CellArray_ghosted;
+template< typename View_t >
+class CellArray_base;
+
+using CellArray_global = CellArray_base<DataArrayBlock>;
+class CellArray_global_ghosted;
+class CellArray_patch;
 
 struct CellIndex
 {
@@ -81,7 +88,7 @@ struct CellIndex
    * NOTE : If block size is pair and > 2*offset, smaller siblings are guaranteed to be in the same block
    **/
   KOKKOS_INLINE_FUNCTION
-  CellIndex getNeighbor_ghost( const offset_t& offset, const CellArray_ghosted& array ) const;
+  CellIndex getNeighbor_ghost( const offset_t& offset, const CellArray_global_ghosted& array ) const;
 
   /**
    * Compute neighbor index with neighbor-octant search.
@@ -89,8 +96,9 @@ struct CellIndex
    * @param array an array compatible with the current CellIndex (same block size)   * 
    * Offseting outside the block returns an invalid (is_valid()==false) CellIndex.
    **/
+  template< typename View_t >
   KOKKOS_INLINE_FUNCTION
-  CellIndex getNeighbor_ghost( const offset_t& offset, const CellArray& array ) const;
+  CellIndex getNeighbor_ghost( const offset_t& offset, const CellArray_base<View_t>& array ) const;
 
   /**
    * Compute neighbor index inside local block
@@ -106,9 +114,11 @@ struct CellIndex
   }
 };
 
-class CellArray{
+
+template< typename View_t_ >
+class CellArray_base{
 public:
-  using View_t = DataArrayBlock;
+  using View_t = View_t_;
 
   View_t U;    
   uint32_t bx,by,bz;
@@ -139,20 +149,29 @@ public:
   real_t& at( const CellIndex& iCell, VarIndex field ) const;
 };
 
-class CellArray_ghosted : public CellArray{
+class CellArray_patch : public CellArray_global
+{
+public:
+  using Ref = CellArray_patch;
+
+  CellArray_patch(){};
+  CellArray_patch(const CellArray_global& a) : CellArray_global(a) {}
+};
+
+class CellArray_global_ghosted : public CellArray_global{
 public :
   View_t Ughost;
   LightOctree lmesh;
 
-  CellArray_ghosted( const CellArray& a, const View_t& Ughost, const LightOctree& lmesh )
-    : CellArray(a), Ughost(Ughost), lmesh(lmesh)
+  CellArray_global_ghosted( const CellArray_global& a, const View_t& Ughost, const LightOctree& lmesh )
+    : CellArray_global(a), Ughost(Ughost), lmesh(lmesh)
   {}
 
   /**
    * Convert cell index used for another array into an 
    * index compatible with current array. 
    * This may of may not perform a neighbor search for indexes outside of 
-   * block depending on how the array was created (see get_patch_array and allocate_patch_tmp)
+   * block depending on how the array was created (see get_global_array, get_global_ghosted_array and allocate_patch_tmp)
    * If a neighbor search is performed the created index has the non-local status (is_local()==false)
    * Converted indexes keep their non-local status after conversion, but not their level difference.
    * Neighbor search is never performed on non-local indexes, is_valid()==false when resulting index is outside of block.
@@ -169,7 +188,8 @@ public :
   real_t& at( const CellIndex& iCell, VarIndex field ) const;
 };
 
-CellIndex CellArray::convert_index(const CellIndex& in) const
+template< typename View_t >
+CellIndex CellArray_base<View_t>::convert_index(const CellIndex& in) const
 {
   assert( in.is_valid() ); // Index needs to be valid for conversion
   assert( in.is_local() ); // cannot access ghosts in CellArray
@@ -191,7 +211,8 @@ CellIndex CellArray::convert_index(const CellIndex& in) const
   return CellIndex{in.iOct, (uint32_t)i, (uint32_t)j, (uint32_t)k, bx, by, bz, CellIndex::LOCAL_TO_BLOCK};
 }
 
-CellIndex CellArray::convert_index_ghost(const CellIndex& in) const
+template< typename View_t >
+CellIndex CellArray_base<View_t>::convert_index_ghost(const CellIndex& in) const
 {
   assert( in.is_valid() ); // Index needs to be valid for conversion
   assert( in.is_local() ); // cannot access ghosts in CellArray
@@ -212,7 +233,7 @@ CellIndex CellArray::convert_index_ghost(const CellIndex& in) const
   return CellIndex{in.iOct, i, j, k, bx, by, bz, CellIndex::LOCAL_TO_BLOCK};
 }
 
-CellIndex CellArray_ghosted::convert_index_ghost(const CellIndex& in) const
+CellIndex CellArray_global_ghosted::convert_index_ghost(const CellIndex& in) const
 {
   assert( in.is_valid() ); // Index needs to be valid for conversion
 
@@ -256,7 +277,8 @@ CellIndex CellArray_ghosted::convert_index_ghost(const CellIndex& in) const
   }
 }
 
-real_t& CellArray::at(const CellIndex& iCell, VarIndex field) const
+template< typename View_t >
+real_t& CellArray_base<View_t>::at(const CellIndex& iCell, VarIndex field) const
 {
   assert(bx == iCell.bx);
   assert(by == iCell.by);
@@ -266,7 +288,7 @@ real_t& CellArray::at(const CellIndex& iCell, VarIndex field) const
   return U(i, fm[field], iCell.iOct.iOct%nbOcts);
 }
 
-real_t& CellArray_ghosted::at(const CellIndex& iCell, VarIndex field) const
+real_t& CellArray_global_ghosted::at(const CellIndex& iCell, VarIndex field) const
 {
   assert(bx == iCell.bx);
   assert(by == iCell.by);
@@ -303,7 +325,7 @@ CellIndex CellIndex::getNeighbor( const offset_t& offset ) const
   return res;
 }
 
-CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_ghosted& array ) const
+CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_global_ghosted& array ) const
 {
   assert(this->is_valid());
   assert(this->bx == array.bx );
@@ -456,7 +478,8 @@ CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_
   return CELLINDEX_INVALID;
 }
 
-CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray& array ) const
+template< typename View_t >
+CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_base<View_t>& array ) const
 {
   assert(this->is_valid());
   assert(this->bx == array.bx );

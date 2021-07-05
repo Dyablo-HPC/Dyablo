@@ -57,8 +57,9 @@ MusclBlockUpdate_generic::~MusclBlockUpdate_generic()
 namespace{
 
 using ForeachCell = AMRBlockForeachCell;
-using GhostedArray = typename AMRBlockForeachCell::CellArray_ghosted;
-using PatchArray = typename AMRBlockForeachCell::CellArray;
+using GhostedArray = typename AMRBlockForeachCell::CellArray_global_ghosted;
+using GlobalArray = typename AMRBlockForeachCell::CellArray_global;
+using PatchArray = typename AMRBlockForeachCell::CellArray_patch;
 using CellIndex = typename AMRBlockForeachCell::CellIndex;
 
 }// namespace
@@ -327,7 +328,7 @@ void compute_fluxes(ComponentIndex3D dir,
                     const HydroParams& params,
                     real_t smallr,
                     real_t dtddir,
-                    const PatchArray& Uout
+                    const GlobalArray& Uout
                     )
 {
   typename CellIndex::offset_t offsetm = {};
@@ -395,17 +396,17 @@ void update_aux(
 
   // Create abstract PatchArray to access global array from raw DataArrayBlock
   GhostedArray Uin =  foreach_cell.get_ghosted_array(U_, Ughost_, lmesh, fm);
-  PatchArray Uout = foreach_cell.get_patch_array(Uout_, 0, 0, 0, fm);
+  GlobalArray Uout = foreach_cell.get_global_array(Uout_, 0, 0, 0, fm);
 
   // Create abstract temporary ghosted arrays for patches 
-  PatchArray Ugroup = foreach_cell.allocate_patch_tmp("Ugroup", 2, 2, (ndim == 3)?2:0, fm, 5);
-  PatchArray Qgroup = foreach_cell.allocate_patch_tmp("Qgroup", 2, 2, (ndim == 3)?2:0, fm, 5);
-  PatchArray SlopesX = foreach_cell.allocate_patch_tmp("SlopesX", 1, 0, 0, fm, 5);
-  PatchArray SlopesY = foreach_cell.allocate_patch_tmp("SlopesY", 0, 1, 0, fm, 5);
-  PatchArray SlopesZ;
+  PatchArray::Ref Ugroup_ = foreach_cell.reserve_patch_tmp("Ugroup", 2, 2, (ndim == 3)?2:0, fm, 5);
+  PatchArray::Ref Qgroup_ = foreach_cell.reserve_patch_tmp("Qgroup", 2, 2, (ndim == 3)?2:0, fm, 5);
+  PatchArray::Ref SlopesX_ = foreach_cell.reserve_patch_tmp("SlopesX", 1, 0, 0, fm, 5);
+  PatchArray::Ref SlopesY_ = foreach_cell.reserve_patch_tmp("SlopesY", 0, 1, 0, fm, 5);
+  PatchArray::Ref SlopesZ_;
   if( ndim == 3 )
-    SlopesZ = foreach_cell.allocate_patch_tmp("SlopesZ", 0, 0, 1, fm, 5);
-  PatchArray Sources = foreach_cell.allocate_patch_tmp("Sources", 1, 1, (ndim == 3)?1:0, fm, 5);
+    SlopesZ_ = foreach_cell.reserve_patch_tmp("SlopesZ", 0, 0, 1, fm, 5);
+  PatchArray::Ref Sources_ = foreach_cell.reserve_patch_tmp("Sources", 1, 1, (ndim == 3)?1:0, fm, 5);
 
   timers.get("MusclBlockUpdate_generic").start();
 
@@ -413,6 +414,13 @@ void update_aux(
   foreach_cell.foreach_patch( "MusclBlockUpdate_generic::update",
     PATCH_LAMBDA( const ForeachCell::Patch& patch )
   {
+    PatchArray Ugroup = patch.allocate_tmp(Ugroup_);
+    PatchArray Qgroup = patch.allocate_tmp(Qgroup_);
+    PatchArray SlopesX = patch.allocate_tmp(SlopesX_);
+    PatchArray SlopesY = patch.allocate_tmp(SlopesY_);
+    PatchArray SlopesZ = patch.allocate_tmp(SlopesZ_);
+    PatchArray Sources = patch.allocate_tmp(Sources_);
+
     // Copy non ghosted array Uin into temporary ghosted Ugroup with two ghosts
     patch.foreach_cell(Ugroup, CELL_LAMBDA(const CellIndex& iCell_Ugroup)
     {
