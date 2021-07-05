@@ -174,6 +174,7 @@ option(Kokkos_ENABLE_DEBUG_BOUNDS_CHECK  "build Kokkos in debug mode" OFF)
 
 # only usefull when building for Kokkos::Cuda backend
 set(Kokkos_ARCH  "" CACHE STRING "Kokkos arch (KEPLER37, PASCAL60, ...)")
+option(Kokkos_ENABLE_AGGRESSIVE_VECTORIZATION "Enable aggressive vectorization on CPU (e.g. #pragma ivdep for intel)" OFF )
 
 find_package(Kokkos 3.1 QUIET)
 
@@ -207,6 +208,7 @@ if ( (NOT Kokkos_FOUND) OR FORCE_KOKKOS_BUILD )
     -DKokkos_ENABLE_OPENMP=${Kokkos_ENABLE_OPENMP}
     -DKokkos_ENABLE_DEBUG=${Kokkos_ENABLE_DEBUG}
     -DKokkos_ENABLE_DEBUG_BOUNDS_CHECK=${Kokkos_ENABLE_DEBUG_BOUNDS_CHECK}
+    -DKokkos_ENABLE_AGGRESSIVE_VECTORIZATION=${Kokkos_ENABLE_AGGRESSIVE_VECTORIZATION}
     )
 
   message( STATUS "Enabled architectures for Kokkos:" )
