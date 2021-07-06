@@ -17,7 +17,7 @@
 #include "muscl_block/SolverHydroMusclBlock.h"
 
 // Init conditions functors
-#include "muscl_block/init/HydroInitFunctors.h"
+#include "muscl_block/init/InitialConditions.h"
 
 // Compute functors
 #include "muscl_block/ComputeDtHydroFunctor.h"
@@ -55,9 +55,6 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
                                              ConfigMap& configMap) :
   SolverBase(params, configMap),
   U(), Uhost(), U2(), Ughost()
-#ifdef DYABLO_USE_HDF5
-  , hdf5_writer(std::make_shared<HDF5_Writer>(amr_mesh, configMap, params))
-#endif // DYABLO_USE_HDF5
 {
 
   solver_type = SOLVER_MUSCL_HANCOCK_BLOCK;
@@ -140,6 +137,7 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
 
   //std::string godunov_updater_id = "MusclBlockUpdate_legacy";
   std::string godunov_updater_id = this->configMap.getString("hydro", "update", "MusclBlockUpdate_legacy");
+  std::string iomanager_id = this->configMap.getString("output", "backend", "IOManager_hdf5");
 
   if (myRank==0) {
     std::cout << "##########################" << "\n";
@@ -158,6 +156,15 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   }
 
   this->godunov_updater = MusclBlockUpdateFactory::make_instance( godunov_updater_id,
+    configMap,
+    params,
+    *amr_mesh, 
+    fieldMgr.get_id2index(),
+    bx, by, bz,
+    timers
+  );
+
+  this->io_manager = IOManagerFactory::make_instance( iomanager_id,
     configMap,
     params,
     *amr_mesh, 
@@ -214,76 +221,10 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
   // test if we are performing a re-start run (default : false)
   bool restartEnabled = configMap.getBool("run","restart_enabled",false);
 
-  if (restartEnabled) { // load data from input data file
+  std::string init_name = restartEnabled ? "restart" : m_problem_name;
 
-    init_restart(Udata);
-    
-  } else { // regular initialization
-
-    /*
-     * initialize hydro array at t=0
-     */
-
-    if ( !m_problem_name.compare("implode") ) {
-      
-      init_implode(this);
-      
-    } else if ( !m_problem_name.compare("blast") ) {
-      
-      init_blast(this);
-      
-    }
-    else if ( !m_problem_name.compare("sod") ) {
-      
-      init_sod(this);
-      
-    } else if ( !m_problem_name.compare("kelvin_helmholtz") ) {
-      
-      init_kelvin_helmholtz(this);
-      
-    } else if ( !m_problem_name.compare("gresho_vortex") ) {
-      
-      init_gresho_vortex(this);
-      
-    } else if ( !m_problem_name.compare("four_quadrant") ) {
-      
-      init_four_quadrant(this);
-      
-    } else if ( !m_problem_name.compare("isentropic_vortex") ) {
-      
-      init_isentropic_vortex(this);
-
-    } else if ( !m_problem_name.compare("shu_osher") ) {
-      
-      init_shu_osher(this);
-      
-    } else if ( !m_problem_name.compare("double_mach_reflection") ) {
-
-      init_double_mach_reflection(this);
-      
-    } else if ( !m_problem_name.compare("rayleigh_taylor") ) {
-      
-      init_rayleigh_taylor(this);
-      
-    }   
-    else if ( !m_problem_name.compare("custom") ) {
-      // Don't do anything here, let the user setup their own problem
-    } 
-    else {
-      
-      std::cout << "Problem : " << m_problem_name
-		<< " is not recognized / implemented."
-		<< std::endl;
-      std::cout <<  "Use default - implode" << std::endl;
-      init_implode(this);
-      
-    }  
-    
-    // initialize U2
-    Kokkos::deep_copy(U2,U);
-
-
-  } // end regular initialization
+  InitialConditionsFactory::make_instance(init_name)->init(this);
+  Kokkos::deep_copy(U2,U);
 
 } // SolverHydroMusclBlock::init
 
@@ -478,11 +419,7 @@ void SolverHydroMusclBlock::save_solution_impl()
 
   timers.get("outputs").start();
 
-  if (params.output_vtk_enabled)
-    save_solution_vtk();
-
-  if (params.output_hdf5_enabled)
-    save_solution_hdf5();
+  this->io_manager->save_snapshot(U, Ughost, m_iteration, m_t);
 
   timers.get("outputs").stop();
     
@@ -517,97 +454,6 @@ void SolverHydroMusclBlock::print_monitoring_info()
   } // end myRank==0
 
 } // SolverHydroMusclBlock::print_monitoring_info
-
-// =======================================================
-// =======================================================
-void SolverHydroMusclBlock::save_solution_vtk() 
-{
-
-  std::cerr << "writeVTK for block AMR is not implemented - TODO / REALLY USEFUL ?\n";
-
-} // SolverHydroMusclBlock::save_solution_vtk
-
-// =======================================================
-// =======================================================
-void SolverHydroMusclBlock::save_solution_hdf5() 
-{
-
-#ifdef DYABLO_USE_HDF5
-
-  // retrieve available / allowed names: fieldManager, and field map (fm)
-  auto fm = fieldMgr.get_id2index();
-
-  // a map containing ID and name of the variable to write
-  str2int_t names2index; // this is initially empty
-  build_var_to_write_map(names2index, params, configMap);
-
-  // prepare output filename
-  std::string outputPrefix = configMap.getString("output", "outputPrefix", "output");
-  std::string outputDir = configMap.getString("output", "outputDir", "./");
-  
-  // prepare suffix string
-  std::ostringstream strsuffix;
-  strsuffix << "iter";
-  strsuffix.width(7);
-  strsuffix.fill('0');
-  strsuffix << m_iteration;
-
-  // actual writing
-  {
-
-    // resize Uhost upon U
-    Kokkos::resize(Uhost, nbCellsPerOct, params.nbfields, amr_mesh->getNumOctants());
-
-    // copy device data to host
-    Kokkos::deep_copy(Uhost, U);
-
-    hdf5_writer->update_mesh_info();
-
-    // open the new file and write our stuff
-    std::string basename = outputPrefix + "_" + strsuffix.str();
-    
-    hdf5_writer->open(basename, outputDir);
-    hdf5_writer->write_header(m_t);
-
-    // write user the fake data (all scalar fields, here only one)
-    hdf5_writer->write_quadrant_attribute(Uhost, fm, names2index);
-
-    // check if we want to write velocity or rhoV vector fields
-    std::string write_variables = configMap.getString("output", "write_variables", "");
-    // if (write_variables.find("velocity") != std::string::npos) {
-    //   hdf5_writer->write_quadrant_velocity(U, fm, false);
-    // } else if (write_variables.find("rhoV") != std::string::npos) {
-    //   hdf5_writer->write_quadrant_velocity(U, fm, true);
-    // } 
-    
-    if (write_variables.find("Mach") != std::string::npos) {
-      // mach number will be recomputed from conservative variables
-      // we could have used primitive variables, but since here Q
-      // may not have the same size, Q may need to be resized
-      // and recomputed anyway.
-      hdf5_writer->write_quadrant_mach_number(Uhost, fm);
-    }
-
-    if (write_variables.find("P") != std::string::npos) {
-      hdf5_writer->write_quadrant_pressure(Uhost, fm);
-    }
-
-    if (write_variables.find("iOct") != std::string::npos)
-      hdf5_writer->write_quadrant_id(Uhost);
-
-    // close the file
-    hdf5_writer->write_footer();
-    hdf5_writer->close();
-  }
-
-#else
-
-  if (amr_mesh->getRank() == 0)
-    std::cerr << "You need to re-run cmake and enable HDF5 to have HDF5 output available. Also set hdf5_enabled variable to true in the input paramter file for the run.\n";
-
-#endif // DYABLO_USE_HDF5
-
-} // SolverHydroMusclBlock::save_solution_hdf5
 
 // =======================================================
 // =======================================================

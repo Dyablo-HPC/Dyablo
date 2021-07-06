@@ -54,9 +54,9 @@ hdf5_native_type_to_string (hid_t type)
 
 // =======================================================
 // =======================================================
-HDF5_Writer::HDF5_Writer(std::shared_ptr<AMRmesh> amr_mesh, 
-                         ConfigMap& configMap,
-                         HydroParams& params) :
+HDF5_Writer::HDF5_Writer(AMRmesh* amr_mesh, 
+                         const ConfigMap& configMap,
+                         const HydroParams& params) :
   m_amr_mesh(amr_mesh),
   m_configMap(configMap),
   m_params(params)

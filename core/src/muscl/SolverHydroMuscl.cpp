@@ -62,7 +62,7 @@ SolverHydroMuscl::SolverHydroMuscl(HydroParams& params,
   Slopes_y_ghost(), 
   Slopes_z_ghost()
 #ifdef DYABLO_USE_HDF5
-  , hdf5_writer(std::make_shared<HDF5_Writer>(amr_mesh, configMap, params))
+  , hdf5_writer(std::make_shared<HDF5_Writer>(amr_mesh.get(), configMap, params))
 #endif // DYABLO_USE_HDF5
 {
 

@@ -20,7 +20,10 @@ set (muscl_block_SRCS
     list(APPEND muscl_block_SRCS
       ${CMAKE_CURRENT_SOURCE_DIR}/UserDataLB.cpp)
   endif(DYABLO_USE_MPI)
-
+  if (DYABLO_USE_HDF5)
+    list(APPEND muscl_block_SRCS
+    ${CMAKE_CURRENT_SOURCE_DIR}/io/IOManager_hdf5.cpp)
+  endif(DYABLO_USE_HDF5)
 
 add_library(muscl_block
   ${muscl_block_SRCS}

@@ -45,9 +45,9 @@ public:
    * \param [in] HydroParams
    *
    */
-  HDF5_Writer(std::shared_ptr<AMRmesh> amr_mesh, 
-	      ConfigMap& configMap,
-              HydroParams& params);
+  HDF5_Writer(AMRmesh* amr_mesh, 
+	      const ConfigMap& configMap,
+        const HydroParams& params);
   ~HDF5_Writer();
 
   /**
@@ -174,13 +174,13 @@ public:
   int            write_quadrant_mach_number(DataArrayBlockHost data,
                                             id2index_t         fm);
 
-  std::shared_ptr<AMRmesh> m_amr_mesh; //!<
+  AMRmesh* m_amr_mesh; //!<
   std::string    m_basename; //!< the base name of the two files
   //id2index_t     m_fm; //!< field manager object
   //str2int_t      m_names2index; //!< map from names to user data variables
 
-  ConfigMap&     m_configMap;
-  HydroParams&   m_params;
+  const ConfigMap&     m_configMap;
+  const HydroParams&   m_params;
 
   bool           m_write_mesh_info; //!< write mesh info (oct level, mpi proc, ...)
 
