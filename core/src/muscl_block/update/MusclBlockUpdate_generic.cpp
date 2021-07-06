@@ -3,8 +3,8 @@
 #include "muscl_block/utils_block.h"
 #include "utils/monitoring/Timers.h"
 
-//#include "muscl_block/foreach_cell/AMRBlockForeachCell_group.h"
-#include "muscl_block/foreach_cell/AMRBlockForeachCell_scratch.h"
+#include "muscl_block/foreach_cell/AMRBlockForeachCell_group.h"
+//#include "muscl_block/foreach_cell/AMRBlockForeachCell_scratch.h"
 #include "shared/utils_hydro.h"
 #include "shared/RiemannSolvers.h"
 
@@ -12,8 +12,8 @@
 namespace dyablo { 
 namespace muscl_block {
 
-//using AMRBlockForeachCell = AMRBlockForeachCell_group;
-using AMRBlockForeachCell = AMRBlockForeachCell_scratch;
+using AMRBlockForeachCell = AMRBlockForeachCell_group;
+//using AMRBlockForeachCell = AMRBlockForeachCell_scratch;
 
 struct MusclBlockUpdate_generic::Data{
   const ConfigMap& configMap;
