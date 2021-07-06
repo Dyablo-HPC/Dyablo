@@ -292,7 +292,8 @@ AMRBlockForeachCell::reserve_patch_tmp(std::string name, int gx, int gy, int gz,
   uint32_t nbOctsPerGroup = cdata.nbOctsPerGroup;
   assert( cdata.ndim != 2 || bz==1 );
 
-  DataArrayBlock data(name, bx*by*bz, nvars, nbOctsPerGroup);
+  // Do not initialize View to improve first-touch behavior
+  DataArrayBlock data(Kokkos::ViewAllocateWithoutInitializing(name), bx*by*bz, nvars, nbOctsPerGroup);
   return CellArray_patch({ data, bx, by, bz, (uint32_t)data.extent(2), fm });
 }
 
