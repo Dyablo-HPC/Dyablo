@@ -61,18 +61,26 @@ void copyGhostBlockCellData(const GhostedArray& Uin, const CellIndex& iCell_Ugro
 
     CellIndex iCell_Ugroup_inside = iCell_Ugroup.getNeighbor({ (int8_t)(-boundary_offset[IX]), (int8_t)(-boundary_offset[IY]), (int8_t)(-boundary_offset[IZ]) });
 
-    CellIndex::offset_t offset_bc{};
-    if( xbound == BC_PERIODIC   ) offset_bc[IX] = boundary_offset[IX];
-    if( xbound == BC_REFLECTING ) { offset_bc[IX] = -boundary_offset[IX]; revert_x = -1; }
-    if( xbound == BC_ABSORBING  ) offset_bc[IX] = 0;
-    if( ybound == BC_PERIODIC   ) offset_bc[IY] = boundary_offset[IY];
-    if( ybound == BC_REFLECTING ) { offset_bc[IY] = -boundary_offset[IY]; revert_y = -1; }
-    if( ybound == BC_ABSORBING  ) offset_bc[IY] = 0;
-    if(ndim == 3)
+    auto sign = [](int x){return (x>0)-(x<0);};
+
+    CellIndex::offset_t offset_bc{0,0,0};
+    if( boundary_offset[IX] != 0 )
+    {
+      if( xbound == BC_PERIODIC   ) offset_bc[IX] = boundary_offset[IX];
+      if( xbound == BC_REFLECTING ) { offset_bc[IX] = -boundary_offset[IX] + sign(boundary_offset[IX]); revert_x = -1; }
+      //if( xbound == BC_ABSORBING  ) offset_bc[IX] = 0;
+    }
+    if( boundary_offset[IY] != 0 )
+    {
+      if( ybound == BC_PERIODIC   ) offset_bc[IY] = boundary_offset[IY];
+      if( ybound == BC_REFLECTING ) { offset_bc[IY] = -boundary_offset[IY] + sign(boundary_offset[IY]); revert_y = -1; }
+      //if( ybound == BC_ABSORBING  ) offset_bc[IY] = 0;
+    }
+    if(ndim == 3 && boundary_offset[IZ] != 0)
     {
       if( zbound == BC_PERIODIC   ) offset_bc[IZ] = boundary_offset[IZ];
-      if( zbound == BC_REFLECTING ) { offset_bc[IZ] = -boundary_offset[IZ]; revert_z = -1; }
-      if( zbound == BC_ABSORBING  ) offset_bc[IZ] = 0;
+      if( zbound == BC_REFLECTING ) { offset_bc[IZ] = -boundary_offset[IZ] + sign(boundary_offset[IZ]); revert_z = -1; }
+      //if( zbound == BC_ABSORBING  ) offset_bc[IZ] = 0;
     }
 
     iCell_Ugroup_inside = iCell_Ugroup_inside.getNeighbor(offset_bc);
