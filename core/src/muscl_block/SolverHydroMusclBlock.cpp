@@ -136,7 +136,7 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
 #endif // DYABLO_USE_MPI
 
   //std::string godunov_updater_id = "MusclBlockUpdate_legacy";
-  std::string godunov_updater_id = this->configMap.getString("hydro", "update", "MusclBlockUpdate_legacy");
+  std::string godunov_updater_id = this->configMap.getString("hydro", "update", "MusclBlockUpdate_generic");
   std::string iomanager_id = this->configMap.getString("output", "backend", "IOManager_hdf5");
 
   if (myRank==0) {
