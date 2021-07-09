@@ -21,6 +21,7 @@
 
 // Compute functors
 #include "muscl_block/ComputeDtHydroFunctor.h"
+#include "muscl_block/GravityFillDataFunctor.h"
 #include "muscl_block/ConvertToPrimitivesHydroFunctor.h"
 #include "muscl_block/MarkOctantsHydroFunctor.h"
 
@@ -62,8 +63,7 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   // m_nCells = nbOcts; // TODO
   m_nDofsPerCell = 1;
 
-  int nbvar = params.nbvar;
-  int nbfields = params.nbfields;
+  int nbfields = fieldMgr.nbfields();
 
   // Initial number of octants
   // User data will be reallocated after AMR mesh initialization
@@ -193,13 +193,15 @@ SolverHydroMusclBlock::~SolverHydroMusclBlock()
 // =======================================================
 void SolverHydroMusclBlock::resize_solver_data()
 {
+  int nbfields = fieldMgr.nbfields();
+
   size_t U_size_old = DataArrayBlock::required_allocation_size( U.extent(0), U.extent(1), U.extent(2) );
-  size_t U_size_new = DataArrayBlock::required_allocation_size( nbCellsPerOct, params.nbfields, amr_mesh->getNumOctants() );
+  size_t U_size_new = DataArrayBlock::required_allocation_size( nbCellsPerOct, nbfields, amr_mesh->getNumOctants() );
   std::cout << "Resize U+U2 : " << 2*U_size_old * (2/1e6) << " -> " << U_size_new * (2/1e6) << " MBytes" << std::endl;
 
-  Kokkos::realloc(U, nbCellsPerOct, params.nbfields, amr_mesh->getNumOctants());
-  Kokkos::realloc(U2, nbCellsPerOct, params.nbfields, amr_mesh->getNumOctants());
-  Kokkos::realloc(Uhost, nbCellsPerOct, params.nbfields, amr_mesh->getNumOctants());
+  Kokkos::realloc(U, nbCellsPerOct, nbfields, amr_mesh->getNumOctants());
+  Kokkos::realloc(U2, nbCellsPerOct, nbfields, amr_mesh->getNumOctants());
+  Kokkos::realloc(Uhost, nbCellsPerOct, nbfields, amr_mesh->getNumOctants());
   // Remember that all other array are fixed sized - nbOctsPerGroup
 
 } // SolverHydroMusclBlock::resize_solver_data
@@ -352,6 +354,22 @@ void SolverHydroMusclBlock::next_iteration_impl()
   compute_dt();
   timers.get("dt").stop();
   
+  auto fm = fieldMgr.get_id2index();
+  uint32_t nbOcts = amr_mesh->getNumOctants();
+  const LightOctree& lmesh = amr_mesh->getLightOctree();
+
+  if( params.gravity_type & GRAVITY_FIELD )
+  {
+
+    GravityFillDataFunctor::apply(lmesh,
+                                  configMap,
+                                  params,
+                                  fm,
+                                  blockSizes,
+                                  nbOcts,
+                                  U);
+  }
+  
   // perform one step integration
   godunov_unsplit(m_dt);
 
@@ -385,6 +403,7 @@ void SolverHydroMusclBlock::next_iteration_impl()
 
 // =======================================================
 // =======================================================
+
 // ///////////////////////////////////////////
 // Wrapper to the actual computation routine
 // ///////////////////////////////////////////

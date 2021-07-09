@@ -201,7 +201,7 @@ void run_test(int argc, char *argv[])
 
   std::cout << "Apply initial condition..." << std::endl;
 
-  int nbfields = params.nbfields;
+  int nbfields = fieldMgr.nbfields();
   int nbOcts = amr_mesh->getNumOctants();
   uint32_t nbCellsPerOct =
       params.dimType == TWO_D ? bx * by : bx * by * bz;

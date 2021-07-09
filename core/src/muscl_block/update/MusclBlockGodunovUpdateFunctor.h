@@ -540,8 +540,8 @@ public:
 
     q[IU] += 0.5 * dt * g[IX];
     q[IV] += 0.5 * dt * g[IY];
-    if (params.dimType == THREE_D)
-      q[IW] += 0.5 * dt * g[IZ];
+    //if (params.dimType == THREE_D)
+    //  q[IW] += 0.5 * dt * g[IZ];
 
   } // apply_gravity_prediction
 
@@ -1631,6 +1631,62 @@ public:
 
   // ====================================================================
   // ====================================================================
+  /**
+   * Applies predictor step for gravity
+   * @param index index of the cell in current block
+   * @param iOct_local index of the octant in local group
+   * @param dt time step
+   **/
+  // KOKKOS_INLINE_FUNCTION
+  // void apply_gravity_prediction(HydroState3d &q, 
+  //                               uint32_t index,
+  //                               uint32_t iOct_local,  
+  //                               real_t dt) const {
+  //   q[IU] += 0.5 * dt * Ugroup(index, fm[IGX], iOct_local);
+  //   q[IV] += 0.5 * dt * Ugroup(index, fm[IGY], iOct_local);
+  //   q[IW] += 0.5 * dt * Ugroup(index, fm[IGZ], iOct_local);
+  // }
+
+  /**
+   * Applies corrector step for gravity
+   * @param index index of the cell in current block
+   * @param iOct_local index of the octant in local group
+   * @param dt time step
+   **/
+  KOKKOS_INLINE_FUNCTION
+  void apply_gravity_correction_3d(HydroState3d &qOld,
+                                HydroState3d &qNew, 
+                                uint32_t index, 
+                                uint32_t iOct_local, 
+                                real_t dt) const {
+    const real_t gx = Ugroup(index, fm[IGX], iOct_local);
+    const real_t gy = Ugroup(index, fm[IGY], iOct_local);
+    const real_t gz = Ugroup(index, fm[IGZ], iOct_local);
+
+    real_t rhoOld = qOld[ID];
+    real_t rhoNew = qNew[ID];
+
+    real_t rhou = qNew[IU];
+    real_t rhov = qNew[IV];
+    real_t rhow = qNew[IW];
+
+    real_t ekin_old = 0.5 * (rhou*rhou + rhov*rhov + rhow*rhow) / rhoNew;
+
+    rhou += 0.5 * dt * gx * (rhoOld + rhoNew);
+    rhov += 0.5 * dt * gy * (rhoOld + rhoNew);
+
+    qNew[IU] = rhou;
+    qNew[IV] = rhov;
+    //if (ndim == 3) {
+      rhow += 0.5 * dt * gz * (rhoOld + rhoNew);
+      qNew[IW] = rhow;
+    //}
+
+    // Energy correction should be included in case of self-gravitation ?
+    real_t ekin_new = 0.5 * (rhou*rhou + rhov*rhov + rhow*rhow) / rhoNew;
+    qNew[IE] += (ekin_new - ekin_old);
+  }
+
   KOKKOS_INLINE_FUNCTION
   void compute_slopes_3d(thread1_t member) const
   {
@@ -1778,11 +1834,10 @@ public:
             {
               // get current location primitive variables state
               HydroState3d qprim = get_prim_variables<HydroState3d>(ig, iOct_local);
-              GravityField gc = get_gravity_field(ig, iOct_local);
-              GravityField g;
 
               // fluxes will be accumulated in qcons
               HydroState3d qcons = get_cons_variables<HydroState3d>(ig, iOct_local);
+              HydroState3d qold  = qcons;
 
               auto process_axis = [&]( ComponentIndex3D dir, FACE_ID face)
               {
@@ -1804,13 +1859,11 @@ public:
                 offsets[IZ] = - offsets[IZ];
                 HydroState3d qin = reconstruct_state_3d(qprim, ig, iOct_local, offsets, dtdx, dtdy, dtdz);
 
-                // step 3 : compute gravity
-                if (has_gravity) {
-                  assert(false); // 3d gravity not implemented
-                  //apply_gravity_prediction(qin, gc); // Prediction for local cell
-                  //g = get_gravity_field(ig + ioffset, iOct_local);
-                  //apply_gravity_prediction(qout, g); // Prediction for neighbor cell
-                }
+                // Applying prediction step for gravity
+                /*if (has_gravity) {
+                  apply_gravity_prediction<3>(qin, ig, iOct_local, dt);
+                  apply_gravity_prediction<3>(qout, ig+ioffset, iOct_local, dt);
+                }*/
 
                 HydroState3d& qL = (face==FACE_LEFT) ? qout : qin;
                 HydroState3d& qR = (face==FACE_LEFT) ? qin : qout;
@@ -1862,6 +1915,11 @@ public:
                 process_axis(IZ, FACE_RIGHT);
               }
 
+              // Applying correction step for gravity
+              if (has_gravity)
+                apply_gravity_correction_3d(qold, qcons, ig, iOct_local, dt);
+              
+
               // lastly update conservative variable in U2
               uint32_t index_non_ghosted = i + bx * j + bx*by *k; //(i-1) + bx * (j-1);
 
@@ -1896,11 +1954,6 @@ public:
     {
       assert("non conservative not implemented in 3D");
       //compute_fluxes_and_update_3d_non_conservative(member);
-    }
-
-    if (has_gravity) {
-      assert("Gravity not implemented in 3D");
-      //apply_gravity_correction_2d(member);
     }
   } // compute_fluxes_and_update_3d
 
@@ -2002,7 +2055,7 @@ public:
   //! slopes along z for current group
   DataArrayBlock SlopesZ;
 
-  //! should we calculate gravity ?
+  //! Should we apply gravity on the domain
   bool has_gravity;
 
 }; // MusclBlockGodunovUpdateFunctor
