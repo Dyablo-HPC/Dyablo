@@ -375,12 +375,12 @@ void compute_fluxes(ComponentIndex3D dir,
  **/
 template<int ndim>
 KOKKOS_INLINE_FUNCTION
-void apply_gravity_correction( const PatchArray& Uin,
+void apply_gravity_correction( const GlobalArray& Uin,
                                const CellIndex& iCell_Uin,
                                real_t dt,
                                bool use_field,
                                real_t gx, real_t gy, real_t gz,
-                               const PatchArray& Uout ){
+                               const GlobalArray& Uout ){
   if(use_field)
   {
     gx = Uin.at(iCell_Uin, IGX);
