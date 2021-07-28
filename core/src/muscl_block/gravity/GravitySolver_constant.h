@@ -18,7 +18,7 @@ public:
   GravitySolver_constant(
                 const ConfigMap& configMap,
                 const HydroParams& params, 
-                const LightOctree& lmesh,
+                std::shared_ptr<AMRmesh> pmesh,
                 const id2index_t& fm,
                 uint32_t bx, uint32_t by, uint32_t bz,
                 Timers& timers );

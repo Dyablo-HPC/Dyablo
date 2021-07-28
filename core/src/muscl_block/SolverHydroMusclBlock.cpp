@@ -360,7 +360,7 @@ void SolverHydroMusclBlock::next_iteration_impl()
     std::unique_ptr<GravitySolver> gravity_solver = GravitySolverFactory::make_instance( impl_id,
       configMap,
       params,
-      amr_mesh->getLightOctree(), 
+      amr_mesh, 
       fieldMgr.get_id2index(),
       bx, by, bz,
       timers

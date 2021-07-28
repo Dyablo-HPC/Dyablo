@@ -26,14 +26,14 @@ struct GravitySolver_constant::Data{
 GravitySolver_constant::GravitySolver_constant(
   const ConfigMap& configMap,
   const HydroParams& params, 
-  const LightOctree& lmesh,
+  std::shared_ptr<AMRmesh> pmesh,
   const id2index_t& fm,
   uint32_t bx, uint32_t by, uint32_t bz,
   Timers& timers )
  : pdata(new Data
     {configMap, 
     params, 
-    lmesh, 
+    pmesh->getLightOctree(), 
     fm,
     bx, by, bz,
     timers
