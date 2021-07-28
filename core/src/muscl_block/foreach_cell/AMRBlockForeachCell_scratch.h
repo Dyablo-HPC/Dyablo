@@ -13,6 +13,7 @@ namespace AMRBlockForeachCell_scratch_impl{
 #define SCRATCH_LEVEL 1
 
 class AMRBlockForeachCell_Patch;
+class AMRBlockForeachCell_CellMetaData;
 
 class AMRBlockForeachCell{
 public:
@@ -40,6 +41,16 @@ public:
   using policy_t = Kokkos::TeamPolicy<>;
 
   using Patch = AMRBlockForeachCell_Patch;
+  using CellMetaData = AMRBlockForeachCell_CellMetaData;
+  friend CellMetaData;
+
+  /**
+   * Get CellMetaData related to current mesh
+   * 
+   * NOTE : This method should not be called on device (inside foreach_patch/cell)
+   * Get a copy of the metadata before the loop and capture it with lambda. 
+   **/
+  CellMetaData getCellMetaData();
 
   /**
    * Create a new Patch::CellArray from a global array with ghost zone
@@ -102,14 +113,6 @@ public:
   KOKKOS_INLINE_FUNCTION
   AMRBlockForeachCell_Patch( const PData& pdata );
 
-  using pos_t = Kokkos::Array<real_t, 3>;
-
-  KOKKOS_INLINE_FUNCTION
-  pos_t getCellSize( const CellIndex& iCell ) const;
-  
-  KOKKOS_INLINE_FUNCTION
-  pos_t getCellCenter( const CellIndex& iCell ) const;
-
   /**
    * Apply the user-defined function f to every cell of the patch
    * @param iter_space : the iCell parameter in f will take every valid position inside iter_space
@@ -126,6 +129,30 @@ private :
   PData pdata;
 };
 
+/**
+ * Information related to the position and size of cells
+ * This can be captured by KOKKOS_LAMBDAS ( unlike AMRBlockForeachCell )
+ **/
+class AMRBlockForeachCell_CellMetaData
+{
+public:
+  using pos_t = Kokkos::Array<real_t, 3>;
+
+  inline
+  AMRBlockForeachCell_CellMetaData(const AMRBlockForeachCell& foreach_cell)
+  : cdata( foreach_cell.cdata )
+  {}
+
+  KOKKOS_INLINE_FUNCTION
+  pos_t getCellSize( const CellIndex& iCell ) const;
+  
+  KOKKOS_INLINE_FUNCTION
+  pos_t getCellCenter( const CellIndex& iCell ) const;
+
+private:
+  const AMRBlockForeachCell::CData cdata;
+};
+
 inline
 AMRBlockForeachCell::AMRBlockForeachCell(const CData& cdata)
   : cdata(cdata)
@@ -136,10 +163,16 @@ AMRBlockForeachCell_Patch::AMRBlockForeachCell_Patch(const AMRBlockForeachCell_P
   : pdata(pdata)
 {}
 
-KOKKOS_INLINE_FUNCTION
-AMRBlockForeachCell::Patch::pos_t AMRBlockForeachCell_Patch::getCellSize( const CellIndex& iCell ) const
+inline
+AMRBlockForeachCell_CellMetaData AMRBlockForeachCell::getCellMetaData()
 {
-  const CData& cdata = this->pdata.cdata;
+  return AMRBlockForeachCell_CellMetaData(*this);
+}
+
+KOKKOS_INLINE_FUNCTION
+AMRBlockForeachCell::CellMetaData::pos_t AMRBlockForeachCell::CellMetaData::getCellSize( const CellIndex& iCell ) const
+{
+  const AMRBlockForeachCell::CData& cdata = this->cdata;
   const LightOctree& lmesh = cdata.lmesh;
   real_t oct_size = lmesh.getSize(iCell.iOct);
 
@@ -151,10 +184,11 @@ AMRBlockForeachCell::Patch::pos_t AMRBlockForeachCell_Patch::getCellSize( const 
 }
 
 KOKKOS_INLINE_FUNCTION
-AMRBlockForeachCell::Patch::pos_t AMRBlockForeachCell::Patch::getCellCenter( const CellIndex& iCell ) const
+AMRBlockForeachCell::CellMetaData::pos_t AMRBlockForeachCell::CellMetaData::getCellCenter( const CellIndex& iCell ) const
 {
-  int ndim = this->pdata.cdata.ndim;
-  const LightOctree& lmesh = this->pdata.cdata.lmesh;
+  const AMRBlockForeachCell::CData& cdata = this->cdata;
+  int ndim = cdata.ndim;
+  const LightOctree& lmesh = cdata.lmesh;
   LightOctree::pos_t oct_center = lmesh.getCenter(iCell.iOct);
   pos_t cell_size = this->getCellSize(iCell);
 
