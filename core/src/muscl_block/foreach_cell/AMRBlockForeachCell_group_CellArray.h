@@ -2,6 +2,7 @@
 
 #include "shared/kokkos_shared.h"
 #include "shared/amr/LightOctree.h"
+#include "shared/mpi/GhostCommunicator.h"
 
 namespace dyablo {
 namespace muscl_block {
@@ -186,6 +187,11 @@ public :
    **/
   KOKKOS_INLINE_FUNCTION
   real_t& at( const CellIndex& iCell, VarIndex field ) const;
+
+  void exchange_ghosts(const GhostCommunicator& ghost_comm)
+  {
+    ghost_comm.exchange_ghosts(U, Ughost);
+  }
 };
 
 template< typename View_t >
