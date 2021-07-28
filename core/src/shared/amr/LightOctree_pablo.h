@@ -58,6 +58,11 @@ public:
     {
         return pmesh->getNumOctants();
     }
+    //! @copydoc LightOctree_base::getNumOctants()
+    uint32_t getNumGhosts() const
+    {
+        return pmesh->getNumGhosts();
+    }
     //! @copydoc LightOctree_base::getNdim()
     KOKKOS_INLINE_FUNCTION uint8_t getNdim() const
     {

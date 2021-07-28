@@ -20,7 +20,7 @@ public:
     LightOctree_hashmap( const AMRmesh_t* pmesh, uint8_t level_min, uint8_t level_max )
     : oct_map(pmesh->getNumOctants()+pmesh->getNumGhosts()),
       oct_data("LightOctree::oct_data", pmesh->getNumOctants()+pmesh->getNumGhosts(), OCT_DATA_COUNT),
-      numOctants(pmesh->getNumOctants()) , min_level(level_min), max_level(level_max), ndim(pmesh->getDim())
+      numOctants(pmesh->getNumOctants()), numGhosts(pmesh->getNumGhosts()) , min_level(level_min), max_level(level_max), ndim(pmesh->getDim())
     {
         is_periodic[IX] = pmesh->getPeriodic(IX*2);
         is_periodic[IY] = pmesh->getPeriodic(IY*2);
@@ -33,6 +33,13 @@ public:
     {
         return numOctants;
     }
+
+    //! @copydoc LightOctree_base::getNumGhosts()
+    KOKKOS_INLINE_FUNCTION uint32_t getNumGhosts() const
+    {
+        return numGhosts;
+    }
+
     //! @copydoc LightOctree_base::getNdim()
     KOKKOS_INLINE_FUNCTION uint8_t getNdim() const
     {
@@ -270,7 +277,7 @@ private:
         return OctantIndex::OctantIndex_to_iOctLocal(oct, numOctants);
     }
 
-    uint32_t numOctants; //! Number of local octants (no ghosts)
+    uint32_t numOctants, numGhosts; //! Number of local octants (no ghosts)
     level_t min_level; //! Coarser level of the octree
     level_t max_level; //! Finer level of the octree
     int ndim; //! 2D or 3D 
