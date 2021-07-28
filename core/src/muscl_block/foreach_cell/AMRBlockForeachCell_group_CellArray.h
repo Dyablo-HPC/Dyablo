@@ -40,7 +40,7 @@ struct CellIndex
    * note : is 0 for indexes that are local to the block
    **/
   KOKKOS_INLINE_FUNCTION
-  int level_diff()
+  int level_diff() const
   {
     return (status==BIGGER)-(status==SMALLER);
   }
