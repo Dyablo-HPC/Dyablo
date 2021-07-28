@@ -414,6 +414,8 @@ void update_aux(
 
   timers.get("MusclBlockUpdate_generic").start();
 
+  ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
+
   // Iterate over patches
   foreach_cell.foreach_patch( "MusclBlockUpdate_generic::update",
     PATCH_LAMBDA( const ForeachCell::Patch& patch )
@@ -430,7 +432,7 @@ void update_aux(
     {
         copyGhostBlockCellData<ndim>(
         Uin, iCell_Ugroup, 
-        patch, 
+        cellmetadata, 
         xmin, ymin, zmin, 
         xmax, ymax, zmax, 
         xbound, ybound, zbound,
@@ -444,7 +446,7 @@ void update_aux(
 
     patch.foreach_cell(Sources, CELL_LAMBDA(const CellIndex& iCell_Sources)
     { 
-      auto size = patch.getCellSize(iCell_Sources);
+      auto size = cellmetadata.getCellSize(iCell_Sources);
       compute_slopes<ndim>(
         Qgroup, iCell_Sources, slope_type, gamma, size[IX], size[IY], size[IZ], dt,
         Sources, SlopesX, SlopesY, SlopesZ
@@ -453,7 +455,7 @@ void update_aux(
     
     patch.foreach_cell( Uout, CELL_LAMBDA(const CellIndex& iCell_Uout)
     {
-      auto size = patch.getCellSize(iCell_Uout);
+      auto size = cellmetadata.getCellSize(iCell_Uout);
       HydroState3d u0 = getHydroState<ndim>( Uin, iCell_Uout );
       setHydroState<ndim>( Uout, iCell_Uout, u0);
       compute_fluxes<ndim>(IX, iCell_Uout, SlopesX, Sources, params, smallr, dt/size[IX], Uout);

@@ -30,7 +30,7 @@ void setHydroState( const Array_t& U, const CellIndex& iCell, const HydroState3d
 template< int ndim >
 KOKKOS_INLINE_FUNCTION
 void copyGhostBlockCellData(const GhostedArray& Uin, const CellIndex& iCell_Ugroup,
-                            const ForeachCell::Patch& patch, 
+                            const ForeachCell::CellMetaData& patch, 
                             real_t xmin, real_t ymin, real_t zmin, 
                             real_t xmax, real_t ymax, real_t zmax, 
                             BoundaryConditionType xbound, BoundaryConditionType ybound, BoundaryConditionType zbound, 

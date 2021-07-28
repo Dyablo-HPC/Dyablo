@@ -164,6 +164,8 @@ int main(int argc, char *argv[])
     PatchArray::Ref Ugroup_ = foreach_cell.reserve_patch_tmp("Ugroup", 1, 1, 1, fm, nbFields);
     timers.get("run_foreach_cell").start();
 
+    ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
+
     for(int i=0; i<ITER; i++)
     {
       foreach_cell.foreach_patch( "ForeachCell_test",
@@ -176,7 +178,7 @@ int main(int argc, char *argv[])
         {
             copyGhostBlockCellData<ndim>(
             Uin, iCell_Ugroup, 
-            patch, 
+            cellmetadata, 
             xmin, ymin, zmin, 
             xmax, ymax, zmax, 
             xbound, ybound, zbound,
