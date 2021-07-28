@@ -82,6 +82,24 @@ public:
    **/
   template <typename Function>
   void foreach_patch(const std::string& kernel_name, const Function& f) const;
+
+  /**
+   * Same as a single foreach_cell inside foreach_patch
+   **/
+  template <typename View_t, typename Function>
+  void foreach_cell(const std::string& kernel_name, const CellArray_base<View_t>& iter_space, const Function& f) const;
+
+    /**
+   * Call the user-defined function f for each cell and perform a reduction with the provided reducer
+   * @param kernel_name name for the Kokkos kernel
+   * @param iter_space the iCell parameter in f will take every valid position inside iter_space
+   * @param f a const CellIndex& patch, Update_t::value_type& update -> void functor that is compatible with Kokkos
+   *        This is usually a CELL_LAMBDA that performs and operation on a cell
+   * @param reducer is a Kokkos reducer (eg: Kokkos::Sum<double>) this is the last parameter used in Kokkos::parallel_reduce
+   *                (it cannot be just a scalar to perform the default sum operation)
+   **/
+  template <typename Function, typename View_t, typename Reducer_t>
+  void reduce_cell(const std::string& kernel_name, const CellArray_base<View_t>& iter_space, const Function& f, const Reducer_t& reducer) const;
 };
 
 /**
@@ -284,6 +302,49 @@ void AMRBlockForeachCell_Patch::foreach_cell(const CellArray_base<View_t>& iter_
   });
 
   //_pdata.member.team_barrier();
+}
+
+template <typename View_t, typename Function>
+void AMRBlockForeachCell::foreach_cell(const std::string& kernel_name, const CellArray_base<View_t>& iter_space, const Function& f) const
+{
+  this->foreach_patch(kernel_name, PATCH_LAMBDA(const Patch& patch)
+  {
+    patch.foreach_cell(iter_space, f);
+  });
+}
+
+template <typename Function, typename View_t, typename Reducer_t>
+void AMRBlockForeachCell::reduce_cell(const std::string& kernel_name, const CellArray_base<View_t>& iter_space, const Function& f, const Reducer_t& reducer) const
+{
+  this->foreach_patch(kernel_name, [&](const AMRBlockForeachCell::Patch& patch)
+  {
+    uint32_t bx = iter_space.bx;
+    uint32_t by = iter_space.by;
+    uint32_t bz = iter_space.bz;
+    uint32_t nbCellsPerBlock = bx*by*bz;
+
+    uint32_t nbOctsInGroup = patch.pdata.nbOctsInGroup;
+    uint32_t group_begin = patch.pdata.group_begin;
+
+    typename Reducer_t::value_type val;
+    Reducer_t reducer_local(val);
+
+    Kokkos::parallel_reduce( kernel_name,
+        Kokkos::RangePolicy<>(0,nbOctsInGroup*nbCellsPerBlock), 
+        KOKKOS_LAMBDA (uint32_t index, typename Reducer_t::value_type& update)
+    {
+      uint32_t iOct = group_begin + index/nbCellsPerBlock;
+      index = index%nbCellsPerBlock;
+
+      uint32_t k = index/(bx*by);
+      uint32_t j = (index - k*bx*by)/bx;
+      uint32_t i = index - j*bx - k*bx*by;
+
+      AMRBlockForeachCell::CellIndex iCell = {{iOct,false}, i, j, k, bx, by, bz};
+      f( iCell, update );
+    }, reducer_local );
+    reducer.join( reducer.reference(), val);
+  });
 }
 
 inline
