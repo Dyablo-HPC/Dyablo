@@ -2,13 +2,14 @@
 
 #include "shared/kokkos_shared.h"
 #include "shared/amr/LightOctree.h"
+#include "shared/mpi/GhostCommunicator.h"
 
 namespace dyablo {
 namespace muscl_block {
 
 class AMRBlockForeachCell_Patch;
 
-namespace AMRBlockForeachCell_scratch_impl{
+namespace AMRBlockForeachCell_CellArray_impl{
 
 #define CELLINDEX_INVALID CellIndex{{0,true},0,0,0,0,0,0,CellIndex::INVALID}
 #define CELLINDEX_BOUNDARY CellIndex{{0,true},0,0,0,0,0,0,CellIndex::BOUNDARY}
@@ -18,7 +19,6 @@ class CellArray_base;
 
 using CellArray_global = CellArray_base<DataArrayBlock>;
 class CellArray_global_ghosted;
-class CellArray_patch;
 
 struct CellIndex
 {
@@ -39,7 +39,7 @@ struct CellIndex
    * note : is 0 for indexes that are local to the block
    **/
   KOKKOS_INLINE_FUNCTION
-  int level_diff()
+  int level_diff() const
   {
     return (status==BIGGER)-(status==SMALLER);
   }
@@ -149,17 +149,6 @@ public:
   real_t& at( const CellIndex& iCell, VarIndex field ) const;
 };
 
-class CellArray_patch : public CellArray_global
-{
-public:
-  using Ref = CellArray_patch;
-
-  uint32_t nbVars;
-  
-  CellArray_patch() {}
-  CellArray_patch(const CellArray_global& a, uint32_t nbVars) : CellArray_global(a), nbVars(nbVars) {}
-};
-
 class CellArray_global_ghosted : public CellArray_global{
 public :
   View_t Ughost;
@@ -173,7 +162,7 @@ public :
    * Convert cell index used for another array into an 
    * index compatible with current array. 
    * This may of may not perform a neighbor search for indexes outside of 
-   * block depending on how the array was created (see get_patch_array and allocate_patch_tmp)
+   * block depending on how the array was created (see get_global_array, get_global_ghosted_array and allocate_patch_tmp)
    * If a neighbor search is performed the created index has the non-local status (is_local()==false)
    * Converted indexes keep their non-local status after conversion, but not their level difference.
    * Neighbor search is never performed on non-local indexes, is_valid()==false when resulting index is outside of block.
@@ -188,6 +177,11 @@ public :
    **/
   KOKKOS_INLINE_FUNCTION
   real_t& at( const CellIndex& iCell, VarIndex field ) const;
+
+  void exchange_ghosts(const GhostCommunicator& ghost_comm)
+  {
+    ghost_comm.exchange_ghosts(U, Ughost);
+  }
 };
 
 template< typename View_t >
@@ -506,6 +500,6 @@ CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_
 
 }
 
-} // namespace AMRBlockForeachCell_scratch_impl
+} // namespace CellArray_impl
 } // namespace muscl_block
 } // namespace dyablo
