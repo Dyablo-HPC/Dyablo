@@ -102,6 +102,10 @@ dyablo_add_test(utest_MapUserData OFF
   block_data/test_MapUserData.cpp
   main.cpp)
 
+dyablo_add_test(utest_GravitySolver_cg ON
+  gravity/test_GravitySolver_cg.cpp
+  main.cpp)
+
 
 ## Implementations registered to a factory that are contained in a separate static library have to be thourouhly tested
 add_library( RegisteringFactory_impl_lib STATIC utils/RegisteringFactory_impl_to_register.cpp )
