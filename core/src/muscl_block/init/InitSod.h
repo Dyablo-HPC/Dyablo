@@ -103,7 +103,7 @@ class InitSodDataFunctor {
 
       Kokkos::parallel_for(
 	Kokkos::TeamVectorRange(member, nbCells),
-	KOKKOS_LAMBDA(const int32_t index) {
+	[&](const int32_t index) {
 	  coord_t iCoord = (params.dimType == TWO_D
 			    ? index_to_coord<2>(index, blockSizes)
 			    : index_to_coord<3>(index, blockSizes));

@@ -141,7 +141,7 @@ public:
       // Iterating on all cells
       Kokkos::parallel_for(
           Kokkos::TeamVectorRange(member, nbCells),
-          KOKKOS_LAMBDA(const int32_t index) {
+          [&](const int32_t index) {
             coord_t iCoord;
             uint32_t &ix = iCoord[IX];
             uint32_t &iy = iCoord[IY];
