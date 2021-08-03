@@ -144,7 +144,7 @@ public:
       // perform vectorized loop inside a given block data
       Kokkos::parallel_for(
         Kokkos::TeamVectorRange(member, nbCells),
-        KOKKOS_LAMBDA(const index_t index) {
+        [&](const index_t index) {
 
           // compute current cell coordinates inside block
 
