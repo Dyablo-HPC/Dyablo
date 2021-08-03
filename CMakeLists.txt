@@ -43,7 +43,9 @@ include(preventBuildInSource)
 #
 # dyablo options
 #
-
+# if CUDA is enable, you need to be careful about the version of boost
+option (DYABLO_ENABLE_UNIT_TESTING "Enable unit testing" OFF)
+option (DYABLO_BUILD_EXPERIMENTS "Build optional experiments from core/test" OFF)
 option (DYABLO_USE_MPI "Activate / want MPI build" ON)
 option (DYABLO_USE_VTK "Activate / want VTK build" OFF)
 option (DYABLO_USE_DOUBLE "build with double precision" ON)
@@ -258,9 +260,6 @@ message( STATUS "== Setup Dyablo ExternalProject ==" )
 #
 set (DYABLO_CMAKE_ARGS)
 
-# if CUDA is enable, you need to be careful about the version of boost
-option(DYABLO_ENABLE_UNIT_TESTING "Enable unit testing" OFF)
-
 # Check external dependencies
 if( DYABLO_USE_MPI )
   find_package(MPI REQUIRED)
@@ -297,6 +296,7 @@ list (APPEND DYABLO_CMAKE_ARGS
   -DDYABLO_BUILD_DOC=${DYABLO_BUILD_DOC}
   -DDYABLO_DOC=${DYABLO_DOC}
   -DDYABLO_ENABLE_UNIT_TESTING=${DYABLO_ENABLE_UNIT_TESTING}
+  -DDYABLO_BUILD_EXPERIMENTS=${DYABLO_BUILD_EXPERIMENTS}
   -DBITPIT_DIR=${MY_BITPIT_DIR}
   )
 

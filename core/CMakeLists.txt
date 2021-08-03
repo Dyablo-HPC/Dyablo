@@ -39,6 +39,24 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+#
+# dyablo options
+#
+# if CUDA is enable, you need to be careful about the version of boost
+option (DYABLO_ENABLE_UNIT_TESTING "Enable unit testing" OFF)
+option (DYABLO_BUILD_EXPERIMENTS "Build optional experiments from core/test" OFF)
+option (DYABLO_USE_MPI "Activate / want MPI build" ON)
+option (DYABLO_USE_VTK "Activate / want VTK build" OFF)
+option (DYABLO_USE_DOUBLE "build with double precision" ON)
+#option (USE_MOOD "build MOOD numerical schemes" OFF)
+#option (USE_SDM "build Spectral Difference Method numerical schemes" OFF)
+option (DYABLO_USE_HDF5 "build HDF5 input/output support" ON)
+option (DYABLO_USE_PNETCDF "build PNETCDF input/output support (MPI required)" OFF)
+option (DYABLO_USE_FPE_DEBUG "build with floating point Nan tracing (signal handler)" OFF)
+option (DYABLO_USE_MPI_CUDA_AWARE_ENFORCED "Some MPI cuda-aware implementation are not well detected; use this to enforce" OFF)
+option (Kokkos_ENABLE_CUDA  "enable Kokkos::Cuda backend" OFF)
+
+
 #####################################################################
 # External packages: MPI, ...
 #####################################################################
@@ -221,7 +239,13 @@ add_subdirectory(../external/backward-cpp external/backward-cpp)
 # pass Kokkos include directories to our target application
 #include_directories(${Kokkos_INCLUDE_DIRS_RET})
 
+if( DYABLO_BUILD_EXPERIMENTS )
 add_subdirectory(test)
+else()
+add_subdirectory(test/solver)
+endif()
+
+
 add_subdirectory(src)
 
 # Documentation type
