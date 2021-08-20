@@ -480,12 +480,6 @@ void SolverHydroMusclBlock::synchronize_ghost_data(UserDataCommType t)
 
 #if BITPIT_ENABLE_MPI==1
 
-  // retrieve available / allowed names: fieldManager, and field map (fm)
-  auto fm = fieldMgr.get_id2index();
-
-  // retrieve current number of ghost cells
-  uint32_t nghosts = amr_mesh->getNumGhosts();
-
   // select which data to exchange
 
   // 3 operations :

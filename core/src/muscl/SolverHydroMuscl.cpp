@@ -686,12 +686,6 @@ void SolverHydroMuscl::synchronize_ghost_data(UserDataCommType t)
 
   timers.get("AMR: MPI ghosts").start();
 
-  // retrieve available / allowed names: fieldManager, and field map (fm)
-  auto fm = fieldMgr.get_id2index();
-
-  // retrieve current number of ghost cells
-  uint32_t nghosts = amr_mesh->getNumGhosts();
-
 #if BITPIT_ENABLE_MPI==1
 
   // select which data to exchange

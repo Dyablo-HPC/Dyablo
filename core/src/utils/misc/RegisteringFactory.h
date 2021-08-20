@@ -48,7 +48,7 @@ public:
    **/
   static std::unique_ptr<BaseType> make_instance(const std::string& id, Args... args )
   {
-    bool init_dummy = init();
+    init();
 
     auto& constructs = get_constructs(); 
 

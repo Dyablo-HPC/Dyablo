@@ -430,7 +430,6 @@ void update_aux(
     real_t dt)
 {
   
-  const ConfigMap& configMap = pdata->configMap;
   const HydroParams& params = pdata->params;  
   const int slope_type = params.settings.slope_type;
   const real_t gamma = params.settings.gamma0;

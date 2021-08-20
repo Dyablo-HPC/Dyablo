@@ -198,7 +198,6 @@ namespace{
                  "This implementation of GhostCommunicator_kokkos only supports Kokkos::LayoutLeft views" ); 
 
     constexpr int dim = DataArray_t::rank;
-    int nb_proc = hydroSimu::GlobalMpiSession::getNProc();
     
     // Allocate send_buffers with same dimension for each octant but with sum(send_sizes_host) octants
     // iOct is also displaced to the rightmost coordinate (if it's not already the case)

@@ -738,7 +738,7 @@ KOKKOS_INLINE_FUNCTION void fill_ghosts(const Functor& f, Functor::team_policy_t
 
         if(ix==1 && iy==1 && iz==1) return;
 
-        LightOctree::offset_t offset = {ix-1,iy-1,iz-1};
+        LightOctree::offset_t offset = {(int8_t)(ix-1),(int8_t)(iy-1),(int8_t)(iz-1)};
 
         neighbor_cache(ix,iy,iz) = f.lmesh.findNeighbors({iOct,false}, offset);
       });
