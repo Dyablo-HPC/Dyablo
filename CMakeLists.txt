@@ -5,6 +5,10 @@ if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
   message(STATUS "Setting policy CMP0076 to use new behavior")
   cmake_policy(SET CMP0076 NEW)
 endif()
+if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.19.0")
+  message(STATUS "Setting policy CMP0114 to use new behavior")
+  cmake_policy(SET CMP0114 NEW)
+endif()
 
 ###################################################################
 #
