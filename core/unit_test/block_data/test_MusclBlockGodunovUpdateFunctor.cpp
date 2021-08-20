@@ -130,7 +130,6 @@ void run_test(int argc, char *argv[]) {
   
   uint32_t iGroup = 1;
 
-  uint8_t nfaces = (params.dimType == TWO_D ? 4 : 6);
  // // chose an octant which should have a "same size" neighbor in all direction
   // //uint32_t iOct_local = 2;
   
