@@ -67,31 +67,47 @@ GhostCommunicator_kokkos::GhostCommunicator_kokkos( const std::map<int, std::vec
   }
 }
 
-namespace{
-  template<int iOct_pos, typename DataArray_t, typename... Args>
-  KOKKOS_INLINE_FUNCTION
-  std::enable_if_t< sizeof...(Args) == DataArray_t::rank, 
-  typename DataArray_t::value_type&> get_U( const DataArray_t& U, uint32_t iOct, uint32_t elt_index, Args... is)
-  {
-    return U(is...);
-  }
-  template<int iOct_pos, typename DataArray_t, typename... Args>
-  KOKKOS_INLINE_FUNCTION
-  std::enable_if_t< sizeof...(Args) < DataArray_t::rank,  
-  typename DataArray_t::value_type&> get_U( const DataArray_t& U, uint32_t iOct, uint32_t elt_index, Args... is)
-  {
-    if( sizeof...(Args) == iOct_pos )
-    {
-      return get_U<iOct_pos>(U, iOct, elt_index, is..., iOct);
-    }
-    else
+namespace GhostCommunicator_kokkos_impl{
+  template< int N >
+  struct integer_t{};
+
+  template<int iOct_pos, typename DataArray_t, typename Nargs, typename... Args>
+  struct get_U_t{
+    KOKKOS_INLINE_FUNCTION
+    static typename DataArray_t::value_type& get_U( const DataArray_t& U, uint32_t iOct, uint32_t elt_index, Args... is)
     {
       uint32_t current_dim_size = U.extent(sizeof...(Args));
       uint32_t rem = elt_index%current_dim_size;
       uint32_t div = elt_index/current_dim_size;
-      return get_U<iOct_pos>(U, iOct, div, is..., rem);
+      return get_U_t<iOct_pos, DataArray_t, integer_t<sizeof...(Args)+1>, Args..., uint32_t>::get_U(U, iOct, div, is..., rem);
     }
+  };
+
+  template<int iOct_pos, typename DataArray_t, typename... Args>
+  struct get_U_t<iOct_pos, DataArray_t, integer_t<iOct_pos>, Args...>{
+    KOKKOS_INLINE_FUNCTION
+    static typename DataArray_t::value_type& get_U( const DataArray_t& U, uint32_t iOct, uint32_t elt_index, Args... is)
+    {
+      return get_U_t<iOct_pos, DataArray_t, integer_t<sizeof...(Args)+1>, Args..., uint32_t>::get_U(U, iOct, elt_index, is..., iOct);
+    }
+  };
+
+  template<int iOct_pos, typename DataArray_t, typename... Args>
+  struct get_U_t<iOct_pos, DataArray_t, integer_t<DataArray_t::rank>, Args...>{
+    KOKKOS_INLINE_FUNCTION
+    static typename DataArray_t::value_type& get_U( const DataArray_t& U, uint32_t /*iOct*/, uint32_t /*elt_index*/, Args... is)
+    {
+      return U(is...);
+    } 
+  };
+
+  template<int iOct_pos, typename DataArray_t>
+  KOKKOS_INLINE_FUNCTION
+  typename DataArray_t::value_type& get_U( const DataArray_t& U, uint32_t iOct, uint32_t elt_index)
+  {
+    return get_U_t<iOct_pos, DataArray_t, integer_t<0>>::get_U(U, iOct, elt_index);
   }
+  
 
   /**
    * Generic way to get a subview of an an n-dimensional Kokkos view
@@ -237,7 +253,7 @@ namespace{
    * (When iOct is rightmost index)
    **/
   template <typename DataArray_t>
-  void unpack( const std::vector<DataArray_t>& recv_buffers, const DataArray_t& Ughost, const Kokkos::View<uint32_t*>::HostMirror& recv_sizes_host )
+  void unpack( const std::vector<DataArray_t>& /*recv_buffers*/, const DataArray_t& /*Ughost*/, const Kokkos::View<uint32_t*>::HostMirror& /*recv_sizes_host*/ )
   {
     // When iOct is the rightmost subscript in Ughost, Ughost is directly used as recieve buffer
     // There is no copy to perform
@@ -313,11 +329,12 @@ namespace{
     Ughost = Ughost_right_iOct;
   }
 
-} // namespace
+} // namespace GhostCommunicator_kokkos_impl
 
 template< typename DataArray_t, int iOct_pos >
 void GhostCommunicator_kokkos::exchange_ghosts_aux( const DataArray_t& U, DataArray_t& Ughost) const
 { 
+  using namespace GhostCommunicator_kokkos_impl;
 #ifdef MPI_IS_CUDA_AWARE    
   using MPIBuffer = DataArray_t;
 #else

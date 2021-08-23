@@ -3,7 +3,7 @@
 namespace dyablo{
 namespace muscl_block{
 
-namespace {
+namespace GhostCommunicator_pablo_impl{
 
 /** 
  * @function gather_aux
@@ -165,12 +165,12 @@ void exchange_ghosts_aux( AMRmesh_pablo& amr_mesh,
 
 void GhostCommunicator_pablo::exchange_ghosts(const DataArrayBlock& U, DataArrayBlock& Ughost) const
 {
-    exchange_ghosts_aux(amr_mesh, U, Ughost);
+    GhostCommunicator_pablo_impl::exchange_ghosts_aux(amr_mesh, U, Ughost);
 }
 
 void GhostCommunicator_pablo::exchange_ghosts(const DataArray& U, DataArray& Ughost) const
 {
-    exchange_ghosts_aux<DataArray, 0>(amr_mesh, U, Ughost);
+    GhostCommunicator_pablo_impl::exchange_ghosts_aux<DataArray, 0>(amr_mesh, U, Ughost);
 }
 
 }//namespace muscl_block

@@ -447,12 +447,11 @@ void SolverHydroMusclBlock::print_monitoring_info()
 {
 
   int myRank = 0;
-  int nProcs = 1;
-  UNUSED(nProcs);
+  //int nProcs = 1;
 
 #ifdef DYABLO_USE_MPI
   myRank = params.myRank;
-  nProcs = params.nProcs;
+  //nProcs = params.nProcs;
 #endif // DYABLO_USE_MPI
   
   // only print on master

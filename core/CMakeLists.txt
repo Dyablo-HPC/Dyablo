@@ -45,6 +45,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # if CUDA is enable, you need to be careful about the version of boost
 option (DYABLO_ENABLE_UNIT_TESTING "Enable unit testing" OFF)
 option (DYABLO_BUILD_EXPERIMENTS "Build optional experiments from core/test" OFF)
+option (DYABLO_BUILD_DOC  "Enable / disable documentation build" OFF)
+set    (DYABLO_DOC "doxygen" CACHE STRING "documentation type (doxygen or mkdocs)")
 option (DYABLO_USE_MPI "Activate / want MPI build" ON)
 option (DYABLO_USE_VTK "Activate / want VTK build" OFF)
 option (DYABLO_USE_DOUBLE "build with double precision" ON)

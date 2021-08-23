@@ -68,6 +68,9 @@ void UserDataLB::assign(uint32_t stride, uint32_t length)
   DataArray_t dataCopy("dataLBcopy");
   Kokkos::resize(dataCopy, nbCellsPerOct, length, nbFields);
 
+  uint32_t nbFields = this->nbFields;
+  uint32_t nbCellsPerOct = this->nbCellsPerOct;
+  const DataArray_t& data = this->data;
   Kokkos::parallel_for("dyablo::muscl_block::UserDataLB::assign copy data to dataCopy",Policy_t(0, length), KOKKOS_LAMBDA(size_t iOct) {
       for (uint32_t ivar=0; ivar<nbFields; ++ivar)
         for (uint32_t index=0; index<nbCellsPerOct; ++index)

@@ -359,12 +359,11 @@ SolverBase::print_monitoring_info()
   real_t t_tot   = timers.get("total").elapsed(Timers::Timer::Elapsed_mode_t::ELAPSED_CPU);
 
   int myRank = 0;
-  int nProcs = 1;
-  UNUSED(nProcs);
+  //int nProcs = 1;
 
 #ifdef DYABLO_USE_MPI
   myRank = params.myRank;
-  nProcs = params.nProcs;
+  //nProcs = params.nProcs;
 #endif // DYABLO_USE_MPI
   
   // only print on master
