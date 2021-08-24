@@ -447,7 +447,9 @@ void update_aux(
 
   bool has_gravity = params.gravity_type!=GRAVITY_NONE;
   bool gravity_use_field = params.gravity_type&GRAVITY_FIELD;
+  #ifndef NDEBUG
   bool gravity_use_scalar = params.gravity_type==GRAVITY_CST_SCALAR;
+  #endif
   real_t gx = params.gx, gy = params.gy, gz = params.gz;
 
   // If gravity is on it must either use the force field from U or a constant scalar force field

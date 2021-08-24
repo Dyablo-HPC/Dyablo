@@ -210,7 +210,9 @@ private:
     void fix_missing_corner_neighbor( uint32_t iOct_global, const offset_t& neighbor, const pos_t cellPos, NeighborList& res_neighbors) const
     {
         constexpr uint8_t CODIM_NODE = 3;
+        #ifndef NDEBUG
         constexpr uint8_t CODIM_EDGE = 2;
+        #endif
         //constexpr uint8_t CODIM_FACE = 1;
 
         /// Check if position `cellPos` is inside neighbor designated by search_codim and search_iface
