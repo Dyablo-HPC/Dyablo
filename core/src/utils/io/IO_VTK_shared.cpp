@@ -3,7 +3,7 @@
 #include "IO_VTK_shared.h"
 
 #include "shared/enums.h"     // for ComponentIndex3D (IX,IY,IZ)
-#include "utils/misc/utils.h" // for get_current_date
+#include "utils/misc/utils.h"
 
 namespace dyablo
 {

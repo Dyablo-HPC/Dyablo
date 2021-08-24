@@ -26,7 +26,6 @@
 #include "shared/FieldManager.h"
 #include "shared/HydroParams.h"  // read parameter file
 #include "shared/real_type.h"    // choose between single and double precision
-#include "shared/solver_utils.h" // print monitoring information
 
 #ifdef DYABLO_USE_MPI
 #include "utils/mpiUtils/GlobalMpiSession.h"

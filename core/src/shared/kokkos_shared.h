@@ -10,7 +10,7 @@
 #include <impl/Kokkos_Error.hpp>
 
 #include "shared/real_type.h"
-#include "shared/utils.h"
+#include "utils/misc/utils.h"
 
 namespace dyablo {
 

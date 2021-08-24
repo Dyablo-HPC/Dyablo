@@ -36,10 +36,6 @@
 #include "utils/io/VTKWriter.h" // for VTK_WRITE_ENUM class
 #include "utils/io/IO_VTK_shared.h"
 
-/** typedef Point holding coordinates of a point. */
-template<int dim>
-using Point = std::array<real_t, dim>;
-
 
 enum index_status_t {
   INDEX_UNINITIALIZED = -1
@@ -108,6 +104,10 @@ compute_nb_iters (double cx, double cy)
 } // compute_nb_iters
 
 namespace dyablo {
+
+/** typedef Point holding coordinates of a point. */
+template<int dim>
+using Point = std::array<real_t, dim>;
 
 bool VERBOSE = false;
 

@@ -7,7 +7,6 @@ target_sources (shared
   PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/HydroParams.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/SolverBase.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/utils.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/io_utils.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/SimpleVTKIO.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh_hashmap.cpp

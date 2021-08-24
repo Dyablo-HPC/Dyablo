@@ -13,7 +13,6 @@
 
 #include "shared/real_type.h"    // choose between single and double precision
 #include "shared/HydroParams.h"  // read parameter file
-#include "shared/solver_utils.h" // print monitoring information
 #include "shared/FieldManager.h"
 
 #include "shared/DyabloSession.hpp"

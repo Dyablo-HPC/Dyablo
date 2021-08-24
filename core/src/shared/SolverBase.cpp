@@ -1,6 +1,6 @@
 #include "shared/SolverBase.h"
 
-#include "shared/utils.h"
+#include "utils/misc/utils.h"
 
 #include <memory>
 
