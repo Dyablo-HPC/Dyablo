@@ -2,8 +2,9 @@
 cmake_minimum_required(VERSION 3.10)
 
 if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
-  message(STATUS "Setting policy CMP0076 to use new behavior")
+  message(STATUS "Setting policy CMP0076, CMP0079 to use new behavior")
   cmake_policy(SET CMP0076 NEW)
+  cmake_policy(SET CMP0079 NEW)
 endif()
 
 set(PROJECT_LANGUAGES ${PROJECT_LANGUAGES} C CXX)
@@ -94,6 +95,27 @@ find_package(Kokkos 3.1 REQUIRED)
 if(Kokkos_ENABLE_CUDA)
   # kokkos_check is defined in KokkosConfigCommon.cmake
   kokkos_check(OPTIONS CUDA_LAMBDA)
+endif()
+
+set(COMPILER_IS_NVCC_WRAPPER false)
+get_filename_component(COMPILER_NAME ${CMAKE_CXX_COMPILER} NAME)
+if (COMPILER_NAME MATCHES "^nvcc_wrapper")
+  set(COMPILER_IS_NVCC_WRAPPER true)
+  message(STATUS "Compiler is Kokkos's nvcc_wrapper")
+endif()
+
+# HostOnly interface to force nvcc_wrapper to use only host compiler
+# When using nvcc_wrapper, each file must depend either on HostOnly or 
+# Kokkos::kokkos targets to avoid "sm_35 deprecated" warning 
+# (Kokkos::kokkos enables architecture specific optims (-march=), HostOnly doesn't)
+add_library(HostOnly INTERFACE)
+if( COMPILER_IS_NVCC_WRAPPER )
+  target_compile_options(HostOnly INTERFACE --host-only)
+  # TODO allow configuration of host compiler with nvcc_wrapper
+  #if( CMAKE_CUDA_HOST_COMPILER )
+  #  target_compile_options(HostOnly INTERFACE -ccbin ${CMAKE_CUDA_HOST_COMPILER})
+  #  target_compile_options(Kokkos::kokkoscore INTERFACE -ccbin ${CMAKE_CUDA_HOST_COMPILER}) 
+  #endif()
 endif()
 
 #####################################################################
@@ -236,6 +258,10 @@ add_definitions( -Wall )
 # sources
 #
 add_subdirectory(../external/backward-cpp external/backward-cpp)
+# Add Kokkos to set correct nvcc_wrapper flags
+target_link_libraries(backward_object INTERFACE HostOnly)
+target_link_libraries(backward INTERFACE HostOnly)
+
 #add_subdirectory(../external/kokkos external/kokkos)
 
 # pass Kokkos include directories to our target application
