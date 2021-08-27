@@ -122,10 +122,8 @@ SolverHydroMuscl::SolverHydroMuscl(HydroParams& params,
   // compute initialize time step
   compute_dt();
 
-  int myRank=0;
-#ifdef DYABLO_USE_MPI
-  myRank = params.myRank;
-#endif // DYABLO_USE_MPI
+  int myRank=params.myRank;
+
 
   if (myRank==0) {
     std::cout << "##########################" << "\n";
@@ -348,11 +346,7 @@ double SolverHydroMuscl::compute_dt_local()
 void SolverHydroMuscl::next_iteration_impl()
 {
   
-  int myRank=0;
-  
-#ifdef DYABLO_USE_MPI
-  myRank = params.myRank;
-#endif // DYABLO_USE_MPI
+  int myRank=params.myRank;
   
   if (m_iteration % m_nlog == 0) {
     if (myRank==0) {

@@ -160,14 +160,9 @@ void HydroParams::setup(ConfigMap &configMap)
   debug_output = configMap.getBool("output", "debug", false);
 
   init();
-
-#ifdef DYABLO_USE_MPI
-  setup_mpi(configMap);
-#endif // DYABLO_USE_MPI
-  
+  setup_mpi(configMap);  
 } // HydroParams::setup
 
-#ifdef DYABLO_USE_MPI
 // =======================================================
 // =======================================================
 void HydroParams::setup_mpi(ConfigMap& configMap)
@@ -180,8 +175,6 @@ void HydroParams::setup_mpi(ConfigMap& configMap)
   myRank = communicator->MPI_Comm_rank();
   
 } // HydroParams::setup_mpi
-
-#endif // DYABLO_USE_MPI
 
 // =======================================================
 // =======================================================
