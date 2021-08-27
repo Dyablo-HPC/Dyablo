@@ -15,7 +15,9 @@ target_include_directories(mpiUtils
   PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/
 )
-target_link_libraries (mpiUtils PUBLIC MPI::MPI_CXX)
+if( DYABLO_USE_MPI )
+  target_link_libraries (mpiUtils PUBLIC MPI::MPI_CXX)
+endif()
 target_link_libraries (mpiUtils PRIVATE HostOnly)
 
 #Add an alias so that library can be used inside the build tree

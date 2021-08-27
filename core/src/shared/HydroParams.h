@@ -18,9 +18,7 @@
 
 #include "shared/enums.h"
 
-#ifdef DYABLO_USE_MPI
 #include "utils/mpi/MpiComm.h"
-#endif // DYABLO_USE_MPI
 
 struct HydroSettings {
 
@@ -143,10 +141,8 @@ struct HydroParams {
   //! constant scalar gravity
   real_t gx, gy, gz;
 
-#ifdef DYABLO_USE_MPI
-//! MPI communicator in a cartesian virtual topology
+  //! MPI communicator in a cartesian virtual topology
   dyablo::MpiComm *communicator;
-#endif // DYABLO_USE_MPI
 
   //! MPI rank of current process
   int myRank;

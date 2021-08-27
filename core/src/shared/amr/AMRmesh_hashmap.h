@@ -1,7 +1,6 @@
 #pragma once
 
 #include <vector>
-#include "mpi.h"
 #include "Kokkos_UnorderedMap.hpp"
 
 #include "utils/mpi/GlobalMpiSession.h"
@@ -69,10 +68,6 @@ public:
     int getNproc() const
     {
         return mpi_comm.MPI_Comm_size();
-    }
-    MPI_Comm getComm() const
-    {
-        return mpi_comm.getId();
     }
 
     template< typename T >

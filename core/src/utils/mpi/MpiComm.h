@@ -1,6 +1,8 @@
 #pragma once
 
+#ifdef DYABLO_USE_MPI
 #include <mpi.h>
+#endif
 
 namespace dyablo{
 
@@ -8,7 +10,12 @@ namespace dyablo{
 class MpiComm
 {
 public:
+  #ifdef DYABLO_USE_MPI
   using MPI_Comm_t = MPI_Comm;
+  #else
+  using MPI_Comm_t = int;
+  #endif
+  
   enum MPI_Op_t{
     MIN,
     MAX,
@@ -17,7 +24,9 @@ public:
   };
 private:
   /// Construct a MpiComm for a given MPI communicator
-  inline MpiComm(MPI_Comm_t mpi_comm_id = MPI_COMM_WORLD);
+  inline MpiComm(MPI_Comm_t mpi_comm_id);
+  /// Construct MpiComm from MPI_COMM_WORLD
+  inline MpiComm();
 public:
   /// Get an object representing MPI_COMM_WORLD 
   inline static MpiComm& world()
@@ -49,4 +58,8 @@ private:
 
 } // namespace dyablo
 
+#ifdef DYABLO_USE_MPI
 #include "MpiComm_mpi.tpp"
+#else
+#include "MpiComm_single.tpp"
+#endif

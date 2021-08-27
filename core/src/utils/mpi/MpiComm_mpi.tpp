@@ -35,6 +35,10 @@ MpiComm::MpiComm(MPI_Comm_t mpi_comm_id)
   ::MPI_Comm_rank( mpi_comm_id, &this->mpi_comm_rank );
 }
 
+MpiComm::MpiComm()
+  : MpiComm(MPI_COMM_WORLD)
+{}
+
 void MpiComm::MPI_Barrier()
 {
   ::MPI_Barrier( mpi_comm_id );

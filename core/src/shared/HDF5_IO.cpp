@@ -165,7 +165,9 @@ HDF5_Writer::open(std::string basename, std::string outDir)
    * Open parallel HDF5 resources.
    */
   plist = H5Pcreate(H5P_FILE_ACCESS);
-  H5Pset_fapl_mpio(plist, m_amr_mesh->getComm(), MPI_INFO_NULL);
+#ifdef DYABLO_USE_MPI
+  H5Pset_fapl_mpio(plist, MPI_COMM_WORLD, MPI_INFO_NULL);
+#endif
 
   filename = basename + ".h5";
   full_path = outDir + "/" + filename;
@@ -690,7 +692,9 @@ HDF5_Writer::io_hdf5_writev(hid_t fd,
   // set some properties
   dataset_properties = H5Pcreate(H5P_DATASET_CREATE);
   write_properties = H5Pcreate(H5P_DATASET_XFER);
+#ifdef DYABLO_USE_MPI
   H5Pset_dxpl_mpio(write_properties, H5FD_MPIO_COLLECTIVE);
+#endif
 
   // create the dataset and the location of the local data
   dataset = H5Dcreate2(fd, name.c_str(), wtype_id, filespace,

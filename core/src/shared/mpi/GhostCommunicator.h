@@ -105,8 +105,30 @@ public:
     void exchange_ghosts_aux( const DataArray_t& U, DataArray_t& Ughost) const;
 };
 
+/**
+ * Ghost communicator that does nothing.
+ * To be used when MPI is disabled
+ **/
+class GhostCommunicator_serial: public GhostCommunicator_base
+{
+public:
+    template< typename AMRmesh_t >
+    GhostCommunicator_serial( std::shared_ptr<AMRmesh_t> amr_mesh )
+    {}
+    
+    template< typename DataArray_t>
+    void exchange_ghosts( const DataArray_t& U, DataArray_t& Ughost) const
+    {
+        assert(Ughost.size() == 0);
+        /* Nothing to do */
+    } 
+};
+
+#if DYABLO_USE_MPI
 using GhostCommunicator = GhostCommunicator_kokkos;
-//using GhostCommunicator = GhostCommunicator_pablo;
+#else
+using GhostCommunicator = GhostCommunicator_serial;
+#endif
 
 
 }//namespace muscl_block

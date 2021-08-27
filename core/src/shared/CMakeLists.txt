@@ -11,8 +11,6 @@ target_sources (shared
   ${CMAKE_CURRENT_SOURCE_DIR}/SimpleVTKIO.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh_hashmap.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/mpi/GhostCommunicator_pablo.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/mpi/GhostCommunicator_kokkos.cpp
   )
 
 if (DYABLO_USE_HDF5)
@@ -24,6 +22,9 @@ endif(DYABLO_USE_HDF5)
 
 if (DYABLO_USE_MPI)
   target_compile_definitions(shared PUBLIC BITPIT_ENABLE_MPI)
+  target_sources(shared PRIVATE 
+    ${CMAKE_CURRENT_SOURCE_DIR}/mpi/GhostCommunicator_kokkos.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mpi/GhostCommunicator_pablo.cpp )
 endif (DYABLO_USE_MPI)
 
 target_include_directories(shared

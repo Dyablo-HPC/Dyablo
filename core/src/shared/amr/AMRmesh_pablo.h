@@ -93,8 +93,14 @@ public:
 
     void setMarkersCapacity(uint32_t capa){}
 
+#ifndef DYABLO_USE_MPI
+    void loadBalance( uint8_t compact_levels )
+    {}
+#endif
+
     void loadBalance_userdata( uint8_t compact_levels, DataArrayBlock& U )
     {
+#ifdef DYABLO_USE_MPI
         // Copy Data to host for MPI communication 
         DataArrayBlockHost U_host = Kokkos::create_mirror_view(U);
         Kokkos::deep_copy(U_host, U);
@@ -106,10 +112,12 @@ public:
 
         Kokkos::realloc(U, U_host.layout());
         Kokkos::deep_copy(U, U_host);
+#endif // DYABLO_USE_MPI
     }
 
     void loadBalance_userdata( uint8_t compact_levels, DataArray& U )
     {
+#ifdef DYABLO_USE_MPI
         // Copy Data to host for MPI communication 
         DataArrayHost U_host = Kokkos::create_mirror_view(U);
         Kokkos::deep_copy(U_host, U);
@@ -121,6 +129,7 @@ public:
 
         Kokkos::realloc(U, U_host.layout());
         Kokkos::deep_copy(U, U_host);
+#endif // DYABLO_USE_MPI
     }
 };
 
