@@ -33,10 +33,6 @@
 
 #include "muscl/MapUserData.h"
 
-#if BITPIT_ENABLE_MPI==1
-#include "muscl/UserDataLB.h"
-#endif
-
 //#include "shared/mpiBorderUtils.h"
 
 namespace dyablo { namespace muscl {

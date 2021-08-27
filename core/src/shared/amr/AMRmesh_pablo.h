@@ -1,8 +1,7 @@
 #pragma once
 
 #include "bitpit_PABLO.hpp"
-#include "muscl_block/UserDataLB.h"
-#include "muscl/UserDataLB.h"
+#include "shared/amr/UserDataLB.h"
 
 namespace dyablo {
 
@@ -93,39 +92,39 @@ public:
 
     void setMarkersCapacity(uint32_t capa){}
 
-#ifndef DYABLO_USE_MPI
     void loadBalance( uint8_t compact_levels )
-    {}
-#endif
+    {
+#ifdef DYABLO_USE_MPI
+        ParaTree::loadBalance(compact_levels);
+#endif // DYABLO_USE_MPI
+    }
 
     void loadBalance_userdata( uint8_t compact_levels, DataArrayBlock& U )
     {
-#ifdef DYABLO_USE_MPI
-        // Copy Data to host for MPI communication 
-        DataArrayBlockHost U_host = Kokkos::create_mirror_view(U);
-        Kokkos::deep_copy(U_host, U);
-        
-        DataArrayBlockHost Ughost_host; // Dummy ghost array
-        
-        muscl_block::UserDataLB data_lb(U_host, Ughost_host);
-        ParaTree::loadBalance<muscl_block::UserDataLB>(data_lb, compact_levels);
-
-        Kokkos::realloc(U, U_host.layout());
-        Kokkos::deep_copy(U, U_host);
-#endif // DYABLO_USE_MPI
+        loadBalance_userdata_aux<DataArrayBlock, 2>(compact_levels, U);
     }
 
     void loadBalance_userdata( uint8_t compact_levels, DataArray& U )
     {
+        loadBalance_userdata_aux<DataArray, 0>(compact_levels, U);
+    }
+
+private:
+    template< typename DataArray_t, int iOct_pos >
+    void loadBalance_userdata_aux( uint8_t compact_levels, DataArray_t& U )
+    {
 #ifdef DYABLO_USE_MPI
+        using DataArrayHost_t = typename DataArray_t::HostMirror;
         // Copy Data to host for MPI communication 
-        DataArrayHost U_host = Kokkos::create_mirror_view(U);
+        DataArrayHost_t U_host = Kokkos::create_mirror_view(U);
         Kokkos::deep_copy(U_host, U);
         
-        DataArrayHost Ughost_host; // Dummy ghost array
+        DataArrayHost_t Ughost_host; // Dummy ghost array
         
-        muscl::UserDataLB data_lb(U_host, Ughost_host);
-        ParaTree::loadBalance<muscl::UserDataLB>(data_lb, compact_levels);
+        using UserDataLB_t = UserDataLB<DataArrayHost_t, iOct_pos> ;
+
+        UserDataLB_t data_lb(U_host, Ughost_host);
+        ParaTree::loadBalance<UserDataLB_t>(data_lb, compact_levels);
 
         Kokkos::realloc(U, U_host.layout());
         Kokkos::deep_copy(U, U_host);

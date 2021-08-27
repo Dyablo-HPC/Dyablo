@@ -17,11 +17,7 @@ set (muscl_block_SRCS
   ${CMAKE_CURRENT_SOURCE_DIR}/update/MusclBlockUpdate_generic.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/gravity/GravitySolver_constant.cpp
   )
-  # add MPI user data communication interface
-  if (DYABLO_USE_MPI)
-    list(APPEND muscl_block_SRCS
-      ${CMAKE_CURRENT_SOURCE_DIR}/UserDataLB.cpp)
-  endif(DYABLO_USE_MPI)
+
   if (DYABLO_USE_HDF5)
     list(APPEND muscl_block_SRCS
     ${CMAKE_CURRENT_SOURCE_DIR}/io/IOManager_hdf5.cpp)

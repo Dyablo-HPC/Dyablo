@@ -35,10 +35,6 @@
 #include "muscl_block/MapUserData.h"
 #include "muscl_block/gravity/GravitySolver.h"
 
-#if BITPIT_ENABLE_MPI==1
-#include "muscl_block/UserDataLB.h"
-#endif
-
 //#include "shared/mpiBorderUtils.h"
 
 namespace dyablo { namespace muscl_block {

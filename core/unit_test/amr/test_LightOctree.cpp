@@ -17,6 +17,7 @@
 
 #include "utils/monitoring/SimpleTimer.h"
 #include "shared/amr/LightOctree.h"
+#include "shared/HydroParams.h"
 
 #include <iostream>
 

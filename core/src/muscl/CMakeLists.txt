@@ -13,13 +13,6 @@ set (muscl_SRCS
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitShuOsher.cpp
   )
 
-# add MPI user data communication interface
-if (DYABLO_USE_MPI)
-  list(APPEND muscl_SRCS
-    ${CMAKE_CURRENT_SOURCE_DIR}/UserDataComm.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/UserDataLB.cpp)
-endif(DYABLO_USE_MPI)
-
 add_library(muscl
   ${muscl_SRCS}
   )
