@@ -6,10 +6,7 @@
 #include <iostream>
 
 #include "config/inih/ini.h" // our INI file reader
-
-#ifdef DYABLO_USE_MPI
-using namespace hydroSimu;
-#endif // DYABLO_USE_MPI
+#include "utils/mpi/GlobalMpiSession.h"
 
 // =======================================================
 // =======================================================
@@ -175,20 +172,12 @@ void HydroParams::setup(ConfigMap &configMap)
 // =======================================================
 void HydroParams::setup_mpi(ConfigMap& configMap)
 {
-
-  // runtime determination if we are using float ou double (for MPI communication)
-  data_type = typeid(1.0f).name() == typeid((real_t)1.0f).name() ?
-    hydroSimu::MpiComm::FLOAT : hydroSimu::MpiComm::DOUBLE;
-  
-
-  // create the MPI communicator for our amr mesh using MPI_COMM_WORLD
-  communicator = new hydroSimu::MpiComm();
-
+  communicator = &dyablo::GlobalMpiSession::get_comm_world();
   // get world communicator size and check it is consistent with mesh grid sizes
-  nProcs = communicator->getNProc();
+  nProcs = communicator->MPI_Comm_size();
 
   // get my MPI rank inside topology
-  myRank = communicator->getRank();
+  myRank = communicator->MPI_Comm_rank();
   
 } // HydroParams::setup_mpi
 

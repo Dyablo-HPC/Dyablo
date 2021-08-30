@@ -19,7 +19,7 @@
 #include "shared/enums.h"
 
 #ifdef DYABLO_USE_MPI
-#include "utils/mpiUtils/MpiComm.h"
+#include "utils/mpi/MpiComm.h"
 #endif // DYABLO_USE_MPI
 
 struct HydroSettings {
@@ -145,15 +145,7 @@ struct HydroParams {
 
 #ifdef DYABLO_USE_MPI
 //! MPI communicator in a cartesian virtual topology
-  hydroSimu::MpiComm *communicator;
-
-  //! runtime determination if we are using float ou double (for MPI communication)
-  //! initialized in constructor to either MpiComm::FLOAT or MpiComm::DOUBLE
-  int data_type;
-
-  //! number of dimension
-  int nDim;  
-
+  dyablo::MpiComm *communicator;
 #endif // DYABLO_USE_MPI
 
   //! MPI rank of current process

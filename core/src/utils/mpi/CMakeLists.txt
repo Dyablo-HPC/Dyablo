@@ -3,17 +3,9 @@ add_library(mpiUtils "")
 target_sources (mpiUtils
   PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/GlobalMpiSession.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/TestForException.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/ErrorPolling.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/ErrorPolling.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/common_config.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/MpiComm.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/MpiCommCart.cpp
   PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/GlobalMpiSession.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/mpiEnums.h
   ${CMAKE_CURRENT_SOURCE_DIR}/MpiComm.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/MpiCommCart.h
   )
 #Set target properties
 target_include_directories(mpiUtils
@@ -27,4 +19,4 @@ target_link_libraries (mpiUtils PUBLIC MPI::MPI_CXX)
 target_link_libraries (mpiUtils PRIVATE HostOnly)
 
 #Add an alias so that library can be used inside the build tree
-add_library(dyablo::mpiUtils ALIAS mpiUtils)
+add_library(dyablo::utils::mpi ALIAS mpiUtils)

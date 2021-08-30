@@ -4,7 +4,7 @@
 #include "mpi.h"
 #include "Kokkos_UnorderedMap.hpp"
 
-#include "utils/mpiUtils/GlobalMpiSession.h"
+#include "utils/mpi/GlobalMpiSession.h"
 #include "shared/kokkos_shared.h"
 
 namespace dyablo {
@@ -42,6 +42,7 @@ private:
     std::map<int, std::vector<uint32_t>> local_octants_to_send; /// rank -> array of remote ghosts to send to rank
 
     uint8_t level_min, level_max;
+    MpiComm mpi_comm;
 
 public:
     uint8_t getDim() const
@@ -63,15 +64,15 @@ public:
     //MPI
     int getRank() const
     {
-        return hydroSimu::GlobalMpiSession::getRank();
+        return mpi_comm.MPI_Comm_rank();
     }
     int getNproc() const
     {
-        return hydroSimu::GlobalMpiSession::getNProc();
+        return mpi_comm.MPI_Comm_size();
     }
     MPI_Comm getComm() const
     {
-        return MPI_COMM_WORLD;
+        return mpi_comm.getId();
     }
 
     template< typename T >
@@ -237,7 +238,7 @@ public:
      *               3 ==> balance through faces, edges and corner (3D only)
      * @param periodic set perodicity for each dimension (last is ignored in 2D)
      **/
-    AMRmesh_hashmap( int dim, int balance_codim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max);
+    AMRmesh_hashmap( int dim, int balance_codim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world());
     
     void findNeighbours(uint32_t iOct, uint8_t iface, uint8_t codim , 
                         std::vector<uint32_t>& neighbor_iOcts, std::vector<bool>& neighbor_isGhost) const

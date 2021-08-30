@@ -38,11 +38,7 @@ target_link_libraries(shared
     Kokkos::kokkos
     BITPIT::BITPIT
   )
-if (DYABLO_USE_MPI)
-  target_link_libraries(shared PUBLIC
-    MPI::MPI_CXX
-    )
-endif(DYABLO_USE_MPI)
+target_link_libraries(shared PUBLIC dyablo::utils::mpi)
 
 if(DYABLO_USE_HDF5)
   target_link_libraries(shared PUBLIC

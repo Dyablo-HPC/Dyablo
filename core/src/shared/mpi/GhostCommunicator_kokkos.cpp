@@ -1,13 +1,14 @@
 #include "GhostCommunicator.h"
 #include <cstdint>
-#include "utils/mpiUtils/GlobalMpiSession.h"
+#include "utils/mpi/GlobalMpiSession.h"
 
 namespace dyablo{
 namespace muscl_block{
 
-GhostCommunicator_kokkos::GhostCommunicator_kokkos( const std::map<int, std::vector<uint32_t>>& ghost_map )
+GhostCommunicator_kokkos::GhostCommunicator_kokkos( const std::map<int, std::vector<uint32_t>>& ghost_map, const MpiComm& mpi_comm )
+  : mpi_comm(mpi_comm)
 {
-  int nb_proc = hydroSimu::GlobalMpiSession::getNProc();
+  int nb_proc = mpi_comm.MPI_Comm_size();
 
   //Compute send sizes
   {
@@ -147,7 +148,7 @@ namespace GhostCommunicator_kokkos_impl{
   template <typename DataArray_t>
   std::vector<DataArray_t> get_subviews(const DataArray_t& view, const Kokkos::View<uint32_t*>::HostMirror& sizes)
   {
-    int nb_proc = hydroSimu::GlobalMpiSession::getNProc();
+    int nb_proc = sizes.size();
     
     std::vector<DataArray_t> res(nb_proc);
     uint32_t iOct_offset = 0;
@@ -177,7 +178,7 @@ namespace GhostCommunicator_kokkos_impl{
   std::enable_if_t< std::is_same< MPIBuffer_t, typename DataArray_t::HostMirror>::value,  
   std::vector<MPIBuffer_t>> get_subviews(const DataArray_t& view, const Kokkos::View<uint32_t*>::HostMirror& sizes)
   {
-    int nb_proc = hydroSimu::GlobalMpiSession::getNProc();
+    int nb_proc = sizes.size();
     
     MPIBuffer_t view_host = Kokkos::create_mirror_view(view);
     Kokkos::deep_copy(view_host, view);
@@ -277,7 +278,7 @@ namespace GhostCommunicator_kokkos_impl{
 
     std::vector<DataArray_t> recv_buffers_device = get_subviews<DataArray_t>(Ughost, recv_sizes_host);
 
-    int nb_proc = hydroSimu::GlobalMpiSession::getNProc();
+    int nb_proc = recv_sizes_host.size();
     
     for(int i=0; i<nb_proc; i++)
     {
@@ -341,7 +342,7 @@ void GhostCommunicator_kokkos::exchange_ghosts_aux( const DataArray_t& U, DataAr
   using MPIBuffer = typename DataArray_t::HostMirror;
 #endif
 
-  int nb_proc = hydroSimu::GlobalMpiSession::getNProc();
+  int nb_proc = mpi_comm.MPI_Comm_size();
 
   // Pack send buffers from U, allocate recieve buffers
   std::vector<MPIBuffer> send_buffers = pack<MPIBuffer, iOct_pos>( U, this->send_iOcts, this->send_sizes_host );

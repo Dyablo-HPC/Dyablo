@@ -4,10 +4,6 @@
 
 #include <memory>
 
-#ifdef DYABLO_USE_MPI
-//#include "shared/mpiBorderUtils.h"
-#endif // DYABLO_USE_MPI
-
 namespace dyablo {
 
 // =======================================================
@@ -159,28 +155,17 @@ SolverBase::read_config()
 void
 SolverBase::compute_dt()
 {
-
-#ifdef DYABLO_USE_MPI
-
   // get local time step
   double dt_local = compute_dt_local();
-
-  // TODO : refactor me, please
   
   // synchronize all MPI processes
-  params.communicator->synchronize();
+  params.communicator->MPI_Barrier();
 
   // perform MPI_Reduceall to get global time step
   double dt_global;
-  params.communicator->allReduce(&dt_local, &dt_global, 1, params.data_type, hydroSimu::MpiComm::MIN);
+  params.communicator->MPI_Allreduce(&dt_local, &dt_global, 1, MpiComm::MPI_Op_t::MIN);
 
   m_dt = dt_global;
-  
-#else
-
-  m_dt = compute_dt_local();
-  
-#endif
 
   // correct m_dt if necessary
   if (m_t+m_dt > m_tEnd) {
@@ -358,13 +343,7 @@ SolverBase::print_monitoring_info()
 
   real_t t_tot   = timers.get("total").elapsed(Timers::Timer::Elapsed_mode_t::ELAPSED_CPU);
 
-  int myRank = 0;
-  //int nProcs = 1;
-
-#ifdef DYABLO_USE_MPI
-  myRank = params.myRank;
-  //nProcs = params.nProcs;
-#endif // DYABLO_USE_MPI
+  int myRank = params.myRank;
   
   // only print on master
   if (myRank == 0) {

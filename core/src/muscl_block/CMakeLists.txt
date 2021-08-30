@@ -35,11 +35,8 @@ target_include_directories(muscl_block
   PUBLIC
   ${CMAKE_SOURCE_DIR}/src) 
 target_link_libraries(muscl_block PUBLIC Kokkos::kokkos BITPIT::BITPIT)
+target_link_libraries(muscl_block PUBLIC dyablo::utils::mpi)
 
-if (DYABLO_USE_MPI)
-   
+if (DYABLO_USE_MPI)   
   target_compile_definitions(muscl_block PUBLIC BITPIT_ENABLE_MPI)
-
-  target_link_libraries(muscl_block PUBLIC MPI::MPI_CXX)
-
 endif (DYABLO_USE_MPI)

@@ -17,9 +17,7 @@ target_include_directories(config
   ${CMAKE_CURRENT_SOURCE_DIR}/inih ) 
 
 target_link_libraries(config PRIVATE HostOnly)
-if (DYABLO_USE_MPI)
-  target_link_libraries(config PUBLIC MPI::MPI_CXX)
-endif(DYABLO_USE_MPI)
+target_link_libraries(config PUBLIC dyablo::utils::mpi)
 
 #Add an alias so that library can be used inside the build tree
 add_library(dyablo::config ALIAS config)

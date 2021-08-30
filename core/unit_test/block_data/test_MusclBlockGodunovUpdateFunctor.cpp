@@ -18,7 +18,7 @@
 #include "shared/FieldManager.h"
 
 #ifdef DYABLO_USE_MPI
-#include "utils/mpiUtils/GlobalMpiSession.h"
+#include "utils/mpi/GlobalMpiSession.h"
 #include <mpi.h>
 #endif // DYABLO_USE_MPI
 
