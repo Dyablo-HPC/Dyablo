@@ -21,7 +21,7 @@ endif(Boost_FOUND)
 #  - all other arg are expected to be source files
 #
 #####################################################################
-function(dyablo_add_test UNIT_TEST_NAME)
+function(dyablo_add_test UNIT_TEST_NAME TEST_MPI)
 
   add_executable(${UNIT_TEST_NAME} "")
   target_sources(${UNIT_TEST_NAME} PRIVATE
@@ -65,6 +65,15 @@ function(dyablo_add_test UNIT_TEST_NAME)
     COMMAND ./${UNIT_TEST_NAME}
     WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/unit_test/)
   
+  if(DYABLO_USE_MPI)
+    if(TEST_MPI)
+      add_test(
+        NAME "${UNIT_TEST_NAME}_MPI"
+        COMMAND ${MPIEXEC_EXECUTABLE} -np 3 ./${UNIT_TEST_NAME}
+        WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/unit_test/)
+    endif()
+  endif()
+  
 endfunction(dyablo_add_test)
 
 #####################################################################
@@ -72,24 +81,15 @@ endfunction(dyablo_add_test)
 # here we create our tests
 #
 #####################################################################
-dyablo_add_test(tst_shared_MortonUtils 
+dyablo_add_test(tst_shared_MortonUtils OFF
   shared/morton_utils_test.cpp
   main.cpp)
 
-if(NOT Kokkos_ENABLE_CUDA)
-  dyablo_add_test(utest_CopyInnerBlockCellData 
-    block_data/test_CopyInnerBlockCellData.cpp
-    main.cpp)
-
-  #dyablo_add_test(utest_CopyGhostBlockCellData_hash_openmp 
-  #  block_data/test_CopyGhostBlockCellData_hash_openmp.cpp
-  #  main.cpp)
-
-
-  #dyablo_add_test(utest_AMRMetaData
-  #  amr/test_AMRMetaData.cpp
-  #  main.cpp)
-endif()
+  if(NOT Kokkos_ENABLE_CUDA)
+dyablo_add_test(utest_CopyInnerBlockCellData OFF
+  block_data/test_CopyInnerBlockCellData.cpp
+  main.cpp)
+  endif()
 
 # Import .ini files
 configure_file(
@@ -99,31 +99,31 @@ configure_file(
   block_data/test_implode_3D_block.ini
   block_data/test_implode_3D_block.ini COPYONLY)
 
-dyablo_add_test(utest_LightOctree
+dyablo_add_test(utest_LightOctree OFF
   amr/test_LightOctree.cpp
   main.cpp)
 
-dyablo_add_test(utest_CopyGhostBlockCellData_2D 
+dyablo_add_test(utest_CopyGhostBlockCellData_2D ON 
   block_data/test_CopyGhostBlockCellData_2D.cpp
   main.cpp)
 
-dyablo_add_test(utest_CopyGhostBlockCellData_3D 
+dyablo_add_test(utest_CopyGhostBlockCellData_3D OFF
   block_data/test_CopyGhostBlockCellData_3D.cpp
   main.cpp)
 
-dyablo_add_test(utest_MusclBlockGodunovUpdateFunctor
+dyablo_add_test(utest_MusclBlockGodunovUpdateFunctor OFF
   block_data/test_MusclBlockGodunovUpdateFunctor.cpp
   main.cpp)
 
-dyablo_add_test(utest_GhostCommunicator
+dyablo_add_test(utest_GhostCommunicator ON
   block_data/test_GhostCommunicator.cpp
   main.cpp)
 
-dyablo_add_test(utest_LoadBalance
+dyablo_add_test(utest_LoadBalance ON
   block_data/test_LoadBalance.cpp
   main.cpp)
   
-dyablo_add_test(utest_MapUserData
+dyablo_add_test(utest_MapUserData OFF
   block_data/test_MapUserData.cpp
   main.cpp)
 
@@ -131,7 +131,7 @@ dyablo_add_test(utest_MapUserData
 ## Implementations registered to a factory that are contained in a separate static library have to be thourouhly tested
 add_library( RegisteringFactory_impl_lib STATIC utils/RegisteringFactory_impl_to_register.cpp )
 target_link_libraries( RegisteringFactory_impl_lib PRIVATE shared )
-dyablo_add_test(utest_RegisteringFactory
+dyablo_add_test(utest_RegisteringFactory OFF
   utils/test_RegisteringFactory.cpp
   main.cpp)
 target_link_libraries( utest_RegisteringFactory PUBLIC RegisteringFactory_impl_lib )
