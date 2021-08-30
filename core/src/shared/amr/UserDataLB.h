@@ -3,6 +3,13 @@
 #include "shared/kokkos_shared.h"
 #include "shared/userdata_utils.h"
 
+namespace bitpit{
+
+template< typename T >
+class DataLBInterface;
+
+} // namespace bitpit
+
 namespace dyablo {
 
 /**

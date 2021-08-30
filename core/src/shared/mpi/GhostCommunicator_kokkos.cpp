@@ -57,9 +57,8 @@ GhostCommunicator_kokkos::GhostCommunicator_kokkos( const std::map<int, std::vec
   {
     Kokkos::realloc(this->recv_sizes, nb_proc);
     this->recv_sizes_host = Kokkos::create_mirror_view(this->recv_sizes);
-    MPI_Alltoall( send_sizes_host.data(), 1, MPI_INT, 
-                  recv_sizes_host.data(), 1, MPI_INT,
-                  MPI_COMM_WORLD );
+    mpi_comm.MPI_Alltoall(  send_sizes_host.data(), 1, 
+                            recv_sizes_host.data(), 1);
     // Copy number of octants to recieve to device (host + device are up to date)
     Kokkos::deep_copy(recv_sizes, recv_sizes_host);
     this->nbghosts_recv = 0;
@@ -87,17 +86,6 @@ namespace GhostCommunicator_kokkos_impl{
   {
     return get_subview(U, iOct_begin, iOct_end, Kokkos::ALL(), is...);
   }
-
-  template<typename T> MPI_Datatype get_MPI_Datatype()
-  {
-    static_assert(!std::is_same<T,T>::value, "Please add type to get_MPI_Datatype");
-    return 0;
-  }
-
-  template<> MPI_Datatype get_MPI_Datatype<double>() {return MPI_DOUBLE;}
-  //template<> MPI_Datatype get_MPI_Datatype<float>() {return MPI_FLOAT;}
-  template<> MPI_Datatype get_MPI_Datatype<unsigned short>() {return MPI_UNSIGNED_SHORT;}
-  template<> MPI_Datatype get_MPI_Datatype<int>() {return MPI_INT;}
 
   /**
    * Slice view into one subview per rank.
@@ -293,6 +281,7 @@ template< typename DataArray_t, int iOct_pos >
 void GhostCommunicator_kokkos::exchange_ghosts_aux( const DataArray_t& U, DataArray_t& Ughost) const
 { 
   using namespace GhostCommunicator_kokkos_impl;
+  using MPI_Request_t = MpiComm::MPI_Request_t;
 #ifdef MPI_IS_CUDA_AWARE    
   using MPIBuffer = DataArray_t;
 #else
@@ -320,16 +309,14 @@ void GhostCommunicator_kokkos::exchange_ghosts_aux( const DataArray_t& U, DataAr
   std::vector<MPIBuffer> recv_buffers = get_subviews<MPIBuffer>(Ughost_tmp, recv_sizes_host);
   
   {
-    MPI_Datatype mpi_type = get_MPI_Datatype<typename DataArray_t::value_type>();
-    std::vector<MPI_Request> mpi_requests;
+    std::vector<MPI_Request_t> mpi_requests;
     // Post MPI_Isends
     for(int rank=0; rank<nb_proc; rank++)
     {
       if( send_buffers[rank].size() > 0 )
       {
-        mpi_requests.push_back(MPI_REQUEST_NULL);
-        MPI_Isend( send_buffers[rank].data(), send_buffers[rank].size(), mpi_type,
-                  rank, 0, MPI_COMM_WORLD, &mpi_requests.back() );
+        MPI_Request_t r = mpi_comm.MPI_Isend( send_buffers[rank], rank, 0 );
+        mpi_requests.push_back(r);
       }
     }
     // Post MPI_Irecv   
@@ -337,12 +324,11 @@ void GhostCommunicator_kokkos::exchange_ghosts_aux( const DataArray_t& U, DataAr
     {
       if( recv_buffers[rank].size() > 0 )
       {
-        mpi_requests.push_back(MPI_REQUEST_NULL);
-        MPI_Irecv( recv_buffers[rank].data(), recv_buffers[rank].size(), mpi_type,
-                  rank, 0, MPI_COMM_WORLD, &mpi_requests.back() );
+        MPI_Request_t r = mpi_comm.MPI_Irecv( recv_buffers[rank], rank, 0 );
+        mpi_requests.push_back(r);
       }
     }
-    MPI_Waitall(mpi_requests.size(), mpi_requests.data(), MPI_STATUSES_IGNORE);
+    mpi_comm.MPI_Waitall(mpi_requests.size(), mpi_requests.data());
   }
 
   // Unpack recv buffers to Ughost_tmp

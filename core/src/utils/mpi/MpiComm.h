@@ -15,6 +15,11 @@ public:
   #else
   using MPI_Comm_t = int;
   #endif
+  #ifdef DYABLO_USE_MPI
+  using MPI_Request_t = MPI_Request;
+  #else
+  using MPI_Request_t = int;
+  #endif
   
   enum MPI_Op_t{
     MIN,
@@ -51,6 +56,17 @@ public:
   template<typename T>
   void MPI_Bcast( T* buffer, int count, int root ) const;
 
+  template<typename T>
+  void MPI_Alltoall( const T* sendbuf, int sendcount, T* recvbuf, int recvcount ) const;
+
+  // NOTE : does not support sending to self
+  template<typename Kokkos_View_t>
+  MPI_Request_t MPI_Isend( const Kokkos_View_t& view, int dest, int tag ) const;
+
+  template<typename Kokkos_View_t>
+  MPI_Request_t MPI_Irecv( const Kokkos_View_t& view, int dest, int tag ) const;
+
+  inline void MPI_Waitall( int count, MPI_Request_t* requests ) const;
 private:
   MPI_Comm_t mpi_comm_id;
   int mpi_comm_size, mpi_comm_rank;
