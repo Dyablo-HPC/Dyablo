@@ -92,8 +92,6 @@ if(NOT Kokkos_ENABLE_CUDA)
 endif()
 
 # Import .ini files
-configure_file(amr/dummy2d.ini amr/dummy2d.ini COPYONLY)
-configure_file(amr/dummy3d.ini amr/dummy3d.ini COPYONLY)
 configure_file(
   block_data/test_implode_2D_block.ini
   block_data/test_implode_2D_block.ini COPYONLY)
@@ -112,10 +110,6 @@ dyablo_add_test(utest_CopyGhostBlockCellData_2D
 dyablo_add_test(utest_CopyGhostBlockCellData_3D 
   block_data/test_CopyGhostBlockCellData_3D.cpp
   main.cpp)
-  
-#dyablo_add_test(utest_CopyGhostBlockCellDataHash
-#  amr/test_CopyGhostBlockCellDataHash.cpp
-#  main.cpp)
 
 dyablo_add_test(utest_MusclBlockGodunovUpdateFunctor
   block_data/test_MusclBlockGodunovUpdateFunctor.cpp

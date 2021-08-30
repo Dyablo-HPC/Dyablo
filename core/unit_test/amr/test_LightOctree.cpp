@@ -10,11 +10,6 @@
 
 #include <impl/Kokkos_Error.hpp>
 
-#ifdef DYABLO_USE_MPI
-#include "utils/mpi/GlobalMpiSession.h"
-#include <mpi.h>
-#endif // DYABLO_USE_MPI
-
 #include "utils/monitoring/SimpleTimer.h"
 #include "shared/amr/LightOctree.h"
 #include "shared/HydroParams.h"
@@ -73,10 +68,8 @@ void run_test()
   }
   std::cout << "Mesh size is " << amr_mesh.getNumOctants() << "\n";
 
-#if BITPIT_ENABLE_MPI==1
   /**<(Load)Balance the octree over the processes.*/
   amr_mesh.loadBalance();
-#endif
 
   /* 
    * 2d mesh should be exactly like this : 19 octants

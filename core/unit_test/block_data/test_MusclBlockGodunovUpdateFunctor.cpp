@@ -17,11 +17,6 @@
 #include "shared/HydroParams.h"  // read parameter file
 #include "shared/FieldManager.h"
 
-#ifdef DYABLO_USE_MPI
-#include "utils/mpi/GlobalMpiSession.h"
-#include <mpi.h>
-#endif // DYABLO_USE_MPI
-
 #include "muscl_block/SolverHydroMusclBlock.h"
 
 #include "muscl_block/update/MusclBlockUpdate.h"

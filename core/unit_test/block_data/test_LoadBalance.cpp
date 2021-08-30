@@ -11,10 +11,6 @@
 #include "shared/amr/AMRmesh.h"
 #include "shared/mpi/GhostCommunicator.h"
 
-#ifdef DYABLO_USE_MPI
-#include "utils/mpi/GlobalMpiSession.h"
-#endif
-
 namespace dyablo
 {
 
