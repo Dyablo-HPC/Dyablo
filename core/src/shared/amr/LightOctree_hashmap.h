@@ -277,7 +277,7 @@ private:
         return OctantIndex::OctantIndex_to_iOctLocal(oct, numOctants);
     }
 
-    uint32_t numOctants, numGhosts; //! Number of local octants (no ghosts)
+    uint32_t numOctants, numGhosts; //! Number of local octants (no ghosts), Number of ghosts.
     level_t min_level; //! Coarser level of the octree
     level_t max_level; //! Finer level of the octree
     int ndim; //! 2D or 3D 

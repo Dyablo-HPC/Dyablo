@@ -64,7 +64,7 @@ public:
   {
     uint32_t bx = iter_space.bx;
     uint32_t by = iter_space.by;
-    uint32_t bz = iter_space.bz;;
+    uint32_t bz = iter_space.bz;
 
     uint32_t iOct = pdata.iOct;
     Kokkos::parallel_for( Kokkos::TeamThreadRange(pdata.team_member, bz*by),

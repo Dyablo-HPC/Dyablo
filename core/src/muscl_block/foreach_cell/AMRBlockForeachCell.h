@@ -135,8 +135,8 @@ public:
   {
     const CData& cdata = this->cdata;
     uint32_t bx = cdata.bx+2*gx;
-    uint32_t by = cdata.by+2*gx;
-    uint32_t bz = cdata.bz+2*gx;
+    uint32_t by = cdata.by+2*gy;
+    uint32_t bz = cdata.bz+2*gz;
     assert(U.extent(0) == bx*by*bz);
     assert(U.extent(2) >= cdata.lmesh.getNumOctants());
     assert( cdata.ndim != 2 || bz==1 );
