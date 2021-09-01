@@ -45,6 +45,7 @@ void run_test()
   // codim 3 ==> balance through faces, edges and corner (3D only)
   HydroParams params{};
   params.level_max = 3;
+  params.level_min = 0;
   int codim = dim; 
   dyablo::AMRmesh amr_mesh(dim, codim, {true,true,true}, params.level_min, params.level_max);
 
