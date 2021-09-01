@@ -60,6 +60,8 @@ public:
     };
     /// Get local (MPI) octant count
     uint32_t getNumOctants() const;
+    /// Get local (MPI) ghost octant count
+    uint32_t getNumGhosts() const;
     //bool getBound(const OctantIndex& iOct)  const;
     /// Get physical position of Octant center
     pos_t getCenter(const OctantIndex& iOct)  const;
