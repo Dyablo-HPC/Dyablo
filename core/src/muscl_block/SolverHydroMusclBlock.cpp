@@ -63,8 +63,6 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   // m_nCells = nbOcts; // TODO
   m_nDofsPerCell = 1;
 
-  int nbfields = fieldMgr.nbfields();
-
   // Initial number of octants
   // User data will be reallocated after AMR mesh initialization
   uint64_t nbOcts = 1;
@@ -112,15 +110,16 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   /*
    * main data array memory allocation
    */
+  // init field manager
+  // retrieve available / allowed names: fieldManager, and field map (fm)
+  // necessary to access user data
+  fieldMgr.setup(params, configMap);
+  int nbfields = fieldMgr.nbfields();
 
   U     = DataArrayBlock("U", nbCellsPerOct, nbfields, nbOcts);
   Uhost = Kokkos::create_mirror(U);
   U2    = DataArrayBlock("U2",nbCellsPerOct, nbfields, nbOcts);
 
-  // init field manager
-  // retrieve available / allowed names: fieldManager, and field map (fm)
-  // necessary to access user data
-  fieldMgr.setup(params, configMap);
   // perform init condition
   init(U);
   
@@ -221,7 +220,7 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
 {
 
   // test if we are performing a re-start run (default : false)
-  bool restartEnabled = configMap.getBool("run","restart_enabled",false);
+  bool restartEnabled = configMap.getBool("run","restart_enabled", false);
 
   std::string init_name = restartEnabled ? "restart" : m_problem_name;
 
