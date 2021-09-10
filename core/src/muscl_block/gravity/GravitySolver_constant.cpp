@@ -61,13 +61,14 @@ void GravitySolver_constant::update_gravity_field(
   real_t gx = params.gx, gy = params.gy, gz = params.gz;
   const uint32_t nbOctsPerGroup = lmesh.getNumOctants();
 
-  ForeachCell foreach_cell({
+  ForeachCell foreach_cell(
     ndim,
     lmesh, 
     bx, by, bz, 
-    (xmax - xmin)/bx, (ymax - ymin)/by, (zmax - zmin)/bz,
+    xmin, ymin, zmin,
+    xmax, ymax, zmax,
     nbOctsPerGroup
-  });
+  );
 
   CellArray Uout = foreach_cell.get_global_array(Uout_, 0, 0, 0, fm);
 

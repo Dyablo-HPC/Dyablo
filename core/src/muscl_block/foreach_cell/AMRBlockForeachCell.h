@@ -10,11 +10,12 @@ namespace muscl_block {
  * This must be copiable to device
  **/
 struct AMRBlockForeachCell_CData{
-  uint32_t ndim;
-  const LightOctree lmesh;
-  uint32_t bx,by,bz;
-  real_t dx_scale, dy_scale, dz_scale;
-  uint32_t nbOctsPerGroup;
+  uint32_t ndim; /// Number of dimensions : 2D or 3D
+  const LightOctree lmesh; /// Mesh to iterate upon
+  uint32_t bx,by,bz; /// Dimensions of cell blocks
+  real_t dx_scale, dy_scale, dz_scale; /// Physical cell scale (size of a cell at AMR level 0)
+  real_t xmin, ymin, zmin; /// min corner of physical domain
+  uint32_t nbOctsPerGroup; /// Group size (Effect will vary between implementation, hint for temporary allocation)
 };
 
 /**
@@ -32,6 +33,7 @@ public:
   : cdata( cdata )
   {}
 
+  /// Get the physical size of the cell
   KOKKOS_INLINE_FUNCTION
   pos_t getCellSize( const CellIndex& iCell ) const
   {
@@ -46,6 +48,7 @@ public:
     };
   }
   
+  /// Get the physical position of the center of the cell
   KOKKOS_INLINE_FUNCTION
   pos_t getCellCenter( const CellIndex& iCell ) const
   {
@@ -56,9 +59,9 @@ public:
     pos_t cell_size = this->getCellSize(iCell);
 
     pos_t res{
-      oct_center[IX] + ( (int32_t)(iCell.i) - (int32_t)(iCell.bx)/2 ) * cell_size[IX] + 0.5*cell_size[IX],
-      oct_center[IY] + ( (int32_t)(iCell.j) - (int32_t)(iCell.by)/2 ) * cell_size[IY] + 0.5*cell_size[IY],
-      oct_center[IZ] + ( (int32_t)(iCell.k) - (int32_t)(iCell.bz)/2 ) * cell_size[IZ] + 0.5*cell_size[IZ]
+      cdata.xmin + oct_center[IX] * cdata.bx * cdata.dx_scale + ( iCell.i - iCell.bx*0.5 + 0.5 ) * cell_size[IX],
+      cdata.ymin + oct_center[IY] * cdata.by * cdata.dy_scale + ( iCell.j - iCell.by*0.5 + 0.5 ) * cell_size[IY],
+      cdata.zmin + oct_center[IZ] * cdata.bz * cdata.dz_scale + ( iCell.k - iCell.bz*0.5 + 0.5 ) * cell_size[IZ]
     };
 
     if(ndim == 2) res[IZ] = 0;
@@ -110,11 +113,25 @@ private:
   const CData cdata;
   PatchManager_t patchmanager;
 
-public:
-  // TODO : final list of parameters instead of cdata
   AMRBlockForeachCell_impl(const CData& cdata)
   : cdata(cdata), patchmanager(cdata)
   {}
+public:
+  AMRBlockForeachCell_impl( uint32_t ndim, const LightOctree& lmesh,
+                            uint32_t bx, uint32_t by, uint32_t bz,
+                            real_t xmin, real_t ymin, real_t zmin,
+                            real_t xmax, real_t ymax, real_t zmax,
+                            uint32_t nbOctsPerGroup )
+   : AMRBlockForeachCell_impl(CData{
+      ndim,
+      lmesh,
+      bx, by, bz,
+      (xmax-xmin)/bx, (ymax-ymin)/by, (zmax-zmin)/bz, 
+      xmin, ymin, zmin,
+      nbOctsPerGroup
+    })
+  {}
+
 
   /**
    * Get CellMetaData related to current mesh

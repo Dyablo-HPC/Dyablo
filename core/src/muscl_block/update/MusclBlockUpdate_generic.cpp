@@ -457,13 +457,14 @@ void update_aux(
 
   Timers& timers = pdata->timers; 
 
-  ForeachCell foreach_cell({
+  ForeachCell foreach_cell(
     lmesh.getNdim(),
     lmesh, 
     bx, by, bz, 
-    (xmax - xmin)/bx, (ymax - ymin)/by, (zmax - zmin)/bz,
+    xmin, ymin, zmin,
+    xmax, ymax, zmax,
     nbOctsPerGroup
-  });
+  );
 
   // Create abstract PatchArray to access global array from raw DataArrayBlock
   GhostedArray Uin =  foreach_cell.get_ghosted_array(U_, Ughost_, lmesh, fm);
