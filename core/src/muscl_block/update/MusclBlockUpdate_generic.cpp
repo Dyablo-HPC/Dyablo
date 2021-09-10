@@ -390,13 +390,18 @@ void apply_gravity_correction( const GlobalArray& Uin,
 
   real_t rhoOld = Uin.at(iCell_Uin, ID);
   
-  
   real_t rhoNew = Uout.at(iCell_Uin, ID);
   real_t rhou = Uout.at(iCell_Uin, IU);
   real_t rhov = Uout.at(iCell_Uin, IV);
-  real_t rhow = Uout.at(iCell_Uin, IW);
-
-  real_t ekin_old = 0.5 * (rhou*rhou + rhov*rhov + rhow*rhow) / rhoNew;
+  real_t ekin_old = rhou*rhou + rhov*rhov;
+  real_t rhow;
+  
+  if (ndim == 3) {
+    rhow = Uout.at(iCell_Uin, IW);
+    ekin_old += rhow*rhow;
+  }
+  
+  ekin_old = 0.5 * ekin_old / rhoNew;
 
   rhou += 0.5 * dt * gx * (rhoOld + rhoNew);
   rhov += 0.5 * dt * gy * (rhoOld + rhoNew);
@@ -409,7 +414,11 @@ void apply_gravity_correction( const GlobalArray& Uin,
   }
 
   // Energy correction should be included in case of self-gravitation ?
-  real_t ekin_new = 0.5 * (rhou*rhou + rhov*rhov + rhow*rhow) / rhoNew;
+  real_t ekin_new = rhou*rhou + rhov*rhov;
+  if (ndim == 3)
+    ekin_new += rhow*rhow;
+  
+  ekin_new = 0.5 * ekin_new / rhoNew;
   Uout.at(iCell_Uin, IE) += (ekin_new - ekin_old);
 }
 
