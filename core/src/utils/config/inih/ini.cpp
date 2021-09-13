@@ -52,11 +52,16 @@ static char* find_char_or_comment(const char* s, char c)
     return (char*)s;
 }
 
-/* Version of strncpy that ensures dest (size bytes) is null-terminated. */
+/* Similar to strncpy, but ensures dest (size bytes) is
+   NUL-terminated, and doesn't pad with NULs. */
 static char* strncpy0(char* dest, const char* src, size_t size)
 {
-    strncpy(dest, src, size);
-    dest[size - 1] = '\0';
+    /* Could use strncpy internally, but it causes gcc warnings (see issue #91 ) */
+    /// https://github.com/benhoyt/inih/commit/d7f465792c0c7686b50ed45c9a435394ae418d3e?branch=d7f465792c0c7686b50ed45c9a435394ae418d3e
+    size_t i;
+    for (i = 0; i < size - 1 && src[i]; i++)
+        dest[i] = src[i];
+    dest[i] = '\0';
     return dest;
 }
 

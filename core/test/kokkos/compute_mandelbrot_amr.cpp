@@ -29,16 +29,12 @@
 
 // MPI support
 #ifdef DYABLO_USE_MPI
-#include "utils/mpiUtils/GlobalMpiSession.h"
+#include "utils/mpi/GlobalMpiSession.h"
 #endif // DYABLO_USE_MPI
 
 // VTK IO implementation
 #include "utils/io/VTKWriter.h" // for VTK_WRITE_ENUM class
 #include "utils/io/IO_VTK_shared.h"
-
-/** typedef Point holding coordinates of a point. */
-template<int dim>
-using Point = std::array<real_t, dim>;
 
 
 enum index_status_t {
@@ -108,6 +104,10 @@ compute_nb_iters (double cx, double cy)
 } // compute_nb_iters
 
 namespace dyablo {
+
+/** typedef Point holding coordinates of a point. */
+template<int dim>
+using Point = std::array<real_t, dim>;
 
 bool VERBOSE = false;
 
@@ -885,7 +885,7 @@ int main(int argc, char* argv[])
 
   // Create MPI session if MPI enabled
 #ifdef DYABLO_USE_MPI
-  hydroSimu::GlobalMpiSession mpiSession(&argc,&argv);
+  dyablo::GlobalMpiSession mpiSession(&argc,&argv);
 #endif // DYABLO_USE_MPI
 
   Kokkos::initialize(argc, argv);

@@ -35,10 +35,6 @@
 #include "muscl_block/MapUserData.h"
 #include "muscl_block/gravity/GravitySolver.h"
 
-#if BITPIT_ENABLE_MPI==1
-#include "muscl_block/UserDataLB.h"
-#endif
-
 //#include "shared/mpiBorderUtils.h"
 
 namespace dyablo { namespace muscl_block {
@@ -129,10 +125,7 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   // compute initialize time step
   compute_dt();
 
-  int myRank=0;
-#ifdef DYABLO_USE_MPI
-  myRank = params.myRank;
-#endif // DYABLO_USE_MPI
+  int myRank=params.myRank;
 
   //std::string godunov_updater_id = "MusclBlockUpdate_legacy";
   std::string godunov_updater_id = this->configMap.getString("hydro", "update", "MusclBlockUpdate_generic");
@@ -322,11 +315,7 @@ double SolverHydroMusclBlock::compute_dt_local()
 // =======================================================
 void SolverHydroMusclBlock::next_iteration_impl()
 {
-  int myRank=0;
-  
-#ifdef DYABLO_USE_MPI
-  myRank = params.myRank;
-#endif // DYABLO_USE_MPI
+  int myRank=params.myRank;
   if (m_iteration % m_nlog == 0) {
     if (myRank==0) {
       printf("time step=%7d (dt=% 10.8f t=% 10.8f)\n",m_iteration,m_dt, m_t);
@@ -446,14 +435,7 @@ void SolverHydroMusclBlock::save_solution_impl()
 void SolverHydroMusclBlock::print_monitoring_info()
 {
 
-  int myRank = 0;
-  int nProcs = 1;
-  UNUSED(nProcs);
-
-#ifdef DYABLO_USE_MPI
-  myRank = params.myRank;
-  nProcs = params.nProcs;
-#endif // DYABLO_USE_MPI
+  int myRank = params.myRank;
   
   // only print on master
   if (myRank == 0) {
@@ -479,12 +461,6 @@ void SolverHydroMusclBlock::synchronize_ghost_data(UserDataCommType t)
   timers.get("AMR: MPI ghosts").start();
 
 #if BITPIT_ENABLE_MPI==1
-
-  // retrieve available / allowed names: fieldManager, and field map (fm)
-  auto fm = fieldMgr.get_id2index();
-
-  // retrieve current number of ghost cells
-  uint32_t nghosts = amr_mesh->getNumGhosts();
 
   // select which data to exchange
 

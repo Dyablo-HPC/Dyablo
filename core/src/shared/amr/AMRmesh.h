@@ -73,9 +73,6 @@ public:
   // MPI communicator size
   int getNproc() const
   { return Impl::getNproc(); }
-  // MPI communicator
-  MPI_Comm getComm() const
-  { return Impl::getComm(); }
 
   //----- Octant count -----
   /// Get number of local octants

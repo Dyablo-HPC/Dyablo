@@ -1,5 +1,7 @@
 #include "AMRmesh_hashmap.h"
 
+#include <numeric>
+
 #include "shared/amr/LightOctree.h"
 #include "shared/morton_utils.h"
 //#include "utils/io/AMRMesh_output_vtk.h"
@@ -11,8 +13,8 @@
 
 namespace dyablo{
 
-AMRmesh_hashmap::AMRmesh_hashmap( int dim, int balance_codim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max )
-        : dim(dim), periodic(periodic), markers(1), level_min(level_min), level_max(level_max)
+AMRmesh_hashmap::AMRmesh_hashmap( int dim, int balance_codim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max, const MpiComm& mpi_comm )
+        : dim(dim), periodic(periodic), markers(1), level_min(level_min), level_max(level_max), mpi_comm(mpi_comm)
 {
     assert(dim == 2 || dim == 3);
     assert(balance_codim <= dim);
@@ -423,10 +425,11 @@ morton_t get_morton_smaller(const oct_view_t& local_octs_coord, uint32_t idx, ui
 std::set< std::pair<int, uint32_t> > discover_ghosts(
         const std::vector<morton_t>& morton_intervals,
         const AMRmesh_hashmap::oct_view_t& local_octs_coord,
-        uint8_t level_max, uint8_t ndim, const std::array<bool,3>& periodic)
+        uint8_t level_max, uint8_t ndim, const std::array<bool,3>& periodic,
+        const MpiComm& mpi_comm)
 {
-    uint32_t mpi_rank = hydroSimu::GlobalMpiSession::getRank();
-    uint32_t mpi_size = hydroSimu::GlobalMpiSession::getNProc();
+    uint32_t mpi_rank = mpi_comm.MPI_Comm_rank();
+    uint32_t mpi_size = mpi_comm.MPI_Comm_size();
 
     auto find_rank = [mpi_size, &morton_intervals](morton_t morton)
     {
@@ -602,8 +605,8 @@ void AMRmesh_hashmap::adapt(bool dummy)
     std::cout << "---- Adapt ----" << std::endl;
     std::cout << "Rank " << this->getRank() << ": octs before adapt " << this->getNumOctants() << std::endl;
 
-    uint32_t mpi_rank = hydroSimu::GlobalMpiSession::getRank();
-    uint32_t mpi_size = hydroSimu::GlobalMpiSession::getNProc();
+    uint32_t mpi_rank = getRank();
+    uint32_t mpi_size = getNproc();
     
     {
         LightOctree_hashmap lmesh(this, level_min, level_max);
@@ -664,7 +667,7 @@ void AMRmesh_hashmap::adapt(bool dummy)
         std::vector<morton_t> morton_intervals = compute_current_morton_intervals(*this, local_octs_coord, level_max);
         
         // Discover ghosts
-        std::set< std::pair<int, uint32_t> > local_octants_to_send_set = discover_ghosts(morton_intervals, local_octs_coord, level_max, dim, periodic);
+        std::set< std::pair<int, uint32_t> > local_octants_to_send_set = discover_ghosts(morton_intervals, local_octs_coord, level_max, dim, periodic, mpi_comm);
         
         local_octants_to_send.clear();
         for( const auto& p : local_octants_to_send_set )
@@ -845,7 +848,7 @@ std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(uint8_t level)
         sequential_mesh = false;
     }
 
-    std::set< std::pair<int, uint32_t> > local_octants_to_send_set = discover_ghosts(morton_intervals, local_octs_coord, level_max, dim, periodic);
+    std::set< std::pair<int, uint32_t> > local_octants_to_send_set = discover_ghosts(morton_intervals, local_octs_coord, level_max, dim, periodic, mpi_comm);
 
     local_octants_to_send.clear();
     for( const auto& p : local_octants_to_send_set )

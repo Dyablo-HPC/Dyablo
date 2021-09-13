@@ -33,10 +33,6 @@
 
 #include "muscl/MapUserData.h"
 
-#if BITPIT_ENABLE_MPI==1
-#include "muscl/UserDataLB.h"
-#endif
-
 //#include "shared/mpiBorderUtils.h"
 
 namespace dyablo { namespace muscl {
@@ -122,10 +118,8 @@ SolverHydroMuscl::SolverHydroMuscl(HydroParams& params,
   // compute initialize time step
   compute_dt();
 
-  int myRank=0;
-#ifdef DYABLO_USE_MPI
-  myRank = params.myRank;
-#endif // DYABLO_USE_MPI
+  int myRank=params.myRank;
+
 
   if (myRank==0) {
     std::cout << "##########################" << "\n";
@@ -348,11 +342,7 @@ double SolverHydroMuscl::compute_dt_local()
 void SolverHydroMuscl::next_iteration_impl()
 {
   
-  int myRank=0;
-  
-#ifdef DYABLO_USE_MPI
-  myRank = params.myRank;
-#endif // DYABLO_USE_MPI
+  int myRank=params.myRank;
   
   if (m_iteration % m_nlog == 0) {
     if (myRank==0) {
@@ -685,12 +675,6 @@ void SolverHydroMuscl::synchronize_ghost_data(UserDataCommType t)
 {
 
   timers.get("AMR: MPI ghosts").start();
-
-  // retrieve available / allowed names: fieldManager, and field map (fm)
-  auto fm = fieldMgr.get_id2index();
-
-  // retrieve current number of ghost cells
-  uint32_t nghosts = amr_mesh->getNumGhosts();
 
 #if BITPIT_ENABLE_MPI==1
 

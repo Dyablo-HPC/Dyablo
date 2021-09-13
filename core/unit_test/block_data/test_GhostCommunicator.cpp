@@ -151,9 +151,14 @@ void run_test(int argc, char *argv[])
 
     std::cout << "Check Ughost ( nGhosts=" << nGhosts << ")" << std::endl;
 
-    BOOST_CHECK_EQUAL(extent( Ughost, 0), nbCellsPerOct);
-    BOOST_CHECK_EQUAL(extent( Ughost, 1), nbfields);
     BOOST_CHECK_EQUAL(extent( Ughost, 2), nGhosts);
+
+    //if(nGhosts!=0)
+    {
+      BOOST_CHECK_EQUAL(extent( Ughost, 0), nbCellsPerOct);
+      BOOST_CHECK_EQUAL(extent( Ughost, 1), nbfields);
+    }
+    
 
     auto Ughost_host = Kokkos::create_mirror_view(Ughost);
     Kokkos::deep_copy(Ughost_host, Ughost);

@@ -165,7 +165,9 @@ HDF5_Writer::open(std::string basename, std::string outDir)
    * Open parallel HDF5 resources.
    */
   plist = H5Pcreate(H5P_FILE_ACCESS);
-  H5Pset_fapl_mpio(plist, m_amr_mesh->getComm(), MPI_INFO_NULL);
+#ifdef DYABLO_USE_MPI
+  H5Pset_fapl_mpio(plist, MPI_COMM_WORLD, MPI_INFO_NULL);
+#endif
 
   filename = basename + ".h5";
   full_path = outDir + "/" + filename;
@@ -419,6 +421,9 @@ HDF5_Writer::write_quadrant_mach_number(DataArrayHost datah,
     
     DataArrayScalar mach_number = DataArrayScalar("mach_number", nbOcts);
     
+    // specific heat ratio
+    real_t gamma0 = m_params.settings.gamma0;
+
     Kokkos::parallel_for(nbOcts, KOKKOS_LAMBDA (uint32_t iOct) {
         
         real_t d = datah(iOct,fm[ID]);
@@ -431,9 +436,6 @@ HDF5_Writer::write_quadrant_mach_number(DataArrayHost datah,
 
         // internal energy
         real_t eint = datah(iOct,fm[IE])-eken;
-
-        // specific heat ratio
-        real_t gamma0 = m_params.settings.gamma0;
 
         // pressure
         real_t p = (gamma0-1)*eint;
@@ -521,6 +523,9 @@ HDF5_Writer::write_quadrant_mach_number(DataArrayBlockHost datah,
 
     DataArrayScalar mach_number = DataArrayScalar("mach_number", nbCellsPerOct*nbOcts);
 
+    // specific heat ratio
+    real_t gamma0 = m_params.settings.gamma0;
+
     Kokkos::parallel_for( Kokkos::RangePolicy<Kokkos::OpenMP>(0, nbOcts), 
       KOKKOS_LAMBDA(uint32_t iOct) {
         for (uint32_t iCell = 0; iCell < nbCellsPerOct; ++iCell) {
@@ -536,9 +541,6 @@ HDF5_Writer::write_quadrant_mach_number(DataArrayBlockHost datah,
           
           // internal energy
           real_t eint = datah(iCell, fm[IE], iOct) - eken;
-          
-          // specific heat ratio
-          real_t gamma0 = m_params.settings.gamma0;
           
           // pressure
           real_t p = (gamma0 - 1) * eint;
@@ -579,7 +581,10 @@ HDF5_Writer::write_quadrant_pressure(DataArrayBlockHost datah,
     uint32_t nbCellsPerOct = datah.extent(0);
     uint32_t nbOcts = datah.extent(2);
 
-    DataArrayScalar pressure = DataArrayScalar("P", nbCellsPerOct*nbOcts);
+    DataArrayScalar pressure = DataArrayScalar("P", nbCellsPerOct*nbOcts);          
+    
+    // specific heat ratio
+    real_t gamma0 = m_params.settings.gamma0;
 
     Kokkos::parallel_for( Kokkos::RangePolicy<Kokkos::OpenMP>(0, nbOcts), 
       KOKKOS_LAMBDA(uint32_t iOct) {
@@ -596,9 +601,6 @@ HDF5_Writer::write_quadrant_pressure(DataArrayBlockHost datah,
           
           // internal energy
           real_t eint = datah(iCell, fm[IE], iOct) - eken;
-          
-          // specific heat ratio
-          real_t gamma0 = m_params.settings.gamma0;
           
           // pressure
           pressure(iCell + nbCellsPerOct*iOct) = (gamma0 - 1) * eint;
@@ -667,8 +669,6 @@ HDF5_Writer::io_hdf5_writev(hid_t fd,
                             hsize_t count[],
                             hsize_t start[])
 {
-  int                 status;
-  UNUSED(status);
   hsize_t             size = 1;
   hid_t               filespace = 0;
   hid_t               memspace = 0;
@@ -692,7 +692,9 @@ HDF5_Writer::io_hdf5_writev(hid_t fd,
   // set some properties
   dataset_properties = H5Pcreate(H5P_DATASET_CREATE);
   write_properties = H5Pcreate(H5P_DATASET_XFER);
+#ifdef DYABLO_USE_MPI
   H5Pset_dxpl_mpio(write_properties, H5FD_MPIO_COLLECTIVE);
+#endif
 
   // create the dataset and the location of the local data
   dataset = H5Dcreate2(fd, name.c_str(), wtype_id, filespace,
@@ -700,7 +702,8 @@ HDF5_Writer::io_hdf5_writev(hid_t fd,
   H5Sselect_hyperslab(filespace, H5S_SELECT_SET, start, nullptr, count, nullptr);
 
   if (dtype_id != wtype_id) {
-    status = H5Tconvert(dtype_id, wtype_id, size, data, nullptr, H5P_DEFAULT);
+    //int status = 
+    H5Tconvert(dtype_id, wtype_id, size, data, nullptr, H5P_DEFAULT);
     //SC_CHECK_ABORT(status >= 0, "H5Tconvert failed!");
   }
   H5Dwrite(dataset, wtype_id, memspace, filespace, write_properties, data);

@@ -1102,7 +1102,7 @@ public:
         HydroState3d qr_n = reconstruct_state_3d(qprim_n, i_n, isghost_n, offsets_n, dx_over_2_n, dt);
 
         // 2. we now have "qleft / qright" state ready to solver Riemann problem
-        HydroState3d flux;
+        HydroState3d flux{};
 
         // riemann solver along Y or Z direction requires to swap velocity
         // components

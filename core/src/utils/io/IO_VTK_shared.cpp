@@ -3,7 +3,7 @@
 #include "IO_VTK_shared.h"
 
 #include "shared/enums.h"     // for ComponentIndex3D (IX,IY,IZ)
-#include "utils/misc/utils.h" // for get_current_date
+#include "utils/misc/utils.h"
 
 namespace dyablo
 {
@@ -107,7 +107,6 @@ void write_vtu_footer(std::ostream &outFile)
 
 } // write_vtu_footer
 
-#ifdef DYABLO_USE_MPI
 /*
  * write pvtu header in a separate file.
  */
@@ -212,8 +211,6 @@ void write_pvtu_header(std::string headerFilename, std::string outputPrefix,
   // end writing pvtu header
 
 } // write_pvtu_header
-
-#endif // DYABLO_USE_MPI
 
 } // namespace io
 

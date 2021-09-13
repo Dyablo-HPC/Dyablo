@@ -79,7 +79,7 @@ void fill_cell_newCoarse( const FunctorData& d,
 
 void apply_aux( const AMR_Remapper& remap,
                 uint8_t ndim,
-                ConfigMap configMap,
+                ConfigMap /*configMap*/,
                 DataArray Usrc,
                 DataArray Usrc_ghost,
                 DataArray& Udest  )

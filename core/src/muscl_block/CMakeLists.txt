@@ -17,11 +17,7 @@ set (muscl_block_SRCS
   ${CMAKE_CURRENT_SOURCE_DIR}/update/MusclBlockUpdate_generic.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/gravity/GravitySolver_constant.cpp
   )
-  # add MPI user data communication interface
-  if (DYABLO_USE_MPI)
-    list(APPEND muscl_block_SRCS
-      ${CMAKE_CURRENT_SOURCE_DIR}/UserDataLB.cpp)
-  endif(DYABLO_USE_MPI)
+
   if (DYABLO_USE_HDF5)
     list(APPEND muscl_block_SRCS
     ${CMAKE_CURRENT_SOURCE_DIR}/io/IOManager_hdf5.cpp)
@@ -35,11 +31,8 @@ target_include_directories(muscl_block
   PUBLIC
   ${CMAKE_SOURCE_DIR}/src) 
 target_link_libraries(muscl_block PUBLIC Kokkos::kokkos BITPIT::BITPIT)
+target_link_libraries(muscl_block PUBLIC dyablo::utils::mpi)
 
-if (DYABLO_USE_MPI)
-   
+if (DYABLO_USE_MPI)   
   target_compile_definitions(muscl_block PUBLIC BITPIT_ENABLE_MPI)
-
-  target_link_libraries(muscl_block PUBLIC MPI::MPI_CXX)
-
 endif (DYABLO_USE_MPI)

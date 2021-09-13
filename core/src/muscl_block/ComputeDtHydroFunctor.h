@@ -124,9 +124,6 @@ public:
     real_t vx, vy;
 
     while (iOct < nbOct) {
-
-      // get cell level
-      uint8_t level = lmesh.getLevel({iOct,false});
       
       // retrieve cell size from mesh
       real_t dx = lmesh.getSize({iOct,false}) * Lx / bx;
@@ -197,9 +194,6 @@ public:
     real_t vx, vy, vz;
 
     while (iOct < nbOct) {
-
-      // get cell level
-      uint8_t level = lmesh.getLevel({iOct,false});
       
       // retrieve cell size from mesh
       real_t dx = lmesh.getSize({iOct,false}) * Lx / blockSizes[IX];

@@ -618,7 +618,7 @@ public:
 
       Kokkos::parallel_for(
           Kokkos::TeamVectorRange(member, nbCellsPerBlock),
-          KOKKOS_LAMBDA(const int32_t index) {
+          [&](const int32_t index) {
             const uint32_t j = index / bx;
             const uint32_t i = index - j * bx;
             const uint32_t ig = (i + ghostWidth) + bx_g * (j + ghostWidth);
@@ -859,7 +859,7 @@ public:
        */
       Kokkos::parallel_for(
           Kokkos::TeamVectorRange(member, nbCellsPerBlock1),
-          KOKKOS_LAMBDA(const int32_t index) {
+          [&](const int32_t index) {
             // convert index to coordinates in ghosted block (minus 1 !)
             //index = i + bx1 * j
             const int j = index / bx1;
@@ -962,7 +962,7 @@ public:
         const uint32_t ii = 0;
         Kokkos::parallel_for(
             Kokkos::TeamVectorRange(member, by),
-            KOKKOS_LAMBDA(const int32_t jj) {
+            [&](const int32_t jj) {
               // Position in the original block
               // corresponding index in the full ghosted block
               const uint32_t ig = (ii + ghostWidth) + bx_g * (jj + ghostWidth);
@@ -1032,7 +1032,7 @@ public:
         const uint32_t ii = bx - 1;
         Kokkos::parallel_for(
             Kokkos::TeamVectorRange(member, by),
-            KOKKOS_LAMBDA(const int32_t jj) {
+            [&](const int32_t jj) {
               // Position in the original block
               // corresponding index in the full ghosted block
               const uint32_t ig = (ii + ghostWidth) + bx_g * (jj + ghostWidth);
@@ -1102,7 +1102,7 @@ public:
         const uint32_t jj = 0;
         Kokkos::parallel_for(
             Kokkos::TeamVectorRange(member, bx),
-            KOKKOS_LAMBDA(const int32_t ii) {
+            [&](const int32_t ii) {
               // Position in the original block
               // corresponding index in the full ghosted block
               const uint32_t ig = (ii + ghostWidth) + bx_g * (jj + ghostWidth);
@@ -1187,7 +1187,7 @@ public:
         const uint32_t jj = by - 1;
         Kokkos::parallel_for(
             Kokkos::TeamVectorRange(member, bx),
-            KOKKOS_LAMBDA(const int32_t ii) {
+            [&](const int32_t ii) {
               // Position in the original block
               // corresponding index in the full ghosted block
               const uint32_t ig = (ii + ghostWidth) + bx_g * (jj + ghostWidth);
@@ -1306,7 +1306,7 @@ public:
        */
       Kokkos::parallel_for(
           Kokkos::TeamVectorRange(member, nbCellsPerBlock),
-          KOKKOS_LAMBDA(const int32_t index) {
+          [&](const int32_t index) {
             // convert index to coordinates in ghosted block (minus 1 !)
             //index = i + bx1 * j
             const uint32_t j = index / bx;
@@ -1449,7 +1449,7 @@ public:
        */
       Kokkos::parallel_for(
           Kokkos::TeamVectorRange(member, nbCellsPerBlock1),
-          KOKKOS_LAMBDA(const int32_t index) {
+          [&](const int32_t index) {
             // convert index to coordinates in ghosted block (minus 1 !)
             //index = i + bx1 * j
             const int j = index / bx1;
@@ -1709,7 +1709,7 @@ public:
        */
       Kokkos::parallel_for(
           Kokkos::TeamVectorRange(member, nbCellsPerBlock1),
-          KOKKOS_LAMBDA(const int32_t index) {
+          [&](const int32_t index) {
             // convert index to coordinates in ghosted block (minus 1 !)
             //index = i + bx1 * j + bx1 * by1 * k
             const int k = index / (bx1*by1);
@@ -1814,7 +1814,7 @@ public:
        */
       Kokkos::parallel_for(
           Kokkos::TeamVectorRange(member, nbCellsPerBlock),
-          KOKKOS_LAMBDA(const int32_t index) {
+          [&](const int32_t index) {
             // convert index to coordinates in ghosted block (minus 1 !)
             //index = i + bx * j + bx * by * k
             const uint32_t k = index / (bx*by);

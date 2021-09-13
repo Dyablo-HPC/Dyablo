@@ -15,13 +15,7 @@
 
 #include "shared/real_type.h"    // choose between single and double precision
 #include "shared/HydroParams.h"  // read parameter file
-#include "shared/solver_utils.h" // print monitoring information
 #include "shared/FieldManager.h"
-
-#ifdef DYABLO_USE_MPI
-#include "utils/mpiUtils/GlobalMpiSession.h"
-#include <mpi.h>
-#endif // DYABLO_USE_MPI
 
 #include "muscl_block/SolverHydroMusclBlock.h"
 
@@ -130,7 +124,6 @@ void run_test(int argc, char *argv[]) {
   
   uint32_t iGroup = 1;
 
-  uint8_t nfaces = (params.dimType == TWO_D ? 4 : 6);
  // // chose an octant which should have a "same size" neighbor in all direction
   // //uint32_t iOct_local = 2;
   

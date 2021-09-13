@@ -45,10 +45,7 @@ void IOManager_hdf5::save_snapshot( const DataArrayBlock& U, const DataArrayBloc
   const id2index_t& fm = pdata->fm;
   const ConfigMap& configMap = pdata->configMap;
   const HydroParams& params = pdata->params;
-  const AMRmesh& amr_mesh = pdata->pmesh;
   HDF5_Writer* hdf5_writer = &(pdata->hdf5_writer);
-
-  uint32_t nbCellsPerOct = pdata->bx*pdata->by*pdata->bz;
 
   // a map containing ID and name of the variable to write
   str2int_t names2index; // this is initially empty

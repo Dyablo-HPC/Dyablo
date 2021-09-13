@@ -17,7 +17,7 @@ inline void output_vtk( const std::string& name, const AMRmesh& mesh )
     out << std::endl;
   };
 
-  std::string filename = name+"_"+std::to_string(hydroSimu::GlobalMpiSession::getRank())+".vtu";
+  std::string filename = name+"_"+std::to_string(mesh.getRank())+".vtu";
 
   std::cout << "DEBUG OUPUT MESH " << filename << std::endl;
  

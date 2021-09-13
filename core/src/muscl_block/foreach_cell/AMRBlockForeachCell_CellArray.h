@@ -430,9 +430,9 @@ CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_
       // Select right suboctant among neighbors
       // and compute position of lower left cell for neighbors
       int suboctant = -1;
-      int32_t i_smaller_origin;
-      int32_t j_smaller_origin;
-      int32_t k_smaller_origin;
+      int32_t i_smaller_origin=0;
+      int32_t j_smaller_origin=0;
+      int32_t k_smaller_origin=0;
       for( size_t i=0; i<oct_neighbors.size(); i++ )
       {
         // Shift position in block according to current suboctant

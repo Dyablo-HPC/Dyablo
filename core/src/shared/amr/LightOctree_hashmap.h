@@ -356,7 +356,10 @@ public: // init() has to be public for KOKKOS_LAMBDA
                 ioct.isGhost = true;
             }
 
-            oct_map_t::insert_result inserted = oct_map.insert( get_key(level, morton), ioct );
+            #ifndef NDEBUG
+            oct_map_t::insert_result inserted = 
+            #endif
+            oct_map.insert( get_key(level, morton), ioct );
             assert(inserted.success());
         });
     }

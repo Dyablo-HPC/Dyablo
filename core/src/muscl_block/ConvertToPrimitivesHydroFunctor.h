@@ -177,7 +177,7 @@ public:
 
       Kokkos::parallel_for(
         Kokkos::TeamVectorRange(member, nbCellsPerBlock),
-        KOKKOS_LAMBDA(const int32_t index) {
+        [&](const int32_t index) {
 
           if (params.dimType == TWO_D)
             cons2prim_2d(index, iOct_local);

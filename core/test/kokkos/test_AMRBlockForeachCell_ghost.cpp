@@ -94,8 +94,6 @@ int main(int argc, char *argv[])
     params.gx = 0;
     params.gy = 0;
     params.gz = 0;
-    params.data_type = 0;
-    params.nDim = 0;
     params.level_min = 0;
     params.level_max = 0;
     params.rsst_cfl_enabled = 0;

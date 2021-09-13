@@ -2,8 +2,9 @@
 cmake_minimum_required(VERSION 3.10)
 
 if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
-  message(STATUS "Setting policy CMP0076 to use new behavior")
+  message(STATUS "Setting policy CMP0076, CMP0079 to use new behavior")
   cmake_policy(SET CMP0076 NEW)
+  cmake_policy(SET CMP0079 NEW)
 endif()
 
 set(PROJECT_LANGUAGES ${PROJECT_LANGUAGES} C CXX)
@@ -38,6 +39,26 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # C++14 is for Kokkos
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+#
+# dyablo options
+#
+# if CUDA is enable, you need to be careful about the version of boost
+option (DYABLO_ENABLE_UNIT_TESTING "Enable unit testing" OFF)
+option (DYABLO_BUILD_EXPERIMENTS "Build optional experiments from core/test" OFF)
+option (DYABLO_BUILD_DOC  "Enable / disable documentation build" OFF)
+set    (DYABLO_DOC "doxygen" CACHE STRING "documentation type (doxygen or mkdocs)")
+option (DYABLO_USE_MPI "Activate / want MPI build" ON)
+option (DYABLO_USE_VTK "Activate / want VTK build" OFF)
+option (DYABLO_USE_DOUBLE "build with double precision" ON)
+#option (USE_MOOD "build MOOD numerical schemes" OFF)
+#option (USE_SDM "build Spectral Difference Method numerical schemes" OFF)
+option (DYABLO_USE_HDF5 "build HDF5 input/output support" ON)
+option (DYABLO_USE_PNETCDF "build PNETCDF input/output support (MPI required)" OFF)
+option (DYABLO_USE_FPE_DEBUG "build with floating point Nan tracing (signal handler)" OFF)
+option (DYABLO_USE_MPI_CUDA_AWARE_ENFORCED "Some MPI cuda-aware implementation are not well detected; use this to enforce" OFF)
+option (Kokkos_ENABLE_CUDA  "enable Kokkos::Cuda backend" OFF)
+
 
 #####################################################################
 # External packages: MPI, ...
@@ -74,6 +95,27 @@ find_package(Kokkos 3.1 REQUIRED)
 if(Kokkos_ENABLE_CUDA)
   # kokkos_check is defined in KokkosConfigCommon.cmake
   kokkos_check(OPTIONS CUDA_LAMBDA)
+endif()
+
+set(COMPILER_IS_NVCC_WRAPPER false)
+get_filename_component(COMPILER_NAME ${CMAKE_CXX_COMPILER} NAME)
+if (COMPILER_NAME MATCHES "^nvcc_wrapper")
+  set(COMPILER_IS_NVCC_WRAPPER true)
+  message(STATUS "Compiler is Kokkos's nvcc_wrapper")
+endif()
+
+# HostOnly interface to force nvcc_wrapper to use only host compiler
+# When using nvcc_wrapper, each file must depend either on HostOnly or 
+# Kokkos::kokkos targets to avoid "sm_35 deprecated" warning 
+# (Kokkos::kokkos enables architecture specific optims (-march=), HostOnly doesn't)
+add_library(HostOnly INTERFACE)
+if( COMPILER_IS_NVCC_WRAPPER )
+  target_compile_options(HostOnly INTERFACE --host-only)
+  # TODO allow configuration of host compiler with nvcc_wrapper
+  #if( CMAKE_CUDA_HOST_COMPILER )
+  #  target_compile_options(HostOnly INTERFACE -ccbin ${CMAKE_CUDA_HOST_COMPILER})
+  #  target_compile_options(Kokkos::kokkoscore INTERFACE -ccbin ${CMAKE_CUDA_HOST_COMPILER}) 
+  #endif()
 endif()
 
 #####################################################################
@@ -216,12 +258,22 @@ add_definitions( -Wall )
 # sources
 #
 add_subdirectory(../external/backward-cpp external/backward-cpp)
+# Add Kokkos to set correct nvcc_wrapper flags
+target_link_libraries(backward_object INTERFACE HostOnly)
+target_link_libraries(backward INTERFACE HostOnly)
+
 #add_subdirectory(../external/kokkos external/kokkos)
 
 # pass Kokkos include directories to our target application
 #include_directories(${Kokkos_INCLUDE_DIRS_RET})
 
+if( DYABLO_BUILD_EXPERIMENTS )
 add_subdirectory(test)
+else()
+add_subdirectory(test/solver)
+endif()
+
+
 add_subdirectory(src)
 
 # Documentation type

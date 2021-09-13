@@ -119,12 +119,12 @@ public:
 
       Kokkos::parallel_for(
         Kokkos::TeamVectorRange(member, nbCells),
-        KOKKOS_LAMBDA(const int32_t index) {
+        [&](const int32_t index) {
 
 	  coord_t iCoord;
           uint32_t& ix = iCoord[IX];
           uint32_t& iy = iCoord[IY];
-          uint32_t& iz = iCoord[IZ];                    
+          //uint32_t& iz = iCoord[IZ];                    
 
           if (params.dimType == TWO_D) {
             iCoord = index_to_coord<2>(index,blockSizes);

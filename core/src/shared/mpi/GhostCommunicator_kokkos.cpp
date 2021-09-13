@@ -1,13 +1,14 @@
 #include "GhostCommunicator.h"
 #include <cstdint>
-#include "utils/mpiUtils/GlobalMpiSession.h"
+#include "utils/mpi/GlobalMpiSession.h"
 
 namespace dyablo{
 namespace muscl_block{
 
-GhostCommunicator_kokkos::GhostCommunicator_kokkos( const std::map<int, std::vector<uint32_t>>& ghost_map )
+GhostCommunicator_kokkos::GhostCommunicator_kokkos( const std::map<int, std::vector<uint32_t>>& ghost_map, const MpiComm& mpi_comm )
+  : mpi_comm(mpi_comm)
 {
-  int nb_proc = hydroSimu::GlobalMpiSession::getNProc();
+  int nb_proc = mpi_comm.MPI_Comm_size();
 
   //Compute send sizes
   {
@@ -56,9 +57,8 @@ GhostCommunicator_kokkos::GhostCommunicator_kokkos( const std::map<int, std::vec
   {
     Kokkos::realloc(this->recv_sizes, nb_proc);
     this->recv_sizes_host = Kokkos::create_mirror_view(this->recv_sizes);
-    MPI_Alltoall( send_sizes_host.data(), 1, MPI_INT, 
-                  recv_sizes_host.data(), 1, MPI_INT,
-                  MPI_COMM_WORLD );
+    mpi_comm.MPI_Alltoall(  send_sizes_host.data(), 1, 
+                            recv_sizes_host.data(), 1);
     // Copy number of octants to recieve to device (host + device are up to date)
     Kokkos::deep_copy(recv_sizes, recv_sizes_host);
     this->nbghosts_recv = 0;
@@ -67,31 +67,8 @@ GhostCommunicator_kokkos::GhostCommunicator_kokkos( const std::map<int, std::vec
   }
 }
 
-namespace{
-  template<int iOct_pos, typename DataArray_t, typename... Args>
-  KOKKOS_INLINE_FUNCTION
-  std::enable_if_t< sizeof...(Args) == DataArray_t::rank, 
-  typename DataArray_t::value_type&> get_U( const DataArray_t& U, uint32_t iOct, uint32_t elt_index, Args... is)
-  {
-    return U(is...);
-  }
-  template<int iOct_pos, typename DataArray_t, typename... Args>
-  KOKKOS_INLINE_FUNCTION
-  std::enable_if_t< sizeof...(Args) < DataArray_t::rank,  
-  typename DataArray_t::value_type&> get_U( const DataArray_t& U, uint32_t iOct, uint32_t elt_index, Args... is)
-  {
-    if( sizeof...(Args) == iOct_pos )
-    {
-      return get_U<iOct_pos>(U, iOct, elt_index, is..., iOct);
-    }
-    else
-    {
-      uint32_t current_dim_size = U.extent(sizeof...(Args));
-      uint32_t rem = elt_index%current_dim_size;
-      uint32_t div = elt_index/current_dim_size;
-      return get_U<iOct_pos>(U, iOct, div, is..., rem);
-    }
-  }
+namespace GhostCommunicator_kokkos_impl{
+  using namespace userdata_utils;  
 
   /**
    * Generic way to get a subview of an an n-dimensional Kokkos view
@@ -110,17 +87,6 @@ namespace{
     return get_subview(U, iOct_begin, iOct_end, Kokkos::ALL(), is...);
   }
 
-  template<typename T> MPI_Datatype get_MPI_Datatype()
-  {
-    static_assert(!std::is_same<T,T>::value, "Please add type to get_MPI_Datatype");
-    return 0;
-  }
-
-  template<> MPI_Datatype get_MPI_Datatype<double>() {return MPI_DOUBLE;}
-  //template<> MPI_Datatype get_MPI_Datatype<float>() {return MPI_FLOAT;}
-  template<> MPI_Datatype get_MPI_Datatype<unsigned short>() {return MPI_UNSIGNED_SHORT;}
-  template<> MPI_Datatype get_MPI_Datatype<int>() {return MPI_INT;}
-
   /**
    * Slice view into one subview per rank.
    * Each subview `res[rank]` contains `sizes[rank]` octants from `view`
@@ -131,7 +97,7 @@ namespace{
   template <typename DataArray_t>
   std::vector<DataArray_t> get_subviews(const DataArray_t& view, const Kokkos::View<uint32_t*>::HostMirror& sizes)
   {
-    int nb_proc = hydroSimu::GlobalMpiSession::getNProc();
+    int nb_proc = sizes.size();
     
     std::vector<DataArray_t> res(nb_proc);
     uint32_t iOct_offset = 0;
@@ -161,7 +127,7 @@ namespace{
   std::enable_if_t< std::is_same< MPIBuffer_t, typename DataArray_t::HostMirror>::value,  
   std::vector<MPIBuffer_t>> get_subviews(const DataArray_t& view, const Kokkos::View<uint32_t*>::HostMirror& sizes)
   {
-    int nb_proc = hydroSimu::GlobalMpiSession::getNProc();
+    int nb_proc = sizes.size();
     
     MPIBuffer_t view_host = Kokkos::create_mirror_view(view);
     Kokkos::deep_copy(view_host, view);
@@ -198,7 +164,6 @@ namespace{
                  "This implementation of GhostCommunicator_kokkos only supports Kokkos::LayoutLeft views" ); 
 
     constexpr int dim = DataArray_t::rank;
-    int nb_proc = hydroSimu::GlobalMpiSession::getNProc();
     
     // Allocate send_buffers with same dimension for each octant but with sum(send_sizes_host) octants
     // iOct is also displaced to the rightmost coordinate (if it's not already the case)
@@ -238,7 +203,7 @@ namespace{
    * (When iOct is rightmost index)
    **/
   template <typename DataArray_t>
-  void unpack( const std::vector<DataArray_t>& recv_buffers, const DataArray_t& Ughost, const Kokkos::View<uint32_t*>::HostMirror& recv_sizes_host )
+  void unpack( const std::vector<DataArray_t>& /*recv_buffers*/, const DataArray_t& /*Ughost*/, const Kokkos::View<uint32_t*>::HostMirror& /*recv_sizes_host*/ )
   {
     // When iOct is the rightmost subscript in Ughost, Ughost is directly used as recieve buffer
     // There is no copy to perform
@@ -262,7 +227,7 @@ namespace{
 
     std::vector<DataArray_t> recv_buffers_device = get_subviews<DataArray_t>(Ughost, recv_sizes_host);
 
-    int nb_proc = hydroSimu::GlobalMpiSession::getNProc();
+    int nb_proc = recv_sizes_host.size();
     
     for(int i=0; i<nb_proc; i++)
     {
@@ -286,11 +251,7 @@ namespace{
     layout_Ughost.dimension[iOct_pos] = Ughost_right_iOct.extent(DataArray_t::rank-1);
     Kokkos::realloc(Ughost, layout_Ughost);
 
-    // Compute number of values per octants
-    uint32_t elts_per_octs = 1;
-    for(int i=0; i<DataArray_t::rank; i++)
-      if( i!= iOct_pos )
-        elts_per_octs *= Ughost.extent(i);
+    uint32_t elts_per_octs = octant_size<DataArray_t, iOct_pos>(Ughost);
 
     // Transpose value from Ughost_right_iOct to Ughost
     Kokkos::parallel_for( "GhostCommunicator::unpack_transpose", Ughost_right_iOct.size(),
@@ -314,18 +275,20 @@ namespace{
     Ughost = Ughost_right_iOct;
   }
 
-} // namespace
+} // namespace GhostCommunicator_kokkos_impl
 
 template< typename DataArray_t, int iOct_pos >
 void GhostCommunicator_kokkos::exchange_ghosts_aux( const DataArray_t& U, DataArray_t& Ughost) const
 { 
+  using namespace GhostCommunicator_kokkos_impl;
+  using MPI_Request_t = MpiComm::MPI_Request_t;
 #ifdef MPI_IS_CUDA_AWARE    
   using MPIBuffer = DataArray_t;
 #else
   using MPIBuffer = typename DataArray_t::HostMirror;
 #endif
 
-  int nb_proc = hydroSimu::GlobalMpiSession::getNProc();
+  int nb_proc = mpi_comm.MPI_Comm_size();
 
   // Pack send buffers from U, allocate recieve buffers
   std::vector<MPIBuffer> send_buffers = pack<MPIBuffer, iOct_pos>( U, this->send_iOcts, this->send_sizes_host );
@@ -346,16 +309,14 @@ void GhostCommunicator_kokkos::exchange_ghosts_aux( const DataArray_t& U, DataAr
   std::vector<MPIBuffer> recv_buffers = get_subviews<MPIBuffer>(Ughost_tmp, recv_sizes_host);
   
   {
-    MPI_Datatype mpi_type = get_MPI_Datatype<typename DataArray_t::value_type>();
-    std::vector<MPI_Request> mpi_requests;
+    std::vector<MPI_Request_t> mpi_requests;
     // Post MPI_Isends
     for(int rank=0; rank<nb_proc; rank++)
     {
       if( send_buffers[rank].size() > 0 )
       {
-        mpi_requests.push_back(MPI_REQUEST_NULL);
-        MPI_Isend( send_buffers[rank].data(), send_buffers[rank].size(), mpi_type,
-                  rank, 0, MPI_COMM_WORLD, &mpi_requests.back() );
+        MPI_Request_t r = mpi_comm.MPI_Isend( send_buffers[rank], rank, 0 );
+        mpi_requests.push_back(r);
       }
     }
     // Post MPI_Irecv   
@@ -363,12 +324,11 @@ void GhostCommunicator_kokkos::exchange_ghosts_aux( const DataArray_t& U, DataAr
     {
       if( recv_buffers[rank].size() > 0 )
       {
-        mpi_requests.push_back(MPI_REQUEST_NULL);
-        MPI_Irecv( recv_buffers[rank].data(), recv_buffers[rank].size(), mpi_type,
-                  rank, 0, MPI_COMM_WORLD, &mpi_requests.back() );
+        MPI_Request_t r = mpi_comm.MPI_Irecv( recv_buffers[rank], rank, 0 );
+        mpi_requests.push_back(r);
       }
     }
-    MPI_Waitall(mpi_requests.size(), mpi_requests.data(), MPI_STATUSES_IGNORE);
+    mpi_comm.MPI_Waitall(mpi_requests.size(), mpi_requests.data());
   }
 
   // Unpack recv buffers to Ughost_tmp

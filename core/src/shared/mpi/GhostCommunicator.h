@@ -64,13 +64,13 @@ private:
 class GhostCommunicator_kokkos : public GhostCommunicator_base
 {
 public:
-    GhostCommunicator_kokkos( const std::map<int, std::vector<uint32_t>>& ghost_map );
-    GhostCommunicator_kokkos( std::shared_ptr<AMRmesh> amr_mesh )
-     : GhostCommunicator_kokkos(amr_mesh->getBordersPerProc())
+    GhostCommunicator_kokkos( const std::map<int, std::vector<uint32_t>>& ghost_map, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() );
+    GhostCommunicator_kokkos( std::shared_ptr<AMRmesh> amr_mesh, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
+     : GhostCommunicator_kokkos(amr_mesh->getBordersPerProc(), mpi_comm)
     {}
 
-    GhostCommunicator_kokkos( std::shared_ptr<AMRmesh_hashmap> amr_mesh )
-     : GhostCommunicator_kokkos(amr_mesh->getBordersPerProc())
+    GhostCommunicator_kokkos( std::shared_ptr<AMRmesh_hashmap> amr_mesh, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
+     : GhostCommunicator_kokkos(amr_mesh->getBordersPerProc(), mpi_comm)
     {}
     
     /**
@@ -89,6 +89,7 @@ private:
     Kokkos::View<uint32_t*>::HostMirror recv_sizes_host, send_sizes_host; //!Number of octants to send/recv for each proc
     Kokkos::View<uint32_t*> send_iOcts; //! List of octants to send (first send_sizes[0] iOcts to send to rank[0] and so on...)
     uint32_t nbghosts_recv;
+    MpiComm mpi_comm;
 
 public:
     /**
@@ -104,8 +105,30 @@ public:
     void exchange_ghosts_aux( const DataArray_t& U, DataArray_t& Ughost) const;
 };
 
+/**
+ * Ghost communicator that does nothing.
+ * To be used when MPI is disabled
+ **/
+class GhostCommunicator_serial: public GhostCommunicator_base
+{
+public:
+    template< typename AMRmesh_t >
+    GhostCommunicator_serial( std::shared_ptr<AMRmesh_t> amr_mesh )
+    {}
+    
+    template< typename DataArray_t>
+    void exchange_ghosts( const DataArray_t& U, DataArray_t& Ughost) const
+    {
+        assert(Ughost.size() == 0);
+        /* Nothing to do */
+    } 
+};
+
+#if DYABLO_USE_MPI
 using GhostCommunicator = GhostCommunicator_kokkos;
-//using GhostCommunicator = GhostCommunicator_pablo;
+#else
+using GhostCommunicator = GhostCommunicator_serial;
+#endif
 
 
 }//namespace muscl_block

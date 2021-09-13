@@ -10,13 +10,9 @@
 
 #include <impl/Kokkos_Error.hpp>
 
-#ifdef DYABLO_USE_MPI
-#include "utils/mpiUtils/GlobalMpiSession.h"
-#include <mpi.h>
-#endif // DYABLO_USE_MPI
-
 #include "utils/monitoring/SimpleTimer.h"
 #include "shared/amr/LightOctree.h"
+#include "shared/HydroParams.h"
 
 #include <iostream>
 
@@ -47,8 +43,9 @@ void run_test()
   // codim 1 ==> balance through faces
   // codim 2 ==> balance through faces and corner
   // codim 3 ==> balance through faces, edges and corner (3D only)
-  HydroParams params;
+  HydroParams params{};
   params.level_max = 3;
+  params.level_min = 0;
   int codim = dim; 
   dyablo::AMRmesh amr_mesh(dim, codim, {true,true,true}, params.level_min, params.level_max);
 
@@ -72,10 +69,8 @@ void run_test()
   }
   std::cout << "Mesh size is " << amr_mesh.getNumOctants() << "\n";
 
-#if BITPIT_ENABLE_MPI==1
   /**<(Load)Balance the octree over the processes.*/
   amr_mesh.loadBalance();
-#endif
 
   /* 
    * 2d mesh should be exactly like this : 19 octants

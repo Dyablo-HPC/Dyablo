@@ -1,8 +1,6 @@
 #pragma once
 
-#ifdef DYABLO_USE_MPI
-#include "utils/mpiUtils/GlobalMpiSession.h"
-#endif // DYABLO_USE_MPI
+#include "utils/mpi/GlobalMpiSession.h"
 
 #include "kokkos_shared.h"
 
@@ -12,9 +10,7 @@ namespace shared {
 class DyabloSession {
 private:
   int m_rank, m_nRanks;
-#ifdef DYABLO_USE_MPI
-  std::unique_ptr<hydroSimu::GlobalMpiSession> mpiSession;
-#endif // DYABLO_USE_MPI
+  std::unique_ptr<dyablo::GlobalMpiSession> mpiSession;
 public:
   DyabloSession(int argc, char *argv[])
   {
@@ -34,15 +30,12 @@ public:
       Kokkos::initialize(argc, argv);
 
       // Create MPI session if MPI enabled
-#ifdef DYABLO_USE_MPI
-    mpiSession = std::make_unique<hydroSimu::GlobalMpiSession>(&argc, &argv);
-#endif // DYABLO_USE_MPI
-
+    mpiSession = std::make_unique<GlobalMpiSession>(&argc, &argv);
     if (!initialize_kokkos_before_mpi)
       Kokkos::initialize(argc, argv);
 
-    m_rank   = 0;
-    m_nRanks = 1;
+    m_rank   = GlobalMpiSession::get_comm_world().MPI_Comm_rank();
+    m_nRanks = GlobalMpiSession::get_comm_world().MPI_Comm_size();
 
     {
       std::cout << "##########################\n";
@@ -62,10 +55,8 @@ public:
       std::cout << msg.str();
       std::cout << "##########################\n";
 
-#ifdef DYABLO_USE_MPI
-      m_rank   = mpiSession->getRank();
-      m_nRanks = mpiSession->getNProc();
 #ifdef KOKKOS_ENABLE_CUDA
+      if( MPI_enabled() )
       {
 
         // To enable kokkos accessing multiple GPUs don't forget to
@@ -83,13 +74,21 @@ public:
                   << " pinned to GPU #" << cudaDeviceId << "\n";
       }
 #endif // KOKKOS_ENABLE_CUDA
-#endif // DYABLO_USE_MPI
     }  // end kokkos config
   }
 
   ~DyabloSession() { Kokkos::finalize(); }
 
   int getRank() { return m_rank; }
+
+  static bool MPI_enabled()
+  {
+    #ifdef DYABLO_USE_MPI
+    return true;
+    #else // DYABLO_USE_MPI
+    return false;
+    #endif // DYABLO_USE_MPI
+  }
 };
 
 } // namespace shared

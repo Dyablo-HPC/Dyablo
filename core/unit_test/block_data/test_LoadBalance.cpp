@@ -11,10 +11,6 @@
 #include "shared/amr/AMRmesh.h"
 #include "shared/mpi/GhostCommunicator.h"
 
-#ifdef DYABLO_USE_MPI
-#include "utils/mpiUtils/GlobalMpiSession.h"
-#endif
-
 namespace dyablo
 {
 
@@ -52,7 +48,7 @@ void run_test(int argc, char *argv[])
     amr_mesh->loadBalance(levels);
     amr_mesh->updateConnectivity();
 
-    if( hydroSimu::GlobalMpiSession::getRank() == 0 )
+    if( amr_mesh->getRank() == 0 )
     {
       // Refine initial 47 (final smaller 47..54)
       amr_mesh->setMarker(47,1);
