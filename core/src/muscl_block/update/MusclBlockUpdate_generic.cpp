@@ -364,6 +364,64 @@ void compute_fluxes(ComponentIndex3D dir,
   if(ndim==3) Uout.at(iCell_Uout, IW) += (fluxL[IW] - fluxR[IW]) * dtddir;
 }
 
+/**
+ * Applies corrector step for gravity
+ * @param Uin Initial values before update
+ * @param iCell_Uin Position insides Uin/Uout (non ghosted)
+ * @param dt time step
+ * @param use_field Get gravity field from Uin
+ * @param gx, gy, gz, scalar values when use_field == false
+ * @param Uout Updated array after hydro without gravity
+ **/
+template<int ndim>
+KOKKOS_INLINE_FUNCTION
+void apply_gravity_correction( const GlobalArray& Uin,
+                               const CellIndex& iCell_Uin,
+                               real_t dt,
+                               bool use_field,
+                               real_t gx, real_t gy, real_t gz,
+                               const GlobalArray& Uout ){
+  if(use_field)
+  {
+    gx = Uin.at(iCell_Uin, IGX);
+    gy = Uin.at(iCell_Uin, IGY);
+    gz = Uin.at(iCell_Uin, IGZ);
+  }
+
+  real_t rhoOld = Uin.at(iCell_Uin, ID);
+  
+  real_t rhoNew = Uout.at(iCell_Uin, ID);
+  real_t rhou = Uout.at(iCell_Uin, IU);
+  real_t rhov = Uout.at(iCell_Uin, IV);
+  real_t ekin_old = rhou*rhou + rhov*rhov;
+  real_t rhow;
+  
+  if (ndim == 3) {
+    rhow = Uout.at(iCell_Uin, IW);
+    ekin_old += rhow*rhow;
+  }
+  
+  ekin_old = 0.5 * ekin_old / rhoNew;
+
+  rhou += 0.5 * dt * gx * (rhoOld + rhoNew);
+  rhov += 0.5 * dt * gy * (rhoOld + rhoNew);
+
+  Uout.at(iCell_Uin, IU) = rhou;
+  Uout.at(iCell_Uin, IV) = rhov;
+  if (ndim == 3) {
+    rhow += 0.5 * dt * gz * (rhoOld + rhoNew);
+    Uout.at(iCell_Uin, IW) = rhow;
+  }
+
+  // Energy correction should be included in case of self-gravitation ?
+  real_t ekin_new = rhou*rhou + rhov*rhov;
+  if (ndim == 3)
+    ekin_new += rhow*rhow;
+  
+  ekin_new = 0.5 * ekin_new / rhoNew;
+  Uout.at(iCell_Uin, IE) += (ekin_new - ekin_old);
+}
+
 template< int ndim >
 void update_aux(
     const MusclBlockUpdate_generic::Data* pdata,
@@ -387,6 +445,14 @@ void update_aux(
   BoundaryConditionType xbound = params.boundary_type_xmin;
   BoundaryConditionType ybound = params.boundary_type_ymin;
   BoundaryConditionType zbound = params.boundary_type_zmin;
+
+  bool has_gravity = params.gravity_type!=GRAVITY_NONE;
+  bool gravity_use_field = params.gravity_type&GRAVITY_FIELD;
+  bool gravity_use_scalar = params.gravity_type==GRAVITY_CST_SCALAR;
+  real_t gx = params.gx, gy = params.gy, gz = params.gz;
+
+  // If gravity is on it must either use the force field from U or a constant scalar force field
+  assert( !has_gravity || ( gravity_use_field != gravity_use_scalar )  );
 
   Timers& timers = pdata->timers; 
 
@@ -461,6 +527,10 @@ void update_aux(
       compute_fluxes<ndim>(IX, iCell_Uout, SlopesX, Sources, params, smallr, dt/size[IX], Uout);
       compute_fluxes<ndim>(IY, iCell_Uout, SlopesY, Sources, params, smallr, dt/size[IY], Uout);
       if( ndim==3 ) compute_fluxes<ndim>(IZ, iCell_Uout, SlopesZ, Sources, params, smallr, dt/size[IZ], Uout);
+    
+      // Applying correction step for gravity
+      if (has_gravity)
+        apply_gravity_correction<ndim>(Uin, iCell_Uout, dt, gravity_use_field, gx, gy, gz, Uout);
     });
   });
 

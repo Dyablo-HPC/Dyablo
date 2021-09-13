@@ -71,7 +71,6 @@ struct HydroParams {
   int nz;     /*!< logical size along Z (without ghost cells).*/
   int ghostWidth;  
   int nbvar;  /*!< number of variables in HydroState / MHDState. */
-  int nbfields; /*!< number of fields stored in U. Equal to the sum of nbvars and the number of additional fields (eg gravity) */
 
   DimensionType dimType; //!< 2D or 3D.
 

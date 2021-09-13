@@ -33,6 +33,7 @@
 #include "shared/mpi/GhostCommunicator.h"
 
 #include "muscl_block/MapUserData.h"
+#include "muscl_block/gravity/GravitySolver.h"
 
 #if BITPIT_ENABLE_MPI==1
 #include "muscl_block/UserDataLB.h"
@@ -61,9 +62,6 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   
   // m_nCells = nbOcts; // TODO
   m_nDofsPerCell = 1;
-
-  int nbvar = params.nbvar;
-  int nbfields = params.nbfields;
 
   // Initial number of octants
   // User data will be reallocated after AMR mesh initialization
@@ -112,15 +110,16 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   /*
    * main data array memory allocation
    */
+  // init field manager
+  // retrieve available / allowed names: fieldManager, and field map (fm)
+  // necessary to access user data
+  fieldMgr.setup(params, configMap);
+  int nbfields = fieldMgr.nbfields();
 
   U     = DataArrayBlock("U", nbCellsPerOct, nbfields, nbOcts);
   Uhost = Kokkos::create_mirror(U);
   U2    = DataArrayBlock("U2",nbCellsPerOct, nbfields, nbOcts);
 
-  // init field manager
-  // retrieve available / allowed names: fieldManager, and field map (fm)
-  // necessary to access user data
-  fieldMgr.setup(params, configMap);
   // perform init condition
   init(U);
   
@@ -193,13 +192,15 @@ SolverHydroMusclBlock::~SolverHydroMusclBlock()
 // =======================================================
 void SolverHydroMusclBlock::resize_solver_data()
 {
+  int nbfields = fieldMgr.nbfields();
+
   size_t U_size_old = DataArrayBlock::required_allocation_size( U.extent(0), U.extent(1), U.extent(2) );
-  size_t U_size_new = DataArrayBlock::required_allocation_size( nbCellsPerOct, params.nbfields, amr_mesh->getNumOctants() );
+  size_t U_size_new = DataArrayBlock::required_allocation_size( nbCellsPerOct, nbfields, amr_mesh->getNumOctants() );
   std::cout << "Resize U+U2 : " << 2*U_size_old * (2/1e6) << " -> " << U_size_new * (2/1e6) << " MBytes" << std::endl;
 
-  Kokkos::realloc(U, nbCellsPerOct, params.nbfields, amr_mesh->getNumOctants());
-  Kokkos::realloc(U2, nbCellsPerOct, params.nbfields, amr_mesh->getNumOctants());
-  Kokkos::realloc(Uhost, nbCellsPerOct, params.nbfields, amr_mesh->getNumOctants());
+  Kokkos::realloc(U, nbCellsPerOct, nbfields, amr_mesh->getNumOctants());
+  Kokkos::realloc(U2, nbCellsPerOct, nbfields, amr_mesh->getNumOctants());
+  Kokkos::realloc(Uhost, nbCellsPerOct, nbfields, amr_mesh->getNumOctants());
   // Remember that all other array are fixed sized - nbOctsPerGroup
 
 } // SolverHydroMusclBlock::resize_solver_data
@@ -219,7 +220,7 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
 {
 
   // test if we are performing a re-start run (default : false)
-  bool restartEnabled = configMap.getBool("run","restart_enabled",false);
+  bool restartEnabled = configMap.getBool("run","restart_enabled", false);
 
   std::string init_name = restartEnabled ? "restart" : m_problem_name;
 
@@ -351,6 +352,20 @@ void SolverHydroMusclBlock::next_iteration_impl()
   timers.get("dt").start();
   compute_dt();
   timers.get("dt").stop();
+
+  if( params.gravity_type & GRAVITY_FIELD )
+  {
+    std::string impl_id = this->configMap.getString("gravity", "solver", "GravitySolver_constant");
+    std::unique_ptr<GravitySolver> gravity_solver = GravitySolverFactory::make_instance( impl_id,
+      configMap,
+      params,
+      amr_mesh, 
+      fieldMgr.get_id2index(),
+      bx, by, bz,
+      timers
+    );
+    gravity_solver->update_gravity_field(U, Ughost, U);
+  }
   
   // perform one step integration
   godunov_unsplit(m_dt);
@@ -385,6 +400,7 @@ void SolverHydroMusclBlock::next_iteration_impl()
 
 // =======================================================
 // =======================================================
+
 // ///////////////////////////////////////////
 // Wrapper to the actual computation routine
 // ///////////////////////////////////////////

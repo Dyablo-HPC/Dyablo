@@ -232,7 +232,7 @@ KOKKOS_INLINE_FUNCTION get_pos_t get_pos( const Functor& f, Functor::index_t ind
     return res;
 }
 
-using CellData = HydroState3d;
+using CellData = Kokkos::Array<real_t, COMPONENT_SIZE>;
 
 /**
  * Fetch data associated to a cell from a neighbor octant when neighbor and local octant have the same size
@@ -255,11 +255,11 @@ KOKKOS_INLINE_FUNCTION CellData get_cell_data_same_size( const Functor& f, const
         res[IU] = f.U_ghost(index_in_neighbor, f.fm[IU], iOct_neigh);
         res[IV] = f.U_ghost(index_in_neighbor, f.fm[IV], iOct_neigh);
         if( ndim == 3 ) res[IW] = f.U_ghost(index_in_neighbor, f.fm[IW], iOct_neigh);        
-        // TODO : copy gravity
-        // if (copy_gravity) { 
-        //     Ugroup(index_cur, fm[IGX], iOct_local) = U_ghost(index_border, fm[IGX], iOct_neigh);
-        //     Ugroup(index_cur, fm[IGY], iOct_local) = U_ghost(index_border, fm[IGY], iOct_neigh);
-        // }
+        if (f.copy_gravity) { 
+          res[IGX] = f.U_ghost(index_in_neighbor, f.fm[IGX], iOct_neigh);
+          res[IGY] = f.U_ghost(index_in_neighbor, f.fm[IGY], iOct_neigh);
+          if ( ndim == 3) res[IGZ] = f.U_ghost(index_in_neighbor, f.fm[IGZ], iOct_neigh);
+    } 
     } 
     else
     {
@@ -268,11 +268,11 @@ KOKKOS_INLINE_FUNCTION CellData get_cell_data_same_size( const Functor& f, const
         res[IU] = f.U(index_in_neighbor, f.fm[IU], iOct_neigh);
         res[IV] = f.U(index_in_neighbor, f.fm[IV], iOct_neigh);
         if( ndim == 3 ) res[IW] = f.U(index_in_neighbor, f.fm[IW], iOct_neigh);
-        // TODO : copy gravity
-        // if (copy_gravity) { 
-        //     Ugroup(index_cur, fm[IGX], iOct_local) = U(index_border, fm[IGX], iOct_neigh);
-        //     Ugroup(index_cur, fm[IGY], iOct_local) = U(index_border, fm[IGY], iOct_neigh);
-        // }
+        if (f.copy_gravity) { 
+          res[IGX] = f.U(index_in_neighbor, f.fm[IGX], iOct_neigh);
+          res[IGY] = f.U(index_in_neighbor, f.fm[IGY], iOct_neigh);
+          if ( ndim == 3) res[IGZ] = f.U(index_in_neighbor, f.fm[IGZ], iOct_neigh);
+        }
     }
     return res;
 }
@@ -486,9 +486,6 @@ KOKKOS_INLINE_FUNCTION CellData get_cell_data_border( const Functor& f, uint32_t
         }
     }
 
-    //if(iOct_local == 26 && f.iGroup==1)
-    //std::cout << " Border " << pos_in_local[IX] << " "  << pos_in_local[IY] << " "  << pos_in_local[IZ] << " <- " << coord_in[IX] << " "  << coord_in[IY] << " "  << coord_in[IZ] << std::endl;
-    
     // assume inner cells have already been copied 
     uint32_t index = coord_g_to_index<ndim>( coord_in, f.blockSizes, f.ghostWidth );
     CellData res;
@@ -499,10 +496,12 @@ KOKKOS_INLINE_FUNCTION CellData get_cell_data_border( const Functor& f, uint32_t
     if(ndim == 3)
         res[IW] = f.Ugroup(index, f.fm[IW], iOct_local) * sign[IZ];
 
-    // if (copy_gravity) {
-    //     Ugroup(index_cur, fm[IGX], iOct_local) = Ugroup(index, fm[IGX], iOct_local);
-    //     Ugroup(index_cur, fm[IGY], iOct_local) = Ugroup(index, fm[IGY], iOct_local);
-    // } // end if copy
+    if (f.copy_gravity) {
+      res[IGX] = f.Ugroup(index, f.fm[IGX], iOct_local) * sign[IX];
+      res[IGY] = f.Ugroup(index, f.fm[IGY], iOct_local) * sign[IY];
+      if (ndim ==3)
+        res[IGZ] = f.Ugroup(index, f.fm[IGZ], iOct_local) * sign[IZ];
+    } // end if copy
     return res;
 }
 
