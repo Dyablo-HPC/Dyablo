@@ -565,6 +565,9 @@ void riemann_hydro( const HydroState& qleft,
     case RIEMANN_HLLC:
       riemann_hllc(qleft,qright,flux,params);
       break;
+    case RIEMANN_HLL:
+      riemann_hll(qleft,qright,flux,params);
+      break;
     case RIEMANN_LLF:
       riemann_llf(qleft,qright,flux,params);
       break;

@@ -429,7 +429,7 @@ std::set< std::pair<int, uint32_t> > discover_ghosts(
         const MpiComm& mpi_comm)
 {
     uint32_t mpi_rank = mpi_comm.MPI_Comm_rank();
-    uint32_t mpi_size = mpi_comm.MPI_Comm_rank();
+    uint32_t mpi_size = mpi_comm.MPI_Comm_size();
 
     auto find_rank = [mpi_size, &morton_intervals](morton_t morton)
     {
