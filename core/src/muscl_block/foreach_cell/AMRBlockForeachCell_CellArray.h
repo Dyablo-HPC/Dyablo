@@ -1,6 +1,7 @@
 #pragma once
 
 #include "shared/kokkos_shared.h"
+#include "shared/FieldManager.h"
 #include "shared/amr/LightOctree.h"
 #include "shared/mpi/GhostCommunicator.h"
 

@@ -13,6 +13,7 @@ set (muscl_block_SRCS
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitShuOsher.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitDoubleMachReflection.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitRayleighTaylor.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_blast.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/update/MusclBlockUpdate_legacy.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/update/MusclBlockUpdate_generic.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/gravity/GravitySolver_constant.cpp
