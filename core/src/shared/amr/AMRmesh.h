@@ -101,12 +101,15 @@ public:
 
   /**
    * Get position of the center of the local cell
-   * NOTE : positions are in the unit square [0,1]^3
+   * NOTE : positions are in the unit cube [0,1]^3
    **/
   array_t<real_t, 3> getCenter( uint32_t idx ) const
   { return Impl::getCenter(idx); }
 
-  /// Get the position of the corner closest to the origin
+   /**
+   * Get position of the corner of the local cell
+   * NOTE : positions are in the unit cube [0,1]^3
+   **/
   array_t<real_t, 3> getCoordinates( uint32_t idx ) const
   { return Impl::getCoordinates(idx); }
 
@@ -127,11 +130,17 @@ public:
   array_t<real_t, 3> getCenterGhost( uint32_t idx ) const
   { return Impl::getCenterGhost(idx); }  
 
-  /// Get the position of the corner of a ghost cell closest to the origin
+  /**
+   * Get position of the corner of a ghost cell
+   * NOTE : positions are in the unit cube [0,1]^3
+   **/
   array_t<real_t, 3> getCoordinatesGhost( uint32_t idx ) const
   { return Impl::getCoordinatesGhost(idx); }
 
-  /// Get the width of the ghost cell
+  /**
+   * Get the width of the ghost cell
+   * Note : all cells are square
+   **/ 
   real_t getSizeGhost( uint32_t idx ) const
   { return Impl::getSizeGhost(idx); }
 
