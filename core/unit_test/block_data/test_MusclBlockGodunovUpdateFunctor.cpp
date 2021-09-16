@@ -66,8 +66,7 @@ void run_test(int argc, char *argv[]) {
   // by now, init condition must have been called
 
   // just retrieve a field manager
-  FieldManager fieldMgr;
-  fieldMgr.setup(params, configMap);
+  FieldManager fieldMgr = FieldManager::setup(params, configMap);
 
   auto fm = fieldMgr.get_id2index();
 
