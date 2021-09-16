@@ -56,7 +56,8 @@ SolverHydroMuscl::SolverHydroMuscl(HydroParams& params,
   Slopes_z(),
   Slopes_x_ghost(), 
   Slopes_y_ghost(), 
-  Slopes_z_ghost()
+  Slopes_z_ghost(),
+  fieldMgr( FieldManager::setup(params, configMap) )
 #ifdef DYABLO_USE_HDF5
   , hdf5_writer(std::make_shared<HDF5_Writer>(amr_mesh.get(), configMap, params))
 #endif // DYABLO_USE_HDF5
@@ -103,11 +104,6 @@ SolverHydroMuscl::SolverHydroMuscl(HydroParams& params,
     Fluxes = DataArray("Fluxes", nbCells, nbvar);
     total_mem_size += nbCells * nbvar * sizeof(real_t); //
   }
-
-  // init field manager
-  // retrieve available / allowed names: fieldManager, and field map (fm)
-  // necessary to access user data
-  fieldMgr.setup(params, configMap);
 
   // perform init condition
   init(U);

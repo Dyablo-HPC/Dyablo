@@ -9,6 +9,7 @@ target_sources (shared
   ${CMAKE_CURRENT_SOURCE_DIR}/SolverBase.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/io_utils.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/SimpleVTKIO.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/FieldManager.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh_hashmap.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh.cpp
   )

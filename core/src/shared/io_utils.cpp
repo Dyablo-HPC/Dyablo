@@ -16,11 +16,13 @@ int build_var_to_write_map(str2int_t        & map,
   std::string write_variables = configMap.getString("output", "write_variables", "rho,rho_vx");
 
   // second retrieve available / allowed names
-  FieldManager fieldMgr;
-  fieldMgr.setup(params, configMap);
+  FieldManager fieldMgr = FieldManager::setup(params, configMap);
+  id2index_t fm = fieldMgr.get_id2index();
   
-  str2int_t avail_names = fieldMgr.get_names2index();
-  
+  str2int_t avail_names;
+  for(VarIndex ivar : fieldMgr.enabled_fields())
+    avail_names[ fieldMgr.var_name(ivar) ] = fm[ivar];
+
   // now tokenize
   std::istringstream iss(write_variables);
   std::string token;

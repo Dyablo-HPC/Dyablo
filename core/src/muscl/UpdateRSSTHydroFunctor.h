@@ -89,8 +89,6 @@ public:
   void operator_2d(const size_t i) const 
   {
 
-    const int nbvar = params.nbvar;
-
     // speed of sound reducer (must be larger >= 1)
     const real_t ksi = params.rsst_ksi;
 
@@ -99,12 +97,12 @@ public:
 
     // current cell center state (primitive variables)
     HydroState2d qprim;
-    for (uint8_t ivar=0; ivar<nbvar; ++ivar)
+    for (VarIndex ivar : {ID, IP, IU, IV})
       qprim[ivar] = Qdata(i,fm[ivar]);
 
     // current cell conservative variable state
     HydroState2d qcons;
-    for (uint8_t ivar=0; ivar<nbvar; ++ivar)
+    for (VarIndex ivar : {ID, IP, IU, IV})
       qcons[ivar] = Data_in(i,fm[ivar]);
 
     // current cell pressure and speed of sound
@@ -149,8 +147,6 @@ public:
   KOKKOS_INLINE_FUNCTION
   void operator_3d(const size_t i) const {
 
-    const int nbvar = params.nbvar;
-
     // speed of sound reducer (must be larger >= 1)
     const real_t ksi = params.rsst_ksi;
 
@@ -159,12 +155,12 @@ public:
 
     // current cell center state (primitive variables)
     HydroState3d qprim;
-    for (uint8_t ivar=0; ivar<nbvar; ++ivar)
+    for (VarIndex ivar : {ID, IP, IU, IV, IW})
       qprim[ivar] = Qdata(i,fm[ivar]);
 
     // current cell conservative variable state
     HydroState3d qcons;
-    for (uint8_t ivar=0; ivar<nbvar; ++ivar)
+    for (VarIndex ivar : {ID, IP, IU, IV, IW})
       qcons[ivar] = Data_in(i,fm[ivar]);
 
     // current cell pressure and speed of sound

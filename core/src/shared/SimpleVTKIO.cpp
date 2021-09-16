@@ -72,7 +72,7 @@ void writeVTK(AMRmesh_pablo&         amr_mesh,
     for(int i = 0; i < ndata; i++)
       {
 	// for now, only save ID (density)
-	out << std::setprecision(6) << datah(i,fm[iVar]) << " ";
+	out << std::setprecision(6) << datah(i,iVar) << " ";
 	if((i+1)%4==0 and i!=ndata-1)
 	  out << std::endl << "          ";
       }

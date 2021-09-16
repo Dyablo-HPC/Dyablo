@@ -232,7 +232,7 @@ KOKKOS_INLINE_FUNCTION get_pos_t get_pos( const Functor& f, Functor::index_t ind
     return res;
 }
 
-using CellData = Kokkos::Array<real_t, COMPONENT_SIZE>;
+using CellData = Kokkos::Array<real_t, VARINDEX_COUNT>;
 
 /**
  * Fetch data associated to a cell from a neighbor octant when neighbor and local octant have the same size

@@ -11,29 +11,6 @@ enum DimensionType {
   DIM3 = 3
 };
 
-//! hydro field indexes
-enum VarIndex {
-  ID=0,   /*!< ID Density field index */
-  IP=1,   /*!< IP Pressure/Energy field index */
-  IE=1,   /*!< IE Energy/Pressure field index */
-  IU=2,   /*!< X velocity / momentum index */
-  IV=3,   /*!< Y velocity / momentum index */ 
-  IW=4,   /*!< Z velocity / momentum index */ 
-  IA=5,   /*!< X magnetic field index */ 
-  IB=6,   /*!< Y magnetic field index */ 
-  IC=7,   /*!< Z magnetic field index */ 
-  IBX=5,  /*!< X magnetic field index */ 
-  IBY=6,  /*!< Y magnetic field index */ 
-  IBZ=7,  /*!< Z magnetic field index */
-  IGX=8,  /*!< X gravitational field index */
-  IGY=9,  /*!< Y gravitational field index */
-  IGZ=10, /*!< Z gravitational field index */
-  IBFX = 0,
-  IBFY = 1,
-  IBFZ = 2,
-  COMPONENT_SIZE=11 /*!< invalid index, just counting number of fields */
-};
-
 // //! enum class to enumerate field location in a velocity/temperature gradient array in 2d at solution points
 // enum class VarIndexGrad2d {
 //   IGU = 0, /* x-component of velocity gradient */
