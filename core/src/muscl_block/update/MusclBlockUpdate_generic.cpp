@@ -385,7 +385,8 @@ void apply_gravity_correction( const GlobalArray& Uin,
   {
     gx = Uin.at(iCell_Uin, IGX);
     gy = Uin.at(iCell_Uin, IGY);
-    gz = Uin.at(iCell_Uin, IGZ);
+    if (ndim == 3)
+      gz = Uin.at(iCell_Uin, IGZ);
   }
 
   real_t rhoOld = Uin.at(iCell_Uin, ID);
