@@ -334,7 +334,7 @@ HDF5_Writer::write_quadrant_attribute(DataArrayHost  datah,
          DataArrayHost::array_layout,
          Kokkos::LayoutLeft >::value) {
 
-      auto dataVar = Kokkos::subview(datah, Kokkos::ALL(), fm[iVar]);
+      auto dataVar = Kokkos::subview(datah, Kokkos::ALL(), iVar);
 
       // actual data writing
       write_attribute(varName, dataVar.data(),
@@ -349,7 +349,7 @@ HDF5_Writer::write_quadrant_attribute(DataArrayHost  datah,
       uint32_t nbOcts = datah.extent(0);
 
       Kokkos::parallel_for(nbOcts, KOKKOS_LAMBDA (uint32_t iOct) {
-          dataVar(iOct) = datah(iOct,fm[iVar]);
+          dataVar(iOct) = datah(iOct,iVar);
         });
 
       // actual data writing
@@ -493,7 +493,7 @@ HDF5_Writer::write_quadrant_attribute(DataArrayBlockHost  datah,
     Kokkos::parallel_for( Kokkos::RangePolicy<Kokkos::OpenMP>(0, nbOcts), 
         KOKKOS_LAMBDA (uint32_t iOct) {
         for (uint32_t iCell=0; iCell<nbCellsPerOct; ++iCell)
-          dataVar(iCell + nbCellsPerOct*iOct) = datah(iCell,fm[iVar],iOct);
+          dataVar(iCell + nbCellsPerOct*iOct) = datah(iCell,iVar,iOct);
       });
     
     // actual data writing
