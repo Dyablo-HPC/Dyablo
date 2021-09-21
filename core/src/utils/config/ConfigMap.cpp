@@ -111,6 +111,8 @@ ConfigMap broadcast_parameters(std::string filename)
     
     // open file and go to the end to get file size in bytes
     std::ifstream filein(filename.c_str(), std::ifstream::ate);
+    if( !filein )
+      throw std::runtime_error("Could not open .ini file : `" + filename + "`");
     int file_size = filein.tellg();
     
     filein.seekg(0); // rewind
