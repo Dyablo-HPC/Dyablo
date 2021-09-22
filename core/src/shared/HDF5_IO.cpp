@@ -266,14 +266,14 @@ HDF5_Writer::write_attribute(const std::string &name,
 
   if (ftype == IO_CELL_SCALAR || ftype == IO_CELL_VECTOR) {
 
-    dims[0] = m_amr_mesh->getGlobalNumOctants()*m_nbCellsPerLeaf;
+    dims[0] = (hsize_t)m_amr_mesh->getGlobalNumOctants()*(hsize_t)m_nbCellsPerLeaf;
     dims[1] = dim;
 
-    count[0] = m_amr_mesh->getNumOctants()*m_nbCellsPerLeaf;
+    count[0] = (hsize_t)m_amr_mesh->getNumOctants()*(hsize_t)m_nbCellsPerLeaf;
     count[1] = dims[1];
 
     // get global index of the first octant of current mpi processor
-    start[0] = m_amr_mesh->getGlobalIdx((uint32_t) 0)*m_nbCellsPerLeaf;
+    start[0] = (hsize_t)m_amr_mesh->getGlobalIdx((uint32_t) 0)*(hsize_t)m_nbCellsPerLeaf;
     start[1] = 0;
 
   } else {
@@ -700,7 +700,7 @@ HDF5_Writer::io_hdf5_writev(hid_t fd,
   dataset = H5Dcreate2(fd, name.c_str(), wtype_id, filespace,
 		       H5P_DEFAULT, dataset_properties, H5P_DEFAULT);
   H5Sselect_hyperslab(filespace, H5S_SELECT_SET, start, nullptr, count, nullptr);
-
+  
   if (dtype_id != wtype_id) {
     //int status = 
     H5Tconvert(dtype_id, wtype_id, size, data, nullptr, H5P_DEFAULT);
