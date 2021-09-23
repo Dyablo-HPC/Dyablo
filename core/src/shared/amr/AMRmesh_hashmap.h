@@ -30,8 +30,8 @@ private:
     uint8_t dim;
     std::array<bool,3> periodic;
 
-    uint32_t total_octs_count; /// Total number of octs across all MPIs 
-    uint32_t global_id_begin; /// Global index of first local octant (number of octs in lower rank MPIs)
+    uint64_t total_octs_count; /// Total number of octs across all MPIs 
+    uint64_t global_id_begin; /// Global index of first local octant (number of octs in lower rank MPIs)
     
     oct_view_t local_octs_coord; /// Local octants data
     oct_view_t ghost_octs_coord; /// Ghost Octants data
