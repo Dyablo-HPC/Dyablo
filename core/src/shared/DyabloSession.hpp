@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include "utils/mpi/GlobalMpiSession.h"
 
 #include "kokkos_shared.h"

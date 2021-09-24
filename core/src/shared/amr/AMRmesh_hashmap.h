@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <map>
 #include "Kokkos_UnorderedMap.hpp"
 
 #include "utils/mpi/GlobalMpiSession.h"
