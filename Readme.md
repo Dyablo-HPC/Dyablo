@@ -2,24 +2,17 @@
 
 Dyablo stands for DYnamics adaptive mesh refinement CFD applications with PABLO.
 
-It is a just a attemp to rewrite again an AMR (Adaptive Mesh Refinement) miniapp (with both shared and distributed parallelism in mind). We do not write from scratch but try to couple some of the best state-of-the-art tools.
+It is a just a attemp to rewrite an AMR (Adaptive Mesh Refinement) code (with both shared and distributed parallelism in mind). We do not write from scratch but try to couple some of the best state-of-the-art tools.
 
 - AMR is delegated to C++ library [BitPit/PABLO](https://github.com/optimad/bitpit). BitPit only uses MPI (distributed memory parallelism). 
 - numerical scheme is built on top of the PABLO mesh, in a decoupled manner, using [kokkos](https://github.com/kokkos/kokkos) for shared memory parallelism.
 
-Why did we chose BitPit/PABLO for this test ? What are the difference with [p4est](http://www.p4est.org/) used in [Canop](https://gitlab.maisondelasimulation.fr/canoPdev/canoP) ?
-- [p4est](http://www.p4est.org/) is written in C, about 40 kSLOC; cell-based AMR; manage of forest of octrees, i.e. the physical domain is made of a coarse mesh (p4est connectivty), and each cell of this coarse mesh serves as a root to an octree. Some of the core algorithms used in p4est are very complex due to the management of a forest of octree in distributed memory
+Why PABLO, what are the alternatives ?
+- [p4est](http://www.p4est.org/) (used in [Canop](https://gitlab.maisondelasimulation.fr/canoPdev/canoP)) is written in C, about 40 kSLOC; cell-based AMR; manage of forest of octrees, i.e. the physical domain is made of a coarse mesh (p4est connectivty), and each cell of this coarse mesh serves as a root to an octree. Some of the core algorithms used in p4est are very complex due to the management of a forest of octree in distributed memory
 - [BitPit/PABLO](https://github.com/optimad/bitpit) also implements cell-based AMR but on a single cubic box; this is a major difference with [p4est](http://www.p4est.org/); it is written in C++, the core code is pleasant to read. It terms of size, BitPit/PABLO is less than half of p4est SLOC.
-
-
-# What is the plan ?
-
-1. Re-implement Hydro/Euler à la Ramses (as done in [Canop](https://gitlab.maisondelasimulation.fr/canoPdev/canoP), i.e. one cell per leaf of the octree); mesh is managed by PABLO, computational kernels are written in Kokkos. As the computational kernels need to access cell connectivity, the first milestone will be to target MPI + Kokkos/OpenMP only, so that we will enable the use of CPU-only routine (from PABLO) in Kokkos kernels.
-2. Test the performance of Euler/Pablo in MPI + Kokkos/OpenMP on a large cluster (e.g. skylake) and compare with Ramses and CanoP to evaluate the cost of mesh management.
-3. If 1 and 2 are OK, evaluate how much work is needed to Kokkossify PABLO itself (or a sub-part). To start with, we could consider keeping most of PABLO on CPU, but at each mesh modification (refine + coarsen) export mesh connectivity in a Kokkos::View + hashmap to be used in the computational kernels (either OpenMP, or CUDA).
+- Implementing our own AMR backend (more details on the [Dyablo wiki](https://gitlab.maisondelasimulation.fr/pkestene/dyablo/-/wikis/About-AMR-GPU-implementation)). This will allow us to fully utilize Kokkos acceleration for the AMR algorithms, but it needs a lot of work to be implemented correctly. 
 
 dyablo is not correlated to [khamr](https://gitlab.maisondelasimulation.fr/pkestene/khamr) yet, will use some of its ideas (e.g Kokkos HashMap implementation).
-
 
 Performance portability means, we will be using the [Kokkos library](https://github.com/kokkos/kokkos), a C++ parallel programing model and library for performance portability.
 
@@ -27,107 +20,82 @@ Performance portability means, we will be using the [Kokkos library](https://git
 
 ## Get the sources
 
-Make sure to clone this repository recursively, this will also download kokkos source as a git submodule.
+Dyablo includes Kokkos and PABLO as git submodules. Make sure to clone this repository recursively, this will also download Kokkos and PABLO from github.
 
 ```bash
 git clone --recurse-submodules git@gitlab.maisondelasimulation.fr:pkestene/dyablo.git
 ```
 
-Kokkos and BitPit/PABLO are (optinnally) built as part of dyablo with the cmake build system.
+or if you already cloned the repository without --recurse-submodules :
 
-## prerequisites
+```bash
+git submodule update --init
+```
 
-- [kokkos](https://github.com/kokkos/kokkos) : preconfigured as a git submodule
-- [BitPit/PABLO](https://github.com/optimad/bitpit) : a local copy (slightly refactored** is included in dyablo
+For the latest version of Dyablo, we recommend that you use the `dev` branch. 
 
+NOTE : If you don' have access to github from the machine (e.g at TGCC), you will need to populate the `external/` folder manually with [kokkos](https://github.com/kokkos/kokkos), [bitpit](https://github.com/pkestene/bitpit.git) and [backward-cpp](https://github.com/bombela/backward-cpp.git)
+ 
 ## build dyablo
 
-## superbuild : build bitpit/PABLO, Kokkos and dyablo alltogether
+### Dependencies
 
-The top-level `CMakeLists.txt` uses the the super-build pattern to build bdyablo and its depencies (here bitpit and Kokkos) using cmake command [ExternalProject_Add](https://cmake.org/cmake/help/latest/module/ExternalProject.html).
+You will need a recent C++ compiler capable of compiling Kokkos. We regularly compile Dyablo using :
+* `g++` (7.5, 9.1, 11.1, ...)
+* `icc` (19, 20)
 
-We removed the local modified copy of [BitPit/PABLO](https://github.com/optimad/bitpit) introduced in December 2018; we use instead the following archive [bitpit-1.7.0-devel-dyablo-v0.2.tar.gz](https://github.com/pkestene/bitpit/archive/bitpit-1.7.0-devel-dyablo-v0.2.tar.gz). BitPit source code archive is downloaded and built as part of dyablo (using the cmake super-build pattern). 
+Other dependencies include :
+* MPI (OpenMPI)
+* HDF5 (parallel)
+* libxml2
+The CMake superbuild should warn you if any dependency is missing.
+
+To compile for GPU, a CUDA installation is needed, preferably newer than CUDA 11.0. Versions before CUDA 10 may need a custom version of PABLO to compile, you can find it here : [PABLO](git@github.com:pkestene/bitpit.git), branches ending with *-dyablo. Dyablo supports both CUDA-Aware and non CUDA-Aware MPI implementations when compiling for GPU, make sure that cuda-aware support has been correctly detected in the CMake logs.
+
+Build commands for some HPC clusters are available [here](https://gitlab.maisondelasimulation.fr/pkestene/dyablo/-/wikis/Compilation-instructions-for-super-computers) to help you find modules that work well with each others.
+
+### Superbuild : build bitpit/PABLO, Kokkos and dyablo alltogether
+
+The top-level `CMakeLists.txt` uses the the super-build pattern to build Dyablo and its depencies (here bitpit and Kokkos) using cmake command [ExternalProject_Add](https://cmake.org/cmake/help/latest/module/ExternalProject.html). Using the superbuild is the recommended way to compile Dyablo because it ensures that the Kokkos compilaton configuration (Architecture, enabled backends, etc...) is compatible with how Dyablo is configured.
 
 To build bitpit, Kokkos and dyablo (for Kokkos/OpenMP backend which is the default)
 
 ```bash
 mkdir build_openmp; cd build_openmp
-ccmake ..
+cmake ..
 make
 ```
 
 The same for Kokkos/CUDA (e.g. for latest Turing CUDA architecture):
 ```bash
 mkdir build_cuda; cd build_cuda
-ccmake -DKokkos_ENABLE_CUDA=ON -DKokkos_ARCH=TURING75 ..
+cmake -DKokkos_ENABLE_CUDA=ON -DKokkos_ARCH=TURING75 ..
 make
 ```
 
-Please note that you don't have to specify environment variable CXX (set to nvcc_wrapper when targeting CUDA backend), each sub-project (Bitpit / Kokkos / dyablo) is built with a custom specific `CMAKE_CXX_COMPILER` variable; if `Kokkos_ENABLE_CUDA` is enabled, internally `nvcc_wrapper` will be selcted to build both Kokkos and dyablo.
+See The Kokkos documentation to find the correct architecture to target your GPU or CPU. You may target multiple architectures : for example to compile for a machine with Intel Skylake CPU + V100 GPUs, you might want to set `-DKokkos_ARCH="SKX;VOLTA70"`
 
-## What should I do when Kokkos is already available on my host ?
+NOTE : You don't have to specify environment variable CXX (set to nvcc_wrapper when targeting CUDA backend), each sub-project (Bitpit / Kokkos / dyablo) is built with a custom specific `CMAKE_CXX_COMPILER` variable; if `Kokkos_ENABLE_CUDA` is enabled, internally `nvcc_wrapper` will be selected to build both Kokkos and dyablo.
 
-Just set environment variable `Kokkos_DIR`:
-```shell
-export Kokkos_DIR={KOKKOS_INSTALL_DIR}/lib/cmake/Kokkos
-```
-then Kokkos will be recognized, and building Kokkos will be skipped.
+NOTE : The use of the ExternalProject command in cmake may interfere with IDEs automatic cmake configuration to setup autocomplete or IntelliSense features. Using the `build/dyablo` (created during `make`) as the cmake binary path for your project may help your IDE to detect the source/include path.
 
-## What should I do if I want to change options passed to Kokkos build ?
+### Use an external Kokkos or PABLO installation.
 
-1. example: you first compiled the project with OpenMP enabled, and now want to enable CUDA, you can change the cmake top-level varaible, and enforce rebuilding Kokkos by setting cmake var `FORCE_KOKKOS_BUILD` to TRUE
+The `core` directory is an independant cmake project on its own. You can create a build directory there and compile it like any normal cmake project. See the [Kokkos documentation for general instructions on how to build a Kokkos project](https://github.com/kokkos/kokkos/wiki/Compiling). You will also need to have a PABLO installation that cmake can detect. 
 
-2. you want to change advanced options of the Kokkos build:
-```shell
-# step into kokkos build dir
-cd ${PROJECT_BINARY_DIR}/external/Build/kokkos_external
-# reconfigure Kokkos cmake options using ccmake interface
-ccmake ../../../../external/kokkos
-make 
-make install
-```
-then go back to dyablo build directory, and make again with the new Kokkos build.
 
-## build only dyablo for Kokkos/OpenMP (when bitpit is already installed)
+## Run Dyablo
 
-To build dyablo for kokkos/OpenMP backend, assuming bitpit is already installed :
+The main executable is `build/dyablo/test/solver/test_solver` the directory also contains some *.ini files that can be used to run simulations. (Beware, when recompiling, the .ini files may be reset to their original state)
 
-```bash
-mkdir build_openmp; cd build_openmp
-ccmake -DBITPIT_DIR=/home/pkestene/local/bitpit-1.7.0-devel-dyablo-v0.2/lib/cmake/bitpit-1.7 ..
-make
-```
+run for instance `./test_solver test_blast_3d_block.ini` to run the 3D block-base blast test case. This executable accepts [Kokkos command-line parameters](https://github.com/kokkos/kokkos/wiki/Initialization).
 
-BITPIT_DIR should point to your bitpit install subdirectory where the BITPITConfig.cmake resides.
+For the best performance, you should follow the global advice for any Kokkos program :
+* Configure OpenMP to bind threads by setting the environment variable OMP_PROC_BIND=true
+* Use the Kokkos command line arguments to correcty bind GPUs : e.g. `--num-devices=4` when there are 4 GPUs/node
+* Of course, learn to use your job manager (slurm) efficiently for hybrid codes (`-c`, `--hint`, etc...).
 
-## build only bitpit
-
-1. get [bitpit sources](https://github.com/pkestene/bitpit/archive/bitpit-1.7.0-devel-dyablo-v0.2.tar.gz)
-2. ```shell
-      tar zxf bitpit-1.7.0-devel-dyablo-v0.2.tar.gz
-      cd bitpit-1.7.0-devel-dyablo-v0.2
-      mkdir build; cd build
-      ccmake -DCMAKE_INSTALL_PREFIX=/home/pkestene/local/bitpit-1.7.0-devel-dyablo-v0.2 \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DENABLE_MPI=ON \
-          -DBITPIT_MODULE_LA=OFF \
-          -DBITPIT_MODULE_CG=OFF \
-          -DBITPIT_MODULE_DISCRETIZATION=OFF \
-          -DBITPIT_MODULE_LEVELSET=OFF \
-          -DBITPIT_MODULE_PATCHKERNEL=OFF \
-          -DBITPIT_MODULE_POD=OFF \
-          -DBITPIT_MODULE_RBF=OFF \
-          -DBITPIT_MODULE_SA=OFF \
-          -DBITPIT_MODULE_SURFUNSTRUCTURED=OFF \
-          -DBITPIT_MODULE_VOLCARTESIAN=OFF \
-          -DBITPIT_MODULE_VOLOCTREE=OFF \
-          -DBITPIT_MODULE_VOLUNSTRUCTURED=OFF \ 
-          ..
-      make
-      make install
-      ```
-
-This installed version of bitpit can be used to build dyablo (see above).
+Unfortunately no documentation about the content of the .ini file is available yet, you will need to read the code (sorry). For now you can `grep -r configMap.get core/src` to see what variables are fetched from the .ini.
 
 # More information
 
