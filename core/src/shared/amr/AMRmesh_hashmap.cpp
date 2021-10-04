@@ -2,6 +2,8 @@
 
 #include <numeric>
 
+#include "mpi.h"
+
 #include "shared/amr/LightOctree.h"
 #include "shared/morton_utils.h"
 //#include "utils/io/AMRMesh_output_vtk.h"
@@ -57,7 +59,7 @@ void AMRmesh_hashmap::adaptGlobalRefine()
     this->markers = markers_t(this->getNumOctants());
 
     uint32_t nb_octs = this->getNumOctants();
-    MPI_Allreduce( &nb_octs, &total_octs_count, 1, MPI_UINT32_T, MPI::SUM, MPI_COMM_WORLD );
+    MPI_Allreduce( &nb_octs, &total_octs_count, 1, MPI_UINT32_T, MPI_SUM, MPI_COMM_WORLD );
 }
 
 void AMRmesh_hashmap::setMarkersCapacity(uint32_t capa)
@@ -657,7 +659,7 @@ void AMRmesh_hashmap::adapt(bool dummy)
     this->markers = markers_t(this->getNumOctants());
 
     uint32_t nb_octs = this->getNumOctants();
-    MPI_Allreduce( &nb_octs, &total_octs_count, 1, MPI_UINT32_T, MPI::SUM, MPI_COMM_WORLD );
+    MPI_Allreduce( &nb_octs, &total_octs_count, 1, MPI_UINT32_T, MPI_SUM, MPI_COMM_WORLD );
 
     // Update ghosts metadata
     // TODO : use markers to build new ghost list instead of complete reconstruction
@@ -707,17 +709,17 @@ std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(uint8_t level)
     uint32_t mpi_rank = this->getRank();
     uint32_t mpi_size = this->getNproc();
 
-    std::vector<uint32_t> new_intervals(mpi_size+1);
+    std::vector<uint64_t> new_intervals(mpi_size+1); // First global index for rank i
     std::vector<morton_t> morton_intervals(mpi_size+1);
     std::map<int, std::vector<uint32_t>> loadbalance_to_send;
     {
         // Get evenly distributed initial intervals
         int nb_mortons = 0;
-        uint32_t iOct_begin = this->global_id_begin;
-        uint32_t iOct_end = this->global_id_begin+this->getNumOctants();
+        uint64_t iOct_begin = this->global_id_begin;
+        uint64_t iOct_end = this->global_id_begin+this->getNumOctants();
         for(uint32_t i=0; i<=mpi_size; i++)
         {
-            uint32_t idx = (this->total_octs_count*i)/mpi_size ;
+            uint64_t idx = (this->total_octs_count*i)/mpi_size ;
             new_intervals[i] = idx;
             // For each ixd inside old domain, compute morton
             // and fill morton_intervals for this rank
@@ -755,7 +757,7 @@ std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(uint8_t level)
 
         // Compute `new_intervals` corresponding to `morton_intervals`
         {
-            uint64_t old_morton_interval_begin, old_morton_interval_end;
+            morton_t old_morton_interval_begin, old_morton_interval_end;
             {
                 auto old_morton_intervals = compute_current_morton_intervals(*this, local_octs_coord, level_max);
                 old_morton_interval_begin = old_morton_intervals[mpi_rank];
@@ -806,8 +808,8 @@ std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(uint8_t level)
         // List octants to exchange
         for( uint32_t rank=0; rank<mpi_size; rank++ )
         {
-            int32_t to_send_begin = std::max((int32_t)new_intervals[rank]-(int32_t)this->global_id_begin, 0);
-            int32_t to_send_end   = std::min((int32_t)new_intervals[rank+1]-(int32_t)this->global_id_begin, (int32_t)this->getNumOctants());
+	  int32_t to_send_begin = std::max((int64_t)new_intervals[rank]-(int64_t)this->global_id_begin, (int64_t)0);
+            int32_t to_send_end   = std::min((int64_t)new_intervals[rank+1]-(int64_t)this->global_id_begin, (int64_t)this->getNumOctants());
             
             if( to_send_begin < to_send_end )
             {
