@@ -45,7 +45,7 @@ void getRiemannConfig2d(int numConfig,
 
   switch ( numConfig ) {
 
-  case 0:
+  case 1:
     // Config 1
     U0[ID]   = 1.0;
     U0[IU]   = 0.0;
@@ -68,7 +68,7 @@ void getRiemannConfig2d(int numConfig,
     U3[IP]   = 0.15;
 
     break;
-  case 1:
+  case 2:
     // Config 2
     U0[ID]   = 1.0;
     U0[IU]   = 0.0;
@@ -91,7 +91,7 @@ void getRiemannConfig2d(int numConfig,
     U3[IP]   = 0.4;
 
     break;
-  case 2:
+  case 3:
     // Config 3
     U0[ID]   = 1.5;
     U0[IU]   = 0.0;
@@ -114,7 +114,7 @@ void getRiemannConfig2d(int numConfig,
     U3[IP]   = 0.3;
 
     break;
-  case 3:
+  case 4:
     // Config 4
     U0[ID]   = 1.1;
     U0[IU]   = 0.0;
@@ -137,7 +137,7 @@ void getRiemannConfig2d(int numConfig,
     U3[IP]   = 0.35;
 
     break;
-  case 4:
+  case 5:
     // Config 5
     U0[ID]   = 1.0;
     U0[IU]   =-0.75;
@@ -160,7 +160,7 @@ void getRiemannConfig2d(int numConfig,
     U3[IP]   = 1.0;
 
     break;
-  case 5:
+  case 6:
     // Config 6
     U0[ID]   = 1.0;
     U0[IU]   = 0.75;
@@ -183,7 +183,7 @@ void getRiemannConfig2d(int numConfig,
     U3[IP]   = 1.0;
 
     break;
-  case 6:
+  case 7:
     // Config 7
     U0[ID]   = 1.0;
     U0[IU]   = 0.1;
@@ -206,7 +206,7 @@ void getRiemannConfig2d(int numConfig,
     U3[IP]   = 0.4;
 
     break;
-  case 7:
+  case 8:
     // Config 8
     U0[ID]   = 0.5197;
     U0[IU]   = 0.1;
@@ -229,7 +229,7 @@ void getRiemannConfig2d(int numConfig,
     U3[IP]   = 1.0;
 
     break;
-  case 8:
+  case 9:
     // Config 9
     U0[ID]   = 1.0;
     U0[IU]   = 0.0;
@@ -252,7 +252,7 @@ void getRiemannConfig2d(int numConfig,
     U3[IP]   = 0.4;
 
     break;
-  case 9:
+  case 10:
     // Config 10
     U0[ID]   = 1.0;
     U0[IU]   = 0.0;
@@ -275,7 +275,7 @@ void getRiemannConfig2d(int numConfig,
     U3[IP]   = 0.3333;
 
     break;
-  case 10:
+  case 11:
     // Config 11
     U0[ID]   = 1.0;
     U0[IU]   = 0.1;
@@ -298,7 +298,7 @@ void getRiemannConfig2d(int numConfig,
     U3[IP]   = 0.4;
 
     break;
-  case 11:
+  case 12:
     // Config 12
     U0[ID]   = 0.5313;
     U0[IU]   = 0.0;
@@ -321,7 +321,7 @@ void getRiemannConfig2d(int numConfig,
     U3[IP]   = 1.0;
 
     break;
-  case 12:
+  case 13:
     // Config 13
     U0[ID]   = 1.0;
     U0[IU]   = 0.0;
@@ -344,7 +344,7 @@ void getRiemannConfig2d(int numConfig,
     U3[IP]   = 0.4;
 
     break;
-  case 13:
+  case 14:
     // Config 14
     U0[ID]   = 2.0;
     U0[IU]   = 0.0;
@@ -367,7 +367,7 @@ void getRiemannConfig2d(int numConfig,
     U3[IP]   = 2.6667;
 
     break;
-  case 14:
+  case 15:
     // Config 15
     U0[ID]   = 1.0;
     U0[IU]   = 0.1;
@@ -390,7 +390,7 @@ void getRiemannConfig2d(int numConfig,
     U3[IP]   = 0.4;
 
     break;
-  case 15:
+  case 16:
     // Config 16
     U0[ID]   = 0.5313;
     U0[IU]   = 0.1;
@@ -413,7 +413,7 @@ void getRiemannConfig2d(int numConfig,
     U3[IP]   = 1.0;
 
     break;
-  case 16:
+  case 17:
     // Config 17
     U0[ID]   = 1.0;
     U0[IU]   = 0.0;
@@ -436,7 +436,7 @@ void getRiemannConfig2d(int numConfig,
     U3[IP]   = 0.4;
 
     break;
-  case 17:
+  case 18:
     // Config 18
     U0[ID]   = 1.0;
     U0[IU]   = 0.0;
@@ -459,7 +459,7 @@ void getRiemannConfig2d(int numConfig,
     U3[IP]   = 0.4;
 
     break;
-  case 18:
+  case 19:
     // Config 19
     U0[ID]   = 1.0;
     U0[IU]   = 0.0;
