@@ -40,6 +40,8 @@ NOTE : If you don' have access to github from the machine (e.g at TGCC), you wil
 
 ### Dependencies
 
+The CMake superbuild should automatically find dependencies and warn you if any dependency is missing.
+
 You will need a recent C++ compiler capable of compiling Kokkos. We regularly compile Dyablo using :
 * `g++` (7.5, 9.1, 11.1, ...)
 * `icc` (19, 20)
@@ -48,7 +50,6 @@ Other dependencies include :
 * MPI (OpenMPI)
 * HDF5 (parallel)
 * libxml2
-The CMake superbuild should warn you if any dependency is missing.
 
 To compile for GPU, a CUDA installation is needed, preferably newer than CUDA 11.0. Versions before CUDA 10 may need a custom version of PABLO to compile, you can find it here : [PABLO](git@github.com:pkestene/bitpit.git), branches ending with *-dyablo. Dyablo supports both CUDA-Aware and non CUDA-Aware MPI implementations when compiling for GPU, make sure that cuda-aware support has been correctly detected in the CMake logs.
 
@@ -73,9 +74,9 @@ cmake -DKokkos_ENABLE_CUDA=ON -DKokkos_ARCH=TURING75 ..
 make
 ```
 
-See The Kokkos documentation to find the correct architecture to target your GPU or CPU. You may target multiple architectures : for example to compile for a machine with Intel Skylake CPU + V100 GPUs, you might want to set `-DKokkos_ARCH="SKX;VOLTA70"`
+See The [Kokkos documentation](https://github.com/kokkos/kokkos/wiki/Compiling#table-43-architecture-variables) to find the correct architecture to target your GPU or CPU. You may target multiple architectures : for example to compile for a machine with Intel Skylake CPU + V100 GPUs, you might want to set `-DKokkos_ARCH="SKX;VOLTA70"`
 
-NOTE : You don't have to specify environment variable CXX (set to nvcc_wrapper when targeting CUDA backend), each sub-project (Bitpit / Kokkos / dyablo) is built with a custom specific `CMAKE_CXX_COMPILER` variable; if `Kokkos_ENABLE_CUDA` is enabled, internally `nvcc_wrapper` will be selected to build both Kokkos and dyablo.
+NOTE : You don't have to use the nvcc_wrapper for Kokkos as the CXX compiler like in a normal Kokkos project, the superbuilt takes care of that for you.
 
 NOTE : The use of the ExternalProject command in cmake may interfere with IDEs automatic cmake configuration to setup autocomplete or IntelliSense features. Using the `build/dyablo` (created during `make`) as the cmake binary path for your project may help your IDE to detect the source/include path.
 
@@ -86,7 +87,9 @@ The `core` directory is an independant cmake project on its own. You can create 
 
 ## Run Dyablo
 
-The main executable is `build/dyablo/test/solver/test_solver` the directory also contains some *.ini files that can be used to run simulations. (Beware, when recompiling, the .ini files may be reset to their original state)
+The main executable `test_solver` is in `build/dyablo/test/solver/`. The directory also contains some *.ini files that can passed to the executable on the command line. For instance, to run a 2d Sedov-blast on the block-AMR backend, the command will be `./test_solver test_blast_2D_block.ini`
+
+Beware, when recompiling, the .ini files may be reset to their original state.
 
 run for instance `./test_solver test_blast_3d_block.ini` to run the 3D block-base blast test case. This executable accepts [Kokkos command-line parameters](https://github.com/kokkos/kokkos/wiki/Initialization).
 
@@ -95,7 +98,16 @@ For the best performance, you should follow the global advice for any Kokkos pro
 * Use the Kokkos command line arguments to correcty bind GPUs : e.g. `--num-devices=4` when there are 4 GPUs/node
 * Of course, learn to use your job manager (slurm) efficiently for hybrid codes (`-c`, `--hint`, etc...).
 
+### Config parameters (.ini file)
+
 Unfortunately no documentation about the content of the .ini file is available yet, you will need to read the code (sorry). For now you can `grep -r configMap.get core/src` to see what variables are fetched from the .ini.
+
+### Output and visualization
+
+If you used the XDMF+HDF5 output backend, Dyablo should produce *.h5 and *.xmf files that contain unstructured mesh data. You can open *_main.xmf with [paraview](https://www.paraview.org/) to display the output of your simulation.
+
+More IO implementations will be added later.
+
 
 # More information
 
