@@ -88,13 +88,13 @@ void run(std::string input_filename)
 
 
   /// Instantation of a 2D pablo uniform object.
-  std::shared_ptr<dyablo::AMRmesh> amr_mesh = std::make_shared<dyablo::AMRmesh>(2);
+  std::shared_ptr<dyablo::AMRmesh> amr_mesh = std::make_shared<dyablo::AMRmesh>(2, 2, std::array<bool,3>({true,true,true}), params.level_min, params.level_max);
 
   amr_mesh->adaptGlobalRefine();
   //amr_mesh->adaptGlobalRefine();
 
   // create HDF5 writer
-  dyablo::HDF5_Writer writer(amr_mesh, configMap, params);
+  dyablo::HDF5_Writer writer(amr_mesh.get(), configMap, params);
 
   for (int iter=0; iter<2; ++iter) {
 

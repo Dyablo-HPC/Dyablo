@@ -4,7 +4,7 @@
 #include "shared/FieldManager.h"
 #include "shared/HydroState.h"
 
-#include "shared/LightOctree.h"
+#include "shared/amr/LightOctree.h"
 
 // utils hydro
 #include "shared/utils_hydro.h"

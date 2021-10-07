@@ -17,12 +17,11 @@
 #include "muscl_block/SolverHydroMusclBlock.h"
 
 // Init conditions functors
-#include "muscl_block/init/HydroInitFunctors.h"
+#include "muscl_block/init/InitialConditions.h"
 
 // Compute functors
 #include "muscl_block/ComputeDtHydroFunctor.h"
 #include "muscl_block/ConvertToPrimitivesHydroFunctor.h"
-#include "muscl_block/MusclBlockGodunovUpdateFunctor.h"
 #include "muscl_block/MarkOctantsHydroFunctor.h"
 
 // // compute functor for low Mach flows
@@ -31,13 +30,10 @@
 // Block data related functors
 #include "muscl_block/CopyInnerBlockCellData.h"
 #include "muscl_block/CopyGhostBlockCellData.h"
-#include "muscl_block/GhostCommunicator.h"
+#include "shared/mpi/GhostCommunicator.h"
 
 #include "muscl_block/MapUserData.h"
-
-#if BITPIT_ENABLE_MPI==1
-#include "muscl_block/UserDataLB.h"
-#endif
+#include "muscl_block/gravity/GravitySolver.h"
 
 //#include "shared/mpiBorderUtils.h"
 
@@ -55,16 +51,7 @@ namespace dyablo { namespace muscl_block {
 SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
                                              ConfigMap& configMap) :
   SolverBase(params, configMap),
-  U(), Uhost(), U2(), Ughost(), 
-  Ugroup(), 
-  Qgroup(),
-  interface_flags(),
-  Slopes_x(), 
-  Slopes_y(), 
-  Slopes_z()
-#ifdef DYABLO_USE_HDF5
-  , hdf5_writer(std::make_shared<HDF5_Writer>(amr_mesh, configMap, params))
-#endif // DYABLO_USE_HDF5
+  U(), Uhost(), U2(), Ughost()
 {
 
   solver_type = SOLVER_MUSCL_HANCOCK_BLOCK;
@@ -72,24 +59,9 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   // m_nCells = nbOcts; // TODO
   m_nDofsPerCell = 1;
 
-  int nbvar = params.nbvar;
-  int nbfields = params.nbfields;
- 
-  long long int total_mem_size = 0;
-
-  /*
-   * memory pre-allocation.
-   *
-   * Note that Uhost is not just a view to U, Uhost will be used
-   * to save data from multiple other device array.
-   * That's why we didn't use create_mirror_view to initialize Uhost.
-   */
-
-  // minimal number of cells only used for initial memory allocation
-  // afterwards memory resizing will append
-  uint64_t nbOcts = 1<<params.level_min;
-  
-  nbOcts = params.dimType == TWO_D ? nbOcts * nbOcts :  nbOcts * nbOcts * nbOcts;
+  // Initial number of octants
+  // User data will be reallocated after AMR mesh initialization
+  uint64_t nbOcts = 1;
 
   /*
    * setup parameters related to block AMR
@@ -134,75 +106,64 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   /*
    * main data array memory allocation
    */
+  // init field manager
+  // retrieve available / allowed names: fieldManager, and field map (fm)
+  // necessary to access user data
+  fieldMgr.setup(params, configMap);
+  int nbfields = fieldMgr.nbfields();
 
   U     = DataArrayBlock("U", nbCellsPerOct, nbfields, nbOcts);
   Uhost = Kokkos::create_mirror(U);
   U2    = DataArrayBlock("U2",nbCellsPerOct, nbfields, nbOcts);
 
-  total_mem_size += nbCellsPerOct*nbOcts*nbfields * sizeof(real_t) * 2;// 1+1+1 for U+U2
-
-
-  // block data array with ghost cells
-  Ugroup = DataArrayBlock("Ugroup", nbCellsPerOct_g, nbfields, nbOctsPerGroup);
-  Qgroup = DataArrayBlock("Qgroup", nbCellsPerOct_g, nbvar, nbOctsPerGroup);
-
-  total_mem_size += nbCellsPerOct_g*nbOctsPerGroup*nbfields * sizeof(real_t); //Ugroup 
-  total_mem_size += nbCellsPerOct_g*nbOctsPerGroup*nbvar    * sizeof(real_t); //Qgroup 
-
-  // flags data array for faces on 2:1 borders
-  interface_flags = InterfaceFlags(nbOctsPerGroup);
-  total_mem_size += nbOctsPerGroup*sizeof(uint16_t);
-
-  // all intermediate data array are sized upon nbOctsPerGroup
-
-  Slopes_x = DataArrayBlock("Slope_x", nbCellsPerOct_g, nbvar, nbOctsPerGroup);
-  Slopes_y = DataArrayBlock("Slope_y", nbCellsPerOct_g, nbvar, nbOctsPerGroup);
-  
-  if (m_dim == 3)
-    Slopes_z = DataArrayBlock("Slope_z", nbCellsPerOct_g, nbvar, nbOctsPerGroup);
-  
-  if (m_dim==2)
-    total_mem_size += nbCellsPerOct_g*nbOctsPerGroup*nbvar * sizeof(real_t) * 2;// 1+1 for Slopes_x+Slopes_y
-  else
-    total_mem_size += nbCellsPerOct_g*nbOctsPerGroup*nbvar * sizeof(real_t) * 3;// 1+1+1 for Slopes_x+Slopes_y+Slopes_z
-
-  if (params.rsst_enabled) {
-    Fluxes = DataArrayBlock("Fluxes", nbCellsPerOct, nbvar, nbOctsPerGroup);
-    total_mem_size += nbCellsPerOct * nbOctsPerGroup * nbvar * sizeof(real_t); //
-  }
-
-  // init field manager
-  // retrieve available / allowed names: fieldManager, and field map (fm)
-  // necessary to access user data
-  fieldMgr.setup(params, configMap);
   // perform init condition
   init(U);
   
   // copy U into U2
   Kokkos::deep_copy(U2,U);
 
-  lmesh = LightOctree(amr_mesh, params);
-
   // compute initialize time step
   compute_dt();
 
-  int myRank=0;
-#ifdef DYABLO_USE_MPI
-  myRank = params.myRank;
-#endif // DYABLO_USE_MPI
+  int myRank=params.myRank;
+
+  //std::string godunov_updater_id = "MusclBlockUpdate_legacy";
+  std::string godunov_updater_id = this->configMap.getString("hydro", "update", "MusclBlockUpdate_generic");
+  std::string iomanager_id = this->configMap.getString("output", "backend", "IOManager_hdf5");
 
   if (myRank==0) {
     std::cout << "##########################" << "\n";
     std::cout << "Solver is " << m_solver_name << "\n";
+    std::cout << "Godunov updater is " << godunov_updater_id << std::endl;
     std::cout << "Problem (init condition) is " << m_problem_name << "\n";
     std::cout << "##########################" << "\n";
     
+    float Udata_mem_size = DataArrayBlock::required_allocation_size( U.extent(0), U.extent(1), U.extent(2) ) * (2 / 1e6) ;
+
     // print parameters on screen
     params.print();
     std::cout << "##########################" << "\n";
-    std::cout << "Memory requested : " << (total_mem_size / 1e6) << " MBytes\n"; 
+    std::cout << "Memory requested (U + U2) : " << Udata_mem_size << " MBytes\n"; 
     std::cout << "##########################" << "\n";
   }
+
+  this->godunov_updater = MusclBlockUpdateFactory::make_instance( godunov_updater_id,
+    configMap,
+    params,
+    *amr_mesh, 
+    fieldMgr.get_id2index(),
+    bx, by, bz,
+    timers
+  );
+
+  this->io_manager = IOManagerFactory::make_instance( iomanager_id,
+    configMap,
+    params,
+    *amr_mesh, 
+    fieldMgr.get_id2index(),
+    bx, by, bz,
+    timers
+  );
 
 } // SolverHydroMusclBlock::SolverHydroMusclBlock
 
@@ -224,10 +185,15 @@ SolverHydroMusclBlock::~SolverHydroMusclBlock()
 // =======================================================
 void SolverHydroMusclBlock::resize_solver_data()
 {
+  int nbfields = fieldMgr.nbfields();
 
-  Kokkos::resize(U, nbCellsPerOct, params.nbfields, amr_mesh->getNumOctants());
-  Kokkos::resize(U2, nbCellsPerOct, params.nbfields, amr_mesh->getNumOctants());
-  Kokkos::resize(Uhost, nbCellsPerOct, params.nbfields, amr_mesh->getNumOctants());
+  size_t U_size_old = DataArrayBlock::required_allocation_size( U.extent(0), U.extent(1), U.extent(2) );
+  size_t U_size_new = DataArrayBlock::required_allocation_size( nbCellsPerOct, nbfields, amr_mesh->getNumOctants() );
+  std::cout << "Resize U+U2 : " << 2*U_size_old * (2/1e6) << " -> " << U_size_new * (2/1e6) << " MBytes" << std::endl;
+
+  Kokkos::realloc(U, nbCellsPerOct, nbfields, amr_mesh->getNumOctants());
+  Kokkos::realloc(U2, nbCellsPerOct, nbfields, amr_mesh->getNumOctants());
+  Kokkos::realloc(Uhost, nbCellsPerOct, nbfields, amr_mesh->getNumOctants());
   // Remember that all other array are fixed sized - nbOctsPerGroup
 
 } // SolverHydroMusclBlock::resize_solver_data
@@ -247,78 +213,12 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
 {
 
   // test if we are performing a re-start run (default : false)
-  bool restartEnabled = configMap.getBool("run","restart_enabled",false);
+  bool restartEnabled = configMap.getBool("run","restart_enabled", false);
 
-  if (restartEnabled) { // load data from input data file
+  std::string init_name = restartEnabled ? "restart" : m_problem_name;
 
-    init_restart(Udata);
-    
-  } else { // regular initialization
-
-    /*
-     * initialize hydro array at t=0
-     */
-
-    if ( !m_problem_name.compare("implode") ) {
-      
-      init_implode(this);
-      
-    } else if ( !m_problem_name.compare("blast") ) {
-      
-      init_blast(this);
-      
-    }
-    else if ( !m_problem_name.compare("sod") ) {
-      
-      init_sod(this);
-      
-    } else if ( !m_problem_name.compare("kelvin_helmholtz") ) {
-      
-      init_kelvin_helmholtz(this);
-      
-    } else if ( !m_problem_name.compare("gresho_vortex") ) {
-      
-      init_gresho_vortex(this);
-      
-    } else if ( !m_problem_name.compare("four_quadrant") ) {
-      
-      init_four_quadrant(this);
-      
-    } else if ( !m_problem_name.compare("isentropic_vortex") ) {
-      
-      init_isentropic_vortex(this);
-
-    } else if ( !m_problem_name.compare("shu_osher") ) {
-      
-      init_shu_osher(this);
-      
-    } else if ( !m_problem_name.compare("double_mach_reflection") ) {
-
-      init_double_mach_reflection(this);
-      
-    } else if ( !m_problem_name.compare("rayleigh_taylor") ) {
-      
-      init_rayleigh_taylor(this);
-      
-    }   
-    else if ( !m_problem_name.compare("custom") ) {
-      // Don't do anything here, let the user setup their own problem
-    } 
-    else {
-      
-      std::cout << "Problem : " << m_problem_name
-		<< " is not recognized / implemented."
-		<< std::endl;
-      std::cout <<  "Use default - implode" << std::endl;
-      init_implode(this);
-      
-    }  
-    
-    // initialize U2
-    Kokkos::deep_copy(U2,U);
-
-
-  } // end regular initialization
+  InitialConditionsFactory::make_instance(init_name)->init(this);
+  Kokkos::deep_copy(U2,U);
 
 } // SolverHydroMusclBlock::init
 
@@ -328,6 +228,8 @@ void SolverHydroMusclBlock::do_amr_cycle()
 {
 
   timers.get("AMR").start();
+
+  LightOctree lmesh_old = amr_mesh->getLightOctree();
 
   /*
    * Following steps:
@@ -350,7 +252,18 @@ void SolverHydroMusclBlock::do_amr_cycle()
   adapt_mesh();
 
   // 4. map data to new data array
-  map_userdata_after_adapt();
+  timers.get("AMR: map userdata").start();
+
+  std::cout << "Reallocate U + U2 after remap : " << DataArrayBlock::required_allocation_size(U2.extent(0), U2.extent(1), U2.extent(2)) * (2/1e6) 
+            << " -> " << DataArrayBlock::required_allocation_size(U2.extent(0), U2.extent(1), amr_mesh->getNumOctants()) * (2/1e6) << " MBytes" << std::endl;
+  MapUserDataFunctor::apply( lmesh_old, amr_mesh->getLightOctree(), configMap, blockSizes,
+                      U2, Ughost, U );
+
+  // now U contains the most up to date data after mesh adaptation
+  // we can resize U2 for the next time-step
+  Kokkos::realloc(U2, U.extent(0), U.extent(1), U.extent(2));
+  
+  timers.get("AMR: map userdata").stop();
 
   timers.get("AMR").stop();
 
@@ -388,7 +301,7 @@ double SolverHydroMusclBlock::compute_dt_local()
   auto fm = fieldMgr.get_id2index();
 
   // call device functor - compute invDt
-  ComputeDtHydroFunctor::apply(lmesh, configMap, 
+  ComputeDtHydroFunctor::apply(amr_mesh->getLightOctree(), configMap, 
                                params, fm,
                                blockSizes, U, invDt);
 
@@ -402,11 +315,7 @@ double SolverHydroMusclBlock::compute_dt_local()
 // =======================================================
 void SolverHydroMusclBlock::next_iteration_impl()
 {
-  int myRank=0;
-  
-#ifdef DYABLO_USE_MPI
-  myRank = params.myRank;
-#endif // DYABLO_USE_MPI
+  int myRank=params.myRank;
   if (m_iteration % m_nlog == 0) {
     if (myRank==0) {
       printf("time step=%7d (dt=% 10.8f t=% 10.8f)\n",m_iteration,m_dt, m_t);
@@ -432,6 +341,20 @@ void SolverHydroMusclBlock::next_iteration_impl()
   timers.get("dt").start();
   compute_dt();
   timers.get("dt").stop();
+
+  if( params.gravity_type & GRAVITY_FIELD )
+  {
+    std::string impl_id = this->configMap.getString("gravity", "solver", "GravitySolver_constant");
+    std::unique_ptr<GravitySolver> gravity_solver = GravitySolverFactory::make_instance( impl_id,
+      configMap,
+      params,
+      amr_mesh, 
+      fieldMgr.get_id2index(),
+      bx, by, bz,
+      timers
+    );
+    gravity_solver->update_gravity_field(U, Ughost, U);
+  }
   
   // perform one step integration
   godunov_unsplit(m_dt);
@@ -466,6 +389,7 @@ void SolverHydroMusclBlock::next_iteration_impl()
 
 // =======================================================
 // =======================================================
+
 // ///////////////////////////////////////////
 // Wrapper to the actual computation routine
 // ///////////////////////////////////////////
@@ -489,116 +413,9 @@ void SolverHydroMusclBlock::godunov_unsplit_impl(DataArrayBlock data_in,
   // we need conservative variables in ghost cell to be up to date
   synchronize_ghost_data(UserDataCommType::UDATA);
 
-  // retrieve available / allowed names: fieldManager, and field map (fm)
-  // necessary to access user data
-  auto fm = fieldMgr.get_id2index();
-
-  // copy data_in into data_out (not necessary)
-  // data_out = data_in;
-  Kokkos::deep_copy(data_out, data_in);
-  
-  uint32_t nbOcts = amr_mesh->getNumOctants();
-
-  // number of group of octants, rounding to upper value
-  uint32_t nbGroup = (nbOcts + nbOctsPerGroup - 1) / nbOctsPerGroup;
-
-  for (uint32_t iGroup = 0; iGroup < nbGroup; ++iGroup) {
-
-    timers.get("block copy").start();
-
-    // copy data_in (current group of octants) to Ugroup (inner cells)
-    fill_block_data_inner(data_in, iGroup);
-
-    // update ghost cells of all octant in current group of octants
-    fill_block_data_ghost(data_in, iGroup);
-
-    timers.get("block copy").stop();
-
-    // start main computation
-    timers.get("godunov").start();
-
-    // now ghost cells in current group are ok
-    // convert conservative variable into primitives ones for the given group
-    // input is  Ugroup
-    // output is Qgroup
-    convertToPrimitives(iGroup);
-
-    // perform time integration :
-
-    /*
-     * algorithmic variant using shared memory, but no extra
-     * heap memory
-     */
-    // MusclBlockSharedGodunovUpdateFunctor::apply(amr_mesh,
-    //                                             configMap,
-    //                                             params,
-    //                                             fm,
-    //                                             blockSizes,
-    //                                             ghostWidth,
-    //                                             nbOcts,
-    //                                             nbOctsPerGroup,
-    //                                             iGroup,
-    //                                             Ugroup,
-    //                                             data_out,
-    //                                             Qgroup,
-    //                                             dt);
-
-    /*
-     * algorithmic variant not using shared memory, so extra
-     * heap memory is required (array SlopesX, ... are regular
-     * Kokkos::View arrays sized upon the group of octant)
-     */
-    MusclBlockGodunovUpdateFunctor::apply(lmesh,
-                                          configMap,
-                                          params,
-                                          fm,
-                                          blockSizes,
-                                          ghostWidth,
-                                          nbOcts,
-                                          nbOctsPerGroup,
-                                          iGroup,
-                                          Ugroup,
-                                          U,
-                                          Ughost,
-                                          data_out,
-                                          Qgroup,
-                                          interface_flags,
-                                          dt);
-
-    timers.get("godunov").stop();
-
-  } // end for iGroup
+  godunov_updater->update(data_in, Ughost, data_out, dt);
 
 } // SolverHydroMusclBlock::godunov_unsplit_impl
-
-// =======================================================
-// =======================================================
-// ///////////////////////////////////////////////////////////////////
-// Convert conservative variables array U into primitive var array Q
-// ///////////////////////////////////////////////////////////////////
-void SolverHydroMusclBlock::convertToPrimitives(uint32_t iGroup)
-{
-
-  // retrieve available / allowed names: fieldManager, and field map (fm)
-  // necessary to access user data
-  auto fm = fieldMgr.get_id2index();
-
-  uint32_t nbOcts = amr_mesh->getNumOctants();
-
-  // call device functor
-  ConvertToPrimitivesHydroFunctor::apply(configMap,
-                                         params, 
-                                         fm,
-                                         blockSizes,
-                                         ghostWidth,
-                                         nbOcts,
-                                         nbOctsPerGroup,
-                                         iGroup,
-                                         Ugroup, 
-                                         Qgroup);
-
-  
-} // SolverHydroMusclBlock::convertToPrimitives
 
 // =======================================================
 // =======================================================
@@ -607,11 +424,7 @@ void SolverHydroMusclBlock::save_solution_impl()
 
   timers.get("outputs").start();
 
-  if (params.output_vtk_enabled)
-    save_solution_vtk();
-
-  if (params.output_hdf5_enabled)
-    save_solution_hdf5();
+  this->io_manager->save_snapshot(U, Ughost, m_iteration, m_t);
 
   timers.get("outputs").stop();
     
@@ -622,14 +435,7 @@ void SolverHydroMusclBlock::save_solution_impl()
 void SolverHydroMusclBlock::print_monitoring_info()
 {
 
-  int myRank = 0;
-  int nProcs = 1;
-  UNUSED(nProcs);
-
-#ifdef DYABLO_USE_MPI
-  myRank = params.myRank;
-  nProcs = params.nProcs;
-#endif // DYABLO_USE_MPI
+  int myRank = params.myRank;
   
   // only print on master
   if (myRank == 0) {
@@ -649,109 +455,12 @@ void SolverHydroMusclBlock::print_monitoring_info()
 
 // =======================================================
 // =======================================================
-void SolverHydroMusclBlock::save_solution_vtk() 
-{
-
-  std::cerr << "writeVTK for block AMR is not implemented - TODO / REALLY USEFUL ?\n";
-
-} // SolverHydroMusclBlock::save_solution_vtk
-
-// =======================================================
-// =======================================================
-void SolverHydroMusclBlock::save_solution_hdf5() 
-{
-
-#ifdef DYABLO_USE_HDF5
-
-  // retrieve available / allowed names: fieldManager, and field map (fm)
-  auto fm = fieldMgr.get_id2index();
-
-  // a map containing ID and name of the variable to write
-  str2int_t names2index; // this is initially empty
-  build_var_to_write_map(names2index, params, configMap);
-
-  // prepare output filename
-  std::string outputPrefix = configMap.getString("output", "outputPrefix", "output");
-  std::string outputDir = configMap.getString("output", "outputDir", "./");
-  
-  // prepare suffix string
-  std::ostringstream strsuffix;
-  strsuffix << "iter";
-  strsuffix.width(7);
-  strsuffix.fill('0');
-  strsuffix << m_iteration;
-
-  // actual writing
-  {
-
-    // resize Uhost upon U
-    Kokkos::resize(Uhost, nbCellsPerOct, params.nbfields, amr_mesh->getNumOctants());
-
-    // copy device data to host
-    Kokkos::deep_copy(Uhost, U);
-
-    hdf5_writer->update_mesh_info();
-
-    // open the new file and write our stuff
-    std::string basename = outputPrefix + "_" + strsuffix.str();
-    
-    hdf5_writer->open(basename, outputDir);
-    hdf5_writer->write_header(m_t);
-
-    // write user the fake data (all scalar fields, here only one)
-    hdf5_writer->write_quadrant_attribute(Uhost, fm, names2index);
-
-    // check if we want to write velocity or rhoV vector fields
-    std::string write_variables = configMap.getString("output", "write_variables", "");
-    // if (write_variables.find("velocity") != std::string::npos) {
-    //   hdf5_writer->write_quadrant_velocity(U, fm, false);
-    // } else if (write_variables.find("rhoV") != std::string::npos) {
-    //   hdf5_writer->write_quadrant_velocity(U, fm, true);
-    // } 
-    
-    if (write_variables.find("Mach") != std::string::npos) {
-      // mach number will be recomputed from conservative variables
-      // we could have used primitive variables, but since here Q
-      // may not have the same size, Q may need to be resized
-      // and recomputed anyway.
-      hdf5_writer->write_quadrant_mach_number(Uhost, fm);
-    }
-
-    if (write_variables.find("P") != std::string::npos) {
-      hdf5_writer->write_quadrant_pressure(Uhost, fm);
-    }
-
-    if (write_variables.find("iOct") != std::string::npos)
-      hdf5_writer->write_quadrant_id(Uhost);
-
-    // close the file
-    hdf5_writer->write_footer();
-    hdf5_writer->close();
-  }
-
-#else
-
-  if (amr_mesh->getRank() == 0)
-    std::cerr << "You need to re-run cmake and enable HDF5 to have HDF5 output available. Also set hdf5_enabled variable to true in the input paramter file for the run.\n";
-
-#endif // DYABLO_USE_HDF5
-
-} // SolverHydroMusclBlock::save_solution_hdf5
-
-// =======================================================
-// =======================================================
 void SolverHydroMusclBlock::synchronize_ghost_data(UserDataCommType t)
 {
 
   timers.get("AMR: MPI ghosts").start();
 
 #if BITPIT_ENABLE_MPI==1
-
-  // retrieve available / allowed names: fieldManager, and field map (fm)
-  auto fm = fieldMgr.get_id2index();
-
-  // retrieve current number of ghost cells
-  uint32_t nghosts = amr_mesh->getNumGhosts();
 
   // select which data to exchange
 
@@ -787,8 +496,13 @@ void SolverHydroMusclBlock::mark_cells()
   real_t error_min = configMap.getFloat("amr", "error_min", 0.2);
   real_t error_max = configMap.getFloat("amr", "error_max", 0.8);
 
+  uint32_t nbfields = U.extent(1);
+
   // TEST HERE !
   DataArrayBlock Udata = U2;
+  DataArrayBlock Ugroup("Ugroup", nbCellsPerOct_g, nbfields, nbOctsPerGroup);
+  DataArrayBlock Qgroup("Qgroup", nbCellsPerOct_g, nbfields, nbOctsPerGroup);
+  InterfaceFlags interface_flags(nbOctsPerGroup);
 
   // apply refinement criterion by parts
   
@@ -803,25 +517,46 @@ void SolverHydroMusclBlock::mark_cells()
 
     timers.get("AMR: block copy").start();
 
-    // copy data_in (current group of octants) to Ugroup (inner cells)
-    fill_block_data_inner(Udata, iGroup);
-
-    // update ghost cells of all octant in current group of octants
-    fill_block_data_ghost(Udata, iGroup);
+    // Copy data from U to Ugroup
+    CopyInnerBlockCellDataFunctor::apply(configMap, params, fm,
+                                       blockSizes,
+                                       ghostWidth,
+                                       nbOcts,
+                                       nbOctsPerGroup,
+                                       U, Ugroup, 
+                                       iGroup);
+    CopyGhostBlockCellDataFunctor::apply(amr_mesh->getLightOctree(),
+                                        configMap,
+                                        params,
+                                        fm,
+                                        blockSizes,
+                                        ghostWidth,
+                                        nbOctsPerGroup,
+                                        U,
+                                        Ughost,
+                                        Ugroup, 
+                                        iGroup,
+                                        interface_flags);
 
     timers.get("AMR: block copy").stop();
 
     timers.get("AMR: mark cells").start();
 
-    // now ghost cells in current group are ok
     // convert conservative variable into primitives ones for the given group
-    // input is  Ugroup
-    // output is Qgroup
-    convertToPrimitives(iGroup);
+    ConvertToPrimitivesHydroFunctor::apply(configMap,
+                                         params, 
+                                         fm,
+                                         blockSizes,
+                                         ghostWidth,
+                                         nbOcts,
+                                         nbOctsPerGroup,
+                                         iGroup,
+                                         Ugroup, 
+                                         Qgroup);
 
     // finaly apply refine criterion : 
     // call device functor to flag for refine/coarsen
-    MarkOctantsHydroFunctor::apply(lmesh, configMap, params, fm,
+    MarkOctantsHydroFunctor::apply(amr_mesh->getLightOctree(), configMap, params, fm,
                                    blockSizes, ghostWidth,
                                    nbOcts, nbOctsPerGroup,
                                    Qgroup, iGroup,
@@ -860,152 +595,28 @@ void SolverHydroMusclBlock::adapt_mesh()
 
 // =======================================================
 // =======================================================
-/**
- * input  U2 contains user data before adapt step
- * output U  will be filled with data after remap
- */
-void SolverHydroMusclBlock::map_userdata_after_adapt()
-{
-
-  timers.get("AMR: map userdata").start();
-
-  LightOctree lmesh_old = lmesh;
-  lmesh = LightOctree(amr_mesh, params);
-
-  MapUserDataFunctor::apply( lmesh_old, lmesh, configMap, blockSizes,
-                      U2, Ughost, U );
-
-  // now U contains the most up to date data after mesh adaptation
-  // we can resize U2 for the next time-step
-  Kokkos::realloc(U2, U.extent(0), U.extent(1), U.extent(2));
-  
-  timers.get("AMR: map userdata").stop();
-
-} // SolverHydroMusclBlock::map_data_after_adapt
-
-// =======================================================
-// =======================================================
 void SolverHydroMusclBlock::load_balance_userdata()
 {
 
   timers.get("AMR: load-balance").start();
 
-#if BITPIT_ENABLE_MPI==1
-
-  // retrieve available / allowed names: fieldManager, and field map (fm)
-  auto fm = fieldMgr.get_id2index();
-
   /* (Load)Balance the octree over the processes with communicating the data.
-   * Preserve the family compact up to 4 levels over the max deep reached
+   * Preserve the family compact up to 3 levels over the max deep reached
    * in the octree. */
   {
-    uint8_t levels = 4;
+    uint8_t levels = 3;
 
-    // Copy Data to host for MPI communication 
-    DataArrayBlockHost U_host = Kokkos::create_mirror_view(U);
-    DataArrayBlockHost Ughost_host = Kokkos::create_mirror_view(Ughost);
-    Kokkos::deep_copy(U_host, U);
-    Kokkos::deep_copy(Ughost_host, Ughost);
+    amr_mesh->loadBalance_userdata(levels, U);
 
-    UserDataLB data_lb(U_host, Ughost_host, fm);
-    amr_mesh->loadBalance(data_lb, levels);
+    // we probably need to resize arrays, ....
+    Kokkos::realloc(U2,U.layout());
+    Kokkos::realloc(Ughost, Ughost.extent(0), Ughost.extent(1), amr_mesh->getNumGhosts());
 
-    // Copy back cell data to Device
-    Kokkos::resize(Ughost, Ughost_host.extent(0), Ughost_host.extent(1), Ughost_host.extent(2));
-    Kokkos::deep_copy(Ughost, Ughost_host);
-    Kokkos::resize(U, U_host.extent(0), U_host.extent(1), U_host.extent(2));
-    Kokkos::deep_copy(U, U_host);
-
-    // we probably need to resize U2, ....
-    Kokkos::resize(U2,U.extent(0),U.extent(1),U.extent(2));
-
-    // Update LightOctree after load balancing
-    lmesh = LightOctree(amr_mesh, params);    
   }
-#endif // BITPIT_ENABLE_MPI==1
   
   timers.get("AMR: load-balance").stop();
 
 } // SolverHydroMusclBlock::load_balance_user_data
-
-// =======================================================
-// =======================================================
-void SolverHydroMusclBlock::fill_block_data_inner(DataArrayBlock data_in,
-                                                  uint32_t iGroup)
-{
-
-  // retrieve available / allowed names: fieldManager, and field map (fm)
-  // necessary to access user data
-  auto fm = fieldMgr.get_id2index();
-
-  uint32_t nbOcts = amr_mesh->getNumOctants();
-  
-  CopyInnerBlockCellDataFunctor::apply(configMap, params, fm,
-                                       blockSizes,
-                                       ghostWidth,
-                                       nbOcts,
-                                       nbOctsPerGroup,
-                                       data_in, Ugroup, 
-                                       iGroup);
-
-} // SolverHydroMusclBlock::fill_block_data_inner
-
-// =======================================================
-// =======================================================
-void SolverHydroMusclBlock::fill_block_data_ghost(DataArrayBlock data_in,
-                                                  uint32_t iGroup)
-{
-  
-  // retrieve available / allowed names: fieldManager, and field map (fm)
-  // necessary to access user data
-  auto fm = fieldMgr.get_id2index();
-
-  // TODO : use new ghost copy for 2D and 3D 
-  //bool use_new_ghost_copy = (params.dimType == THREE_D);
-  // if( use_new_ghost_copy )
-  // {
-    CopyGhostBlockCellDataFunctor::apply(lmesh,
-                                        configMap,
-                                        params,
-                                        fm,
-                                        blockSizes,
-                                        ghostWidth,
-                                        nbOctsPerGroup,
-                                        data_in,
-                                        Ughost,
-                                        Ugroup, 
-                                        iGroup,
-                                        interface_flags);
-  // } else {
-  //   // Faces
-  //   CopyFaceBlockCellDataFunctor::apply(amr_mesh,
-  //                                       configMap,
-  //                                       params,
-  //                                       fm,
-  //                                       blockSizes,
-  //                                       ghostWidth,
-  //                                       nbOctsPerGroup,
-  //                                       data_in,
-  //                                       Ughost,
-  //                                       Ugroup, 
-  //                                       iGroup,
-  //                                       interface_flags);
-
-  //   // And corners
-  //   CopyCornerBlockCellDataFunctor::apply(amr_mesh,
-  //           configMap,
-  //           params,
-  //           fm,
-  //           blockSizes,
-  //           ghostWidth,
-  //           nbOctsPerGroup,
-  //           data_in,
-  //           Ughost,
-  //           Ugroup,
-  //           iGroup,
-  //           interface_flags);
-  // }
-} // SolverHydroMusclBlock::fill_block_data_ghost
 
 } // namespace muscl_block
 

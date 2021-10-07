@@ -23,11 +23,9 @@
 #include "shared/kokkos_shared.h"
 #include "shared/FieldManager.h"
 #include "muscl_block/utils_block.h"
-#include "shared/LightOctree.h"
-
-
-// for IO
-#include <shared/HDF5_IO.h>
+#include "shared/amr/LightOctree.h"
+#include "muscl_block/update/MusclBlockUpdate.h"
+#include "muscl_block/io/IOManager.h"
 
 namespace dyablo { namespace muscl_block {
 
@@ -61,6 +59,9 @@ private:
   //! enum use in synchronize ghost data operation to
   //! identify which variables need to be exchange by MPI
   enum class UserDataCommType {UDATA, QDATA, SLOPES};
+
+  std::unique_ptr<MusclBlockUpdate> godunov_updater;
+  std::unique_ptr<IOManager> io_manager;
   
 public:
 
@@ -77,8 +78,6 @@ public:
     return solver;
   }
 
-  LightOctree lmesh;
-
   //! hydrodynamics conservative variables arrays at t_n - no ghost
   DataArrayBlock     U;
   
@@ -90,29 +89,6 @@ public:
 
   //! MPI ghost octant array
   DataArrayBlock     Ughost;
-
-  /*
-   * arrays used for piece wise computation
-   */
-
-  //! fixed size array of block data with ghost replacing U 
-  //! and U2 when applying numerical scheme
-  DataArrayBlock Ugroup;
-
-  //! hydrodynamics primitive - array of octant's block data
-  DataArrayBlock Qgroup;
-
-  //! 2:1 interface flags
-  InterfaceFlags interface_flags;
-
-  //! slopes along X dir - array of octant's block data
-  DataArrayBlock Slopes_x;
-
-  //! slopes along Y dir - array of octant's block data
-  DataArrayBlock Slopes_y;
-
-  //! slopes along Z dir - array of octant's block data
-  DataArrayBlock Slopes_z;
 
   //! fluxes - only usefull when low Mach RSST computation is activated
   //! flux accumulator - array of octant's block data
@@ -195,10 +171,6 @@ public:
   UpdateType updateType;
 
 private:
-
-#ifdef DYABLO_USE_HDF5
-  std::shared_ptr<HDF5_Writer> hdf5_writer;
-#endif // DYABLO_USE_HDF5
 
   //! VTK output
   void save_solution_vtk();

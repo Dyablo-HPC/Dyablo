@@ -17,7 +17,7 @@
 #include "muscl_block/utils_block.h"
 
 #include "bitpit_PABLO.hpp"
-#include "shared/bitpit_common.h"
+#include "shared/amr/AMRmesh.h"
 
 namespace dyablo { namespace muscl_block {
 
@@ -114,17 +114,17 @@ public:
       const real_t dx = octSize/bx;
       const real_t dy = octSize/by;
 
-      const real_t x0 = pmesh->getNode(iOct, 0)[IX];
-      const real_t y0 = pmesh->getNode(iOct, 0)[IY];
+      const real_t x0 = pmesh->getCoordinates(iOct)[IX];
+      const real_t y0 = pmesh->getCoordinates(iOct)[IY];
 
       Kokkos::parallel_for(
         Kokkos::TeamVectorRange(member, nbCells),
-        KOKKOS_LAMBDA(const int32_t index) {
+        [&](const int32_t index) {
 
 	  coord_t iCoord;
           uint32_t& ix = iCoord[IX];
           uint32_t& iy = iCoord[IY];
-          uint32_t& iz = iCoord[IZ];                    
+          //uint32_t& iz = iCoord[IZ];                    
 
           if (params.dimType == TWO_D) {
             iCoord = index_to_coord<2>(index,blockSizes);

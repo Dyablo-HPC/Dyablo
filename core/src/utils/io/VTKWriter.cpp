@@ -1,7 +1,3 @@
-#ifdef DYABLO_USE_MPI
-#include <mpi.h>
-#endif // DYABLO_USE_MPI
-
 #include "utils/io/libb64/libb64.h" // for type base64 encoding
 #include <algorithm>                // for std::max
 #include <ios>                      // for std::ios::good
@@ -9,6 +5,7 @@
 #include "utils/io/VTKWriter.h"
 
 #include "utils/io/IO_VTK_shared.h"
+#include "utils/mpi/GlobalMpiSession.h"
 
 namespace dyablo
 {
@@ -67,14 +64,12 @@ VTKWriter::VTKWriter(ConfigMap &configMap, int64_t nbCells) :
   else if (outputVtkBinary)
     m_write_type_str = "binary";
 
-#if DYABLO_USE_MPI
-  m_fileHandler.setIsParallel(true);
+  const dyablo::MpiComm& mpi_comm = dyablo::GlobalMpiSession::get_comm_world();
+  int rank = mpi_comm.MPI_Comm_rank();
+  int nbProcs = mpi_comm.MPI_Comm_size();
 
-  int rank = 0;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  m_fileHandler.setIsParallel(nbProcs > 1);
   m_fileHandler.setRank(rank);
-#endif // DYABLO_USE_MPI
-
 } // VTKWriter::VTKWriter
 
 // =======================================================

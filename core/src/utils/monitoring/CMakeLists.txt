@@ -13,14 +13,6 @@ target_sources(monitoring
   ${CMAKE_CURRENT_SOURCE_DIR}/Timers.cpp
   )
 
-if (PAPI_FOUND)
-  target_sources(monitoring
-    PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/PapiInfo.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/PapiInfo.cpp
-    )
-endif(PAPI_FOUND)
-    
 target_include_directories(monitoring
   PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>

@@ -26,10 +26,9 @@
 #include "shared/FieldManager.h"
 #include "shared/HydroParams.h"  // read parameter file
 #include "shared/real_type.h"    // choose between single and double precision
-#include "shared/solver_utils.h" // print monitoring information
 
 #ifdef DYABLO_USE_MPI
-#include "utils/mpiUtils/GlobalMpiSession.h"
+#include "utils/mpi/GlobalMpiSession.h"
 #include <mpi.h>
 #endif // DYABLO_USE_MPI
 
@@ -345,7 +344,7 @@ int main(int argc, char *argv[]) {
 
   // Create MPI session if MPI enabled
 #ifdef DYABLO_USE_MPI
-  hydroSimu::GlobalMpiSession mpiSession(&argc, &argv);
+  dyablo::GlobalMpiSession mpiSession(&argc, &argv);
 #endif // DYABLO_USE_MPI
 
   Kokkos::initialize(argc, argv);

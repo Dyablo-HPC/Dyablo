@@ -9,8 +9,6 @@
 #include "utils/config/ConfigMap.h"
 #include "utils/io/FileHandlerVtk.h"
 
-#include "shared/Point.h"
-
 #include "shared/kokkos_shared.h"
 
 namespace dyablo
@@ -126,6 +124,10 @@ public:
 
   /** close section AppendedData - only useful for binary output */
   void close_data_appended();
+
+  /** typedef Point holding coordinates of a point. */
+  template<int dim>
+  using Point = std::array<real_t, dim>;
 
   /**
    * Write geometry (nodes coordinates and cells connectivity).

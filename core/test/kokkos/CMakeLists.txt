@@ -47,3 +47,21 @@ if(DYABLO_USE_MPI)
   target_link_libraries(compute_mandelbrot_amr
     mpiUtils)
 endif(DYABLO_USE_MPI)
+
+##############################################
+add_executable(test_AMRBlockForeachCell_ghost
+  test_AMRBlockForeachCell_ghost.cpp)
+target_include_directories(test_AMRBlockForeachCell_ghost
+  PUBLIC
+  ${CMAKE_SOURCE_DIR}/src
+  )
+target_link_libraries(test_AMRBlockForeachCell_ghost PUBLIC shared monitoring mpiUtils config muscl_block)
+
+add_executable(test_AMRBlockForeachCell_local
+test_AMRBlockForeachCell_local.cpp)
+target_include_directories(test_AMRBlockForeachCell_local
+  PUBLIC
+  ${CMAKE_SOURCE_DIR}/src
+  )
+target_link_libraries(test_AMRBlockForeachCell_local PUBLIC monitoring mpiUtils shared muscl_block )
+

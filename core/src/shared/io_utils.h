@@ -6,7 +6,7 @@
 #include "shared/kokkos_shared.h"
 #include "shared/FieldManager.h"
 
-#include "shared/bitpit_common.h"
+#include "shared/amr/AMRmesh.h"
 
 namespace dyablo {
 

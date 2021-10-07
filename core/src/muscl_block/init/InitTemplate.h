@@ -41,7 +41,7 @@
 #include "muscl_block/utils_block.h"
 
 #include "bitpit_PABLO.hpp"
-#include "shared/bitpit_common.h"
+#include "shared/amr/AMRmesh.h"
 
 // Additional includes here
 
@@ -133,9 +133,9 @@ public:
       const real_t dz = octSize/bz;
 
       // coordinates of the lower left corner
-      const real_t x0 = pmesh->getNode(iOct, 0)[IX];
-      const real_t y0 = pmesh->getNode(iOct, 0)[IY];
-      const real_t z0 = pmesh->getNode(iOct, 0)[IZ];
+      const real_t x0 = pmesh->getCoordinates(iOct)[IX];
+      const real_t y0 = pmesh->getCoordinates(iOct)[IY];
+      const real_t z0 = pmesh->getCoordinates(iOct)[IZ];
 
       // Iterating on all cells
       Kokkos::parallel_for(

@@ -19,8 +19,6 @@
 
 #include "bitpit_PABLO.hpp"
 #include "shared/kokkos_shared.h"
-#include "shared/bitpit_common.h" // for AMRmesh type
-using dyablo::AMRmesh;
 
 //using namespace bitpit;
 
@@ -91,12 +89,12 @@ compute_nb_iters (double cx, double cy)
 class MandelbrotRefine {
 
 public:
-  MandelbrotRefine(std::shared_ptr<AMRmesh> pmesh, int iter) :
+  MandelbrotRefine(std::shared_ptr<bitpit::PabloUniform> pmesh, int iter) :
     pmesh(pmesh),
     iter(iter) {};
 
   // static method which does it all: create and execute functor
-  static void apply(std::shared_ptr<AMRmesh> pmesh,
+  static void apply(std::shared_ptr<bitpit::PabloUniform> pmesh,
 		    int iter)
   {
     
@@ -160,7 +158,7 @@ public:
     
   } // operator()
   
-  std::shared_ptr<AMRmesh> pmesh;
+  std::shared_ptr<bitpit::PabloUniform> pmesh;
   int iter;
   
 }; // MandelbrotRefine
@@ -174,7 +172,7 @@ public:
  * \param[in] iter number used to suffix output file name
  *
  */
-void compute_and_save_mandelbrot(std::shared_ptr<AMRmesh> pmesh, 
+void compute_and_save_mandelbrot(std::shared_ptr<bitpit::PabloUniform> pmesh, 
                                  size_t iter)
 {
   uint32_t nocts = pmesh->getNumOctants();
@@ -247,7 +245,7 @@ void run()
 {
 
   /**<Instantation of a 2D pablo uniform object.*/
-  std::shared_ptr<AMRmesh> pmesh = std::make_shared<AMRmesh>(2);
+  std::shared_ptr<bitpit::PabloUniform> pmesh = std::make_shared<bitpit::PabloUniform>(2);
 
   // start with a 32x32 array
   for (int i=0; i<5; ++i)

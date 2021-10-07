@@ -10,7 +10,7 @@
 #include "shared/HydroState.h"
 
 #include "bitpit_PABLO.hpp"
-#include "shared/bitpit_common.h"
+#include "shared/amr/AMRmesh.h"
 
 // utils hydro
 #include "shared/utils_hydro.h"
@@ -177,7 +177,7 @@ public:
 
       Kokkos::parallel_for(
         Kokkos::TeamVectorRange(member, nbCellsPerBlock),
-        KOKKOS_LAMBDA(const int32_t index) {
+        [&](const int32_t index) {
 
           if (params.dimType == TWO_D)
             cons2prim_2d(index, iOct_local);

@@ -5,6 +5,10 @@ if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
   message(STATUS "Setting policy CMP0076 to use new behavior")
   cmake_policy(SET CMP0076 NEW)
 endif()
+if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.19.0")
+  message(STATUS "Setting policy CMP0114 to use new behavior")
+  cmake_policy(SET CMP0114 NEW)
+endif()
 
 ###################################################################
 #
@@ -43,7 +47,9 @@ include(preventBuildInSource)
 #
 # dyablo options
 #
-
+# if CUDA is enable, you need to be careful about the version of boost
+option (DYABLO_ENABLE_UNIT_TESTING "Enable unit testing" OFF)
+option (DYABLO_BUILD_EXPERIMENTS "Build optional experiments from core/test" OFF)
 option (DYABLO_USE_MPI "Activate / want MPI build" ON)
 option (DYABLO_USE_VTK "Activate / want VTK build" OFF)
 option (DYABLO_USE_DOUBLE "build with double precision" ON)
@@ -174,6 +180,7 @@ option(Kokkos_ENABLE_DEBUG_BOUNDS_CHECK  "build Kokkos in debug mode" OFF)
 
 # only usefull when building for Kokkos::Cuda backend
 set(Kokkos_ARCH  "" CACHE STRING "Kokkos arch (KEPLER37, PASCAL60, ...)")
+option(Kokkos_ENABLE_AGGRESSIVE_VECTORIZATION "Enable aggressive vectorization on CPU (e.g. #pragma ivdep for intel)" OFF )
 
 find_package(Kokkos 3.1 QUIET)
 
@@ -207,7 +214,16 @@ if ( (NOT Kokkos_FOUND) OR FORCE_KOKKOS_BUILD )
     -DKokkos_ENABLE_OPENMP=${Kokkos_ENABLE_OPENMP}
     -DKokkos_ENABLE_DEBUG=${Kokkos_ENABLE_DEBUG}
     -DKokkos_ENABLE_DEBUG_BOUNDS_CHECK=${Kokkos_ENABLE_DEBUG_BOUNDS_CHECK}
+    -DKokkos_ENABLE_AGGRESSIVE_VECTORIZATION=${Kokkos_ENABLE_AGGRESSIVE_VECTORIZATION}
     )
+
+  message( STATUS "Enabled architectures for Kokkos:" )
+  foreach(ARCH ${Kokkos_ARCH})
+    list (APPEND KOKKOS_CMAKE_ARGS
+      -DKokkos_ARCH_${ARCH}=ON
+    )
+    message( STATUS "- Kokkos_ARCH_${ARCH}=ON" )
+  endforeach()
   
   # CUDA specific argument
   if (Kokkos_ENABLE_CUDA)
@@ -216,7 +232,6 @@ if ( (NOT Kokkos_FOUND) OR FORCE_KOKKOS_BUILD )
       -DKokkos_ENABLE_CUDA_LAMBDA=${Kokkos_ENABLE_CUDA_LAMBDA}
       -DKokkos_ENABLE_CUDA_CONSTEXPR=${Kokkos_ENABLE_CUDA_CONSTEXPR}
       -DKokkos_ENABLE_CUDA_UVM=${Kokkos_ENABLE_CUDA_UVM}
-      -DKokkos_ARCH_${Kokkos_ARCH}=ON
       )
   endif()
 
@@ -248,9 +263,6 @@ message( STATUS "== Setup Dyablo ExternalProject ==" )
 # prepare cmake arguments list
 #
 set (DYABLO_CMAKE_ARGS)
-
-# if CUDA is enable, you need to be careful about the version of boost
-option(DYABLO_ENABLE_UNIT_TESTING "Enable unit testing" OFF)
 
 # Check external dependencies
 if( DYABLO_USE_MPI )
@@ -288,6 +300,7 @@ list (APPEND DYABLO_CMAKE_ARGS
   -DDYABLO_BUILD_DOC=${DYABLO_BUILD_DOC}
   -DDYABLO_DOC=${DYABLO_DOC}
   -DDYABLO_ENABLE_UNIT_TESTING=${DYABLO_ENABLE_UNIT_TESTING}
+  -DDYABLO_BUILD_EXPERIMENTS=${DYABLO_BUILD_EXPERIMENTS}
   -DBITPIT_DIR=${MY_BITPIT_DIR}
   )
 

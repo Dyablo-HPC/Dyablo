@@ -156,6 +156,8 @@ public:
 
   id2index_t get_id2index() { return id2index; };
 
+  int nbfields() { return numScalarField; }
+
   /**
    * Builds an unordered_map between enum ComponentIndex and names (string) 
    * using all available fields.
@@ -176,6 +178,9 @@ public:
     map[IA]   = "bx";
     map[IB]   = "by";
     map[IC]   = "bz";
+    map[IGX]  = "igx";
+    map[IGY]  = "igy";
+    map[IGZ]  = "igz";
     
     return map;
     
@@ -201,6 +206,9 @@ public:
     map["bx"]       = IA;
     map["by"]       = IB;
     map["bz"]       = IC;
+    map["igx"]      = IGX;
+    map["igy"]      = IGY;
+    map["igz"]      = IGZ;
     
     return map;
     

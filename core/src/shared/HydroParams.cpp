@@ -6,10 +6,7 @@
 #include <iostream>
 
 #include "config/inih/ini.h" // our INI file reader
-
-#ifdef DYABLO_USE_MPI
-using namespace hydroSimu;
-#endif // DYABLO_USE_MPI
+#include "utils/mpi/GlobalMpiSession.h"
 
 // =======================================================
 // =======================================================
@@ -64,8 +61,6 @@ void HydroParams::setup(ConfigMap &configMap)
     std::cerr << "Solver name not valid : " << solver_name << "\n";
     
   }
-
-  nbfields = nbvar;
   
   /* initialize MESH parameters */
   nx = configMap.getInteger("mesh","nx", 1);
@@ -162,43 +157,24 @@ void HydroParams::setup(ConfigMap &configMap)
     gz = configMap.getFloat("gravity", "gz",  0.0);
   } 
 
-  // If we have gravitation has a field, we add ndim variables to U
-  if (gravity_type & GRAVITY_FIELD)
-    nbfields += (dimType == THREE_D ? 3 : 2);
-
   debug_output = configMap.getBool("output", "debug", false);
 
   init();
-
-#ifdef DYABLO_USE_MPI
-  setup_mpi(configMap);
-#endif // DYABLO_USE_MPI
-  
+  setup_mpi(configMap);  
 } // HydroParams::setup
 
-#ifdef DYABLO_USE_MPI
 // =======================================================
 // =======================================================
 void HydroParams::setup_mpi(ConfigMap& configMap)
 {
-
-  // runtime determination if we are using float ou double (for MPI communication)
-  data_type = typeid(1.0f).name() == typeid((real_t)1.0f).name() ?
-    hydroSimu::MpiComm::FLOAT : hydroSimu::MpiComm::DOUBLE;
-  
-
-  // create the MPI communicator for our amr mesh using MPI_COMM_WORLD
-  communicator = new hydroSimu::MpiComm();
-
+  communicator = &dyablo::GlobalMpiSession::get_comm_world();
   // get world communicator size and check it is consistent with mesh grid sizes
-  nProcs = communicator->getNProc();
+  nProcs = communicator->MPI_Comm_size();
 
   // get my MPI rank inside topology
-  myRank = communicator->getRank();
+  myRank = communicator->MPI_Comm_rank();
   
 } // HydroParams::setup_mpi
-
-#endif // DYABLO_USE_MPI
 
 // =======================================================
 // =======================================================
@@ -267,7 +243,6 @@ void HydroParams::print()
 
   printf( "ghostWidth : %d\n", ghostWidth);
   printf( "nbvar      : %d\n", nbvar);
-  printf( "nbfields   : %d\n", nbfields);
   printf( "nStepmax   : %d\n", nStepmax);
   printf( "tEnd       : %f\n", tEnd);
   printf( "nOutput    : %d\n", nOutput);

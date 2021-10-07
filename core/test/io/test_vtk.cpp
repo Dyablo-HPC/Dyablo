@@ -54,7 +54,7 @@ void run(std::string input_filename)
   auto fm = fieldMgr.get_id2index();
 
   /// Instantation of a 2D pablo uniform object.
-  std::shared_ptr<dyablo::AMRmesh> amr_mesh = std::make_shared<dyablo::AMRmesh>(2);
+  std::shared_ptr<dyablo::AMRmesh_pablo> amr_mesh = std::make_shared<dyablo::AMRmesh_pablo>(2);
 
   // 2:1 balance
   int codim = configMap.getInteger("amr", "codim", amr_mesh->getDim());

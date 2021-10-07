@@ -21,6 +21,9 @@ struct BlastParams {
   real_t blast_density_out;
   real_t blast_pressure_in;
   real_t blast_pressure_out;
+  int    blast_nx;
+  int    blast_ny;
+  int    blast_nz;
 
   BlastParams(ConfigMap& configMap)
   {
@@ -41,7 +44,10 @@ struct BlastParams {
     blast_density_out = configMap.getFloat("blast","density_out", 1.2);
     blast_pressure_in  = configMap.getFloat("blast","pressure_in", 10.0);
     blast_pressure_out = configMap.getFloat("blast","pressure_out", 0.1);
-    
+
+    blast_nx = configMap.getInteger("blast", "blast_nx", 1);
+    blast_ny = configMap.getInteger("blast", "blast_ny", 1);
+    blast_nz = configMap.getInteger("blast", "blast_nz", 1);
   }
 
 }; // struct BlastParams

@@ -54,9 +54,9 @@ hdf5_native_type_to_string (hid_t type)
 
 // =======================================================
 // =======================================================
-HDF5_Writer::HDF5_Writer(std::shared_ptr<AMRmesh> amr_mesh, 
-                         ConfigMap& configMap,
-                         HydroParams& params) :
+HDF5_Writer::HDF5_Writer(AMRmesh* amr_mesh, 
+                         const ConfigMap& configMap,
+                         const HydroParams& params) :
   m_amr_mesh(amr_mesh),
   m_configMap(configMap),
   m_params(params)
@@ -165,7 +165,9 @@ HDF5_Writer::open(std::string basename, std::string outDir)
    * Open parallel HDF5 resources.
    */
   plist = H5Pcreate(H5P_FILE_ACCESS);
-  H5Pset_fapl_mpio(plist, m_amr_mesh->getComm(), MPI_INFO_NULL);
+#ifdef DYABLO_USE_MPI
+  H5Pset_fapl_mpio(plist, MPI_COMM_WORLD, MPI_INFO_NULL);
+#endif
 
   filename = basename + ".h5";
   full_path = outDir + "/" + filename;
@@ -264,14 +266,14 @@ HDF5_Writer::write_attribute(const std::string &name,
 
   if (ftype == IO_CELL_SCALAR || ftype == IO_CELL_VECTOR) {
 
-    dims[0] = m_amr_mesh->getGlobalNumOctants()*m_nbCellsPerLeaf;
+    dims[0] = (hsize_t)m_amr_mesh->getGlobalNumOctants()*(hsize_t)m_nbCellsPerLeaf;
     dims[1] = dim;
 
-    count[0] = m_amr_mesh->getNumOctants()*m_nbCellsPerLeaf;
+    count[0] = (hsize_t)m_amr_mesh->getNumOctants()*(hsize_t)m_nbCellsPerLeaf;
     count[1] = dims[1];
 
     // get global index of the first octant of current mpi processor
-    start[0] = m_amr_mesh->getGlobalIdx((uint32_t) 0)*m_nbCellsPerLeaf;
+    start[0] = (hsize_t)m_amr_mesh->getGlobalIdx((uint32_t) 0)*(hsize_t)m_nbCellsPerLeaf;
     start[1] = 0;
 
   } else {
@@ -332,7 +334,7 @@ HDF5_Writer::write_quadrant_attribute(DataArrayHost  datah,
          DataArrayHost::array_layout,
          Kokkos::LayoutLeft >::value) {
 
-      auto dataVar = Kokkos::subview(datah, Kokkos::ALL(), fm[iVar]);
+      auto dataVar = Kokkos::subview(datah, Kokkos::ALL(), iVar);
 
       // actual data writing
       write_attribute(varName, dataVar.data(),
@@ -347,7 +349,7 @@ HDF5_Writer::write_quadrant_attribute(DataArrayHost  datah,
       uint32_t nbOcts = datah.extent(0);
 
       Kokkos::parallel_for(nbOcts, KOKKOS_LAMBDA (uint32_t iOct) {
-          dataVar(iOct) = datah(iOct,fm[iVar]);
+          dataVar(iOct) = datah(iOct,iVar);
         });
 
       // actual data writing
@@ -419,6 +421,9 @@ HDF5_Writer::write_quadrant_mach_number(DataArrayHost datah,
     
     DataArrayScalar mach_number = DataArrayScalar("mach_number", nbOcts);
     
+    // specific heat ratio
+    real_t gamma0 = m_params.settings.gamma0;
+
     Kokkos::parallel_for(nbOcts, KOKKOS_LAMBDA (uint32_t iOct) {
         
         real_t d = datah(iOct,fm[ID]);
@@ -431,9 +436,6 @@ HDF5_Writer::write_quadrant_mach_number(DataArrayHost datah,
 
         // internal energy
         real_t eint = datah(iOct,fm[IE])-eken;
-
-        // specific heat ratio
-        real_t gamma0 = m_params.settings.gamma0;
 
         // pressure
         real_t p = (gamma0-1)*eint;
@@ -491,7 +493,7 @@ HDF5_Writer::write_quadrant_attribute(DataArrayBlockHost  datah,
     Kokkos::parallel_for( Kokkos::RangePolicy<Kokkos::OpenMP>(0, nbOcts), 
         KOKKOS_LAMBDA (uint32_t iOct) {
         for (uint32_t iCell=0; iCell<nbCellsPerOct; ++iCell)
-          dataVar(iCell + nbCellsPerOct*iOct) = datah(iCell,fm[iVar],iOct);
+          dataVar(iCell + nbCellsPerOct*iOct) = datah(iCell,iVar,iOct);
       });
     
     // actual data writing
@@ -521,6 +523,9 @@ HDF5_Writer::write_quadrant_mach_number(DataArrayBlockHost datah,
 
     DataArrayScalar mach_number = DataArrayScalar("mach_number", nbCellsPerOct*nbOcts);
 
+    // specific heat ratio
+    real_t gamma0 = m_params.settings.gamma0;
+
     Kokkos::parallel_for( Kokkos::RangePolicy<Kokkos::OpenMP>(0, nbOcts), 
       KOKKOS_LAMBDA(uint32_t iOct) {
         for (uint32_t iCell = 0; iCell < nbCellsPerOct; ++iCell) {
@@ -536,9 +541,6 @@ HDF5_Writer::write_quadrant_mach_number(DataArrayBlockHost datah,
           
           // internal energy
           real_t eint = datah(iCell, fm[IE], iOct) - eken;
-          
-          // specific heat ratio
-          real_t gamma0 = m_params.settings.gamma0;
           
           // pressure
           real_t p = (gamma0 - 1) * eint;
@@ -579,7 +581,10 @@ HDF5_Writer::write_quadrant_pressure(DataArrayBlockHost datah,
     uint32_t nbCellsPerOct = datah.extent(0);
     uint32_t nbOcts = datah.extent(2);
 
-    DataArrayScalar pressure = DataArrayScalar("P", nbCellsPerOct*nbOcts);
+    DataArrayScalar pressure = DataArrayScalar("P", nbCellsPerOct*nbOcts);          
+    
+    // specific heat ratio
+    real_t gamma0 = m_params.settings.gamma0;
 
     Kokkos::parallel_for( Kokkos::RangePolicy<Kokkos::OpenMP>(0, nbOcts), 
       KOKKOS_LAMBDA(uint32_t iOct) {
@@ -596,9 +601,6 @@ HDF5_Writer::write_quadrant_pressure(DataArrayBlockHost datah,
           
           // internal energy
           real_t eint = datah(iCell, fm[IE], iOct) - eken;
-          
-          // specific heat ratio
-          real_t gamma0 = m_params.settings.gamma0;
           
           // pressure
           pressure(iCell + nbCellsPerOct*iOct) = (gamma0 - 1) * eint;
@@ -667,8 +669,6 @@ HDF5_Writer::io_hdf5_writev(hid_t fd,
                             hsize_t count[],
                             hsize_t start[])
 {
-  int                 status;
-  UNUSED(status);
   hsize_t             size = 1;
   hid_t               filespace = 0;
   hid_t               memspace = 0;
@@ -692,15 +692,18 @@ HDF5_Writer::io_hdf5_writev(hid_t fd,
   // set some properties
   dataset_properties = H5Pcreate(H5P_DATASET_CREATE);
   write_properties = H5Pcreate(H5P_DATASET_XFER);
+#ifdef DYABLO_USE_MPI
   H5Pset_dxpl_mpio(write_properties, H5FD_MPIO_COLLECTIVE);
+#endif
 
   // create the dataset and the location of the local data
   dataset = H5Dcreate2(fd, name.c_str(), wtype_id, filespace,
 		       H5P_DEFAULT, dataset_properties, H5P_DEFAULT);
   H5Sselect_hyperslab(filespace, H5S_SELECT_SET, start, nullptr, count, nullptr);
-
+  
   if (dtype_id != wtype_id) {
-    status = H5Tconvert(dtype_id, wtype_id, size, data, nullptr, H5P_DEFAULT);
+    //int status = 
+    H5Tconvert(dtype_id, wtype_id, size, data, nullptr, H5P_DEFAULT);
     //SC_CHECK_ABORT(status >= 0, "H5Tconvert failed!");
   }
   H5Dwrite(dataset, wtype_id, memspace, filespace, write_properties, data);
@@ -753,9 +756,9 @@ HDF5_Writer::io_hdf5_write_coordinates()
       real_t dz = m_bz==0 ? 0 : cellSize/(m_bz)*Lz;
 
       // coordinates of the lower left corner
-      real_t orig_x = m_amr_mesh->getNode(i, 0)[0] * Lx + m_params.xmin;
-      real_t orig_y = m_amr_mesh->getNode(i, 0)[1] * Ly + m_params.ymin;
-      real_t orig_z = m_amr_mesh->getNode(i, 0)[2] * Lz + m_params.zmin;
+      real_t orig_x = m_amr_mesh->getCoordinates(i)[0] * Lx + m_params.xmin;
+      real_t orig_y = m_amr_mesh->getCoordinates(i)[1] * Ly + m_params.ymin;
+      real_t orig_z = m_amr_mesh->getCoordinates(i)[2] * Lz + m_params.zmin;
 
       int inode = 0;
       for (int32_t jz = 0; jz < m_bz+1; ++jz) {
@@ -799,19 +802,45 @@ HDF5_Writer::io_hdf5_write_coordinates()
 
     std::vector<float> data(3 * m_local_num_nodes);
 
+    // total size
+    real_t Lx = m_params.xmax - m_params.xmin;
+    real_t Ly = m_params.ymax - m_params.ymin;
+    real_t Lz = m_params.zmax - m_params.zmin;
+
     /*
      * construct the list of node coordinates
      */
 
+    int ndim = m_amr_mesh->getDim();
     for (uint32_t i = 0; i < m_local_num_quads; ++i) {
+      // retrieve cell size and rescale
+      real_t cellSize = m_amr_mesh->getSize(i);
 
-      for (uint8_t j = 0; j < m_nbNodesPerCell; ++j) {
-        data[3 * m_nbNodesPerCell * i + 3 * j + 0] =
-            m_amr_mesh->getNode(i, j)[0];
-        data[3 * m_nbNodesPerCell * i + 3 * j + 1] =
-            m_amr_mesh->getNode(i, j)[1];
-        data[3 * m_nbNodesPerCell * i + 3 * j + 2] =
-            m_amr_mesh->getNode(i, j)[2];
+      real_t dx = cellSize/Lx;
+      real_t dy = cellSize/Ly;
+      real_t dz = ndim==2 ? 0 : cellSize/Lz;
+
+      real_t orig_x = m_amr_mesh->getCoordinates(i)[0] * Lx + m_params.xmin;
+      real_t orig_y = m_amr_mesh->getCoordinates(i)[1] * Ly + m_params.ymin;
+      real_t orig_z = m_amr_mesh->getCoordinates(i)[2] * Lz + m_params.zmin;
+      
+      int inode = 0;
+      for (int32_t jz = 0; jz < (ndim-1); ++jz) {
+        for (int32_t jy = 0; jy < 2; ++jy) {
+          for (int32_t jx = 0; jx < 2; ++jx) {
+            assert(inode<m_nbNodesPerCell);
+            
+            real_t x = orig_x + jx * dx;
+            real_t y = orig_y + jy * dy;
+            real_t z = orig_z + jz * dz;
+
+            data[3 * m_nbNodesPerCell * i + 3 * inode + 0] = x;
+            data[3 * m_nbNodesPerCell * i + 3 * inode + 1] = y;
+            data[3 * m_nbNodesPerCell * i + 3 * inode + 2] = z;
+
+            ++inode;
+          }
+        }
       }
     }
 

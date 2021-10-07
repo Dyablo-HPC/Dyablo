@@ -6,6 +6,7 @@
 #define KELVIN_HELMHOLTZ_PARAMS_H_
 
 #include "utils/config/ConfigMap.h"
+#include "utils/mpi/GlobalMpiSession.h"
 
 //#include <cstdlib> // for srand
 
@@ -57,17 +58,8 @@ struct KHParams {
     if (p_rand) {
       // choose a different random seed per mpi rank
       seed = configMap.getInteger("KH", "rand_seed", 12);
-
-#ifdef DYABLO_USE_MPI
-      //srand( seed * (mpiRank+1) );
-
-      // get MPI rank in MPI_COMM_WORLD
-      // TODO : pass communicator to the constructor (?)
-      int mpiRank = 1;
-      MPI_Comm_rank(MPI_COMM_WORLD, &mpiRank);
-      seed *= (mpiRank+1);
-#endif // DYABLO_USE_MPI
-      
+      int mpiRank = dyablo::GlobalMpiSession::get_comm_world().MPI_Comm_rank();
+      seed *= (mpiRank+1);      
     }
 
     amplitude = configMap.getFloat("KH", "amplitude", 0.1);

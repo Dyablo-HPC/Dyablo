@@ -19,13 +19,7 @@
 
 #include "shared/real_type.h"    // choose between single and double precision
 #include "shared/HydroParams.h"  // read parameter file
-#include "shared/solver_utils.h" // print monitoring information
 #include "shared/FieldManager.h"
-
-#ifdef DYABLO_USE_MPI
-#include "utils/mpiUtils/GlobalMpiSession.h"
-#include <mpi.h>
-#endif // DYABLO_USE_MPI
 
 #include "muscl/SolverHydroMuscl.h"
 #include "muscl_block/SolverHydroMusclBlock.h"
@@ -135,10 +129,12 @@ void run_test(int argc, char *argv[])
   std::cout << "Create mesh..." << std::endl;
   std::shared_ptr<AMRmesh> amr_mesh; //solver->amr_mesh 
   int ndim = 3;
-  amr_mesh = std::make_shared<AMRmesh>(ndim);
-  amr_mesh->setBalanceCodimension(ndim);
-  uint32_t idx = 0;
-  amr_mesh->setBalance(idx,true);
+  params.level_min = 3;
+  params.level_max = 4;
+  amr_mesh = std::make_shared<AMRmesh>(ndim, ndim, std::array<bool,3>{false,false,false}, params.level_min, params.level_max);
+  //amr_mesh->setBalanceCodimension(ndim);
+  //uint32_t idx = 0;
+  //amr_mesh->setBalance(idx,true);
   // mr_mesh->setPeriodic(0);
   // amr_mesh->setPeriodic(1);
   // amr_mesh->setPeriodic(2);
@@ -184,8 +180,6 @@ void run_test(int argc, char *argv[])
 
   amr_mesh->adapt();
   amr_mesh->updateConnectivity();
-  params.level_min = 3;
-  params.level_max = 4;
 
   uint32_t nbOctsPerGroup = 256;
   uint32_t iGroup = 0;
@@ -201,7 +195,7 @@ void run_test(int argc, char *argv[])
 
   std::cout << "Apply initial condition..." << std::endl;
 
-  int nbfields = params.nbfields;
+  int nbfields = fieldMgr.nbfields();
   int nbOcts = amr_mesh->getNumOctants();
   uint32_t nbCellsPerOct =
       params.dimType == TWO_D ? bx * by : bx * by * bz;
@@ -244,13 +238,15 @@ void run_test(int argc, char *argv[])
   // Define print functions as lambdas
   // Print info about original local (iGroup set in main()) octant
   auto show_octant = [&](uint32_t iOct_local){  
+//#define DEBUG_PRINT
+#ifdef DEBUG_PRINT
     uint32_t iOct_global = iOct_local + iGroup * nbOctsPerGroup;
 
     std::cout << "Looking at octant id = " << iOct_global << "\n";
     // octant location
-    double x = amr_mesh->getX(iOct_global);
-    double y = amr_mesh->getY(iOct_global);
-    double z = amr_mesh->getZ(iOct_global);
+    double x = amr_mesh->getCoordinates(iOct_global)[IX];
+    double y = amr_mesh->getCoordinates(iOct_global)[IY];
+    double z = amr_mesh->getCoordinates(iOct_global)[IZ];
     std::cout << "Octant location : x=" << x << " y=" << y << " z=" << z << "\n";
     auto print_neighbor_status = [&]( int x, int y, int z)
     { 
@@ -288,7 +284,7 @@ void run_test(int argc, char *argv[])
       else if(iOct_neighbors.size() == 1)
       {
         uint32_t neigh_level = isghost_neighbors[0] ? 
-                    amr_mesh->getLevel(amr_mesh->getGhostOctant(iOct_neighbors[0])) : 
+                    amr_mesh->getLevelGhost(iOct_neighbors[0]) : 
                     amr_mesh->getLevel(iOct_neighbors[0]);
         if ( amr_mesh->getLevel(iOct_global) > neigh_level )
           std::cout << "( bigger  ) ";
@@ -296,7 +292,7 @@ void run_test(int argc, char *argv[])
           std::cout << "(same size) ";
       }
       else
-        std::cout << "( smaller ) ";  
+        std::cout << "( smaller ) "; 
     };
     auto print_neighbor = [&]( int x, int y, int z)
     { 
@@ -332,7 +328,7 @@ void run_test(int argc, char *argv[])
         std::cout <<    " (none) ";
       }
       else
-        std::cout << std::setw(8) << iOct_neighbors[0];  
+        std::cout << std::setw(8) << iOct_neighbors[0]; 
     };
     std::cout << "Octant neighbors :" << std::endl;
     
@@ -377,6 +373,7 @@ void run_test(int argc, char *argv[])
       }
       std::cout << "\n";
     }
+    #endif //DEBUG_PRINT
   };
   // Print info about final local octant (with ghosts)
   auto show_octant_group = [&](uint32_t iOct_local){  
@@ -414,8 +411,7 @@ void run_test(int argc, char *argv[])
   std::cout << "Testing CopyFaceBlockCellDataFunctor....\n";
   {
     InterfaceFlags interface_flags(nbOctsPerGroup); //solver->interface_flags
-    LightOctree lmesh(amr_mesh,params);
-    CopyGhostBlockCellDataFunctor::apply(lmesh,
+    CopyGhostBlockCellDataFunctor::apply(amr_mesh->getLightOctree(),
                                         configMap,
                                         params, 
                                         fm,
@@ -451,9 +447,9 @@ void run_test(int argc, char *argv[])
       uint32_t iOct_global = iOct_local + iGroup * nbOctsPerGroup;
       const real_t octSize = amr_mesh->getSize(iOct_global);
       const real_t cellSize = octSize/bx;
-      const real_t x0 = amr_mesh->getNode(iOct_global, 0)[IX];
-      const real_t y0 = amr_mesh->getNode(iOct_global, 0)[IY];
-      const real_t z0 = amr_mesh->getNode(iOct_global, 0)[IZ];
+      const real_t x0 = amr_mesh->getCoordinates(iOct_global)[IX];
+      const real_t y0 = amr_mesh->getCoordinates(iOct_global)[IY];
+      const real_t z0 = amr_mesh->getCoordinates(iOct_global)[IZ];
       real_t x = x0 + ix*cellSize - ghostWidth*cellSize + cellSize/2;
       real_t y = y0 + iy*cellSize - ghostWidth*cellSize + cellSize/2;
       real_t z = z0 + iz*cellSize - ghostWidth*cellSize + cellSize/2;
@@ -698,71 +694,3 @@ BOOST_AUTO_TEST_CASE(test_CopyGhostBlockCellData_3D)
 BOOST_AUTO_TEST_SUITE_END() /* muscl_block */
 
 BOOST_AUTO_TEST_SUITE_END() /* dyablo */
-
-//old main
-#if 0
-// =======================================================================
-// =======================================================================
-// =======================================================================
-int main(int argc, char *argv[])
-{
-
-  // Create MPI session if MPI enabled
-#ifdef DYABLO_USE_MPI
-  hydroSimu::GlobalMpiSession mpiSession(&argc,&argv);
-#endif // DYABLO_USE_MPI
-
-  Kokkos::initialize(argc, argv);
-
-  int rank = 0;
-  int nRanks = 1;
-
-  {
-    std::cout << "##########################\n";
-    std::cout << "KOKKOS CONFIG             \n";
-    std::cout << "##########################\n";
-
-    std::ostringstream msg;
-    std::cout << "Kokkos configuration" << std::endl;
-    if ( Kokkos::hwloc::available() ) {
-      msg << "hwloc( NUMA[" << Kokkos::hwloc::get_available_numa_count()
-          << "] x CORE["    << Kokkos::hwloc::get_available_cores_per_numa()
-          << "] x HT["      << Kokkos::hwloc::get_available_threads_per_core()
-          << "] )"
-          << std::endl ;
-    }
-    Kokkos::print_configuration( msg );
-    std::cout << msg.str();
-    std::cout << "##########################\n";
-
-#ifdef DYABLO_USE_MPI
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &nRanks);
-# ifdef KOKKOS_ENABLE_CUDA
-    {
-
-      // To enable kokkos accessing multiple GPUs don't forget to
-      // add option "--ndevices=X" where X is the number of GPUs
-      // you want to use per node.
-
-      // on a large cluster, the scheduler should assign ressources
-      // in a way that each MPI task is mapped to a different GPU
-      // let's cross-checked that:
-
-      int cudaDeviceId;
-      cudaGetDevice(&cudaDeviceId);
-      std::cout << "I'm MPI task #" << rank << " (out of " << nRanks << ")"
-        << " pinned to GPU #" << cudaDeviceId << "\n";
-
-    }
-# endif // KOKKOS_ENABLE_CUDA
-#endif // DYABLO_USE_MPI
-  }    // end kokkos config
-
-  dyablo::muscl_block::run_test(argc, argv);
-
-  Kokkos::finalize();
-
-  return EXIT_SUCCESS;
-}
-#endif // old main

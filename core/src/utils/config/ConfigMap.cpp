@@ -12,9 +12,7 @@
 #include <sstream>
 #include <fstream>
 
-#if DYABLO_USE_MPI
-#include <mpi.h>
-#endif
+#include "utils/mpi/GlobalMpiSession.h"
 
 // =======================================================
 // =======================================================
@@ -102,12 +100,8 @@ void ConfigMap::setBool(std::string section, std::string name, bool value)
 // =======================================================
 ConfigMap broadcast_parameters(std::string filename)
 {
-#ifdef DYABLO_USE_MPI
-
-  int myRank;
-  int nTasks;
-  MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
-  MPI_Comm_size(MPI_COMM_WORLD, &nTasks);
+  const dyablo::MpiComm& mpi_comm = dyablo::GlobalMpiSession::get_comm_world();
+  int myRank = mpi_comm.MPI_Comm_rank();
   
   char* buffer = nullptr;
   int buffer_size = 0;
@@ -117,6 +111,8 @@ ConfigMap broadcast_parameters(std::string filename)
     
     // open file and go to the end to get file size in bytes
     std::ifstream filein(filename.c_str(), std::ifstream::ate);
+    if( !filein )
+      throw std::runtime_error("Could not open .ini file : `" + filename + "`");
     int file_size = filein.tellg();
     
     filein.seekg(0); // rewind
@@ -126,9 +122,9 @@ ConfigMap broadcast_parameters(std::string filename)
     
     filein.read(buffer, buffer_size);
   }
-
+  
   // broacast buffer size (collective)
-  MPI_Bcast(&buffer_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  mpi_comm.MPI_Bcast(&buffer_size, 1, 0);
 
   // all other MPI task need to allocate buffer
   if (myRank>0) {
@@ -137,7 +133,7 @@ ConfigMap broadcast_parameters(std::string filename)
   }
 
   // broastcast buffer itself (collective)
-  MPI_Bcast(&buffer[0], buffer_size, MPI_CHAR, 0, MPI_COMM_WORLD);
+  mpi_comm.MPI_Bcast(&buffer[0], buffer_size, 0);
   
   // now all MPI rank should have buffer filled, try to build a ConfigMap
   ConfigMap configMap(buffer,buffer_size);
@@ -146,11 +142,6 @@ ConfigMap broadcast_parameters(std::string filename)
     delete [] buffer;
 
   return configMap;
-
-#else
-  ConfigMap configMap(filename);
-  return configMap;
-#endif
     
 } // broadcast_parameters
 

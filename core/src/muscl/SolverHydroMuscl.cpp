@@ -29,10 +29,9 @@
 // compute functor for low Mach flows
 #include "muscl/UpdateRSSTHydroFunctor.h"
 
-#if BITPIT_ENABLE_MPI==1
-#include "muscl/UserDataComm.h"
-#include "muscl/UserDataLB.h"
-#endif
+#include "shared/mpi/GhostCommunicator.h"
+
+#include "muscl/MapUserData.h"
 
 //#include "shared/mpiBorderUtils.h"
 
@@ -59,7 +58,7 @@ SolverHydroMuscl::SolverHydroMuscl(HydroParams& params,
   Slopes_y_ghost(), 
   Slopes_z_ghost()
 #ifdef DYABLO_USE_HDF5
-  , hdf5_writer(std::make_shared<HDF5_Writer>(amr_mesh, configMap, params))
+  , hdf5_writer(std::make_shared<HDF5_Writer>(amr_mesh.get(), configMap, params))
 #endif // DYABLO_USE_HDF5
 {
 
@@ -72,18 +71,9 @@ SolverHydroMuscl::SolverHydroMuscl(HydroParams& params,
  
   long long int total_mem_size = 0;
 
-  /*
-   * memory pre-allocation.
-   *
-   * Note that Uhost is not just a view to U, Uhost will be used
-   * to save data from multiple other device array.
-   * That's why we didn't use create_mirror_view to initialize Uhost.
-   */
-
-  // minimal number of cells
-  uint64_t nbCells = 1<<params.level_min;
-  
-  nbCells = params.dimType == TWO_D ? nbCells * nbCells :  nbCells * nbCells * nbCells;
+  // Initial number of octants
+  // User data will be reallocated after AMR mesh initialization
+  uint64_t nbCells = 1;
   
   U     = DataArray("U", nbCells, nbvar);
   Uhost = Kokkos::create_mirror(U);
@@ -125,15 +115,11 @@ SolverHydroMuscl::SolverHydroMuscl(HydroParams& params,
   // copy U into U2
   Kokkos::deep_copy(U2,U);
 
-  amr_lmesh = LightOctree(amr_mesh, params);
-
   // compute initialize time step
   compute_dt();
 
-  int myRank=0;
-#ifdef DYABLO_USE_MPI
-  myRank = params.myRank;
-#endif // DYABLO_USE_MPI
+  int myRank=params.myRank;
+
 
   if (myRank==0) {
     std::cout << "##########################" << "\n";
@@ -275,6 +261,8 @@ void SolverHydroMuscl::do_amr_cycle()
 
   timers.get("AMR").start();
 
+  LightOctree lmesh_old = amr_mesh->getLightOctree();
+
   /*
    * Following steps:
    *
@@ -296,7 +284,14 @@ void SolverHydroMuscl::do_amr_cycle()
   adapt_mesh();
 
   // 4. map data to new data array
-  map_userdata_after_adapt();
+  timers.get("AMR: map userdata").start();
+
+  MapUserDataFunctor::apply( lmesh_old, amr_mesh->getLightOctree(), configMap, U2, Ughost, U );
+  // now U contains the most up to date data after mesh adaptation
+  // we can resize U2 for the next time-step
+  Kokkos::realloc(U2, U.layout());
+  
+  timers.get("AMR: map userdata").stop();
 
   timers.get("AMR").stop();
 
@@ -334,7 +329,7 @@ double SolverHydroMuscl::compute_dt_local()
   auto fm = fieldMgr.get_id2index();
 
   // call device functor - compute invDt
-  ComputeDtHydroFunctor::apply(amr_lmesh, params, fm, U, invDt);
+  ComputeDtHydroFunctor::apply(amr_mesh->getLightOctree(), params, fm, U, invDt);
 
   dt = params.settings.cfl/invDt;
 
@@ -347,11 +342,7 @@ double SolverHydroMuscl::compute_dt_local()
 void SolverHydroMuscl::next_iteration_impl()
 {
   
-  int myRank=0;
-  
-#ifdef DYABLO_USE_MPI
-  myRank = params.myRank;
-#endif // DYABLO_USE_MPI
+  int myRank=params.myRank;
   
   if (m_iteration % m_nlog == 0) {
     if (myRank==0) {
@@ -492,7 +483,7 @@ void SolverHydroMuscl::reconstruct_gradients(DataArray Udata)
     Kokkos::resize(Slopes_z, Udata.extent(0), Udata.extent(1));  
 
   // call device functor
-  ReconstructGradientsHydroFunctor::apply(amr_lmesh, params, fm, 
+  ReconstructGradientsHydroFunctor::apply(amr_mesh->getLightOctree(), params, fm, 
                                           Q, Qghost, Slopes_x, Slopes_y, Slopes_z);
   
 } // SolverHydroMuscl::reconstruct_gradients
@@ -520,7 +511,7 @@ void SolverHydroMuscl::compute_fluxes_and_update(DataArray data_in,
     Kokkos::resize(Fluxes, U.extent(0), U.extent(1));
     
     // stored out fluxes in Fluxes
-    ComputeFluxesAndUpdateHydroFunctor::apply(amr_lmesh, params, fm,
+    ComputeFluxesAndUpdateHydroFunctor::apply(amr_mesh->getLightOctree(), params, fm,
                                               data_in, Fluxes,
                                               Q, Qghost,
                                               Slopes_x,
@@ -538,7 +529,7 @@ void SolverHydroMuscl::compute_fluxes_and_update(DataArray data_in,
 
   } else {
 
-    ComputeFluxesAndUpdateHydroFunctor::apply(amr_lmesh, params, fm,
+    ComputeFluxesAndUpdateHydroFunctor::apply(amr_mesh->getLightOctree(), params, fm,
                                               data_in, data_out,
                                               Q, Qghost,
                                               Slopes_x,
@@ -575,32 +566,32 @@ void SolverHydroMuscl::save_solution_impl()
 void SolverHydroMuscl::save_solution_vtk() 
 {
 
-  // retrieve available / allowed names: fieldManager, and field map (fm)
-  auto fm = fieldMgr.get_id2index();
+  // // retrieve available / allowed names: fieldManager, and field map (fm)
+  // auto fm = fieldMgr.get_id2index();
 
-  // number of macroscopic variables,
-  // scalar fields : density, velocity, phase field, etc...
-  //int nbVar = fieldMgr.numScalarField;
+  // // number of macroscopic variables,
+  // // scalar fields : density, velocity, phase field, etc...
+  // //int nbVar = fieldMgr.numScalarField;
 
-  // a map containing ID and name of the variable to write
-  str2int_t names2index; // this is initially empty
-  build_var_to_write_map(names2index, params, configMap);
+  // // a map containing ID and name of the variable to write
+  // str2int_t names2index; // this is initially empty
+  // build_var_to_write_map(names2index, params, configMap);
   
-  // prepare suffix string
-  std::ostringstream strsuf;
-  strsuf << "iter";
-  strsuf.width(7);
-  strsuf.fill('0');
-  strsuf << m_iteration;
+  // // prepare suffix string
+  // std::ostringstream strsuf;
+  // strsuf << "iter";
+  // strsuf.width(7);
+  // strsuf.fill('0');
+  // strsuf << m_iteration;
   
-  writeVTK(*amr_mesh, strsuf.str(), U, fm, names2index, configMap);
+  // writeVTK(*amr_mesh, strsuf.str(), U, fm, names2index, configMap);
 
-  if (params.debug_output) {
-    writeVTK(*amr_mesh, strsuf.str(), Slopes_x, fm, names2index, configMap, "_slope_x");
-    writeVTK(*amr_mesh, strsuf.str(), Slopes_y, fm, names2index, configMap, "_slope_y");
-    if (params.dimType==THREE_D)
-      writeVTK(*amr_mesh, strsuf.str(), Slopes_z, fm, names2index, configMap, "_slope_z");
-  }
+  // if (params.debug_output) {
+  //   writeVTK(*amr_mesh, strsuf.str(), Slopes_x, fm, names2index, configMap, "_slope_x");
+  //   writeVTK(*amr_mesh, strsuf.str(), Slopes_y, fm, names2index, configMap, "_slope_y");
+  //   if (params.dimType==THREE_D)
+  //     writeVTK(*amr_mesh, strsuf.str(), Slopes_z, fm, names2index, configMap, "_slope_z");
+  // }
 
 } // SolverHydroMuscl::save_solution_vtk
 
@@ -685,12 +676,6 @@ void SolverHydroMuscl::synchronize_ghost_data(UserDataCommType t)
 
   timers.get("AMR: MPI ghosts").start();
 
-  // retrieve available / allowed names: fieldManager, and field map (fm)
-  auto fm = fieldMgr.get_id2index();
-
-  // retrieve current number of ghost cells
-  uint32_t nghosts = amr_mesh->getNumGhosts();
-
 #if BITPIT_ENABLE_MPI==1
 
   // select which data to exchange
@@ -699,35 +684,23 @@ void SolverHydroMuscl::synchronize_ghost_data(UserDataCommType t)
   // 1. resize ghost array
   // 2. create UserDataComm object
   // 3. perform MPI communications
-
-  auto exchange_ghosts = [&]( DataArray& A, DataArray& Aghost )
-  {
-    Kokkos::resize(Aghost, nghosts, A.extent(1));
-
-    auto A_host = Kokkos::create_mirror_view(A);
-    auto Aghost_host = Kokkos::create_mirror_view(Aghost);
-    Kokkos::deep_copy(A_host, A);
-
-    UserDataComm data_comm(A_host, Aghost_host, fm);
-    amr_mesh->communicate(data_comm);
-
-    Kokkos::deep_copy(Aghost, Aghost_host);
-  };
   
+  muscl_block::GhostCommunicator comm(amr_mesh);
+
   switch(t) {
   case UserDataCommType::UDATA: {
-    exchange_ghosts(U, Ughost);
+    comm.exchange_ghosts(U, Ughost);
     break;
   }
   case UserDataCommType::QDATA : {
-    exchange_ghosts(Q, Qghost);
+    comm.exchange_ghosts(Q, Qghost);
     break;
   }
   case UserDataCommType::SLOPES : {
-    exchange_ghosts(Slopes_x, Slopes_x_ghost);
-    exchange_ghosts(Slopes_y, Slopes_y_ghost);
+    comm.exchange_ghosts(Slopes_x, Slopes_x_ghost);
+    comm.exchange_ghosts(Slopes_y, Slopes_y_ghost);
     if (params.dimType==THREE_D) {
-      exchange_ghosts(Slopes_z, Slopes_z_ghost);
+      comm.exchange_ghosts(Slopes_z, Slopes_z_ghost);
     }
     break;
   } // end case SLOPES
@@ -759,7 +732,7 @@ void SolverHydroMuscl::mark_cells()
   // Note: Ughost is up to date, update at the beginning of do_amr_cycle
 
   // call device functor to flag for refine/coarsen
-  MarkCellsHydroFunctor::apply(amr_mesh, amr_lmesh, params, fm, Udata, Ughost,
+  MarkCellsHydroFunctor::apply(amr_mesh, amr_mesh->getLightOctree(), params, fm, Udata, Ughost,
                                eps_refine, eps_coarsen);
 
   timers.get("AMR: mark cells").stop();
@@ -778,110 +751,10 @@ void SolverHydroMuscl::adapt_mesh()
 
   // 2. re-compute connectivity
   amr_mesh->updateConnectivity();
-
-  amr_lmesh = LightOctree(amr_mesh, params);
   
   timers.get("AMR: adapt").stop();
 
 } // SolverHydroMuscl::adapt_mesh
-
-// =======================================================
-// =======================================================
-/**
- * input  U2 contains user data before adapt step
- * output U  will be filled with data after remap
- */
-void SolverHydroMuscl::map_userdata_after_adapt()
-{
-
-  timers.get("AMR: map userdata").start();
-
-  // TODO : make is mapper and isghost Kokkos::View's so that
-  // one can make the rest of this routine parallel
-  std::vector<uint32_t> mapper;
-  std::vector<bool> isghost;
-  
-  // 
-  int nbVars = params.nbvar;
-
-    // field manager index array
-  auto fm = fieldMgr.get_id2index();
-
-  // at this stage, the numerical scheme has been computed
-  // U contains data at t_n
-  // U2 contains data at t_{n+1}
-  //
-  // so let's just resize U, and remap U2 to U after the mesh adaptation
-
-  //amr_mesh->adapt(true);
-  uint32_t nbOcts = amr_mesh->getNumOctants();
-  Kokkos::resize(U, nbOcts, nbVars);
-
-  // TODO : map userdata on GPU
-  auto Uhost = Kokkos::create_mirror_view(U);
-  auto Ughost_host = Kokkos::create_mirror_view(Ughost);
-  auto U2_host = Kokkos::create_mirror_view(U2);
-
-  Kokkos::deep_copy(Ughost_host, Ughost);
-  Kokkos::deep_copy(U2_host, U2);
-  
-  // reset U
-  Kokkos::parallel_for("dyablo::muscl::SolverHydroMuscl reset U", 
-                       Kokkos::RangePolicy<Kokkos::OpenMP>(0,nbOcts), 
-                       [=](const size_t i) {
-                         for (int ivar=0; ivar<nbVars; ++ivar)
-                           Uhost(i,fm[ivar])=0.0;
-                       });
-  
-  /*
-   * Assign to the new octant the average of the old children
-   *  if it is new after a coarsening;
-   * while assign to the new octant the data of the old father
-   *  if it is new after a refinement.
-   */
-  // TODO
-  // TODO : make this loop a parallel_for ?
-  // TODO
-  for (uint32_t iOct=0; iOct<nbOcts; ++iOct) {
-
-    amr_mesh->getMapping(iOct, mapper, isghost);
-
-    // test is current cell is new upon a coarsening operation
-    if (amr_mesh->getIsNewC(iOct))
-    {
-      for (int j = 0; j < m_nbChildren; ++j)
-      {
-        if (isghost[j])
-        {
-          for (int ivar = 0; ivar < nbVars; ++ivar)
-            Uhost(iOct, fm[ivar]) += Ughost_host(mapper[j], fm[ivar]) / m_nbChildren;
-        }
-        else
-        {
-          for (int ivar = 0; ivar < nbVars; ++ivar)
-            Uhost(iOct, fm[ivar]) += U2_host(mapper[j], fm[ivar]) / m_nbChildren;
-        }
-      }
-    }
-    else
-    {
-
-      // current cell is just an old cell or new upon a refinement,
-      // so we just copy data
-      
-      for (int ivar = 0; ivar < nbVars; ++ivar)
-        Uhost(iOct, fm[ivar]) = U2_host(mapper[0], fm[ivar]);
-    }
-  }
-
-  // now U contains the most up to date data after mesh adaptation
-  // we can resize U2 for the next time-step
-  Kokkos::resize(U2, U.extent(0), U.extent(1));
-  Kokkos::deep_copy(U, Uhost);
-  
-  timers.get("AMR: map userdata").stop();
-
-} // SolverHydroMuscl::map_data_after_adapt
 
 // =======================================================
 // =======================================================
@@ -890,37 +763,18 @@ void SolverHydroMuscl::load_balance_userdata()
 
   timers.get("AMR: load-balance").start();
 
-#if BITPIT_ENABLE_MPI==1
-
-  // retrieve available / allowed names: fieldManager, and field map (fm)
-  auto fm = fieldMgr.get_id2index();
-
   /* (Load)Balance the octree over the processes with communicating the data.
-   * Preserve the family compact up to 4 levels over the max deep reached
+   * Preserve the family compact up to 3 levels over the max deep reached
    * in the octree. */
   {
     uint8_t levels = 4;
 
-    auto U_host = Kokkos::create_mirror_view(U);
-    auto Ughost_host = Kokkos::create_mirror_view(Ughost);
-    Kokkos::deep_copy(U_host, U);
-    Kokkos::deep_copy(Ughost_host, Ughost);
+    amr_mesh->loadBalance_userdata(levels, U);
 
-    UserDataLB data_lb(U_host, Ughost_host, fm);
-    amr_mesh->loadBalance(data_lb, levels);
-
-    // we probably need to resize U, ....
-    Kokkos::resize(U,U_host.extent(0),U_host.extent(1));
-    Kokkos::resize(Ughost,Ughost_host.extent(0),Ughost_host.extent(1));
-    Kokkos::resize(U2,U_host.extent(0),U_host.extent(1));
-
-    Kokkos::deep_copy(U, U_host);
-    Kokkos::deep_copy(Ughost, Ughost_host);  
-
-    amr_lmesh = LightOctree(amr_mesh, params);
-
+    // we probably need to resize arrays, ....
+    Kokkos::resize(U2,U.layout());
+    Kokkos::realloc(Ughost, amr_mesh->getNumGhosts(), Ughost.extent(1));
   }
-#endif // BITPIT_ENABLE_MPI==1
   
   timers.get("AMR: load-balance").stop();
 

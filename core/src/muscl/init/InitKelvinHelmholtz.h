@@ -13,7 +13,7 @@
 #include "shared/problems/KHParams.h"
 
 #include "bitpit_PABLO.hpp"
-#include "shared/bitpit_common.h"
+#include "shared/amr/AMRmesh.h"
 
 // kokkos random numbers generator
 #include <Kokkos_Random.hpp>

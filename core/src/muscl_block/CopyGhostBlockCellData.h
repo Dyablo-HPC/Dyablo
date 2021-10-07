@@ -4,9 +4,9 @@
 
 #include "shared/FieldManager.h"
 #include "shared/utils_hydro.h"
-#include "shared/bitpit_common.h"
+#include "shared/amr/AMRmesh.h"
 #include "muscl_block/utils_block.h"
-#include "shared/LightOctree.h"
+#include "shared/amr/LightOctree.h"
 
 namespace dyablo
 {
