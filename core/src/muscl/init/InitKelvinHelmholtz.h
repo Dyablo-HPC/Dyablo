@@ -41,7 +41,7 @@ public:
                                  HydroParams params, 
                                  KHParams khParams,
                                  id2index_t fm, 
-                                 DataArray Udata)
+                                 DataArrayHost Udata)
       : pmesh(pmesh), 
         params(params),
         khParams(khParams),
@@ -55,7 +55,7 @@ public:
                     HydroParams params,
                     ConfigMap configMap,
                     id2index_t fm,
-                    DataArray Udata) 
+                    DataArrayHost Udata) 
   {
     
     KHParams khParams = KHParams(configMap);
@@ -210,7 +210,7 @@ public:
   HydroParams params;
   KHParams khParams;
   id2index_t fm;
-  DataArray Udata;
+  DataArrayHost Udata;
 
   // random number generator
   Kokkos::Random_XorShift64_Pool<Device> rand_pool;

@@ -38,17 +38,17 @@ public:
                          HydroParams   params,
                          ImplodeParams iParams,
                          id2index_t    fm,
-                         DataArray     Udata) :
+                         DataArrayHost Udata) :
     pmesh(pmesh), params(params), iParams(iParams),
     fm(fm), Udata(Udata)
   {};
   
   // static method which does it all: create and execute functor
   static void apply(std::shared_ptr<AMRmesh> pmesh,
-		    HydroParams   params,
+		                HydroParams   params,
                     ConfigMap     configMap,
-		    id2index_t    fm,
-                    DataArray     Udata)
+		                id2index_t    fm,
+                    DataArrayHost Udata)
   {
     ImplodeParams implodeParams = ImplodeParams(configMap);
     
@@ -139,7 +139,7 @@ public:
   HydroParams   params;
   ImplodeParams iParams;
   id2index_t    fm;
-  DataArray     Udata;
+  DataArrayHost Udata;
   
 }; // InitImplodeDataFunctor
 

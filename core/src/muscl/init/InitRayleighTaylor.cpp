@@ -18,7 +18,8 @@ void init_rayleigh_taylor(SolverHydroMuscl *psolver)
   //ConfigMap &configMap = psolver->configMap;
   //HydroParams& params = psolver->params;
 
-  // TODO
+  // TODO when gravity is implemented in the cell-based
+  assert(false); // Not implemented yet
 
 } // init_rayleigh_taylor
 

@@ -86,9 +86,11 @@ void init_four_quadrant(SolverHydroMuscl *psolver)
   /*
    * perform user data init
    */
-  InitFourQuadrantDataFunctor::apply(amr_mesh, params, fm, psolver->U, 
+  InitFourQuadrantDataFunctor::apply(amr_mesh, params, fm, psolver->Uhost, 
                                      configNumber, 
                                      S0, S1, S2, S3, xt, yt);
+                                     
+  Kokkos::deep_copy(psolver->U, psolver->Uhost);
 
 } // init_four_quadrant
 

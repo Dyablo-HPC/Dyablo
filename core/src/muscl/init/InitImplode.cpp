@@ -46,10 +46,8 @@ void init_implode(SolverHydroMuscl *psolver)
   // after the global refine stages, all cells are at level = level_min
 
   // initialize user data (U and U2) at level_min
-  Kokkos::resize(psolver->U,amr_mesh->getNumOctants(),params.nbvar);
-  Kokkos::resize(psolver->U2,amr_mesh->getNumOctants(),params.nbvar);
-  InitImplodeDataFunctor::apply(amr_mesh, params, configMap, fm, psolver->U);
-  Kokkos::deep_copy(psolver->U2, psolver->U);
+  psolver->resize_solver_data();
+  InitImplodeDataFunctor::apply(amr_mesh, params, configMap, fm, psolver->Uhost);
   
   // update mesh until we reach level_max
   for (int level = level_min; level < level_max; ++level) {
@@ -57,11 +55,9 @@ void init_implode(SolverHydroMuscl *psolver)
     psolver->do_amr_cycle();
     
     // re-compute U on the new mesh
-    InitImplodeDataFunctor::apply(amr_mesh, params, configMap, fm, psolver->U);
-    Kokkos::deep_copy(psolver->U2,psolver->U);
-    
+    InitImplodeDataFunctor::apply(amr_mesh, params, configMap, fm, psolver->Uhost);  
   }
-
+  Kokkos::deep_copy(psolver->U, psolver->Uhost);
 } // init_implode
 
 } // namespace muscl

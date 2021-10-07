@@ -38,7 +38,7 @@ public:
   InitFourQuadrantDataFunctor(std::shared_ptr<AMRmesh> pmesh,
 			      HydroParams   params,
 			      id2index_t    fm,
-			      DataArray     Udata,
+                              DataArrayHost Udata,
 			      int           configNumber,
 			      HydroState2d  U0,
 			      HydroState2d  U1,
@@ -54,7 +54,7 @@ public:
   static void apply(std::shared_ptr<AMRmesh> pmesh,
 		    HydroParams   params,
 		    id2index_t    fm,
-                    DataArray     Udata,
+                    DataArrayHost Udata,
 		    int           configNumber,
 		    HydroState2d  U0,
 		    HydroState2d  U1,
@@ -65,7 +65,6 @@ public:
   {
     
     // iterate functor for refinement
-    
     InitFourQuadrantDataFunctor functor(pmesh, params, fm, Udata,
 					configNumber,
 					U0, U1, U2, U3, xt, yt);
@@ -74,7 +73,6 @@ public:
   
   void operator()(const size_t& i) const
   {
-    
     // get cell center coordinate in the unit domain
     // FIXME : need to refactor AMRmesh interface to use Kokkos::Array
     std::array<double,3> center = pmesh->getCenter(i);
@@ -82,6 +80,14 @@ public:
     const real_t x = center[0];
     const real_t y = center[1];
     
+    /**
+     * Quadrant order :
+     * +---+---+
+     * | 1 | 0 |
+     * +---+---+
+     * | 2 | 3 |
+     * +---+---+
+     **/
     if (x<xt) {
       if (y<yt) {
 	// quarter 2
@@ -120,7 +126,7 @@ public:
   std::shared_ptr<AMRmesh> pmesh;
   HydroParams  params;
   id2index_t   fm;
-  DataArray    Udata;
+  DataArrayHost    Udata;
   HydroState2d U0, U1, U2, U3;
   real_t       xt, yt;
   

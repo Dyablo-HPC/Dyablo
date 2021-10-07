@@ -72,7 +72,9 @@ void init_kelvin_helmholtz(SolverHydroMuscl *psolver)
   /*
    * perform user data init
    */
-  InitKelvinHelmholtzDataFunctor::apply(amr_mesh, params, configMap, fm, psolver->U);
+  InitKelvinHelmholtzDataFunctor::apply(amr_mesh, params, configMap, fm, psolver->Uhost);
+
+  Kokkos::deep_copy(psolver->U, psolver->Uhost);
 
 
 } // init_kelvin_helmholtz

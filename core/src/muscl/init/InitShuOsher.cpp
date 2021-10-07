@@ -43,28 +43,26 @@ void init_shu_osher(SolverHydroMuscl *psolver)
 
   // after the global refine stages, all cells are at level = level_min
 
-    // re-compute mesh connectivity (morton index list, nodes coordinates, ...)
-    amr_mesh->updateConnectivity();
+  // re-compute mesh connectivity (morton index list, nodes coordinates, ...)
+  amr_mesh->updateConnectivity();
 
-    // after the global refine stages, 
-    // all cells are at level = level_min
+  // after the global refine stages, 
+  // all cells are at level = level_min
 
-    // initialize user data (U and U2) at level_min
-    Kokkos::resize(psolver->U,amr_mesh->getNumOctants(),params.nbvar);
-    Kokkos::resize(psolver->U2,amr_mesh->getNumOctants(),params.nbvar);
-    InitShuOsherDataFunctor::apply(amr_mesh, params, configMap, fm, psolver->U);
-    Kokkos::deep_copy(psolver->U2, psolver->U);
+  // initialize user data (U and U2) at level_min
+  psolver->resize_solver_data();
+  InitShuOsherDataFunctor::apply(amr_mesh, params, configMap, fm, psolver->Uhost);
 
-    // update mesh until we reach level_max
-    for (int level = level_min; level < level_max; ++level) {
+  // update mesh until we reach level_max
+  for (int level = level_min; level < level_max; ++level) {
 
-      psolver->do_amr_cycle();
+    psolver->do_amr_cycle();
 
-      // re-compute U on the new mesh
-      InitShuOsherDataFunctor::apply(amr_mesh, params, configMap, fm,
-                                     psolver->U);
-      Kokkos::deep_copy(psolver->U2, psolver->U);
-    }
+    // re-compute U on the new mesh
+    InitShuOsherDataFunctor::apply(amr_mesh, params, configMap, fm,
+                                    psolver->Uhost);
+    Kokkos::deep_copy(psolver->U, psolver->Uhost);
+  }
 
 } // init_shu_osher
 

@@ -43,17 +43,17 @@ public:
   InitShuOsherDataFunctor(std::shared_ptr<AMRmesh> pmesh,
                           HydroParams   params,
                           id2index_t    fm,
-                          DataArray     Udata) :
+                          DataArrayHost Udata) :
     pmesh(pmesh), params(params),
     fm(fm), Udata(Udata)
   {};
   
   // static method which does it all: create and execute functor
   static void apply(std::shared_ptr<AMRmesh> pmesh,
-		    HydroParams   params,
+		                HydroParams   params,
                     ConfigMap     configMap,
-		    id2index_t    fm,
-                    DataArray     Udata)
+		                id2index_t    fm,
+                    DataArrayHost Udata)
   {
     // data init functor
     InitShuOsherDataFunctor functor(pmesh, params, fm, Udata);
@@ -102,9 +102,9 @@ public:
   } // end operator ()
 
   std::shared_ptr<AMRmesh> pmesh;
-  HydroParams  params;
-  id2index_t   fm;
-  DataArray    Udata;
+  HydroParams   params;
+  id2index_t    fm;
+  DataArrayHost Udata;
   
 }; // InitShuOsherDataFunctor
 

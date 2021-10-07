@@ -36,7 +36,7 @@ public:
   InitIsentropicVortexDataFunctor(std::shared_ptr<AMRmesh> pmesh,
                                   HydroParams params,
                                   IsentropicVortexParams ivParams,
-                                  id2index_t fm, DataArray Udata)
+                                  id2index_t fm, DataArrayHost Udata)
       : pmesh(pmesh), params(params), ivParams(ivParams), fm(fm),
         Udata(Udata){};
 
@@ -45,7 +45,7 @@ public:
                     HydroParams params,
                     ConfigMap configMap, 
                     id2index_t fm, 
-                    DataArray Udata) 
+                    DataArrayHost Udata) 
   {
     // isentropic vortex specific parameters
     IsentropicVortexParams ivParams = IsentropicVortexParams(configMap);
@@ -131,7 +131,7 @@ public:
   HydroParams params;
   IsentropicVortexParams ivParams;
   id2index_t fm;
-  DataArray Udata;
+  DataArrayHost Udata;
 
 }; // InitIsentropicVortexDataFunctor
 
