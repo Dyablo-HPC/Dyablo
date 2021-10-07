@@ -42,8 +42,8 @@ public:
     int level_min = params.level_min;
     int level_max = params.level_max;
     int bx = psolver->bx;
-    int bz = psolver->by;
-    int by = psolver->bz;
+    int by = psolver->by;
+    int bz = (ndim == 3) ? psolver->bz : 1;
     int xmin = params.xmin;
     int ymin = params.ymin;
     int zmin = params.zmin;

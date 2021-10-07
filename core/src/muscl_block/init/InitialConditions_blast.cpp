@@ -16,11 +16,14 @@ struct AnalyticalFormula_blast{
     const int blast_nx;
     const int blast_ny;
     const int blast_nz;
-    
+    real_t xmin, xmax;
+    real_t ymin, ymax;
+    real_t zmin, zmax;    
     const real_t gamma0;
     
     AnalyticalFormula_blast( const ConfigMap& configMap, const HydroParams& params ) :
         ndim( (params.dimType == THREE_D) ? 3 : 2 ),
+        // Length are scaled by quadrant width (0.5,0.5,0.5 is center of quadrant when blast_n* != 1)
         blast_radius ( configMap.getFloat("blast","radius", 0.1) ),
         blast_center_x ( configMap.getFloat("blast","center_x", 0.5) ),
         blast_center_y ( configMap.getFloat("blast","center_y", 0.5) ),
@@ -29,9 +32,13 @@ struct AnalyticalFormula_blast{
         blast_density_out ( configMap.getFloat("blast","density_out", 1.2) ),
         blast_pressure_in ( configMap.getFloat("blast","pressure_in", 10.0) ),
         blast_pressure_out ( configMap.getFloat("blast","pressure_out", 0.1) ),
+        // Number of quadrants in each direction
         blast_nx ( configMap.getInteger("blast", "blast_nx", 1) ),
         blast_ny ( configMap.getInteger("blast", "blast_ny", 1) ),
-        blast_nz ( configMap.getInteger("blast", "blast_nz", 1) ),
+        blast_nz ( configMap.getInteger("blast", "blast_nz", 1) ),        
+        xmin( params.xmin ), xmax( params.xmax ),
+        ymin( params.ymin ), ymax( params.ymax ),
+        zmin( params.zmin ), zmax( params.zmax ),
         gamma0 ( params.settings.gamma0 )
 
     {}
@@ -40,42 +47,35 @@ struct AnalyticalFormula_blast{
     bool need_refine( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
     {
         // Quadrant size
-        const real_t qx = 1.0 / this->blast_nx;
-        const real_t qy = 1.0 / this->blast_ny;
-        const real_t qz = (this->ndim == 3 ? 1.0 / this->blast_nz : 1.0);
-        const real_t q = std::min(qx, std::min( qy, qz ) );
-
-        const int qix = (int)(x / qx);
-        const int qiy = (int)(y / qy);
-        const int qiz = (int)(z / qz);
-
-        // Rescaling position wrt the current blast quadrant
-        x = (x - qix * qx) / q - (qx/q - 1) * 0.5;
-        y = (y - qiy * qy) / q - (qy/q - 1) * 0.5;
-        z = (z - qiz * qz) / q - (qz/q - 1) * 0.5;
+        real_t qsx = 1.0 / this->blast_nx;
+        real_t qsy = 1.0 / this->blast_ny;
+        real_t qsz = (this->ndim == 3) ? 1.0 / this->blast_nz : 1.0;
+        real_t qs = FMIN(qsx, FMIN( qsy, qsz ) );
+        real_t radius = this->blast_radius*qs;
+        // Quadrant logical position
+        int qix = (int)(x / qsx);
+        int qiy = (int)(y / qsy);
+        int qiz = (int)(z / qsz);
+        // Quadrant physical center
+        real_t qcx = (qix+0.5)*qsx;
+        real_t qcy = (qiy+0.5)*qsy;
+        real_t qcz = (qiz+0.5)*qsz;
 
         // Two refinement criteria are used : 
-        //  1- If the cell size is larger than a quadrant we refine
-        //  2- If the distance to the blast is smaller than the size of
+        //  1- If the cell size is larger than a quadrant we refine        
+        bool should_refine = dx > qsx || dy > qsy || dz > qsz;
+
+        //  2- If the distance to the interface is smaller than the size of
         //     half a diagonal we refine
-        
-        bool should_refine = dx > qx || dy > qy || dz > qz;
+        // Squared distance to quadrant center
+        real_t r2 = (x-qcx)*(x-qcx) + (y-qcy)*(y-qcy);
+        if( this->ndim == 3 ) r2 += (z-qcz)*(z-qcz);
 
-        real_t d2 = std::pow(x - blast_center_x, 2) +
-                    std::pow(y - blast_center_y, 2);
-        if (this->ndim == 3)
-            d2 += std::pow(z - blast_center_z, 2);
+        real_t half_cell_diag = (this->ndim == 3) ?
+            sqrt(dx*dx+dy*dy+dz*dz)/2 :
+            sqrt(dx*dx+dy*dy)/2 ;
 
-        // Cell diag is calculated to be in the units of a quadrant
-        const real_t cx = dx / qx;
-        const real_t cy = dx / qy;
-        const real_t cz = dx / qz;
-
-        real_t cellDiag = (this->ndim == 3)
-                            ? sqrt(cx*cx+cy*cy+cz*cz) * 0.5
-                            : sqrt(cx*cx+cy*cy) * 0.5;
-
-        if (fabs(sqrt(d2) - this->blast_radius) < cellDiag)
+        if( std::abs( std::sqrt(r2) - radius ) < half_cell_diag )
             should_refine = true;
 
         return should_refine;
@@ -85,33 +85,26 @@ struct AnalyticalFormula_blast{
     HydroState3d value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
     {
         // Quadrant size
-        const real_t qx = 1.0 / this->blast_nx;
-        const real_t qy = 1.0 / this->blast_ny;
-        const real_t qz = 1.0 / this->blast_nz;
-        const real_t q = std::min(qx, std::min(qy, qz));
-        
-        const int qix = (int)(x / qx);
-        const int qiy = (int)(y / qy);
-        const int qiz = (int)(z / qz);
+        real_t qsx = 1.0 / this->blast_nx;
+        real_t qsy = 1.0 / this->blast_ny;
+        real_t qsz = (this->ndim == 3 ? 1.0 / this->blast_nz : 1.0);
+        real_t qs = FMIN(qsx, FMIN( qsy, qsz ) );
+        real_t radius = this->blast_radius*qs;
+        // Quadrant logical position
+        int qix = (int)(x / qsx);
+        int qiy = (int)(y / qsy);
+        int qiz = (int)(z / qsz);
+        // Quadrant physical center
+        real_t qcx = (qix+0.5)*qsx;
+        real_t qcy = (qiy+0.5)*qsy;
+        real_t qcz = (qiz+0.5)*qsz;
 
-        real_t radius2 = blast_radius*blast_radius;
-
-        // Rescaling position wrt the current blast quadrant
-        x = (x - qix * qx) / q - (qx/q - 1) * 0.5;
-        y = (y - qiy * qy) / q - (qy/q - 1) * 0.5;
-        z = (z - qiz * qz) / q - (qz/q - 1) * 0.5;
-
-        // initialize
-        real_t d2 = 
-        (x-this->blast_center_x)*(x-this->blast_center_x)+
-        (y-this->blast_center_y)*(y-this->blast_center_y);  
-        
-        if (this->ndim==3)
-            d2 += (z-blast_center_z)*(z-blast_center_z);
+        real_t r2 = (x-qcx)*(x-qcx) + (y-qcy)*(y-qcy);
+        if( this->ndim == 3 ) r2 += (z-qcz)*(z-qcz);
         
         HydroState3d res {};
 
-        if (d2 < radius2) {
+        if (r2 < radius*radius) {
             res[ID] = blast_density_in;
             res[IP] = blast_pressure_in/(gamma0-1.0);;
         } else {
