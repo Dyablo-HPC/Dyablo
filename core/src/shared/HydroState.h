@@ -2,6 +2,7 @@
 #define HYDRO_STATE_H_
 
 #include "real_type.h"
+#include "shared/kokkos_shared.h"
 
 namespace dyablo {
 

@@ -2,7 +2,7 @@
 
 namespace dyablo{
 
-struct AnalyticalFormula_blast{
+struct AnalyticalFormula_blast : public AnalyticalFormula_base {
      // blast problem parameters
     const int ndim;
     const real_t blast_radius;

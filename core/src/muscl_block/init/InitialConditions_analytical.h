@@ -1,6 +1,7 @@
 #pragma once
 
 #include "InitialConditions_base.h"
+#include "AnalyticalFormula.h"
 
 #include "muscl_block/foreach_cell/AMRBlockForeachCell_group.h"
 //#include "muscl_block/foreach_cell/AMRBlockForeachCell_scratch.h"
@@ -13,11 +14,7 @@ namespace muscl_block{
 
 /** 
  * Helper to implement InitialConditions with analytical formula
- * User implements the AnalyticalFormula class that provides :
- * 1) `bool need_refine( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz );`
- *  determines if the cell at position {x,y,z} with size {dx,dy,dz} needs to be refined
- * 2) `HydroState3d value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz );`
- *  the final value hydro state for the cell at position {x,y,z} with size {dx,dy,dz}
+ * User implements the AnalyticalFormula class that implements the AnalyticalFormula_base interface
  * 
  * And the init() method :
  * 1) initializes the AMR tree by calling successively need_refine for each levels between level_min and level_max
@@ -25,6 +22,8 @@ namespace muscl_block{
  **/
 template< typename AnalyticalFormula >
 class InitialConditions_analytical : public InitialConditions{ 
+    static_assert( std::is_base_of< AnalyticalFormula_base, AnalyticalFormula >::value, 
+                  "AnalyticalFormula must implement AnalyticalFormula_base" );
 public:
   void init(SolverHydroMusclBlock* psolver) 
   {
