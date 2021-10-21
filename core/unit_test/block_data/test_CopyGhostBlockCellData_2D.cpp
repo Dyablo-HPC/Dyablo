@@ -23,7 +23,7 @@
 
 #include "muscl/SolverHydroMuscl.h"
 #include "muscl_block/SolverHydroMusclBlock.h"
-#include "muscl_block/init/InitImplode.h"
+#include "muscl_block/init/legacy/InitImplode.h"
 
 #include "muscl_block/CopyInnerBlockCellData.h"
 #include "muscl_block/CopyGhostBlockCellData.h"

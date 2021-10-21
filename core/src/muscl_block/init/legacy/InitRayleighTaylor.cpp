@@ -1,31 +1,26 @@
 /**
- * \file InitTemplate.cpp
+ * \file InitRayleighTaylor.cpp
  * \author Maxime Delorme
- *
- * This file is a template for the construction of a new problem.
- * It should be copied to the correct name (e.g. InitBlast.cpp) and adapted
- * so that the right functors are called.
- *
- * Please follow the instructions in InitTemplate.h.
  */
 
-#include "InitXXXXX.h"
-#include "../SolverHydroMusclBlock.h"
+#include "InitRayleighTaylor.h"
+#include "muscl_block/SolverHydroMusclBlock.h"
 
 namespace dyablo {
 namespace muscl_block {
 
-// Redefine these to the functors you have setup in InitXXXXX.h
-using DataFunctor   = InitXXXXXDataFunctor;
-using RefineFunctor = InitXXXXXRefineFunctor;
+using DataFunctor   = InitRayleighTaylorDataFunctor;
+using RefineFunctor = InitRayleighTaylorRefineFunctor;
 
 // ================================================
 // ================================================
 /**
- * Here add a short description of your test and potential references
- * to bibliographic material
+ * Rayleigh-Taylor instability as per https://www.astro.princeton.edu/~jstone/Athena/tests/rt/rt.html
+ * References:
+ *  - Liska, R., Wendroff, B. "Comparison of Several Difference Schemes on 1D and 2D Test Problems for the Euler Equations", SIAM, J. Sci. Comput., 25(3), 995-1017, 2003
+ *  - Jun, B.I., Norman, M.L. "A Numerical Study of Rayleigh-Taylor instability in Magnetic Fluids", ApJ, 453:332-349, 1995
  */
-void init_XXXXX(SolverHydroMusclBlock *psolver) {
+void init_rayleigh_taylor(SolverHydroMusclBlock *psolver) {
   std::shared_ptr<AMRmesh> amr_mesh  = psolver->amr_mesh;
   ConfigMap&               configMap = psolver->configMap;
   HydroParams&             params    = psolver->params;
@@ -33,6 +28,16 @@ void init_XXXXX(SolverHydroMusclBlock *psolver) {
   /* Initial global refinement, no parallelism required */
   int level_min = params.level_min;
   int level_max = params.level_max;
+
+  if (!(params.gravity_type & GRAVITY_CONSTANT)) {
+    std::cerr << "ERROR: Gravity type should be set to constant for Rayleigh-Taylor instability" << std::endl;
+    std::cerr << "       Setting gravity to constant scalar" << std::endl;
+    // HERE do something like std::exit(1);
+    params.gravity_type = GRAVITY_CST_SCALAR;
+    params.gx           =  0.0;
+    params.gy           = -0.1;
+    params.gz           =  0.0;
+  }
 
   for (uint8_t level=0; level<level_min; ++level)
     amr_mesh->adaptGlobalRefine();
@@ -70,6 +75,7 @@ void init_XXXXX(SolverHydroMusclBlock *psolver) {
   DataFunctor::apply(amr_mesh, params, configMap, fm, psolver->blockSizes, psolver->Uhost);
   // Upload data on device
   Kokkos::deep_copy(psolver->U, psolver->Uhost);
-} // init_XXXXX
+
+} // init_RayleighTaylor
 } // namespace muscl_block
 } // namespace dyablo

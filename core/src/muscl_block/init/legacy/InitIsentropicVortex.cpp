@@ -4,7 +4,7 @@
  **/
 
 #include "InitIsentropicVortex.h"
-#include "../SolverHydroMusclBlock.h"
+#include "muscl_block/SolverHydroMusclBlock.h"
 
 namespace dyablo {
 namespace muscl_block {

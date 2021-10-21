@@ -1,31 +1,31 @@
 /**
- * \file InitDoubleMachReflection.cpp
+ * \file InitTemplate.cpp
  * \author Maxime Delorme
+ *
+ * This file is a template for the construction of a new problem.
+ * It should be copied to the correct name (e.g. InitBlast.cpp) and adapted
+ * so that the right functors are called.
+ *
+ * Please follow the instructions in InitTemplate.h.
  */
 
-#include "InitDoubleMachReflection.h"
-#include "../SolverHydroMusclBlock.h"
+#include "InitXXXXX.h"
+#include "muscl_block/SolverHydroMusclBlock.h"
 
 namespace dyablo {
 namespace muscl_block {
 
 // Redefine these to the functors you have setup in InitXXXXX.h
-using DataFunctor   = InitDoubleMachReflectionDataFunctor;
-using RefineFunctor = InitDoubleMachReflectionRefineFunctor;
+using DataFunctor   = InitXXXXXDataFunctor;
+using RefineFunctor = InitXXXXXRefineFunctor;
 
 // ================================================
 // ================================================
 /**
- * Double Mach Reflection test
- *
- * Consists of a shock propagating at an angle of a solid surface
- *
- * References:
- *
- * - Woodward, P., Collela, P. "The numerical simulation of two-dimensional fluid flow with strong shocks", 1984
- * - Vevek, U.S., Zang, B., New, T.H. "On Alternative Setups of the Double Mach Reflection Problem", 2018
+ * Here add a short description of your test and potential references
+ * to bibliographic material
  */
-void init_double_mach_reflection(SolverHydroMusclBlock *psolver) {
+void init_XXXXX(SolverHydroMusclBlock *psolver) {
   std::shared_ptr<AMRmesh> amr_mesh  = psolver->amr_mesh;
   ConfigMap&               configMap = psolver->configMap;
   HydroParams&             params    = psolver->params;
@@ -70,6 +70,6 @@ void init_double_mach_reflection(SolverHydroMusclBlock *psolver) {
   DataFunctor::apply(amr_mesh, params, configMap, fm, psolver->blockSizes, psolver->Uhost);
   // Upload data on device
   Kokkos::deep_copy(psolver->U, psolver->Uhost);
-} // init_double_mach_reflection
+} // init_XXXXX
 } // namespace muscl_block
 } // namespace dyablo

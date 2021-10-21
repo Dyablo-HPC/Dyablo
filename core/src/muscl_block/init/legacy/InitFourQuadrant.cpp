@@ -1,10 +1,11 @@
 /**
- * \file InitImplode.cpp
+ * \file InitFourQuadrant.cpp
+ * \author Maxime Delorme 
  * \author Pierre Kestener
  */
 
-#include "InitImplode.h"
-#include "../SolverHydroMusclBlock.h"
+#include "InitFourQuadrant.h"
+#include "muscl_block/SolverHydroMusclBlock.h"
 
 namespace dyablo {
 namespace muscl_block {
@@ -12,42 +13,44 @@ namespace muscl_block {
 // =======================================================
 // =======================================================
 /**
- * Hydrodynamical implosion Test.
- * http://www.astro.princeton.edu/~jstone/Athena/tests/implode/Implode.html
+ * Init four quadrant (piecewise constant).
  *
- * Initial condition is mostly done on host, the final refined initial
- * condition data are uploaded to kokkos device.
+ * Four quadrant 2D riemann problem.
+ *
+ * See article: Lax and Liu, "Solution of two-dimensional riemann
+ * problems of gas dynamics by positive schemes",SIAM journal on
+ * scientific computing, 1998, vol. 19, no2, pp. 319-340
  */
-void init_implode(SolverHydroMusclBlock *psolver)
+void init_four_quadrant(SolverHydroMusclBlock *psolver)
 {
 
   std::shared_ptr<AMRmesh> amr_mesh = psolver->amr_mesh;
-  ConfigMap&   configMap = psolver->configMap;
-  HydroParams& params    = psolver->params;
-  
+  ConfigMap &configMap = psolver->configMap;
+  HydroParams& params = psolver->params;
+
   /*
    * this is the initial global refine, to reach level_min / no parallelism
    * so far (every MPI process does that)
    */
   int level_min = params.level_min;
-  int level_max = params.level_max;  
-
+  int level_max = params.level_max;
+  
   for (int iter=0; iter<level_min; iter++) {
     amr_mesh->adaptGlobalRefine();
   }
 #if BITPIT_ENABLE_MPI==1
-  // (Load)Balance the octree over the MPI processes.
-  amr_mesh->loadBalance();
+    // (Load)Balance the octree over the MPI processes.
+    amr_mesh->loadBalance();
 #endif
-  //std::cout << "MPI rank=" << amr_mesh->getRank() << " | NB cells =" << amr_mesh->getNumOctants() << "\n";
+    //std::cout << "MPI rank=" << amr_mesh->getRank() << " | NB cells =" << amr_mesh->getNumOctants() << "\n";
 
   // after the global refine stages, all cells are at level = level_min
 
   // genuine initial refinement
-  for (int level=level_min; level<level_max; ++level) {
+  for (int level = level_min; level < level_max; ++level) {
 
     // mark cells for refinement
-    InitImplodeRefineFunctor::apply(amr_mesh, configMap, params, level);
+    InitFourQuadrantRefineFunctor::apply(amr_mesh, configMap, params, level);
 
     // actually perform refinement
     amr_mesh->adapt();
@@ -55,31 +58,27 @@ void init_implode(SolverHydroMusclBlock *psolver)
     // re-compute mesh connectivity (morton index list, nodes coordinates, ...)
     amr_mesh->updateConnectivity();
 
-#if BITPIT_ENABLE_MPI==1
+#if BITPIT_ENABLE_MPI == 1
     // (Load)Balance the octree over the MPI processes.
     amr_mesh->loadBalance();
 #endif
 
   } // end for level
 
-  // field manager index array
+  // retrieve available / allowed names: fieldManager, and field map (fm)
+  // necessary to access user data
   auto fm = psolver->fieldMgr.get_id2index();
 
-  // now we know the size of the mesh, we can allocate memory for
-  // heavy data (U, U2, Uhost, ...)
   psolver->resize_solver_data();
 
   /*
    * perform user data init
    */
-  InitImplodeDataFunctor::apply(amr_mesh, params, configMap, fm, 
-                                psolver->blockSizes,
-                                psolver->Uhost);
-
+  InitFourQuadrantDataFunctor::apply(amr_mesh, params, configMap, fm, psolver->blockSizes, psolver->Uhost);
+  
   // upload data on device
   Kokkos::deep_copy(psolver->U, psolver->Uhost);
-
-} // init_implode
+} // init_four_quadrant
 
 } // namespace muscl_block
 
