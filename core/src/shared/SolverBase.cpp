@@ -382,6 +382,11 @@ SolverBase::should_save_solution()
     return true;
   }
 
+  /* always write the first time step */
+  if (m_iteration==0) {
+    return true;
+  }
+
   return false;
   
 } // SolverBase::should_save_solution
