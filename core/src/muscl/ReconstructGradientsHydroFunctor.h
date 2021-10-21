@@ -120,8 +120,8 @@ public:
         // left or right neighbor ?
         new_grad =
           pos_n > pos_c
-          ? Qdata_ghost(cellId_n, fm[ivar]) - Qdata(cellId_c, fm[ivar])
-          : Qdata(cellId_c, fm[ivar]) - Qdata_ghost(cellId_n, fm[ivar]);
+          ? Qdata_ghost(cellId_n, ivar) - Qdata(cellId_c, ivar)
+          : Qdata(cellId_c, ivar) - Qdata_ghost(cellId_n, ivar);
         new_grad /= delta_x;
         
       } else {
@@ -129,8 +129,8 @@ public:
         // left or right neighbor ?
         new_grad =
           pos_n > pos_c
-          ? Qdata(cellId_n, fm[ivar]) - Qdata(cellId_c, fm[ivar])
-          : Qdata(cellId_c, fm[ivar]) - Qdata(cellId_n, fm[ivar]);
+          ? Qdata(cellId_n, ivar) - Qdata(cellId_c, ivar)
+          : Qdata(cellId_c, ivar) - Qdata(cellId_n, ivar);
         new_grad /= delta_x;
       }
       
@@ -262,12 +262,12 @@ public:
       } // end minmod
 
       // copy back limited gradient
-      SlopeX(i,fm[ivar]) = grad[IX];
-      SlopeY(i,fm[ivar]) = grad[IY];
+      SlopeX(i,ivar) = grad[IX];
+      SlopeY(i,ivar) = grad[IY];
 
       if (this->params.dimType == THREE_D) {
         
-        SlopeZ(i,fm[ivar]) = grad[IZ];
+        SlopeZ(i,ivar) = grad[IZ];
         
       }
 

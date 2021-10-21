@@ -626,8 +626,6 @@ public:
     // number of faces per cell
     uint8_t nfaces = 2*dim;
 
-    const int nbvar = params.nbvar;
-
     // current cell size
     real_t dx = lmesh.getSize({i,false});
     
@@ -636,7 +634,7 @@ public:
 
     // current cell center state (primitive variables)
     HydroState2d qprim;
-    for (uint8_t ivar=0; ivar<nbvar; ++ivar)
+    for (VarIndex ivar : {ID, IP, IU, IV})
       qprim[ivar] = Qdata(i,fm[ivar]);
 
     // current cell conservative variable state
@@ -646,12 +644,11 @@ public:
 
       // if low Mach correction is activated, here we only accumulate the flux
       // the actual correction and update will be done later
-      for (uint8_t ivar = 0; ivar < nbvar; ++ivar)
-        qcons[ivar] = 0.0;
+      qcons = {0,0,0,0};
     
     } else {
 
-      for (uint8_t ivar = 0; ivar < nbvar; ++ivar)
+      for (VarIndex ivar : {ID, IP, IU, IV})
         qcons[ivar] = Data_in(i, fm[ivar]);
 
     }
@@ -790,10 +787,10 @@ public:
         // 0. retrieve primitive variables in neighbor cell
         HydroState2d qprim_n;
         if (isghost_n) {
-          for (uint8_t ivar = 0; ivar < nbvar; ++ivar)
+          for (VarIndex ivar : {ID, IP, IU, IV})
             qprim_n[ivar] = Qdata_ghost(i_n, fm[ivar]);
         } else {
-          for (uint8_t ivar = 0; ivar < nbvar; ++ivar)
+          for (VarIndex ivar : {ID, IP, IU, IV})
             qprim_n[ivar] = Qdata(i_n, fm[ivar]);
         }
 
@@ -881,8 +878,6 @@ public:
     // number of faces per cell
     uint8_t nfaces = 2*dim;
 
-    const int nbvar = params.nbvar;
-
     // current cell size
     real_t dx = lmesh.getSize({i,false});
     
@@ -891,7 +886,7 @@ public:
 
     // current cell center state (primitive variables)
     HydroState3d qprim;
-    for (uint8_t ivar=0; ivar<nbvar; ++ivar)
+    for (VarIndex ivar : {ID, IP, IU, IV, IW})
       qprim[ivar] = Qdata(i,fm[ivar]);
 
     // current cell conservative variable state
@@ -901,12 +896,11 @@ public:
       
       // if low Mach correction is activated, here we only accumulate the flux
       // the actual correction and update will be done later
-      for (uint8_t ivar = 0; ivar < nbvar; ++ivar)
-        qcons[ivar] = 0.0;
+      qcons = {0,0,0,0,0};
 
     } else {
 
-      for (uint8_t ivar = 0; ivar < nbvar; ++ivar)
+      for (VarIndex ivar : {ID, IP, IU, IV, IW})
         qcons[ivar] = Data_in(i, fm[ivar]);
         
     }
@@ -1081,10 +1075,10 @@ public:
         // 0. retrieve primitive variables in neighbor cell
         HydroState3d qprim_n;
         if (isghost_n) {
-          for (uint8_t ivar = 0; ivar < nbvar; ++ivar)
+          for (VarIndex ivar : {ID, IP, IU, IV, IW})
             qprim_n[ivar] = Qdata_ghost(i_n, fm[ivar]);
         } else {
-          for (uint8_t ivar = 0; ivar < nbvar; ++ivar)
+          for (VarIndex ivar : {ID, IP, IU, IV, IW})
             qprim_n[ivar] = Qdata(i_n, fm[ivar]);
         }
 

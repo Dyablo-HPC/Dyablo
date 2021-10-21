@@ -102,8 +102,7 @@ void run_test(int argc, char *argv[], uint32_t bSize, uint32_t nbBlocks)
   HydroParams params = HydroParams();
   params.setup(configMap);
 
-  FieldManager fieldMgr;
-  fieldMgr.setup(params, configMap);
+  FieldManager fieldMgr = FieldManager::setup(params, configMap);
 
   auto fm = fieldMgr.get_id2index();
 

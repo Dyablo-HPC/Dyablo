@@ -51,7 +51,8 @@ namespace dyablo { namespace muscl_block {
 SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
                                              ConfigMap& configMap) :
   SolverBase(params, configMap),
-  U(), Uhost(), U2(), Ughost()
+  U(), Uhost(), U2(), Ughost(),
+  fieldMgr( FieldManager::setup(params, configMap) )
 {
 
   solver_type = SOLVER_MUSCL_HANCOCK_BLOCK;
@@ -106,10 +107,6 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   /*
    * main data array memory allocation
    */
-  // init field manager
-  // retrieve available / allowed names: fieldManager, and field map (fm)
-  // necessary to access user data
-  fieldMgr.setup(params, configMap);
   int nbfields = fieldMgr.nbfields();
 
   U     = DataArrayBlock("U", nbCellsPerOct, nbfields, nbOcts);
