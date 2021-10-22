@@ -604,9 +604,6 @@ std::vector<morton_t> compute_current_morton_intervals(const AMRmesh_hashmap& me
 
 void AMRmesh_hashmap::adapt(bool dummy)
 {
-    std::cout << "---- Adapt ----" << std::endl;
-    std::cout << "Rank " << this->getRank() << ": octs before adapt " << this->getNumOctants() << std::endl;
-
     uint32_t mpi_rank = getRank();
     uint32_t mpi_size = getNproc();
     
@@ -694,18 +691,10 @@ void AMRmesh_hashmap::adapt(bool dummy)
     //     debug::output_vtk(std::string("after_adapt_iter")+std::to_string(iter), *this);
     //     iter++;
     // }
-
-    std::cout << "Rank " << this->getRank() << ": octs after adapt " << this->getNumOctants() << std::endl;
-    std::cout << "Rank " << this->getRank() << ": ghosts after adapt " << this->getNumGhosts() << std::endl;
-    std::cout << "---- End Adapt ----" << std::endl;
 }
 
 std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(uint8_t level)
 {
-    std::cout << "---- LoadBalance ----" << std::endl;
-    std::cout << "Rank " << this->getRank() << ": octs before LoadBalance " << this->getNumOctants() << std::endl;
-    std::cout << "Rank " << this->getRank() << ": ghosts before LoadBalance " << this->getNumGhosts() << std::endl;
-
     uint32_t mpi_rank = this->getRank();
     uint32_t mpi_size = this->getNproc();
 
@@ -866,10 +855,6 @@ std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(uint8_t level)
     //     debug::output_vtk(std::string("after_loadbalance_iter")+std::to_string(iter), *this);
     //     iter++;
     // }
-
-    std::cout << "Rank " << this->getRank() << ": octs after loadbalance " << this->getNumOctants() << std::endl;
-    std::cout << "Rank " << this->getRank() << ": ghosts after loadbalance " << this->getNumGhosts() << std::endl;
-    std::cout << "---- End LoadBalance----" << std::endl;
 
     assert(this->getNumOctants() > 0); // Process cannot be empty
 

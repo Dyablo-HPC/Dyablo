@@ -156,8 +156,16 @@ public:
    **/
   void loadBalance(uint8_t compact_levels=0)
   { 
+    uint32_t nbOcts_old = this->getNumOctants();
+    uint32_t nbGhosts_old = this->getNumGhosts();
+
     Impl::loadBalance(compact_levels);
-    lmesh_uptodate = false; 
+    lmesh_uptodate = false;
+
+    uint32_t nbOcts_new = this->getNumOctants();
+    uint32_t nbGhosts_new = this->getNumGhosts();
+    std::cout << "LoadBalance - rank " << this->getRank() << " octs : " << nbOcts_old << " (" << nbGhosts_old << ")"
+                                                          << " -> "     << nbOcts_new << " (" << nbGhosts_new << ")" << std::endl; 
   }  
 
   /**
@@ -167,15 +175,19 @@ public:
    *        for each octant iOct that needs to be moved, values from userData(..., iOct) 
    *        are transfered to the new owning mpi rank
    **/
-  void loadBalance_userdata( int compact_levels, DataArrayBlock& userData )
+  template<typename DataArray_t>
+  void loadBalance_userdata( int compact_levels, DataArray_t& userData )
   { 
+    uint32_t nbOcts_old = this->getNumOctants();
+    uint32_t nbGhosts_old = this->getNumGhosts();
+
     Impl::loadBalance_userdata(compact_levels, userData); 
     lmesh_uptodate = false; 
-  }
-  void loadBalance_userdata( int compact_levels, DataArray& userData )
-  { 
-    Impl::loadBalance_userdata(compact_levels, userData); 
-    lmesh_uptodate = false; 
+
+    uint32_t nbOcts_new = this->getNumOctants();
+    uint32_t nbGhosts_new = this->getNumGhosts();
+    std::cout << "LoadBalance - rank " << this->getRank() << " octs : " << nbOcts_old << " (" << nbGhosts_old << ")"
+                                                          << " -> "     << nbOcts_new << " (" << nbGhosts_new << ")" << std::endl; 
   }
 
   /**
@@ -192,8 +204,16 @@ public:
    **/
   void adapt(bool dummy = true)
   { 
+    uint32_t nbOcts_old = this->getNumOctants();
+    uint32_t nbGhosts_old = this->getNumGhosts();
+
     Impl::adapt(dummy); 
-    lmesh_uptodate = false; 
+    lmesh_uptodate = false;
+
+    uint32_t nbOcts_new = this->getNumOctants();
+    uint32_t nbGhosts_new = this->getNumGhosts();
+    std::cout << "Adapt - rank " << this->getRank() << " octs : " << nbOcts_old << " (" << nbGhosts_old << ")"
+                                                    << " -> "     << nbOcts_new << " (" << nbGhosts_new << ")" << std::endl;         
   }
   /// Refine all octants : same as adapt with all octants marked +1
   void adaptGlobalRefine()

@@ -17,6 +17,7 @@ public:
     {
         assert(dim == 2 || dim == 3);
         assert(balance_codim <= dim);
+        bitpit::log::setConsoleVerbosity(this->getLog(), bitpit::log::Verbosity::QUIET);
 
         this->setBalanceCodimension(balance_codim);
         uint32_t idx = 0;
