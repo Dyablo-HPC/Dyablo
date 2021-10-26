@@ -55,12 +55,13 @@ public:
     m_output_timeslice( configMap.getValue<real_t>("run", "output_timeslice", -1) ),
     m_amr_cycle_frequency( configMap.getValue<int>("amr", "cycle_frequency", 1) ),
     m_loadbalance_frequency( configMap.getValue<int>("amr", "load_balancing_frequency", 10) ),
+    m_gravity_type( configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE) ),
     m_communicator( GlobalMpiSession::get_comm_world() ),
     m_amr_mesh( init_amr_mesh( configMap ) ),
     m_foreach_cell( *m_amr_mesh, configMap ) 
   {
     int ndim = configMap.getValue<int>("mesh", "ndim", 3);
-    GravityType gravity_type = configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE);
+    GravityType gravity_type = m_gravity_type;
 
     m_field_manager = FieldManager::setup(ndim, gravity_type); // TODO : configure from what is needed by kernels
 
@@ -276,6 +277,24 @@ public:
     // Update hydro
     godunov_updater->update( U, U2, dt ); //TODO : make U2 a temporary array?
 
+    // TODO : list written fields in gravity_solver
+    if( this->m_gravity_type & GRAVITY_FIELD )
+    {
+      auto copy_field = [&](const VarIndex& var)
+      {
+        auto U_phi = Kokkos::subview(U.U, Kokkos::ALL(), U.fm[var], Kokkos::ALL());
+        auto U2_phi = Kokkos::subview(U2.U, Kokkos::ALL(), U2.fm[var], Kokkos::ALL());
+        Kokkos::deep_copy(U2_phi, U_phi);
+      };
+
+      // Copy gravity potential to U2 to use it for next step
+      copy_field(IGPHI);
+      // Copy gravity force field for visualization
+      copy_field(IGX);
+      copy_field(IGY);
+      if(m_foreach_cell.getDim() == 3) copy_field(IGZ);
+    }
+
     m_t += dt;
 
     // AMR cycle
@@ -357,7 +376,8 @@ private:
   double m_output_timeslice; //! Physical time interval between outputs (does nothing if m_enable_output==false)
   int m_amr_cycle_frequency; //! Number of iterations between amr cycles (<= 0 is never)
   int m_loadbalance_frequency; //! Number of iterations between load balancing (<= 0 is never)
-
+  GravityType m_gravity_type;
+  
   int m_iter = 0; //! Current Iteration number
   real_t m_t = 0; //! Current physical time
   int m_output_timeslice_count = 0; //! Number of timeslices already written

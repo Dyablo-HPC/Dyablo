@@ -44,6 +44,7 @@ FieldManager FieldManager::setup(int ndim, GravityType gravity_type) {
   if( three_d ) enabled_vars.insert( IW );
 
   if (gravity_type & GRAVITY_FIELD) {
+    enabled_vars.insert( IGPHI );
     enabled_vars.insert( IGX );
     enabled_vars.insert( IGY );
     if( three_d ) enabled_vars.insert( IGZ );
