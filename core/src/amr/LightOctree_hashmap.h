@@ -97,28 +97,26 @@ public:
 
         // Compute physical position of neighbor
         pos_t c = getCenter(iOct);
-        uint8_t level = getLevel(iOct); 
+        level_t level = getLevel(iOct); 
         uint32_t octant_count = pow_2( level );
         real_t octant_size = 1.0/octant_count;
         real_t eps = octant_size/8;
         // Compute logical octant position at this level
-        auto periodic_coord = KOKKOS_LAMBDA(real_t pos, int8_t offset) -> int32_t
+        auto periodic_coord = KOKKOS_LAMBDA(real_t pos, int8_t offset) -> logical_coord_t
         {
-            int32_t grid_pos = std::floor((pos+eps)/octant_size) + offset;
+            logical_coord_t grid_pos = std::floor((pos+eps)/octant_size) + offset;
             return (grid_pos+octant_count) % octant_count; // Only works if grid_pos>-octant_count
         };
-        index_t<3> logical_coords = {
-            periodic_coord( c[IX], offset[IX] ),
-            periodic_coord( c[IY], offset[IY] ),
-            periodic_coord( c[IZ], offset[IZ] )
-        };
-
-        // Get morton at same level
-        morton_t morton_neighbor = compute_morton_key( logical_coords );
+        
+        key_t logical_coords;
+        logical_coords.level = level;
+        logical_coords.i = periodic_coord( c[IX], offset[IX] );
+        logical_coords.j = periodic_coord( c[IY], offset[IY] );
+        logical_coords.k = periodic_coord( c[IZ], offset[IZ] );    
 
         NeighborList res = {0};
         // Search octant at same level
-        auto it = oct_map.find(get_key(level, morton_neighbor));
+        auto it = oct_map.find(logical_coords);
         if( oct_map.valid_at(it) )
         {
             // Found at same level
@@ -126,9 +124,14 @@ public:
         }
         else
         {
-            morton_t morton_neighbor_bigger = morton_neighbor >> 3; // Compute morton at coarser level : remove last 3 bits
+            key_t logical_coords_bigger;
+            logical_coords_bigger.level = logical_coords.level-1;
+            logical_coords_bigger.i = logical_coords.i >> 1;
+            logical_coords_bigger.j = logical_coords.j >> 1;
+            logical_coords_bigger.k = logical_coords.k >> 1;
+
             // Search octant at coarser level
-            auto it = oct_map.find(get_key(level-1, morton_neighbor_bigger));
+            auto it = oct_map.find(logical_coords_bigger);
             if( oct_map.valid_at(it) ) 
             {
                 // Found at coarser level
@@ -154,10 +157,14 @@ public:
                     {
                         res.m_size++;
                         assert(res.m_size<=4);
-                        // Morton at level+1 is morton at level with 3 more bits (8 suboctants)
-                        morton_t morton_neighbor_smaller = ( morton_neighbor << 3 ) + (z << IZ) + (y << IY) + (x << IX);
                         // Get the smaller neighbor (which necessarily exist)
-                        auto it = oct_map.find(get_key(level+1, morton_neighbor_smaller));
+                        key_t logical_coords_smaller;
+                        logical_coords_smaller.level = logical_coords.level+1;
+                        logical_coords_smaller.i = (logical_coords.i << 1) + x;
+                        logical_coords_smaller.j = (logical_coords.j << 1) + y;
+                        logical_coords_smaller.k = (logical_coords.k << 1) + z;
+
+                        auto it = oct_map.find(logical_coords_smaller);
                         assert(oct_map.valid_at(it)); // Could not find neighbor
                         res.m_neighbors[res.m_size-1] = oct_map.value_at(it);
                     }
@@ -201,8 +208,7 @@ public:
         else 
             assert( iz == 0  );
 
-        morton_t morton = compute_morton_key( ix, iy, iz );
-        auto it = oct_map.find(get_key(level, morton));
+        auto it = oct_map.find({level, ix, iy, iz});
 
         assert( oct_map.valid_at(it) );
 
@@ -220,38 +226,42 @@ public:
             assert( 0 < pos[IZ] && pos[IZ] < 1 );
         else
             assert( pos[IZ] == 0 );
-        morton_t morton;
+
+        key_t logical_coords;
         {
-            index_t<3> logical_coords;
             uint32_t octant_count = pow_2( max_level );
             real_t octant_size = 1.0/octant_count;
-            logical_coords[IX] = std::floor(pos[IX]/octant_size);
-            logical_coords[IY] = std::floor(pos[IY]/octant_size);
-            logical_coords[IZ] = (ndim-2)*std::floor(pos[IZ]/octant_size);
-
-            morton = compute_morton_key( logical_coords );
+            logical_coords.level = max_level;
+            logical_coords.i = std::floor(pos[IX]/octant_size);
+            logical_coords.j = std::floor(pos[IY]/octant_size);
+            logical_coords.k = (ndim-2)*std::floor(pos[IZ]/octant_size);
         }
 
-        for(uint8_t level=max_level; level>=min_level; level--)
+        for(level_t level=max_level; level>=min_level; level--)
         {
-            auto it = oct_map.find(get_key(level, morton));
+            auto it = oct_map.find(logical_coords);
 
             if( oct_map.valid_at(it) ) 
             {
                 return oct_map.value_at(it);
             }
-
-            morton = morton >> 3;
+            logical_coords.level = logical_coords.level-1;
+            logical_coords.i = logical_coords.i >> 1;
+            logical_coords.j = logical_coords.j >> 1;
+            logical_coords.k = logical_coords.k >> 1;
         }
 
         assert(false); //Could not find octant at this position
         return {};
     }
 
+    using logical_coord_t = uint32_t;
+    using level_t = logical_coord_t;
+    struct key_t //! key type for hashmap (morton+level)
+    {
+        logical_coord_t level, i, j, k;
+    };
 private:
-    using morton_t = uint64_t; //! Type of morton index
-    using level_t = uint8_t; //! Type for level
-    using key_t = uint64_t; //! key type for hashmap (morton+level)
     using oct_ref_t = OctantIndex; //! value type for the hashmap
     using oct_map_t = Kokkos::UnorderedMap<key_t, oct_ref_t>; //! hashmap returning an octant form a key
     oct_map_t oct_map; //! hashmap returning an octant form a key
@@ -269,14 +279,6 @@ private:
     //! Kokkos::view containing octants position and level 
     //! ex: (oct_data(iOct, ILEVEL) is octant level)
     oct_data_t oct_data;    
-
-    //! Construct a hashmap key from a level and a morton index
-    KOKKOS_INLINE_FUNCTION static key_t get_key( level_t level, morton_t morton ) {
-        constexpr uint8_t shift = sizeof(level)*8;
-        key_t res = (morton << shift) + level; 
-        assert( morton == (res >> shift) ); // Loss of data from shift
-        return res;
-    };
     
     //! Get octant index in oct_data from an OctantIndex
     KOKKOS_INLINE_FUNCTION uint32_t get_ioct_local(const OctantIndex& oct) const
@@ -344,20 +346,22 @@ public: // init() has to be public for KOKKOS_LAMBDA
             c[IZ] = oct_data(ioct_local, ICORNERZ);
             uint8_t level = oct_data(ioct_local, ILEVEL);
 
-            uint32_t octant_count = pow_2( level );
+            logical_coord_t octant_count = pow_2( level );
             real_t octant_size = 1.0/octant_count;
             real_t eps = octant_size/8; // To avoid rounding error when computing logical coords
-                auto periodic_coord = [=](real_t pos) -> int32_t
+            auto periodic_coord = [=](real_t pos) -> logical_coord_t
             {
-                int32_t grid_pos = std::floor((pos+eps)/octant_size);
-                return (grid_pos+octant_count) % octant_count; // Only works if grid_pos>-octant_count
+                // Only works if grid_pos>-octant_count
+                logical_coord_t grid_pos = std::floor((1.0+pos+eps)/octant_size);
+                return grid_pos % octant_count; 
             };
-            index_t<3> logical_coords = {
-                periodic_coord( c[IX] ),
-                periodic_coord( c[IY] ),
-                periodic_coord( c[IZ] )
-            };
-            morton_t morton = compute_morton_key(logical_coords);
+            
+
+            key_t logical_coords;
+            logical_coords.level = level;
+            logical_coords.i = periodic_coord( c[IX] );
+            logical_coords.j = periodic_coord( c[IY] );
+            logical_coords.k = periodic_coord( c[IZ] );
 
             OctantIndex ioct = {ioct_local, false};
             if( ioct_local >= numOctants )
@@ -369,7 +373,7 @@ public: // init() has to be public for KOKKOS_LAMBDA
             #ifndef NDEBUG
             oct_map_t::insert_result inserted = 
             #endif
-            oct_map.insert( get_key(level, morton), ioct );
+            oct_map.insert( logical_coords, ioct );
             assert(inserted.success());
         });
     }
