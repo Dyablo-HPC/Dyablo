@@ -26,7 +26,8 @@ after_script:
   stage: build
   artifacts:
     paths:
-      - build
+      - build/dyablo/test/solver
+      - build/dyablo/unit_test
     expire_in: 1 week
 
 build::openmp:
