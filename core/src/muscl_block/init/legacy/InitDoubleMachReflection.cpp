@@ -1,26 +1,31 @@
 /**
- * \file InitRayleighTaylor.cpp
+ * \file InitDoubleMachReflection.cpp
  * \author Maxime Delorme
  */
 
-#include "InitRayleighTaylor.h"
-#include "../SolverHydroMusclBlock.h"
+#include "InitDoubleMachReflection.h"
+#include "muscl_block/SolverHydroMusclBlock.h"
 
 namespace dyablo {
 namespace muscl_block {
 
-using DataFunctor   = InitRayleighTaylorDataFunctor;
-using RefineFunctor = InitRayleighTaylorRefineFunctor;
+// Redefine these to the functors you have setup in InitXXXXX.h
+using DataFunctor   = InitDoubleMachReflectionDataFunctor;
+using RefineFunctor = InitDoubleMachReflectionRefineFunctor;
 
 // ================================================
 // ================================================
 /**
- * Rayleigh-Taylor instability as per https://www.astro.princeton.edu/~jstone/Athena/tests/rt/rt.html
+ * Double Mach Reflection test
+ *
+ * Consists of a shock propagating at an angle of a solid surface
+ *
  * References:
- *  - Liska, R., Wendroff, B. "Comparison of Several Difference Schemes on 1D and 2D Test Problems for the Euler Equations", SIAM, J. Sci. Comput., 25(3), 995-1017, 2003
- *  - Jun, B.I., Norman, M.L. "A Numerical Study of Rayleigh-Taylor instability in Magnetic Fluids", ApJ, 453:332-349, 1995
+ *
+ * - Woodward, P., Collela, P. "The numerical simulation of two-dimensional fluid flow with strong shocks", 1984
+ * - Vevek, U.S., Zang, B., New, T.H. "On Alternative Setups of the Double Mach Reflection Problem", 2018
  */
-void init_rayleigh_taylor(SolverHydroMusclBlock *psolver) {
+void init_double_mach_reflection(SolverHydroMusclBlock *psolver) {
   std::shared_ptr<AMRmesh> amr_mesh  = psolver->amr_mesh;
   ConfigMap&               configMap = psolver->configMap;
   HydroParams&             params    = psolver->params;
@@ -28,16 +33,6 @@ void init_rayleigh_taylor(SolverHydroMusclBlock *psolver) {
   /* Initial global refinement, no parallelism required */
   int level_min = params.level_min;
   int level_max = params.level_max;
-
-  if (!(params.gravity_type & GRAVITY_CONSTANT)) {
-    std::cerr << "ERROR: Gravity type should be set to constant for Rayleigh-Taylor instability" << std::endl;
-    std::cerr << "       Setting gravity to constant scalar" << std::endl;
-    // HERE do something like std::exit(1);
-    params.gravity_type = GRAVITY_CST_SCALAR;
-    params.gx           =  0.0;
-    params.gy           = -0.1;
-    params.gz           =  0.0;
-  }
 
   for (uint8_t level=0; level<level_min; ++level)
     amr_mesh->adaptGlobalRefine();
@@ -75,7 +70,6 @@ void init_rayleigh_taylor(SolverHydroMusclBlock *psolver) {
   DataFunctor::apply(amr_mesh, params, configMap, fm, psolver->blockSizes, psolver->Uhost);
   // Upload data on device
   Kokkos::deep_copy(psolver->U, psolver->Uhost);
-
-} // init_RayleighTaylor
+} // init_double_mach_reflection
 } // namespace muscl_block
 } // namespace dyablo

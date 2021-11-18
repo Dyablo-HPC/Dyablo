@@ -3,16 +3,16 @@ set (muscl_block_SRCS
   ${CMAKE_CURRENT_SOURCE_DIR}/CopyGhostBlockCellData.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/MapUserData.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/MarkOctantsHydroFunctor.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/init/InitSod.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/init/InitBlast.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/init/InitImplode.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/init/InitGreshoVortex.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/init/InitFourQuadrant.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/init/InitIsentropicVortex.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/init/InitKelvinHelmholtz.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/init/InitShuOsher.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/init/InitDoubleMachReflection.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/init/InitRayleighTaylor.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/init/legacy/InitSod.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/init/legacy/InitBlast.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/init/legacy/InitImplode.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/init/legacy/InitGreshoVortex.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/init/legacy/InitFourQuadrant.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/init/legacy/InitIsentropicVortex.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/init/legacy/InitKelvinHelmholtz.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/init/legacy/InitShuOsher.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/init/legacy/InitDoubleMachReflection.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/init/legacy/InitRayleighTaylor.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_blast.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/update/MusclBlockUpdate_legacy.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/update/MusclBlockUpdate_generic.cpp

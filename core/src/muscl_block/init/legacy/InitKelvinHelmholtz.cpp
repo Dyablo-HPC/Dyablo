@@ -1,25 +1,27 @@
 /**
- * \file InitShuOsher.cpp
+ * \file InitKelvinHelmholtz.cpp
  * \author Maxime Delorme
  */
 
-#include "InitShuOsher.h"
-#include "../SolverHydroMusclBlock.h"
+#include "InitKelvinHelmholtz.h"
+#include "muscl_block/SolverHydroMusclBlock.h"
 
 namespace dyablo {
 namespace muscl_block {
 
-// Redefine these to the functors you have setup in InitXXXXX.h
-using DataFunctor   = InitShuOsherDataFunctor;
-using RefineFunctor = InitShuOsherRefineFunctor;
-
 // ================================================
 // ================================================
 /**
- * Here add a short description of your test and potential references
- * to bibliographic material
+ * Hydrodynamical Kelvin-Helmholtz instability Test
+ *
+ * see https://www.astro.princeton.edu/~jstone/Athena/tests/kh/kh.html
+ *
+ * See also article by Robertson et al:
+ * "Computational Eulerian hydrodynamics and Galilean invariance", 
+ * B.E. Robertson et al, Mon. Not. R. Astron. Soc., 401, 2463-2476, (2010).
+ *
  */
-void init_shu_osher(SolverHydroMusclBlock *psolver) {
+void init_kelvin_helmholtz(SolverHydroMusclBlock *psolver) {
   std::shared_ptr<AMRmesh> amr_mesh  = psolver->amr_mesh;
   ConfigMap&               configMap = psolver->configMap;
   HydroParams&             params    = psolver->params;
@@ -39,7 +41,7 @@ void init_shu_osher(SolverHydroMusclBlock *psolver) {
   /* Initial local refinement, mesh only */
   for (uint8_t level=level_min; level<level_max; ++level) {
     // Mark cells for refinement
-    RefineFunctor::apply(amr_mesh, configMap, params, level);
+    InitKelvinHelmholtzRefineFunctor::apply(amr_mesh, configMap, params, level);
 
     // Refine the mesh according to marking
     amr_mesh->adapt();
@@ -61,9 +63,11 @@ void init_shu_osher(SolverHydroMusclBlock *psolver) {
   psolver->resize_solver_data();
 
   // And data init
-  DataFunctor::apply(amr_mesh, params, configMap, fm, psolver->blockSizes, psolver->Uhost);
+  
+  InitKelvinHelmholtzDataFunctor::apply(amr_mesh, params, configMap, fm,
+					psolver->blockSizes, psolver->Uhost);
   // Upload data on device
   Kokkos::deep_copy(psolver->U, psolver->Uhost);
-} // init_shu_osher
+} // init_kelvin_helmholtz
 } // namespace muscl_block
 } // namespace dyablo
