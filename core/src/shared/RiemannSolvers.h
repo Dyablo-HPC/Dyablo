@@ -559,9 +559,9 @@ void riemann_hydro( const HydroState& qleft,
 		                const HydroParams& params)
 {
   switch(params.riemannSolverType){
-    case RIEMANN_APPROX:
-      riemann_approx(qleft,qright,flux,params);
-      break;
+    // case RIEMANN_APPROX:
+    //   riemann_approx(qleft,qright,flux,params);
+    //   break;
     case RIEMANN_HLLC:
       riemann_hllc(qleft,qright,flux,params);
       break;
