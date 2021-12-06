@@ -264,8 +264,8 @@ public:
    * @param reducer is a Kokkos reducer (eg: Kokkos::Sum<double>) this is the last parameter used in Kokkos::parallel_reduce
    *                (it cannot be just a scalar to perform the default sum operation)
    **/
-  template <typename Function, typename View_t, typename Reducer_t>
-  void reduce_cell(const std::string& kernel_name, const CellArray_base<View_t>& iter_space, const Function& f, const Reducer_t& reducer) const
+  template <typename Function, typename View_t, typename... Reducer_t>
+  void reduce_cell(const std::string& kernel_name, const CellArray_base<View_t>& iter_space, const Function& f, const Reducer_t&... reducer) const
   {
     uint32_t bx = iter_space.bx;
     uint32_t by = iter_space.by;
@@ -275,7 +275,7 @@ public:
 
     Kokkos::parallel_reduce( kernel_name, 
       Kokkos::RangePolicy<>(0,nbCellsPerBlock*nbOcts),
-      KOKKOS_LAMBDA( uint32_t index, typename Reducer_t::value_type& update )
+      KOKKOS_LAMBDA( uint32_t index, typename Reducer_t::value_type&... update )
     {
       uint32_t iOct = index/nbCellsPerBlock;
       index = index%nbCellsPerBlock;
@@ -285,8 +285,15 @@ public:
       uint32_t i = index - j*bx - k*bx*by;
 
       CellIndex iCell = {{iOct,false}, i, j, k, bx, by, bz};
-      f( iCell, update );
-    }, reducer);
+      f( iCell, update... );
+    }, reducer...);
+  }
+
+  /// Use Kokkos::Sum as default reducer for reduce_cell
+  template <typename Function, typename View_t, typename... Value_t>
+  void reduce_cell(const std::string& kernel_name, const CellArray_base<View_t>& iter_space, const Function& f, Value_t&... reducer) const
+  {
+    reduce_cell(kernel_name, iter_space, f, Kokkos::Sum<Value_t>(reducer)...);
   }
 };
 
