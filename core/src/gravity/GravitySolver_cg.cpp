@@ -55,7 +55,7 @@ using CellIndex = typename ForeachCell::CellIndex;
 constexpr VarIndex CG_IP = (VarIndex)0;
 constexpr VarIndex CG_IR = (VarIndex)1;
 constexpr VarIndex CG_PHI = (VarIndex)2;
-constexpr VarIndex CG_IZ = (VarIndex)3;
+//constexpr VarIndex CG_IZ = (VarIndex)3;
 
 KOKKOS_INLINE_FUNCTION
 real_t get_value(const GhostedArray& U, const CellIndex& iCell_U, VarIndex var, const CellIndex::offset_t& offset)
@@ -122,38 +122,8 @@ real_t matprod(const GhostedArray& GCdata, const CellIndex& iCell_CGdata, VarInd
 KOKKOS_INLINE_FUNCTION
 real_t Aii(const GhostedArray& GCdata, const CellIndex& iCell_CGdata, real_t dx, real_t dy, real_t dz, const Kokkos::Array<BoundaryConditionType, 3>& boundarycondition)
 {
-  constexpr int ndim = 3;
-
-  Kokkos::Array<real_t, 3> ddir { dx, dy, dz };
-
-  real_t res = 0;
-  for( ComponentIndex3D dir : {IX,IY,IZ} )
-  {
-    CellIndex::offset_t off_L{}; off_L[dir] = -1;
-    CellIndex::offset_t off_R{}; off_R[dir] = +1;
-    CellIndex iCell_L = iCell_CGdata.getNeighbor_ghost(off_L, GCdata);
-    CellIndex iCell_R = iCell_CGdata.getNeighbor_ghost(off_R, GCdata);
-    real_t S = (dx*dy*dz)/ddir[dir];
-
-    real_t hl = ddir[dir];
-    real_t hr = ddir[dir];  
-    if( iCell_L.level_diff()==-1 ) hl *= 0.75; 
-    if( iCell_R.level_diff()==-1 ) hr *= 0.75;
-    if( iCell_L.level_diff()==1 ) hl *= 1.5; 
-    if( iCell_R.level_diff()==1 ) hr *= 1.5;
-
-    real_t dvar_L = -S/hl;
-    real_t dvar_R = S/hr;
-    
-    if( boundarycondition[dir] == BC_ABSORBING && iCell_L.is_boundary() ) dvar_L = 0;
-    if( boundarycondition[dir] == BC_ABSORBING && iCell_R.is_boundary() ) dvar_R = 0;
-    
-    res += (dvar_R - dvar_L);
-  }
-  return -res;
+  return (dx*dy*dz)*(2/(dx*dx)+2/(dy*dy)+2/(dz*dz));
 }
-
-
 
 /// Right-hand term for linear solver : 4 Pi G rho
 KOKKOS_INLINE_FUNCTION
@@ -188,7 +158,7 @@ void GravitySolver_cg::update_gravity_field(
   ForeachCell::CellMetaData cells = foreach_cell.getCellMetaData();
 
   // Setup field manager for CGdata
-  FieldManager fieldManager( {CG_IP, CG_IR, CG_PHI, CG_IZ} );
+  FieldManager fieldManager( {CG_IP, CG_IR, CG_PHI/*, CG_IZ*/} );
   // Allocate global array
   GhostedArray CGdata = foreach_cell.allocate_ghosted_array( "CGdata", fieldManager );
 
@@ -205,40 +175,26 @@ void GravitySolver_cg::update_gravity_field(
   real_t Vtot = (xmax-xmin)*(ymax-ymin)*(zmax-zmin);
   rho_mean = MPI_Allreduce_scalar(rho_mean)/Vtot;
 
-  real_t B = 0;
-  foreach_cell.reduce_cell( "Gravity_cg::B", CGdata, 
-    CELL_LAMBDA(const CellIndex& iCell_CGdata, real_t& update_b)
-  {
-    ForeachCell::CellMetaData::pos_t size = cells.getCellSize(iCell_CGdata);
-    real_t bi = b(Uin, iCell_CGdata, rho_mean, gravity_constant, size);
-    update_b += bi*bi ;
-  }, Kokkos::Sum<real_t>(B) );  
-  B = MPI_Allreduce_scalar(B);
-
   // Compute initial residual
-  real_t R = 0;
+  real_t R=0, B=0, r_dot_z=0;
   foreach_cell.reduce_cell( "Gravity_cg::init_gc", CGdata, 
-    CELL_LAMBDA(const CellIndex& iCell_CGdata, real_t& update_r)
+    CELL_LAMBDA(const CellIndex& iCell_CGdata, real_t& update_r, real_t& update_b, real_t& update_r_dot_z )
   {
     // Get gravity potential from last iteration as approximate solution
     CGdata.at(iCell_CGdata, CG_PHI) = Uin.at(iCell_CGdata, IGPHI);
     auto cell_size = cells.getCellSize(iCell_CGdata);
-    real_t r = b(Uin, iCell_CGdata, rho_mean, gravity_constant, cell_size)-matprod(Uin, iCell_CGdata, IGPHI, cell_size[IX], cell_size[IY], cell_size[IZ], boundarycondition);
+    real_t bi = b(Uin, iCell_CGdata, rho_mean, gravity_constant, cell_size);
+    real_t r = bi - matprod(Uin, iCell_CGdata, IGPHI, cell_size[IX], cell_size[IY], cell_size[IZ], boundarycondition);
     CGdata.at(iCell_CGdata, CG_IR) = r; // r = b-A*x0
     real_t z = r/Aii(Uin, iCell_CGdata, cell_size[IX], cell_size[IY], cell_size[IZ], boundarycondition); // z = M^(-1)r
-    CGdata.at(iCell_CGdata, CG_IZ) = z;
+    //CGdata.at(iCell_CGdata, CG_IZ) = z;
     CGdata.at(iCell_CGdata, CG_IP) = z; // p <- r
     update_r += r*r ;
-  }, Kokkos::Sum<real_t>(R) );  
+    update_b += bi*bi ;
+    update_r_dot_z += r*z;
+  }, R, B, r_dot_z );  
   R = MPI_Allreduce_scalar(R);
-
-  // Compute r.z for alpha
-  real_t r_dot_z = 0;
-  foreach_cell.reduce_cell( "Gravity_cg::r_dot_z", CGdata, 
-    CELL_LAMBDA(const CellIndex& iCell_CGdata, real_t& r_dot_z)
-  {
-    r_dot_z += CGdata.at(iCell_CGdata, CG_IR) * CGdata.at(iCell_CGdata, CG_IZ);
-  }, Kokkos::Sum<real_t>(r_dot_z));
+  B = MPI_Allreduce_scalar(B);
   r_dot_z = MPI_Allreduce_scalar(r_dot_z);
     
   std::cout << "GC : " << R << "...";
@@ -270,35 +226,33 @@ void GravitySolver_cg::update_gravity_field(
     // phi   <- phi + alpha * p
     // r     <- r   - alpha * Ap
     // Rnext <- ||r||
-    real_t Rnext = 0;
+    real_t Rnext = 0, r_dot_z_next = 0;
     foreach_cell.reduce_cell( "Gravity_cg::alpha", CGdata, 
-      CELL_LAMBDA(const CellIndex& iCell_CGdata, real_t& Rnext)
+      CELL_LAMBDA(const CellIndex& iCell_CGdata, real_t& update_Rnext, real_t& update_r_dot_z_next)
     {
       auto cell_size = cells.getCellSize(iCell_CGdata);
       real_t alpha = r_dot_z/pAp;
       CGdata.at(iCell_CGdata, CG_PHI) += alpha*CGdata.at(iCell_CGdata, CG_IP);
       real_t r = CGdata.at(iCell_CGdata, CG_IR) - alpha*matprod(CGdata, iCell_CGdata, CG_IP, cell_size[IX], cell_size[IY], cell_size[IZ], boundarycondition);
       CGdata.at(iCell_CGdata, CG_IR) = r;
-      CGdata.at(iCell_CGdata, CG_IZ) = r/Aii(Uin, iCell_CGdata, cell_size[IX], cell_size[IY], cell_size[IZ], boundarycondition); // z = M^(-1)r
-      Rnext += r*r;
-    }, Kokkos::Sum<real_t>(Rnext));
+      real_t z = r/Aii(Uin, iCell_CGdata, cell_size[IX], cell_size[IY], cell_size[IZ], boundarycondition); // z = M^(-1)r
+      //CGdata.at(iCell_CGdata, CG_IZ) = z;
+      update_Rnext += r*r;
+      update_r_dot_z_next += r * z;
+    }, Rnext, r_dot_z_next);
     Rnext = MPI_Allreduce_scalar(Rnext);
-
-    // Compute r.z for alpha
-    real_t r_dot_z_next = 0;
-    foreach_cell.reduce_cell( "Gravity_cg::r_dot_z_next", CGdata, 
-      CELL_LAMBDA(const CellIndex& iCell_CGdata, real_t& r_dot_z_next)
-    {
-      r_dot_z_next += CGdata.at(iCell_CGdata, CG_IR) * CGdata.at(iCell_CGdata, CG_IZ);
-    }, Kokkos::Sum<real_t>(r_dot_z_next));
     r_dot_z_next = MPI_Allreduce_scalar(r_dot_z_next);
 
     // Update p <- z + r_dot_z_next/r_dot_z * p
     foreach_cell.foreach_cell( "Gravity_cg::beta", CGdata, 
       CELL_LAMBDA(const CellIndex& iCell_CGdata)
     {
+      auto cell_size = cells.getCellSize(iCell_CGdata);
       real_t beta = r_dot_z_next/r_dot_z;
-      CGdata.at(iCell_CGdata, CG_IP) = CGdata.at(iCell_CGdata, CG_IZ) + beta * CGdata.at(iCell_CGdata, CG_IP);
+      //real_t z = CGdata.at(iCell_CGdata, CG_IZ);
+      real_t r = CGdata.at(iCell_CGdata, CG_IR);
+      real_t z = r/Aii(Uin, iCell_CGdata, cell_size[IX], cell_size[IY], cell_size[IZ], boundarycondition);
+      CGdata.at(iCell_CGdata, CG_IP) = z + beta * CGdata.at(iCell_CGdata, CG_IP);
     });
 
     R = Rnext;
