@@ -99,13 +99,16 @@ public:
         pos_t c = getCenter(iOct);
         level_t level = getLevel(iOct); 
         uint32_t octant_count = pow_2( level );
-        real_t octant_size = 1.0/octant_count;
+        real_t L = 1.0;
+        real_t octant_size = L/octant_count;
         real_t eps = octant_size/8;
         // Compute logical octant position at this level
         auto periodic_coord = KOKKOS_LAMBDA(real_t pos, int8_t offset) -> logical_coord_t
         {
-            logical_coord_t grid_pos = std::floor((pos+eps)/octant_size) + offset;
-            return (grid_pos+octant_count) % octant_count; // Only works if grid_pos>-octant_count
+            assert( pos >= 0 && pos+eps < L );
+            real_t grid_pos = std::floor((L+pos+eps)/octant_size + offset);
+            assert(grid_pos > 0); // Only works if offset > -octant_count
+            return (logical_coord_t)(grid_pos) % octant_count;
         };
         
         key_t logical_coords;
@@ -347,13 +350,14 @@ public: // init() has to be public for KOKKOS_LAMBDA
             uint8_t level = oct_data(ioct_local, ILEVEL);
 
             logical_coord_t octant_count = pow_2( level );
-            real_t octant_size = 1.0/octant_count;
+            real_t L = 1.0;
+            real_t octant_size = L/octant_count;
             real_t eps = octant_size/8; // To avoid rounding error when computing logical coords
             auto periodic_coord = [=](real_t pos) -> logical_coord_t
             {
-                // Only works if grid_pos>-octant_count
-                logical_coord_t grid_pos = std::floor((1.0+pos+eps)/octant_size);
-                return grid_pos % octant_count; 
+                real_t grid_pos = std::floor((L+pos+eps)/octant_size);
+                assert( grid_pos >= 0 ); // Only works if pos > -L 
+                return (logical_coord_t)(grid_pos) % octant_count; 
             };
             
 
