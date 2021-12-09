@@ -10,9 +10,6 @@
 
 #include "mpi/GhostCommunicator.h"
 
-// TODO cleaner conditional compilation
-#ifdef DYABLO_USE_GPU_MESH
-
 namespace dyablo{
 
 AMRmesh_hashmap::AMRmesh_hashmap( int dim, int balance_codim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max, const MpiComm& mpi_comm )
@@ -889,5 +886,3 @@ const std::map<int, std::vector<uint32_t>>& AMRmesh_hashmap::getBordersPerProc()
 }
 
 }
-
-#endif // DYABLO_USE_GPU_MESH

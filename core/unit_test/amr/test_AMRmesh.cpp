@@ -124,7 +124,7 @@ void run_test(const Test_data& test_data)
     EXPECT_DOUBLE_EQ( 1.0, Vtot );
   }
 
-  //if constexpr( std::is_same<AMRmesh_t, AMRmesh>::value )
+  if constexpr( std::is_same<AMRmesh_t, AMRmesh>::value )
   {
     // Output generated mesh
     char config_str[] = 
@@ -195,7 +195,7 @@ public:
   using AMRmesh_t = AMRmesh_t_;
 };
 
-using AMRmesh_types = ::testing::Types<AMRmesh::Impl_t>;
+using AMRmesh_types = ::testing::Types<AMRmesh_pablo, AMRmesh_hashmap>;
 TYPED_TEST_SUITE( Test_AMRmesh, AMRmesh_types );
 
 TYPED_TEST(Test_AMRmesh, narrow_h6)
