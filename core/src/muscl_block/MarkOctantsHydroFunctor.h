@@ -91,7 +91,7 @@ public:
                     real_t         error_max,
                     markers_t      markers );
   /// Write markers to PABLO mesh
-  static void set_markers_pablo(markers_t markers, std::shared_ptr<AMRmesh> pmesh);
+  static void set_markers_pablo(markers_t markers, AMRmesh& pmesh);
 
 }; // class MarkOctantsHydroFunctor
 

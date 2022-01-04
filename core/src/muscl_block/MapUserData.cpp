@@ -126,7 +126,6 @@ void fill_cell_newCoarse( const FunctorData& d,
 
 void apply_aux( const AMR_Remapper& remap,
                 uint8_t ndim,
-                ConfigMap configMap,
                 blockSize_t blockSizes,
                 DataArrayBlock Usrc,
                 DataArrayBlock Usrc_ghost,
@@ -148,34 +147,31 @@ void apply_aux( const AMR_Remapper& remap,
   };
 
   // using kokkos team execution policy
-  uint32_t nbTeams = configMap.getInteger("amr", "nbTeams", 16);
   using policy_t = Kokkos::TeamPolicy<Kokkos::IndexType<uint32_t>>;
   Kokkos::parallel_for("SolverHydroMusclBlock::map_userdata_after_adapt",
-                       policy_t(nbTeams, Kokkos::AUTO() ),
+                       policy_t(nbOcts, Kokkos::AUTO() ),
                        KOKKOS_LAMBDA( policy_t::member_type member )
   {
-    for(uint32_t iPair = member.league_rank(); iPair < remap.size(); iPair+=member.league_size() )
-    {
-      AMR_Remapper::OctMapping mapping = remap[iPair];
+    uint32_t iPair = member.league_rank();
+    AMR_Remapper::OctMapping mapping = remap[iPair];
 
-      Kokkos::parallel_for( Kokkos::TeamVectorRange(member, nbCellsPerOct),
-                            [&](uint32_t iCell)
+    Kokkos::parallel_for( Kokkos::TeamVectorRange(member, nbCellsPerOct),
+                          [&](uint32_t iCell)
+    {
+      if( mapping.level_diff == 0 )
       {
-        if( mapping.level_diff == 0 )
-        {
-          fill_cell_same_size(d, mapping, iCell);
-        }
-        else if( mapping.level_diff < 0 )
-        {
-          fill_cell_newCoarse(d, mapping, iCell);
-        }
-        else if( mapping.level_diff > 0 )
-        {
-          fill_cell_newRefined(d, mapping, iCell);
-        }
-        else assert(false);
-      });
-    }
+        fill_cell_same_size(d, mapping, iCell);
+      }
+      else if( mapping.level_diff < 0 )
+      {
+        fill_cell_newCoarse(d, mapping, iCell);
+      }
+      else if( mapping.level_diff > 0 )
+      {
+        fill_cell_newRefined(d, mapping, iCell);
+      }
+      else assert(false);
+    });
   });
 
 }
@@ -184,26 +180,24 @@ void apply_aux( const AMR_Remapper& remap,
 
 void MapUserDataFunctor::apply( const LightOctree_hashmap& lmesh_old,
                                 const LightOctree_hashmap& lmesh_new,
-                                ConfigMap configMap,
                                 blockSize_t blockSizes,
                                 DataArrayBlock Usrc,
                                 DataArrayBlock Usrc_ghost,
                                 DataArrayBlock& Udest  )
 {
   apply_aux( AMR_Remapper(lmesh_old, lmesh_new), lmesh_new.getNdim(),
-             configMap, blockSizes, Usrc, Usrc_ghost, Udest );
+             blockSizes, Usrc, Usrc_ghost, Udest );
 }
 
 void MapUserDataFunctor::apply( const LightOctree_pablo& lmesh_old,
                                 const LightOctree_pablo& lmesh_new,
-                                ConfigMap configMap,
                                 blockSize_t blockSizes,
                                 DataArrayBlock Usrc,
                                 DataArrayBlock Usrc_ghost,
                                 DataArrayBlock& Udest  )
 {
   apply_aux( AMR_Remapper(lmesh_new.getMesh()), lmesh_new.getNdim(),
-             configMap, blockSizes, Usrc, Usrc_ghost, Udest );
+             blockSizes, Usrc, Usrc_ghost, Udest );
 }
 
 } // namespace muscl_block

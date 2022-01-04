@@ -180,6 +180,22 @@ public:
 
     return CellArray_global_ghosted(CellArray_global{U, bx, by, bz, (uint32_t)U.extent(2), fm}, Ughost, lmesh);
   }
+
+  CellArray_global_ghosted allocate_ghosted_array( std::string name, AMRmesh& pmesh, const FieldManager& fieldMgr)
+  {
+    int nbCellsPerOct = cdata.bx*cdata.by*cdata.bz;
+    int nbFields = fieldMgr.nbfields();
+    int nbOcts = pmesh.getNumOctants();
+    int nbGhosts = pmesh.getNumGhosts();
+    auto fm = fieldMgr.get_id2index();
+
+    DataArrayBlock U(name, nbCellsPerOct, nbFields, nbOcts );
+    DataArrayBlock Ughost(name+"ghost", nbCellsPerOct, nbFields, nbGhosts );
+    
+    const LightOctree& lmesh = pmesh.getLightOctree();
+
+    return get_ghosted_array(U, Ughost, lmesh, fm);
+  }
   /**
    * Reserve a new temporary ghosted cell array local to each patch. 
    * Actual array has to be created with Patch::allocate_tmp() inside the foreach_patch loop.

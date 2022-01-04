@@ -155,6 +155,9 @@ public :
   View_t Ughost;
   LightOctree lmesh;
 
+  CellArray_global_ghosted() = default;
+  CellArray_global_ghosted( const CellArray_global_ghosted& ) = default;
+
   CellArray_global_ghosted( const CellArray_global& a, const View_t& Ughost, const LightOctree& lmesh )
     : CellArray_global(a), Ughost(Ughost), lmesh(lmesh)
   {}

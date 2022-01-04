@@ -26,7 +26,6 @@ public:
    **/
   static void apply(  const LightOctree_pablo& lmesh_old,
                       const LightOctree_pablo& lmesh_new,
-                      ConfigMap configMap,
                       blockSize_t blockSizes,
                       DataArrayBlock Usrc,
                       DataArrayBlock Usrc_ghost,
@@ -34,7 +33,6 @@ public:
 
   static void apply(  const LightOctree_hashmap& lmesh_old,
                       const LightOctree_hashmap& lmesh_new,
-                      ConfigMap configMap,
                       blockSize_t blockSizes,
                       DataArrayBlock Usrc,
                       DataArrayBlock Usrc_ghost,

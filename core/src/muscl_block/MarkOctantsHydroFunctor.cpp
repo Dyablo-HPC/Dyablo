@@ -187,19 +187,19 @@ Kokkos::View<int*>::HostMirror MarkOctantsHydroFunctor::markers_t::getMarkers_ho
   return res;
 }
 
-void MarkOctantsHydroFunctor::set_markers_pablo(markers_t markers, std::shared_ptr<AMRmesh> pmesh)
+void MarkOctantsHydroFunctor::set_markers_pablo(markers_t markers, AMRmesh& pmesh)
 {
   auto markers_iOcts = markers.getiOcts_host();
   auto markers_markers = markers.getMarkers_host();
 
   Kokkos::parallel_for( "MarkOctantsHydroFunctor::set_markers_pablo", 
                         Kokkos::RangePolicy<Kokkos::OpenMP>(0,markers.size()),
-                        [=](uint32_t i)
+                        [&](uint32_t i)
   {
     uint32_t iOct = markers_iOcts(i);
     int8_t marker = markers_markers(i);
 
-    pmesh->setMarker(iOct, marker);
+    pmesh.setMarker(iOct, marker);
   });
 }
 

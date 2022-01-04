@@ -89,7 +89,7 @@ public:
     }
   }
 
-  id2index_t get_id2index() 
+  id2index_t get_id2index() const
   { 
     return id2index; 
   };

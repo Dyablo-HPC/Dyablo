@@ -24,43 +24,66 @@ template< typename AnalyticalFormula >
 class InitialConditions_analytical : public InitialConditions{ 
     static_assert( std::is_base_of< AnalyticalFormula_base, AnalyticalFormula >::value, 
                   "AnalyticalFormula must implement AnalyticalFormula_base" );
+
+    AnalyticalFormula analytical_formula;
+
+    struct Data{
+        AMRmesh& pmesh;
+        FieldManager fieldMgr;
+        uint32_t nbOctsPerGroup;  
+        uint32_t bx, by, bz;
+        int level_min, level_max;
+        real_t xmin, ymin, zmin;
+        real_t xmax, ymax, zmax;
+    } data;
 public:
-  void init(SolverHydroMusclBlock* psolver) 
+  InitialConditions_analytical(
+        ConfigMap& configMap,
+        const HydroParams& params,  
+        AMRmesh& pmesh,
+        FieldManager fieldMgr,
+        uint32_t nbOctsPerGroup,  
+        uint32_t bx, uint32_t by, uint32_t bz,  
+        Timers& timers )
+  : analytical_formula(configMap, params),
+    data({
+      pmesh, fieldMgr, nbOctsPerGroup, 
+      bx, by, bz,
+      params.level_min, params.level_max,
+      params.xmin, params.ymin, params.zmin,
+      params.xmax, params.ymax, params.zmax
+    })
+  {}
+
+  void init( ForeachCell::CellArray_global_ghosted& U )
   {
-    using ForeachCell = AMRBlockForeachCell_group;
-    //using ForeachCell = AMRBlockForeachCell_scratch;
+    AMRmesh&                 pmesh     = data.pmesh;
+    FieldManager             fieldMgr  = data.fieldMgr;
 
-    std::shared_ptr<AMRmesh> amr_mesh  = psolver->amr_mesh;
-    ConfigMap&               configMap = psolver->configMap;
-    HydroParams&             params    = psolver->params;
-    id2index_t fm                      = psolver->fieldMgr.get_id2index();
-
-    AnalyticalFormula analytical_formula(configMap, params);
-
-    int ndim = amr_mesh->getDim();
-    int level_min = params.level_min;
-    int level_max = params.level_max;
-    int bx = psolver->bx;
-    int by = psolver->by;
-    int bz = (ndim == 3) ? psolver->bz : 1;
-    int xmin = params.xmin;
-    int ymin = params.ymin;
-    int zmin = params.zmin;
-    int xmax = params.xmax;
-    int ymax = params.ymax;
-    int zmax = params.zmax;
-    int nbOctsPerGroup = 1024; // arbitrary, not really useful    
+    int ndim = pmesh.getDim();
+    int level_min = data.level_min;
+    int level_max = data.level_max;
+    int bx = data.bx;
+    int by = data.by;
+    int bz = (ndim == 3) ? data.bz : 1;
+    int xmin = data.xmin;
+    int ymin = data.ymin;
+    int zmin = data.zmin;
+    int xmax = data.xmax;
+    int ymax = data.ymax;
+    int zmax = data.zmax;
+    int nbOctsPerGroup = data.nbOctsPerGroup; // arbitrary, not really useful    
 
     // Refine to level_min
     for (uint8_t level=0; level<level_min; ++level)
-        amr_mesh->adaptGlobalRefine();
+        pmesh.adaptGlobalRefine();
     // Distribute uniform mesh at level_min
-    amr_mesh->loadBalance();
+    pmesh.loadBalance();
 
     // Refine until level_max using analytical markers
     for (uint8_t level=level_min; level<level_max; ++level)
     {
-        const LightOctree& lmesh = amr_mesh->getLightOctree();
+        const LightOctree& lmesh = pmesh.getLightOctree();
         uint32_t nbOcts = lmesh.getNumOctants();
 
         ForeachCell foreach_cell(
@@ -73,8 +96,7 @@ public:
         );
 
         ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
-        psolver->resize_solver_data();
-        ForeachCell::CellArray_global U = foreach_cell.get_global_array(psolver->U, 0, 0, 0, fm);
+        U  = foreach_cell.allocate_ghosted_array( "U" , pmesh, fieldMgr );
 
         Kokkos::View<bool*> markers( "InitialConditions_analytical::markers", nbOcts );
         // Apply refine condition given by AnalyticalFormula::need_refine for each cell
@@ -90,7 +112,7 @@ public:
             Kokkos::atomic_or( &markers(iCell_U.iOct.iOct), need_refine );
         });
 
-        // Copy computed markers to amr_mesh
+        // Copy computed markers to pmesh
         auto markers_host = Kokkos::create_mirror_view(markers);
         Kokkos::deep_copy( markers_host, markers );
         Kokkos::parallel_for( "InitialConditions_analytical::copy_octants",
@@ -98,20 +120,18 @@ public:
             [&](uint32_t iOct)
         {
             if( markers_host(iOct) )
-                amr_mesh->setMarker(iOct, 1);
+                pmesh.setMarker(iOct, 1);
         });
 
         // Refine the mesh according to markers
-        amr_mesh->adapt();
+        pmesh.adapt();
         // Load balance at each level to avoid excessive inbalance
-        amr_mesh->loadBalance();
+        pmesh.loadBalance();
     }
 
-    // Reallocate user data to fit amr_mesh
-    psolver->resize_solver_data();
-    // Fill U
+    // Reallocate and fill U
     {
-        const LightOctree& lmesh = amr_mesh->getLightOctree();
+        const LightOctree& lmesh = pmesh.getLightOctree();
 
         ForeachCell foreach_cell(
             ndim,
@@ -122,8 +142,10 @@ public:
             nbOctsPerGroup
         );
 
+        // TODO wrap reallocation in U.reallocate(pmesh)?
+        U  = foreach_cell.allocate_ghosted_array( "U" , pmesh, fieldMgr );
+
         ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
-        ForeachCell::CellArray_global U = foreach_cell.get_global_array(psolver->U, 0, 0, 0, fm);
 
         foreach_cell.foreach_cell( "InitialConditions_analytical::fill_U", U,
                     CELL_LAMBDA( const ForeachCell::CellIndex& iCell_U )
