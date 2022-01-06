@@ -30,13 +30,17 @@ public:
                                   params, U.fm,
                                   {U.bx,U.by,U.bz}, U.U, inv_dt);
 
-    return cfl / inv_dt;
+    real_t dt = cfl / inv_dt;
+
+    assert(dt>0);
+
+    return dt;
   }
 
 private:
   real_t cfl;
   const ConfigMap& configMap;
-  HydroParams params;
+  const HydroParams params;
   AMRmesh& pmesh;
 };
 

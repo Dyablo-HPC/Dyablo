@@ -91,16 +91,13 @@ void MarkOctantsHydroFunctor::apply(
   using team_policy_t = Kokkos::TeamPolicy<Kokkos::IndexType<int32_t>>;
   using thread_t = team_policy_t::member_type;
 
-  uint32_t nbTeams = configMap.getInteger("amr","nbTeams",16);
+  uint32_t nbOcts_local = min( nbOctsPerGroup, nbOcts-iGroup*nbOctsPerGroup );
 
   Kokkos::parallel_for( "dyablo::muscl_block::MarkOctantsHydroFunctor",
-                        team_policy_t(nbTeams, Kokkos::AUTO()), 
+                        team_policy_t(nbOcts_local, Kokkos::AUTO()), 
                         KOKKOS_LAMBDA(const thread_t& member)
-  {
-    uint32_t nbOcts_local = min( nbOctsPerGroup, nbOcts-iGroup*nbOctsPerGroup );
-    for( uint32_t iOct_local = member.league_rank();
-         iOct_local < nbOcts_local;
-         iOct_local += nbTeams)
+  { 
+    uint32_t iOct_local = member.league_rank();
     {
       real_t error = 0;
 

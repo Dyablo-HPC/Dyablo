@@ -1,5 +1,7 @@
 #pragma once
 
+#include <csignal>
+
 #include "utils/config/ConfigMap.h"
 #include "utils/monitoring/Timers.h"
 #include "shared/amr/AMRmesh.h"
@@ -89,15 +91,21 @@ public:
       timers
     );
 
-    std::string gravity_solver_id = configMap.getString("gravity", "solver", "GravitySolver_constant");
-    this->gravity_solver = GravitySolverFactory::make_instance( gravity_solver_id,
-      configMap,
-      params,
-      m_amr_mesh, 
-      fm,
-      bx, by, bz,
-      timers
-    );
+    GravityType gravity_type = static_cast<GravityType>(configMap.getInteger("gravity", "gravity_type", GRAVITY_NONE));
+
+    std::string gravity_solver_id = "none";
+    if( gravity_type & GRAVITY_FIELD )
+    {
+      gravity_solver_id = configMap.getString("gravity", "solver", "GravitySolver_none");
+      this->gravity_solver = GravitySolverFactory::make_instance( gravity_solver_id,
+        configMap,
+        params,
+        m_amr_mesh, 
+        fm,
+        bx, by, bz,
+        timers
+      );
+    } 
 
     this->compute_dt = std::make_unique<Compute_dt>(
       configMap,
@@ -136,22 +144,6 @@ public:
       std::cout << "##########################" << "\n";
     }
 
-    // Allocate arrays
-    {
-      const LightOctree& lmesh = amr_mesh.getLightOctree();
-      ForeachCell foreach_cell{
-        lmesh.getNdim(),
-        lmesh, 
-        bx, by, bz, 
-        0, 0, 0, // Dummy foreach_cell to construct arrays
-        0, 0, 0,
-        0
-      };
-
-      U  = foreach_cell.allocate_ghosted_array( "U" , amr_mesh, field_manager );
-      U2 = foreach_cell.allocate_ghosted_array( "U2", amr_mesh, field_manager );
-    }
-
     // Initialize cells
     {
       // test if we are performing a re-start run (default : false)
@@ -170,7 +162,36 @@ public:
 
       initial_conditions->init(U);
     }
-    
+
+    // Allocate U2
+    {
+      const LightOctree& lmesh = amr_mesh.getLightOctree();
+      ForeachCell foreach_cell{
+        lmesh.getNdim(),
+        lmesh, 
+        bx, by, bz, 
+        0, 0, 0, // Dummy foreach_cell to construct arrays
+        0, 0, 0,
+        0
+      };
+
+      U2 = foreach_cell.allocate_ghosted_array( "U2", amr_mesh, field_manager );
+    }        
+  }
+
+  static inline int interrupted;
+  static void interrupt_handler( int sig )
+  {
+    if( !interrupted )
+    {
+      std::cout << "Signal " << sig << " : ending simulation..." << std::endl;
+      interrupted = true;
+    }
+    else
+    {
+      std::cout << "Signal " << sig << " : killing simulation!" << std::endl;
+      raise(SIGABRT);
+    }
   }
 
   /**
@@ -179,18 +200,27 @@ public:
   void run()
   {
     timers.get("Total").start();
+
+    // Stop simulation when recieving SIGINT 
+    // NOTE : mpirun catches SIGINT and forwards SIGTERM to child process
+    // NOTE : scancel sends SIGTERM by default, you can use 'scancel -s INT'
+    signal( SIGINT, interrupt_handler );
     bool finished = false;
     while( !finished )
     {
       step();
       m_iter++;
+      int any_interrupted;
+      m_communicator.MPI_Allreduce(&interrupted, &any_interrupted, 1, MpiComm::MPI_Op_t::OR);
       finished = ( m_t_end > 0    && m_t >= (m_t_end - 1e-14) ) // End if physical time exceeds end time
-              || ( m_iter_end > 0 && m_iter >= m_iter_end    ); // Or if iter count exceeds maximum iter count
+              || ( m_iter_end > 0 && m_iter >= m_iter_end    )  // Or if iter count exceeds maximum iter count
+              || any_interrupted;
     }
+    signal( SIGINT, SIG_DFL );
 
     // Always output after last iteration
     timers.get("outputs").start();
-    if( m_t_end > 0 || m_iter_end > 0 )
+    if( m_output_frequency > 0 || m_output_timeslice > 0 )
       io_manager->save_snapshot(U.U, U.Ughost, m_iter, m_t); // TODO use CellArray instead of DataArrayBlock
     timers.get("outputs").stop();
     timers.get("Total").stop();
@@ -272,7 +302,8 @@ public:
     timers.get("MPI ghosts").stop();
     
     // Update gravity
-    gravity_solver->update_gravity_field(U.U, U.Ughost, U.U);
+    if( gravity_solver )
+      gravity_solver->update_gravity_field(U.U, U.Ughost, U.U);
 
     // Update hydro
     godunov_updater->update( U.U, U.Ughost, U2.U, dt ); //TODO : make U2 a temporary array?
@@ -289,9 +320,9 @@ public:
         U2.exchange_ghosts( ghost_comm );
         timers.get("MPI ghosts").stop();
 
-        timers.get("AMR : Mark cells").start();
+        timers.get("AMR: Mark cells").start();
         refine_condition->mark_cells( U2 );
-        timers.get("AMR : Mark cells").start();
+        timers.get("AMR: Mark cells").stop();
 
         // Backup old mesh
         LightOctree lmesh_old = m_amr_mesh->getLightOctree();

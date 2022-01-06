@@ -17,7 +17,7 @@ using AMRBlockForeachCell = AMRBlockForeachCell_group;
 
 struct MusclBlockUpdate_generic::Data{
   const ConfigMap& configMap;
-  const HydroParams& params;  
+  const HydroParams params;  
   AMRmesh& pmesh;
   const id2index_t fm;
  

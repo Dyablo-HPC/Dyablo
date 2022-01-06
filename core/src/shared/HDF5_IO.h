@@ -180,7 +180,7 @@ public:
   //str2int_t      m_names2index; //!< map from names to user data variables
 
   const ConfigMap&     m_configMap;
-  const HydroParams&   m_params;
+  const HydroParams   m_params;
 
   bool           m_write_mesh_info; //!< write mesh info (oct level, mpi proc, ...)
 

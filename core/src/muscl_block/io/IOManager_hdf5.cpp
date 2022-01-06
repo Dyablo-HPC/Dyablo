@@ -11,7 +11,7 @@ namespace muscl_block {
 
 struct IOManager_hdf5::Data{
   const ConfigMap& configMap;
-  const HydroParams& params;  
+  const HydroParams params;  
   AMRmesh& pmesh;
   const id2index_t fm;
   uint32_t bx, by, bz; 

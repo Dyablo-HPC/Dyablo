@@ -113,7 +113,7 @@ public:
 
 private:
   const ConfigMap& configMap;
-  const HydroParams& params;
+  const HydroParams params;
   AMRmesh& pmesh;
   Timers& timers;
   real_t error_min, error_max;

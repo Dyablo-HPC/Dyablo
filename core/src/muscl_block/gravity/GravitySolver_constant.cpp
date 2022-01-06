@@ -12,8 +12,8 @@ namespace muscl_block {
 
 struct GravitySolver_constant::Data{
   const ConfigMap& configMap;
-  const HydroParams& params;  
-  const LightOctree& lmesh;
+  const HydroParams params;  
+  AMRmesh& pmesh;
   const id2index_t fm;
  
   uint32_t bx, by, bz; 
@@ -33,7 +33,7 @@ GravitySolver_constant::GravitySolver_constant(
  : pdata(new Data
     {configMap, 
     params, 
-    pmesh->getLightOctree(), 
+    *pmesh, 
     fm,
     bx, by, bz,
     timers
@@ -52,7 +52,7 @@ void GravitySolver_constant::update_gravity_field(
   using CellIndex = typename ForeachCell::CellIndex;
 
   const HydroParams& params = pdata->params;
-  const LightOctree& lmesh = pdata->lmesh;
+  const LightOctree& lmesh = pdata->pmesh.getLightOctree();
   uint8_t ndim = lmesh.getNdim();
   const id2index_t& fm = pdata->fm;
   uint32_t bx = pdata->bx, by = pdata->by, bz = pdata->bz;
