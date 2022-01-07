@@ -62,7 +62,7 @@ void run_test(int argc, char *argv[])
    * read parameter file and initialize a ConfigMap object
    */
   // only MPI rank 0 actually reads input file
-  std::string input_file = argc>1 ? std::string(argv[1]) : "./block_data/test_implode_3D_block.ini";
+  std::string input_file = argc>1 ? std::string(argv[1]) : "./block_data/test_blast_3D_block.ini";
   ConfigMap configMap = broadcast_parameters(input_file);
 
   // test: create a HydroParams object
