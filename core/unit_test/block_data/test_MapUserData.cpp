@@ -69,7 +69,6 @@ void run_test(int ndim)
   uint32_t nbCellsPerOct = bx*by*bz;
   FieldManager field_manager({IU,IV,IW});
   uint32_t nbfields = field_manager.nbfields();
-  auto fm = field_manager.get_id2index();
   uint32_t nbOcts = amr_mesh->getNumOctants();
 
   DataArrayBlock U("U", nbCellsPerOct, nbfields, nbOcts );

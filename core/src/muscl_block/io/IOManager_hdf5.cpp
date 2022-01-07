@@ -13,7 +13,7 @@ struct IOManager_hdf5::Data{
   const ConfigMap& configMap;
   const HydroParams params;  
   AMRmesh& pmesh;
-  const FieldManager& fieldMgr;
+  const FieldManager fieldMgr;
   uint32_t bx, by, bz; 
   Timers& timers;  
   HDF5_Writer hdf5_writer;

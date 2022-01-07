@@ -80,6 +80,8 @@ public:
     // Distribute uniform mesh at level_min
     pmesh.loadBalance();
 
+    AnalyticalFormula& analytical_formula = this->analytical_formula;
+
     // Refine until level_max using analytical markers
     for (uint8_t level=level_min; level<level_max; ++level)
     {

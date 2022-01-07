@@ -179,7 +179,7 @@ public:
     }        
   }
 
-  static inline int interrupted;
+  static int interrupted;
   static void interrupt_handler( int sig )
   {
     if( !interrupted )
@@ -408,6 +408,8 @@ private:
 
   Timers timers;
 };
+
+int DyabloTimeLoop::interrupted = false;
 
 } // namespace muscl_block
 } // namespace dyablo
