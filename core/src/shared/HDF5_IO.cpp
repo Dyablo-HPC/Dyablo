@@ -103,7 +103,7 @@ HDF5_Writer::HDF5_Writer(AMRmesh* amr_mesh,
   if (m_mpiRank == 0 and hdf5_enabled) {
 
     std::string outputPrefix = configMap.getString("output", "outputPrefix", "output");
-    std::string outputDir = configMap.getString("output", "outputDir", "output");
+    std::string outputDir = configMap.getString("output", "outputDir", "./");
     
     std::string filename;
     filename = outputDir + "/" + outputPrefix + "_main.xmf";

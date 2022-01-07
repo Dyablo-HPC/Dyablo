@@ -22,7 +22,7 @@ namespace dyablo {
  * \return the map size (i.e. the number of valid variable names)
  */
 int build_var_to_write_map(str2int_t        & map,
-			   const HydroParams& params,
+			   const FieldManager& fieldMgr,
 			   const ConfigMap  & configMap);
 
 } // namespace dyablo

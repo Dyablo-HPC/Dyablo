@@ -93,11 +93,11 @@ dyablo_add_test(utest_CopyInnerBlockCellData OFF
 
 # Import .ini files
 configure_file(
-  block_data/test_implode_2D_block.ini
-  block_data/test_implode_2D_block.ini COPYONLY)
+  block_data/test_blast_2D_block.ini
+  block_data/test_blast_2D_block.ini COPYONLY)
 configure_file(
-  block_data/test_implode_3D_block.ini
-  block_data/test_implode_3D_block.ini COPYONLY)
+  block_data/test_blast_3D_block.ini
+  block_data/test_blast_3D_block.ini COPYONLY)
 
 dyablo_add_test(utest_LightOctree OFF
   amr/test_LightOctree.cpp

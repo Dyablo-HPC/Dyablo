@@ -5,7 +5,7 @@ namespace dyablo {
 // =======================================================
 // =======================================================
 int build_var_to_write_map(str2int_t        & map,
-			   const HydroParams& params,
+			   const FieldManager& fieldMgr,
 			   const ConfigMap  & configMap)
 {
 
@@ -16,7 +16,6 @@ int build_var_to_write_map(str2int_t        & map,
   std::string write_variables = configMap.getString("output", "write_variables", "rho,rho_vx");
 
   // second retrieve available / allowed names
-  FieldManager fieldMgr = FieldManager::setup(params, configMap);
   id2index_t fm = fieldMgr.get_id2index();
   
   str2int_t avail_names;

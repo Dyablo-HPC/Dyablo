@@ -86,7 +86,7 @@ public:
       configMap,
       params,
       amr_mesh, 
-      fm,
+      field_manager,
       bx, by, bz,
       timers
     );

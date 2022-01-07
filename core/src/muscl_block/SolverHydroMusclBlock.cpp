@@ -157,7 +157,7 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
     configMap,
     params,
     *amr_mesh, 
-    fieldMgr.get_id2index(),
+    fieldMgr,
     bx, by, bz,
     timers
   );

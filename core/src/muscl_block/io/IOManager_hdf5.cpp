@@ -13,7 +13,7 @@ struct IOManager_hdf5::Data{
   const ConfigMap& configMap;
   const HydroParams params;  
   AMRmesh& pmesh;
-  const id2index_t fm;
+  const FieldManager& fieldMgr;
   uint32_t bx, by, bz; 
   Timers& timers;  
   HDF5_Writer hdf5_writer;
@@ -23,14 +23,14 @@ IOManager_hdf5::IOManager_hdf5(
   const ConfigMap& configMap,
   const HydroParams& params, 
   AMRmesh& pmesh,
-  const id2index_t& fm,
+  const FieldManager& fieldMgr,
   uint32_t bx, uint32_t by, uint32_t bz,
   Timers& timers )
  : pdata(new Data
     {configMap, 
     params, 
     pmesh, 
-    fm,
+    fieldMgr,
     bx, by, bz,
     timers,
     HDF5_Writer( &pmesh, configMap, params )})
@@ -42,14 +42,15 @@ IOManager_hdf5::~IOManager_hdf5()
 
 void IOManager_hdf5::save_snapshot( const DataArrayBlock& U, const DataArrayBlock& Ughost, uint32_t iter, real_t time )
 {
-  const id2index_t& fm = pdata->fm;
+  const FieldManager& fieldMgr = pdata->fieldMgr;
+  const id2index_t& fm = fieldMgr.get_id2index();
   const ConfigMap& configMap = pdata->configMap;
   const HydroParams& params = pdata->params;
   HDF5_Writer* hdf5_writer = &(pdata->hdf5_writer);
 
   // a map containing ID and name of the variable to write
   str2int_t names2index; // this is initially empty
-  build_var_to_write_map(names2index, params, configMap);
+  build_var_to_write_map(names2index, fieldMgr, configMap);
 
   // prepare output filename
   std::string outputPrefix = configMap.getString("output", "outputPrefix", "output");

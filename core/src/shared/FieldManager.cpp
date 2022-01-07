@@ -28,7 +28,7 @@ std::string FieldManager::var_name(VarIndex ivar)
   return res.at(ivar);
 }
 
-std::set< VarIndex > FieldManager::enabled_fields()
+std::set< VarIndex > FieldManager::enabled_fields() const
 {
   return id2index.enabled_fields();
 }

@@ -52,7 +52,7 @@ public:
     field_enabled[id] = true;
     _nbfields++;
   }
-  std::set<VarIndex> enabled_fields()
+  std::set<VarIndex> enabled_fields() const
   {
     std::set<VarIndex> res;
     for( int i=0; i<VarIndex::VARINDEX_COUNT; i++ )
@@ -102,7 +102,7 @@ public:
   static FieldManager setup(const HydroParams& params, const ConfigMap& configMap);
   
   static std::string var_name(VarIndex ivar);
-  std::set< VarIndex > enabled_fields();
+  std::set< VarIndex > enabled_fields() const;
 
   //static const int2str_t& get_id2names_all();
   //static const str2int_t& get_names2id_all();

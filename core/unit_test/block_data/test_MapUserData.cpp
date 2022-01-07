@@ -17,6 +17,7 @@
 #include "muscl_block/utils_block.h"
 #include "shared/amr/AMRmesh.h"
 #include "shared/amr/LightOctree.h"
+#include "muscl_block/io/IOManager.h"
 
 namespace dyablo
 {
@@ -33,7 +34,12 @@ void run_test(int ndim)
   std::cout << "// =========================================\n";
 
   std::cout << "Create mesh..." << std::endl;
+  uint32_t bx = 8;
+  uint32_t by = 8;
+  uint32_t bz = (ndim==3)?8:1;
+
   HydroParams params;
+  params.dimType = (ndim == 2) ? TWO_D : THREE_D;
   params.level_min = 1;
   params.level_max = 8;
   std::shared_ptr<AMRmesh> amr_mesh; //solver->amr_mesh 
@@ -59,11 +65,11 @@ void run_test(int ndim)
     amr_mesh->updateConnectivity();
   }
 
-  uint32_t bx = 8;
-  uint32_t by = 8;
-  uint32_t bz = (ndim==3)?8:1;
+  
   uint32_t nbCellsPerOct = bx*by*bz;
-  uint32_t nbfields = 3;
+  FieldManager field_manager({IU,IV,IW});
+  uint32_t nbfields = field_manager.nbfields();
+  auto fm = field_manager.get_id2index();
   uint32_t nbOcts = amr_mesh->getNumOctants();
 
   DataArrayBlock U("U", nbCellsPerOct, nbfields, nbOcts );
@@ -112,11 +118,39 @@ void run_test(int ndim)
     Kokkos::deep_copy( Ughost, Ughost_host );
   }
 
+  char config_str[] = 
+    "[output]\n"
+    "hdf5_enabled=true\n"
+    "write_mesh_info=true\n"
+    "write_variables=rho_vx,rho_vy,rho_vz\n"
+    "write_iOct=false\n"
+    "outputPrefix=output\n"
+    "outputDir=./\n"
+    "[amr]\n"
+    "use_block_data=true\n"
+    "bx=8\n"
+    "by=8\n"
+    "bz=8\n";
+  char* config_str_ptr = config_str;
+  ConfigMap configMap(config_str_ptr, strlen(config_str)); //Use default values
+
+  Timers timers;
+  std::string iomanager_id = "IOManager_hdf5";
+  std::unique_ptr<IOManager> io_manager = IOManagerFactory::make_instance( iomanager_id,
+    configMap,
+    params,
+    *amr_mesh, 
+    field_manager,
+    bx, by, bz,
+    timers
+  );
+  io_manager->save_snapshot(U, Ughost, 0, 1);
+
   LightOctree lmesh_old = amr_mesh->getLightOctree();
   {
     std::cout << "Coarsen/Refine octants" << std::endl;
 
-     for( uint32_t iOct=1; iOct<nbOcts; iOct++ )
+     for( uint32_t iOct=0; iOct<nbOcts; iOct++ )
      {
        amr_mesh->setMarker(iOct , -1);
        //amr_mesh->setMarker(iOct , 1); // replate previous line with this to check refinement thorougly
@@ -129,21 +163,21 @@ void run_test(int ndim)
     amr_mesh->setMarker(nbOcts/2 , 1);
 
     amr_mesh->adapt(true);
-    amr_mesh->updateConnectivity();
   }
   const LightOctree& lmesh_new = amr_mesh->getLightOctree();
 
-  char* empty;
-  ConfigMap configMap(empty, 0); //Use default values
+  
   DataArrayBlock Unew;
 
   std::cout << "Remap user data..." << std::endl;
 
-  MapUserDataFunctor::apply(lmesh_old, lmesh_new, configMap,
+  MapUserDataFunctor::apply(lmesh_old, lmesh_new,
                             {bx, by, bz}, 
                             U, Ughost, Unew);
 
   {
+    io_manager->save_snapshot(Unew, Ughost, 1, 2);
+
     uint32_t nbOcts = amr_mesh->getNumOctants();
 
     std::cout << "Check Unew ( nbOcts=" << nbOcts << ")" << std::endl;

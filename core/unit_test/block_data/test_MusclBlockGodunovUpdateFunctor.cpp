@@ -17,7 +17,7 @@
 #include "shared/HydroParams.h"  // read parameter file
 #include "shared/FieldManager.h"
 
-#include "muscl_block/SolverHydroMusclBlock.h"
+#include "muscl_block/init/InitialConditions.h"
 
 #include "muscl_block/update/MusclBlockUpdate.h"
 #include "muscl_block/ComputeDtHydroFunctor.h"
@@ -30,10 +30,10 @@ namespace dyablo {
 
 namespace muscl_block {
 
-void run_test(int argc, char *argv[]) {
+void run_test(std::string name, std::string filename) {
 
   std::cout << "// =========================================\n";
-  std::cout << "// Testing MusclBlockUpdate (2D) ...\n";
+  std::cout << "// Testing " << name << " ...\n";
   std::cout << "// =========================================\n";
 
   /*
@@ -41,34 +41,53 @@ void run_test(int argc, char *argv[]) {
    */
   // only MPI rank 0 actually reads input file
   //std::string input_file = std::string(argv[1]);
-  std::string input_file = argc>1 ? std::string(argv[1]) : "./block_data/test_implode_2D_block.ini";
+  std::string input_file = filename;
   ConfigMap configMap = broadcast_parameters(input_file);
 
   // test: create a HydroParams object
   HydroParams params = HydroParams();
   params.setup(configMap);
 
-  // retrieve solver name from settings
-  const std::string solver_name = configMap.getString("run", "solver_name", "Unknown");
+  Timers timers;
 
-  // actually initializing a solver
-  // initialize workspace memory (U, U2, ...)
-  if (solver_name.find("Muscl_Block") == std::string::npos) {
+  int ndim = params.dimType == TWO_D ? 2 : 3;
+  // block sizes
+  uint32_t bx = configMap.getInteger("amr", "bx", 0);
+  uint32_t by = configMap.getInteger("amr", "by", 0);
+  uint32_t bz = configMap.getInteger("amr", "bz", 1);
+  FieldManager field_manager({ID,IP,IU,IV,IW});
+  AMRmesh amr_mesh( ndim, ndim, {false, false, false}, 2, 4 );  
 
-    std::cerr << "Please modify your input parameter file.\n";
-    std::cerr << "  solver name must contain string \"Muscl_Block\"\n";
+  DataArrayBlock U;
+  DataArrayBlock Ughost;
+  // Initialize cells
+  {
+    using CellArray = AMRBlockForeachCell_group::CellArray_global_ghosted;
 
+    CellArray U_cellarray;
+
+    std::string init_name = configMap.getString("hydro", "problem", "unknown");;
+    std::unique_ptr<InitialConditions> initial_conditions =
+      InitialConditionsFactory::make_instance(init_name, 
+        configMap,
+        params,
+        amr_mesh, 
+        field_manager,
+        1024,
+        bx, by, bz,
+        timers);
+
+    initial_conditions->init(U_cellarray);
+
+    U = U_cellarray.U;
+    Ughost = U_cellarray.Ughost;
   }
-
-  // anyway create the right solver
-  std::unique_ptr<SolverHydroMusclBlock> solver = std::make_unique<SolverHydroMusclBlock>(params, configMap);
+  DataArrayBlock U2("U2", U.layout());  
+  auto Uhost = Kokkos::create_mirror_view(U);
 
   // by now, init condition must have been called
 
-  // just retrieve a field manager
-  FieldManager fieldMgr = FieldManager::setup(params, configMap);
-
-  auto fm = fieldMgr.get_id2index();
+  auto fm = field_manager.get_id2index();
 
   /*
    * "geometry" setup
@@ -76,11 +95,6 @@ void run_test(int argc, char *argv[]) {
 
   // block ghost width
   uint32_t ghostWidth = configMap.getInteger("amr", "ghostwidth", 2);
-
-  // block sizes
-  uint32_t bx = configMap.getInteger("amr", "bx", 0);
-  uint32_t by = configMap.getInteger("amr", "by", 0);
-  uint32_t bz = configMap.getInteger("amr", "bz", 1);
 
   // block sizes with ghosts
   uint32_t bx_g = bx + 2 * ghostWidth;
@@ -105,9 +119,8 @@ void run_test(int argc, char *argv[]) {
             << "bz_g=" << bz_g << " "
             << "ghostwidth=" << ghostWidth << "\n";
 
-  //uint32_t nbCellsPerOct = params.dimType == TWO_D ? bx * by : bx * by * bz;
   uint32_t nbCellsPerOct_g =
-      params.dimType == TWO_D ? bx_g * by_g : bx_g * by_g * bz_g;
+      ndim == 2 ? bx_g * by_g : bx_g * by_g * bz_g;
 
   uint32_t nbOctsPerGroup = configMap.getInteger("amr", "nbOctsPerGroup", 32);
 
@@ -115,7 +128,7 @@ void run_test(int argc, char *argv[]) {
    * allocate/initialize Ugroup / Qgroup
    */
 
-  uint32_t nbOcts = solver->amr_mesh->getNumOctants();
+  uint32_t nbOcts = amr_mesh.getNumOctants();
   std::cout << "Currently mesh has " << nbOcts << " octants\n";
 
   std::cout << "Using nbCellsPerOct_g (number of cells per octant with ghots) = " << nbCellsPerOct_g << "\n";
@@ -139,14 +152,14 @@ void run_test(int argc, char *argv[]) {
   // std::cout << "Looking at octant id = " << iOct_global << "\n";
 
   // // save solution, just for cross-checking
-  // solver->save_solution();
+  // save_solution();
 
   std::cout << "Printing U data from iOct = " << iOct_global << "\n";
   for (uint32_t iz=0; iz<bz; ++iz) {
     for (uint32_t iy=0; iy<by; ++iy) {
       for (uint32_t ix=0; ix<bx; ++ix) {
         uint32_t index = ix + bx*(iy+by*iz);
-        printf("%5f ",solver->Uhost(index,fm[ID],iOct_global));
+        printf("%5f ", Uhost(index,fm[ID],iOct_global));
       }
       std::cout << "\n";
     }
@@ -157,16 +170,14 @@ void run_test(int argc, char *argv[]) {
 
   params.gravity_type = GRAVITY_NONE;
 
-  //uint32_t nbOcts = solver->amr_mesh->getNumOctants();
-
   // compute CFL constraint
   real_t invDt;
-  ComputeDtHydroFunctor::apply(solver->amr_mesh->getLightOctree(),
+  ComputeDtHydroFunctor::apply(amr_mesh.getLightOctree(),
                                configMap,
                                params,
                                fm,
                                blockSizes,
-                               solver->U,
+                               U,
                                invDt);  
   real_t dt = params.settings.cfl / invDt;
 
@@ -174,30 +185,30 @@ void run_test(int argc, char *argv[]) {
 
   // testing MusclBlockGodunovUpdateFunctor
   {
-    std::unique_ptr<MusclBlockUpdate> godunov_updater = MusclBlockUpdateFactory::make_instance( "MusclBlockUpdate_legacy",
+    std::unique_ptr<MusclBlockUpdate> godunov_updater = MusclBlockUpdateFactory::make_instance( "MusclBlockUpdate_generic",
       configMap,
       params,
-      *(solver->amr_mesh), 
+      amr_mesh, 
       fm,
       bx, by, bz,
-      solver->timers
+      timers
     );
-    godunov_updater->update(solver->U, solver->Ughost, solver->U2, dt);
+    godunov_updater->update(U, Ughost, U2, dt);
 
-    Kokkos::deep_copy( solver->Uhost, solver->U);
+    Kokkos::deep_copy( Uhost, U);
     std::cout << "Printing U data (after update) from iOct = " << iOct_global << "\n";
     for (uint32_t iy = 0; iy < by; ++iy) {
       for (uint32_t ix = 0; ix < bx; ++ix) {
         uint32_t index = ix + bx * iy;
-        printf("%5f ", solver->Uhost(index, fm[ID], iOct_global));
+        printf("%5f ", Uhost(index, fm[ID], iOct_global));
       }
       std::cout << "\n";
     }
     std::cout << "\n";
     
-    DataArrayBlockHost U2_host = Kokkos::create_mirror_view(solver->U2);
+    DataArrayBlockHost U2_host = Kokkos::create_mirror_view(U2);
     std::cout << "Printing U2 data (after update) from iOct = " << iOct_global << "\n";
-    Kokkos::deep_copy( U2_host, solver->U2);
+    Kokkos::deep_copy( U2_host, U2);
     for (uint32_t iy = 0; iy < by; ++iy) {
       for (uint32_t ix = 0; ix < bx; ++ix) {
         uint32_t index = ix + bx * iy;
@@ -219,12 +230,14 @@ BOOST_AUTO_TEST_SUITE(dyablo)
 
 BOOST_AUTO_TEST_SUITE(muscl_block)
 
-BOOST_AUTO_TEST_CASE(test_MusclBlockGodunovUpdateFunctor)
+BOOST_AUTO_TEST_CASE(test_MusclBlockUpdate_generic_blast_2D)
 {
+  run_test("MusclBlockUpdate_generic (2D)", "./block_data/test_blast_2D_block.ini");
+}
 
-  run_test(boost::unit_test::framework::master_test_suite().argc,
-           boost::unit_test::framework::master_test_suite().argv);
-
+BOOST_AUTO_TEST_CASE(test_MusclBlockUpdate_generic_blast_3D)
+{
+  run_test("MusclBlockUpdate_generic (3D)", "./block_data/test_blast_3D_block.ini");
 }
 
 BOOST_AUTO_TEST_SUITE_END() /* muscl_block */
