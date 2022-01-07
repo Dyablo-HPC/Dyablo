@@ -149,7 +149,7 @@ void apply_aux( const AMR_Remapper& remap,
   // using kokkos team execution policy
   using policy_t = Kokkos::TeamPolicy<Kokkos::IndexType<uint32_t>>;
   Kokkos::parallel_for("SolverHydroMusclBlock::map_userdata_after_adapt",
-                       policy_t(nbOcts, Kokkos::AUTO() ),
+                       policy_t(remap.size(), Kokkos::AUTO() ),
                        KOKKOS_LAMBDA( policy_t::member_type member )
   {
     uint32_t iPair = member.league_rank();
