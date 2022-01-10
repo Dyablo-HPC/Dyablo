@@ -32,6 +32,7 @@ public:
   : m_iter_end( configMap.getInteger("run","nstepmax",1000) ),    
     m_t_end( configMap.getFloat("run", "tEnd", 0.0) ),
     m_nlog( configMap.getFloat("run", "nlog", 10) ),
+    m_enable_output( configMap.getBool("run", "enable_output", true) ),
     m_output_frequency( configMap.getFloat("run", "output_frequency", -1) ),
     m_output_timeslice( configMap.getFloat("run", "output_timeslice", -1) ),
     m_amr_cycle_frequency( configMap.getInteger("amr", "cycle_frequency", 1) ),
@@ -221,7 +222,7 @@ public:
 
     // Always output after last iteration
     timers.get("outputs").start();
-    if( m_output_frequency > 0 || m_output_timeslice > 0 )
+    if( m_enable_output )
       io_manager->save_snapshot(U.U, U.Ughost, m_iter, m_t); // TODO use CellArray instead of DataArrayBlock
     timers.get("outputs").stop();
     timers.get("Total").stop();
@@ -261,7 +262,7 @@ public:
       if( timeslice_trigger )
         m_output_timeslice_count++;        
 
-      if( first_iter || frequency_trigger || timeslice_trigger )
+      if( m_enable_output && (first_iter || frequency_trigger || timeslice_trigger) )
       {
         int rank = m_communicator.MPI_Comm_rank();
         if( rank == 0 )
@@ -384,8 +385,9 @@ private:
   int m_iter_end; //! Number of iterations before ending the simulation 
   real_t m_t_end; //! Physical time to end the simulation
   int m_nlog; //! Timestep log frequency  
-  int m_output_frequency; //! Maximum number of iterations between outputs
-  double m_output_timeslice; //! Physical time interval between outputs
+  bool m_enable_output; //! Enable vizualization output and output at least at beginning and end of simulation
+  int m_output_frequency; //! Maximum number of iterations between outputs (does nothing if m_enable_output==false)
+  double m_output_timeslice; //! Physical time interval between outputs (does nothing if m_enable_output==false)
   int m_amr_cycle_frequency; //! Number of iterations between amr cycles (<= 0 is never)
   int m_loadbalance_frequency; //! Number of iterations between load balancing (<= 0 is never)
 
