@@ -51,7 +51,8 @@ public:
     uint32_t bz = configMap.getInteger("amr", "bz", 1);
 
     {
-      int ndim = configMap.getInteger("mesh", "ndim", 3);
+      int ndim = params.dimType == TWO_D ? 2 : 3;
+      //int ndim = configMap.getInteger("mesh", "ndim", 3);
       int codim = ndim;
       BoundaryConditionType bxmin  = static_cast<BoundaryConditionType>(configMap.getInteger("mesh","boundary_type_xmin", BC_ABSORBING));
       BoundaryConditionType bxmax  = static_cast<BoundaryConditionType>(configMap.getInteger("mesh","boundary_type_xmax", BC_ABSORBING));
