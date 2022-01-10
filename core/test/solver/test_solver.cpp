@@ -13,7 +13,7 @@ int main(int argc, char *argv[])
    * read parameter file and initialize a ConfigMap object
    */
   std::string input_file = std::string(argv[1]);
-  ConfigMap configMap = broadcast_parameters(input_file);
+  ConfigMap configMap = ConfigMap::broadcast_parameters(input_file);
 
   muscl_block::DyabloTimeLoop simulation( configMap );
 

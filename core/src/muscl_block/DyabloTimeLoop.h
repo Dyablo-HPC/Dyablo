@@ -178,7 +178,10 @@ public:
       };
 
       U2 = foreach_cell.allocate_ghosted_array( "U2", amr_mesh, field_manager );
-    }        
+    } 
+
+    std::ofstream out_ini("last.ini" );
+    configMap.output( out_ini );       
   }
 
   static int interrupted;
