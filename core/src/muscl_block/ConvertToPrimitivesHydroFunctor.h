@@ -29,14 +29,9 @@ namespace dyablo { namespace muscl_block {
  */
 class ConvertToPrimitivesHydroFunctor {
 
-private:
-  uint32_t nbTeams; //!< number of thread teams
-
 public:
   using team_policy_t = Kokkos::TeamPolicy<Kokkos::IndexType<int32_t>>;
   using thread_t = team_policy_t::member_type;
-
-  void setNbTeams(uint32_t nbTeams_) {nbTeams = nbTeams_;}; 
 
   /**
    * Convert conservative variables to primitive ones using equation of state.
@@ -85,12 +80,9 @@ public:
     ConvertToPrimitivesHydroFunctor functor(params, fm, blockSizes, ghostWidth, 
                                             nbOcts, nbOctsPerGroup, iGroup,
                                             Ugroup, Qgroup);
-
-    // kokkos execution policy
-    uint32_t nbTeams_ = configMap.getValue<uint32_t>("amr","nbTeams",16);
-    functor.setNbTeams ( nbTeams_ );
     
-    team_policy_t policy (nbTeams_,
+    uint32_t nbOctsInGroup = std::min( nbOctsPerGroup, nbOcts - iGroup*nbOctsPerGroup );
+    team_policy_t policy (nbOctsInGroup,
                           Kokkos::AUTO() /* team size chosen by kokkos */);
     
     
@@ -164,34 +156,22 @@ public:
 
     // iOct must span the range [iGroup*nbOctsPerGroup ,
     // (iGroup+1)*nbOctsPerGroup [
-    uint32_t iOct = member.league_rank() + iGroup * nbOctsPerGroup;
+    // uint32_t iOct = member.league_rank() + iGroup * nbOctsPerGroup;
 
     // octant id inside the Ugroup data array
     uint32_t iOct_local = member.league_rank();
 
-    // compute first octant index after current group
-    uint32_t iOctNextGroup = (iGroup + 1) * nbOctsPerGroup;
+    Kokkos::parallel_for(
+      Kokkos::TeamVectorRange(member, nbCellsPerBlock),
+      [&](const int32_t index) {
 
-    while (iOct < iOctNextGroup and iOct < nbOcts)
-    {
+        if (params.dimType == TWO_D)
+          cons2prim_2d(index, iOct_local);
 
-      Kokkos::parallel_for(
-        Kokkos::TeamVectorRange(member, nbCellsPerBlock),
-        [&](const int32_t index) {
+        else if (params.dimType == THREE_D)
+          cons2prim_3d(index, iOct_local);
 
-          if (params.dimType == TWO_D)
-            cons2prim_2d(index, iOct_local);
-
-          else if (params.dimType == THREE_D)
-            cons2prim_3d(index, iOct_local);
-  
-        }); // end TeamVectorRange
-
-      iOct       += nbTeams;
-      iOct_local += nbTeams;
-
-    } // end while iOct < nbOct
-
+      }); // end TeamVectorRange
   } // operator()
 
   //! general parameters

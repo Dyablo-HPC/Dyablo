@@ -100,11 +100,8 @@ public:
                                           Ugroup,
                                           iGroup);
     
-    // kokkos execution policy
-    uint32_t nbTeams_ = configMap.getValue<uint32_t>("amr","nbTeams", 16);
-    functor.setNbTeams ( nbTeams_ );
-    
-    team_policy_t policy (nbTeams_,
+    uint32_t nbOctsInGroup = std::min( nbOctsPerGroup, nbOcts - iGroup*nbOctsPerGroup );
+    team_policy_t policy (nbOctsInGroup,
                           Kokkos::AUTO() /* team size chosen by kokkos */);
     
     
@@ -121,9 +118,6 @@ public:
 
     // octant id inside the Ugroup data array
     uint32_t iOct_g = member.league_rank();
-
-    // compute first octant index after current group
-    uint32_t iOctNextGroup = (iGroup+1)*nbOctsPerGroup;
     
     const int& bx = blockSizes[IX];
     const int& by = blockSizes[IY];
@@ -138,48 +132,41 @@ public:
       bx * by * bz;
     //uint32_t nbCells_g = params.dimType == TWO_D ? bx_g*by_g : bx_g*by_g*bz_g;
 
-    while (iOct < iOctNextGroup and iOct < nbOcts)
-    {
       
-      // perform vectorized loop inside a given block data
-      Kokkos::parallel_for(
-        Kokkos::TeamVectorRange(member, nbCells),
-        [&](const index_t index) {
+    // perform vectorized loop inside a given block data
+    Kokkos::parallel_for(
+      Kokkos::TeamVectorRange(member, nbCells),
+      [&](const index_t index) {
 
-          // compute current cell coordinates inside block
+        // compute current cell coordinates inside block
 
-          coord_t cell_coord = params.dimType == TWO_D ? 
-            index_to_coord<2>(index, blockSizes) :
-            index_to_coord<3>(index, blockSizes) ;
+        coord_t cell_coord = params.dimType == TWO_D ? 
+          index_to_coord<2>(index, blockSizes) :
+          index_to_coord<3>(index, blockSizes) ;
 
-          // compute corresponding index in the block with ghost data
-          uint32_t index_g = params.dimType == TWO_D ?
-            coord_to_index_g<2>(cell_coord, blockSizes, ghostWidth) :
-            coord_to_index_g<3>(cell_coord, blockSizes, ghostWidth) ;
+        // compute corresponding index in the block with ghost data
+        uint32_t index_g = params.dimType == TWO_D ?
+          coord_to_index_g<2>(cell_coord, blockSizes, ghostWidth) :
+          coord_to_index_g<3>(cell_coord, blockSizes, ghostWidth) ;
 
-          // get local conservative variable
-          Ugroup(index_g, fm[ID], iOct_g) = U(index, fm[ID], iOct);
-          Ugroup(index_g, fm[IP], iOct_g) = U(index, fm[IP], iOct);
-          Ugroup(index_g, fm[IU], iOct_g) = U(index, fm[IU], iOct);
-          Ugroup(index_g, fm[IV], iOct_g) = U(index, fm[IV], iOct);
+        // get local conservative variable
+        Ugroup(index_g, fm[ID], iOct_g) = U(index, fm[ID], iOct);
+        Ugroup(index_g, fm[IP], iOct_g) = U(index, fm[IP], iOct);
+        Ugroup(index_g, fm[IU], iOct_g) = U(index, fm[IU], iOct);
+        Ugroup(index_g, fm[IV], iOct_g) = U(index, fm[IV], iOct);
 
+        if (params.dimType == THREE_D)
+          Ugroup(index_g, fm[IW], iOct_g) = U(index, fm[IW], iOct);
+
+        if (copy_gravity) {
+          Ugroup(index_g, fm[IGX], iOct_g) = U(index, fm[IGX], iOct);
+          Ugroup(index_g, fm[IGY], iOct_g) = U(index, fm[IGY], iOct);
           if (params.dimType == THREE_D)
-            Ugroup(index_g, fm[IW], iOct_g) = U(index, fm[IW], iOct);
+            Ugroup(index_g, fm[IGZ], iOct_g) = U(index, fm[IGZ], iOct);
+        }
 
-          if (copy_gravity) {
-            Ugroup(index_g, fm[IGX], iOct_g) = U(index, fm[IGX], iOct);
-            Ugroup(index_g, fm[IGY], iOct_g) = U(index, fm[IGY], iOct);
-            if (params.dimType == THREE_D)
-              Ugroup(index_g, fm[IGZ], iOct_g) = U(index, fm[IGZ], iOct);
-          }
-
-        }); // end TeamVectorRange
-
-      // increase current octant location both in U and Ugroup
-      iOct   += nbTeams;
-      iOct_g += nbTeams;
+      }); // end TeamVectorRange
       
-    } // end while iOct inside current group of octants
     
   } // operator
   

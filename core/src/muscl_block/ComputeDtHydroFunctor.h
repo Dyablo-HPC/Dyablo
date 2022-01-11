@@ -36,14 +36,9 @@ namespace dyablo { namespace muscl_block {
  */
 class ComputeDtHydroFunctor {
 
-private:
-  uint32_t nbTeams; //!< number of thread teams
-
 public:
   using team_policy_t = Kokkos::TeamPolicy<Kokkos::IndexType<int32_t>>;
   using thread_t = team_policy_t::member_type;
-
-  void setNbTeams(uint32_t nbTeams_) {nbTeams = nbTeams_;}; 
 
   ComputeDtHydroFunctor(LightOctree lmesh,
 			HydroParams    params,
@@ -57,7 +52,6 @@ public:
   
   // static method which does it all: create and execute functor
   static void apply(LightOctree lmesh,
-		    ConfigMap      configMap,
                     HydroParams    params,
 		    id2index_t     fm,
                     blockSize_t    blockSizes,
@@ -67,11 +61,7 @@ public:
     
     ComputeDtHydroFunctor functor(lmesh, params, fm, blockSizes, Udata);
 
-    // kokkos execution policy
-    uint32_t nbTeams_ = configMap.getValue<uint32_t>("amr","nbTeams",16);
-    functor.setNbTeams ( nbTeams_ );
-
-    team_policy_t policy (nbTeams_,
+    team_policy_t policy ( lmesh.getNumOctants(),
                           Kokkos::AUTO() /* team size chosen by kokkos */);
 
     Kokkos::parallel_reduce("dyablo::muscl_block::ComputeDtHydroFunctor",
@@ -102,9 +92,6 @@ public:
     uint32_t iOct = member.league_rank();
     //uint32_t iCell = member.team_rank();
 
-    // total number of octants (of current MPI processor)
-    uint32_t nbOct = lmesh.getNumOctants();
-
     const int& bx = blockSizes[IX];
     const int& by = blockSizes[IY];
 
@@ -122,43 +109,38 @@ public:
     HydroState2d qLoc; // primitive    variables in current cell
     real_t c = 0.0;
     real_t vx, vy;
-
-    while (iOct < nbOct) {
       
-      // retrieve cell size from mesh
-      real_t dx = lmesh.getSize({iOct,false}) * Lx / bx;
-      real_t dy = lmesh.getSize({iOct,false}) * Ly / by;
+    // retrieve cell size from mesh
+    real_t dx = lmesh.getSize({iOct,false}) * Lx / bx;
+    real_t dy = lmesh.getSize({iOct,false}) * Ly / by;
 
-      // initialialize cell id
-      uint32_t iCell = member.team_rank();
-      while (iCell < nbCells) {
-        
-        // get local conservative variable
-        uLoc[ID] = Udata(iCell,fm[ID],iOct);
-        uLoc[IP] = Udata(iCell,fm[IP],iOct);
-        uLoc[IU] = Udata(iCell,fm[IU],iOct);
-        uLoc[IV] = Udata(iCell,fm[IV],iOct);
-        
-        // get primitive variables in current cell
-        computePrimitives(uLoc, &c, qLoc, params);
-
-        if (params.rsst_enabled and params.rsst_cfl_enabled) {
-          vx = c/params.rsst_ksi + FABS(qLoc[IU]);
-          vy = c/params.rsst_ksi + FABS(qLoc[IV]);
-        } else {
-          vx = c + FABS(qLoc[IU]);
-          vy = c + FABS(qLoc[IV]);
-        }
-
-        invDt_local = FMAX(invDt_local, vx / dx + vy / dy);
-
-        iCell += member.team_size();
+    // initialialize cell id
+    uint32_t iCell = member.team_rank();
+    while (iCell < nbCells) {
       
-      } // end while iCell
+      // get local conservative variable
+      uLoc[ID] = Udata(iCell,fm[ID],iOct);
+      uLoc[IP] = Udata(iCell,fm[IP],iOct);
+      uLoc[IU] = Udata(iCell,fm[IU],iOct);
+      uLoc[IV] = Udata(iCell,fm[IV],iOct);
+      
+      // get primitive variables in current cell
+      computePrimitives(uLoc, &c, qLoc, params);
 
-      iOct += nbTeams;
+      if (params.rsst_enabled and params.rsst_cfl_enabled) {
+        vx = c/params.rsst_ksi + FABS(qLoc[IU]);
+        vy = c/params.rsst_ksi + FABS(qLoc[IV]);
+      } else {
+        vx = c + FABS(qLoc[IU]);
+        vy = c + FABS(qLoc[IV]);
+      }
 
-    } // end while iOct
+      invDt_local = FMAX(invDt_local, vx / dx + vy / dy);
+
+      iCell += member.team_size();
+    
+    } // end while iCell
+
 
     // update global reduced value
     if (invDt < invDt_local)
@@ -172,8 +154,6 @@ public:
   void operator_3d(const thread_t& member, real_t &invDt) const
   {
     uint32_t iOct = member.league_rank();
-
-    uint32_t nbOct = lmesh.getNumOctants();
 
     const int& bx = blockSizes[IX];
     const int& by = blockSizes[IY];
@@ -193,45 +173,40 @@ public:
     real_t c = 0.0;
     real_t vx, vy, vz;
 
-    while (iOct < nbOct) {
-      
-      // retrieve cell size from mesh
-      real_t dx = lmesh.getSize({iOct,false}) * Lx / blockSizes[IX];
-      real_t dy = lmesh.getSize({iOct,false}) * Ly / blockSizes[IY];
-      real_t dz = lmesh.getSize({iOct,false}) * Lz / blockSizes[IZ];
+    // retrieve cell size from mesh
+    real_t dx = lmesh.getSize({iOct,false}) * Lx / blockSizes[IX];
+    real_t dy = lmesh.getSize({iOct,false}) * Ly / blockSizes[IY];
+    real_t dz = lmesh.getSize({iOct,false}) * Lz / blockSizes[IZ];
 
-      uint32_t iCell = member.team_rank();
-      while (iCell < nbCells) {
+    uint32_t iCell = member.team_rank();
+    while (iCell < nbCells) {
+  
+      // get local conservative variable
+      uLoc[ID] = Udata(iCell,fm[ID],iOct);
+      uLoc[IP] = Udata(iCell,fm[IP],iOct);
+      uLoc[IU] = Udata(iCell,fm[IU],iOct);
+      uLoc[IV] = Udata(iCell,fm[IV],iOct);
+      uLoc[IW] = Udata(iCell,fm[IW],iOct);
+      
+      // get primitive variables in current cell
+      computePrimitives(uLoc, &c, qLoc, params);
+
+      if (params.rsst_enabled and params.rsst_cfl_enabled) {
+        vx = c/params.rsst_ksi + FABS(qLoc[IU]);
+        vy = c/params.rsst_ksi + FABS(qLoc[IV]);
+        vz = c/params.rsst_ksi + FABS(qLoc[IW]);
+      } else {
+        vx = c + FABS(qLoc[IU]);
+        vy = c + FABS(qLoc[IV]);
+        vz = c + FABS(qLoc[IW]);
+      }
+
+      invDt_local = FMAX(invDt_local, vx / dx + vy / dy + vz / dz);
+
+      iCell += member.team_size();
     
-        // get local conservative variable
-        uLoc[ID] = Udata(iCell,fm[ID],iOct);
-        uLoc[IP] = Udata(iCell,fm[IP],iOct);
-        uLoc[IU] = Udata(iCell,fm[IU],iOct);
-        uLoc[IV] = Udata(iCell,fm[IV],iOct);
-        uLoc[IW] = Udata(iCell,fm[IW],iOct);
-        
-        // get primitive variables in current cell
-        computePrimitives(uLoc, &c, qLoc, params);
+    } // end while iCell
 
-        if (params.rsst_enabled and params.rsst_cfl_enabled) {
-          vx = c/params.rsst_ksi + FABS(qLoc[IU]);
-          vy = c/params.rsst_ksi + FABS(qLoc[IV]);
-          vz = c/params.rsst_ksi + FABS(qLoc[IW]);
-        } else {
-          vx = c + FABS(qLoc[IU]);
-          vy = c + FABS(qLoc[IV]);
-          vz = c + FABS(qLoc[IW]);
-        }
-
-        invDt_local = FMAX(invDt_local, vx / dx + vy / dy + vz / dz);
-
-        iCell += member.team_size();
-      
-      } // end while iCell
-
-      iOct += nbTeams;
-
-    } // end while iOct
 
     // update global reduced value
     if (invDt < invDt_local)

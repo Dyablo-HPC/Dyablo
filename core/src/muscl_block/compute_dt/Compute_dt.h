@@ -16,7 +16,6 @@ public:
                 AMRmesh& pmesh,
                 Timers& timers )
   : cfl( configMap.getValue<real_t>("hydro", "cfl", 0.5) ),
-    configMap(configMap),
     params(params),
     pmesh(pmesh)
   {}
@@ -26,7 +25,6 @@ public:
     real_t inv_dt = 0;
 
     ComputeDtHydroFunctor::apply( pmesh.getLightOctree(), 
-                                  configMap,
                                   params, U.fm,
                                   {U.bx,U.by,U.bz}, U.U, inv_dt);
 
@@ -39,7 +37,6 @@ public:
 
 private:
   real_t cfl;
-  const ConfigMap& configMap;
   const HydroParams params;
   AMRmesh& pmesh;
 };
