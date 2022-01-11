@@ -16,9 +16,9 @@ struct FourQuadrantParams {
   int configNumber;
 
   FourQuadrantParams(ConfigMap &configMap) {
-    xt = configMap.getFloat("riemann2d","x",0.8);
-    yt = configMap.getFloat("riemann2d","y",0.8);
-    configNumber = configMap.getInteger("riemann2d","config_number",0);
+    xt = configMap.getValue<real_t>("riemann2d","x",0.8);
+    yt = configMap.getValue<real_t>("riemann2d","y",0.8);
+    configNumber = configMap.getValue<int>("riemann2d","config_number",0);
   }
 
 }; // struct FourQuadrantParameters

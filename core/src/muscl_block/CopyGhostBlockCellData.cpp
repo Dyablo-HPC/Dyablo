@@ -809,7 +809,7 @@ void CopyGhostBlockCellDataFunctor::apply(
                                         interface_flags);
 
   // using kokkos team execution policy
-  uint32_t nbTeams_ = configMap.getInteger("amr", "nbTeams", 16);
+  uint32_t nbTeams_ = configMap.getValue<uint32_t>("amr", "nbTeams", 16);
   functor.nbTeams = nbTeams_;
   // create execution policy
   team_policy_t policy(nbTeams_,

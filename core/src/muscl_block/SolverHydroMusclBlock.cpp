@@ -70,9 +70,9 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
 
   ghostWidth = params.ghostWidth;
 
-  bx = configMap.getInteger("amr", "bx", 0);
-  by = configMap.getInteger("amr", "by", 0);
-  bz = configMap.getInteger("amr", "bz", 1);
+  bx = configMap.getValue<uint32_t>("amr", "bx", 0);
+  by = configMap.getValue<uint32_t>("amr", "by", 0);
+  bz = configMap.getValue<uint32_t>("amr", "bz", 1);
 
   if (bx < 2*ghostWidth) {
     bx = 2*ghostWidth;
@@ -102,7 +102,7 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   nbCellsPerOct   = params.dimType == TWO_D ? bx  *by   : bx  *by  *bz;
   nbCellsPerOct_g = params.dimType == TWO_D ? bx_g*by_g : bx_g*by_g*bz_g;
 
-  nbOctsPerGroup = configMap.getInteger("amr", "nbOctsPerGroup", 32);
+  nbOctsPerGroup = configMap.getValue<uint32_t>("amr", "nbOctsPerGroup", 32);
 
   /*
    * main data array memory allocation
@@ -125,8 +125,8 @@ SolverHydroMusclBlock::SolverHydroMusclBlock(HydroParams& params,
   int myRank=params.myRank;
 
   //std::string godunov_updater_id = "MusclBlockUpdate_legacy";
-  std::string godunov_updater_id = this->configMap.getString("hydro", "update", "MusclBlockUpdate_generic");
-  std::string iomanager_id = this->configMap.getString("output", "backend", "IOManager_hdf5");
+  std::string godunov_updater_id = this->configMap.getValue<std::string>("hydro", "update", "MusclBlockUpdate_generic");
+  std::string iomanager_id = this->configMap.getValue<std::string>("output", "backend", "IOManager_hdf5");
 
   if (myRank==0) {
     std::cout << "##########################" << "\n";
@@ -210,7 +210,7 @@ void SolverHydroMusclBlock::init(DataArrayBlock Udata)
 {
 
   // test if we are performing a re-start run (default : false)
-  bool restartEnabled = configMap.getBool("run","restart_enabled", false);
+  bool restartEnabled = configMap.getValue<bool>("run","restart_enabled", false);
 
   std::string init_name = restartEnabled ? "restart" : m_problem_name;
 
@@ -341,7 +341,7 @@ void SolverHydroMusclBlock::next_iteration_impl()
 
   if( params.gravity_type & GRAVITY_FIELD )
   {
-    std::string impl_id = this->configMap.getString("gravity", "solver", "GravitySolver_constant");
+    std::string impl_id = this->configMap.getValue<std::string>("gravity", "solver", "GravitySolver_constant");
     std::unique_ptr<GravitySolver> gravity_solver = GravitySolverFactory::make_instance( impl_id,
       configMap,
       params,
@@ -490,8 +490,8 @@ void SolverHydroMusclBlock::mark_cells()
   // necessary to access user data
   auto fm = fieldMgr.get_id2index();
 
-  real_t error_min = configMap.getFloat("amr", "error_min", 0.2);
-  real_t error_max = configMap.getFloat("amr", "error_max", 0.8);
+  real_t error_min = configMap.getValue<real_t>("amr", "error_min", 0.2);
+  real_t error_max = configMap.getValue<real_t>("amr", "error_max", 0.8);
 
   uint32_t nbfields = U.extent(1);
 

@@ -27,7 +27,7 @@ void writeVTK(AMRmesh_pablo&         amr_mesh,
     amr_mesh.computeConnectivity();
   }
 
-  std::string outputPrefix = configMap.getString("output", "outputPrefix", "output");
+  std::string outputPrefix = configMap.getValue<std::string>("output", "outputPrefix", "output");
 
   if (nameSuffix.size() > 0)
     outputPrefix = outputPrefix + nameSuffix;

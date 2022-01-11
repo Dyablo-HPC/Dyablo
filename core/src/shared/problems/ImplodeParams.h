@@ -42,27 +42,27 @@ struct ImplodeParams {
   ImplodeParams(ConfigMap& configMap)
   {
 
-    rho_out  = configMap.getFloat("implode","density_outer", 1.0);
-    p_out  = configMap.getFloat("implode","pressure_outer", 1.0);
-    u_out  = configMap.getFloat("implode","vx_outer", 0.0);
-    v_out  = configMap.getFloat("implode","vy_outer", 0.0);
-    w_out  = configMap.getFloat("implode","vz_outer", 0.0);
-    Bx_out  = configMap.getFloat("implode","Bx_outer", 0.0);
-    By_out  = configMap.getFloat("implode","By_outer", 0.0);
-    Bz_out  = configMap.getFloat("implode","Bz_outer", 0.0);
+    rho_out  = configMap.getValue<real_t>("implode","density_outer", 1.0);
+    p_out  = configMap.getValue<real_t>("implode","pressure_outer", 1.0);
+    u_out  = configMap.getValue<real_t>("implode","vx_outer", 0.0);
+    v_out  = configMap.getValue<real_t>("implode","vy_outer", 0.0);
+    w_out  = configMap.getValue<real_t>("implode","vz_outer", 0.0);
+    Bx_out  = configMap.getValue<real_t>("implode","Bx_outer", 0.0);
+    By_out  = configMap.getValue<real_t>("implode","By_outer", 0.0);
+    Bz_out  = configMap.getValue<real_t>("implode","Bz_outer", 0.0);
 
-    rho_in  = configMap.getFloat("implode","density_inner", 0.125);
-    p_in  = configMap.getFloat("implode","pressure_inner", 0.14);
-    u_in  = configMap.getFloat("implode","vx_inner", 0.0);
-    v_in  = configMap.getFloat("implode","vy_inner", 0.0);
-    w_in  = configMap.getFloat("implode","vz_inner", 0.0);
-    Bx_in  = configMap.getFloat("implode","Bx_inner", 0.0);
-    By_in  = configMap.getFloat("implode","By_inner", 0.0);
-    Bz_in  = configMap.getFloat("implode","Bz_inner", 0.0);
+    rho_in  = configMap.getValue<real_t>("implode","density_inner", 0.125);
+    p_in  = configMap.getValue<real_t>("implode","pressure_inner", 0.14);
+    u_in  = configMap.getValue<real_t>("implode","vx_inner", 0.0);
+    v_in  = configMap.getValue<real_t>("implode","vy_inner", 0.0);
+    w_in  = configMap.getValue<real_t>("implode","vz_inner", 0.0);
+    Bx_in  = configMap.getValue<real_t>("implode","Bx_inner", 0.0);
+    By_in  = configMap.getValue<real_t>("implode","By_inner", 0.0);
+    Bz_in  = configMap.getValue<real_t>("implode","Bz_inner", 0.0);
 
-    shape = configMap.getInteger("implode", "shape_region",0);
+    shape = configMap.getValue<int>("implode", "shape_region",0);
     
-    debug = configMap.getBool("implode", "debug", false);
+    debug = configMap.getValue<bool>("implode", "debug", false);
   }
 
 }; // struct ImplodeParams

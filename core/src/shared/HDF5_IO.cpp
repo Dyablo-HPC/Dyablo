@@ -62,13 +62,13 @@ HDF5_Writer::HDF5_Writer(AMRmesh* amr_mesh,
   m_params(params)
 {
 
-  m_write_mesh_info = m_configMap.getBool("output", "write_mesh_info", false);
+  m_write_mesh_info = m_configMap.getValue<bool>("output", "write_mesh_info", false);
 
   // only meaningful when one wants to write block data
-  m_write_block_data = m_configMap.getBool("amr", "use_block_data", false);
-  m_bx = m_configMap.getInteger("amr", "bx", 0);
-  m_by = m_configMap.getInteger("amr", "by", 0);
-  m_bz = m_configMap.getInteger("amr", "bz", 0);
+  m_write_block_data = m_configMap.getValue<bool>("amr", "use_block_data", false);
+  m_bx = m_configMap.getValue<int>("amr", "bx", 0);
+  m_by = m_configMap.getValue<int>("amr", "by", 0);
+  m_bz = m_configMap.getValue<int>("amr", "bz", 0);
 
   m_nbCellsPerLeaf = 1;
 
@@ -81,7 +81,7 @@ HDF5_Writer::HDF5_Writer(AMRmesh* amr_mesh,
   m_write_level = m_write_mesh_info;
   m_write_rank =  m_write_mesh_info;
 
-  m_write_iOct = m_configMap.getBool("output", "write_iOct", false);
+  m_write_iOct = m_configMap.getValue<bool>("output", "write_iOct", false);
 
   m_nbNodesPerCell = m_params.dimType==TWO_D ? 
     IO_NODES_PER_CELL_2D : 
@@ -98,12 +98,12 @@ HDF5_Writer::HDF5_Writer(AMRmesh* amr_mesh,
   m_mpiRank = m_amr_mesh->getRank();
 
   // is actually hdf5 enabled ?
-  bool hdf5_enabled = m_configMap.getBool("output", "hdf5_enabled", false);
+  bool hdf5_enabled = m_configMap.getValue<bool>("output", "hdf5_enabled", false);
 
   if (m_mpiRank == 0 and hdf5_enabled) {
 
-    std::string outputPrefix = configMap.getString("output", "outputPrefix", "output");
-    std::string outputDir = configMap.getString("output", "outputDir", "./");
+    std::string outputPrefix = configMap.getValue<std::string>("output", "outputPrefix", "output");
+    std::string outputDir = configMap.getValue<std::string>("output", "outputDir", "./");
     
     std::string filename;
     filename = outputDir + "/" + outputPrefix + "_main.xmf";

@@ -64,7 +64,7 @@ public:
     InitIsentropicVortexDataFunctor functor(pmesh, params, ivParams, fm, blockSizes, Udata_h);
 
     // Setting-up execution policy
-    uint32_t nbTeams = configMap.getInteger("init", "nbTeams", 16);
+    uint32_t nbTeams = configMap.getValue<uint32_t>("init", "nbTeams", 16);
     functor.setNbTeams(nbTeams);
 
     // And initializing on host

@@ -87,7 +87,7 @@ public:
                                             Ugroup, Qgroup);
 
     // kokkos execution policy
-    uint32_t nbTeams_ = configMap.getInteger("amr","nbTeams",16);
+    uint32_t nbTeams_ = configMap.getValue<uint32_t>("amr","nbTeams",16);
     functor.setNbTeams ( nbTeams_ );
     
     team_policy_t policy (nbTeams_,

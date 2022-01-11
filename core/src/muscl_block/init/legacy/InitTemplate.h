@@ -92,7 +92,7 @@ public:
     InitXXXXXDataFunctor functor(pmesh, params, xxParams, fm, blockSizes, Udata_h);
 
     // And applying it to the mesh
-    uint32_t nbTeams = configMap.getInteger("init", "nbTeams", 16);
+    uint32_t nbTeams = configMap.getValue<uint32_t>("init", "nbTeams", 16);
     functor.setNbTeams(nbTeams);
 
     team_policy_t policy(Kokkos::OpenMP(),

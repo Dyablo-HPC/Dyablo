@@ -72,7 +72,7 @@ public:
     InitGreshoVortexDataFunctor functor(pmesh, params, gvParams, fm, blockSizes, Udata_h);
 
     // kokkos execution policy
-    uint32_t nbTeams_ = configMap.getInteger("init","nbTeams",16);
+    uint32_t nbTeams_ = configMap.getValue<uint32_t>("init","nbTeams",16);
     functor.setNbTeams ( nbTeams_  );
     
     team_policy_t policy (nbTeams_,

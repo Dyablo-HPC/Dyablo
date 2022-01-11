@@ -29,7 +29,7 @@ void init_gresho_vortex(SolverHydroMusclBlock *psolver)
   ConfigMap&   configMap = psolver->configMap;
   HydroParams& params    = psolver->params;
 
-  bool use_geometric_refinement = configMap.getBool("Gresho", "use_geometric_refinement", false);
+  bool use_geometric_refinement = configMap.getValue<bool>("Gresho", "use_geometric_refinement", false);
 
   // field manager index array
   auto fm = psolver->fieldMgr.get_id2index();

@@ -186,7 +186,7 @@ void SolverHydroMuscl::init(DataArray Udata)
 {
 
   // test if we are performing a re-start run (default : false)
-  bool restartEnabled = configMap.getBool("run","restart_enabled",false);
+  bool restartEnabled = configMap.getValue<bool>("run","restart_enabled",false);
 
   if (restartEnabled) { // load data from input data file
 
@@ -606,8 +606,8 @@ void SolverHydroMuscl::save_solution_hdf5()
   build_var_to_write_map(names2index, fieldMgr, configMap);
 
   // prepare output filename
-  std::string outputPrefix = configMap.getString("output", "outputPrefix", "output");
-  std::string outputDir    = configMap.getString("output", "outputDir", "./");
+  std::string outputPrefix = configMap.getValue<std::string>("output", "outputPrefix", "output");
+  std::string outputDir    = configMap.getValue<std::string>("output", "outputDir", "./");
 
   // prepare suffix string
   std::ostringstream strsuffix;
@@ -636,7 +636,7 @@ void SolverHydroMuscl::save_solution_hdf5()
     hdf5_writer->write_quadrant_attribute(Uhost, fm, names2index);
 
     // check if we want to write velocity or rhoV vector fields
-    std::string write_variables = configMap.getString("output", "write_variables", "");
+    std::string write_variables = configMap.getValue<std::string>("output", "write_variables", "");
     if (write_variables.find("velocity") != std::string::npos) {
       hdf5_writer->write_quadrant_velocity(Uhost, fm, false);
     } else if (write_variables.find("rhoV") != std::string::npos) {
@@ -720,8 +720,8 @@ void SolverHydroMuscl::mark_cells()
   // necessary to access user data
   auto fm = fieldMgr.get_id2index();
 
-  real_t eps_refine  = configMap.getFloat("amr", "epsilon_refine", 0.001);
-  real_t eps_coarsen = configMap.getFloat("amr", "epsilon_coarsen", 0.002);
+  real_t eps_refine  = configMap.getValue<real_t>("amr", "epsilon_refine", 0.001);
+  real_t eps_coarsen = configMap.getValue<real_t>("amr", "epsilon_coarsen", 0.002);
 
   DataArray Udata = U2;
 

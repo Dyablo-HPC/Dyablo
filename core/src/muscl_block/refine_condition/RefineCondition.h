@@ -22,9 +22,9 @@ public:
       params(params),
       pmesh(pmesh),
       timers(timers),
-      error_min ( configMap.getFloat("amr", "error_min", 0.2) ),
-      error_max ( configMap.getFloat("amr", "error_max", 0.8) ),
-      nbOctsPerGroup( configMap.getInteger("amr", "nbOctsPerGroup", 32) )
+      error_min ( configMap.getValue<real_t>("amr", "error_min", 0.2) ),
+      error_max ( configMap.getValue<real_t>("amr", "error_max", 0.8) ),
+      nbOctsPerGroup( configMap.getValue<uint32_t>("amr", "nbOctsPerGroup", 32) )
   {}
 
   void mark_cells( const CellArray& U )

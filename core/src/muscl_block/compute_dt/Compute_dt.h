@@ -15,7 +15,7 @@ public:
                 const HydroParams& params, 
                 AMRmesh& pmesh,
                 Timers& timers )
-  : cfl( configMap.getFloat("hydro", "cfl", 0.5) ),
+  : cfl( configMap.getValue<real_t>("hydro", "cfl", 0.5) ),
     configMap(configMap),
     params(params),
     pmesh(pmesh)

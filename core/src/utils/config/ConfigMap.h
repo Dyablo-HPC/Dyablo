@@ -6,17 +6,23 @@
 #include <iomanip>
 #include <limits>
 #include <algorithm>
+#include <type_traits>
 
 #include "utils/mpi/GlobalMpiSession.h"
 #include "utils/config/inih/ini.h"
+#include "shared/enums.h"
 #include <cassert>
 
 namespace Impl{
 
 // TODO move to cpp file
 template< typename T >
-T convert_to( const std::string& str )
+typename std::enable_if< !std::is_enum<T>::value, T >::
+type convert_to( const std::string& str )
 {
+  static_assert( !std::is_same<T, unsigned char>::value && !std::is_same<T, signed char>::value, 
+                 "char is not be used as variable type in configMap because its output in an ascii file is confusing" );
+
   std::istringstream value_stream( str );
   T res;
   value_stream >> res;
@@ -59,6 +65,18 @@ inline bool convert_to<bool>( const std::string& str )
   else
     throw std::runtime_error( std::string("Could not parse to boolean. Input : `") + str + "`" );
 }
+
+/**
+ * convert_to for enums
+ * TODO : enable string parse for enums
+ **/
+template<typename T>
+typename std::enable_if< std::is_enum<T>::value, T >::
+type convert_to( const std::string& str )
+{
+  return static_cast<T>(convert_to<typename std::underlying_type<T>::type>(str));
+}
+
 
 } // namespace Impl
 
@@ -148,6 +166,7 @@ public:
     if(!is_present)
     {
       std::ostringstream sst;
+      sst << std::boolalpha;
       sst << default_value;
       val.value = sst.str();
       std::cout << ".ini default : " << std::setw(30) << section << std::setw(30) << name << std::setw(30) << default_value << std::endl;
@@ -196,43 +215,12 @@ public:
     }
   }
 
-  // TODO replace with the templated version in code
-  std::string getString(std::string section, std::string name, std::string default_value) const
-  {
-    return getValue<std::string>(section, name, default_value);
-  }
-  long getInteger(std::string section, std::string name, long default_value) const
-  {
-    return getValue<long>(section, name, default_value);
-  }
-  float getFloat(std::string section, std::string name, float default_value) const
-  {
-    return getValue<float>(section, name, default_value);
-  }
-  bool  getBool (std::string section, std::string name, bool default_value) const
-  {
-    return getValue<bool>(section, name, default_value);
-  }
-
-  std::string getString(std::string section, std::string name, std::string default_value)
-  {
-    return getValue<std::string>(section, name, default_value);
-  }
-  long getInteger(std::string section, std::string name, long default_value)
-  {
-    return getValue<long>(section, name, default_value);
-  }
-  float getFloat(std::string section, std::string name, float default_value)
-  {
-    return getValue<float>(section, name, default_value);
-  }
-  bool  getBool (std::string section, std::string name, bool default_value)
-  {
-    return getValue<bool>(section, name, default_value);
-  }
-
   void output(std::ostream& o)
   {
+    constexpr std::string::size_type name_width = 20;
+    constexpr std::string::size_type value_width = 20;
+    auto initial_format = o.flags();
+    o << std::left;
     for( auto p_section : _values )
     {
       const std::string& section_name = p_section.first;
@@ -244,7 +232,7 @@ public:
         const std::string& var_name = p_var.first;
         const value_container& val = p_var.second;
 
-        o << var_name << "=" << val.value;
+        o << std::setw(std::max(var_name.length(),name_width)) << var_name << " = " << std::setw(std::max(val.value.length(), value_width)) << val.value;
         if( !val.used )
           o << " ; Unused";
         if( !val.from_file )
@@ -252,6 +240,7 @@ public:
         o << std::endl; 
       }
     }
+    o.flags(initial_format);
   }
 private:
   struct value_container{

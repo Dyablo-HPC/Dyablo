@@ -25,12 +25,12 @@ struct GreshoVortexParams {
   GreshoVortexParams(ConfigMap& configMap)
   {
 
-    rho0  = configMap.getFloat("Gresho", "rho0", 1.0);
-    Ma    = configMap.getFloat("Gresho", "Ma",   0.1);
+    rho0  = configMap.getValue<real_t>("Gresho", "rho0", 1.0);
+    Ma    = configMap.getValue<real_t>("Gresho", "Ma",   0.1);
 
-    u     = configMap.getFloat("Gresho", "u",   0.0);
-    v     = configMap.getFloat("Gresho", "v",   0.0);
-    w     = configMap.getFloat("Gresho", "w",   0.0);
+    u     = configMap.getValue<real_t>("Gresho", "u",   0.0);
+    v     = configMap.getValue<real_t>("Gresho", "v",   0.0);
+    w     = configMap.getValue<real_t>("Gresho", "w",   0.0);
     
   } // GreshoVortexParams
   

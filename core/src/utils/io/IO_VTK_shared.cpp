@@ -23,12 +23,12 @@ static bool isBigEndian()
 void write_vtu_header(std::ostream &outFile, ConfigMap &configMap)
 {
 
-  bool outputVtkAscii = configMap.getBool("output", "outputVtkAscii", false);
+  bool outputVtkAscii = configMap.getValue<bool>("output", "outputVtkAscii", false);
   bool outputVtkAppended =
-      configMap.getBool("output", "outputVtkAppended", false);
-  bool outputVtkBinary = configMap.getBool("output", "outputVtkBinary", false);
+      configMap.getValue<bool>("output", "outputVtkAppended", false);
+  bool outputVtkBinary = configMap.getValue<bool>("output", "outputVtkBinary", false);
   bool outputDateAndTime =
-      configMap.getBool("output", "outputDateAndTime", false);
+      configMap.getValue<bool>("output", "outputDateAndTime", false);
 
   // if writing raw binary data (file does not respect XML standard)
   if (outputVtkAscii or outputVtkBinary)
@@ -121,7 +121,7 @@ void write_pvtu_header(std::string headerFilename, std::string outputPrefix,
   std::fstream outHeader;
 
   bool outputDateAndTime =
-      configMap.getBool("output", "outputDateAndTime", false);
+      configMap.getValue<bool>("output", "outputDateAndTime", false);
 
   const int nbvar = varNames.size();
 

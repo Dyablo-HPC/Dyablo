@@ -25,13 +25,13 @@ struct RTParams {
   RTParams(ConfigMap& configMap)
   {
     
-    rt_y      = configMap.getFloat("rayleigh_taylor", "interface_y", 0.5);
-    amplitude = configMap.getFloat("rayleigh_taylor", "amplitude", 0.01);
-    modes_x   = configMap.getFloat("rayleigh_taylor", "modes_x", 1.0);
-    modes_z   = configMap.getFloat("rayleigh_taylor", "modes_z", 1.0);
-    rho_up    = configMap.getFloat("rayleigh_taylor", "rho_up", 2.0);
-    rho_down  = configMap.getFloat("rayleigh_taylor", "rho_down", 1.0);
-    P0        = configMap.getFloat("rayleigh_taylor", "P0", 2.5);
+    rt_y      = configMap.getValue<real_t>("rayleigh_taylor", "interface_y", 0.5);
+    amplitude = configMap.getValue<real_t>("rayleigh_taylor", "amplitude", 0.01);
+    modes_x   = configMap.getValue<real_t>("rayleigh_taylor", "modes_x", 1.0);
+    modes_z   = configMap.getValue<real_t>("rayleigh_taylor", "modes_z", 1.0);
+    rho_up    = configMap.getValue<real_t>("rayleigh_taylor", "rho_up", 2.0);
+    rho_down  = configMap.getValue<real_t>("rayleigh_taylor", "rho_down", 1.0);
+    P0        = configMap.getValue<real_t>("rayleigh_taylor", "P0", 2.5);
   }
 
 }; // struct BlastParams

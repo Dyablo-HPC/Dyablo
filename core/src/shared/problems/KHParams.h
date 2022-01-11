@@ -43,36 +43,36 @@ struct KHParams {
   KHParams(ConfigMap& configMap)
   {
 
-    d_in  = configMap.getFloat("KH", "d_in", 1.0);
-    d_out = configMap.getFloat("KH", "d_out", 2.0);
+    d_in  = configMap.getValue<real_t>("KH", "d_in", 1.0);
+    d_out = configMap.getValue<real_t>("KH", "d_out", 2.0);
 
-    pressure = configMap.getFloat("KH", "pressure", 10.0);
+    pressure = configMap.getValue<real_t>("KH", "pressure", 10.0);
 
-    p_sine     = configMap.getBool("KH", "perturbation_sine", false);
-    p_sine_rob = configMap.getBool("KH", "perturbation_sine_robertson", true);
-    p_rand     = configMap.getBool("KH", "perturbation_rand", false);
+    p_sine     = configMap.getValue<bool>("KH", "perturbation_sine", false);
+    p_sine_rob = configMap.getValue<bool>("KH", "perturbation_sine_robertson", true);
+    p_rand     = configMap.getValue<bool>("KH", "perturbation_rand", false);
 
-    vflow_in  = configMap.getFloat("KH", "vflow_in",  -0.5);
-    vflow_out = configMap.getFloat("KH", "vflow_out",  0.5);
+    vflow_in  = configMap.getValue<real_t>("KH", "vflow_in",  -0.5);
+    vflow_out = configMap.getValue<real_t>("KH", "vflow_out",  0.5);
 
     if (p_rand) {
       // choose a different random seed per mpi rank
-      seed = configMap.getInteger("KH", "rand_seed", 12);
+      seed = configMap.getValue<int>("KH", "rand_seed", 12);
       int mpiRank = dyablo::GlobalMpiSession::get_comm_world().MPI_Comm_rank();
       seed *= (mpiRank+1);      
     }
 
-    amplitude = configMap.getFloat("KH", "amplitude", 0.1);
+    amplitude = configMap.getValue<real_t>("KH", "amplitude", 0.1);
 
 
     if (p_sine_rob or p_sine) {
       
       // perturbation mode number
-      inner_size = configMap.getFloat("KH","inner_size", 0.2);
+      inner_size = configMap.getValue<real_t>("KH","inner_size", 0.2);
 
-      mode       = configMap.getInteger("KH", "mode", 2);
-      w0         = configMap.getFloat("KH", "w0", 0.1);
-      delta      = configMap.getFloat("KH", "delta", 0.03);
+      mode       = configMap.getValue<int>("KH", "mode", 2);
+      w0         = configMap.getValue<real_t>("KH", "w0", 0.1);
+      delta      = configMap.getValue<real_t>("KH", "delta", 0.03);
     }
     
     

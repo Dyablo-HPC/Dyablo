@@ -244,12 +244,12 @@ enum CORNER_DIR : uint8_t {
 };
 
 
-enum UPDATE_TYPE : uint8_t {
+enum UPDATE_TYPE : uint16_t {
   UPDATE_NON_CONSERVATIVE = 0,
   UPDATE_CONSERVATIVE_SUM = 1
 };
 
-enum GravityType : uint8_t {
+enum GravityType : uint16_t {
   GRAVITY_NONE       = 0,
 
   // General flags

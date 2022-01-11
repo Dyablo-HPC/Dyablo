@@ -51,7 +51,7 @@ MusclBlockUpdate_generic::MusclBlockUpdate_generic(
 {
   pdata->nbOctsPerGroup = std::min( 
       pmesh.getNumOctants(), 
-      (uint32_t)configMap.getInteger("amr","nbOctsPerGroup",pmesh.getNumOctants()));
+      configMap.getValue<uint32_t>("amr","nbOctsPerGroup",pmesh.getNumOctants()));
 
 }
 

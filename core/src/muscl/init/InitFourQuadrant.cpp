@@ -46,9 +46,9 @@ void init_four_quadrant(SolverHydroMuscl *psolver)
   // after the global refine stages, all cells are at level = level_min
 
   // load problem specific parameters
-  int configNumber = configMap.getInteger("riemann2d","config_number",0);
-  real_t xt = configMap.getFloat("riemann2d","x",0.8);
-  real_t yt = configMap.getFloat("riemann2d","y",0.8);
+  int configNumber = configMap.getValue<int>("riemann2d","config_number",0);
+  real_t xt = configMap.getValue<real_t>("riemann2d","x",0.8);
+  real_t yt = configMap.getValue<real_t>("riemann2d","y",0.8);
 
   HydroState2d S0, S1, S2, S3;
   getRiemannConfig2d(configNumber, S0, S1, S2, S3);

@@ -29,7 +29,7 @@ SolverBase::SolverBase (HydroParams& params, ConfigMap& configMap) :
   // codim 1 ==> balance through faces
   // codim 2 ==> balance through faces and corner
   // codim 3 ==> balance through faces, edges and corner (3D only)
-  int codim = configMap.getInteger("amr", "codim", m_dim);
+  int codim = configMap.getValue<int>("amr", "codim", m_dim);
 
   // here periodic means : 
   // every cell will have at least one neighbor through every face
@@ -50,7 +50,7 @@ SolverBase::SolverBase (HydroParams& params, ConfigMap& configMap) :
   /*
    * Load balancing control
    */
-  m_amr_load_balancing_frequency = configMap.getInteger("amr", "load_balancing_frequency", 1);
+  m_amr_load_balancing_frequency = configMap.getValue<int>("amr", "load_balancing_frequency", 1);
   if (m_amr_load_balancing_frequency < 1) {
     m_amr_load_balancing_frequency = 1;
   }
@@ -58,7 +58,7 @@ SolverBase::SolverBase (HydroParams& params, ConfigMap& configMap) :
   /*
    * AMR cycle control
    */
-  m_amr_cycle_frequency = configMap.getInteger("amr", "cycle_frequency", 1);
+  m_amr_cycle_frequency = configMap.getValue<int>("amr", "cycle_frequency", 1);
   if (m_amr_cycle_frequency < 1) {
     m_amr_cycle_frequency = 1;
   }
@@ -123,30 +123,30 @@ void
 SolverBase::read_config()
 {
 
-  m_t     = configMap.getFloat("run", "tCurrent", 0.0);
-  m_tBeg  = configMap.getFloat("run", "tCurrent", 0.0);
-  m_tEnd  = configMap.getFloat("run", "tEnd", 0.0);
+  m_t     = configMap.getValue<real_t>("run", "tCurrent", 0.0);
+  m_tBeg  = configMap.getValue<real_t>("run", "tCurrent", 0.0);
+  m_tEnd  = configMap.getValue<real_t>("run", "tEnd", 0.0);
   m_max_iterations = params.nStepmax;
 
   // maximun number of output written
   m_max_save_count = params.nOutput;
 
   // maximun number of restart output written
-  m_max_restart_count = configMap.getInteger("run", "restart_count", 1);
+  m_max_restart_count = configMap.getValue<int>("run", "restart_count", 1);
 
   
   m_dt    = m_tEnd;
-  m_cfl   = configMap.getFloat("hydro", "cfl", 1.0);
-  m_nlog  = configMap.getFloat("run", "nlog", 10);
+  m_cfl   = configMap.getValue<real_t>("hydro", "cfl", 1.0);
+  m_nlog  = configMap.getValue<real_t>("run", "nlog", 10);
   m_iteration = 0;
 
-  m_problem_name = configMap.getString("hydro", "problem", "unknown");
+  m_problem_name = configMap.getValue<std::string>("hydro", "problem", "unknown");
 
-  m_solver_name = configMap.getString("run", "solver_name", "unknown");
+  m_solver_name = configMap.getValue<std::string>("run", "solver_name", "unknown");
 
   /* restart run : default is no */
-  m_restart_run_enabled = configMap.getInteger("run", "restart_enabled", 0);
-  m_restart_run_filename = configMap.getString ("run", "restart_filename", "");
+  m_restart_run_enabled = configMap.getValue<bool>("run", "restart_enabled", 0);
+  m_restart_run_filename = configMap.getValue<std::string>("run", "restart_filename", "");
 
 } // SolverBase::read_config
 

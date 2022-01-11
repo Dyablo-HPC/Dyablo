@@ -43,16 +43,16 @@ class InitSodDataFunctor {
     const real_t gamma0 = params.settings.gamma0;
     
     // Left state
-    uL[ID] = configMap.getFloat("sod", "rho_L", 1.0);
+    uL[ID] = configMap.getValue<real_t>("sod", "rho_L", 1.0);
     uL[IU] = 0.0;
     uL[IV] = 0.0;
-    uL[IP] = configMap.getFloat("sod", "P_L", 1.0/(gamma0-1.0));
+    uL[IP] = configMap.getValue<real_t>("sod", "P_L", 1.0/(gamma0-1.0));
 
     // Right state
-    uR[ID] = configMap.getFloat("sod", "rho_R", 0.125);
+    uR[ID] = configMap.getValue<real_t>("sod", "rho_R", 0.125);
     uR[IU] = 0.0;
     uR[IV] = 0.0;
-    uR[IP] = configMap.getFloat("sod", "P_R", 0.1/(gamma0-1.0));
+    uR[IP] = configMap.getValue<real_t>("sod", "P_R", 0.1/(gamma0-1.0));
 
     if (params.dimType == THREE_D) {
       uL[IW] = 0.0;
@@ -60,7 +60,7 @@ class InitSodDataFunctor {
     }
 
     // Location of the discontinuity
-    discont_x = configMap.getFloat("sod", "discont_x", 0.5);
+    discont_x = configMap.getValue<real_t>("sod", "discont_x", 0.5);
   }; // constructor
 
   // static method which creates and applies the functor
@@ -74,7 +74,7 @@ class InitSodDataFunctor {
     InitSodDataFunctor functor(pmesh, params, configMap, fm, blockSizes, Udata_h);
 
     // Kokkos execution policy
-    uint32_t nbTeams = configMap.getInteger("init", "nbTeams", 16);
+    uint32_t nbTeams = configMap.getValue<uint32_t>("init", "nbTeams", 16);
     functor.setNbTeams(nbTeams);
     
     // Perform initialization on host
@@ -166,7 +166,7 @@ public:
 		       int                      level_refine)
     : pmesh(pmesh), params(params), configMap(configMap), level_refine(level_refine)
   {
-    discont_x = configMap.getFloat("sod", "discont_x", 0.5);
+    discont_x = configMap.getValue<real_t>("sod", "discont_x", 0.5);
   };
 
   // Static method to create and apply the functor

@@ -17,15 +17,15 @@ void HydroParams::setup(ConfigMap &configMap)
 {
 
   /* initialize RUN parameters */
-  nStepmax = configMap.getInteger("run","nstepmax",1000);
-  tEnd     = configMap.getFloat  ("run","tend",0.0);
-  nOutput  = configMap.getInteger("run","noutput",100);
+  nStepmax = configMap.getValue<int>("run","nstepmax",1000);
+  tEnd     = configMap.getValue<real_t>  ("run","tend",0.0);
+  nOutput  = configMap.getValue<int>("run","noutput",100);
   if (nOutput == 0)
     enableOutput = false;
 
-  nlog     = configMap.getInteger("run","nlog",10);
+  nlog     = configMap.getValue<int>("run","nlog",10);
   
-  std::string solver_name = configMap.getString("run", "solver_name", "unknown");
+  std::string solver_name = configMap.getValue<std::string>("run", "solver_name", "unknown");
 
   if ( !solver_name.compare("Hydro_Muscl_2D") or 
        !solver_name.compare("Hydro_Muscl_Block_2D")) {
@@ -63,27 +63,27 @@ void HydroParams::setup(ConfigMap &configMap)
   }
   
   /* initialize MESH parameters */
-  nx = configMap.getInteger("mesh","nx", 1);
-  ny = configMap.getInteger("mesh","ny", 1);
-  nz = configMap.getInteger("mesh","nz", 1);
+  nx = configMap.getValue<int>("mesh","nx", 1);
+  ny = configMap.getValue<int>("mesh","ny", 1);
+  nz = configMap.getValue<int>("mesh","nz", 1);
 
-  xmin = configMap.getFloat("mesh", "xmin", 0.0);
-  ymin = configMap.getFloat("mesh", "ymin", 0.0);
-  zmin = configMap.getFloat("mesh", "zmin", 0.0);
+  xmin = configMap.getValue<real_t>("mesh", "xmin", 0.0);
+  ymin = configMap.getValue<real_t>("mesh", "ymin", 0.0);
+  zmin = configMap.getValue<real_t>("mesh", "zmin", 0.0);
 
-  xmax = configMap.getFloat("mesh", "xmax", 1.0);
-  ymax = configMap.getFloat("mesh", "ymax", 1.0);
-  zmax = configMap.getFloat("mesh", "zmax", 1.0);
+  xmax = configMap.getValue<real_t>("mesh", "xmax", 1.0);
+  ymax = configMap.getValue<real_t>("mesh", "ymax", 1.0);
+  zmax = configMap.getValue<real_t>("mesh", "zmax", 1.0);
 
-  boundary_type_xmin  = static_cast<BoundaryConditionType>(configMap.getInteger("mesh","boundary_type_xmin", BC_ABSORBING));
-  boundary_type_xmax  = static_cast<BoundaryConditionType>(configMap.getInteger("mesh","boundary_type_xmax", BC_ABSORBING));
-  boundary_type_ymin  = static_cast<BoundaryConditionType>(configMap.getInteger("mesh","boundary_type_ymin", BC_ABSORBING));
-  boundary_type_ymax  = static_cast<BoundaryConditionType>(configMap.getInteger("mesh","boundary_type_ymax", BC_ABSORBING));
-  boundary_type_zmin  = static_cast<BoundaryConditionType>(configMap.getInteger("mesh","boundary_type_zmin", BC_ABSORBING));
-  boundary_type_zmax  = static_cast<BoundaryConditionType>(configMap.getInteger("mesh","boundary_type_zmax", BC_ABSORBING));
+  boundary_type_xmin  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_ABSORBING);
+  boundary_type_xmax  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmax", BC_ABSORBING);
+  boundary_type_ymin  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymin", BC_ABSORBING);
+  boundary_type_ymax  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymax", BC_ABSORBING);
+  boundary_type_zmin  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmin", BC_ABSORBING);
+  boundary_type_zmax  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmax", BC_ABSORBING);
 
-  level_min = configMap.getInteger("amr","level_min", 5);
-  level_max = configMap.getInteger("amr","level_max", 10);
+  level_min = configMap.getValue<int>("amr","level_min", 5);
+  level_max = configMap.getValue<int>("amr","level_max", 10);
 
   // default value for amr_cycle_enabled
   bool amr_cycle_enabled_default = (level_min != level_max);
@@ -91,29 +91,29 @@ void HydroParams::setup(ConfigMap &configMap)
   // we can overwrite amr_cycle_enabled; e.g.
   // we can chose level_min != level_max for initial condition
   // but then swithoff amr cycle.
-  amr_cycle_enabled = configMap.getBool("amr", "amr_cycle_enabled", amr_cycle_enabled_default);
+  amr_cycle_enabled = configMap.getValue<bool>("amr", "amr_cycle_enabled", amr_cycle_enabled_default);
 
-  output_vtk_enabled  = configMap.getBool("output","vtk_enabled",true);
-  output_hdf5_enabled = configMap.getBool("output","hdf5_enabled",false);
+  output_vtk_enabled  = configMap.getValue<bool>("output","vtk_enabled",true);
+  output_hdf5_enabled = configMap.getValue<bool>("output","hdf5_enabled",false);
 
-  settings.gamma0         = configMap.getFloat("hydro","gamma0", 1.4);
-  settings.cfl            = configMap.getFloat("hydro", "cfl", 0.5);
-  settings.iorder         = configMap.getInteger("hydro","iorder", 2);
-  settings.slope_type     = configMap.getFloat("hydro","slope_type",1.0);
-  settings.smallc         = configMap.getFloat("hydro","smallc", 1e-10);
-  settings.smallr         = configMap.getFloat("hydro","smallr", 1e-10);
+  settings.gamma0         = configMap.getValue<real_t>("hydro","gamma0", 1.4);
+  settings.cfl            = configMap.getValue<real_t>("hydro", "cfl", 0.5);
+  settings.iorder         = configMap.getValue<int>("hydro","iorder", 2);
+  settings.slope_type     = configMap.getValue<real_t>("hydro","slope_type",1.0);
+  settings.smallc         = configMap.getValue<real_t>("hydro","smallc", 1e-10);
+  settings.smallr         = configMap.getValue<real_t>("hydro","smallr", 1e-10);
 
   // specific heat
-  settings.cp             = configMap.getFloat("hydro", "cp", 0.0);
+  settings.cp             = configMap.getValue<real_t>("hydro", "cp", 0.0);
 
   // dynamic viscosity
-  settings.mu             = configMap.getFloat("hydro", "mu", 0.0);
+  settings.mu             = configMap.getValue<real_t>("hydro", "mu", 0.0);
 
   // thermal diffusivity
-  settings.kappa          = configMap.getFloat("hydro", "kappa", 0.0);
+  settings.kappa          = configMap.getValue<real_t>("hydro", "kappa", 0.0);
   
-  niter_riemann  = configMap.getInteger("hydro","niter_riemann", 10);
-  std::string riemannSolverStr = std::string(configMap.getString("hydro","riemann", "approx"));
+  niter_riemann  = configMap.getValue<int>("hydro","niter_riemann", 10);
+  std::string riemannSolverStr = std::string(configMap.getValue<std::string>("hydro","riemann", "approx"));
   if ( !riemannSolverStr.compare("approx") ) {
     riemannSolverType = RIEMANN_APPROX;
   } else if ( !riemannSolverStr.compare("llf") ) {
@@ -130,7 +130,7 @@ void HydroParams::setup(ConfigMap &configMap)
     riemannSolverType = RIEMANN_APPROX;
   }
   
-  implementationVersion  = configMap.getFloat("OTHER","implementationVersion", 0);
+  implementationVersion  = configMap.getValue<real_t>("OTHER","implementationVersion", 0);
   if (implementationVersion != 0 and
       implementationVersion != 1) {
     std::cout << "Implementation version is invalid (must be 0 or 1)\n";
@@ -138,26 +138,26 @@ void HydroParams::setup(ConfigMap &configMap)
     implementationVersion = 0;
   }
 
-  std::string utype = configMap.getString("hydro", "updateType", "conservative_sum");
+  std::string utype = configMap.getValue<std::string>("hydro", "updateType", "conservative_sum");
   if (utype == "conservative_sum")
     updateType = UPDATE_CONSERVATIVE_SUM;
   else
     updateType = UPDATE_NON_CONSERVATIVE;
 
   // low Mach correction
-  rsst_enabled = configMap.getBool("low_mach", "rsst_enabled", false);
-  rsst_cfl_enabled = configMap.getBool("low_mach", "rsst_cfl_enabled", false);
-  rsst_ksi = configMap.getFloat("low_mach", "rsst_ksi", 10.0);
+  rsst_enabled = configMap.getValue<bool>("low_mach", "rsst_enabled", false);
+  rsst_cfl_enabled = configMap.getValue<bool>("low_mach", "rsst_cfl_enabled", false);
+  rsst_ksi = configMap.getValue<real_t>("low_mach", "rsst_ksi", 10.0);
 
   // Gravity
-  gravity_type = static_cast<GravityType>(configMap.getInteger("gravity", "gravity_type", GRAVITY_NONE));
+  gravity_type = configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE);
   if (gravity_type & GRAVITY_CONSTANT) {
-    gx = configMap.getFloat("gravity", "gx",  0.0);
-    gy = configMap.getFloat("gravity", "gy", -1.0);
-    gz = configMap.getFloat("gravity", "gz",  0.0);
+    gx = configMap.getValue<real_t>("gravity", "gx",  0.0);
+    gy = configMap.getValue<real_t>("gravity", "gy", -1.0);
+    gz = configMap.getValue<real_t>("gravity", "gz",  0.0);
   } 
 
-  debug_output = configMap.getBool("output", "debug", false);
+  debug_output = configMap.getValue<bool>("output", "debug", false);
 
   init();
   setup_mpi(configMap);  

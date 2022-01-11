@@ -188,7 +188,7 @@ public:
                                            interface_flags,
                                            dt);
 
-    uint32_t nbTeams_ = configMap.getInteger("amr", "nbTeams", 16);
+    uint32_t nbTeams_ = configMap.getValue<uint32_t>("amr", "nbTeams", 16);
     functor.setNbTeams(nbTeams_);
 
     // create kokkos execution policy for slopes computation

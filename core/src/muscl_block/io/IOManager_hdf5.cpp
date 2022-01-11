@@ -53,8 +53,8 @@ void IOManager_hdf5::save_snapshot( const DataArrayBlock& U, const DataArrayBloc
   build_var_to_write_map(names2index, fieldMgr, configMap);
 
   // prepare output filename
-  std::string outputPrefix = configMap.getString("output", "outputPrefix", "output");
-  std::string outputDir = configMap.getString("output", "outputDir", "./");
+  std::string outputPrefix = configMap.getValue<std::string>("output", "outputPrefix", "output");
+  std::string outputDir = configMap.getValue<std::string>("output", "outputDir", "./");
   
   // prepare suffix string
   std::ostringstream strsuffix;
@@ -81,7 +81,7 @@ void IOManager_hdf5::save_snapshot( const DataArrayBlock& U, const DataArrayBloc
     hdf5_writer->write_quadrant_attribute(Uhost, fm, names2index);
 
     // check if we want to write velocity or rhoV vector fields
-    std::string write_variables = configMap.getString("output", "write_variables", "");
+    std::string write_variables = configMap.getValue<std::string>("output", "write_variables", "");
     // if (write_variables.find("velocity") != std::string::npos) {
     //   hdf5_writer->write_quadrant_velocity(U, fm, false);
     // } else if (write_variables.find("rhoV") != std::string::npos) {

@@ -29,14 +29,14 @@ public:
    * Create ans initialize a simulation
    **/
   DyabloTimeLoop( ConfigMap& configMap )
-  : m_iter_end( configMap.getInteger("run","nstepmax",1000) ),    
-    m_t_end( configMap.getFloat("run", "tEnd", 0.0) ),
-    m_nlog( configMap.getFloat("run", "nlog", 10) ),
-    m_enable_output( configMap.getBool("run", "enable_output", true) ),
-    m_output_frequency( configMap.getFloat("run", "output_frequency", -1) ),
-    m_output_timeslice( configMap.getFloat("run", "output_timeslice", -1) ),
-    m_amr_cycle_frequency( configMap.getInteger("amr", "cycle_frequency", 1) ),
-    m_loadbalance_frequency( configMap.getInteger("amr", "load_balancing_frequency", 10) ),
+  : m_iter_end( configMap.getValue<int>("run","nstepmax",1000) ),    
+    m_t_end( configMap.getValue<real_t>("run", "tEnd", 0.0) ),
+    m_nlog( configMap.getValue<int>("run", "nlog", 10) ),
+    m_enable_output( configMap.getValue<bool>("run", "enable_output", true) ),
+    m_output_frequency( configMap.getValue<int>("run", "output_frequency", -1) ),
+    m_output_timeslice( configMap.getValue<real_t>("run", "output_timeslice", -1) ),
+    m_amr_cycle_frequency( configMap.getValue<int>("amr", "cycle_frequency", 1) ),
+    m_loadbalance_frequency( configMap.getValue<int>("amr", "load_balancing_frequency", 10) ),
     m_communicator( GlobalMpiSession::get_comm_world() )
   {
     // TODO : remove HydroParams
@@ -47,33 +47,33 @@ public:
     FieldManager field_manager = FieldManager::setup(params, configMap);
     auto fm = field_manager.get_id2index();
 
-    uint32_t bx = configMap.getInteger("amr", "bx", 0);
-    uint32_t by = configMap.getInteger("amr", "by", 0);
-    uint32_t bz = configMap.getInteger("amr", "bz", 1);
+    uint32_t bx = configMap.getValue<uint32_t>("amr", "bx", 0);
+    uint32_t by = configMap.getValue<uint32_t>("amr", "by", 0);
+    uint32_t bz = configMap.getValue<uint32_t>("amr", "bz", 1);
 
     {
       int ndim = params.dimType == TWO_D ? 2 : 3;
-      //int ndim = configMap.getInteger("mesh", "ndim", 3);
+      //int ndim = configMap.getValue<int>>("mesh", "ndim", 3);
       int codim = ndim;
-      BoundaryConditionType bxmin  = static_cast<BoundaryConditionType>(configMap.getInteger("mesh","boundary_type_xmin", BC_ABSORBING));
-      BoundaryConditionType bxmax  = static_cast<BoundaryConditionType>(configMap.getInteger("mesh","boundary_type_xmax", BC_ABSORBING));
-      BoundaryConditionType bymin  = static_cast<BoundaryConditionType>(configMap.getInteger("mesh","boundary_type_ymin", BC_ABSORBING));
-      BoundaryConditionType bymax  = static_cast<BoundaryConditionType>(configMap.getInteger("mesh","boundary_type_ymax", BC_ABSORBING));
-      BoundaryConditionType bzmin  = static_cast<BoundaryConditionType>(configMap.getInteger("mesh","boundary_type_zmin", BC_ABSORBING));
-      BoundaryConditionType bzmax  = static_cast<BoundaryConditionType>(configMap.getInteger("mesh","boundary_type_zmax", BC_ABSORBING));
+      BoundaryConditionType bxmin  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_ABSORBING);
+      BoundaryConditionType bxmax  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmax", BC_ABSORBING);
+      BoundaryConditionType bymin  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymin", BC_ABSORBING);
+      BoundaryConditionType bymax  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymax", BC_ABSORBING);
+      BoundaryConditionType bzmin  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmin", BC_ABSORBING);
+      BoundaryConditionType bzmax  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmax", BC_ABSORBING);
       std::array<bool,3> periodic = {
         bxmin == BC_PERIODIC || bxmax == BC_PERIODIC,
         bymin == BC_PERIODIC || bymax == BC_PERIODIC,
         bzmin == BC_PERIODIC || bzmax == BC_PERIODIC
       };
-      int amr_level_min = configMap.getInteger("amr","level_min", 5);
-      int amr_level_max = configMap.getInteger("amr","level_max", 10);
+      int amr_level_min = configMap.getValue<int>("amr","level_min", 5);
+      int amr_level_max = configMap.getValue<int>("amr","level_max", 10);
       this->m_amr_mesh = std::make_shared<AMRmesh>( ndim, codim, periodic, amr_level_min, amr_level_max );
     }
 
     AMRmesh& amr_mesh = *m_amr_mesh;
 
-    std::string godunov_updater_id = configMap.getString("hydro", "update", "MusclBlockUpdate_generic");
+    std::string godunov_updater_id = configMap.getValue<std::string>("hydro", "update", "MusclBlockUpdate_generic");
     this->godunov_updater = MusclBlockUpdateFactory::make_instance( godunov_updater_id,
       configMap,
       params,
@@ -83,7 +83,7 @@ public:
       timers
     );
 
-    std::string iomanager_id = configMap.getString("output", "backend", "IOManager_hdf5");
+    std::string iomanager_id = configMap.getValue<std::string>("output", "backend", "IOManager_hdf5");
     this->io_manager = IOManagerFactory::make_instance( iomanager_id,
       configMap,
       params,
@@ -93,12 +93,12 @@ public:
       timers
     );
 
-    GravityType gravity_type = static_cast<GravityType>(configMap.getInteger("gravity", "gravity_type", GRAVITY_NONE));
+    GravityType gravity_type = configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE);
 
     std::string gravity_solver_id = "none";
     if( gravity_type & GRAVITY_FIELD )
     {
-      gravity_solver_id = configMap.getString("gravity", "solver", "GravitySolver_none");
+      gravity_solver_id = configMap.getValue<std::string>("gravity", "solver", "GravitySolver_none");
       this->gravity_solver = GravitySolverFactory::make_instance( gravity_solver_id,
         configMap,
         params,
@@ -126,7 +126,7 @@ public:
     );
 
     // Get initial conditions id
-    std::string init_id = configMap.getString("hydro", "problem", "unknown");
+    std::string init_id = configMap.getValue<std::string>("hydro", "problem", "unknown");
 
     int rank = m_communicator.MPI_Comm_rank();
     if (rank==0) {
@@ -149,7 +149,7 @@ public:
     // Initialize cells
     {
       // test if we are performing a re-start run (default : false)
-      bool restartEnabled = configMap.getBool("run","restart_enabled", false);
+      bool restartEnabled = configMap.getValue<bool>("run","restart_enabled", false);
 
       std::string init_name = restartEnabled ? "restart" : init_id;
       std::unique_ptr<InitialConditions> initial_conditions =
