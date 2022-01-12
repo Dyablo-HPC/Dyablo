@@ -17,7 +17,6 @@ class IOManager_hdf5 : public IOManager{
 public: 
   IOManager_hdf5(
                 ConfigMap& configMap,
-                const HydroParams& params, 
                 AMRmesh& pmesh,
                 const FieldManager& fm,
                 uint32_t bx, uint32_t by, uint32_t bz,

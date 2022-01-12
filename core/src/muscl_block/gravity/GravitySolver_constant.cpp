@@ -11,7 +11,6 @@ namespace dyablo {
 namespace muscl_block {
 
 struct GravitySolver_constant::Data{
-  const HydroParams params;  
   AMRmesh& pmesh;
   const id2index_t fm;
  
@@ -19,22 +18,31 @@ struct GravitySolver_constant::Data{
   
   Timers& timers;  
 
-  uint32_t nbOctsPerGroup;
+  real_t xmin, ymin, zmin;
+  real_t xmax, ymax, zmax;
+  real_t gx, gy, gz;
 };
 
 GravitySolver_constant::GravitySolver_constant(
   ConfigMap& configMap,
-  const HydroParams& params, 
   std::shared_ptr<AMRmesh> pmesh,
   const id2index_t& fm,
   uint32_t bx, uint32_t by, uint32_t bz,
   Timers& timers )
  : pdata(new Data
-    {params, 
-    *pmesh, 
+    {*pmesh, 
     fm,
     bx, by, bz,
-    timers
+    timers,
+    configMap.getValue<real_t>("mesh", "xmin", 0.0),
+    configMap.getValue<real_t>("mesh", "ymin", 0.0),
+    configMap.getValue<real_t>("mesh", "zmin", 0.0),
+    configMap.getValue<real_t>("mesh", "xmax", 1.0),
+    configMap.getValue<real_t>("mesh", "ymax", 1.0),
+    configMap.getValue<real_t>("mesh", "zmax", 1.0),
+    configMap.getValue<real_t>("gravity", "gx",  0.0),
+    configMap.getValue<real_t>("gravity", "gy",  0.0),
+    configMap.getValue<real_t>("gravity", "gz",  0.0)
     })
 {}
 
@@ -49,14 +57,13 @@ void GravitySolver_constant::update_gravity_field(
   using CellArray = typename ForeachCell::CellArray_global;
   using CellIndex = typename ForeachCell::CellIndex;
 
-  const HydroParams& params = pdata->params;
   const LightOctree& lmesh = pdata->pmesh.getLightOctree();
   uint8_t ndim = lmesh.getNdim();
   const id2index_t& fm = pdata->fm;
   uint32_t bx = pdata->bx, by = pdata->by, bz = pdata->bz;
-  real_t xmin = params.xmin, ymin = params.ymin, zmin = params.zmin;
-  real_t xmax = params.xmax, ymax = params.ymax, zmax = params.zmax;
-  real_t gx = params.gx, gy = params.gy, gz = params.gz;
+  real_t xmin = pdata->xmin, ymin = pdata->ymin, zmin = pdata->zmin;
+  real_t xmax = pdata->xmax, ymax = pdata->ymax, zmax = pdata->zmax;
+  real_t gx = pdata->gx, gy = pdata->gy, gz = pdata->gz;
   const uint32_t nbOctsPerGroup = lmesh.getNumOctants();
 
   ForeachCell foreach_cell(

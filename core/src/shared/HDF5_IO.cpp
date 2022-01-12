@@ -55,10 +55,16 @@ hdf5_native_type_to_string (hid_t type)
 // =======================================================
 // =======================================================
 HDF5_Writer::HDF5_Writer(AMRmesh* amr_mesh, 
-                         ConfigMap& configMap,
-                         const HydroParams& params) :
+                         ConfigMap& configMap) :
   m_amr_mesh(amr_mesh),
-  m_params(params)
+  m_ndim( amr_mesh->getDim() ),
+  m_gamma0( configMap.getValue<real_t>("hydro","gamma0", 1.4) ),
+  m_xmin( configMap.getValue<real_t>("mesh","xmin", 0.0) ),
+  m_ymin( configMap.getValue<real_t>("mesh","ymin", 0.0) ),
+  m_zmin( configMap.getValue<real_t>("mesh","zmin", 0.0) ),
+  m_xmax( configMap.getValue<real_t>("mesh","xmax", 1.0) ),
+  m_ymax( configMap.getValue<real_t>("mesh","ymax", 1.0) ),
+  m_zmax( configMap.getValue<real_t>("mesh","zmax", 1.0) )
 {
 
   m_write_mesh_info = configMap.getValue<bool>("output", "write_mesh_info", false);
@@ -72,7 +78,7 @@ HDF5_Writer::HDF5_Writer(AMRmesh* amr_mesh,
   m_nbCellsPerLeaf = 1;
 
   if (m_write_block_data) {
-    m_nbCellsPerLeaf = m_params.dimType == TWO_D ? 
+    m_nbCellsPerLeaf = m_ndim == 2 ? 
       m_bx * m_by : 
       m_bx * m_by * m_bz;
   }
@@ -82,7 +88,7 @@ HDF5_Writer::HDF5_Writer(AMRmesh* amr_mesh,
 
   m_write_iOct = configMap.getValue<bool>("output", "write_iOct", false);
 
-  m_nbNodesPerCell = m_params.dimType==TWO_D ? 
+  m_nbNodesPerCell = m_ndim == 2 ? 
     IO_NODES_PER_CELL_2D : 
     IO_NODES_PER_CELL_3D;
   
@@ -421,7 +427,7 @@ HDF5_Writer::write_quadrant_mach_number(DataArrayHost datah,
     DataArrayScalar mach_number = DataArrayScalar("mach_number", nbOcts);
     
     // specific heat ratio
-    real_t gamma0 = m_params.settings.gamma0;
+    real_t gamma0 = this->m_gamma0;
 
     Kokkos::parallel_for(nbOcts, KOKKOS_LAMBDA (uint32_t iOct) {
         
@@ -523,7 +529,7 @@ HDF5_Writer::write_quadrant_mach_number(DataArrayBlockHost datah,
     DataArrayScalar mach_number = DataArrayScalar("mach_number", nbCellsPerOct*nbOcts);
 
     // specific heat ratio
-    real_t gamma0 = m_params.settings.gamma0;
+    real_t gamma0 = this->m_gamma0;
 
     Kokkos::parallel_for( Kokkos::RangePolicy<Kokkos::OpenMP>(0, nbOcts), 
       KOKKOS_LAMBDA(uint32_t iOct) {
@@ -583,7 +589,7 @@ HDF5_Writer::write_quadrant_pressure(DataArrayBlockHost datah,
     DataArrayScalar pressure = DataArrayScalar("P", nbCellsPerOct*nbOcts);          
     
     // specific heat ratio
-    real_t gamma0 = m_params.settings.gamma0;
+    real_t gamma0 = this->m_gamma0;
 
     Kokkos::parallel_for( Kokkos::RangePolicy<Kokkos::OpenMP>(0, nbOcts), 
       KOKKOS_LAMBDA(uint32_t iOct) {
@@ -729,7 +735,7 @@ HDF5_Writer::io_hdf5_write_coordinates()
     //m_local_num_nodes  = m_nbNodesPerCell * m_local_num_quads;
     //m_global_num_nodes = m_nbNodesPerCell * m_global_num_quads;
 
-    uint32_t nbNodesPerCell = m_params.dimType==TWO_D ?
+    uint32_t nbNodesPerCell = m_ndim==2 ?
       (m_bx+1) * (m_by+1)            :
       (m_bx+1) * (m_by+1) * (m_bz+1);
     uint64_t totalNumOfCoords = 3 * m_local_num_quads * (m_bx+1) * (m_by+1) * (m_bz+1);
@@ -741,9 +747,9 @@ HDF5_Writer::io_hdf5_write_coordinates()
      */
 
     // total size
-    real_t Lx = m_params.xmax - m_params.xmin;
-    real_t Ly = m_params.ymax - m_params.ymin;
-    real_t Lz = m_params.zmax - m_params.zmin;
+    real_t Lx = m_xmax - m_xmin;
+    real_t Ly = m_ymax - m_ymin;
+    real_t Lz = m_zmax - m_zmin;
 
     for (uint32_t i = 0; i < m_local_num_quads; ++i) {
 
@@ -755,9 +761,9 @@ HDF5_Writer::io_hdf5_write_coordinates()
       real_t dz = m_bz==0 ? 0 : cellSize/(m_bz)*Lz;
 
       // coordinates of the lower left corner
-      real_t orig_x = m_amr_mesh->getCoordinates(i)[0] * Lx + m_params.xmin;
-      real_t orig_y = m_amr_mesh->getCoordinates(i)[1] * Ly + m_params.ymin;
-      real_t orig_z = m_amr_mesh->getCoordinates(i)[2] * Lz + m_params.zmin;
+      real_t orig_x = m_amr_mesh->getCoordinates(i)[0] * Lx + m_xmin;
+      real_t orig_y = m_amr_mesh->getCoordinates(i)[1] * Ly + m_ymin;
+      real_t orig_z = m_amr_mesh->getCoordinates(i)[2] * Lz + m_zmin;
 
       int inode = 0;
       for (int32_t jz = 0; jz < m_bz+1; ++jz) {
@@ -802,9 +808,9 @@ HDF5_Writer::io_hdf5_write_coordinates()
     std::vector<float> data(3 * m_local_num_nodes);
 
     // total size
-    real_t Lx = m_params.xmax - m_params.xmin;
-    real_t Ly = m_params.ymax - m_params.ymin;
-    real_t Lz = m_params.zmax - m_params.zmin;
+    real_t Lx = m_xmax - m_xmin;
+    real_t Ly = m_ymax - m_ymin;
+    real_t Lz = m_zmax - m_zmin;
 
     /*
      * construct the list of node coordinates
@@ -819,9 +825,9 @@ HDF5_Writer::io_hdf5_write_coordinates()
       real_t dy = cellSize/Ly;
       real_t dz = ndim==2 ? 0 : cellSize/Lz;
 
-      real_t orig_x = m_amr_mesh->getCoordinates(i)[0] * Lx + m_params.xmin;
-      real_t orig_y = m_amr_mesh->getCoordinates(i)[1] * Ly + m_params.ymin;
-      real_t orig_z = m_amr_mesh->getCoordinates(i)[2] * Lz + m_params.zmin;
+      real_t orig_x = m_amr_mesh->getCoordinates(i)[0] * Lx + m_xmin;
+      real_t orig_y = m_amr_mesh->getCoordinates(i)[1] * Ly + m_ymin;
+      real_t orig_z = m_amr_mesh->getCoordinates(i)[2] * Lz + m_zmin;
       
       int inode = 0;
       for (int32_t jz = 0; jz < (ndim-1); ++jz) {
@@ -875,7 +881,7 @@ void HDF5_Writer::io_hdf5_write_connectivity()
 
   if (m_write_block_data) {
 
-    int nbNodesPerLeaf = m_params.dimType == TWO_D ?
+    int nbNodesPerLeaf = m_ndim==2 ?
       (m_bx+1) * (m_by+1) :
       (m_bx+1) * (m_by+1) * (m_bz+1) ;
 
@@ -896,7 +902,7 @@ void HDF5_Writer::io_hdf5_write_connectivity()
         iLeaf;
       
       // sweep subcells
-      int nz = m_params.dimType==2 ? 1 : m_bz;
+      int nz = m_ndim==2 ? 1 : m_bz;
       for (int jz = 0; jz < nz; ++jz) {
         for (int jy = 0; jy < m_by; ++jy) {
           for (int jx = 0; jx < m_bx; ++jx) {
@@ -911,7 +917,7 @@ void HDF5_Writer::io_hdf5_write_connectivity()
             data[idx + 2] = nodeOffset + subNodeIndex(jx+1,jy+1,jz);
             data[idx + 3] = nodeOffset + subNodeIndex(jx  ,jy+1,jz);
 
-            if (m_params.dimType == THREE_D) {
+            if ( m_ndim==3 ) {
               
               data[idx + 4] = nodeOffset + subNodeIndex(jx  ,jy  ,jz+1);
               data[idx + 5] = nodeOffset + subNodeIndex(jx+1,jy  ,jz+1);
@@ -1124,14 +1130,14 @@ HDF5_Writer::io_xdmf_write_header(double time)
 
     global_num_cells *= m_nbCellsPerLeaf;
 
-    int nbNodesPerLeaf = m_params.dimType == TWO_D ?
+    int nbNodesPerLeaf = m_ndim==2 ?
       (m_bx+1) * (m_by+1) :
       (m_bx+1) * (m_by+1) * (m_bz+1) ;
 
     global_num_nodes = this->m_amr_mesh->getGlobalNumOctants() * nbNodesPerLeaf;
   }  
 
-  const std::string IO_TOPOLOGY_TYPE = m_params.dimType == TWO_D ?
+  const std::string IO_TOPOLOGY_TYPE = m_ndim==2 ?
     IO_TOPOLOGY_TYPE_2D :
     IO_TOPOLOGY_TYPE_3D;
 

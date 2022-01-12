@@ -9,8 +9,7 @@
 namespace dyablo { 
 namespace muscl_block {
 
-struct IOManager_hdf5::Data{
-  const HydroParams params;  
+struct IOManager_hdf5::Data{ 
   AMRmesh& pmesh;
   const FieldManager fieldMgr;
   uint32_t bx, by, bz; 
@@ -22,18 +21,16 @@ struct IOManager_hdf5::Data{
 
 IOManager_hdf5::IOManager_hdf5(
   ConfigMap& configMap,
-  const HydroParams& params, 
   AMRmesh& pmesh,
   const FieldManager& fieldMgr,
   uint32_t bx, uint32_t by, uint32_t bz,
   Timers& timers )
  : pdata(new Data
-    {params, 
-    pmesh, 
+    {pmesh, 
     fieldMgr,
     bx, by, bz,
     timers,
-    HDF5_Writer( &pmesh, configMap, params ),
+    HDF5_Writer( &pmesh, configMap ),
     configMap.getValue<std::string>("output", "outputDir", "./"),
     configMap.getValue<std::string>("output", "outputPrefix", "output"),
     configMap.getValue<std::string>("output", "write_variables", "rho")

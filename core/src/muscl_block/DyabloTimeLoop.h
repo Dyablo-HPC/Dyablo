@@ -41,10 +41,9 @@ public:
   {
     // TODO : remove HydroParams
     HydroParams params;
-    params.setup(configMap);  // TODO : first step : fill params only with used values
+    params.setup(configMap);
 
-
-    FieldManager field_manager = FieldManager::setup(params, configMap);
+    FieldManager field_manager = FieldManager::setup(params, configMap); // TODO : configure from what is needed by kernels
     auto fm = field_manager.get_id2index();
 
     uint32_t bx = configMap.getValue<uint32_t>("amr", "bx", 0);
@@ -52,8 +51,7 @@ public:
     uint32_t bz = configMap.getValue<uint32_t>("amr", "bz", 1);
 
     {
-      int ndim = params.dimType == TWO_D ? 2 : 3;
-      //int ndim = configMap.getValue<int>>("mesh", "ndim", 3);
+      int ndim = configMap.getValue<int>("mesh", "ndim", 3);
       int codim = ndim;
       BoundaryConditionType bxmin  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_ABSORBING);
       BoundaryConditionType bxmax  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmax", BC_ABSORBING);
@@ -76,7 +74,6 @@ public:
     std::string godunov_updater_id = configMap.getValue<std::string>("hydro", "update", "MusclBlockUpdate_generic");
     this->godunov_updater = MusclBlockUpdateFactory::make_instance( godunov_updater_id,
       configMap,
-      params,
       amr_mesh, 
       fm,
       bx, by, bz,
@@ -86,7 +83,6 @@ public:
     std::string iomanager_id = configMap.getValue<std::string>("output", "backend", "IOManager_hdf5");
     this->io_manager = IOManagerFactory::make_instance( iomanager_id,
       configMap,
-      params,
       amr_mesh, 
       field_manager,
       bx, by, bz,
@@ -101,7 +97,6 @@ public:
       gravity_solver_id = configMap.getValue<std::string>("gravity", "solver", "GravitySolver_none");
       this->gravity_solver = GravitySolverFactory::make_instance( gravity_solver_id,
         configMap,
-        params,
         m_amr_mesh, 
         fm,
         bx, by, bz,

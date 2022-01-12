@@ -18,7 +18,6 @@ class IOManager{
 public: 
   // IOManager(
   //               ConfigMap& configMap,
-  //               const HydroParams& params, 
   //               AMRmesh& pmesh,
   //               const id2index_t& fm,
   //               uint32_t bx, uint32_t by, uint32_t bz,
@@ -36,7 +35,6 @@ public:
 
 using IOManagerFactory = RegisteringFactory< IOManager, 
   ConfigMap& /*configMap*/,
-  const HydroParams& /*params*/, 
   AMRmesh& /*pmesh*/,
   const FieldManager& /*fm*/,
   uint32_t /*bx*/, uint32_t /*by*/, uint32_t /*bz*/,

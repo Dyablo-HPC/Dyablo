@@ -7,10 +7,55 @@
 
 #include <math.h>
 
-#include "HydroParams.h"
 #include "HydroState.h"
 
 namespace dyablo {
+
+struct RiemannParams
+{
+  RiemannParams( ConfigMap& configMap )
+  : 
+    gamma0( configMap.getValue<real_t>("hydro","gamma0", 1.4) ),
+    gamma6( (gamma0 + 1) / (2*gamma0)),
+    smallr( configMap.getValue<real_t>("hydro","smallr", 1e-10) ),
+    smallc( configMap.getValue<real_t>("hydro","smallc", 1e-10) ),
+    smallp( smallc*smallc/gamma0 ),
+    smallpp( smallr*smallp ),
+    rsst_enabled( configMap.getValue<bool>("low_mach", "rsst_enabled", false) ),
+    rsst_ksi( configMap.getValue<real_t>("low_mach", "rsst_ksi", 10.0) )
+  {
+
+    // TODO : embed string parse for enums in in configMap
+    std::string riemannSolverStr = configMap.getValue<std::string>("hydro","riemann", "approx");
+    if ( !riemannSolverStr.compare("approx") ) {
+      riemannSolverType = RIEMANN_APPROX;
+    } else if ( !riemannSolverStr.compare("llf") ) {
+      riemannSolverType = RIEMANN_LLF;
+    } else if ( !riemannSolverStr.compare("hll") ) {
+      riemannSolverType = RIEMANN_HLL;
+    } else if ( !riemannSolverStr.compare("hllc") ) {
+      riemannSolverType = RIEMANN_HLLC;
+    } 
+    // else if ( !riemannSolverStr.compare("hlld") ) {
+    //   riemannSolverType = RIEMANN_HLLD;
+    // } 
+    else {
+      std::runtime_error("Unknown Riemann solver (hydro/riemann in .ini)");
+    }
+  }
+
+  RiemannSolverType riemannSolverType;
+
+  real_t gamma0;
+  real_t gamma6;
+  real_t smallr;
+  real_t smallc;
+  real_t smallp;
+  real_t smallpp;
+
+  bool rsst_enabled;
+  real_t rsst_ksi; 
+};
   
 /**
  * Compute cell fluxes from the Godunov state
@@ -21,9 +66,9 @@ template <class HydroState>
 KOKKOS_INLINE_FUNCTION
 void cmpflx(const HydroState& qgdnv, 
 	    HydroState& flux,
-	    const HydroParams& params)
+	    const RiemannParams& params)
 {
-  real_t gamma0 = params.settings.gamma0;
+  real_t gamma0 = params.gamma0;
   
   // Compute fluxes
   // Mass density
@@ -65,16 +110,16 @@ KOKKOS_INLINE_FUNCTION
 void riemann_approx(const HydroState& qleft,
 		    const HydroState& qright,
 		    HydroState& flux,
-		    const HydroParams& params)
+		    const RiemannParams& params)
 {
   HydroState qgdnv;
 
-  real_t gamma0  = params.settings.gamma0;
-  real_t gamma6  = params.settings.gamma6;
-  real_t smallr  = params.settings.smallr;
-  real_t smallc  = params.settings.smallc;
-  real_t smallp  = params.settings.smallp;
-  real_t smallpp = params.settings.smallpp;
+  real_t gamma0  = params.gamma0;
+  real_t gamma6  = params.gamma6;
+  real_t smallr  = params.smallr;
+  real_t smallc  = params.smallc;
+  real_t smallp  = params.smallp;
+  real_t smallpp = params.smallpp;
   
   // Pressure, density and velocity
   real_t rl = fmax(qleft [ID], smallr);
@@ -223,15 +268,15 @@ KOKKOS_INLINE_FUNCTION
 void riemann_llf(const HydroState& qleft,
 		 const HydroState& qright,
 		 HydroState& flux,
-		 const HydroParams& params)
+		 const RiemannParams& params)
 {
 
   // 1D LLF Riemann solver
   
   // constants
-  real_t gamma0 = params.settings.gamma0;
-  real_t smallr = params.settings.smallr;
-  real_t smallp = params.settings.smallp;
+  real_t gamma0 = params.gamma0;
+  real_t smallr = params.smallr;
+  real_t smallp = params.smallp;
 
   const real_t entho = ONE_F / (gamma0 - ONE_F);
   
@@ -347,15 +392,15 @@ KOKKOS_INLINE_FUNCTION
 void riemann_hll(const HydroState& qleft,
 		 const HydroState& qright,
 		 HydroState& flux,
-		 const HydroParams& params)
+		 const RiemannParams& params)
 {
 
   // 1D HLL Riemann solver
   
   // constants
-  real_t gamma0 = params.settings.gamma0;
-  real_t smallr = params.settings.smallr;
-  real_t smallp = params.settings.smallp;
+  real_t gamma0 = params.gamma0;
+  real_t smallr = params.smallr;
+  real_t smallp = params.smallp;
   //real_t smallc = params.settings.smallc;
 
   //const real_t smallp = smallc*smallc/gamma0;
@@ -443,14 +488,14 @@ KOKKOS_INLINE_FUNCTION
 void riemann_hllc(const HydroState& qleft,
 		  const HydroState& qright,
 		  HydroState& flux,
-		  const HydroParams& params)
+		  const RiemannParams& params)
 {
   //UNUSED(qgdnv);
   
-  real_t gamma0 = params.settings.gamma0;
-  real_t smallr = params.settings.smallr;
-  real_t smallp = params.settings.smallp;
-  real_t smallc = params.settings.smallc;
+  real_t gamma0 = params.gamma0;
+  real_t smallr = params.smallr;
+  real_t smallp = params.smallp;
+  real_t smallc = params.smallc;
   
   const real_t entho = ONE_F / (gamma0 - ONE_F);
   
@@ -556,12 +601,12 @@ KOKKOS_INLINE_FUNCTION
 void riemann_hydro( const HydroState& qleft,
 		                const HydroState& qright,
 		                HydroState& flux,
-		                const HydroParams& params)
+		                const RiemannParams& params)
 {
   switch(params.riemannSolverType){
-    // case RIEMANN_APPROX:
-    //   riemann_approx(qleft,qright,flux,params);
-    //   break;
+    case RIEMANN_APPROX:
+      riemann_approx(qleft,qright,flux,params);
+      break;
     case RIEMANN_HLLC:
       riemann_hllc(qleft,qright,flux,params);
       break;
@@ -581,7 +626,7 @@ template< typename HydroState >
 KOKKOS_INLINE_FUNCTION
 HydroState riemann_hydro( const HydroState& qleft,
                           const HydroState& qright,
-                          const HydroParams& params)
+                          const RiemannParams& params)
 {
   HydroState flux;
   riemann_hydro(qleft, qright, flux, params);

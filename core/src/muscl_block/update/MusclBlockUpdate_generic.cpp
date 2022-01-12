@@ -15,8 +15,7 @@ namespace muscl_block {
 using AMRBlockForeachCell = AMRBlockForeachCell_group;
 //using AMRBlockForeachCell = AMRBlockForeachCell_scratch;
 
-struct MusclBlockUpdate_generic::Data{
-  const HydroParams params;  
+struct MusclBlockUpdate_generic::Data{ 
   AMRmesh& pmesh;
   const id2index_t fm;
  
@@ -27,30 +26,50 @@ struct MusclBlockUpdate_generic::Data{
   Timers& timers;  
 
   uint32_t nbOctsPerGroup;
+
+  RiemannParams params;
+
+  real_t slope_type;
+
+  BoundaryConditionType boundary_type_xmin,boundary_type_ymin, boundary_type_zmin;
+  GravityType gravity_type;
+  real_t gx, gy, gz;
 };
 
 MusclBlockUpdate_generic::MusclBlockUpdate_generic(
   ConfigMap& configMap,
-  const HydroParams& params, 
   AMRmesh& pmesh,
   const id2index_t& fm,
   uint32_t bx, uint32_t by, uint32_t bz,
   Timers& timers )
  : pdata(new Data
-    {params, 
-    pmesh, 
+    {pmesh, 
     fm,
     bx, by, bz,
-    params.xmin, params.ymin, params.zmin,
-    params.xmax, params.ymax, params.zmax,
+    configMap.getValue<real_t>("mesh", "xmin", 0.0),
+    configMap.getValue<real_t>("mesh", "ymin", 0.0),
+    configMap.getValue<real_t>("mesh", "zmin", 0.0),
+    configMap.getValue<real_t>("mesh", "xmax", 1.0),
+    configMap.getValue<real_t>("mesh", "ymax", 1.0),
+    configMap.getValue<real_t>("mesh", "zmax", 1.0),
     timers,
-    pmesh.getNumOctants()
+    pmesh.getNumOctants(),
+    RiemannParams( configMap ),
+    configMap.getValue<real_t>("hydro","slope_type",1.0),
+    configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_ABSORBING),
+    configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymin", BC_ABSORBING),
+    configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmin", BC_ABSORBING),
+    configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE)
     })
 {
   pdata->nbOctsPerGroup = std::min( 
       pmesh.getNumOctants(), 
       configMap.getValue<uint32_t>("amr","nbOctsPerGroup",pmesh.getNumOctants()));
-
+  if (pdata->gravity_type & GRAVITY_CONSTANT) {
+    pdata->gx = configMap.getValue<real_t>("gravity", "gx",  0.0);
+    pdata->gy = configMap.getValue<real_t>("gravity", "gy",  0.0);
+    pdata->gz = configMap.getValue<real_t>("gravity", "gz",  0.0);
+  } 
 }
 
 MusclBlockUpdate_generic::~MusclBlockUpdate_generic()
@@ -76,7 +95,7 @@ namespace{
 
 template< int ndim >
 KOKKOS_INLINE_FUNCTION
-void compute_primitives(const HydroParams& params, const PatchArray& Ugroup, const CellIndex& iCell_Ugroup, const PatchArray& Qgroup)
+void compute_primitives(const RiemannParams& params, const PatchArray& Ugroup, const CellIndex& iCell_Ugroup, const PatchArray& Qgroup)
 {
   HydroState3d uLoc = getHydroState<ndim>( Ugroup, iCell_Ugroup );
       
@@ -84,7 +103,7 @@ void compute_primitives(const HydroParams& params, const PatchArray& Ugroup, con
   HydroState3d qLoc;
   real_t c = 0.0;
   if(ndim==3)
-    computePrimitives(uLoc, &c, qLoc, params);
+    computePrimitives(uLoc, &c, qLoc, params.gamma0, params.smallr, params.smallp);
   else
   {
     auto copy_state = [](auto& to, const auto& from){
@@ -95,7 +114,7 @@ void compute_primitives(const HydroParams& params, const PatchArray& Ugroup, con
     };
     HydroState2d uLoc_2d, qLoc_2d;
     copy_state(uLoc_2d, uLoc);
-    computePrimitives(uLoc_2d, &c, qLoc_2d, params);
+    computePrimitives(uLoc_2d, &c, qLoc_2d, params.gamma0, params.smallr, params.smallp);
     copy_state(qLoc, qLoc_2d);
   }
 
@@ -281,7 +300,7 @@ template< int ndim >
 KOKKOS_INLINE_FUNCTION
 HydroState3d compute_flux( const HydroState3d& sourceL, const HydroState3d& sourceR, 
                            const HydroState3d& slopeL, const HydroState3d& slopeR,
-                           ComponentIndex3D dir, real_t smallr, const HydroParams& params )
+                           ComponentIndex3D dir, real_t smallr, const RiemannParams& params )
 {
   HydroState3d qL = reconstruct_state( sourceL, slopeL, 1, smallr );
   HydroState3d qR = reconstruct_state( sourceR, slopeR, -1, smallr );
@@ -327,7 +346,7 @@ void compute_fluxes(ComponentIndex3D dir,
                     const CellIndex& iCell_Uout, 
                     const PatchArray& Slopes,
                     const PatchArray& Source,
-                    const HydroParams& params,
+                    const RiemannParams& params,
                     real_t smallr,
                     real_t dtddir,
                     const GlobalArray& Uout
@@ -429,10 +448,11 @@ void update_aux(
     real_t dt)
 {
   
-  const HydroParams& params = pdata->params;  
-  const int slope_type = params.settings.slope_type;
-  const real_t gamma = params.settings.gamma0;
-  const double smallr = params.settings.smallr;
+  const RiemannParams& params = pdata->params;  
+  const int slope_type = pdata->slope_type;
+  const real_t gamma = params.gamma0;
+  const double smallr = params.smallr;
+  const GravityType gravity_type = pdata->gravity_type;
   const LightOctree& lmesh = pdata->pmesh.getLightOctree();
   const id2index_t& fm = pdata->fm;
   const uint32_t nbOctsPerGroup = pdata->nbOctsPerGroup;
@@ -440,16 +460,16 @@ void update_aux(
   uint32_t bx = pdata->bx, by = pdata->by, bz = pdata->bz;
   real_t xmin = pdata->xmin, ymin = pdata->ymin, zmin = pdata->zmin;
   real_t xmax = pdata->xmax, ymax = pdata->ymax, zmax = pdata->zmax;
-  BoundaryConditionType xbound = params.boundary_type_xmin;
-  BoundaryConditionType ybound = params.boundary_type_ymin;
-  BoundaryConditionType zbound = params.boundary_type_zmin;
+  BoundaryConditionType xbound = pdata->boundary_type_xmin;
+  BoundaryConditionType ybound = pdata->boundary_type_ymin;
+  BoundaryConditionType zbound = pdata->boundary_type_zmin;
 
-  bool has_gravity = params.gravity_type!=GRAVITY_NONE;
-  bool gravity_use_field = params.gravity_type&GRAVITY_FIELD;
+  bool has_gravity = gravity_type!=GRAVITY_NONE;
+  bool gravity_use_field = gravity_type&GRAVITY_FIELD;
   #ifndef NDEBUG
-  bool gravity_use_scalar = params.gravity_type==GRAVITY_CST_SCALAR;
+  bool gravity_use_scalar = gravity_type==GRAVITY_CST_SCALAR;
   #endif
-  real_t gx = params.gx, gy = params.gy, gz = params.gz;
+  real_t gx = pdata->gx, gy = pdata->gy, gz = pdata->gz;
 
   // If gravity is on it must either use the force field from U or a constant scalar force field
   assert( !has_gravity || ( gravity_use_field != gravity_use_scalar )  );

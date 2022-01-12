@@ -13,7 +13,6 @@ class GravitySolver{
 public: 
   // GravitySolver(
   //               const ConfigMap& configMap,
-  //               const HydroParams& params, 
   //               shared_ptr<AMRmesh> pmesh,
   //               const id2index_t& fm,
   //               uint32_t bx, uint32_t by, uint32_t bz,
@@ -25,7 +24,6 @@ public:
 
 using GravitySolverFactory = RegisteringFactory< GravitySolver, 
   ConfigMap& /*configMap*/,
-  const HydroParams& /*params*/, 
   std::shared_ptr<AMRmesh> /*pmesh*/,
   const id2index_t& /*fm*/,
   uint32_t /*bx*/, uint32_t /*by*/, uint32_t /*bz*/,

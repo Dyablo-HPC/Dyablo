@@ -50,23 +50,14 @@ void eos(real_t rho,
   
 } // eos
 
-/**
- * Convert conservative variables (rho, rho*u, rho*v, e) to 
- * primitive variables (rho,u,v,p)
- * @param[in]  u  conservative variables array
- * @param[out] q  primitive    variables array (allocated in calling routine, size is constant nbvar)
- * @param[out] c  local speed of sound
- */
 KOKKOS_INLINE_FUNCTION
 void computePrimitives(const HydroState2d &u,
                        real_t             *c,
                        HydroState2d       &q,
-                       const HydroParams& params)
-{
-  real_t gamma0 = params.settings.gamma0;
-  real_t smallr = params.settings.smallr;
-  real_t smallp = params.settings.smallp;
-  
+                       real_t             gamma0,
+                       real_t             smallr,
+                       real_t             smallp)
+{ 
   real_t d, p, ux, uy;
   
   d = fmax(u[ID], smallr);
@@ -89,6 +80,22 @@ void computePrimitives(const HydroState2d &u,
   q[IV] = uy;
   
 } // computePrimitives - 2d
+
+/**
+ * Convert conservative variables (rho, rho*u, rho*v, e) to 
+ * primitive variables (rho,u,v,p)
+ * @param[in]  u  conservative variables array
+ * @param[out] q  primitive    variables array (allocated in calling routine, size is constant nbvar)
+ * @param[out] c  local speed of sound
+ */
+KOKKOS_INLINE_FUNCTION
+void computePrimitives(const HydroState2d &u,
+                       real_t             *c,
+                       HydroState2d       &q,
+                       const HydroParams& params)
+{
+  computePrimitives(u,c,q,params.settings.gamma0,params.settings.smallr,params.settings.smallp);
+}
 
 KOKKOS_INLINE_FUNCTION
 void computePrimitives(const HydroState3d &u,

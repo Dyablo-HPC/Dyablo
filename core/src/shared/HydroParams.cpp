@@ -122,9 +122,11 @@ void HydroParams::setup(ConfigMap &configMap)
     riemannSolverType = RIEMANN_HLL;
   } else if ( !riemannSolverStr.compare("hllc") ) {
     riemannSolverType = RIEMANN_HLLC;
-  } else if ( !riemannSolverStr.compare("hlld") ) {
-    riemannSolverType = RIEMANN_HLLD;
-  } else {
+  } 
+  // else if ( !riemannSolverStr.compare("hlld") ) {
+  //   riemannSolverType = RIEMANN_HLLD;
+  // } 
+  else {
     std::cout << "Riemann Solver specified in parameter file is invalid\n";
     std::cout << "Use the default one : approx\n";
     riemannSolverType = RIEMANN_APPROX;
