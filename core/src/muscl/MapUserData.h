@@ -26,14 +26,12 @@ public:
    **/
   static void apply(  const LightOctree_pablo& lmesh_old,
                       const LightOctree_pablo& lmesh_new,
-                      ConfigMap configMap,
                       DataArray Usrc,
                       DataArray Usrc_ghost,
                       DataArray& Udest  );
 
   static void apply(  const LightOctree_hashmap& lmesh_old,
                       const LightOctree_hashmap& lmesh_new,
-                      ConfigMap configMap,
                       DataArray Usrc,
                       DataArray Usrc_ghost,
                       DataArray& Udest  );

@@ -602,8 +602,9 @@ void SolverHydroMuscl::save_solution_hdf5()
   auto fm = fieldMgr.get_id2index();
 
   // a map containing ID and name of the variable to write
+  std::string write_variables = configMap.getValue<std::string>("output", "write_variables", "rho");
   str2int_t names2index; // this is initially empty
-  build_var_to_write_map(names2index, fieldMgr, configMap);
+  build_var_to_write_map(names2index, fieldMgr, write_variables);
 
   // prepare output filename
   std::string outputPrefix = configMap.getValue<std::string>("output", "outputPrefix", "output");

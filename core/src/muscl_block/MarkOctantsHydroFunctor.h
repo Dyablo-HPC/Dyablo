@@ -78,7 +78,6 @@ public:
    * \param[inout] markers used to refine/coarsen (see markers_t)
    **/
   static void apply(LightOctree    lmesh,
-		                ConfigMap      configMap,
                     HydroParams    params,
 		                id2index_t     fm,
                     blockSize_t    blockSizes,

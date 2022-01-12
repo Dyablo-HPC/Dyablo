@@ -10,30 +10,34 @@ namespace dyablo {
 namespace muscl_block {
 
 struct IOManager_hdf5::Data{
-  const ConfigMap& configMap;
   const HydroParams params;  
   AMRmesh& pmesh;
   const FieldManager fieldMgr;
   uint32_t bx, by, bz; 
   Timers& timers;  
   HDF5_Writer hdf5_writer;
+  std::string outputDir, outputPrefix;
+  std::string write_variables;
 };
 
 IOManager_hdf5::IOManager_hdf5(
-  const ConfigMap& configMap,
+  ConfigMap& configMap,
   const HydroParams& params, 
   AMRmesh& pmesh,
   const FieldManager& fieldMgr,
   uint32_t bx, uint32_t by, uint32_t bz,
   Timers& timers )
  : pdata(new Data
-    {configMap, 
-    params, 
+    {params, 
     pmesh, 
     fieldMgr,
     bx, by, bz,
     timers,
-    HDF5_Writer( &pmesh, configMap, params )})
+    HDF5_Writer( &pmesh, configMap, params ),
+    configMap.getValue<std::string>("output", "outputDir", "./"),
+    configMap.getValue<std::string>("output", "outputPrefix", "output"),
+    configMap.getValue<std::string>("output", "write_variables", "rho")
+  })
 { 
 }
 
@@ -44,17 +48,17 @@ void IOManager_hdf5::save_snapshot( const DataArrayBlock& U, const DataArrayBloc
 {
   const FieldManager& fieldMgr = pdata->fieldMgr;
   const id2index_t& fm = fieldMgr.get_id2index();
-  const ConfigMap& configMap = pdata->configMap;
-  const HydroParams& params = pdata->params;
   HDF5_Writer* hdf5_writer = &(pdata->hdf5_writer);
+  std::string write_variables = pdata->write_variables;
 
   // a map containing ID and name of the variable to write
   str2int_t names2index; // this is initially empty
-  build_var_to_write_map(names2index, fieldMgr, configMap);
+  build_var_to_write_map(names2index, fieldMgr, write_variables);
 
   // prepare output filename
-  std::string outputPrefix = configMap.getValue<std::string>("output", "outputPrefix", "output");
-  std::string outputDir = configMap.getValue<std::string>("output", "outputDir", "./");
+  std::string outputPrefix = pdata->outputPrefix;
+  std::string outputDir = pdata->outputDir;
+  
   
   // prepare suffix string
   std::ostringstream strsuffix;
@@ -81,7 +85,6 @@ void IOManager_hdf5::save_snapshot( const DataArrayBlock& U, const DataArrayBloc
     hdf5_writer->write_quadrant_attribute(Uhost, fm, names2index);
 
     // check if we want to write velocity or rhoV vector fields
-    std::string write_variables = configMap.getValue<std::string>("output", "write_variables", "");
     // if (write_variables.find("velocity") != std::string::npos) {
     //   hdf5_writer->write_quadrant_velocity(U, fm, false);
     // } else if (write_variables.find("rhoV") != std::string::npos) {

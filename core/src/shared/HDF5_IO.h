@@ -46,7 +46,7 @@ public:
    *
    */
   HDF5_Writer(AMRmesh* amr_mesh, 
-	      const ConfigMap& configMap,
+	      ConfigMap& configMap,
         const HydroParams& params);
   ~HDF5_Writer();
 
@@ -178,8 +178,7 @@ public:
   std::string    m_basename; //!< the base name of the two files
   //id2index_t     m_fm; //!< field manager object
   //str2int_t      m_names2index; //!< map from names to user data variables
-
-  const ConfigMap&     m_configMap;
+  
   const HydroParams   m_params;
 
   bool           m_write_mesh_info; //!< write mesh info (oct level, mpi proc, ...)

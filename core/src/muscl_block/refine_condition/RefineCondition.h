@@ -59,7 +59,7 @@ public:
       timers.get("AMR: block copy").start();
 
       // Copy data from U to Ugroup
-      CopyInnerBlockCellDataFunctor::apply(configMap, params, fm,
+      CopyInnerBlockCellDataFunctor::apply(params, fm,
                                         {bx,by,bz},
                                         ghostWidth,
                                         nbOcts,
@@ -67,7 +67,6 @@ public:
                                         U.U, Ugroup, 
                                         iGroup);
       CopyGhostBlockCellDataFunctor::apply(pmesh.getLightOctree(),
-                                          configMap,
                                           params,
                                           fm,
                                           {bx,by,bz},
@@ -84,8 +83,7 @@ public:
       timers.get("AMR: mark cells").start();
 
       // convert conservative variable into primitives ones for the given group
-      ConvertToPrimitivesHydroFunctor::apply(configMap,
-                                          params, 
+      ConvertToPrimitivesHydroFunctor::apply(params, 
                                           fm,
                                           {bx,by,bz},
                                           ghostWidth,
@@ -97,7 +95,7 @@ public:
 
       // finaly apply refine criterion : 
       // call device functor to flag for refine/coarsen
-      MarkOctantsHydroFunctor::apply(pmesh.getLightOctree(), configMap, params, fm,
+      MarkOctantsHydroFunctor::apply(pmesh.getLightOctree(), params, fm,
                                     {bx,by,bz}, ghostWidth,
                                     nbOcts, nbOctsPerGroup,
                                     Qgroup, iGroup,

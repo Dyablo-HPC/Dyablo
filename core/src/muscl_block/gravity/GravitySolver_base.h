@@ -24,7 +24,7 @@ public:
 };
 
 using GravitySolverFactory = RegisteringFactory< GravitySolver, 
-  const ConfigMap& /*configMap*/,
+  ConfigMap& /*configMap*/,
   const HydroParams& /*params*/, 
   std::shared_ptr<AMRmesh> /*pmesh*/,
   const id2index_t& /*fm*/,

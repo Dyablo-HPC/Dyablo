@@ -16,7 +16,6 @@ using AMRBlockForeachCell = AMRBlockForeachCell_group;
 //using AMRBlockForeachCell = AMRBlockForeachCell_scratch;
 
 struct MusclBlockUpdate_generic::Data{
-  const ConfigMap& configMap;
   const HydroParams params;  
   AMRmesh& pmesh;
   const id2index_t fm;
@@ -31,15 +30,14 @@ struct MusclBlockUpdate_generic::Data{
 };
 
 MusclBlockUpdate_generic::MusclBlockUpdate_generic(
-  const ConfigMap& configMap,
+  ConfigMap& configMap,
   const HydroParams& params, 
   AMRmesh& pmesh,
   const id2index_t& fm,
   uint32_t bx, uint32_t by, uint32_t bz,
   Timers& timers )
  : pdata(new Data
-    {configMap, 
-    params, 
+    {params, 
     pmesh, 
     fm,
     bx, by, bz,

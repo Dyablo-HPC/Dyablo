@@ -34,7 +34,7 @@ void writeVTK(AMRmesh_pablo         &amr_mesh,
 	      DataArray        data,
 	      id2index_t       fm,
 	      str2int_t        names2index,
-	      const ConfigMap& configMap,
+	      ConfigMap& configMap,
               std::string      nameSuffix = "");
 
 /**

@@ -79,7 +79,6 @@ void fill_cell_newCoarse( const FunctorData& d,
 
 void apply_aux( const AMR_Remapper& remap,
                 uint8_t ndim,
-                ConfigMap /*configMap*/,
                 DataArray Usrc,
                 DataArray Usrc_ghost,
                 DataArray& Udest  )
@@ -124,24 +123,22 @@ void apply_aux( const AMR_Remapper& remap,
 
 void MapUserDataFunctor::apply( const LightOctree_hashmap& lmesh_old,
                                 const LightOctree_hashmap& lmesh_new,
-                                ConfigMap configMap,
                                 DataArray Usrc,
                                 DataArray Usrc_ghost,
                                 DataArray& Udest  )
 {
   apply_aux( AMR_Remapper(lmesh_old, lmesh_new), lmesh_new.getNdim(),
-             configMap, Usrc, Usrc_ghost, Udest );
+             Usrc, Usrc_ghost, Udest );
 }
 
 void MapUserDataFunctor::apply( const LightOctree_pablo& lmesh_old,
                                 const LightOctree_pablo& lmesh_new,
-                                ConfigMap configMap,
                                 DataArray Usrc,
                                 DataArray Usrc_ghost,
                                 DataArray& Udest  )
 {
   apply_aux( AMR_Remapper(lmesh_new.getMesh()), lmesh_new.getNdim(),
-             configMap, Usrc, Usrc_ghost, Udest );
+             Usrc, Usrc_ghost, Udest );
 }
 
 } // namespace muscl

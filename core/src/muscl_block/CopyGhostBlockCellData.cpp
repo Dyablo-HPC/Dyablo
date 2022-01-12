@@ -701,11 +701,7 @@ KOKKOS_INLINE_FUNCTION void fill_ghosts(const Functor& f, Functor::team_policy_t
     // iOct must span the range [iGroup*nbOctsPerGroup , (iGroup+1)*nbOctsPerGroup [
     uint32_t iOct = member.league_rank() + iGroup * nbOctsPerGroup;
     // octant id inside the Ugroup data array
-    uint32_t iOct_g = member.league_rank();
-    // total number of octants
-    uint32_t nbOcts = f.lmesh.getNumOctants();
-    // compute first octant index after current group
-    uint32_t iOctNextGroup = (iGroup + 1) * nbOctsPerGroup;   
+    uint32_t iOct_g = member.league_rank();   
 
     uint32_t nbcells_face_X = ghostWidth*by*bz;
     uint32_t nbcells_face_Y = f.bx_g*ghostWidth*bz;
@@ -783,7 +779,7 @@ KOKKOS_INLINE_FUNCTION void CopyGhostBlockCellDataFunctor::operator()(team_polic
 }
 
 void CopyGhostBlockCellDataFunctor::apply(
-    LightOctree lmesh, ConfigMap configMap, HydroParams params,
+    LightOctree lmesh, HydroParams params,
     id2index_t fm, blockSize_t blockSizes, uint32_t ghostWidth,
     uint32_t nbOctsPerGroup, DataArrayBlock U, DataArrayBlock U_ghost,
     DataArrayBlock Ugroup, uint32_t iGroup, InterfaceFlags interface_flags)

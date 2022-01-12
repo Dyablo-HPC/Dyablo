@@ -16,7 +16,7 @@ namespace muscl_block {
 class MusclBlockUpdate_generic : public MusclBlockUpdate{
 public: 
   MusclBlockUpdate_generic(
-                const ConfigMap& configMap,
+                ConfigMap& configMap,
                 const HydroParams& params, 
                 AMRmesh& pmesh,
                 const id2index_t& fm,

@@ -6,15 +6,8 @@ namespace dyablo {
 // =======================================================
 int build_var_to_write_map(str2int_t        & map,
 			   const FieldManager& fieldMgr,
-			   const ConfigMap  & configMap)
+			   const std::string& write_variables)
 {
-
-  // Read parameter file and get the list of variable field names
-  // we wish to write 
-  // variable names must be comma-separated (no quotes !)
-  // e.g. write_variables=rho,vx,vy,unknown
-  std::string write_variables = configMap.getValue<std::string>("output", "write_variables", "rho,rho_vx");
-
   // second retrieve available / allowed names
   id2index_t fm = fieldMgr.get_id2index();
   

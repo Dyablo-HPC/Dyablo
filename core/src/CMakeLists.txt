@@ -3,6 +3,5 @@ add_subdirectory(utils)
 
 add_subdirectory(shared)
 
-add_subdirectory(muscl)
 add_subdirectory(muscl_block)
 

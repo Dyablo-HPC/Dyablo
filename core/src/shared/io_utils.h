@@ -23,7 +23,7 @@ namespace dyablo {
  */
 int build_var_to_write_map(str2int_t        & map,
 			   const FieldManager& fieldMgr,
-			   const ConfigMap  & configMap);
+			   const std::string& write_variables);
 
 } // namespace dyablo
 

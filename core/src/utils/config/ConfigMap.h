@@ -82,6 +82,10 @@ type convert_to( const std::string& str )
 
 class ConfigMap
 {
+private:
+  /// ConfigMap cannot be copied to ensure default values are registered in original ConfigMap
+  ConfigMap( const ConfigMap& ) = default;
+
 public:
   /// TODO remove copy constructor to avoid adding default values after writing to file
   /// Read configmap from file
@@ -92,6 +96,9 @@ public:
     int error = ini_parse_buffer(buffer, buffer_size, valueHandler, this);
     if( error != 0 ) throw std::runtime_error(std::string("Error in .ini file line ") + std::to_string(error));
   }
+  ConfigMap( ConfigMap&& ) = default;
+
+  
   
   /// Read configmap from file and broadcast : 
   ///   this is an MPI collective that create the same ConfigMap on every process
@@ -186,34 +193,34 @@ public:
     return res;
   }
 
-  /// TODO remove const version to avoid adding default values after writing to file
-  template< typename T >
-  T getValue( std::string section, std::string name, const T& default_value ) const
-  {
-    std::cout << "WARNING default value with const" << std::endl;
-    section = tolower(section);
-    name = tolower(name);
-    bool is_present = (_values.count(section) != 0) && (_values.at(section).count(name) != 0);
-    if(is_present)
-    {
-      std::string value = _values.at(section).at(name).value;
-      T res;
-      try {        
-        res = Impl::convert_to<T>(value);
-      }
-      catch (const std::exception& e)
-      {
-        throw std::runtime_error( std::string("Error while parsing .ini ") + section + "/" + name + " -- " + e.what() );
-      }
-      std::cout << ".ini found : " << std::setw(30) << section << std::setw(30) << name  << std::setw(30) << res << std::endl; 
-      return res;
-    }
-    else
-    {
-      std::cout << ".ini default : " << std::setw(30) << section << std::setw(30) << name  << std::setw(30) << default_value << std::endl;
-      return default_value;
-    }
-  }
+  // /// TODO remove const version to avoid adding default values after writing to file
+  // template< typename T >
+  // T getValue( std::string section, std::string name, const T& default_value ) const
+  // {
+  //   std::cout << "WARNING default value with const" << std::endl;
+  //   section = tolower(section);
+  //   name = tolower(name);
+  //   bool is_present = (_values.count(section) != 0) && (_values.at(section).count(name) != 0);
+  //   if(is_present)
+  //   {
+  //     std::string value = _values.at(section).at(name).value;
+  //     T res;
+  //     try {        
+  //       res = Impl::convert_to<T>(value);
+  //     }
+  //     catch (const std::exception& e)
+  //     {
+  //       throw std::runtime_error( std::string("Error while parsing .ini ") + section + "/" + name + " -- " + e.what() );
+  //     }
+  //     std::cout << ".ini found : " << std::setw(30) << section << std::setw(30) << name  << std::setw(30) << res << std::endl; 
+  //     return res;
+  //   }
+  //   else
+  //   {
+  //     std::cout << ".ini default : " << std::setw(30) << section << std::setw(30) << name  << std::setw(30) << default_value << std::endl;
+  //     return default_value;
+  //   }
+  // }
 
   void output(std::ostream& o)
   {

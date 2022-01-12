@@ -11,7 +11,6 @@ namespace dyablo {
 namespace muscl_block {
 
 struct GravitySolver_constant::Data{
-  const ConfigMap& configMap;
   const HydroParams params;  
   AMRmesh& pmesh;
   const id2index_t fm;
@@ -24,15 +23,14 @@ struct GravitySolver_constant::Data{
 };
 
 GravitySolver_constant::GravitySolver_constant(
-  const ConfigMap& configMap,
+  ConfigMap& configMap,
   const HydroParams& params, 
   std::shared_ptr<AMRmesh> pmesh,
   const id2index_t& fm,
   uint32_t bx, uint32_t by, uint32_t bz,
   Timers& timers )
  : pdata(new Data
-    {configMap, 
-    params, 
+    {params, 
     *pmesh, 
     fm,
     bx, by, bz,

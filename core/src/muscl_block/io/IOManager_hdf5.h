@@ -16,7 +16,7 @@ namespace muscl_block {
 class IOManager_hdf5 : public IOManager{
 public: 
   IOManager_hdf5(
-                const ConfigMap& configMap,
+                ConfigMap& configMap,
                 const HydroParams& params, 
                 AMRmesh& pmesh,
                 const FieldManager& fm,

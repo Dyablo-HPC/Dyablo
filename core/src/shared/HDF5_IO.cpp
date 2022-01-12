@@ -55,20 +55,19 @@ hdf5_native_type_to_string (hid_t type)
 // =======================================================
 // =======================================================
 HDF5_Writer::HDF5_Writer(AMRmesh* amr_mesh, 
-                         const ConfigMap& configMap,
+                         ConfigMap& configMap,
                          const HydroParams& params) :
   m_amr_mesh(amr_mesh),
-  m_configMap(configMap),
   m_params(params)
 {
 
-  m_write_mesh_info = m_configMap.getValue<bool>("output", "write_mesh_info", false);
+  m_write_mesh_info = configMap.getValue<bool>("output", "write_mesh_info", false);
 
   // only meaningful when one wants to write block data
-  m_write_block_data = m_configMap.getValue<bool>("amr", "use_block_data", false);
-  m_bx = m_configMap.getValue<int>("amr", "bx", 0);
-  m_by = m_configMap.getValue<int>("amr", "by", 0);
-  m_bz = m_configMap.getValue<int>("amr", "bz", 0);
+  m_write_block_data = configMap.getValue<bool>("amr", "use_block_data", false);
+  m_bx = configMap.getValue<int>("amr", "bx", 0);
+  m_by = configMap.getValue<int>("amr", "by", 0);
+  m_bz = configMap.getValue<int>("amr", "bz", 0);
 
   m_nbCellsPerLeaf = 1;
 
@@ -81,7 +80,7 @@ HDF5_Writer::HDF5_Writer(AMRmesh* amr_mesh,
   m_write_level = m_write_mesh_info;
   m_write_rank =  m_write_mesh_info;
 
-  m_write_iOct = m_configMap.getValue<bool>("output", "write_iOct", false);
+  m_write_iOct = configMap.getValue<bool>("output", "write_iOct", false);
 
   m_nbNodesPerCell = m_params.dimType==TWO_D ? 
     IO_NODES_PER_CELL_2D : 
@@ -98,7 +97,7 @@ HDF5_Writer::HDF5_Writer(AMRmesh* amr_mesh,
   m_mpiRank = m_amr_mesh->getRank();
 
   // is actually hdf5 enabled ?
-  bool hdf5_enabled = m_configMap.getValue<bool>("output", "hdf5_enabled", false);
+  bool hdf5_enabled = configMap.getValue<bool>("output", "hdf5_enabled", false);
 
   if (m_mpiRank == 0 and hdf5_enabled) {
 

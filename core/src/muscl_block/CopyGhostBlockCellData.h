@@ -36,7 +36,7 @@ public:
    * Ghost cells of current group octants are filled with values 
    * from neighbor octants. Fills faces, edges and corners.
    **/
-  static void apply(LightOctree lmesh, ConfigMap configMap,
+  static void apply(LightOctree lmesh,
                     HydroParams params, id2index_t fm, blockSize_t blockSizes,
                     uint32_t ghostWidth, uint32_t nbOctsPerGroup,
                     DataArrayBlock U, DataArrayBlock U_ghost,

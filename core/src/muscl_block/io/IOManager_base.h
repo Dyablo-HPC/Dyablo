@@ -17,7 +17,7 @@ namespace muscl_block {
 class IOManager{
 public: 
   // IOManager(
-  //               const ConfigMap& configMap,
+  //               ConfigMap& configMap,
   //               const HydroParams& params, 
   //               AMRmesh& pmesh,
   //               const id2index_t& fm,
@@ -35,7 +35,7 @@ public:
 };
 
 using IOManagerFactory = RegisteringFactory< IOManager, 
-  const ConfigMap& /*configMap*/,
+  ConfigMap& /*configMap*/,
   const HydroParams& /*params*/, 
   AMRmesh& /*pmesh*/,
   const FieldManager& /*fm*/,

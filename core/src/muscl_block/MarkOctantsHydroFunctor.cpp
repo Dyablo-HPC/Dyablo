@@ -58,7 +58,6 @@ KOKKOS_INLINE_FUNCTION T min(const T& a, const T& b)
 
 void MarkOctantsHydroFunctor::apply(  
                     LightOctree    lmesh,
-		                ConfigMap      configMap,
                     HydroParams    params,
 		                id2index_t     fm,
                     blockSize_t    blockSizes,

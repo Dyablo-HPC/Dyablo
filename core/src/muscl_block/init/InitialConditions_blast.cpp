@@ -24,7 +24,7 @@ struct AnalyticalFormula_blast : public AnalyticalFormula_base{
     const real_t zmin, zmax;    
     const real_t gamma0, smallr, smallp;
     
-    AnalyticalFormula_blast( const ConfigMap& configMap, const HydroParams& params ) :
+    AnalyticalFormula_blast( ConfigMap& configMap, const HydroParams& params ) :
         ndim( (params.dimType == THREE_D) ? 3 : 2 ),
         // Length are scaled by quadrant width (0.5,0.5,0.5 is center of quadrant when blast_n* != 1)
         blast_radius ( configMap.getValue<real_t>("blast","radius", 0.1) ),

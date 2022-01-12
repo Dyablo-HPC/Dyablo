@@ -78,8 +78,7 @@ public:
   };
   
   // static method which does it all: create and execute functor
-  static void apply(ConfigMap      configMap,
-		                HydroParams    params,
+  static void apply(HydroParams    params,
 		                id2index_t     fm,
                     blockSize_t    blockSizes,
                     uint32_t       ghostWidth,
