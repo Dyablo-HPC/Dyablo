@@ -87,14 +87,13 @@ private:
   ConfigMap( const ConfigMap& ) = default;
 
 public:
-  /// TODO remove copy constructor to avoid adding default values after writing to file
-  /// Read configmap from file
-  ConfigMap( std::string filename );
   /// Read configmap from buffer
   ConfigMap(char* &buffer, int buffer_size)
   {
     int error = ini_parse_buffer(buffer, buffer_size, valueHandler, this);
     if( error != 0 ) throw std::runtime_error(std::string("Error in .ini file line ") + std::to_string(error));
+  
+    this->print_config = this->getValue<bool>( "ini", "print_config", false );
   }
   ConfigMap( ConfigMap&& ) = default;
 
@@ -176,7 +175,6 @@ public:
       sst << std::boolalpha;
       sst << default_value;
       val.value = sst.str();
-      std::cout << ".ini default : " << std::setw(30) << section << std::setw(30) << name << std::setw(30) << default_value << std::endl;
     }
 
     val.used = true;
@@ -188,39 +186,26 @@ public:
     {
       throw std::runtime_error( std::string("Error while parsing .ini ") + section + "/" + name + " -- " + e.what() );
     }
-    std::cout << ".ini found : " << std::setw(30) << section << std::setw(30) << name  << std::setw(30) << res << std::endl; 
+
+    if( print_config )
+    {
+      std::cout << ".ini ";
+      if( is_present ) 
+        std::cout << " found   : ";
+      else            
+        std::cout << " default : ";
+      std::cout << std::left << std::boolalpha;
+      std::cout << std::setw( 25 ) << section;
+      std::cout << std::setw( 25 ) << name;
+      std::cout << std::setw( 25 ) << std::string("'")+val.value+"'" ;
+      std::cout << " -> " << res;
+      std::cout << std::endl;
+    }
+
     assert( is_present || default_value == res );
     return res;
   }
 
-  // /// TODO remove const version to avoid adding default values after writing to file
-  // template< typename T >
-  // T getValue( std::string section, std::string name, const T& default_value ) const
-  // {
-  //   std::cout << "WARNING default value with const" << std::endl;
-  //   section = tolower(section);
-  //   name = tolower(name);
-  //   bool is_present = (_values.count(section) != 0) && (_values.at(section).count(name) != 0);
-  //   if(is_present)
-  //   {
-  //     std::string value = _values.at(section).at(name).value;
-  //     T res;
-  //     try {        
-  //       res = Impl::convert_to<T>(value);
-  //     }
-  //     catch (const std::exception& e)
-  //     {
-  //       throw std::runtime_error( std::string("Error while parsing .ini ") + section + "/" + name + " -- " + e.what() );
-  //     }
-  //     std::cout << ".ini found : " << std::setw(30) << section << std::setw(30) << name  << std::setw(30) << res << std::endl; 
-  //     return res;
-  //   }
-  //   else
-  //   {
-  //     std::cout << ".ini default : " << std::setw(30) << section << std::setw(30) << name  << std::setw(30) << default_value << std::endl;
-  //     return default_value;
-  //   }
-  // }
 
   void output(std::ostream& o)
   {
@@ -256,6 +241,8 @@ private:
     bool used = false;
   };
 
+  bool print_config;
+
   std::map<std::string, std::map< std::string, value_container> > _values;
   static int valueHandler( void* user, const char* section_cstr, const char* name_cstr,
                             const char* value_cstr )
@@ -264,7 +251,6 @@ private:
     std::string section = tolower(section_cstr);
     std::string name = tolower(name_cstr);
     std::string value (value_cstr);
-    std::cout << ".ini : " << std::setw(30) << section << std::setw(30) << name  << std::setw(30) << value << std::endl; 
     reader->_values[section][name] = value_container{std::string(value), true};
     return 1;
   }
