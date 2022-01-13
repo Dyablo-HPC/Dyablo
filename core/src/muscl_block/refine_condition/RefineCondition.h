@@ -13,22 +13,33 @@ class RefineCondition
   using CellArray = AMRBlockForeachCell_group::CellArray_global_ghosted;
 public:
   RefineCondition( ConfigMap& configMap,
-                const HydroParams& params, 
                 AMRmesh& pmesh,
                 const id2index_t& fm,
                 uint32_t bx, uint32_t by, uint32_t bz,
                 Timers& timers )
     : configMap(configMap),
-      params(params),
       pmesh(pmesh),
       timers(timers),
       error_min ( configMap.getValue<real_t>("amr", "error_min", 0.2) ),
       error_max ( configMap.getValue<real_t>("amr", "error_max", 0.8) ),
-      nbOctsPerGroup( configMap.getValue<uint32_t>("amr", "nbOctsPerGroup", 32) )
+      nbOctsPerGroup( configMap.getValue<uint32_t>("amr", "nbOctsPerGroup", 32) ),
+      gravity_type( configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE) ),
+      bxmin( configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_ABSORBING) ),
+      bxmax( configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmax", BC_ABSORBING) ),
+      bymin( configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymin", BC_ABSORBING) ),
+      bymax( configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymax", BC_ABSORBING) ),
+      bzmin( configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmin", BC_ABSORBING) ),
+      bzmax( configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmax", BC_ABSORBING) ),
+      gamma0( configMap.getValue<real_t>("hydro","gamma0", 1.4) ),
+      smallr( configMap.getValue<real_t>("hydro","smallr", 1e-10) ),
+      smallc( configMap.getValue<real_t>("hydro","smallc", 1e-10) ),
+      smallp( smallc*smallc/gamma0 )
   {}
 
   void mark_cells( const CellArray& U )
   {
+    int ndim = pmesh.getDim();
+
     real_t error_min = this->error_min;
     real_t error_max = this->error_max;
     uint32_t nbOctsPerGroup = this->nbOctsPerGroup;
@@ -59,7 +70,7 @@ public:
       timers.get("AMR: block copy").start();
 
       // Copy data from U to Ugroup
-      CopyInnerBlockCellDataFunctor::apply(params, fm,
+      CopyInnerBlockCellDataFunctor::apply({ndim, gravity_type}, fm,
                                         {bx,by,bz},
                                         ghostWidth,
                                         nbOcts,
@@ -67,7 +78,12 @@ public:
                                         U.U, Ugroup, 
                                         iGroup);
       CopyGhostBlockCellDataFunctor::apply(pmesh.getLightOctree(),
-                                          params,
+                                          {
+                                            bxmin, bxmax,
+                                            bymin, bymax,
+                                            bzmin, bzmax,
+                                            gravity_type
+                                          },
                                           fm,
                                           {bx,by,bz},
                                           ghostWidth,
@@ -83,7 +99,7 @@ public:
       timers.get("AMR: mark cells").start();
 
       // convert conservative variable into primitives ones for the given group
-      ConvertToPrimitivesHydroFunctor::apply(params, 
+      ConvertToPrimitivesHydroFunctor::apply({ndim, gamma0, smallr, smallp}, 
                                           fm,
                                           {bx,by,bz},
                                           ghostWidth,
@@ -95,7 +111,9 @@ public:
 
       // finaly apply refine criterion : 
       // call device functor to flag for refine/coarsen
-      MarkOctantsHydroFunctor::apply(pmesh.getLightOctree(), params, fm,
+      MarkOctantsHydroFunctor::apply(pmesh.getLightOctree(), 
+                                    pmesh.get_level_min(), pmesh.get_level_max(), 
+                                    fm,
                                     {bx,by,bz}, ghostWidth,
                                     nbOcts, nbOctsPerGroup,
                                     Qgroup, iGroup,
@@ -111,11 +129,19 @@ public:
 
 private:
   const ConfigMap& configMap;
-  const HydroParams params;
   AMRmesh& pmesh;
   Timers& timers;
   real_t error_min, error_max;
   uint32_t nbOctsPerGroup;
+
+  GravityType gravity_type;
+  BoundaryConditionType bxmin;
+  BoundaryConditionType bxmax;
+  BoundaryConditionType bymin;
+  BoundaryConditionType bymax;
+  BoundaryConditionType bzmin;
+  BoundaryConditionType bzmax;
+  real_t gamma0, smallr, smallc, smallp;
   
 };
 

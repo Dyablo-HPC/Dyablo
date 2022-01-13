@@ -99,7 +99,7 @@ public:
     return id2index.nbfields(); 
   }
 
-  static FieldManager setup(const HydroParams& params, const ConfigMap& configMap);
+  static FieldManager setup(int ndim, GravityType gravity_type);
   
   static std::string var_name(VarIndex ivar);
   std::set< VarIndex > enabled_fields() const;

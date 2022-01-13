@@ -58,7 +58,7 @@ KOKKOS_INLINE_FUNCTION T min(const T& a, const T& b)
 
 void MarkOctantsHydroFunctor::apply(  
                     LightOctree    lmesh,
-                    HydroParams    params,
+                    int level_min, int level_max,
 		                id2index_t     fm,
                     blockSize_t    blockSizes,
                     uint32_t       ghostWidth,
@@ -70,10 +70,8 @@ void MarkOctantsHydroFunctor::apply(
                     real_t         error_max,
                     markers_t      markers )
 {
-  const bool three_d = (params.dimType == THREE_D);
+  const bool three_d = lmesh.getNdim() == 3;
 
-  const int level_max = params.level_max;
-  const int level_min = params.level_min;
   const uint32_t bx = blockSizes[IX];
   const uint32_t by = blockSizes[IY];
   const uint32_t bz = three_d?(blockSizes[IZ]):1;

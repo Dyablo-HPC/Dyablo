@@ -38,20 +38,23 @@ class InitialConditions_analytical : public InitialConditions{
     } data;
 public:
   InitialConditions_analytical(
-        ConfigMap& configMap,
-        const HydroParams& params,  
+        ConfigMap& configMap, 
         AMRmesh& pmesh,
         FieldManager fieldMgr,
         uint32_t nbOctsPerGroup,  
         uint32_t bx, uint32_t by, uint32_t bz,  
         Timers& timers )
-  : analytical_formula(configMap, params),
+  : analytical_formula(configMap),
     data({
       pmesh, fieldMgr, nbOctsPerGroup, 
       bx, by, bz,
-      params.level_min, params.level_max,
-      params.xmin, params.ymin, params.zmin,
-      params.xmax, params.ymax, params.zmax
+      pmesh.get_level_min(), pmesh.get_level_max(),
+      configMap.getValue<real_t>("mesh", "xmin", 0.0), 
+      configMap.getValue<real_t>("mesh", "ymin", 0.0), 
+      configMap.getValue<real_t>("mesh", "zmin", 0.0),
+      configMap.getValue<real_t>("mesh", "xmax", 1.0),
+      configMap.getValue<real_t>("mesh", "ymax", 1.0),
+      configMap.getValue<real_t>("mesh", "zmax", 1.0)
     })
   {}
 

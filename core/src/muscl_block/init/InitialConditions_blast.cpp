@@ -22,10 +22,10 @@ struct AnalyticalFormula_blast : public AnalyticalFormula_base{
     const real_t xmin, xmax;
     const real_t ymin, ymax;
     const real_t zmin, zmax;    
-    const real_t gamma0, smallr, smallp;
+    const real_t gamma0, smallr, smallc, smallp;
     
-    AnalyticalFormula_blast( ConfigMap& configMap, const HydroParams& params ) :
-        ndim( (params.dimType == THREE_D) ? 3 : 2 ),
+    AnalyticalFormula_blast( ConfigMap& configMap ) :
+        ndim( configMap.getValue<int>("mesh", "ndim", 3) ),
         // Length are scaled by quadrant width (0.5,0.5,0.5 is center of quadrant when blast_n* != 1)
         blast_radius ( configMap.getValue<real_t>("blast","radius", 0.1) ),
         blast_center_x ( configMap.getValue<real_t>("blast","center_x", 0.5) ),
@@ -40,12 +40,13 @@ struct AnalyticalFormula_blast : public AnalyticalFormula_base{
         blast_ny ( configMap.getValue<int>("blast", "blast_ny", 1) ),
         blast_nz ( configMap.getValue<int>("blast", "blast_nz", 1) ),  
         error_max(configMap.getValue<real_t>("amr", "error_max", 0.8)),      
-        xmin( params.xmin ), xmax( params.xmax ),
-        ymin( params.ymin ), ymax( params.ymax ),
-        zmin( params.zmin ), zmax( params.zmax ),
-        gamma0 ( params.settings.gamma0 ),
-        smallr ( params.settings.smallr ),
-        smallp ( params.settings.smallp )
+        xmin( configMap.getValue<real_t>("mesh", "xmin", 0.0) ), xmax( configMap.getValue<real_t>("mesh", "xmax", 1.0) ),
+        ymin( configMap.getValue<real_t>("mesh", "ymin", 0.0) ), ymax( configMap.getValue<real_t>("mesh", "ymax", 1.0) ),
+        zmin( configMap.getValue<real_t>("mesh", "zmin", 0.0) ), zmax( configMap.getValue<real_t>("mesh", "zmax", 1.0) ),
+        gamma0 ( configMap.getValue<real_t>("hydro","gamma0", 1.4) ),
+        smallr ( configMap.getValue<real_t>("hydro","smallr", 1e-10) ),
+        smallc ( configMap.getValue<real_t>("hydro","smallc", 1e-10) ),
+        smallp ( smallc*smallc / gamma0 )
     {}
 
     KOKKOS_INLINE_FUNCTION

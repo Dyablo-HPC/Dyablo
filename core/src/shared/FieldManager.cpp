@@ -33,16 +33,16 @@ std::set< VarIndex > FieldManager::enabled_fields() const
   return id2index.enabled_fields();
 }
 
-FieldManager FieldManager::setup(const HydroParams& params, const ConfigMap& configMap) {    
+FieldManager FieldManager::setup(int ndim, GravityType gravity_type) {    
   
   // always enable rho, energy and velocity components
   std::set< VarIndex > enabled_vars( {ID, IP, IE, IU, IV} );
   
-  bool three_d = params.dimType == 3 ? 1 : 0;
+  bool three_d = ndim == 3 ? 1 : 0;
 
   if( three_d ) enabled_vars.insert( IW );
 
-  if (params.gravity_type & GRAVITY_FIELD) {
+  if (gravity_type & GRAVITY_FIELD) {
     enabled_vars.insert( IGX );
     enabled_vars.insert( IGY );
     if( three_d ) enabled_vars.insert( IGZ );

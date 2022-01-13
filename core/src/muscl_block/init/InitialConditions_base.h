@@ -18,7 +18,6 @@ public:
 
   // InitialConditions(
   //     ConfigMap& configMap,
-  //     const HydroParams& params,  
   //     AMRmesh& pmesh,
   //     FieldManager fieldMgr,
   //     uint32_t nbOctsPerGroup,  
@@ -30,7 +29,6 @@ public:
 
 using InitialConditionsFactory = RegisteringFactory<InitialConditions, 
   ConfigMap&,
-  const HydroParams&,  
   AMRmesh&,
   FieldManager,
   uint32_t,  

@@ -6,7 +6,7 @@ namespace muscl_block
 {
 
 CopyGhostBlockCellDataFunctor::CopyGhostBlockCellDataFunctor(
-    LightOctree lmesh, HydroParams params, id2index_t fm,
+    LightOctree lmesh, Params params, id2index_t fm,
     blockSize_t blockSizes, uint32_t ghostWidth, uint32_t nbOctsPerGroup,
     DataArrayBlock U, DataArrayBlock U_ghost, DataArrayBlock Ugroup,
     uint32_t iGroup, InterfaceFlags interface_flags) :
@@ -28,15 +28,16 @@ CopyGhostBlockCellDataFunctor::CopyGhostBlockCellDataFunctor(
     bc_min[IZ] = params.boundary_type_zmin;
     bc_max[IZ] = params.boundary_type_zmax;
 
+    ndim = lmesh.getNdim();
+
   // in 2d, bz and bz_g are not used
-  blockSizes[IZ] = (params.dimType == THREE_D) ? blockSizes[IZ] : 1;
+  blockSizes[IZ] = (ndim == 3) ? blockSizes[IZ] : 1;
   bx_g           = blockSizes[IX] + 2 * ghostWidth;
   by_g           = blockSizes[IY] + 2 * ghostWidth;
-  bz_g = (params.dimType == THREE_D) ? blockSizes[IZ] + 2 * ghostWidth : 1;
+  bz_g = (ndim == 3) ? blockSizes[IZ] + 2 * ghostWidth : 1;
 
   // Gravity
   copy_gravity = (params.gravity_type & GRAVITY_FIELD);
-  ndim         = (params.dimType == THREE_D ? 3 : 2);
 }
 
 namespace{
@@ -779,7 +780,7 @@ KOKKOS_INLINE_FUNCTION void CopyGhostBlockCellDataFunctor::operator()(team_polic
 }
 
 void CopyGhostBlockCellDataFunctor::apply(
-    LightOctree lmesh, HydroParams params,
+    LightOctree lmesh, Params params,
     id2index_t fm, blockSize_t blockSizes, uint32_t ghostWidth,
     uint32_t nbOctsPerGroup, DataArrayBlock U, DataArrayBlock U_ghost,
     DataArrayBlock Ugroup, uint32_t iGroup, InterfaceFlags interface_flags)

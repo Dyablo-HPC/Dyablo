@@ -40,19 +40,45 @@ public:
   using team_policy_t = Kokkos::TeamPolicy<Kokkos::IndexType<int32_t>>;
   using thread_t = team_policy_t::member_type;
 
+  struct Params{
+    Params( ConfigMap& configMap )
+    :
+      xmin( configMap.getValue<real_t>("mesh", "xmin", 0.0) ),
+      ymin( configMap.getValue<real_t>("mesh", "ymin", 0.0) ),
+      zmin( configMap.getValue<real_t>("mesh", "zmin", 0.0) ),
+      xmax( configMap.getValue<real_t>("mesh", "xmax", 1.0) ),
+      ymax( configMap.getValue<real_t>("mesh", "ymax", 1.0) ),
+      zmax( configMap.getValue<real_t>("mesh", "zmax", 1.0) ),
+      gamma0( configMap.getValue<real_t>("hydro","gamma0", 1.4) ),
+      smallr( configMap.getValue<real_t>("hydro","smallr", 1e-10) ),
+      smallc( configMap.getValue<real_t>("hydro","smallc", 1e-10) ),
+      smallp( smallc*smallc/gamma0 ),
+      rsst_enabled( configMap.getValue<bool>("low_mach", "rsst_enabled", false) ),
+      rsst_cfl_enabled( configMap.getValue<bool>("low_mach", "rsst_cfl_enabled", false) ),
+      rsst_ksi( configMap.getValue<real_t>("low_mach", "rsst_ksi", 10.0) )
+    {}
+
+    real_t xmin, ymin, zmin;
+    real_t xmax, ymax, zmax;
+    real_t gamma0, smallr, smallc, smallp;
+    bool rsst_enabled, rsst_cfl_enabled;
+    real_t rsst_ksi;
+  };
+
   ComputeDtHydroFunctor(LightOctree lmesh,
-			HydroParams    params,
+			Params    params,
 			id2index_t     fm,
                         blockSize_t    blockSizes,
 			DataArrayBlock Udata) :
-    lmesh(lmesh), params(params),
+    lmesh(lmesh), 
+    params(params),
     fm(fm), blockSizes(blockSizes),
     Udata(Udata)
   {}
   
   // static method which does it all: create and execute functor
   static void apply(LightOctree lmesh,
-                    HydroParams    params,
+                    Params    params,
 		    id2index_t     fm,
                     blockSize_t    blockSizes,
                     DataArrayBlock Udata,
@@ -125,7 +151,7 @@ public:
       uLoc[IV] = Udata(iCell,fm[IV],iOct);
       
       // get primitive variables in current cell
-      computePrimitives(uLoc, &c, qLoc, params);
+      computePrimitives(uLoc, &c, qLoc, params.gamma0, params.smallr, params.smallp);
 
       if (params.rsst_enabled and params.rsst_cfl_enabled) {
         vx = c/params.rsst_ksi + FABS(qLoc[IU]);
@@ -189,7 +215,7 @@ public:
       uLoc[IW] = Udata(iCell,fm[IW],iOct);
       
       // get primitive variables in current cell
-      computePrimitives(uLoc, &c, qLoc, params);
+      computePrimitives(uLoc, &c, qLoc, params.gamma0, params.smallr, params.smallp);
 
       if (params.rsst_enabled and params.rsst_cfl_enabled) {
         vx = c/params.rsst_ksi + FABS(qLoc[IU]);
@@ -221,10 +247,11 @@ public:
   void operator()(const thread_t& member, real_t &invDt) const
   {
 
-    if (params.dimType == TWO_D)
+    int ndims = lmesh.getNdim();
+    if (ndims == 2)
       operator_2d(member,invDt);
 
-    if (params.dimType == THREE_D)
+    if (ndims == 3)
       operator_3d(member,invDt);
     
   }
@@ -247,7 +274,7 @@ public:
   LightOctree lmesh;
   
   //! general parameters
-  HydroParams  params;
+  Params  params;
 
   //! field manager
   id2index_t   fm;

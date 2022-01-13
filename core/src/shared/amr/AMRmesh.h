@@ -51,7 +51,12 @@ public:
   bool getPeriodic(uint8_t i) const
   { return Impl::getPeriodic(i); }
 
-  
+  int get_level_min()
+  {return level_min;}
+
+  int get_level_max()
+  {return level_max;}
+
   /**
    * Get the LightOctree associated to the current AMR mesh
    * May reallocate LightOctree if mesh has been modified

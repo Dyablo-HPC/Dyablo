@@ -39,11 +39,10 @@ public:
     m_loadbalance_frequency( configMap.getValue<int>("amr", "load_balancing_frequency", 10) ),
     m_communicator( GlobalMpiSession::get_comm_world() )
   {
-    // TODO : remove HydroParams
-    HydroParams params;
-    params.setup(configMap);
+    int ndim = configMap.getValue<int>("mesh", "ndim", 3);
+    GravityType gravity_type = configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE);
 
-    FieldManager field_manager = FieldManager::setup(params, configMap); // TODO : configure from what is needed by kernels
+    FieldManager field_manager = FieldManager::setup(ndim, gravity_type); // TODO : configure from what is needed by kernels
     auto fm = field_manager.get_id2index();
 
     uint32_t bx = configMap.getValue<uint32_t>("amr", "bx", 0);
@@ -51,7 +50,7 @@ public:
     uint32_t bz = configMap.getValue<uint32_t>("amr", "bz", 1);
 
     {
-      int ndim = configMap.getValue<int>("mesh", "ndim", 3);
+      
       int codim = ndim;
       BoundaryConditionType bxmin  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_ABSORBING);
       BoundaryConditionType bxmax  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmax", BC_ABSORBING);
@@ -89,8 +88,6 @@ public:
       timers
     );
 
-    GravityType gravity_type = configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE);
-
     std::string gravity_solver_id = "none";
     if( gravity_type & GRAVITY_FIELD )
     {
@@ -106,14 +103,12 @@ public:
 
     this->compute_dt = std::make_unique<Compute_dt>(
       configMap,
-      params,
       amr_mesh, 
       timers
     );
 
     this->refine_condition = std::make_unique<RefineCondition>(
       configMap,
-      params,
       amr_mesh, 
       fm,
       bx, by, bz,
@@ -134,8 +129,6 @@ public:
       
       float Udata_mem_size = DataArrayBlock::required_allocation_size( U.U.extent(0), U.U.extent(1), U.U.extent(2) ) * (2 / 1e6) ;
 
-      // print parameters on screen
-      params.print();
       std::cout << "##########################" << "\n";
       std::cout << "Memory requested (U + U2) : " << Udata_mem_size << " MBytes\n"; 
       std::cout << "##########################" << "\n";
@@ -150,7 +143,6 @@ public:
       std::unique_ptr<InitialConditions> initial_conditions =
         InitialConditionsFactory::make_instance(init_id, 
           configMap,
-          params,
           amr_mesh, 
           field_manager,
           1024,

@@ -21,8 +21,15 @@ public:
   using index_t = uint32_t;
   using team_policy_t = Kokkos::TeamPolicy<Kokkos::IndexType<index_t>>;
 
+  struct Params{
+    BoundaryConditionType boundary_type_xmin, boundary_type_xmax;
+    BoundaryConditionType boundary_type_ymin, boundary_type_ymax;
+    BoundaryConditionType boundary_type_zmin, boundary_type_zmax;
+    GravityType gravity_type;
+  };
+
   CopyGhostBlockCellDataFunctor(LightOctree lmesh,
-                                HydroParams params, id2index_t fm,
+                                Params params, id2index_t fm,
                                 blockSize_t blockSizes, uint32_t ghostWidth,
                                 uint32_t nbOctsPerGroup, DataArrayBlock U,
                                 DataArrayBlock U_ghost, DataArrayBlock Ugroup,
@@ -37,7 +44,7 @@ public:
    * from neighbor octants. Fills faces, edges and corners.
    **/
   static void apply(LightOctree lmesh,
-                    HydroParams params, id2index_t fm, blockSize_t blockSizes,
+                    Params params, id2index_t fm, blockSize_t blockSizes,
                     uint32_t ghostWidth, uint32_t nbOctsPerGroup,
                     DataArrayBlock U, DataArrayBlock U_ghost,
                     DataArrayBlock Ugroup, uint32_t iGroup,

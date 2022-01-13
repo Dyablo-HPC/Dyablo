@@ -12,11 +12,10 @@ class Compute_dt
 
 public:
   Compute_dt(   ConfigMap& configMap,
-                const HydroParams& params, 
                 AMRmesh& pmesh,
                 Timers& timers )
   : cfl( configMap.getValue<real_t>("hydro", "cfl", 0.5) ),
-    params(params),
+    params(configMap),
     pmesh(pmesh)
   {}
 
@@ -37,7 +36,7 @@ public:
 
 private:
   real_t cfl;
-  const HydroParams params;
+  const ComputeDtHydroFunctor::Params params;
   AMRmesh& pmesh;
 };
 

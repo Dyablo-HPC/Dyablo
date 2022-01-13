@@ -36,15 +36,15 @@ namespace dyablo { namespace muscl_block {
  */
 class CopyInnerBlockCellDataFunctor {
 
-private:
-  uint32_t nbTeams; //!< number of thread teams
-
 public:
   using index_t = int32_t;
   using team_policy_t = Kokkos::TeamPolicy<Kokkos::IndexType<index_t>>;
   using thread_t = team_policy_t::member_type;
 
-  void setNbTeams(uint32_t nbTeams_) {nbTeams = nbTeams_;}; 
+  struct Params {
+    int ndims;
+    GravityType gravity_type;
+  };
 
   /**
    * 
@@ -54,7 +54,7 @@ public:
    * \param[in] iGroup identify the group of octant we want to copy
    * \param[out] Ugroup conservative var of a group of octants (block data with ghosts)
    */
-  CopyInnerBlockCellDataFunctor(HydroParams    params,
+  CopyInnerBlockCellDataFunctor(Params    params,
                                 id2index_t     fm,
                                 blockSize_t    blockSizes,
                                 uint32_t       ghostWidth,
@@ -71,14 +71,15 @@ public:
     nbOctsPerGroup(nbOctsPerGroup),
     U(U), 
     Ugroup(Ugroup),
-    iGroup(iGroup)
+    iGroup(iGroup),
+    ndim(params.ndims)
   {
     copy_gravity = (params.gravity_type & GRAVITY_FIELD);
-    ndim = (params.dimType == THREE_D ? 3 : 2);
+    ndim = params.ndims;
   };
   
   // static method which does it all: create and execute functor
-  static void apply(HydroParams    params,
+  static void apply(Params    params,
 		                id2index_t     fm,
                     blockSize_t    blockSizes,
                     uint32_t       ghostWidth,
@@ -126,10 +127,10 @@ public:
     //const int& by_g = blockSizes_g[IY];
     //const int& bz_g = blockSizes_g[IZ];
     
-    uint32_t nbCells = params.dimType == TWO_D ? 
+    uint32_t nbCells = ndim == 2 ? 
       bx * by : 
       bx * by * bz;
-    //uint32_t nbCells_g = params.dimType == TWO_D ? bx_g*by_g : bx_g*by_g*bz_g;
+    //uint32_t nbCells_g = ndim == 2 ? bx_g*by_g : bx_g*by_g*bz_g;
 
       
     // perform vectorized loop inside a given block data
@@ -139,12 +140,12 @@ public:
 
         // compute current cell coordinates inside block
 
-        coord_t cell_coord = params.dimType == TWO_D ? 
+        coord_t cell_coord = ndim == 2 ? 
           index_to_coord<2>(index, blockSizes) :
           index_to_coord<3>(index, blockSizes) ;
 
         // compute corresponding index in the block with ghost data
-        uint32_t index_g = params.dimType == TWO_D ?
+        uint32_t index_g = ndim == 2 ?
           coord_to_index_g<2>(cell_coord, blockSizes, ghostWidth) :
           coord_to_index_g<3>(cell_coord, blockSizes, ghostWidth) ;
 
@@ -154,13 +155,13 @@ public:
         Ugroup(index_g, fm[IU], iOct_g) = U(index, fm[IU], iOct);
         Ugroup(index_g, fm[IV], iOct_g) = U(index, fm[IV], iOct);
 
-        if (params.dimType == THREE_D)
+        if ( ndim == 3 )
           Ugroup(index_g, fm[IW], iOct_g) = U(index, fm[IW], iOct);
 
         if (copy_gravity) {
           Ugroup(index_g, fm[IGX], iOct_g) = U(index, fm[IGX], iOct);
           Ugroup(index_g, fm[IGY], iOct_g) = U(index, fm[IGY], iOct);
-          if (params.dimType == THREE_D)
+          if ( ndim == 3 )
             Ugroup(index_g, fm[IGZ], iOct_g) = U(index, fm[IGZ], iOct);
         }
 
@@ -170,7 +171,7 @@ public:
   } // operator
   
   //! general parameters
-  HydroParams  params;
+  Params  params;
   
   //! field manager
   id2index_t   fm;

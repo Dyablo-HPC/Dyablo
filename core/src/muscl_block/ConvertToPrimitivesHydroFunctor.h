@@ -33,6 +33,11 @@ public:
   using team_policy_t = Kokkos::TeamPolicy<Kokkos::IndexType<int32_t>>;
   using thread_t = team_policy_t::member_type;
 
+  struct Params{
+    int ndim;
+    real_t gamma0, smallr, smallp;
+  };
+
   /**
    * Convert conservative variables to primitive ones using equation of state.
    *
@@ -40,7 +45,7 @@ public:
    * \param[in] Udata conservative variables
    * \param[out] Qdata primitive variables
    */
-  ConvertToPrimitivesHydroFunctor(HydroParams    params,
+  ConvertToPrimitivesHydroFunctor(Params    params,
 				  id2index_t     fm,
                                   blockSize_t    blockSizes,
                                   uint32_t       ghostWidth,
@@ -58,14 +63,14 @@ public:
     const int by_g = blockSizes[IY] + 2 * ghostWidth;
     const int bz_g = blockSizes[IZ] + 2 * ghostWidth;
     
-    nbCellsPerBlock = params.dimType == TWO_D ? 
+    nbCellsPerBlock = params.ndim==2 ? 
       bx_g * by_g :
       bx_g * by_g * bz_g;
 
   };
   
   // static method which does it all: create and execute functor
-  static void apply(HydroParams    params,
+  static void apply(Params    params,
                     id2index_t     fm,
                     blockSize_t    blockSizes,
                     uint32_t       ghostWidth,
@@ -107,7 +112,7 @@ public:
     uLoc[IV] = Ugroup(index,fm[IV],iOct_local);
     
     // get primitive variables in current cell
-    computePrimitives(uLoc, &c, qLoc, params);
+    computePrimitives(uLoc, &c, qLoc, params.gamma0, params.smallr, params.smallp);
     
     // copy q state in q global
     Qgroup(index,fm[ID],iOct_local) = qLoc[ID];
@@ -136,7 +141,7 @@ public:
     uLoc[IW] = Ugroup(index,fm[IW],iOct_local);
     
     // get primitive variables in current cell
-    computePrimitives(uLoc, &c, qLoc, params);
+    computePrimitives(uLoc, &c, qLoc, params.gamma0, params.smallr, params.smallp);
     
     // copy q state in q global
     Qgroup(index,fm[ID],iOct_local) = qLoc[ID];
@@ -164,17 +169,17 @@ public:
       Kokkos::TeamVectorRange(member, nbCellsPerBlock),
       [&](const int32_t index) {
 
-        if (params.dimType == TWO_D)
+        if (params.ndim==2)
           cons2prim_2d(index, iOct_local);
 
-        else if (params.dimType == THREE_D)
+        else if (params.ndim==3)
           cons2prim_3d(index, iOct_local);
 
       }); // end TeamVectorRange
   } // operator()
 
   //! general parameters
-  HydroParams  params;
+  Params  params;
   
   //! field manager
   id2index_t   fm;
