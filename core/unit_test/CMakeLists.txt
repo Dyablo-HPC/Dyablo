@@ -36,13 +36,6 @@ function(dyablo_add_test UNIT_TEST_NAME TEST_MPI)
     Kokkos::kokkos
     dl
     )
-  
-  # muscl and muscl libraries only OK when using Kokkos::OpenMP for now
-  if(NOT Kokkos_ENABLE_CUDA)
-    target_link_libraries(${UNIT_TEST_NAME} PUBLIC
-      muscl
-      )
-  endif()
 
   target_link_libraries(${UNIT_TEST_NAME} PUBLIC
       muscl_block
@@ -103,12 +96,8 @@ dyablo_add_test(utest_LightOctree OFF
   amr/test_LightOctree.cpp
   main.cpp)
 
-dyablo_add_test(utest_CopyGhostBlockCellData_2D ON 
-  block_data/test_CopyGhostBlockCellData_2D.cpp
-  main.cpp)
-
-dyablo_add_test(utest_CopyGhostBlockCellData_3D OFF
-  block_data/test_CopyGhostBlockCellData_3D.cpp
+dyablo_add_test(utest_CopyGhostBlockCellData ON 
+  block_data/test_CopyGhostBlockCellData.cpp
   main.cpp)
 
 dyablo_add_test(utest_MusclBlockGodunovUpdateFunctor OFF

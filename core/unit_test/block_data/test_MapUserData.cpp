@@ -137,7 +137,6 @@ void run_test(int ndim)
   std::string iomanager_id = "IOManager_hdf5";
   std::unique_ptr<IOManager> io_manager = IOManagerFactory::make_instance( iomanager_id,
     configMap,
-    params,
     *amr_mesh, 
     field_manager,
     bx, by, bz,

@@ -10,8 +10,6 @@
 namespace dyablo{
 namespace muscl_block{
 
-class CellArray;
-
 class InitialConditions{
 public:
   using ForeachCell = AMRBlockForeachCell_group;

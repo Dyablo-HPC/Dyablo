@@ -42,7 +42,7 @@ void run_test(std::string name, std::string filename) {
   // only MPI rank 0 actually reads input file
   //std::string input_file = std::string(argv[1]);
   std::string input_file = filename;
-  ConfigMap configMap = broadcast_parameters(input_file);
+  ConfigMap configMap = ConfigMap::broadcast_parameters(input_file);
 
   // test: create a HydroParams object
   HydroParams params = HydroParams();
@@ -52,9 +52,9 @@ void run_test(std::string name, std::string filename) {
 
   int ndim = params.dimType == TWO_D ? 2 : 3;
   // block sizes
-  uint32_t bx = configMap.getInteger("amr", "bx", 0);
-  uint32_t by = configMap.getInteger("amr", "by", 0);
-  uint32_t bz = configMap.getInteger("amr", "bz", 1);
+  uint32_t bx = configMap.getValue<uint32_t>("amr", "bx", 0);
+  uint32_t by = configMap.getValue<uint32_t>("amr", "by", 0);
+  uint32_t bz = configMap.getValue<uint32_t>("amr", "bz", 1);
   FieldManager field_manager({ID,IP,IU,IV,IW});
   AMRmesh amr_mesh( ndim, ndim, {false, false, false}, 2, 4 );  
 
@@ -66,11 +66,10 @@ void run_test(std::string name, std::string filename) {
 
     CellArray U_cellarray;
 
-    std::string init_name = configMap.getString("hydro", "problem", "unknown");;
+    std::string init_name = configMap.getValue<std::string>("hydro", "problem", "unknown");;
     std::unique_ptr<InitialConditions> initial_conditions =
       InitialConditionsFactory::make_instance(init_name, 
         configMap,
-        params,
         amr_mesh, 
         field_manager,
         1024,
@@ -94,7 +93,7 @@ void run_test(std::string name, std::string filename) {
    */
 
   // block ghost width
-  uint32_t ghostWidth = configMap.getInteger("amr", "ghostwidth", 2);
+  uint32_t ghostWidth = configMap.getValue<uint32_t>("amr", "ghostwidth", 2);
 
   // block sizes with ghosts
   uint32_t bx_g = bx + 2 * ghostWidth;
@@ -122,7 +121,7 @@ void run_test(std::string name, std::string filename) {
   uint32_t nbCellsPerOct_g =
       ndim == 2 ? bx_g * by_g : bx_g * by_g * bz_g;
 
-  uint32_t nbOctsPerGroup = configMap.getInteger("amr", "nbOctsPerGroup", 32);
+  uint32_t nbOctsPerGroup = configMap.getValue<uint32_t>("amr", "nbOctsPerGroup", 32);
 
   /*
    * allocate/initialize Ugroup / Qgroup
@@ -173,8 +172,7 @@ void run_test(std::string name, std::string filename) {
   // compute CFL constraint
   real_t invDt;
   ComputeDtHydroFunctor::apply(amr_mesh.getLightOctree(),
-                               configMap,
-                               params,
+                               ComputeDtHydroFunctor::Params(configMap),
                                fm,
                                blockSizes,
                                U,
@@ -187,7 +185,6 @@ void run_test(std::string name, std::string filename) {
   {
     std::unique_ptr<MusclBlockUpdate> godunov_updater = MusclBlockUpdateFactory::make_instance( "MusclBlockUpdate_generic",
       configMap,
-      params,
       amr_mesh, 
       fm,
       bx, by, bz,
