@@ -10,7 +10,6 @@ namespace muscl_block {
 
 class RefineCondition
 {
-  using CellArray = AMRBlockForeachCell_group::CellArray_global_ghosted;
 public:
   RefineCondition( ConfigMap& configMap,
                 AMRmesh& pmesh,
@@ -36,7 +35,7 @@ public:
       smallp( smallc*smallc/gamma0 )
   {}
 
-  void mark_cells( const CellArray& U )
+  void mark_cells( const ForeachCell::CellArray_global_ghosted& U )
   {
     int ndim = pmesh.getDim();
 

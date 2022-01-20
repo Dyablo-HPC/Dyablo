@@ -5,15 +5,13 @@
 #include "shared/amr/LightOctree.h"
 #include "utils/misc/RegisteringFactory.h"
 #include "utils/monitoring/Timers.h"
-#include "muscl_block/foreach_cell/AMRBlockForeachCell_group.h"
+#include "muscl_block/foreach_cell/ForeachCell.h"
 
 namespace dyablo{
 namespace muscl_block{
 
 class InitialConditions{
 public:
-  using ForeachCell = AMRBlockForeachCell_group;
-
   // InitialConditions(
   //     ConfigMap& configMap,
   //     AMRmesh& pmesh,

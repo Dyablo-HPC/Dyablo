@@ -5,7 +5,7 @@
 #include "utils/config/ConfigMap.h"
 #include "utils/monitoring/Timers.h"
 #include "shared/amr/AMRmesh.h"
-#include "muscl_block/foreach_cell/AMRBlockForeachCell_group.h"
+#include "muscl_block/foreach_cell/ForeachCell.h"
 
 #include "muscl_block/compute_dt/Compute_dt.h"
 #include "muscl_block/refine_condition/RefineCondition.h"
@@ -388,8 +388,7 @@ private:
   MpiComm m_communicator;
   std::shared_ptr<AMRmesh> m_amr_mesh;
 
-  using ForeachCell = AMRBlockForeachCell_group;
-  using CellArray = AMRBlockForeachCell_group::CellArray_global_ghosted;
+  using CellArray = ForeachCell::CellArray_global_ghosted;
 
   CellArray U, U2;
 

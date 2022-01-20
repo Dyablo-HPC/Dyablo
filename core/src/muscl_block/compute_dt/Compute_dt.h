@@ -1,15 +1,12 @@
 #pragma once
 
 #include "muscl_block/ComputeDtHydroFunctor.h"
-#include "muscl_block/foreach_cell/AMRBlockForeachCell_group.h"
 
 namespace dyablo {
 namespace muscl_block {
 
 class Compute_dt
 {
-  using CellArray = AMRBlockForeachCell_group::CellArray_global_ghosted;
-
 public:
   Compute_dt(   ConfigMap& configMap,
                 AMRmesh& pmesh,
@@ -19,7 +16,7 @@ public:
     pmesh(pmesh)
   {}
 
-  double compute_dt( const CellArray& U)
+  double compute_dt( const ForeachCell::CellArray_global_ghosted& U)
   {
     real_t inv_dt = 0;
 

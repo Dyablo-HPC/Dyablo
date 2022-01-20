@@ -3,17 +3,13 @@
 #include "muscl_block/utils_block.h"
 #include "utils/monitoring/Timers.h"
 
-#include "muscl_block/foreach_cell/AMRBlockForeachCell_group.h"
-//#include "muscl_block/foreach_cell/AMRBlockForeachCell_scratch.h"
+#include "muscl_block/foreach_cell/ForeachCell.h"
 #include "shared/utils_hydro.h"
 #include "shared/RiemannSolvers.h"
 
 
 namespace dyablo { 
 namespace muscl_block {
-
-using AMRBlockForeachCell = AMRBlockForeachCell_group;
-//using AMRBlockForeachCell = AMRBlockForeachCell_scratch;
 
 struct MusclBlockUpdate_generic::Data{ 
   AMRmesh& pmesh;
@@ -77,11 +73,10 @@ MusclBlockUpdate_generic::~MusclBlockUpdate_generic()
 
 namespace{
 
-using ForeachCell = AMRBlockForeachCell;
-using GhostedArray = typename AMRBlockForeachCell::CellArray_global_ghosted;
-using GlobalArray = typename AMRBlockForeachCell::CellArray_global;
-using PatchArray = typename AMRBlockForeachCell::CellArray_patch;
-using CellIndex = typename AMRBlockForeachCell::CellIndex;
+using GhostedArray = ForeachCell::CellArray_global_ghosted;
+using GlobalArray = ForeachCell::CellArray_global;
+using PatchArray = ForeachCell::CellArray_patch;
+using CellIndex = ForeachCell::CellIndex;
 
 }// namespace
 }// namespace dyablo

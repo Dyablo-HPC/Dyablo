@@ -3,8 +3,7 @@
 #include "InitialConditions_base.h"
 #include "AnalyticalFormula.h"
 
-#include "muscl_block/foreach_cell/AMRBlockForeachCell_group.h"
-//#include "muscl_block/foreach_cell/AMRBlockForeachCell_scratch.h"
+#include "muscl_block/foreach_cell/ForeachCell.h"
 
 #include "shared/HydroState.h"
 #include "muscl_block/SolverHydroMusclBlock.h"

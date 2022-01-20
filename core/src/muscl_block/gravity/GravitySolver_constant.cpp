@@ -3,7 +3,7 @@
 #include "muscl_block/utils_block.h"
 #include "utils/monitoring/Timers.h"
 
-#include "muscl_block/foreach_cell/AMRBlockForeachCell_group.h"
+#include "muscl_block/foreach_cell/ForeachCell.h"
 #include "shared/utils_hydro.h"
 
 
@@ -53,9 +53,8 @@ void GravitySolver_constant::update_gravity_field(
     DataArrayBlock U_, DataArrayBlock Ughost_,
     DataArrayBlock Uout_)
 {
-  using ForeachCell = AMRBlockForeachCell_group;
-  using CellArray = typename ForeachCell::CellArray_global;
-  using CellIndex = typename ForeachCell::CellIndex;
+  using CellArray = ForeachCell::CellArray_global;
+  using CellIndex = ForeachCell::CellIndex;
 
   const LightOctree& lmesh = pdata->pmesh.getLightOctree();
   uint8_t ndim = lmesh.getNdim();
