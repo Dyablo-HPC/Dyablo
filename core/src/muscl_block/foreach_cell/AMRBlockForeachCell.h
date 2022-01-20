@@ -139,9 +139,9 @@ public:
       configMap.getValue<real_t>("mesh", "xmin", 0),
       configMap.getValue<real_t>("mesh", "ymin", 0),
       configMap.getValue<real_t>("mesh", "zmin", 0),
-      configMap.getValue<real_t>("mesh", "xmax", 0),
-      configMap.getValue<real_t>("mesh", "ymax", 0),
-      configMap.getValue<real_t>("mesh", "zmax", 0),
+      configMap.getValue<real_t>("mesh", "xmax", 1),
+      configMap.getValue<real_t>("mesh", "ymax", 1),
+      configMap.getValue<real_t>("mesh", "zmax", 1),
       configMap.getValue<uint32_t>("amr", "nbOctsPerGroup", 64),
     })
   {}

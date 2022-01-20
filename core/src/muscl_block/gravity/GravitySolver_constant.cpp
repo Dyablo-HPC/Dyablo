@@ -11,10 +11,7 @@ namespace dyablo {
 namespace muscl_block {
 
 struct GravitySolver_constant::Data{
-  AMRmesh& pmesh;
-  const id2index_t fm;
- 
-  uint32_t bx, by, bz; 
+  ForeachCell& foreach_cell;
   
   Timers& timers;  
 
@@ -25,14 +22,10 @@ struct GravitySolver_constant::Data{
 
 GravitySolver_constant::GravitySolver_constant(
   ConfigMap& configMap,
-  std::shared_ptr<AMRmesh> pmesh,
-  const id2index_t& fm,
-  uint32_t bx, uint32_t by, uint32_t bz,
+  ForeachCell& foreach_cell,
   Timers& timers )
  : pdata(new Data
-    {*pmesh, 
-    fm,
-    bx, by, bz,
+    {foreach_cell,
     timers,
     configMap.getValue<real_t>("mesh", "xmin", 0.0),
     configMap.getValue<real_t>("mesh", "ymin", 0.0),
@@ -50,29 +43,15 @@ GravitySolver_constant::~GravitySolver_constant()
 {}
 
 void GravitySolver_constant::update_gravity_field(
-    DataArrayBlock U_, DataArrayBlock Ughost_,
-    DataArrayBlock Uout_)
+  const ForeachCell::CellArray_global_ghosted& Uin,
+  const ForeachCell::CellArray_global_ghosted& Uout )
 {
-  using CellArray = ForeachCell::CellArray_global;
   using CellIndex = ForeachCell::CellIndex;
 
-  uint8_t ndim = pdata->pmesh.getDim();
-  const id2index_t& fm = pdata->fm;
-  uint32_t bx = pdata->bx, by = pdata->by, bz = pdata->bz;
-  real_t xmin = pdata->xmin, ymin = pdata->ymin, zmin = pdata->zmin;
-  real_t xmax = pdata->xmax, ymax = pdata->ymax, zmax = pdata->zmax;
+  uint8_t ndim = pdata->foreach_cell.getDim();
   real_t gx = pdata->gx, gy = pdata->gy, gz = pdata->gz;
-  const uint32_t nbOctsPerGroup = pdata->pmesh.getNumOctants();
 
-  ForeachCell foreach_cell(
-    pdata->pmesh, 
-    bx, by, bz, 
-    xmin, ymin, zmin,
-    xmax, ymax, zmax,
-    nbOctsPerGroup
-  );
-
-  CellArray Uout = foreach_cell.get_global_array(Uout_, 0, 0, 0, fm);
+  ForeachCell& foreach_cell = pdata->foreach_cell;
 
   pdata->timers.get("GravitySolver_constant").start();
 

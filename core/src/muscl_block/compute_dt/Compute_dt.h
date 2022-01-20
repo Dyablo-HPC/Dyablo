@@ -9,11 +9,11 @@ class Compute_dt
 {
 public:
   Compute_dt(   ConfigMap& configMap,
-                AMRmesh& pmesh,
+                ForeachCell& foreach_cell,
                 Timers& timers )
   : cfl( configMap.getValue<real_t>("hydro", "cfl", 0.5) ),
     params(configMap),
-    pmesh(pmesh)
+    pmesh(foreach_cell.pmesh)
   {}
 
   double compute_dt( const ForeachCell::CellArray_global_ghosted& U)

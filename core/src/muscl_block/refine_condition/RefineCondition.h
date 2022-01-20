@@ -12,16 +12,14 @@ class RefineCondition
 {
 public:
   RefineCondition( ConfigMap& configMap,
-                AMRmesh& pmesh,
-                const id2index_t& fm,
-                uint32_t bx, uint32_t by, uint32_t bz,
+                ForeachCell& foreach_cell,
                 Timers& timers )
     : configMap(configMap),
-      pmesh(pmesh),
+      pmesh(foreach_cell.pmesh),
       timers(timers),
       error_min ( configMap.getValue<real_t>("amr", "error_min", 0.2) ),
       error_max ( configMap.getValue<real_t>("amr", "error_max", 0.8) ),
-      nbOctsPerGroup( configMap.getValue<uint32_t>("amr", "nbOctsPerGroup", 32) ),
+      nbOctsPerGroup(foreach_cell.cdata.nbOctsPerGroup),
       gravity_type( configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE) ),
       bxmin( configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_ABSORBING) ),
       bxmax( configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmax", BC_ABSORBING) ),

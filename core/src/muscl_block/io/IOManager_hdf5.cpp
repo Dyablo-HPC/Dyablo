@@ -11,8 +11,6 @@ namespace muscl_block {
 
 struct IOManager_hdf5::Data{ 
   AMRmesh& pmesh;
-  const FieldManager fieldMgr;
-  uint32_t bx, by, bz; 
   Timers& timers;  
   HDF5_Writer hdf5_writer;
   std::string outputDir, outputPrefix;
@@ -21,16 +19,12 @@ struct IOManager_hdf5::Data{
 
 IOManager_hdf5::IOManager_hdf5(
   ConfigMap& configMap,
-  AMRmesh& pmesh,
-  const FieldManager& fieldMgr,
-  uint32_t bx, uint32_t by, uint32_t bz,
+  ForeachCell& foreach_cell,
   Timers& timers )
  : pdata(new Data
-    {pmesh, 
-    fieldMgr,
-    bx, by, bz,
+    {foreach_cell.pmesh, 
     timers,
-    HDF5_Writer( &pmesh, configMap ),
+    HDF5_Writer( &foreach_cell.pmesh, configMap ),
     configMap.getValue<std::string>("output", "outputDir", "./"),
     configMap.getValue<std::string>("output", "outputPrefix", "output"),
     configMap.getValue<std::string>("output", "write_variables", "rho")
@@ -41,12 +35,14 @@ IOManager_hdf5::IOManager_hdf5(
 IOManager_hdf5::~IOManager_hdf5()
 {}
 
-void IOManager_hdf5::save_snapshot( const DataArrayBlock& U, const DataArrayBlock& Ughost, uint32_t iter, real_t time )
+void IOManager_hdf5::save_snapshot( const ForeachCell::CellArray_global_ghosted& U_, uint32_t iter, real_t time )
 {
-  const FieldManager& fieldMgr = pdata->fieldMgr;
-  const id2index_t& fm = fieldMgr.get_id2index();
+  const FieldManager fieldMgr( U_.fm.enabled_fields() );
+  const id2index_t& fm = U_.fm;
   HDF5_Writer* hdf5_writer = &(pdata->hdf5_writer);
   std::string write_variables = pdata->write_variables;
+
+  DataArrayBlock U = U_.U;
 
   // a map containing ID and name of the variable to write
   str2int_t names2index; // this is initially empty

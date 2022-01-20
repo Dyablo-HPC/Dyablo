@@ -17,13 +17,11 @@ class GravitySolver_constant : public GravitySolver{
 public: 
   GravitySolver_constant(
                 ConfigMap& configMap,
-                std::shared_ptr<AMRmesh> pmesh,
-                const id2index_t& fm,
-                uint32_t bx, uint32_t by, uint32_t bz,
+                ForeachCell& foreach_cell,
                 Timers& timers );
   ~GravitySolver_constant();
-  void update_gravity_field(  DataArrayBlock U, DataArrayBlock Ughost,
-                DataArrayBlock Uout);
+  void update_gravity_field( const ForeachCell::CellArray_global_ghosted& Uin,
+                             const ForeachCell::CellArray_global_ghosted& Uout);
 
    struct Data;
 private:

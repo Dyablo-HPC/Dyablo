@@ -4,6 +4,7 @@
 #include "shared/FieldManager.h"
 #include "utils/misc/RegisteringFactory.h"
 #include "utils/monitoring/Timers.h"
+#include "muscl_block/foreach_cell/ForeachCell.h"
 
 namespace dyablo {
 namespace muscl_block {
@@ -18,9 +19,7 @@ class IOManager{
 public: 
   // IOManager(
   //               ConfigMap& configMap,
-  //               AMRmesh& pmesh,
-  //               const id2index_t& fm,
-  //               uint32_t bx, uint32_t by, uint32_t bz,
+  //               ForeachCell& foreach_cell,
   //               Timers& timers );
   virtual ~IOManager(){}
 
@@ -30,14 +29,12 @@ public:
    * @param iter iteration number
    * @param time physical time of the simulation
    **/
-  virtual void save_snapshot( const DataArrayBlock& U, const DataArrayBlock& Ughost, uint32_t iter, real_t time ) = 0;
+  virtual void save_snapshot( const ForeachCell::CellArray_global_ghosted& U_, uint32_t iter, real_t time ) = 0;
 };
 
 using IOManagerFactory = RegisteringFactory< IOManager, 
   ConfigMap& /*configMap*/,
-  AMRmesh& /*pmesh*/,
-  const FieldManager& /*fm*/,
-  uint32_t /*bx*/, uint32_t /*by*/, uint32_t /*bz*/,
+  ForeachCell& /*foreach_cell*/,
   Timers& /*timers*/ >;
 
 } //namespace dyablo 

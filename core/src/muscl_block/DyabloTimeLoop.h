@@ -63,7 +63,6 @@ public:
     GravityType gravity_type = configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE);
 
     m_field_manager = FieldManager::setup(ndim, gravity_type); // TODO : configure from what is needed by kernels
-    auto fm = m_field_manager.get_id2index();
 
     uint32_t bx = configMap.getValue<uint32_t>("amr", "bx", 0);
     uint32_t by = configMap.getValue<uint32_t>("amr", "by", 0);
@@ -81,9 +80,7 @@ public:
     std::string iomanager_id = configMap.getValue<std::string>("output", "backend", "IOManager_hdf5");
     this->io_manager = IOManagerFactory::make_instance( iomanager_id,
       configMap,
-      amr_mesh, 
-      m_field_manager,
-      bx, by, bz,
+      m_foreach_cell,
       timers
     );
 
@@ -93,24 +90,20 @@ public:
       gravity_solver_id = configMap.getValue<std::string>("gravity", "solver", "GravitySolver_none");
       this->gravity_solver = GravitySolverFactory::make_instance( gravity_solver_id,
         configMap,
-        m_amr_mesh, 
-        fm,
-        bx, by, bz,
+        m_foreach_cell,
         timers
       );
     } 
 
     this->compute_dt = std::make_unique<Compute_dt>(
       configMap,
-      amr_mesh, 
+      m_foreach_cell, 
       timers
     );
 
     this->refine_condition = std::make_unique<RefineCondition>(
       configMap,
-      amr_mesh, 
-      fm,
-      bx, by, bz,
+      m_foreach_cell,
       timers
     );
 
@@ -201,7 +194,7 @@ public:
     // Always output after last iteration
     timers.get("outputs").start();
     if( m_enable_output )
-      io_manager->save_snapshot(U.U, U.Ughost, m_iter, m_t); // TODO use CellArray instead of DataArrayBlock
+      io_manager->save_snapshot(U, m_iter, m_t); // TODO use CellArray instead of DataArrayBlock
     timers.get("outputs").stop();
     timers.get("Total").stop();
 
@@ -247,7 +240,7 @@ public:
         {
           std::cout << "Output results at time t=" << m_t << " step " << m_iter << std::endl;
         }
-        io_manager->save_snapshot(U.U, U.Ughost, m_iter, m_t);
+        io_manager->save_snapshot(U, m_iter, m_t);
       }
       timers.get("outputs").stop();
     }
@@ -283,7 +276,7 @@ public:
     
     // Update gravity
     if( gravity_solver )
-      gravity_solver->update_gravity_field(U.U, U.Ughost, U.U);
+      gravity_solver->update_gravity_field(U, U);
 
     // Update hydro
     godunov_updater->update( U, U2, dt ); //TODO : make U2 a temporary array?
