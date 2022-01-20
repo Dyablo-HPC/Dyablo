@@ -11,10 +11,9 @@ namespace muscl_block {
  **/
 struct AMRBlockForeachCell_CData{
   uint32_t ndim; /// Number of dimensions : 2D or 3D
-  const LightOctree lmesh; /// Mesh to iterate upon
   uint32_t bx,by,bz; /// Dimensions of cell blocks
-  real_t dx_scale, dy_scale, dz_scale; /// Physical cell scale (size of a cell at AMR level 0)
   real_t xmin, ymin, zmin; /// min corner of physical domain
+  real_t xmax, ymax, zmax; /// min corner of physical domain  
   uint32_t nbOctsPerGroup; /// Group size (Effect will vary between implementation, hint for temporary allocation)
 };
 
@@ -29,8 +28,8 @@ public:
   using pos_t = Kokkos::Array<real_t, 3>;
 
   inline
-  AMRBlockForeachCell_CellMetaData(const AMRBlockForeachCell_CData& cdata)
-  : cdata( cdata )
+  AMRBlockForeachCell_CellMetaData(const AMRBlockForeachCell_CData& cdata, AMRmesh& pmesh)
+  : cdata( cdata ), lmesh(pmesh.getLightOctree())
   {}
 
   /// Get the physical size of the cell
@@ -38,13 +37,17 @@ public:
   pos_t getCellSize( const CellIndex& iCell ) const
   {
     const AMRBlockForeachCell_CData& cdata = this->cdata;
-    const LightOctree& lmesh = cdata.lmesh;
+    const LightOctree& lmesh = this->lmesh;
     real_t oct_size = lmesh.getSize(iCell.iOct);
 
+    real_t dx_scale = (cdata.xmax-cdata.xmin)/cdata.bx;
+    real_t dy_scale = (cdata.ymax-cdata.ymin)/cdata.by;
+    real_t dz_scale = (cdata.zmax-cdata.zmin)/cdata.bz;
+
     return pos_t{
-      oct_size * cdata.dx_scale,
-      oct_size * cdata.dy_scale,
-      oct_size * cdata.dz_scale
+      oct_size * dx_scale,
+      oct_size * dy_scale,
+      oct_size * dz_scale
     };
   }
   
@@ -54,14 +57,18 @@ public:
   {
     const AMRBlockForeachCell_CData& cdata = this->cdata;
     int ndim = cdata.ndim;
-    const LightOctree& lmesh = cdata.lmesh;
+    const LightOctree& lmesh = this->lmesh;
     LightOctree::pos_t oct_center = lmesh.getCenter(iCell.iOct);
     pos_t cell_size = this->getCellSize(iCell);
 
+    real_t Lx = (cdata.xmax-cdata.xmin);
+    real_t Ly = (cdata.ymax-cdata.ymin);
+    real_t Lz = (cdata.zmax-cdata.zmin);
+
     pos_t res{
-      cdata.xmin + oct_center[IX] * cdata.bx * cdata.dx_scale + ( iCell.i - iCell.bx*0.5 + 0.5 ) * cell_size[IX],
-      cdata.ymin + oct_center[IY] * cdata.by * cdata.dy_scale + ( iCell.j - iCell.by*0.5 + 0.5 ) * cell_size[IY],
-      cdata.zmin + oct_center[IZ] * cdata.bz * cdata.dz_scale + ( iCell.k - iCell.bz*0.5 + 0.5 ) * cell_size[IZ]
+      cdata.xmin + oct_center[IX] * Lx + ( iCell.i - iCell.bx*0.5 + 0.5 ) * cell_size[IX],
+      cdata.ymin + oct_center[IY] * Ly + ( iCell.j - iCell.by*0.5 + 0.5 ) * cell_size[IY],
+      cdata.zmin + oct_center[IZ] * Lz + ( iCell.k - iCell.bz*0.5 + 0.5 ) * cell_size[IZ]
     };
 
     if(ndim == 2) res[IZ] = 0;
@@ -71,6 +78,7 @@ public:
 
 private:
   const AMRBlockForeachCell_CData cdata;
+  LightOctree lmesh;
 };
 
 /**
@@ -105,32 +113,58 @@ public:
   using Patch = typename PatchManager_t::Patch;
   using CellArray_patch = typename PatchManager_t::CellArray_patch;
 
-private:
+public: // TODO make private
   template< typename View_t >
   using CellArray_base = AMRBlockForeachCell_CellArray_impl::CellArray_base<View_t>;
   using CData = AMRBlockForeachCell_CData;
   // Struct constant parameters for all patches  
+  AMRmesh& pmesh;
   const CData cdata;
   PatchManager_t patchmanager;
 
-  AMRBlockForeachCell_impl(const CData& cdata)
-  : cdata(cdata), patchmanager(cdata)
+public: // TODO make private
+  AMRBlockForeachCell_impl(AMRmesh& pmesh, const CData& cdata)
+  : pmesh(pmesh), cdata(cdata), patchmanager(cdata, pmesh)
   {}
+
 public:
-  AMRBlockForeachCell_impl( uint32_t ndim, const LightOctree& lmesh,
+  AMRBlockForeachCell_impl( AMRmesh & pmesh, ConfigMap& configMap )
+  :
+    AMRBlockForeachCell_impl(pmesh,
+    CData{
+      pmesh.getDim(),
+      configMap.getValue<uint32_t>("amr", "bx", 0),
+      configMap.getValue<uint32_t>("amr", "by", 0),
+      configMap.getValue<uint32_t>("amr", "bz", 1),
+      configMap.getValue<real_t>("mesh", "xmin", 0),
+      configMap.getValue<real_t>("mesh", "ymin", 0),
+      configMap.getValue<real_t>("mesh", "zmin", 0),
+      configMap.getValue<real_t>("mesh", "xmax", 0),
+      configMap.getValue<real_t>("mesh", "ymax", 0),
+      configMap.getValue<real_t>("mesh", "zmax", 0),
+      configMap.getValue<uint32_t>("amr", "nbOctsPerGroup", 64),
+    })
+  {}
+
+  AMRBlockForeachCell_impl( AMRmesh & pmesh,
                             uint32_t bx, uint32_t by, uint32_t bz,
                             real_t xmin, real_t ymin, real_t zmin,
                             real_t xmax, real_t ymax, real_t zmax,
                             uint32_t nbOctsPerGroup )
-   : AMRBlockForeachCell_impl(CData{
-      ndim,
-      lmesh,
+   : AMRBlockForeachCell_impl( pmesh,
+     CData{
+      pmesh.getDim(),
       bx, by, bz,
-      (xmax-xmin)/bx, (ymax-ymin)/by, (zmax-zmin)/bz, 
       xmin, ymin, zmin,
+      xmax, ymax, zmax,
       nbOctsPerGroup
     })
   {}
+
+  int getDim()
+  {
+    return cdata.ndim;
+  }
 
 
   /**
@@ -138,7 +172,7 @@ public:
    **/
   CellMetaData getCellMetaData()
   {
-    return AMRBlockForeachCell_CellMetaData(this->cdata);
+    return AMRBlockForeachCell_CellMetaData(this->cdata, pmesh);
   }
 
   /**
@@ -155,7 +189,7 @@ public:
     uint32_t by = cdata.by+2*gy;
     uint32_t bz = cdata.bz+2*gz;
     assert(U.extent(0) == bx*by*bz);
-    assert(U.extent(2) >= cdata.lmesh.getNumOctants());
+    assert(U.extent(2) >= pmesh.getNumOctants());
     assert( cdata.ndim != 2 || bz==1 );
 
     return CellArray_global{U, bx, by, bz, (uint32_t)U.extent(2), fm};
@@ -167,7 +201,7 @@ public:
    * CellArray::convert_index may perform a neighbor search to find the corresponding ghost cell
    * (that might be non-conforming, see CellIndex documentation)
    **/
-  CellArray_global_ghosted get_ghosted_array(const DataArrayBlock& U, const DataArrayBlock& Ughost, const LightOctree& lmesh, const id2index_t& fm)
+  CellArray_global_ghosted get_ghosted_array(const DataArrayBlock& U, const DataArrayBlock& Ughost, const id2index_t& fm)
   {
     const CData& cdata = this->cdata;
     uint32_t bx = cdata.bx;
@@ -175,13 +209,15 @@ public:
     uint32_t bz = cdata.bz;
     assert(U.extent(0) == bx*by*bz);
     assert(Ughost.extent(0) == bx*by*bz || Ughost.extent(2) == 0 );
-    assert(U.extent(2) == cdata.lmesh.getNumOctants());
+    assert(U.extent(2) == pmesh.getNumOctants());
     assert( cdata.ndim != 2 || bz==1 );
+
+    const LightOctree& lmesh = pmesh.getLightOctree(); // TODO : update this lmesh
 
     return CellArray_global_ghosted(CellArray_global{U, bx, by, bz, (uint32_t)U.extent(2), fm}, Ughost, lmesh);
   }
 
-  CellArray_global_ghosted allocate_ghosted_array( std::string name, AMRmesh& pmesh, const FieldManager& fieldMgr)
+  CellArray_global_ghosted allocate_ghosted_array( std::string name, const FieldManager& fieldMgr)
   {
     int nbCellsPerOct = cdata.bx*cdata.by*cdata.bz;
     int nbFields = fieldMgr.nbfields();
@@ -191,10 +227,8 @@ public:
 
     DataArrayBlock U(name, nbCellsPerOct, nbFields, nbOcts );
     DataArrayBlock Ughost(name+"ghost", nbCellsPerOct, nbFields, nbGhosts );
-    
-    const LightOctree& lmesh = pmesh.getLightOctree();
 
-    return get_ghosted_array(U, Ughost, lmesh, fm);
+    return get_ghosted_array(U, Ughost, fm);
   }
   /**
    * Reserve a new temporary ghosted cell array local to each patch. 
@@ -232,7 +266,7 @@ public:
     uint32_t by = iter_space.by;
     uint32_t bz = iter_space.bz;
     uint32_t nbCellsPerBlock = bx*by*bz;
-    uint32_t nbOcts = cdata.lmesh.getNumOctants();
+    uint32_t nbOcts = pmesh.getNumOctants();
 
     Kokkos::parallel_for( kernel_name, 
       Kokkos::RangePolicy<>(0,nbCellsPerBlock*nbOcts), 
@@ -266,7 +300,7 @@ public:
     uint32_t by = iter_space.by;
     uint32_t bz = iter_space.bz;
     uint32_t nbCellsPerBlock = bx*by*bz;
-    uint32_t nbOcts = cdata.lmesh.getNumOctants();
+    uint32_t nbOcts = pmesh.getNumOctants();
 
     Kokkos::parallel_reduce( kernel_name, 
       Kokkos::RangePolicy<>(0,nbCellsPerBlock*nbOcts),

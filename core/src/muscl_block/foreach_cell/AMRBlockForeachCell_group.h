@@ -97,10 +97,11 @@ public:
 
 private:
   const CData cdata;
+  const AMRmesh& pmesh;
 
 public:
-  PatchManager(const CData& cdata)
-  : cdata(cdata)
+  PatchManager(const CData& cdata, const AMRmesh& pmesh)
+  : cdata(cdata), pmesh(pmesh)
   {}
 
   CellArray_patch::Ref reserve_patch_tmp(std::string name, int gx, int gy, int gz, const id2index_t& fm, int nvars)
@@ -122,7 +123,7 @@ public:
   {
     const CData& cdata = this->cdata;
 
-    uint32_t nbOcts = cdata.lmesh.getNumOctants();
+    uint32_t nbOcts = pmesh.getNumOctants();
     uint32_t nbOctsPerGroup = cdata.nbOctsPerGroup;
     for(uint32_t iGroup = 0; iGroup <= nbOcts/nbOctsPerGroup; iGroup++ )
     {

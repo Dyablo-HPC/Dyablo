@@ -162,6 +162,12 @@ public :
     : CellArray_global(a), Ughost(Ughost), lmesh(lmesh)
   {}
 
+  void update_lightOctree(  const LightOctree& lmesh ) // TODO remove this once Kokkos arrays are not resized manually anymore.
+  {
+    this->lmesh = lmesh;
+    this->nbOcts = lmesh.getNumOctants();
+  }
+
   /**
    * Convert cell index used for another array into an 
    * index compatible with current array. 

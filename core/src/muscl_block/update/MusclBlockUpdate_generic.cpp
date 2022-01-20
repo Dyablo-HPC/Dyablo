@@ -12,16 +12,11 @@ namespace dyablo {
 namespace muscl_block {
 
 struct MusclBlockUpdate_generic::Data{ 
-  AMRmesh& pmesh;
-  const id2index_t fm;
- 
-  uint32_t bx, by, bz; 
+  ForeachCell& foreach_cell;
   real_t xmin, ymin, zmin;
   real_t xmax, ymax, zmax;  
   
   Timers& timers;  
-
-  uint32_t nbOctsPerGroup;
 
   RiemannParams params;
 
@@ -34,14 +29,10 @@ struct MusclBlockUpdate_generic::Data{
 
 MusclBlockUpdate_generic::MusclBlockUpdate_generic(
   ConfigMap& configMap,
-  AMRmesh& pmesh,
-  const id2index_t& fm,
-  uint32_t bx, uint32_t by, uint32_t bz,
+  ForeachCell& foreach_cell,
   Timers& timers )
  : pdata(new Data
-    {pmesh, 
-    fm,
-    bx, by, bz,
+    {foreach_cell,
     configMap.getValue<real_t>("mesh", "xmin", 0.0),
     configMap.getValue<real_t>("mesh", "ymin", 0.0),
     configMap.getValue<real_t>("mesh", "zmin", 0.0),
@@ -49,7 +40,6 @@ MusclBlockUpdate_generic::MusclBlockUpdate_generic(
     configMap.getValue<real_t>("mesh", "ymax", 1.0),
     configMap.getValue<real_t>("mesh", "zmax", 1.0),
     timers,
-    pmesh.getNumOctants(),
     RiemannParams( configMap ),
     configMap.getValue<real_t>("hydro","slope_type",1.0),
     configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_ABSORBING),
@@ -58,9 +48,6 @@ MusclBlockUpdate_generic::MusclBlockUpdate_generic(
     configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE)
     })
 {
-  pdata->nbOctsPerGroup = std::min( 
-      pmesh.getNumOctants(), 
-      configMap.getValue<uint32_t>("amr","nbOctsPerGroup",pmesh.getNumOctants()));
   if (pdata->gravity_type & GRAVITY_CONSTANT) {
     pdata->gx = configMap.getValue<real_t>("gravity", "gx",  0.0);
     pdata->gy = configMap.getValue<real_t>("gravity", "gy",  0.0);
@@ -438,8 +425,8 @@ void apply_gravity_correction( const GlobalArray& Uin,
 template< int ndim >
 void update_aux(
     const MusclBlockUpdate_generic::Data* pdata,
-    const DataArrayBlock& U_, const DataArrayBlock& Ughost_,
-    const DataArrayBlock& Uout_, 
+    const ForeachCell::CellArray_global_ghosted& Uin,
+    const ForeachCell::CellArray_global_ghosted& Uout,
     real_t dt)
 {
   
@@ -448,11 +435,7 @@ void update_aux(
   const real_t gamma = params.gamma0;
   const double smallr = params.smallr;
   const GravityType gravity_type = pdata->gravity_type;
-  const LightOctree& lmesh = pdata->pmesh.getLightOctree();
-  const id2index_t& fm = pdata->fm;
-  const uint32_t nbOctsPerGroup = pdata->nbOctsPerGroup;
 
-  uint32_t bx = pdata->bx, by = pdata->by, bz = pdata->bz;
   real_t xmin = pdata->xmin, ymin = pdata->ymin, zmin = pdata->zmin;
   real_t xmax = pdata->xmax, ymax = pdata->ymax, zmax = pdata->zmax;
   BoundaryConditionType xbound = pdata->boundary_type_xmin;
@@ -471,19 +454,10 @@ void update_aux(
 
   Timers& timers = pdata->timers; 
 
-  ForeachCell foreach_cell(
-    lmesh.getNdim(),
-    lmesh, 
-    bx, by, bz, 
-    xmin, ymin, zmin,
-    xmax, ymax, zmax,
-    nbOctsPerGroup
-  );
+  ForeachCell& foreach_cell = pdata->foreach_cell;
 
-  // Create abstract PatchArray to access global array from raw DataArrayBlock
-  GhostedArray Uin =  foreach_cell.get_ghosted_array(U_, Ughost_, lmesh, fm);
-  GlobalArray Uout = foreach_cell.get_global_array(Uout_, 0, 0, 0, fm);
-
+  auto fm = Uin.fm;
+  
   // Create abstract temporary ghosted arrays for patches 
   PatchArray::Ref Ugroup_ = foreach_cell.reserve_patch_tmp("Ugroup", 2, 2, (ndim == 3)?2:0, fm, 5);
   PatchArray::Ref Qgroup_ = foreach_cell.reserve_patch_tmp("Qgroup", 2, 2, (ndim == 3)?2:0, fm, 5);
@@ -557,15 +531,15 @@ void update_aux(
 } // namespace
 
 void MusclBlockUpdate_generic::update(
-    DataArrayBlock U_, DataArrayBlock Ughost_,
-    DataArrayBlock Uout_, 
+    const ForeachCell::CellArray_global_ghosted& Uin,
+    const ForeachCell::CellArray_global_ghosted& Uout,
     real_t dt)
 {
-  uint32_t ndim = pdata->pmesh.getDim();
+  uint32_t ndim = pdata->foreach_cell.getDim();
   if(ndim == 2)
-    update_aux<2>( this->pdata.get(), U_, Ughost_, Uout_, dt );
+    update_aux<2>( this->pdata.get(), Uin, Uout, dt );
   else
-    update_aux<3>( this->pdata.get(), U_, Ughost_, Uout_, dt );
+    update_aux<3>( this->pdata.get(), Uin, Uout, dt );
 }
 
 }// namespace dyablo

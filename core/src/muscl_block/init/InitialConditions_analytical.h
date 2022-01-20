@@ -65,16 +65,16 @@ public:
     int ndim = pmesh.getDim();
     int level_min = data.level_min;
     int level_max = data.level_max;
-    int bx = data.bx;
-    int by = data.by;
-    int bz = (ndim == 3) ? data.bz : 1;
-    int xmin = data.xmin;
-    int ymin = data.ymin;
-    int zmin = data.zmin;
-    int xmax = data.xmax;
-    int ymax = data.ymax;
-    int zmax = data.zmax;
-    int nbOctsPerGroup = data.nbOctsPerGroup; // arbitrary, not really useful    
+    uint32_t bx = data.bx;
+    uint32_t by = data.by;
+    uint32_t bz = (ndim == 3) ? data.bz : 1;
+    real_t xmin = data.xmin;
+    real_t ymin = data.ymin;
+    real_t zmin = data.zmin;
+    real_t xmax = data.xmax;
+    real_t ymax = data.ymax;
+    real_t zmax = data.zmax;
+    uint32_t nbOctsPerGroup = data.nbOctsPerGroup; // arbitrary, not really useful    
 
     // Refine to level_min
     for (uint8_t level=0; level<level_min; ++level)
@@ -91,16 +91,16 @@ public:
         uint32_t nbOcts = lmesh.getNumOctants();
 
         ForeachCell foreach_cell(
-            ndim,
-            lmesh, 
+            pmesh,
+            {ndim,
             bx, by, bz, 
             xmin, ymin, zmin,
             xmax, ymax, zmax,
-            nbOcts
+            nbOcts}
         );
 
         ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
-        U  = foreach_cell.allocate_ghosted_array( "U" , pmesh, fieldMgr );
+        U  = foreach_cell.allocate_ghosted_array( "U" , fieldMgr );
 
         Kokkos::View<bool*> markers( "InitialConditions_analytical::markers", nbOcts );
         // Apply refine condition given by AnalyticalFormula::need_refine for each cell
@@ -135,19 +135,18 @@ public:
 
     // Reallocate and fill U
     {
-        const LightOctree& lmesh = pmesh.getLightOctree();
-
-        ForeachCell foreach_cell(
+        ForeachCell foreach_cell( pmesh,
+        {
             ndim,
-            lmesh, 
             bx, by, bz, 
             xmin, ymin, zmin,
             xmax, ymax, zmax,
             nbOctsPerGroup
+        }
         );
 
         // TODO wrap reallocation in U.reallocate(pmesh)?
-        U  = foreach_cell.allocate_ghosted_array( "U" , pmesh, fieldMgr );
+        U  = foreach_cell.allocate_ghosted_array( "U" , fieldMgr );
 
         ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
 

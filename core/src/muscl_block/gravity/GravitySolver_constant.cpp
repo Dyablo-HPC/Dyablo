@@ -56,18 +56,16 @@ void GravitySolver_constant::update_gravity_field(
   using CellArray = ForeachCell::CellArray_global;
   using CellIndex = ForeachCell::CellIndex;
 
-  const LightOctree& lmesh = pdata->pmesh.getLightOctree();
-  uint8_t ndim = lmesh.getNdim();
+  uint8_t ndim = pdata->pmesh.getDim();
   const id2index_t& fm = pdata->fm;
   uint32_t bx = pdata->bx, by = pdata->by, bz = pdata->bz;
   real_t xmin = pdata->xmin, ymin = pdata->ymin, zmin = pdata->zmin;
   real_t xmax = pdata->xmax, ymax = pdata->ymax, zmax = pdata->zmax;
   real_t gx = pdata->gx, gy = pdata->gy, gz = pdata->gz;
-  const uint32_t nbOctsPerGroup = lmesh.getNumOctants();
+  const uint32_t nbOctsPerGroup = pdata->pmesh.getNumOctants();
 
   ForeachCell foreach_cell(
-    ndim,
-    lmesh, 
+    pdata->pmesh, 
     bx, by, bz, 
     xmin, ymin, zmin,
     xmax, ymax, zmax,

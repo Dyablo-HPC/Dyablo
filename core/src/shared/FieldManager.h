@@ -81,7 +81,7 @@ public:
  */
 class FieldManager {  
 public:
-  FieldManager( const std::set<VarIndex>& active_fields ) 
+  FieldManager( const std::set<VarIndex>& active_fields = {} ) 
   {
     for( VarIndex id : active_fields )
     {

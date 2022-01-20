@@ -23,7 +23,25 @@ namespace muscl_block { // TODO : remove from muscl_block
  **/
 class DyabloTimeLoop{
 private:
-  AMRmesh init_amr_mesh( ConfigMap& configMap );
+  std::shared_ptr<AMRmesh> init_amr_mesh( ConfigMap& configMap )
+  {
+    int ndim = configMap.getValue<int>("mesh", "ndim", 3);
+    int codim = ndim;
+    BoundaryConditionType bxmin  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_ABSORBING);
+    BoundaryConditionType bxmax  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmax", BC_ABSORBING);
+    BoundaryConditionType bymin  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymin", BC_ABSORBING);
+    BoundaryConditionType bymax  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymax", BC_ABSORBING);
+    BoundaryConditionType bzmin  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmin", BC_ABSORBING);
+    BoundaryConditionType bzmax  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmax", BC_ABSORBING);
+    std::array<bool,3> periodic = {
+      bxmin == BC_PERIODIC || bxmax == BC_PERIODIC,
+      bymin == BC_PERIODIC || bymax == BC_PERIODIC,
+      bzmin == BC_PERIODIC || bzmax == BC_PERIODIC
+    };
+    int amr_level_min = configMap.getValue<int>("amr","level_min", 5);
+    int amr_level_max = configMap.getValue<int>("amr","level_max", 10);
+    return std::make_shared<AMRmesh>( ndim, codim, periodic, amr_level_min, amr_level_max );
+  }
 public:
   /**
    * Create ans initialize a simulation
@@ -37,45 +55,26 @@ public:
     m_output_timeslice( configMap.getValue<real_t>("run", "output_timeslice", -1) ),
     m_amr_cycle_frequency( configMap.getValue<int>("amr", "cycle_frequency", 1) ),
     m_loadbalance_frequency( configMap.getValue<int>("amr", "load_balancing_frequency", 10) ),
-    m_communicator( GlobalMpiSession::get_comm_world() )
+    m_communicator( GlobalMpiSession::get_comm_world() ),
+    m_amr_mesh( init_amr_mesh( configMap ) ),
+    m_foreach_cell( *m_amr_mesh, configMap ) 
   {
     int ndim = configMap.getValue<int>("mesh", "ndim", 3);
     GravityType gravity_type = configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE);
 
-    FieldManager field_manager = FieldManager::setup(ndim, gravity_type); // TODO : configure from what is needed by kernels
-    auto fm = field_manager.get_id2index();
+    m_field_manager = FieldManager::setup(ndim, gravity_type); // TODO : configure from what is needed by kernels
+    auto fm = m_field_manager.get_id2index();
 
     uint32_t bx = configMap.getValue<uint32_t>("amr", "bx", 0);
     uint32_t by = configMap.getValue<uint32_t>("amr", "by", 0);
     uint32_t bz = configMap.getValue<uint32_t>("amr", "bz", 1);
-
-    {
-      
-      int codim = ndim;
-      BoundaryConditionType bxmin  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_ABSORBING);
-      BoundaryConditionType bxmax  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmax", BC_ABSORBING);
-      BoundaryConditionType bymin  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymin", BC_ABSORBING);
-      BoundaryConditionType bymax  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymax", BC_ABSORBING);
-      BoundaryConditionType bzmin  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmin", BC_ABSORBING);
-      BoundaryConditionType bzmax  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmax", BC_ABSORBING);
-      std::array<bool,3> periodic = {
-        bxmin == BC_PERIODIC || bxmax == BC_PERIODIC,
-        bymin == BC_PERIODIC || bymax == BC_PERIODIC,
-        bzmin == BC_PERIODIC || bzmax == BC_PERIODIC
-      };
-      int amr_level_min = configMap.getValue<int>("amr","level_min", 5);
-      int amr_level_max = configMap.getValue<int>("amr","level_max", 10);
-      this->m_amr_mesh = std::make_shared<AMRmesh>( ndim, codim, periodic, amr_level_min, amr_level_max );
-    }
 
     AMRmesh& amr_mesh = *m_amr_mesh;
 
     std::string godunov_updater_id = configMap.getValue<std::string>("hydro", "update", "MusclBlockUpdate_generic");
     this->godunov_updater = MusclBlockUpdateFactory::make_instance( godunov_updater_id,
       configMap,
-      amr_mesh, 
-      fm,
-      bx, by, bz,
+      this->m_foreach_cell,
       timers
     );
 
@@ -83,7 +82,7 @@ public:
     this->io_manager = IOManagerFactory::make_instance( iomanager_id,
       configMap,
       amr_mesh, 
-      field_manager,
+      m_field_manager,
       bx, by, bz,
       timers
     );
@@ -144,7 +143,7 @@ public:
         InitialConditionsFactory::make_instance(init_id, 
           configMap,
           amr_mesh, 
-          field_manager,
+          m_field_manager,
           1024,
           bx, by, bz,
           timers);
@@ -153,19 +152,8 @@ public:
     }
 
     // Allocate U2
-    {
-      const LightOctree& lmesh = amr_mesh.getLightOctree();
-      ForeachCell foreach_cell{
-        lmesh.getNdim(),
-        lmesh, 
-        bx, by, bz, 
-        0, 0, 0, // Dummy foreach_cell to construct arrays
-        0, 0, 0,
-        0
-      };
-
-      U2 = foreach_cell.allocate_ghosted_array( "U2", amr_mesh, field_manager );
-    } 
+    U2 = m_foreach_cell.allocate_ghosted_array( "U2", m_field_manager );
+ 
 
     std::ofstream out_ini("last.ini" );
     configMap.output( out_ini );       
@@ -298,7 +286,7 @@ public:
       gravity_solver->update_gravity_field(U.U, U.Ughost, U.U);
 
     // Update hydro
-    godunov_updater->update( U.U, U.Ughost, U2.U, dt ); //TODO : make U2 a temporary array?
+    godunov_updater->update( U, U2, dt ); //TODO : make U2 a temporary array?
 
     m_t += dt;
 
@@ -331,11 +319,12 @@ public:
         timers.get("AMR: remap userdata").start();
         std::cout << "Reallocate U + U2 after remap : " << DataArrayBlock::required_allocation_size(U2.U.extent(0), U2.U.extent(1), U2.U.extent(2)) * (2/1e6) 
             << " -> " << DataArrayBlock::required_allocation_size(U2.U.extent(0), U2.U.extent(1), m_amr_mesh->getNumOctants()) * (2/1e6) << " MBytes" << std::endl;
+        U = m_foreach_cell.allocate_ghosted_array("U", m_field_manager);
         MapUserDataFunctor::apply( lmesh_old, m_amr_mesh->getLightOctree(), {U.bx,U.by,U.bz},
-                      U2.U, U.Ughost, U.U );
+                      U2.U, U.Ughost, U.U );        
         // now U contains the most up to date data after mesh adaptation
         // we can resize U2 for the next time-step
-        Kokkos::realloc(U2.U, U.U.layout());
+        U2 = m_foreach_cell.allocate_ghosted_array("U2", m_field_manager);
         timers.get("AMR: remap userdata").stop();
 
         timers.get("AMR").stop();
@@ -359,12 +348,12 @@ public:
         uint8_t levels = 3;
 
         m_amr_mesh->loadBalance_userdata(levels, U.U);
-
-        // we probably need to resize arrays, ....
-        // TODO clean
-        Kokkos::realloc(U2.U,U.U.layout());
         Kokkos::realloc(U.Ughost, U.Ughost.extent(0), U.Ughost.extent(1), m_amr_mesh->getNumGhosts());
-  
+        U.update_lightOctree(m_amr_mesh->getLightOctree());
+
+        
+        U2 = m_foreach_cell.allocate_ghosted_array("U2", m_field_manager);
+
         timers.get("AMR: load-balance").stop();
       }
     }    
@@ -387,9 +376,11 @@ private:
 
   MpiComm m_communicator;
   std::shared_ptr<AMRmesh> m_amr_mesh;
+  ForeachCell m_foreach_cell;
 
   using CellArray = ForeachCell::CellArray_global_ghosted;
 
+  FieldManager m_field_manager;
   CellArray U, U2;
 
   std::unique_ptr<Compute_dt> compute_dt;

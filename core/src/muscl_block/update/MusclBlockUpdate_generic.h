@@ -16,16 +16,13 @@ namespace muscl_block {
 class MusclBlockUpdate_generic : public MusclBlockUpdate{
 public: 
   MusclBlockUpdate_generic(
-                ConfigMap& configMap, 
-                AMRmesh& pmesh,
-                const id2index_t& fm,
-                uint32_t bx, uint32_t by, uint32_t bz,
+                ConfigMap& configMap,
+                ForeachCell& foreach_cell,
                 Timers& timers );
   ~MusclBlockUpdate_generic();
-  void update(  DataArrayBlock U, DataArrayBlock Ughost,
-                DataArrayBlock Uout, 
+  void update(  const ForeachCell::CellArray_global_ghosted& Uin,
+                const ForeachCell::CellArray_global_ghosted& Uout,
                 real_t dt);
-
    struct Data;
 private:
   std::unique_ptr<Data> pdata;
