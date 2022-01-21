@@ -102,7 +102,8 @@ public:
       timers
     );
 
-    this->refine_condition = std::make_unique<RefineCondition>(
+    std::string refine_condition_id = configMap.getValue<std::string>("amr", "markers_kernel", "RefineCondition_legacy");
+    this->refine_condition = RefineConditionFactory::make_instance( refine_condition_id,
       configMap,
       m_foreach_cell,
       timers
