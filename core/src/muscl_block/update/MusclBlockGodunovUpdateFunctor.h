@@ -81,6 +81,45 @@ public:
 
   void setNbTeams(uint32_t nbTeams_) { nbTeams = nbTeams_; };
 
+  struct Params{
+    Params( ConfigMap& configMap )
+    : riemann_params(configMap),
+      gravity_type( configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE) ),
+      gx( 0 ),
+      gy( 0 ),
+      gz( 0 ),
+      slope_type( configMap.getValue<real_t>("hydro","slope_type",1.0) ),
+      xmin( configMap.getValue<real_t>("mesh", "xmin", 0.0) ),
+      xmax( configMap.getValue<real_t>("mesh", "xmax", 1.0) ),
+      ymin( configMap.getValue<real_t>("mesh", "ymin", 0.0) ),
+      ymax( configMap.getValue<real_t>("mesh", "ymax", 1.0) ),
+      zmin( configMap.getValue<real_t>("mesh", "zmin", 0.0) ),
+      zmax( configMap.getValue<real_t>("mesh", "zmax", 1.0) ),
+      updateType(UPDATE_NON_CONSERVATIVE)
+    {
+      if (gravity_type & GRAVITY_CONSTANT) {
+        gx = configMap.getValue<real_t>("gravity", "gx",  0.0);
+        gy = configMap.getValue<real_t>("gravity", "gy", -1.0);
+        gz = configMap.getValue<real_t>("gravity", "gz",  0.0);
+      } 
+
+      std::string utype = configMap.getValue<std::string>("hydro", "updateType", "conservative_sum");
+      if (utype == "conservative_sum")
+        updateType = UPDATE_CONSERVATIVE_SUM;
+      else
+        updateType = UPDATE_NON_CONSERVATIVE;
+    }
+
+    RiemannParams riemann_params;
+    GravityType gravity_type;
+    real_t gx, gy, gz;
+    int slope_type;
+    real_t xmin, xmax;
+    real_t ymin, ymax;
+    real_t zmin, zmax;
+    UPDATE_TYPE updateType;
+  };
+
   /**
    * Perform time integration (MUSCL Godunov).
    *
@@ -94,7 +133,7 @@ public:
    *
    */
   MusclBlockGodunovUpdateFunctor(LightOctree lmesh,
-                                 HydroParams params,
+                                 Params params,
                                  id2index_t fm,
                                  blockSize_t blockSizes,
                                  uint32_t ghostWidth,
@@ -123,6 +162,7 @@ public:
                                               interface_flags(interface_flags),
                                               dt(dt)
   {
+    ndim = lmesh.getNdim();
 
     bx_g = blockSizes[IX] + 2 * (ghostWidth);
     by_g = blockSizes[IY] + 2 * (ghostWidth);
@@ -134,12 +174,12 @@ public:
     by1 = blockSizes[IY] + 2 * (ghostWidth - 1);
     bz1 = blockSizes[IZ] + 2 * (ghostWidth - 1);
 
-    nbCellsPerBlock1 = params.dimType == TWO_D ? bx1 * by1 : bx1 * by1 * bz1;
+    nbCellsPerBlock1 = ndim == 2 ? bx1 * by1 : bx1 * by1 * bz1;
 
     const uint32_t &bx = blockSizes[IX];
     const uint32_t &by = blockSizes[IY];
     const uint32_t &bz = blockSizes[IZ];
-    nbCellsPerBlock = params.dimType == TWO_D ? bx * by : bx * by * bz;
+    nbCellsPerBlock = ndim == 2 ? bx * by : bx * by * bz;
 
     // memory allocation for slopes arrays
     SlopesX = DataArrayBlock("SlopesX",
@@ -150,7 +190,7 @@ public:
                              Qgroup.extent(0),
                              Qgroup.extent(1),
                              Qgroup.extent(2));
-    if (params.dimType == THREE_D)
+    if (ndim)
       SlopesZ = DataArrayBlock("SlopesZ",
                                Qgroup.extent(0),
                                Qgroup.extent(1),
@@ -162,8 +202,7 @@ public:
 
   // static method which does it all: create and execute functor
   static void apply(LightOctree lmesh,
-                    ConfigMap configMap,
-                    HydroParams params,
+                    Params params,
                     id2index_t fm,
                     blockSize_t blockSizes,
                     uint32_t ghostWidth,
@@ -312,7 +351,10 @@ public:
 
       // Converting to primitives
       real_t c = 0.0;
-      computePrimitives(u, &c, q, params);
+      computePrimitives(u, &c, q, 
+        params.riemann_params.gamma0,
+        params.riemann_params.smallr,
+        params.riemann_params.smallp);
     } // end for ip
 
   } // get_non_conformal_neighbors_2d
@@ -335,13 +377,13 @@ public:
     if (params.gravity_type == GRAVITY_CST_SCALAR) {
       res[IX] = params.gx;
       res[IY] = params.gy;
-      if (params.dimType == THREE_D)
+      if (ndim == 3)
         res[IZ] = params.gz;
     }
     else if (params.gravity_type == GRAVITY_CST_FIELD) {
       res[IX] = Ugroup(index, fm[IGX], iOct_local);
       res[IY] = Ugroup(index, fm[IGY], iOct_local);
-      if (params.dimType == THREE_D)
+      if (ndim == 3)
         res[IZ] = Ugroup(index, fm[IGZ], iOct_local);
     }
 
@@ -425,7 +467,7 @@ public:
                               real_t qPlus,
                               real_t qMinus) const
   {
-    const real_t slope_type = params.settings.slope_type;
+    const real_t slope_type = params.slope_type;
 
     real_t dq = 0;
 
@@ -474,7 +516,7 @@ public:
                               uint32_t ivar,
                               uint32_t iOct_local) const
   {
-    const real_t slope_type = params.settings.slope_type;
+    const real_t slope_type = params.slope_type;
 
     real_t dq = 0;
 
@@ -515,7 +557,7 @@ public:
                       const HydroState &qMinus) const
   {
 
-    const real_t slope_type = params.settings.slope_type;
+    const real_t slope_type = params.slope_type;
 
     HydroState dq;
 
@@ -538,7 +580,7 @@ public:
 
     q[IU] += 0.5 * dt * g[IX];
     q[IV] += 0.5 * dt * g[IY];
-    //if (params.dimType == THREE_D)
+    //if (ndim == 3)
     //  q[IW] += 0.5 * dt * g[IZ];
 
   } // apply_gravity_prediction
@@ -553,11 +595,11 @@ public:
       return;
 
     real_t rhoOld = Ugroup(index_g, fm[ID], iOct_g);
-    real_t rhoNew = fmax(params.settings.smallr, U2(index, fm[ID], iOct));
+    real_t rhoNew = fmax(params.riemann_params.smallr, U2(index, fm[ID], iOct));
 
     real_t rhou = U2(index, fm[IU], iOct);
     real_t rhov = U2(index, fm[IV], iOct);
-    real_t rhow = (params.dimType == THREE_D ? U2(index, fm[IW], iOct) : 0.0);
+    real_t rhow = (ndim == 3 ? U2(index, fm[IW], iOct) : 0.0);
 
     real_t ekin_old = 0.5 * (rhou * rhou + rhov * rhov + rhow * rhow) / rhoNew;
 
@@ -567,14 +609,14 @@ public:
       gx = Ugroup(index, fm[IGX], iOct_g);
       gy = Ugroup(index, fm[IGY], iOct_g);
 
-      if (params.dimType == THREE_D)
+      if (ndim == 3)
         gz = Ugroup(index_g, fm[IGZ], iOct_g);
     }
     else {
       gx = params.gx;
       gy = params.gy;
 
-      if (params.dimType == THREE_D)
+      if (ndim == 3)
         gz = params.gz;
     }
 
@@ -583,7 +625,7 @@ public:
     U2(index, fm[IU], iOct) = rhou;
     U2(index, fm[IV], iOct) = rhov;
 
-    if (params.dimType == THREE_D)
+    if (ndim == 3)
     {
       rhow += 0.5 * dt * gz * (rhoOld + rhoNew);
       U2(index, fm[IW], iOct) = rhow;
@@ -650,8 +692,8 @@ public:
                                     real_t dtdx,
                                     real_t dtdy) const
   {
-    const double gamma = params.settings.gamma0;
-    const double smallr = params.settings.smallr;
+    const double gamma = params.riemann_params.gamma0;
+    const double smallr = params.riemann_params.smallr;
 
     // retrieve primitive variables in current quadrant
     const real_t r = q[ID];
@@ -717,8 +759,8 @@ public:
                                     real_t dtdx,
                                     real_t dtdy) const
   {
-    const double gamma = params.settings.gamma0;
-    const double smallr = params.settings.smallr;
+    const double gamma = params.riemann_params.gamma0;
+    const double smallr = params.riemann_params.smallr;
 
     // retrieve primitive variables in current quadrant
     const real_t r = q[ID];
@@ -774,8 +816,8 @@ public:
                                     real_t dtdy,
                                     real_t dtdz) const
   {
-    const double gamma = params.settings.gamma0;
-    const double smallr = params.settings.smallr;
+    const double gamma = params.riemann_params.gamma0;
+    const double smallr = params.riemann_params.smallr;
 
     // retrieve primitive variables in current quadrant
     const real_t r = q[ID];
@@ -963,7 +1005,7 @@ public:
                 apply_gravity_prediction(qL, g);
               }
 
-              HydroState2d flux = riemann_hydro(qL, qR, params);
+              HydroState2d flux = riemann_hydro(qL, qR, params.riemann_params);
 
               // step 2: accumulate flux in current cell
               qcons += flux * scale_x_c;
@@ -983,8 +1025,8 @@ public:
               }
 
               // step 2: solver is called directly on average states, no reconstruction is done
-              HydroState2d flux_0 = riemann_hydro(q0, qR, params);
-              HydroState2d flux_1 = riemann_hydro(q1, qR, params);
+              HydroState2d flux_0 = riemann_hydro(q0, qR, params.riemann_params);
+              HydroState2d flux_1 = riemann_hydro(q1, qR, params.riemann_params);
 
               qcons += flux_0 * scale_x_nc;
               qcons += flux_1 * scale_x_nc;
@@ -1033,7 +1075,7 @@ public:
                 apply_gravity_prediction(qR, g);
               }
 
-              HydroState2d flux = riemann_hydro(qL, qR, params);
+              HydroState2d flux = riemann_hydro(qL, qR, params.riemann_params);
 
               // step 2: accumulate flux in current cell
               qcons -= flux * scale_x_c;
@@ -1052,8 +1094,8 @@ public:
               }
 
               // step 2: solver is called directly on average states, no reconstruction is done
-              HydroState2d flux_0 = riemann_hydro(qL, q0, params);
-              HydroState2d flux_1 = riemann_hydro(qL, q1, params);
+              HydroState2d flux_0 = riemann_hydro(qL, q0, params.riemann_params);
+              HydroState2d flux_1 = riemann_hydro(qL, q1, params.riemann_params);
 
               // step 3: accumulate
               qcons -= flux_0 * scale_x_nc;
@@ -1109,7 +1151,7 @@ public:
               my_swap(qR[IU], qR[IV]);
 
               // step 2: compute flux (Riemann solver) with centered values
-              HydroState2d flux = riemann_hydro(qL, qR, params);
+              HydroState2d flux = riemann_hydro(qL, qR, params.riemann_params);
 
               // step 3: swap back and accumulate flux
               my_swap(flux[IU], flux[IV]);
@@ -1134,8 +1176,8 @@ public:
               my_swap(qR[IU], qR[IV]);
 
               // step 3: solver is called directly on average states, no reconstruction is done
-              HydroState2d flux_0 = riemann_hydro(q0, qR, params);
-              HydroState2d flux_1 = riemann_hydro(q1, qR, params);
+              HydroState2d flux_0 = riemann_hydro(q0, qR, params.riemann_params);
+              HydroState2d flux_1 = riemann_hydro(q1, qR, params.riemann_params);
 
               // step 4: swap back and accumulate
               my_swap(flux_0[IU], flux_0[IV]);
@@ -1192,7 +1234,7 @@ public:
               my_swap(qR[IU], qR[IV]);
 
               // step 2: compute flux (Riemann solver) with centered values
-              HydroState2d flux = riemann_hydro(qL, qR, params);
+              HydroState2d flux = riemann_hydro(qL, qR, params.riemann_params);
 
               // step 3: swap back and accumulate flux
               my_swap(flux[IU], flux[IV]);
@@ -1217,8 +1259,8 @@ public:
               my_swap(q1[IU], q1[IV]);
 
               // step 3 : solver is called directly on average states, no reconstruction is done
-              HydroState2d flux_0 = riemann_hydro(qL, q0, params);
-              HydroState2d flux_1 = riemann_hydro(qL, q1, params);
+              HydroState2d flux_0 = riemann_hydro(qL, q0, params.riemann_params);
+              HydroState2d flux_1 = riemann_hydro(qL, q1, params.riemann_params);
 
               // step 4: swap back and accumulate
               my_swap(flux_0[IU], flux_0[IV]);
@@ -1332,7 +1374,7 @@ public:
               }
 
               // step 4 : compute flux (Riemann solver)
-              HydroState2d flux = riemann_hydro(qL, qR, params);
+              HydroState2d flux = riemann_hydro(qL, qR, params.riemann_params);
 
               if( dir == IY )
               my_swap(flux[IU], flux[IV]);
@@ -1446,7 +1488,7 @@ public:
               HydroState2d qR = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
 
               // step 3 : compute flux (Riemann solver)
-              HydroState2d flux = riemann_hydro(qL, qR, params);
+              HydroState2d flux = riemann_hydro(qL, qR, params.riemann_params);
 
               // step 4 : accumulate flux in current cell
               qcons += flux * dtdx;
@@ -1473,7 +1515,7 @@ public:
               HydroState2d qL = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
 
               // step 3 : compute flux (Riemann solver)
-              HydroState2d flux = riemann_hydro(qL, qR, params);
+              HydroState2d flux = riemann_hydro(qL, qR, params.riemann_params);
 
               // step 4 : accumulate flux in current cell
               qcons -= flux * dtdx;
@@ -1504,7 +1546,7 @@ public:
               my_swap(qR[IU], qR[IV]);
 
               // step 3 : compute flux (Riemann solver)
-              HydroState2d flux = riemann_hydro(qL, qR, params);
+              HydroState2d flux = riemann_hydro(qL, qR, params.riemann_params);
 
               my_swap(flux[IU], flux[IV]);
 
@@ -1537,7 +1579,7 @@ public:
               my_swap(qR[IU], qR[IV]);
 
               // step 3 : compute flux (Riemann solver)
-              HydroState2d flux = riemann_hydro(qL, qR, params);
+              HydroState2d flux = riemann_hydro(qL, qR, params.riemann_params);
 
               my_swap(flux[IU], flux[IV]);
 
@@ -1721,9 +1763,6 @@ public:
     // octant id inside the Ugroup data array
     uint32_t iOct_local = member.league_rank();
 
-    // compute first octant index after current group
-    uint32_t iOctNextGroup = (iGroup + 1) * nbOctsPerGroup;
-
     const uint32_t &bx = blockSizes[IX];
     const uint32_t &by = blockSizes[IY];
     const uint32_t &bz = blockSizes[IZ];
@@ -1807,7 +1846,7 @@ public:
               swap(qR[IU], qR[swap_component]);
 
               // step 4 : compute flux (Riemann solver)
-              HydroState3d flux = riemann_hydro(qL, qR, params);
+              HydroState3d flux = riemann_hydro(qL, qR, params.riemann_params);
 
               swap(flux[IU], flux[swap_component]);
 
@@ -1888,11 +1927,10 @@ public:
   KOKKOS_INLINE_FUNCTION
   void operator()(const Slopes &, thread1_t member) const
   {
-
-    if (this->params.dimType == TWO_D)
+    if (ndim == 2)
       compute_slopes_2d(member);
 
-    else if (this->params.dimType == THREE_D)
+    else if (ndim == 3)
       compute_slopes_3d(member);
 
   } // operator () - slopes
@@ -1902,20 +1940,21 @@ public:
   KOKKOS_INLINE_FUNCTION
   void operator()(const Fluxes &, thread2_t member) const
   {
-
-    if (this->params.dimType == TWO_D)
+    if (ndim == 2)
       compute_fluxes_and_update_2d(member);
 
-    else if (this->params.dimType == THREE_D)
+    else if (ndim == 3)
       compute_fluxes_and_update_3d(member);
 
   } // operator () - fluxes and update
 
+  int ndim;
+  
   //! bitpit/PABLO amr mesh object
   LightOctree lmesh;
 
   //! general parameters
-  HydroParams params;
+  Params params;
 
   //! field manager
   id2index_t fm;

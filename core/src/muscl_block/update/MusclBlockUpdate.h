@@ -14,7 +14,7 @@ class MusclBlockUpdate_generic;
 template<>
 inline bool dyablo::muscl_block::MusclBlockUpdateFactory::init()
 {
-  //DECLARE_REGISTERED(dyablo::muscl_block::MusclBlockUpdate_legacy);
+  DECLARE_REGISTERED(dyablo::muscl_block::MusclBlockUpdate_legacy);
   DECLARE_REGISTERED(dyablo::muscl_block::MusclBlockUpdate_generic);
 
   return true;

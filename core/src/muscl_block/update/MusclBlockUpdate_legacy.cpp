@@ -13,64 +13,75 @@ namespace dyablo {
 namespace muscl_block {
 
 struct MusclBlockUpdate_legacy::Data{
-  const ConfigMap& configMap;
-  const HydroParams params;  
-  AMRmesh& pmesh;
-  const id2index_t fm;
+  ForeachCell& foreach_cell;
   uint32_t nbOctsPerGroup;  
-  uint32_t bx, by, bz;    
+  int ndim;
+  MusclBlockGodunovUpdateFunctor::Params params;
+  BoundaryConditionType boundary_xmin, boundary_xmax;
+  BoundaryConditionType boundary_ymin, boundary_ymax;
+  BoundaryConditionType boundary_zmin, boundary_zmax;
   
   Timers& timers;  
 };
 
 MusclBlockUpdate_legacy::MusclBlockUpdate_legacy(
-  const ConfigMap& configMap,
-  const HydroParams& params, 
-  AMRmesh& pmesh,
-  const id2index_t& fm,
-  uint32_t bx, uint32_t by, uint32_t bz,
+  ConfigMap& configMap,
+  ForeachCell& foreach_cell,
   Timers& timers )
  : pdata(new Data
-    {configMap, 
-    params, 
-    pmesh, 
-    fm,
-    pmesh.getNumOctants(),
-    bx, by, bz,
+    {foreach_cell, 
+    foreach_cell.pmesh.getNumOctants(),
+    foreach_cell.pmesh.getDim(),
+    MusclBlockGodunovUpdateFunctor::Params(configMap),
+    configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_ABSORBING),
+    configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmax", BC_ABSORBING),
+    configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymin", BC_ABSORBING),
+    configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymax", BC_ABSORBING),
+    configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmin", BC_ABSORBING),
+    configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmax", BC_ABSORBING),
     timers})
 {
   pdata->nbOctsPerGroup = std::min( 
-      pmesh.getNumOctants(), 
-      configMap.getValue<uint32_t>("amr","nbOctsPerGroup",pmesh.getNumOctants()));
+      foreach_cell.pmesh.getNumOctants(), 
+      configMap.getValue<uint32_t>("amr","nbOctsPerGroup",foreach_cell.pmesh.getNumOctants()));
 
 }
 
 MusclBlockUpdate_legacy::~MusclBlockUpdate_legacy()
 {}
 
-void MusclBlockUpdate_legacy::update(DataArrayBlock U, DataArrayBlock Ughost,
-                                     DataArrayBlock Uout, 
+void MusclBlockUpdate_legacy::update(const ForeachCell::CellArray_global_ghosted& Uin,
+                                     const ForeachCell::CellArray_global_ghosted& Uout_, 
                                      real_t dt)
 {
+  static_assert( std::is_same<decltype(Uin.U), DataArrayBlock>::value, 
+                 "MusclBlockUpdate_legacy can only be compiled for block-based ForeachCell" );
   
-  const ConfigMap& configMap = pdata->configMap;
-  const HydroParams& params = pdata->params;  
-  const LightOctree& lmesh = pdata->pmesh.getLightOctree();
-  const id2index_t& fm = pdata->fm;
+  ForeachCell& foreach_cell = pdata->foreach_cell;
+  const LightOctree& lmesh = foreach_cell.pmesh.getLightOctree();
+  const id2index_t& fm = Uin.fm;
 
-  uint32_t nbOctsPerGroup = pdata->nbOctsPerGroup;  
-  uint32_t bx = pdata->bx, by = pdata->by, bz = pdata->bz;  
+  uint32_t nbOctsPerGroup = foreach_cell.cdata.nbOctsPerGroup;
+  uint32_t bx = Uin.bx, by = Uin.by, bz = Uin.bz;  
   Timers& timers = pdata->timers; 
+  GravityType gravity_type = pdata->params.gravity_type;
+  real_t gamma0 = pdata->params.riemann_params.gamma0;
+  real_t smallr = pdata->params.riemann_params.smallr;
+  real_t smallp = pdata->params.riemann_params.smallp;
 
   uint32_t ghostWidth = 2;
 
   uint32_t nbOcts = lmesh.getNumOctants();
   uint32_t nbGroup = (nbOcts + nbOctsPerGroup - 1) / nbOctsPerGroup;
   
-  uint32_t nbFields = U.extent(1);
+  uint32_t nbFields = fm.nbfields();
   uint32_t bx_g = bx + 2*ghostWidth;
   uint32_t by_g = by + 2*ghostWidth;
   uint32_t bz_g = bz + 2*ghostWidth;
+
+  const DataArrayBlock& U = Uin.U;
+  const DataArrayBlock& Ughost = Uin.Ughost;
+  const DataArrayBlock& Uout = Uout_.U;
   DataArrayBlock Ugroup("Ugroup", bx_g*by_g*bz_g, nbFields, nbOctsPerGroup);
   DataArrayBlock Qgroup("Qgroup", bx_g*by_g*bz_g, nbFields, nbOctsPerGroup);
 
@@ -81,7 +92,8 @@ void MusclBlockUpdate_legacy::update(DataArrayBlock U, DataArrayBlock Ughost,
     timers.get("block copy").start();
 
     // Copy data from U to Ugroup
-    CopyInnerBlockCellDataFunctor::apply(configMap, params, fm,
+    CopyInnerBlockCellDataFunctor::apply( {pdata->ndim, gravity_type},
+                                       fm,
                                        {bx,by,bz},
                                        ghostWidth,
                                        nbOcts,
@@ -89,8 +101,12 @@ void MusclBlockUpdate_legacy::update(DataArrayBlock U, DataArrayBlock Ughost,
                                        U, Ugroup, 
                                        iGroup);
     CopyGhostBlockCellDataFunctor::apply(lmesh,
-                                        configMap,
-                                        params,
+                                        {
+                                          pdata->boundary_xmin, pdata->boundary_xmax,
+                                          pdata->boundary_ymin, pdata->boundary_ymax,
+                                          pdata->boundary_zmin, pdata->boundary_zmax,
+                                          gravity_type
+                                        },
                                         fm,
                                         {bx,by,bz},
                                         ghostWidth,
@@ -107,8 +123,10 @@ void MusclBlockUpdate_legacy::update(DataArrayBlock U, DataArrayBlock Ughost,
     timers.get("godunov").start();
 
     // convert conservative variable into primitives ones for the given group
-    ConvertToPrimitivesHydroFunctor::apply(configMap,
-                                         params, 
+    ConvertToPrimitivesHydroFunctor::apply({
+                                            pdata->ndim,
+                                            gamma0, smallr, smallp,
+                                          }, 
                                          fm,
                                          {bx,by,bz},
                                          ghostWidth,
@@ -121,8 +139,7 @@ void MusclBlockUpdate_legacy::update(DataArrayBlock U, DataArrayBlock Ughost,
     // perform time integration :
     {
       MusclBlockGodunovUpdateFunctor::apply(lmesh,
-                                          configMap,
-                                          params,
+                                          pdata->params,
                                           fm,
                                           {bx,by,bz},
                                           ghostWidth,
