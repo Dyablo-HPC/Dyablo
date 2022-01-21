@@ -62,7 +62,7 @@ public:
     AMRmesh&                 pmesh     = data.pmesh;
     FieldManager             fieldMgr  = data.fieldMgr;
 
-    int ndim = pmesh.getDim();
+    uint32_t ndim = pmesh.getDim();
     int level_min = data.level_min;
     int level_max = data.level_max;
     uint32_t bx = data.bx;
@@ -92,7 +92,8 @@ public:
 
         ForeachCell foreach_cell(
             pmesh,
-            {ndim,
+            ForeachCell::CData{
+            ndim,
             bx, by, bz, 
             xmin, ymin, zmin,
             xmax, ymax, zmax,
