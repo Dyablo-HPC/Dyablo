@@ -17,6 +17,7 @@ set (muscl_block_SRCS
   ${CMAKE_CURRENT_SOURCE_DIR}/update/MusclBlockUpdate_legacy.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/update/MusclBlockUpdate_generic.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/gravity/GravitySolver_constant.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/compute_dt/Compute_dt_legacy.cpp
   )
 
   if (DYABLO_USE_HDF5)

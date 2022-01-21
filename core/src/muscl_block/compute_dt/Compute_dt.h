@@ -1,41 +1,19 @@
 #pragma once
 
-#include "muscl_block/ComputeDtHydroFunctor.h"
+#include "muscl_block/compute_dt/Compute_dt_base.h"
 
 namespace dyablo {
 namespace muscl_block {
 
-class Compute_dt
+class Compute_dt_legacy;
+
+} //namespace dyablo 
+} //namespace muscl_block
+
+template<>
+inline bool dyablo::muscl_block::Compute_dtFactory::init()
 {
-public:
-  Compute_dt(   ConfigMap& configMap,
-                ForeachCell& foreach_cell,
-                Timers& timers )
-  : cfl( configMap.getValue<real_t>("hydro", "cfl", 0.5) ),
-    params(configMap),
-    pmesh(foreach_cell.pmesh)
-  {}
+  DECLARE_REGISTERED(dyablo::muscl_block::Compute_dt_legacy);
 
-  double compute_dt( const ForeachCell::CellArray_global_ghosted& U)
-  {
-    real_t inv_dt = 0;
-
-    ComputeDtHydroFunctor::apply( pmesh.getLightOctree(), 
-                                  params, U.fm,
-                                  {U.bx,U.by,U.bz}, U.U, inv_dt);
-
-    real_t dt = cfl / inv_dt;
-
-    assert(dt>0);
-
-    return dt;
-  }
-
-private:
-  real_t cfl;
-  const ComputeDtHydroFunctor::Params params;
-  AMRmesh& pmesh;
-};
-
-} // namespace muscl_block
-} // namespace dyablo 
+  return true;
+}
