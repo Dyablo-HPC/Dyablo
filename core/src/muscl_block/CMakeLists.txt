@@ -2,6 +2,7 @@ set (muscl_block_SRCS
   ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_blast.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/update/MusclBlockUpdate_generic.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/gravity/GravitySolver_constant.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/compute_dt/Compute_dt_generic.cpp
   )
 
 list(APPEND muscl_block_SRCS

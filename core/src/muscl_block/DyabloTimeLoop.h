@@ -95,7 +95,7 @@ public:
       );
     } 
 
-    std::string compute_dt_id = configMap.getValue<std::string>("dt", "dt_kernel", "Compute_dt_legacy");
+    std::string compute_dt_id = configMap.getValue<std::string>("dt", "dt_kernel", "Compute_dt_generic");
     this->compute_dt = Compute_dtFactory::make_instance( compute_dt_id,
       configMap,
       m_foreach_cell, 
