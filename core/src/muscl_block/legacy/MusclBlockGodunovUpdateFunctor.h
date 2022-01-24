@@ -16,7 +16,7 @@
 #include "shared/utils_hydro.h"
 
 // utils block
-#include "muscl_block/utils_block.h"
+#include "muscl_block/legacy/utils_block.h"
 
 
 namespace dyablo

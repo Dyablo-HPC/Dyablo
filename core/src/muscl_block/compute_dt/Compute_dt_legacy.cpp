@@ -1,5 +1,5 @@
 #include "Compute_dt_base.h"
-#include "muscl_block/ComputeDtHydroFunctor.h"
+#include "muscl_block/legacy/ComputeDtHydroFunctor.h"
 
 namespace dyablo {
 namespace muscl_block {

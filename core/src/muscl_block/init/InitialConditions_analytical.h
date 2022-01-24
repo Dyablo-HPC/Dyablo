@@ -6,7 +6,6 @@
 #include "muscl_block/foreach_cell/ForeachCell.h"
 
 #include "shared/HydroState.h"
-#include "muscl_block/SolverHydroMusclBlock.h"
 
 namespace dyablo{
 namespace muscl_block{

@@ -1,13 +1,13 @@
 #include "muscl_block/update/MusclBlockUpdate_legacy.h"
 
-#include "muscl_block/utils_block.h"
-#include "muscl_block/CopyInnerBlockCellData.h"
-#include "muscl_block/CopyGhostBlockCellData.h"
-#include "muscl_block/ConvertToPrimitivesHydroFunctor.h"
+#include "muscl_block/legacy/utils_block.h"
+#include "muscl_block/legacy/CopyInnerBlockCellData.h"
+#include "muscl_block/legacy/CopyGhostBlockCellData.h"
+#include "muscl_block/legacy/ConvertToPrimitivesHydroFunctor.h"
 
 #include "utils/monitoring/Timers.h"
 
-#include "muscl_block/update/MusclBlockGodunovUpdateFunctor.h"
+#include "muscl_block/legacy/MusclBlockGodunovUpdateFunctor.h"
 
 namespace dyablo { 
 namespace muscl_block {

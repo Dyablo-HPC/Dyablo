@@ -21,15 +21,13 @@
 #include "shared/HydroParams.h"  // read parameter file
 #include "shared/FieldManager.h"
 
-#include "muscl/SolverHydroMuscl.h"
-#include "muscl_block/SolverHydroMusclBlock.h"
-#include "muscl_block/init/legacy/InitImplode.h"
 
-#include "muscl_block/CopyInnerBlockCellData.h"
-#include "muscl_block/CopyGhostBlockCellData.h"
-#include "muscl_block/ConvertToPrimitivesHydroFunctor.h"
+#include "muscl_block/legacy/CopyInnerBlockCellData.h"
+#include "muscl_block/legacy/CopyGhostBlockCellData.h"
+#include "muscl_block/legacy/ConvertToPrimitivesHydroFunctor.h"
 #include "muscl_block/init/InitialConditions_analytical.h"
 #include "muscl_block/foreach_cell/AMRBlockForeachCell_group.h"
+#include "shared/problems/ImplodeParams.h"
 
 using Device = Kokkos::DefaultExecutionSpace;
 

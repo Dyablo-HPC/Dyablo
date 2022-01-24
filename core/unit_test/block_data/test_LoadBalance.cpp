@@ -7,7 +7,7 @@
 
 #include <boost/test/unit_test.hpp>
 
-#include "muscl_block/utils_block.h"
+#include "muscl_block/legacy/utils_block.h"
 #include "shared/amr/AMRmesh.h"
 #include "shared/mpi/GhostCommunicator.h"
 

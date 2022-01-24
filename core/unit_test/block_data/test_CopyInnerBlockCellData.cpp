@@ -18,7 +18,7 @@
 #include "shared/FieldManager.h"
 
 
-#include "muscl_block/CopyInnerBlockCellData.h"
+#include "muscl_block/legacy/CopyInnerBlockCellData.h"
 
 using Device = Kokkos::DefaultExecutionSpace;
 

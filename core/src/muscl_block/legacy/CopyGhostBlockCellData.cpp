@@ -1,4 +1,4 @@
-#include "muscl_block/CopyGhostBlockCellData.h"
+#include "muscl_block/legacy/CopyGhostBlockCellData.h"
 
 namespace dyablo
 {

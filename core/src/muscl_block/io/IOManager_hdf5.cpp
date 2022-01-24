@@ -1,6 +1,6 @@
 #include "muscl_block/io/IOManager_hdf5.h"
 
-#include "muscl_block/utils_block.h"
+#include "muscl_block/legacy/utils_block.h"
 #include "shared/io_utils.h"
 #include "shared/HDF5_IO.h"
 

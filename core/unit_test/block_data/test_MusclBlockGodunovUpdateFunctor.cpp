@@ -20,7 +20,7 @@
 #include "muscl_block/init/InitialConditions.h"
 
 #include "muscl_block/update/MusclBlockUpdate.h"
-#include "muscl_block/ComputeDtHydroFunctor.h"
+#include "muscl_block/legacy/ComputeDtHydroFunctor.h"
 
 using Device = Kokkos::DefaultExecutionSpace;
 

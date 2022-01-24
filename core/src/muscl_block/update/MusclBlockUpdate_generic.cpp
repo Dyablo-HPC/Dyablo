@@ -1,6 +1,5 @@
 #include "MusclBlockUpdate_generic.h"
 
-#include "muscl_block/utils_block.h"
 #include "utils/monitoring/Timers.h"
 
 #include "muscl_block/foreach_cell/ForeachCell.h"

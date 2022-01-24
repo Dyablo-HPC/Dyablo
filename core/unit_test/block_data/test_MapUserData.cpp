@@ -12,9 +12,8 @@
 
 #include <boost/test/unit_test.hpp>
 
-#include "muscl_block/MapUserData.h"
+#include "muscl_block/legacy/MapUserData.h"
 
-#include "muscl_block/utils_block.h"
 #include "shared/amr/AMRmesh.h"
 #include "shared/amr/LightOctree.h"
 #include "muscl_block/io/IOManager.h"

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "muscl_block/utils_block.h"
 #include "shared/io_utils.h"
+#include "muscl_block/legacy/utils_block.h"
 
 namespace dyablo
 {

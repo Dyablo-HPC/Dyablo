@@ -9,7 +9,7 @@
 
 #include "shared/mpi/GhostCommunicator.h"
 
-#include "muscl_block/utils_block.h"
+#include "muscl_block/legacy/utils_block.h"
 #include "shared/amr/AMRmesh.h"
 #include "utils/io/AMRMesh_output_vtk.h"
 

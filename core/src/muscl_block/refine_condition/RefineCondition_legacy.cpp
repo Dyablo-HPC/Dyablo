@@ -1,9 +1,9 @@
 #include "muscl_block/refine_condition/RefineCondition_base.h"
 
-#include "muscl_block/MarkOctantsHydroFunctor.h"
-#include "muscl_block/CopyInnerBlockCellData.h"
-#include "muscl_block/CopyGhostBlockCellData.h"
-#include "muscl_block/ConvertToPrimitivesHydroFunctor.h"
+#include "muscl_block/legacy/MarkOctantsHydroFunctor.h"
+#include "muscl_block/legacy/CopyInnerBlockCellData.h"
+#include "muscl_block/legacy/CopyGhostBlockCellData.h"
+#include "muscl_block/legacy/ConvertToPrimitivesHydroFunctor.h"
 
 namespace dyablo {
 namespace muscl_block {

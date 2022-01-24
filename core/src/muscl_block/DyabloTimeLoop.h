@@ -13,7 +13,7 @@
 #include "muscl_block/io/IOManager.h"
 #include "muscl_block/gravity/GravitySolver.h"
 #include "muscl_block/update/MusclBlockUpdate.h"
-#include "muscl_block/MapUserData.h"
+#include "muscl_block/legacy/MapUserData.h"
 
 namespace dyablo {
 namespace muscl_block { // TODO : remove from muscl_block
