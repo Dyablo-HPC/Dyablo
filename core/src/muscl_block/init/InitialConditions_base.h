@@ -14,21 +14,15 @@ class InitialConditions{
 public:
   // InitialConditions(
   //     ConfigMap& configMap,
-  //     AMRmesh& pmesh,
-  //     FieldManager fieldMgr,
-  //     uint32_t nbOctsPerGroup,  
-  //     uint32_t bx, uint32_t by, uint32_t bz,  
+  //     ForeachCell& foreach_cell,  
   //     Timers& timers);
-  virtual void init( ForeachCell::CellArray_global_ghosted& U ) = 0;
+  virtual void init( ForeachCell::CellArray_global_ghosted& U, const FieldManager& field_manager ) = 0;
   virtual ~InitialConditions(){}
 };
 
 using InitialConditionsFactory = RegisteringFactory<InitialConditions, 
   ConfigMap&,
-  AMRmesh&,
-  FieldManager,
-  uint32_t,  
-  uint32_t, uint32_t, uint32_t,  
+  ForeachCell&, 
   Timers&>;
 
 } // namespace muscl_block

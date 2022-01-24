@@ -26,54 +26,30 @@ class InitialConditions_analytical : public InitialConditions{
     AnalyticalFormula analytical_formula;
 
     struct Data{
-        AMRmesh& pmesh;
-        FieldManager fieldMgr;
-        uint32_t nbOctsPerGroup;  
-        uint32_t bx, by, bz;
+        ForeachCell& foreach_cell;
         int level_min, level_max;
-        real_t xmin, ymin, zmin;
-        real_t xmax, ymax, zmax;
     } data;
 public:
   InitialConditions_analytical(
         ConfigMap& configMap, 
-        AMRmesh& pmesh,
-        FieldManager fieldMgr,
-        uint32_t nbOctsPerGroup,  
-        uint32_t bx, uint32_t by, uint32_t bz,  
+        ForeachCell& foreach_cell,  
         Timers& timers )
   : analytical_formula(configMap),
     data({
-      pmesh, fieldMgr, nbOctsPerGroup, 
-      bx, by, bz,
-      pmesh.get_level_min(), pmesh.get_level_max(),
-      configMap.getValue<real_t>("mesh", "xmin", 0.0), 
-      configMap.getValue<real_t>("mesh", "ymin", 0.0), 
-      configMap.getValue<real_t>("mesh", "zmin", 0.0),
-      configMap.getValue<real_t>("mesh", "xmax", 1.0),
-      configMap.getValue<real_t>("mesh", "ymax", 1.0),
-      configMap.getValue<real_t>("mesh", "zmax", 1.0)
+      foreach_cell,
+      foreach_cell.pmesh.get_level_min(),
+      foreach_cell.pmesh.get_level_max()
     })
   {}
 
-  void init( ForeachCell::CellArray_global_ghosted& U )
+  void init( ForeachCell::CellArray_global_ghosted& U, const FieldManager& fieldMgr )
   {
-    AMRmesh&                 pmesh     = data.pmesh;
-    FieldManager             fieldMgr  = data.fieldMgr;
+    ForeachCell& foreach_cell = data.foreach_cell;
+    AMRmesh& pmesh     = foreach_cell.pmesh;
 
     uint32_t ndim = pmesh.getDim();
     int level_min = data.level_min;
     int level_max = data.level_max;
-    uint32_t bx = data.bx;
-    uint32_t by = data.by;
-    uint32_t bz = (ndim == 3) ? data.bz : 1;
-    real_t xmin = data.xmin;
-    real_t ymin = data.ymin;
-    real_t zmin = data.zmin;
-    real_t xmax = data.xmax;
-    real_t ymax = data.ymax;
-    real_t zmax = data.zmax;
-    uint32_t nbOctsPerGroup = data.nbOctsPerGroup; // arbitrary, not really useful    
 
     // Refine to level_min
     for (uint8_t level=0; level<level_min; ++level)
@@ -88,16 +64,6 @@ public:
     {
         const LightOctree& lmesh = pmesh.getLightOctree();
         uint32_t nbOcts = lmesh.getNumOctants();
-
-        ForeachCell foreach_cell(
-            pmesh,
-            ForeachCell::CData{
-            ndim,
-            bx, by, bz, 
-            xmin, ymin, zmin,
-            xmax, ymax, zmax,
-            nbOcts}
-        );
 
         ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
         U  = foreach_cell.allocate_ghosted_array( "U" , fieldMgr );
@@ -135,16 +101,6 @@ public:
 
     // Reallocate and fill U
     {
-        ForeachCell foreach_cell( pmesh,
-        {
-            ndim,
-            bx, by, bz, 
-            xmin, ymin, zmin,
-            xmax, ymax, zmax,
-            nbOctsPerGroup
-        }
-        );
-
         // TODO wrap reallocation in U.reallocate(pmesh)?
         U  = foreach_cell.allocate_ghosted_array( "U" , fieldMgr );
 

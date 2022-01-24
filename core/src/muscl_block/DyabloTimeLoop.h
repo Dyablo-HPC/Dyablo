@@ -64,12 +64,6 @@ public:
 
     m_field_manager = FieldManager::setup(ndim, gravity_type); // TODO : configure from what is needed by kernels
 
-    uint32_t bx = configMap.getValue<uint32_t>("amr", "bx", 0);
-    uint32_t by = configMap.getValue<uint32_t>("amr", "by", 0);
-    uint32_t bz = configMap.getValue<uint32_t>("amr", "bz", 1);
-
-    AMRmesh& amr_mesh = *m_amr_mesh;
-
     std::string godunov_updater_id = configMap.getValue<std::string>("hydro", "update", "MusclBlockUpdate_generic");
     this->godunov_updater = MusclBlockUpdateFactory::make_instance( godunov_updater_id,
       configMap,
@@ -139,13 +133,10 @@ public:
       std::unique_ptr<InitialConditions> initial_conditions =
         InitialConditionsFactory::make_instance(init_id, 
           configMap,
-          amr_mesh, 
-          m_field_manager,
-          1024,
-          bx, by, bz,
+          m_foreach_cell,
           timers);
 
-      initial_conditions->init(U);
+      initial_conditions->init( U, m_field_manager );
     }
 
     // Allocate U2

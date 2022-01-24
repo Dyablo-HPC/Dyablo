@@ -618,9 +618,10 @@ void run_test()
   // Allocate U2
   CellArray Ughosted;
   Timers timers;
+  AMRBlockForeachCell_group foreach_cell(*amr_mesh, configMap);
 
-  Init_implode init_implode(configMap, *amr_mesh, fieldMgr, nbOctsPerGroup, bx, by, bz, timers);
-  init_implode.init( Ughosted ); 
+  Init_implode init_implode(configMap, foreach_cell, timers);
+  init_implode.init( Ughosted, fieldMgr ); 
   AnalyticalFormula_implode_norefine init_implode_formula( configMap );
   Ughosted.exchange_ghosts( GhostCommunicator_kokkos( amr_mesh ) );
   

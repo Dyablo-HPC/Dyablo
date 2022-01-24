@@ -68,13 +68,10 @@ void run_test(std::string name, std::string filename) {
     std::unique_ptr<InitialConditions> initial_conditions =
       InitialConditionsFactory::make_instance(init_name, 
         configMap,
-        amr_mesh, 
-        field_manager,
-        1024,
-        bx, by, bz,
+        foreach_cell,
         timers);
 
-    initial_conditions->init(U);
+    initial_conditions->init(U, field_manager);
   }
   ForeachCell::CellArray_global_ghosted U2 = foreach_cell.allocate_ghosted_array("U2", field_manager); 
   
