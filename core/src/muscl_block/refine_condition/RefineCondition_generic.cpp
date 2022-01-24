@@ -147,7 +147,7 @@ public:
     ForeachCell::CellArray_patch::Ref Ugroup_ = foreach_cell.reserve_patch_tmp("Ugroup", 2, 2, (ndim == 3)?2:0, fm, nbfields);
     ForeachCell::CellArray_patch::Ref Qgroup_ = foreach_cell.reserve_patch_tmp("Qgroup", 2, 2, (ndim == 3)?2:0, fm, nbfields);
 
-    uint32_t nbOcts = foreach_cell.pmesh.getNumOctants();
+    uint32_t nbOcts = foreach_cell.get_amr_mesh().getNumOctants();
     Kokkos::View<real_t*> oct_err_max("Oct_err_max", nbOcts);
 
     // Iterate over patches
@@ -193,10 +193,10 @@ public:
       });
     });
 
-    AMRmesh& pmesh = foreach_cell.pmesh;
+    AMRmesh& pmesh = foreach_cell.get_amr_mesh();
     int level_min = pmesh.get_level_min();
     int level_max = pmesh.get_level_max();
-    const LightOctree& lmesh = foreach_cell.pmesh.getLightOctree();    
+    const LightOctree& lmesh = pmesh.getLightOctree();    
     Kokkos::View<uint32_t*> markers_iOct("markers_iOct", nbOcts);
     Kokkos::View<int*> markers_marker("markers_marker", nbOcts);
     uint32_t nb_markers = 0;

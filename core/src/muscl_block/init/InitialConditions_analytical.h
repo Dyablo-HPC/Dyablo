@@ -37,15 +37,15 @@ public:
   : analytical_formula(configMap),
     data({
       foreach_cell,
-      foreach_cell.pmesh.get_level_min(),
-      foreach_cell.pmesh.get_level_max()
+      foreach_cell.get_amr_mesh().get_level_min(),
+      foreach_cell.get_amr_mesh().get_level_max()
     })
   {}
 
   void init( ForeachCell::CellArray_global_ghosted& U, const FieldManager& fieldMgr )
   {
     ForeachCell& foreach_cell = data.foreach_cell;
-    AMRmesh& pmesh     = foreach_cell.pmesh;
+    AMRmesh& pmesh     = foreach_cell.get_amr_mesh();
 
     uint32_t ndim = pmesh.getDim();
     int level_min = data.level_min;

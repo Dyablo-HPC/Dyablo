@@ -12,7 +12,7 @@ public:
                 Timers& timers )
   : cfl( configMap.getValue<real_t>("hydro", "cfl", 0.5) ),
     params(configMap),
-    pmesh(foreach_cell.pmesh)
+    pmesh(foreach_cell.get_amr_mesh())
   {}
 
   double compute_dt( const ForeachCell::CellArray_global_ghosted& U)

@@ -113,16 +113,16 @@ public:
   using Patch = typename PatchManager_t::Patch;
   using CellArray_patch = typename PatchManager_t::CellArray_patch;
 
-public: // TODO make private
+private:
   template< typename View_t >
   using CellArray_base = AMRBlockForeachCell_CellArray_impl::CellArray_base<View_t>;
   using CData = AMRBlockForeachCell_CData;
-  // Struct constant parameters for all patches  
   AMRmesh& pmesh;
+  // Struct constant parameters for all patches 
   const CData cdata;
   PatchManager_t patchmanager;
 
-public: // TODO make private
+private:
   AMRBlockForeachCell_impl(AMRmesh& pmesh, const CData& cdata)
   : pmesh(pmesh), cdata(cdata), patchmanager(cdata, pmesh)
   {}
@@ -166,6 +166,10 @@ public:
     return cdata.ndim;
   }
 
+  AMRmesh& get_amr_mesh()
+  {
+    return pmesh;
+  }
 
   /**
    * Get CellMetaData related to current mesh

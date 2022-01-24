@@ -22,9 +22,9 @@ IOManager_hdf5::IOManager_hdf5(
   ForeachCell& foreach_cell,
   Timers& timers )
  : pdata(new Data
-    {foreach_cell.pmesh, 
+    {foreach_cell.get_amr_mesh(), 
     timers,
-    HDF5_Writer( &foreach_cell.pmesh, configMap ),
+    HDF5_Writer( &foreach_cell.get_amr_mesh(), configMap ),
     configMap.getValue<std::string>("output", "outputDir", "./"),
     configMap.getValue<std::string>("output", "outputPrefix", "output"),
     configMap.getValue<std::string>("output", "write_variables", "rho")

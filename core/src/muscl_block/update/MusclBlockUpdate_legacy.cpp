@@ -30,8 +30,8 @@ MusclBlockUpdate_legacy::MusclBlockUpdate_legacy(
   Timers& timers )
  : pdata(new Data
     {foreach_cell, 
-    foreach_cell.pmesh.getNumOctants(),
-    foreach_cell.pmesh.getDim(),
+    foreach_cell.get_amr_mesh().getNumOctants(),
+    foreach_cell.get_amr_mesh().getDim(),
     MusclBlockGodunovUpdateFunctor::Params(configMap),
     configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_ABSORBING),
     configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmax", BC_ABSORBING),
@@ -42,8 +42,8 @@ MusclBlockUpdate_legacy::MusclBlockUpdate_legacy(
     timers})
 {
   pdata->nbOctsPerGroup = std::min( 
-      foreach_cell.pmesh.getNumOctants(), 
-      configMap.getValue<uint32_t>("amr","nbOctsPerGroup",foreach_cell.pmesh.getNumOctants()));
+      foreach_cell.get_amr_mesh().getNumOctants(), 
+      configMap.getValue<uint32_t>("amr","nbOctsPerGroup",foreach_cell.get_amr_mesh().getNumOctants()));
 
 }
 
@@ -58,10 +58,10 @@ void MusclBlockUpdate_legacy::update(const ForeachCell::CellArray_global_ghosted
                  "MusclBlockUpdate_legacy can only be compiled for block-based ForeachCell" );
   
   ForeachCell& foreach_cell = pdata->foreach_cell;
-  const LightOctree& lmesh = foreach_cell.pmesh.getLightOctree();
+  const LightOctree& lmesh = foreach_cell.get_amr_mesh().getLightOctree();
   const id2index_t& fm = Uin.fm;
 
-  uint32_t nbOctsPerGroup = foreach_cell.cdata.nbOctsPerGroup;
+  uint32_t nbOctsPerGroup = pdata->nbOctsPerGroup;
   uint32_t bx = Uin.bx, by = Uin.by, bz = Uin.bz;  
   Timers& timers = pdata->timers; 
   GravityType gravity_type = pdata->params.gravity_type;
