@@ -72,6 +72,16 @@ struct CellIndex
     return status==LOCAL_TO_BLOCK;
   }
 
+  /**
+   * Get local octant index (cannot be ghost)
+   **/
+  KOKKOS_INLINE_FUNCTION
+  uint32_t getOct() const
+  {
+    assert(!iOct.isGhost);
+    return iOct.iOct;
+  }
+
   using offset_t = Kokkos::Array< int16_t, 3 >;
 
 

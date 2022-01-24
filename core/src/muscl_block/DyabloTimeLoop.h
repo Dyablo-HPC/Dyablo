@@ -102,7 +102,7 @@ public:
       timers
     );
 
-    std::string refine_condition_id = configMap.getValue<std::string>("amr", "markers_kernel", "RefineCondition_legacy");
+    std::string refine_condition_id = configMap.getValue<std::string>("amr", "markers_kernel", "RefineCondition_generic");
     this->refine_condition = RefineConditionFactory::make_instance( refine_condition_id,
       configMap,
       m_foreach_cell,
@@ -119,6 +119,8 @@ public:
       std::cout << "IO Manager         : " << iomanager_id << std::endl;
       std::cout << "Gravity solver     : " << gravity_solver_id << std::endl;
       std::cout << "Initial conditions : " << init_id << std::endl;
+      std::cout << "Refine condition   : " << refine_condition_id << std::endl;
+      std::cout << "Compute dt         : " << compute_dt_id << std::endl;
       std::cout << "##########################" << std::endl;
       
       float Udata_mem_size = DataArrayBlock::required_allocation_size( U.U.extent(0), U.U.extent(1), U.U.extent(2) ) * (2 / 1e6) ;
