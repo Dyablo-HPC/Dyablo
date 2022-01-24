@@ -254,7 +254,7 @@ public:
    *        This is usually a KOKKOS_LAMBDA that calls patch.foreach_cells(...)
    **/
   template <typename Function>
-  void foreach_patch(const std::string& kernel_name, const Function& f) const
+  void foreach_patch(const std::string& kernel_name, const Function& f)
   {
     patchmanager.foreach_patch(kernel_name, f);
   }

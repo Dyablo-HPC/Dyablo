@@ -26,7 +26,7 @@
 #include "muscl_block/legacy/CopyGhostBlockCellData.h"
 #include "muscl_block/legacy/ConvertToPrimitivesHydroFunctor.h"
 #include "muscl_block/init/InitialConditions_analytical.h"
-#include "muscl_block/foreach_cell/AMRBlockForeachCell_group.h"
+#include "muscl_block/foreach_cell/AMRBlockForeachCell.h"
 #include "shared/problems/ImplodeParams.h"
 
 using Device = Kokkos::DefaultExecutionSpace;
@@ -618,7 +618,7 @@ void run_test()
   // Allocate U2
   CellArray Ughosted;
   Timers timers;
-  AMRBlockForeachCell_group foreach_cell(*amr_mesh, configMap);
+  ForeachCell foreach_cell(*amr_mesh, configMap);
 
   Init_implode init_implode(configMap, foreach_cell, timers);
   init_implode.init( Ughosted, fieldMgr ); 
