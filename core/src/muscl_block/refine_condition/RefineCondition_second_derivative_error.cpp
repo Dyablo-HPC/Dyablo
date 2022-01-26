@@ -80,10 +80,10 @@ real_t second_derivative_error(
 
 }
 
-class RefineCondition_generic : public RefineCondition
+class RefineCondition_second_derivative_error : public RefineCondition
 {
 public:
-  RefineCondition_generic( ConfigMap& configMap,
+  RefineCondition_second_derivative_error( ConfigMap& configMap,
                 ForeachCell& foreach_cell,
                 Timers& timers )
     : foreach_cell(foreach_cell),
@@ -264,4 +264,4 @@ private:
 } // namespace muscl_block 
 } // namespace dyablo 
 
-FACTORY_REGISTER( dyablo::muscl_block::RefineConditionFactory, dyablo::muscl_block::RefineCondition_generic, "RefineCondition_generic" );
+FACTORY_REGISTER( dyablo::muscl_block::RefineConditionFactory, dyablo::muscl_block::RefineCondition_second_derivative_error, "RefineCondition_second_derivative_error" );

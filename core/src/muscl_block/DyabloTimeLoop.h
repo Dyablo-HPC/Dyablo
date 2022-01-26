@@ -96,7 +96,7 @@ public:
       timers
     );
 
-    std::string refine_condition_id = configMap.getValue<std::string>("amr", "markers_kernel", "RefineCondition_generic");
+    std::string refine_condition_id = configMap.getValue<std::string>("amr", "markers_kernel", "RefineCondition_second_derivative_error");
     this->refine_condition = RefineConditionFactory::make_instance( refine_condition_id,
       configMap,
       m_foreach_cell,

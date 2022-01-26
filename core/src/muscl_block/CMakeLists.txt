@@ -3,7 +3,8 @@ set (muscl_block_SRCS
   ${CMAKE_CURRENT_SOURCE_DIR}/update/MusclBlockUpdate_generic.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/gravity/GravitySolver_constant.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/compute_dt/Compute_dt_generic.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/refine_condition/RefineCondition_generic.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/refine_condition/RefineCondition_second_derivative_error.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/refine_condition/RefineCondition_pseudo_gradient.cpp
   )
 
 list(APPEND muscl_block_SRCS
