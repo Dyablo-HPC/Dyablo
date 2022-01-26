@@ -122,16 +122,11 @@ private:
   const CData cdata;
   PatchManager_t patchmanager;
 
-private:
-  AMRBlockForeachCell_impl(AMRmesh& pmesh, const CData& cdata)
-  : pmesh(pmesh), cdata(cdata), patchmanager(cdata, pmesh)
-  {}
-
 public:
   AMRBlockForeachCell_impl( AMRmesh & pmesh, ConfigMap& configMap )
   :
-    AMRBlockForeachCell_impl(pmesh,
-    CData{
+    pmesh(pmesh),
+    cdata{
       pmesh.getDim(),
       configMap.getValue<uint32_t>("amr", "bx", 0),
       configMap.getValue<uint32_t>("amr", "by", 0),
@@ -142,23 +137,9 @@ public:
       configMap.getValue<real_t>("mesh", "xmax", 1),
       configMap.getValue<real_t>("mesh", "ymax", 1),
       configMap.getValue<real_t>("mesh", "zmax", 1),
-      configMap.getValue<uint32_t>("amr", "nbOctsPerGroup", 64),
-    })
-  {}
-
-  AMRBlockForeachCell_impl( AMRmesh & pmesh,
-                            uint32_t bx, uint32_t by, uint32_t bz,
-                            real_t xmin, real_t ymin, real_t zmin,
-                            real_t xmax, real_t ymax, real_t zmax,
-                            uint32_t nbOctsPerGroup )
-   : AMRBlockForeachCell_impl( pmesh,
-     CData{
-      pmesh.getDim(),
-      bx, by, bz,
-      xmin, ymin, zmin,
-      xmax, ymax, zmax,
-      nbOctsPerGroup
-    })
+      configMap.getValue<uint32_t>("amr", "nbOctsPerGroup", 64)
+    },
+    patchmanager(cdata, pmesh)
   {}
 
   int getDim()
@@ -186,53 +167,39 @@ public:
    * when CellIndex is outside the block (when iter_space is ghosted, or an offset was applied), 
    * CellArray::convert_index returns an index with status == invalid (no neighbor search is performed)
    **/
-  CellArray_global get_global_array(const DataArrayBlock& U, uint32_t gx, uint32_t gy, uint32_t gz, const id2index_t& fm)
-  {
-    const CData& cdata = this->cdata;
-    uint32_t bx = cdata.bx+2*gx;
-    uint32_t by = cdata.by+2*gy;
-    uint32_t bz = cdata.bz+2*gz;
-    assert(U.extent(0) == bx*by*bz);
-    assert(U.extent(2) >= pmesh.getNumOctants());
-    assert( cdata.ndim != 2 || bz==1 );
+  // CellArray_global get_global_array(const DataArrayBlock& U, uint32_t gx, uint32_t gy, uint32_t gz, const id2index_t& fm)
+  // {
+  //   const CData& cdata = this->cdata;
+  //   uint32_t bx = cdata.bx+2*gx;
+  //   uint32_t by = cdata.by+2*gy;
+  //   uint32_t bz = cdata.bz+2*gz;
+  //   assert(U.extent(0) == bx*by*bz);
+  //   assert(U.extent(2) >= pmesh.getNumOctants());
+  //   assert( cdata.ndim != 2 || bz==1 );
 
-    return CellArray_global{U, bx, by, bz, (uint32_t)U.extent(2), fm};
-  }
-  /**
-   * Create a new Patch::CellArray from a global array and its ghosts
-   * The slice of U corresponding to the current patch will be exposed inside foreach_patch.
-   * For CellIndexes outside the block (when iter_space is ghosted, or an offset was applied),
-   * CellArray::convert_index may perform a neighbor search to find the corresponding ghost cell
-   * (that might be non-conforming, see CellIndex documentation)
-   **/
-  CellArray_global_ghosted get_ghosted_array(const DataArrayBlock& U, const DataArrayBlock& Ughost, const id2index_t& fm)
+  //   return CellArray_global{U, bx, by, bz, (uint32_t)U.extent(2), fm};
+  // }
+
+  CellArray_global_ghosted allocate_ghosted_array( std::string name, const FieldManager& fieldMgr)
   {
     const CData& cdata = this->cdata;
     uint32_t bx = cdata.bx;
     uint32_t by = cdata.by;
     uint32_t bz = cdata.bz;
-    assert(U.extent(0) == bx*by*bz);
-    assert(Ughost.extent(0) == bx*by*bz || Ughost.extent(2) == 0 );
-    assert(U.extent(2) == pmesh.getNumOctants());
-    assert( cdata.ndim != 2 || bz==1 );
-
-    const LightOctree& lmesh = pmesh.getLightOctree(); // TODO : update this lmesh
-
-    return CellArray_global_ghosted(CellArray_global{U, bx, by, bz, (uint32_t)U.extent(2), fm}, Ughost, lmesh);
-  }
-
-  CellArray_global_ghosted allocate_ghosted_array( std::string name, const FieldManager& fieldMgr)
-  {
-    int nbCellsPerOct = cdata.bx*cdata.by*cdata.bz;
+    int nbCellsPerOct = bx*by*bz;
     int nbFields = fieldMgr.nbfields();
     int nbOcts = pmesh.getNumOctants();
     int nbGhosts = pmesh.getNumGhosts();
     auto fm = fieldMgr.get_id2index();
 
+    assert( cdata.ndim != 2 || bz==1 );
+
     DataArrayBlock U(name, nbCellsPerOct, nbFields, nbOcts );
     DataArrayBlock Ughost(name+"ghost", nbCellsPerOct, nbFields, nbGhosts );
 
-    return get_ghosted_array(U, Ughost, fm);
+    const LightOctree& lmesh = pmesh.getLightOctree();
+
+    return CellArray_global_ghosted(CellArray_global{U, bx, by, bz, (uint32_t)U.extent(2), fm}, Ughost, lmesh);
   }
   /**
    * Reserve a new temporary ghosted cell array local to each patch. 
