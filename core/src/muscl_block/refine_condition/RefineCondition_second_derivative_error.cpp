@@ -232,12 +232,17 @@ public:
       }
     }, nb_markers);
 
+    auto markers_iOct_host = Kokkos::create_mirror_view(markers_iOct);
+    auto markers_marker_host = Kokkos::create_mirror_view(markers_marker);
+    Kokkos::deep_copy( markers_iOct_host, markers_iOct );
+    Kokkos::deep_copy( markers_marker_host, markers_marker );
+
     Kokkos::parallel_for( "MarkOctantsHydroFunctor::set_markers_pablo", 
                         Kokkos::RangePolicy<Kokkos::OpenMP>(0,nb_markers),
                         [&](uint32_t i)
     {
-      uint32_t iOct = markers_iOct(i);
-      int marker = markers_marker(i);
+      uint32_t iOct = markers_iOct_host(i);
+      int marker = markers_marker_host(i);
 
       pmesh.setMarker(iOct, marker);
     });
