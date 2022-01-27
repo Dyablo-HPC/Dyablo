@@ -25,6 +25,18 @@ using BField = Kokkos::Array<real_t, 3>;
 // =================================================================
 template<size_t dim>
 KOKKOS_INLINE_FUNCTION
+StateNd<dim> operator+(const StateNd<dim>& lhs, const StateNd<dim>& rhs)
+{
+  StateNd<dim> res{};
+  for (size_t i=0; i<dim; ++i)
+    res[i] = lhs[i] + rhs[i];
+
+  return res;
+
+} // operator+=
+
+template<size_t dim>
+KOKKOS_INLINE_FUNCTION
 StateNd<dim>& operator+=(StateNd<dim>& lhs, const StateNd<dim>& rhs)
 {
 
@@ -53,7 +65,7 @@ StateNd<dim>& operator-=(StateNd<dim>& lhs, const StateNd<dim>& rhs)
 // =================================================================
 template<size_t dim>
 KOKKOS_INLINE_FUNCTION
-StateNd<dim> operator*(StateNd<dim>& lhs, real_t rhs)
+StateNd<dim> operator*(const StateNd<dim>& lhs, real_t rhs)
 {
 
   StateNd<dim> res;

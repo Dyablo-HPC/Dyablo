@@ -145,9 +145,8 @@ void compute_primitives(
 KOKKOS_INLINE_FUNCTION
 real_t big_real()
 {
-return 1e99;
+  return 1e99;
 }
-
 
 /**
  * Compute limited slopes and store result in Slopes_xyz
@@ -164,8 +163,11 @@ void compute_limited_slopes(const GhostedArray& Q, const CellIndex& iCell_U,
                             ForeachCell::CellMetaData::pos_t pos_cell, ForeachCell::CellMetaData::pos_t cell_size,
                             const GhostedArray& Slope_x, const GhostedArray& Slope_y, const GhostedArray& Slope_z)
 {
-    for( VarIndex ivar : {ID,IP,IU,IV,IW}  )
+    constexpr VarIndex vars[] = {ID,IP,IU,IV,IW};
+
+    for( int i=0; i< ( ndim==2 ? 4 : 5 ); i++ )
     {
+        VarIndex ivar = vars[i];
         Kokkos::Array<real_t,3> grad {big_real(), big_real(), big_real()};
         
         /// Compute gradient and apply slope limiter for neighbor 'iCell_neighbor' at position 'pos_neighbor' and in direction 'dir'
@@ -227,13 +229,70 @@ void compute_limited_slopes(const GhostedArray& Q, const CellIndex& iCell_U,
         process_neighbors(IX, -1);
         process_neighbors(IY, +1);
         process_neighbors(IY, -1);
-        process_neighbors(IZ, +1);
-        process_neighbors(IZ, -1);
+        if(ndim==3)
+        {
+          process_neighbors(IZ, +1);
+          process_neighbors(IZ, -1);
+        }
 
         Slope_x.at( iCell_U, ivar ) = grad[IX];
         Slope_y.at( iCell_U, ivar ) = grad[IY];
+        if(ndim==3)
         Slope_z.at( iCell_U, ivar ) = grad[IZ];
+          
     }
+}
+
+template< int ndim >
+KOKKOS_INLINE_FUNCTION
+HydroState3d compute_source(  const HydroState3d& q,
+                              const HydroState3d& slopeX,
+                              const HydroState3d& slopeY,
+                              const HydroState3d& slopeZ,
+                              real_t dtdx, real_t dtdy, real_t dtdz,
+                              real_t gamma )
+{
+  // retrieve primitive variables in current quadrant
+  const real_t r = q[ID];
+  const real_t p = q[IP];
+  const real_t u = q[IU];
+  const real_t v = q[IV];
+  const real_t w = q[IW];
+
+  // retrieve variations = dx * slopes
+  const real_t drx = slopeX[ID] * 0.5;
+  const real_t dpx = slopeX[IP] * 0.5;
+  const real_t dux = slopeX[IU] * 0.5;
+  const real_t dvx = slopeX[IV] * 0.5;
+  const real_t dwx = slopeX[IW] * 0.5;    
+  const real_t dry = slopeY[ID] * 0.5;
+  const real_t dpy = slopeY[IP] * 0.5;
+  const real_t duy = slopeY[IU] * 0.5;
+  const real_t dvy = slopeY[IV] * 0.5;
+  const real_t dwy = slopeY[IW] * 0.5;    
+  const real_t drz = slopeZ[ID] * 0.5;
+  const real_t dpz = slopeZ[IP] * 0.5;
+  const real_t duz = slopeZ[IU] * 0.5;
+  const real_t dvz = slopeZ[IV] * 0.5;
+  const real_t dwz = slopeZ[IW] * 0.5;
+
+  HydroState3d source;
+  if( ndim == 3 )
+  {
+    source[ID] = r + (-u * drx - dux * r) * dtdx + (-v * dry - dvy * r) * dtdy + (-w * drz - dwz * r) * dtdz;
+    source[IU] = u + (-u * dux - dpx / r) * dtdx + (-v * duy) * dtdy + (-w * duz) * dtdz;
+    source[IV] = v + (-u * dvx) * dtdx + (-v * dvy - dpy / r) * dtdy + (-w * dvz) * dtdz;
+    source[IW] = w + (-u * dwx) * dtdx + (-v * dwy) * dtdy + (-w * dwz - dpz / r) * dtdz;
+    source[IP] = p + (-u * dpx - dux * gamma * p) * dtdx + (-v * dpy - dvy * gamma * p) * dtdy + (-w * dpz - dwz * gamma * p) * dtdz;
+  }
+  else
+  {
+    source[ID] = r + (-u * drx - dux * r) * dtdx + (-v * dry - dvy * r) * dtdy;
+    source[IU] = u + (-u * dux - dpx / r) * dtdx + (-v * duy) * dtdy;
+    source[IV] = v + (-u * dvx) * dtdx + (-v * dvy - dpy / r) * dtdy;
+    source[IP] = p + (-u * dpx - dux * gamma * p) * dtdx + (-v * dpy - dvy * gamma * p) * dtdy;
+  }
+  return source;
 }
 
 /**
@@ -326,80 +385,68 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
                             reconstruct_offset_t offsets,
                             ForeachCell::CellMetaData::pos_t cell_size, real_t dt )
   {
-    assert(ndim == 3); // 2D not implemented
-
-    HydroState3d qr;
-    
     const double gamma  = params.gamma0;
     const double smallr = params.smallr;
     
-    //double xyz_center[3];
-    
-    real_t r,p,u,v,w;
-    real_t sr0, sp0, su0, sv0, sw0;
-    real_t drx, dpx, dux, dvx, dwx;
-    real_t dry, dpy, duy, dvy, dwy;
-    real_t drz, dpz, duz, dvz, dwz;
-    
     const real_t dtdx = dt/cell_size[IX];
     const real_t dtdy = dt/cell_size[IY];
-    const real_t dtdz = dt/cell_size[IZ];
 
-    real_t dx2 = cell_size[IX]/2;
-    real_t dy2 = cell_size[IY]/2;
-    real_t dz2 = cell_size[IZ]/2;
+    HydroState3d diff_x = getHydroState<ndim>( Slopes_x, iCell_U ) * cell_size[IX] * 0.5;
+    HydroState3d diff_y = getHydroState<ndim>( Slopes_y, iCell_U ) * cell_size[IY] * 0.5;
+    HydroState3d diff_z = {};
 
     // retrieve primitive variables in current quadrant
-    r = q[ID];
-    p = q[IP];
-    u = q[IU];
-    v = q[IV];
-    w = q[IW];
-
-    // retrieve variations = dx * slopes
-    drx = dx2 * Slopes_x.at(iCell_U, ID);
-    dpx = dx2 * Slopes_x.at(iCell_U, IP);
-    dux = dx2 * Slopes_x.at(iCell_U, IU);
-    dvx = dx2 * Slopes_x.at(iCell_U, IV);
-    dwx = dx2 * Slopes_x.at(iCell_U, IW);
-
-    dry = dy2 * Slopes_y.at(iCell_U, ID);
-    dpy = dy2 * Slopes_y.at(iCell_U, IP);
-    duy = dy2 * Slopes_y.at(iCell_U, IU);
-    dvy = dy2 * Slopes_y.at(iCell_U, IV);
-    dwy = dy2 * Slopes_y.at(iCell_U, IW);
-
-    drz = dz2 * Slopes_z.at(iCell_U, ID);
-    dpz = dz2 * Slopes_z.at(iCell_U, IP);
-    duz = dz2 * Slopes_z.at(iCell_U, IU);
-    dvz = dz2 * Slopes_z.at(iCell_U, IV);
-    dwz = dz2 * Slopes_z.at(iCell_U, IW);
-
-    // source terms (with transverse derivatives)
-    sr0 = (-u*drx-dux*r      )*dtdx + (-v*dry-dvy*r      )*dtdy + (-w*drz-dwz*r      )*dtdz;
-    su0 = (-u*dux-dpx/r      )*dtdx + (-v*duy            )*dtdy + (-w*duz            )*dtdz;
-    sv0 = (-u*dvx            )*dtdx + (-v*dvy-dpy/r      )*dtdy + (-w*dvz            )*dtdz;
-    sw0 = (-u*dwx            )*dtdx + (-v*dwy            )*dtdy + (-w*dwz-dpz/r      )*dtdz;
-    sp0 = (-u*dpx-dux*gamma*p)*dtdx + (-v*dpy-dvy*gamma*p)*dtdy + (-w*dpz-dwz*gamma*p)*dtdz;
-
-    // Update in time the  primitive variables
-    r = r + sr0;
-    u = u + su0;
-    v = v + sv0;
-    w = w + sw0;
-    p = p + sp0;
+    real_t r = q[ID];
+    real_t p = q[IP];
+    real_t u = q[IU];
+    real_t v = q[IV];
+    real_t w = q[IW];   
     
-    // reconstruct state on interface
-    qr[ID] = r + offsets[IX] * drx + offsets[IY] * dry + offsets[IZ] * drz ;
-    qr[IP] = p + offsets[IX] * dpx + offsets[IY] * dpy + offsets[IZ] * dpz ;
-    qr[IU] = u + offsets[IX] * dux + offsets[IY] * duy + offsets[IZ] * duz ;
-    qr[IV] = v + offsets[IX] * dvx + offsets[IY] * dvy + offsets[IZ] * dvz ;
-    qr[IW] = w + offsets[IX] * dwx + offsets[IY] * dwy + offsets[IZ] * dwz ;
+    // retrieve variations = dx * slopes
+    real_t drx = diff_x[ID];
+    real_t dpx = diff_x[IP];
+    real_t dux = diff_x[IU];
+    real_t dvx = diff_x[IV];
+    real_t dwx = diff_x[IW];
 
+    real_t dry = diff_y[ID];
+    real_t dpy = diff_y[IP];
+    real_t duy = diff_y[IU];
+    real_t dvy = diff_y[IV];
+    real_t dwy = diff_y[IW];
+
+    HydroState3d qs;
+    if( ndim == 3 )
+    {
+      const real_t dtdz = dt/cell_size[IZ];
+
+      diff_z = getHydroState<ndim>( Slopes_z, iCell_U ) * cell_size[IZ] * 0.5;
+
+      real_t drz = diff_z[ID];
+      real_t dpz = diff_z[IP];
+      real_t duz = diff_z[IU];
+      real_t dvz = diff_z[IV];
+      real_t dwz = diff_z[IW];
+
+      qs[ID] = r + (-u * drx - dux * r) * dtdx + (-v * dry - dvy * r) * dtdy + (-w * drz - dwz * r) * dtdz;
+      qs[IU] = u + (-u * dux - dpx / r) * dtdx + (-v * duy) * dtdy + (-w * duz) * dtdz;
+      qs[IV] = v + (-u * dvx) * dtdx + (-v * dvy - dpy / r) * dtdy + (-w * dvz) * dtdz;
+      qs[IW] = w + (-u * dwx) * dtdx + (-v * dwy) * dtdy + (-w * dwz - dpz / r) * dtdz;
+      qs[IP] = p + (-u * dpx - dux * gamma * p) * dtdx + (-v * dpy - dvy * gamma * p) * dtdy + (-w * dpz - dwz * gamma * p) * dtdz;
+    }
+    else
+    {
+      qs[ID] = r + (-u * drx - dux * r) * dtdx + (-v * dry - dvy * r) * dtdy;
+      qs[IU] = u + (-u * dux - dpx / r) * dtdx + (-v * duy) * dtdy;
+      qs[IV] = v + (-u * dvx) * dtdx + (-v * dvy - dpy / r) * dtdy;
+      qs[IP] = p + (-u * dpx - dux * gamma * p) * dtdx + (-v * dpy - dvy * gamma * p) * dtdy;
+    }
+
+    // reconstruct state on interface
+    HydroState3d qr = qs + diff_x * offsets[IX] + diff_y * offsets[IY] + diff_z * offsets[IZ];
     qr[ID] = fmax(smallr, qr[ID]);
 
-    return qr;
-    
+    return qr;    
   };
 
   // Process every neighbor in direction dir (sign = Left(-1)/Right(1))
@@ -531,8 +578,11 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
   process_dir(IX, -1);
   process_dir(IY, +1);
   process_dir(IY, -1);
-  process_dir(IZ, +1);
-  process_dir(IZ, -1);
+  if(ndim==3)
+  {
+    process_dir(IZ, +1);
+    process_dir(IZ, -1);
+  }
 
   setHydroState<ndim>(Uout, iCell_Q, qcons);
 }
@@ -570,7 +620,9 @@ void MusclBlockUpdate_muscl_oneneighbor::update_aux(
     // Create arrays to store slopes
     GhostedArray Slopes_x = foreach_cell.allocate_ghosted_array( "Slopes_x", field_manager );
     GhostedArray Slopes_y = foreach_cell.allocate_ghosted_array( "Slopes_Y", field_manager );
-    GhostedArray Slopes_z = foreach_cell.allocate_ghosted_array( "Slopes_z", field_manager );
+    GhostedArray Slopes_z;
+    if(ndim == 3)
+      Slopes_z = foreach_cell.allocate_ghosted_array( "Slopes_z", field_manager );
 
     ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
 
@@ -582,7 +634,8 @@ void MusclBlockUpdate_muscl_oneneighbor::update_aux(
     // Slopes of ghost cells are needed to compute flux
     Slopes_x.exchange_ghosts(ghost_comm);
     Slopes_y.exchange_ghosts(ghost_comm);
-    Slopes_z.exchange_ghosts(ghost_comm);
+    if(ndim == 3)
+      Slopes_z.exchange_ghosts(ghost_comm);
 
     // Compute flux and update Uout
     foreach_cell.foreach_cell("MusclBlockUpdate_muscl_oneneighbor::flux_and_update", Q, CELL_LAMBDA(const CellIndex& iCell_Q)
