@@ -103,8 +103,11 @@ public:
       diff_max = FMAX( diff_max, grad(IX, -1) );
       diff_max = FMAX( diff_max, grad(IY, +1) );
       diff_max = FMAX( diff_max, grad(IY, -1) );
-      diff_max = FMAX( diff_max, grad(IZ, +1) );
-      diff_max = FMAX( diff_max, grad(IZ, -1) );
+      if(ndim==3)
+      {
+        diff_max = FMAX( diff_max, grad(IZ, +1) );
+        diff_max = FMAX( diff_max, grad(IZ, -1) );
+      }
 
       Kokkos::atomic_fetch_max( &oct_err_max( iCell.getOct() ), diff_max );
     });

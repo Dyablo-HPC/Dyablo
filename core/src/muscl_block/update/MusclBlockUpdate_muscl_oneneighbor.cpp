@@ -96,7 +96,7 @@ HydroState3d getHydroState( const Array_t& U, const CellIndex& iCell )
   res[IP] = U.at(iCell, IP);
   res[IU] = U.at(iCell, IU);
   res[IV] = U.at(iCell, IV);
-  if(ndim==3) res[IW] = U.at(iCell, IW);
+  res[IW] = (ndim==3) ? U.at(iCell, IW) : 0;
   return res;
 }
 
@@ -108,7 +108,8 @@ void setHydroState( const Array_t& U, const CellIndex& iCell, const HydroState3d
   U.at(iCell, IP) = state[IP];
   U.at(iCell, IU) = state[IU];
   U.at(iCell, IV) = state[IV];
-  if(ndim==3) U.at(iCell, IW) = state[IW];
+  if(ndim==3)
+    U.at(iCell, IW) = state[IW];
 }
 
 //Copied from MusclBlockUpdate_generic
@@ -121,7 +122,7 @@ void compute_primitives(
   HydroState3d uLoc = getHydroState<ndim>( Ugroup, iCell_Ugroup );
       
   // get primitive variables in current cell
-  HydroState3d qLoc;
+  HydroState3d qLoc{};
   real_t c = 0.0;
   if(ndim==3)
     computePrimitives(uLoc, &c, qLoc, params.gamma0, params.smallr, params.smallp);
@@ -235,61 +236,9 @@ void compute_limited_slopes(const GhostedArray& Q, const CellIndex& iCell_U,
         Slope_x.at( iCell_U, ivar ) = grad[IX];
         Slope_y.at( iCell_U, ivar ) = grad[IY];
         if(ndim==3)
-        Slope_z.at( iCell_U, ivar ) = grad[IZ];
+          Slope_z.at( iCell_U, ivar ) = grad[IZ];
           
     }
-}
-
-template< int ndim >
-KOKKOS_INLINE_FUNCTION
-HydroState3d compute_source(  const HydroState3d& q,
-                              const HydroState3d& slopeX,
-                              const HydroState3d& slopeY,
-                              const HydroState3d& slopeZ,
-                              real_t dtdx, real_t dtdy, real_t dtdz,
-                              real_t gamma )
-{
-  // retrieve primitive variables in current quadrant
-  const real_t r = q[ID];
-  const real_t p = q[IP];
-  const real_t u = q[IU];
-  const real_t v = q[IV];
-  const real_t w = q[IW];
-
-  // retrieve variations = dx * slopes
-  const real_t drx = slopeX[ID] * 0.5;
-  const real_t dpx = slopeX[IP] * 0.5;
-  const real_t dux = slopeX[IU] * 0.5;
-  const real_t dvx = slopeX[IV] * 0.5;
-  const real_t dwx = slopeX[IW] * 0.5;    
-  const real_t dry = slopeY[ID] * 0.5;
-  const real_t dpy = slopeY[IP] * 0.5;
-  const real_t duy = slopeY[IU] * 0.5;
-  const real_t dvy = slopeY[IV] * 0.5;
-  const real_t dwy = slopeY[IW] * 0.5;    
-  const real_t drz = slopeZ[ID] * 0.5;
-  const real_t dpz = slopeZ[IP] * 0.5;
-  const real_t duz = slopeZ[IU] * 0.5;
-  const real_t dvz = slopeZ[IV] * 0.5;
-  const real_t dwz = slopeZ[IW] * 0.5;
-
-  HydroState3d source;
-  if( ndim == 3 )
-  {
-    source[ID] = r + (-u * drx - dux * r) * dtdx + (-v * dry - dvy * r) * dtdy + (-w * drz - dwz * r) * dtdz;
-    source[IU] = u + (-u * dux - dpx / r) * dtdx + (-v * duy) * dtdy + (-w * duz) * dtdz;
-    source[IV] = v + (-u * dvx) * dtdx + (-v * dvy - dpy / r) * dtdy + (-w * dvz) * dtdz;
-    source[IW] = w + (-u * dwx) * dtdx + (-v * dwy) * dtdy + (-w * dwz - dpz / r) * dtdz;
-    source[IP] = p + (-u * dpx - dux * gamma * p) * dtdx + (-v * dpy - dvy * gamma * p) * dtdy + (-w * dpz - dwz * gamma * p) * dtdz;
-  }
-  else
-  {
-    source[ID] = r + (-u * drx - dux * r) * dtdx + (-v * dry - dvy * r) * dtdy;
-    source[IU] = u + (-u * dux - dpx / r) * dtdx + (-v * duy) * dtdy;
-    source[IV] = v + (-u * dvx) * dtdx + (-v * dvy - dpy / r) * dtdy;
-    source[IP] = p + (-u * dpx - dux * gamma * p) * dtdx + (-v * dpy - dvy * gamma * p) * dtdy;
-  }
-  return source;
 }
 
 /**
@@ -382,6 +331,8 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
                             reconstruct_offset_t offsets,
                             ForeachCell::CellMetaData::pos_t cell_size, real_t dt )
   {
+    assert( ndim==3 || offsets[IZ]==0 );
+
     const double gamma  = params.gamma0;
     const double smallr = params.smallr;
     
@@ -396,26 +347,27 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
     real_t r = q[ID];
     real_t p = q[IP];
     real_t u = q[IU];
-    real_t v = q[IV];
-    real_t w = q[IW];   
+    real_t v = q[IV];     
     
     // retrieve variations = dx * slopes
     real_t drx = diff_x[ID];
     real_t dpx = diff_x[IP];
     real_t dux = diff_x[IU];
-    real_t dvx = diff_x[IV];
-    real_t dwx = diff_x[IW];
+    real_t dvx = diff_x[IV];    
 
     real_t dry = diff_y[ID];
     real_t dpy = diff_y[IP];
     real_t duy = diff_y[IU];
-    real_t dvy = diff_y[IV];
-    real_t dwy = diff_y[IW];
+    real_t dvy = diff_y[IV];    
 
-    HydroState3d qs;
+    HydroState3d qs{};
     if( ndim == 3 )
     {
       const real_t dtdz = dt/cell_size[IZ];
+
+      real_t w = q[IW];
+      real_t dwx = diff_x[IW];
+      real_t dwy = diff_y[IW];
 
       diff_z = getHydroState<ndim>( Slopes_z, iCell_U ) * cell_size[IZ] * 0.5;
 
@@ -465,8 +417,9 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
       if( (bc.boundary_type_ymin == BC_REFLECTING && iCell_Q.getNeighbor_ghost( {0,-1,0}, Q ).is_boundary())
       ||  (bc.boundary_type_ymax == BC_REFLECTING && iCell_Q.getNeighbor_ghost( {0,+1,0}, Q ).is_boundary()) )
         qr_n[IV] = -qr_n[IV];
-      if( (bc.boundary_type_zmin == BC_REFLECTING && iCell_Q.getNeighbor_ghost( {0,0,-1}, Q ).is_boundary())
-      ||  (bc.boundary_type_zmax == BC_REFLECTING && iCell_Q.getNeighbor_ghost( {0,0,+1}, Q ).is_boundary()) )
+      if( (ndim==3) &&
+        ( (bc.boundary_type_zmin == BC_REFLECTING && iCell_Q.getNeighbor_ghost( {0,0,-1}, Q ).is_boundary())
+      ||  (bc.boundary_type_zmax == BC_REFLECTING && iCell_Q.getNeighbor_ghost( {0,0,+1}, Q ).is_boundary()) ) )
         qr_n[IW] = -qr_n[IW];
 
       HydroState3d flux = riemann(qr_c, qr_n, dir, sign);
@@ -509,7 +462,7 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
         {
           ForeachCell::CellMetaData::pos_t pos_n = cellmetadata.getCellCenter(iCell_n0);
           //We need to determine which quadrant of "neighbor"'s face is "current"'s face
-          for( ComponentIndex3D facedir : {IX,IY,IZ} )
+          for( int facedir = 0; facedir < ndim; facedir++ )
           if( facedir != dir ) // Foreach direction inside face (orthogonal to dir)
           {
             offsets_n[facedir] += (pos_c[facedir] > pos_n[facedir])? 0.5 : -0.5;
@@ -545,7 +498,7 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
             const reconstruct_offset_t offsets_c{
               (offset[IX] != 0) ? (real_t)offset[IX] : di-0.5, 
               (offset[IY] != 0) ? (real_t)offset[IY] : dj-0.5, 
-              (offset[IZ] != 0) ? (real_t)offset[IZ] : dk-0.5
+              (ndim==2 || offset[IZ] != 0) ? (real_t)offset[IZ] : dk-0.5
             };
             HydroState3d qr_c = reconstruct_state(qprim, iCell_Q, offsets_c, cell_size, dt);
 
