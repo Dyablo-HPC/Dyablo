@@ -267,9 +267,8 @@ CellIndex CellArray_base<View_t>::convert_index_ghost(const CellIndex& in) const
   return CellIndex{in.iOct, i, j, k, bx, by, bz, CellIndex::LOCAL_TO_BLOCK};
 }
 
-template< typename F >
-CellIndex convert_index_ghost_aux(const CellArray_global_ghosted& array, const CellIndex& in,
-                                  const F& getNeighbor)
+KOKKOS_INLINE_FUNCTION
+CellIndex convert_index_ghost_aux(const CellArray_global_ghosted& array, const CellIndex& in, CellIndex::offset_t& offset)
 {
   assert( in.is_valid() ); // Index needs to be valid for conversion
 
@@ -305,7 +304,9 @@ CellIndex convert_index_ghost_aux(const CellArray_global_ghosted& array, const C
       if(k>=bz)  { dk=k-bz+1; k_in=bz-1; }
 
       CellIndex iCell_in{in.iOct, i_in, j_in, k_in, (uint32_t)bx, (uint32_t)by, (uint32_t)bz};
-      return getNeighbor(iCell_in, {di,dj,dk});
+      offset = {di,dj,dk};
+      CellIndex iCell_out = iCell_in.getNeighbor_ghost( offset, array );
+      return iCell_out;
   }
   else
   { // Index is inside block
@@ -319,35 +320,27 @@ CellIndex convert_index_ghost_aux(const CellArray_global_ghosted& array, const C
 
 CellIndex CellArray_global_ghosted::convert_index_getNeighbor(const CellIndex& in) const
 {
-  auto getNeighbor = [&]( const CellIndex& iCell, 
-                          const CellIndex::offset_t& offset )
-  {
-    return iCell.getNeighbor_ghost(offset, *this);
-  };
-  return convert_index_ghost_aux(*this, in, getNeighbor);
+  CellIndex::offset_t offset{};
+  return convert_index_ghost_aux(*this, in, offset);
 }
 
 CellIndex CellArray_global_ghosted::convert_index_ghost(const CellIndex& in) const
 {
-  auto getNeighbor = [&]( const CellIndex& iCell, 
-                          const CellIndex::offset_t& offset )
+  CellIndex::offset_t offset{};
+  CellIndex iCell_n = convert_index_ghost_aux(*this, in, offset);
+  int8_t offset_x = -(offset[IX]<0);
+  int8_t offset_y = -(offset[IY]<0);
+  int8_t offset_z = -(offset[IZ]<0);
+  if( iCell_n.level_diff() == -1 && ( offset_x || offset_y || offset_z))
   {
-    CellIndex iCell_n = iCell.getNeighbor_ghost(offset, *this);
-    int8_t offset_x = -(offset[IX]<0);
-    int8_t offset_y = -(offset[IY]<0);
-    int8_t offset_z = -(offset[IZ]<0);
-    if( iCell_n.level_diff() == -1 && ( offset_x || offset_y || offset_z))
-    {
-      CellIndex iCell_res = iCell_n.getNeighbor({ offset_x, offset_y, offset_z });
-      iCell_res.status = CellIndex::Status::SMALLER;
-      return iCell_res;
-    }
-    else
-    {
-      return iCell_n;
-    }
-  };
-  return convert_index_ghost_aux(*this, in, getNeighbor);
+    CellIndex iCell_res = iCell_n.getNeighbor({ offset_x, offset_y, offset_z });
+    iCell_res.status = CellIndex::Status::SMALLER;
+    return iCell_res;
+  }
+  else
+  {
+    return iCell_n;
+  }
 }
 
 template< typename View_t >
@@ -405,9 +398,9 @@ CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_
   assert(this->by == array.by );
   assert(this->bz == array.bz );
   assert(this->is_local() || this->level_diff() == -1);
-  assert(int(this->bx) >= FABS(offset[IX])*2 - 1 );
-  assert(int(this->by) >= FABS(offset[IY])*2 - 1 );
-  assert(int(this->bz) >= FABS(offset[IZ])*2 - 1 );
+  assert(int(this->bx) >= abs(offset[IX])*2 - 1 );
+  assert(int(this->by) >= abs(offset[IY])*2 - 1 );
+  assert(int(this->bz) >= abs(offset[IZ])*2 - 1 );
 
   const LightOctree& lmesh = array.lmesh;
 
