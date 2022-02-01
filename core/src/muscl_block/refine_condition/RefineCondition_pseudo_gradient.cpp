@@ -15,8 +15,8 @@ public:
                 Timers& timers )
     : foreach_cell(foreach_cell),
       timers(timers),
-      error_min ( configMap.getValue<real_t>("amr", "epsilon_min", 0.003) ), // TODO : pick better names
-      error_max ( configMap.getValue<real_t>("amr", "epsilon_max", 0.01) )
+      error_min ( configMap.getValue<real_t>("amr", "epsilon_coarsen", 0.002) ), // TODO : pick better names
+      error_max ( configMap.getValue<real_t>("amr", "epsilon_refine", 0.001) )
   {}
 
   void mark_cells( const ForeachCell::CellArray_global_ghosted& Uin )
@@ -79,12 +79,15 @@ public:
           else if( iCell_n.level_diff() == -1 )
           {
             // Neighbor is smaller : get max diff with siblings
-            int dk_count = (ndim==3)?2:1;
+            // Iterate over adjacent neighbors
+            int di_count = (offset[IX]==0)?2:1;
+            int dj_count = (offset[IY]==0)?2:1;
+            int dk_count = (ndim==3 && offset[IZ]==0)?2:1;
             for( int8_t dk=0; dk<dk_count; dk++ )
-            for( int8_t dj=0; dj<=1; dj++ )
-            for( int8_t di=0; di<=1; di++ )
+            for( int8_t dj=0; dj<dj_count; dj++ )
+            for( int8_t di=0; di<di_count; di++ )
             {
-                CellIndex iCell_n_smaller = iCell_n.getNeighbor({di,dj,dk}); // This assumes that siblings are in same block
+                CellIndex iCell_n_smaller = iCell_n.getNeighbor_ghost({di,dj,dk}, Uin); // This assumes that siblings are in same block
                 real_t diff = indicator_scalar_gradient( Uin.at(iCell, ID), Uin.at(iCell_n_smaller, ID)); 
                 diff_max = FMAX( diff_max, diff );
             }

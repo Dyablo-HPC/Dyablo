@@ -212,14 +212,11 @@ void compute_limited_slopes(const GhostedArray& Q, const CellIndex& iCell_U,
                 int di_count = (offset[IX]==0)?2:1;
                 int dj_count = (offset[IY]==0)?2:1;
                 int dk_count = (ndim==3 && offset[IZ]==0)?2:1;
-                int di_start = (offset[IX]==-1)?1:0;
-                int dj_start = (offset[IY]==-1)?1:0;
-                int dk_start = (offset[IZ]==-1 && ndim==3)?1:0;
                 for( int8_t dk=0; dk<dk_count; dk++ )
                 for( int8_t dj=0; dj<dj_count; dj++ )
                 for( int8_t di=0; di<di_count; di++ )
                 {
-                    CellIndex iCell_neighbor = iCell_n0.getNeighbor({(int8_t)(di_start+di),(int8_t)(dj_start+dj),(int8_t)(dk_start+dk)});
+                    CellIndex iCell_neighbor = iCell_n0.getNeighbor_ghost({di,dj,dk}, Q);
                     update_minmod(dir, iCell_neighbor, pos_cell[dir]+0.75*offset[dir]*cell_size[dir]);
                 }
             }
@@ -531,14 +528,11 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
         int di_count = (offset[IX]==0)?2:1;
         int dj_count = (offset[IY]==0)?2:1;
         int dk_count = (ndim==3 && offset[IZ]==0)?2:1;
-        int di_start = (offset[IX]==-1)?1:0;
-        int dj_start = (offset[IY]==-1)?1:0;
-        int dk_start = (offset[IZ]==-1 && ndim==3)?1:0;
         for( int8_t dk=0; dk<dk_count; dk++ )
         for( int8_t dj=0; dj<dj_count; dj++ )
         for( int8_t di=0; di<di_count; di++ )
         {
-            CellIndex iCell_n = iCell_n0.getNeighbor({(int8_t)(di_start+di),(int8_t)(dj_start+dj),(int8_t)(dk_start+dk)});
+            CellIndex iCell_n = iCell_n0.getNeighbor_ghost({di,dj,dk}, Q);
             // 0. retrieve primitive variables in neighbor cell
             HydroState3d qprim_n = getHydroState<ndim>( Q, iCell_n );
 

@@ -94,9 +94,12 @@ struct CellIndex
    * corresponding neighbor octant. In this case `is_local()==false` and resulting 
    * cell might be non-conforming (`level_diff()` might be != 0).
    * When level_diff() >= 0, result points to the only neighbor cell
-   * When level_diff() < 0 (neighbor is smaller) , result points to the 'lower-left' 
-   * cell (with smallest Morton). To get sibling cells, use getNeighbor_local({0/1,0/1,0/1}).
-   * NOTE : If block size is pair and > 2*offset, smaller siblings are guaranteed to be in the same block
+   * When level_diff() < 0 (neighbor is smaller) , result points to the 'lower-left' adjacent neighbor cell 
+   * (neighbor with smallest Morton). To get sibling cells, use getNeighbor_ghost({0/1,0/1,0/1}).
+   * NOTE: If offset >= 2 outside of the block, resulting cell is one of the subcells in same-size equivalent neighbor,
+   * but if cells are of different size, behavior is undefined (therefore, block size must be >= 2*|offset| - 1 )
+   *    |--|y-|--|--|--x--|-----| getNeighbor_ghost(x, {-2,0,0}) = y
+   * NOTE : If block size is pair and >= 2*offset, smaller siblings are guaranteed to be in the same block, then getNeighbor() can be used
    **/
   KOKKOS_INLINE_FUNCTION
   CellIndex getNeighbor_ghost( const offset_t& offset, const CellArray_global_ghosted& array ) const;
@@ -178,17 +181,32 @@ public :
     this->nbOcts = lmesh.getNumOctants();
   }
 
+
   /**
-   * Convert cell index used for another array into an 
-   * index compatible with current array. 
+   * Convert cell index used for another array into an index compatible with current array. 
    * This may of may not perform a neighbor search for indexes outside of 
    * block depending on how the array was created (see get_global_array, get_global_ghosted_array and allocate_patch_tmp)
    * If a neighbor search is performed the created index has the non-local status (is_local()==false)
    * Converted indexes keep their non-local status after conversion, but not their level difference.
    * Neighbor search is never performed on non-local indexes, is_valid()==false when resulting index is outside of block.
+   * All subcells of the ghost cell must be of the same size. (i.e. block size >= 2*offset).
+   * NOTE : If it is not the case (i.e. cell-based), use convert_index_getNeighbor() instead;
+   * NOTE : use getNeighbor({0/1,0/1,0/1}) to iterate over subcells. 
+   *        If block size is odd, you may need to use getNeighbor_ghost();
    **/
   KOKKOS_INLINE_FUNCTION
   CellIndex convert_index_ghost(const CellIndex& iCell) const;
+
+  /**
+   * Same as convert_index_ghost, but returns the subcell closest to the original cell when level_diff < 0
+   * This has the same behaviour as calling getNeighbor_ghost() from a cell at the edge of the block 
+   * with the offset corresponding to the ghost position
+   * NOTE : read carefully the doc for getNeighbor_ghost(). The behavior when level_diff < 0 (smaller neighbor) might not be what is expected.
+   *        This exists for compatibility with cell-based AMR, if your block size is wide enough, use convert_index_ghost() instead
+   **/
+  KOKKOS_INLINE_FUNCTION
+  CellIndex convert_index_getNeighbor(const CellIndex& iCell) const;
+
 
   /**
    *  Get value of field for cell iCell
@@ -249,21 +267,27 @@ CellIndex CellArray_base<View_t>::convert_index_ghost(const CellIndex& in) const
   return CellIndex{in.iOct, i, j, k, bx, by, bz, CellIndex::LOCAL_TO_BLOCK};
 }
 
-CellIndex CellArray_global_ghosted::convert_index_ghost(const CellIndex& in) const
+template< typename F >
+CellIndex convert_index_ghost_aux(const CellArray_global_ghosted& array, const CellIndex& in,
+                                  const F& getNeighbor)
 {
   assert( in.is_valid() ); // Index needs to be valid for conversion
 
-  if( in.bx == bx && in.by == by && in.bz == bz )
-    return in;
+  int32_t bx = array.bx;
+  int32_t by = array.by;
+  int32_t bz = array.bz;
 
-  int32_t gx = ((int32_t)bx-(int32_t)in.bx)/2;
-  int32_t gy = ((int32_t)by-(int32_t)in.by)/2;
-  int32_t gz = ((int32_t)bz-(int32_t)in.bz)/2;
+  if( (int32_t)in.bx == bx && (int32_t)in.by == by && (int32_t)in.bz == bz )
+    return in;
+  
+  int32_t gx = (bx-(int32_t)in.bx)/2;
+  int32_t gy = (by-(int32_t)in.by)/2;
+  int32_t gz = (bz-(int32_t)in.bz)/2;
   int32_t i = in.i + gx;
   int32_t j = in.j + gy;
   int32_t k = in.k + gz;
 
-  if( i<0 || i>=(int32_t)bx || j<0 || j>=(int32_t)by || k<0 || k>=(int32_t)bz )
+  if( i<0 || i>=bx || j<0 || j>=by || k<0 || k>=bz )
   {   // Index is outside of block : find neighbor
       // Closest position inside block
       uint32_t i_in = (uint32_t)i;
@@ -273,15 +297,15 @@ CellIndex CellArray_global_ghosted::convert_index_ghost(const CellIndex& in) con
       int8_t di = 0;
       int8_t dj = 0;
       int8_t dk = 0;
-      if(i<0)             { di=i   ; i_in=0;    }
-      if(i>=(int32_t)bx)  { di=i-bx+1; i_in=bx-1; }
-      if(j<0)             { dj=j   ; j_in=0;    }
-      if(j>=(int32_t)by)  { dj=j-by+1; j_in=by-1; }
-      if(k<0)             { dk=k   ; k_in=0;    }
-      if(k>=(int32_t)bz)  { dk=k-bz+1; k_in=bz-1; }
+      if(i<0)    { di=i   ; i_in=0;    }
+      if(i>=bx)  { di=i-bx+1; i_in=bx-1; }
+      if(j<0)    { dj=j   ; j_in=0;    }
+      if(j>=by)  { dj=j-by+1; j_in=by-1; }
+      if(k<0)    { dk=k   ; k_in=0;    }
+      if(k>=bz)  { dk=k-bz+1; k_in=bz-1; }
 
-      CellIndex iCell_in{in.iOct, i_in, j_in, k_in, bx, by, bz};
-      return iCell_in.getNeighbor_ghost( {di,dj,dk}, *this );
+      CellIndex iCell_in{in.iOct, i_in, j_in, k_in, (uint32_t)bx, (uint32_t)by, (uint32_t)bz};
+      return getNeighbor(iCell_in, {di,dj,dk});
   }
   else
   { // Index is inside block
@@ -289,8 +313,41 @@ CellIndex CellArray_global_ghosted::convert_index_ghost(const CellIndex& in) con
     CellIndex::Status cell_status =  in.is_local()?
                                        CellIndex::LOCAL_TO_BLOCK
                                      : CellIndex::SAME_SIZE;
-    return CellIndex{in.iOct, (uint32_t)i, (uint32_t)j, (uint32_t)k, bx, by, bz, cell_status};
+    return CellIndex{in.iOct, (uint32_t)i, (uint32_t)j, (uint32_t)k, (uint32_t)bx, (uint32_t)by, (uint32_t)bz, cell_status};
   }
+}
+
+CellIndex CellArray_global_ghosted::convert_index_getNeighbor(const CellIndex& in) const
+{
+  auto getNeighbor = [&]( const CellIndex& iCell, 
+                          const CellIndex::offset_t& offset )
+  {
+    return iCell.getNeighbor_ghost(offset, *this);
+  };
+  return convert_index_ghost_aux(*this, in, getNeighbor);
+}
+
+CellIndex CellArray_global_ghosted::convert_index_ghost(const CellIndex& in) const
+{
+  auto getNeighbor = [&]( const CellIndex& iCell, 
+                          const CellIndex::offset_t& offset )
+  {
+    CellIndex iCell_n = iCell.getNeighbor_ghost(offset, *this);
+    int8_t offset_x = -(offset[IX]<0);
+    int8_t offset_y = -(offset[IY]<0);
+    int8_t offset_z = -(offset[IZ]<0);
+    if( iCell_n.level_diff() == -1 && ( offset_x || offset_y || offset_z))
+    {
+      CellIndex iCell_res = iCell_n.getNeighbor({ offset_x, offset_y, offset_z });
+      iCell_res.status = CellIndex::Status::SMALLER;
+      return iCell_res;
+    }
+    else
+    {
+      return iCell_n;
+    }
+  };
+  return convert_index_ghost_aux(*this, in, getNeighbor);
 }
 
 template< typename View_t >
@@ -347,7 +404,10 @@ CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_
   assert(this->bx == array.bx );
   assert(this->by == array.by );
   assert(this->bz == array.bz );
-  assert(this->is_local());
+  assert(this->is_local() || this->level_diff() == -1);
+  assert(int(this->bx) >= FABS(offset[IX])*2 - 1 );
+  assert(int(this->by) >= FABS(offset[IY])*2 - 1 );
+  assert(int(this->bz) >= FABS(offset[IZ])*2 - 1 );
 
   const LightOctree& lmesh = array.lmesh;
 
@@ -364,7 +424,7 @@ CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_
   if( oct_offset[IX] == 0 && oct_offset[IY] == 0 && oct_offset[IZ] == 0 )
   { // Neighbor cell is inside local octant
     CellIndex res = this->getNeighbor( offset );
-    assert(res.is_valid() && res.is_local());
+    assert(res.is_valid());
     return res;
   }
   else
@@ -436,53 +496,64 @@ CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_
       return res;    
     }
     else if(level_diff == -1)
-    { // Neighbor is smaller
-      // We Assume block size is pair : all smaller neighbors cells are located in the same octant
-      assert( bx%2 == 0 && by%2 == 0 && ( bz==1 || bz%2 == 0 )  );
-      LightOctree::pos_t current_center = lmesh.getCenter(iOct);
-      real_t current_oct_size = lmesh.getSize(iOct);
-      LightOctree::pos_t center_parent_neighbor {
-        current_center[IX] + current_oct_size*oct_offset[IX],
-        current_center[IY] + current_oct_size*oct_offset[IY],
-        current_center[IZ] + current_oct_size*oct_offset[IZ]
-      };
+    { // Neighbor is smaller : compute CellIndex of "first neighbor" (neighbor cell closest to origin)
 
-      // Select right suboctant among neighbors
-      // and compute position of lower left cell for neighbors
+      // Compute cell position in neighbor meta-bloc of size {2*bx, 2*by, 2*bz}
+      // Pick the smallest index {i_smaller, j_smaller, k_smaller} contiguous to current cell
+      uint32_t i_smaller = i*2 + (int)(i<0) - oct_offset[IX] * bx * 2; 
+      uint32_t j_smaller = j*2 + (int)(j<0) - oct_offset[IY] * by * 2;
+      uint32_t k_smaller = k*2 + (int)(k<0) - oct_offset[IZ] * bz * 2;
+
+      assert(i_smaller < 2*bx );
+      assert(j_smaller < 2*by );
+      assert(k_smaller < 2*bz );
+
+      // Compute position of suboctant containing "first neighbor" among the 8 suboctants
+      int suboctant_x = i_smaller >= bx;    
+      int suboctant_y = j_smaller >= by;    
+      int suboctant_z = k_smaller >= bz;
+
+      // Shift cell index to appropriate suboctant
+      i_smaller -= bx * suboctant_x;
+      j_smaller -= by * suboctant_y;
+      k_smaller -= bz * suboctant_z;
+
+      assert(i_smaller < bx );
+      assert(j_smaller < by );
+      assert(k_smaller < bz );
+
+      // Find suboctant containing first neighbor
+      LightOctree::pos_t current_oct_center = lmesh.getCenter(iOct);
+      real_t current_oct_size = lmesh.getSize(iOct);
+      LightOctree::pos_t neighbor_superoct_center{
+        current_oct_center[IX] + oct_offset[IX] * current_oct_size, 
+        current_oct_center[IY] + oct_offset[IY] * current_oct_size, 
+        current_oct_center[IZ] + oct_offset[IZ] * current_oct_size 
+      };
       int suboctant = -1;
-      int32_t i_smaller_origin=0;
-      int32_t j_smaller_origin=0;
-      int32_t k_smaller_origin=0;
       for( size_t i=0; i<oct_neighbors.size(); i++ )
       {
-        // Shift position in block according to current suboctant
-        LightOctree::pos_t neighbor_center = lmesh.getCenter(oct_neighbors[i]);
-        int suboctant_offset_x = neighbor_center[IX] > center_parent_neighbor[IX];
-        int suboctant_offset_y = neighbor_center[IY] > center_parent_neighbor[IY];
-        int suboctant_offset_z = neighbor_center[IZ] > center_parent_neighbor[IZ];
-        i_smaller_origin = 2*i_same - suboctant_offset_x*bx;
-        j_smaller_origin = 2*j_same - suboctant_offset_y*by;
-        k_smaller_origin = 2*k_same - suboctant_offset_z*bz;
-        // Found if position is inside block
-        if(  0 <= i_smaller_origin && i_smaller_origin < (int32_t)bx 
-          && 0 <= j_smaller_origin && j_smaller_origin < (int32_t)by 
-          && 0 <= k_smaller_origin && k_smaller_origin < (int32_t)bz )
+        LightOctree::pos_t neighbor_suboct_center = lmesh.getCenter(oct_neighbors[i]);
+        // Compute position of suboctant in bigger neighbor octant
+        int this_suboctant_x = neighbor_suboct_center[IX] > neighbor_superoct_center[IX];
+        int this_suboctant_y = neighbor_suboct_center[IY] > neighbor_superoct_center[IY];
+        int this_suboctant_z = neighbor_suboct_center[IZ] > neighbor_superoct_center[IZ];
+
+        // Match suboctant with suboctant containing first neighbor cell
+        if( suboctant_x == this_suboctant_x && suboctant_y == this_suboctant_y && suboctant_z == this_suboctant_z )
         {
           suboctant = i;
           break;
         }
       }
-      assert(suboctant != -1);
-      assert((uint32_t)i_smaller_origin < bx );
-      assert((uint32_t)j_smaller_origin < by );
-      assert((uint32_t)k_smaller_origin < bz );
+
+      assert( suboctant != -1 );
 
       return CellIndex{
         oct_neighbors[suboctant], 
-        (uint32_t)i_smaller_origin, (uint32_t)j_smaller_origin, (uint32_t)k_smaller_origin,
+        (uint32_t)i_smaller, (uint32_t)j_smaller, (uint32_t)k_smaller,
         bx, by, bz,
-        CellIndex::SMALLER
-      }; 
+        CellIndex::SMALLER};
     }
     else
     {

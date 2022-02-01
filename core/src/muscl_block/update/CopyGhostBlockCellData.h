@@ -107,7 +107,7 @@ void copyGhostBlockCellData(const GhostedArray& Uin, const CellIndex& iCell_Ugro
     for( int8_t dj=0; dj<=1; dj++ )
     for( int8_t di=0; di<=1; di++ )
     {
-        CellIndex iCell_ghost = iCell_Uin.getNeighbor({di,dj,dk});
+        CellIndex iCell_ghost = iCell_Uin.getNeighbor({di,dj,dk}); // This assumes that all 8 subcells are in the same octant!
         u[ID] += Uin.at(iCell_ghost, ID)/nbCells;
         u[IP] += Uin.at(iCell_ghost, IP)/nbCells;
         u[IU] += Uin.at(iCell_ghost, IU)/nbCells;
