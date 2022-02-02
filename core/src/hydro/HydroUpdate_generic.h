@@ -5,7 +5,7 @@
 #include "kokkos_shared.h"
 #include "FieldManager.h"
 #include "amr/LightOctree.h"
-#include "update/MusclBlockUpdate_base.h"
+#include "hydro/HydroUpdate_base.h"
 
 class Timers;
 class ConfigMap;
@@ -13,17 +13,16 @@ class ConfigMap;
 namespace dyablo {
 namespace muscl_block {
 
-class MusclBlockUpdate_legacy : public MusclBlockUpdate{
+class HydroUpdate_generic : public HydroUpdate{
 public: 
-  MusclBlockUpdate_legacy(
+  HydroUpdate_generic(
                 ConfigMap& configMap,
                 ForeachCell& foreach_cell,
-                Timers& timers  );
-  ~MusclBlockUpdate_legacy();
+                Timers& timers );
+  ~HydroUpdate_generic();
   void update(  const ForeachCell::CellArray_global_ghosted& Uin,
                 const ForeachCell::CellArray_global_ghosted& Uout,
                 real_t dt);
-
    struct Data;
 private:
   std::unique_ptr<Data> pdata;

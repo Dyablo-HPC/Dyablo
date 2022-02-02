@@ -1,4 +1,4 @@
-#include "MusclBlockUpdate_generic.h"
+#include "HydroUpdate_generic.h"
 
 #include "utils/monitoring/Timers.h"
 
@@ -10,7 +10,7 @@
 namespace dyablo { 
 namespace muscl_block {
 
-struct MusclBlockUpdate_generic::Data{ 
+struct HydroUpdate_generic::Data{ 
   ForeachCell& foreach_cell;
   real_t xmin, ymin, zmin;
   real_t xmax, ymax, zmax;  
@@ -26,7 +26,7 @@ struct MusclBlockUpdate_generic::Data{
   real_t gx, gy, gz;
 };
 
-MusclBlockUpdate_generic::MusclBlockUpdate_generic(
+HydroUpdate_generic::HydroUpdate_generic(
   ConfigMap& configMap,
   ForeachCell& foreach_cell,
   Timers& timers )
@@ -54,7 +54,7 @@ MusclBlockUpdate_generic::MusclBlockUpdate_generic(
   } 
 }
 
-MusclBlockUpdate_generic::~MusclBlockUpdate_generic()
+HydroUpdate_generic::~HydroUpdate_generic()
 {}
 
 namespace{
@@ -68,7 +68,7 @@ using CellIndex = ForeachCell::CellIndex;
 }// namespace dyablo
 }// namespace muscl_block
 
-#include "update/CopyGhostBlockCellData.h"
+#include "hydro/CopyGhostBlockCellData.h"
 
 namespace dyablo { 
 namespace muscl_block {
@@ -423,7 +423,7 @@ void apply_gravity_correction( const GlobalArray& Uin,
 
 template< int ndim >
 void update_aux(
-    const MusclBlockUpdate_generic::Data* pdata,
+    const HydroUpdate_generic::Data* pdata,
     const ForeachCell::CellArray_global_ghosted& Uin,
     const ForeachCell::CellArray_global_ghosted& Uout,
     real_t dt)
@@ -467,12 +467,12 @@ void update_aux(
     SlopesZ_ = foreach_cell.reserve_patch_tmp("SlopesZ", 0, 0, 1, fm, 5);
   PatchArray::Ref Sources_ = foreach_cell.reserve_patch_tmp("Sources", 1, 1, (ndim == 3)?1:0, fm, 5);
 
-  timers.get("MusclBlockUpdate_generic").start();
+  timers.get("HydroUpdate_generic").start();
 
   ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
 
   // Iterate over patches
-  foreach_cell.foreach_patch( "MusclBlockUpdate_generic::update",
+  foreach_cell.foreach_patch( "HydroUpdate_generic::update",
     PATCH_LAMBDA( const ForeachCell::Patch& patch )
   {
     PatchArray Ugroup = patch.allocate_tmp(Ugroup_);
@@ -523,13 +523,13 @@ void update_aux(
     });
   });
 
-  timers.get("MusclBlockUpdate_generic").stop();
+  timers.get("HydroUpdate_generic").stop();
 
 }
 
 } // namespace
 
-void MusclBlockUpdate_generic::update(
+void HydroUpdate_generic::update(
     const ForeachCell::CellArray_global_ghosted& Uin,
     const ForeachCell::CellArray_global_ghosted& Uout,
     real_t dt)
@@ -544,4 +544,4 @@ void MusclBlockUpdate_generic::update(
 }// namespace dyablo
 }// namespace muscl_block
 
-FACTORY_REGISTER( dyablo::muscl_block::MusclBlockUpdateFactory , dyablo::muscl_block::MusclBlockUpdate_generic, "MusclBlockUpdate_generic")
+FACTORY_REGISTER( dyablo::muscl_block::HydroUpdateFactory , dyablo::muscl_block::HydroUpdate_generic, "HydroUpdate_generic")

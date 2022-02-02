@@ -3,7 +3,7 @@
 #include "kokkos_shared.h"
 #include "FieldManager.h"
 #include "amr/LightOctree.h"
-#include "update/MusclBlockUpdate_base.h"
+#include "hydro/HydroUpdate_base.h"
 
 #include "foreach_cell/ForeachCell.h"
 #include "utils_hydro.h"
@@ -30,9 +30,9 @@ struct BoundaryConditions {
 using AMRBlockForeachCell = AMRBlockForeachCell_group;
 //using AMRBlockForeachCell = AMRBlockForeachCell_scratch;
 
-class MusclBlockUpdate_muscl_oneneighbor : public MusclBlockUpdate{
+class HydroUpdate_muscl_oneneighbor : public HydroUpdate{
 public: 
-  MusclBlockUpdate_muscl_oneneighbor(
+  HydroUpdate_muscl_oneneighbor(
                 ConfigMap& configMap,
                 ForeachCell& foreach_cell,
                 Timers& timers )
@@ -112,7 +112,7 @@ void setHydroState( const Array_t& U, const CellIndex& iCell, const HydroState3d
     U.at(iCell, IW) = state[IW];
 }
 
-//Copied from MusclBlockUpdate_generic
+//Copied from HydroUpdate_generic
 template< int ndim >
 KOKKOS_INLINE_FUNCTION
 void compute_primitives(
@@ -537,7 +537,7 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
 } // namespace
 
 template< int ndim >
-void MusclBlockUpdate_muscl_oneneighbor::update_aux( 
+void HydroUpdate_muscl_oneneighbor::update_aux( 
   const ForeachCell::CellArray_global_ghosted& Uin,
   const ForeachCell::CellArray_global_ghosted& Uout,
   real_t dt)
@@ -548,7 +548,7 @@ void MusclBlockUpdate_muscl_oneneighbor::update_aux(
     ForeachCell& foreach_cell = this->foreach_cell;
     GhostCommunicator ghost_comm(std::shared_ptr<AMRmesh>(&foreach_cell.get_amr_mesh(), [](AMRmesh*){}));
 
-    timers.get("MusclBlockUpdate_muscl_oneneighbor").start();
+    timers.get("HydroUpdate_muscl_oneneighbor").start();
 
     std::set<VarIndex> enabled_fields = {ID,IP,IU,IV};
     if( ndim == 3) enabled_fields.insert(IW);
@@ -557,7 +557,7 @@ void MusclBlockUpdate_muscl_oneneighbor::update_aux(
     GhostedArray Q = foreach_cell.allocate_ghosted_array( "Q", field_manager );
 
     // Fill Q with primitive variables
-    foreach_cell.foreach_cell("MusclBlockUpdate_muscl_oneneighbor::convertToPrimitives", Q, CELL_LAMBDA(const CellIndex& iCell_Q)
+    foreach_cell.foreach_cell("HydroUpdate_muscl_oneneighbor::convertToPrimitives", Q, CELL_LAMBDA(const CellIndex& iCell_Q)
     { 
         compute_primitives<ndim>(riemann_params, Uin, iCell_Q, Q);
     });
@@ -574,7 +574,7 @@ void MusclBlockUpdate_muscl_oneneighbor::update_aux(
     ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
 
     // Fill slope arrays
-    foreach_cell.foreach_cell("MusclBlockUpdate_muscl_oneneighbor::reconstruct_gradients", Q, CELL_LAMBDA(const CellIndex& iCell_Q)
+    foreach_cell.foreach_cell("HydroUpdate_muscl_oneneighbor::reconstruct_gradients", Q, CELL_LAMBDA(const CellIndex& iCell_Q)
     { 
         compute_limited_slopes<ndim>(Q, iCell_Q, cellmetadata.getCellCenter(iCell_Q), cellmetadata.getCellSize(iCell_Q), Slopes_x, Slopes_y, Slopes_z);
     });
@@ -585,17 +585,17 @@ void MusclBlockUpdate_muscl_oneneighbor::update_aux(
       Slopes_z.exchange_ghosts(ghost_comm);
 
     // Compute flux and update Uout
-    foreach_cell.foreach_cell("MusclBlockUpdate_muscl_oneneighbor::flux_and_update", Q, CELL_LAMBDA(const CellIndex& iCell_Q)
+    foreach_cell.foreach_cell("HydroUpdate_muscl_oneneighbor::flux_and_update", Q, CELL_LAMBDA(const CellIndex& iCell_Q)
     { 
         compute_fluxes_and_update<ndim>(  Uin, Uout, Q, iCell_Q, 
                                           Slopes_x, Slopes_y, Slopes_z,
                                           cellmetadata, dt, riemann_params, boundary_conditions );
     });
 
-    timers.get("MusclBlockUpdate_muscl_oneneighbor").stop();
+    timers.get("HydroUpdate_muscl_oneneighbor").stop();
 }
 
 } //namespace muscl_block
 } //namespace dyablo 
 
-FACTORY_REGISTER( dyablo::muscl_block::MusclBlockUpdateFactory , dyablo::muscl_block::MusclBlockUpdate_muscl_oneneighbor, "MusclBlockUpdate_muscl_oneneighbor")
+FACTORY_REGISTER( dyablo::muscl_block::HydroUpdateFactory , dyablo::muscl_block::HydroUpdate_muscl_oneneighbor, "HydroUpdate_muscl_oneneighbor")

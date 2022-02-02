@@ -10,21 +10,21 @@
 namespace dyablo {
 namespace muscl_block {
 
-class MusclBlockUpdate{
+class HydroUpdate{
 public: 
-  // MusclBlockUpdate(
+  // HydroUpdate(
   //               const ConfigMap& configMap,
   //               ForeachCell&& params, 
   //               const id2index_t& fm,
   //               uint32_t bx, uint32_t by, uint32_t bz,
   //               Timers& timers );
-  virtual ~MusclBlockUpdate(){}
+  virtual ~HydroUpdate(){}
   virtual void update(  const ForeachCell::CellArray_global_ghosted& Uin,
                         const ForeachCell::CellArray_global_ghosted& Uout,
                         real_t dt) = 0;
 };
 
-using MusclBlockUpdateFactory = RegisteringFactory< MusclBlockUpdate, 
+using HydroUpdateFactory = RegisteringFactory< HydroUpdate, 
   ConfigMap& /*configMap*/,
   ForeachCell& /*foreach_cell*/,
   Timers& /*timers*/ >;

@@ -19,7 +19,7 @@
 
 #include "init/InitialConditions.h"
 
-#include "update/MusclBlockUpdate.h"
+#include "hydro/HydroUpdate.h"
 #include "legacy/ComputeDtHydroFunctor.h"
 
 using Device = Kokkos::DefaultExecutionSpace;
@@ -169,7 +169,7 @@ void run_test(std::string name, std::string filename) {
 
   // testing MusclBlockGodunovUpdateFunctor
   {
-    std::unique_ptr<MusclBlockUpdate> godunov_updater = MusclBlockUpdateFactory::make_instance( "MusclBlockUpdate_generic",
+    std::unique_ptr<HydroUpdate> godunov_updater = HydroUpdateFactory::make_instance( "HydroUpdate_generic",
       configMap,
       foreach_cell,
       timers
@@ -211,14 +211,14 @@ BOOST_AUTO_TEST_SUITE(dyablo)
 
 BOOST_AUTO_TEST_SUITE(muscl_block)
 
-BOOST_AUTO_TEST_CASE(test_MusclBlockUpdate_generic_blast_2D)
+BOOST_AUTO_TEST_CASE(test_HydroUpdate_generic_blast_2D)
 {
-  run_test("MusclBlockUpdate_generic (2D)", "./block_data/test_blast_2D_block.ini");
+  run_test("HydroUpdate_generic (2D)", "./block_data/test_blast_2D_block.ini");
 }
 
-BOOST_AUTO_TEST_CASE(test_MusclBlockUpdate_generic_blast_3D)
+BOOST_AUTO_TEST_CASE(test_HydroUpdate_generic_blast_3D)
 {
-  run_test("MusclBlockUpdate_generic (3D)", "./block_data/test_blast_3D_block.ini");
+  run_test("HydroUpdate_generic (3D)", "./block_data/test_blast_3D_block.ini");
 }
 
 BOOST_AUTO_TEST_SUITE_END() /* muscl_block */

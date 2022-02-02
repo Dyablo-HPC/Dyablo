@@ -1,7 +1,7 @@
 #include <boost/test/unit_test.hpp>
 #include <boost/test/data/test_case.hpp>
 
-#include "update/MusclBlockUpdate.h"
+#include "hydro/HydroUpdate.h"
 #include "init/InitialConditions.h"
 #include "utils/config/ConfigMap.h"
 #include "legacy/HydroParams.h"
@@ -27,7 +27,7 @@ void run_test(const std::string& update_name, std::string ini_string)
     
 
     Timers timers;
-    MusclBlockUpdate& update = MusclBlockUpdateFactory::make_instance( update_name,
+    HydroUpdate& update = HydroUpdateFactory::make_instance( update_name,
                                     configMap,
                                     params,
                                     *amr_mesh, 
@@ -44,8 +44,8 @@ BOOST_AUTO_TEST_SUITE(dyablo)
 BOOST_AUTO_TEST_SUITE(muscl_block)
 
 BOOST_DATA_TEST_CASE(test_update_hydro, 
-     bdata::make({  "MusclBlockUpdate_legacy",
-                    "MusclBlockUpdate_generic"}) 
+     bdata::make({  "HydroUpdate_legacy",
+                    "HydroUpdate_generic"}) 
    * bdata::make({  "blast", "four_quadrant" }),
     update_version, init_version)
 {

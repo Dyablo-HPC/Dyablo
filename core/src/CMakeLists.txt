@@ -2,8 +2,8 @@ set( core_src
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh_hashmap.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_blast.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/update/MusclBlockUpdate_generic.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/update/MusclBlockUpdate_muscl_oneneighbor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/hydro/HydroUpdate_generic.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/hydro/HydroUpdate_muscl_oneneighbor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gravity/GravitySolver_constant.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/compute_dt/Compute_dt_generic.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/refine_condition/RefineCondition_second_derivative_error.cpp
@@ -16,7 +16,7 @@ set( legacy_src
     ${CMAKE_CURRENT_SOURCE_DIR}/legacy/CopyGhostBlockCellData.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/legacy/MarkOctantsHydroFunctor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/legacy/io_utils.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/update/MusclBlockUpdate_legacy.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/hydro/HydroUpdate_legacy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/compute_dt/Compute_dt_legacy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/refine_condition/RefineCondition_legacy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/io/IOManager_hdf5.cpp

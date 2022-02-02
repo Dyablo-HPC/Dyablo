@@ -17,7 +17,7 @@ using CellIndex = ForeachCell::CellIndex;
 }// namespace dyablo
 }// namespace muscl_block
 
-#include "update/CopyGhostBlockCellData.h"
+#include "hydro/CopyGhostBlockCellData.h"
 
 namespace dyablo {
 namespace muscl_block {

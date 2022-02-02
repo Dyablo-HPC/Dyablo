@@ -12,7 +12,7 @@
 #include "init/InitialConditions.h"
 #include "io/IOManager.h"
 #include "gravity/GravitySolver.h"
-#include "update/MusclBlockUpdate.h"
+#include "hydro/HydroUpdate.h"
 #include "legacy/MapUserData.h"
 
 namespace dyablo {
@@ -64,8 +64,8 @@ public:
 
     m_field_manager = FieldManager::setup(ndim, gravity_type); // TODO : configure from what is needed by kernels
 
-    std::string godunov_updater_id = configMap.getValue<std::string>("hydro", "update", "MusclBlockUpdate_generic");
-    this->godunov_updater = MusclBlockUpdateFactory::make_instance( godunov_updater_id,
+    std::string godunov_updater_id = configMap.getValue<std::string>("hydro", "update", "HydroUpdate_generic");
+    this->godunov_updater = HydroUpdateFactory::make_instance( godunov_updater_id,
       configMap,
       this->m_foreach_cell,
       timers
@@ -373,7 +373,7 @@ private:
 
   std::unique_ptr<Compute_dt> compute_dt;
   std::unique_ptr<RefineCondition> refine_condition;
-  std::unique_ptr<MusclBlockUpdate> godunov_updater;
+  std::unique_ptr<HydroUpdate> godunov_updater;
   std::unique_ptr<IOManager> io_manager;
   std::unique_ptr<GravitySolver> gravity_solver;
 

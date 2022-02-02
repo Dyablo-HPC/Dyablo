@@ -1,4 +1,4 @@
-#include "update/MusclBlockUpdate_legacy.h"
+#include "hydro/HydroUpdate_legacy.h"
 
 #include "legacy/utils_block.h"
 #include "legacy/CopyInnerBlockCellData.h"
@@ -12,7 +12,7 @@
 namespace dyablo { 
 namespace muscl_block {
 
-struct MusclBlockUpdate_legacy::Data{
+struct HydroUpdate_legacy::Data{
   ForeachCell& foreach_cell;
   uint32_t nbOctsPerGroup;  
   int ndim;
@@ -24,7 +24,7 @@ struct MusclBlockUpdate_legacy::Data{
   Timers& timers;  
 };
 
-MusclBlockUpdate_legacy::MusclBlockUpdate_legacy(
+HydroUpdate_legacy::HydroUpdate_legacy(
   ConfigMap& configMap,
   ForeachCell& foreach_cell,
   Timers& timers )
@@ -47,15 +47,15 @@ MusclBlockUpdate_legacy::MusclBlockUpdate_legacy(
 
 }
 
-MusclBlockUpdate_legacy::~MusclBlockUpdate_legacy()
+HydroUpdate_legacy::~HydroUpdate_legacy()
 {}
 
-void MusclBlockUpdate_legacy::update(const ForeachCell::CellArray_global_ghosted& Uin,
+void HydroUpdate_legacy::update(const ForeachCell::CellArray_global_ghosted& Uin,
                                      const ForeachCell::CellArray_global_ghosted& Uout_, 
                                      real_t dt)
 {
   static_assert( std::is_same<decltype(Uin.U), DataArrayBlock>::value, 
-                 "MusclBlockUpdate_legacy can only be compiled for block-based ForeachCell" );
+                 "HydroUpdate_legacy can only be compiled for block-based ForeachCell" );
   
   ForeachCell& foreach_cell = pdata->foreach_cell;
   const LightOctree& lmesh = foreach_cell.get_amr_mesh().getLightOctree();
@@ -162,5 +162,5 @@ void MusclBlockUpdate_legacy::update(const ForeachCell::CellArray_global_ghosted
 }// namespace dyablo
 }// namespace muscl_block
 
-FACTORY_REGISTER( dyablo::muscl_block::MusclBlockUpdateFactory, dyablo::muscl_block::MusclBlockUpdate_legacy, "MusclBlockUpdate_legacy" );
+FACTORY_REGISTER( dyablo::muscl_block::HydroUpdateFactory, dyablo::muscl_block::HydroUpdate_legacy, "HydroUpdate_legacy" );
 

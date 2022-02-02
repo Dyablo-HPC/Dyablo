@@ -18,7 +18,7 @@ namespace muscl_block {
 }// namespace dyablo
 }// namespace muscl_block
 
-#include "update/CopyGhostBlockCellData.h"
+#include "hydro/CopyGhostBlockCellData.h"
 
 using namespace dyablo;
 using namespace dyablo::muscl_block;
