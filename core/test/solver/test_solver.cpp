@@ -1,8 +1,8 @@
 #include <string>
 
-#include "shared/DyabloSession.hpp"
+#include "DyabloSession.hpp"
 #include "utils/config/ConfigMap.h"
-#include "muscl_block/DyabloTimeLoop.h"
+#include "DyabloTimeLoop.h"
 
 int main(int argc, char *argv[])
 {

@@ -7,10 +7,10 @@
 
 #include <boost/test/unit_test.hpp>
 
-#include "shared/mpi/GhostCommunicator.h"
+#include "mpi/GhostCommunicator.h"
 
-#include "muscl_block/legacy/utils_block.h"
-#include "shared/amr/AMRmesh.h"
+#include "legacy/utils_block.h"
+#include "amr/AMRmesh.h"
 #include "utils/io/AMRMesh_output_vtk.h"
 
 namespace dyablo

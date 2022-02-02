@@ -2,7 +2,7 @@
 
 #include "IO_VTK_shared.h"
 
-#include "shared/enums.h"     // for ComponentIndex3D (IX,IY,IZ)
+#include "enums.h"     // for ComponentIndex3D (IX,IY,IZ)
 #include "utils/misc/utils.h"
 
 namespace dyablo

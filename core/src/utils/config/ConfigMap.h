@@ -10,7 +10,7 @@
 
 #include "utils/mpi/GlobalMpiSession.h"
 #include "utils/config/inih/ini.h"
-#include "shared/enums.h"
+#include "enums.h"
 #include <cassert>
 
 namespace Impl{

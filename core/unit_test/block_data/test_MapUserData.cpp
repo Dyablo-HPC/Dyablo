@@ -12,11 +12,11 @@
 
 #include <boost/test/unit_test.hpp>
 
-#include "muscl_block/legacy/MapUserData.h"
+#include "legacy/MapUserData.h"
 
-#include "shared/amr/AMRmesh.h"
-#include "shared/amr/LightOctree.h"
-#include "muscl_block/io/IOManager.h"
+#include "amr/AMRmesh.h"
+#include "amr/LightOctree.h"
+#include "io/IOManager.h"
 
 namespace dyablo
 {
@@ -37,13 +37,11 @@ void run_test(int ndim)
   uint32_t by = 8;
   uint32_t bz = (ndim==3)?8:1;
 
-  HydroParams params;
-  params.dimType = (ndim == 2) ? TWO_D : THREE_D;
-  params.level_min = 1;
-  params.level_max = 8;
+  int level_min = 1;
+  int level_max = 8;
   std::shared_ptr<AMRmesh> amr_mesh; //solver->amr_mesh 
   {
-    amr_mesh = std::make_shared<AMRmesh>(ndim, ndim, std::array<bool,3>{false,false,false}, params.level_min, params.level_max );
+    amr_mesh = std::make_shared<AMRmesh>(ndim, ndim, std::array<bool,3>{false,false,false}, level_min, level_max );
     // amr_mesh->setBalanceCodimension(ndim);
     // uint32_t idx = 0;
     // amr_mesh->setBalance(idx,true);

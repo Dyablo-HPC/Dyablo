@@ -12,7 +12,7 @@
  *
  */
 
-#include "shared/morton_utils.h"
+#include "morton_utils.h"
 
 #include <boost/test/unit_test.hpp>
 namespace utf = boost::unit_test;

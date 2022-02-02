@@ -11,8 +11,8 @@
 #include <impl/Kokkos_Error.hpp>
 
 #include "utils/monitoring/SimpleTimer.h"
-#include "shared/amr/LightOctree.h"
-#include "shared/HydroParams.h"
+#include "amr/LightOctree.h"
+#include "legacy/HydroParams.h"
 
 #include <iostream>
 

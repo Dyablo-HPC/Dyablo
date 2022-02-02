@@ -17,17 +17,17 @@
 #include <impl/Kokkos_Error.hpp>
 
 
-#include "shared/real_type.h"    // choose between single and double precision
-#include "shared/HydroParams.h"  // read parameter file
-#include "shared/FieldManager.h"
+#include "real_type.h"    // choose between single and double precision
+#include "legacy/HydroParams.h"  // read parameter file
+#include "FieldManager.h"
 
 
-#include "muscl_block/legacy/CopyInnerBlockCellData.h"
-#include "muscl_block/legacy/CopyGhostBlockCellData.h"
-#include "muscl_block/legacy/ConvertToPrimitivesHydroFunctor.h"
-#include "muscl_block/init/InitialConditions_analytical.h"
-#include "muscl_block/foreach_cell/AMRBlockForeachCell.h"
-#include "shared/problems/ImplodeParams.h"
+#include "legacy/CopyInnerBlockCellData.h"
+#include "legacy/CopyGhostBlockCellData.h"
+#include "legacy/ConvertToPrimitivesHydroFunctor.h"
+#include "init/InitialConditions_analytical.h"
+#include "foreach_cell/AMRBlockForeachCell.h"
+#include "problems/ImplodeParams.h"
 
 using Device = Kokkos::DefaultExecutionSpace;
 

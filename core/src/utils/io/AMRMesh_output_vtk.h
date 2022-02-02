@@ -3,7 +3,7 @@
 #include <iostream>
 #include <vector>
 
-#include "shared/amr/AMRmesh.h"
+#include "amr/AMRmesh.h"
 
 namespace dyablo{
 namespace debug{

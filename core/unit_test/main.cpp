@@ -17,7 +17,7 @@
 #define BOOST_TEST_NO_MAIN
 #include <boost/test/unit_test.hpp>
 
-#include "shared/DyabloSession.hpp"
+#include "DyabloSession.hpp"
 
 // initialization function
 bool init_function() { return true; }

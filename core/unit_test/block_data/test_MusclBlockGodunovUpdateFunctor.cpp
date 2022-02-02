@@ -13,14 +13,14 @@
 #include <impl/Kokkos_Error.hpp>
 
 
-#include "shared/real_type.h"    // choose between single and double precision
-#include "shared/HydroParams.h"  // read parameter file
-#include "shared/FieldManager.h"
+#include "real_type.h"    // choose between single and double precision
+#include "legacy/HydroParams.h"  // read parameter file
+#include "FieldManager.h"
 
-#include "muscl_block/init/InitialConditions.h"
+#include "init/InitialConditions.h"
 
-#include "muscl_block/update/MusclBlockUpdate.h"
-#include "muscl_block/legacy/ComputeDtHydroFunctor.h"
+#include "update/MusclBlockUpdate.h"
+#include "legacy/ComputeDtHydroFunctor.h"
 
 using Device = Kokkos::DefaultExecutionSpace;
 
@@ -44,17 +44,13 @@ void run_test(std::string name, std::string filename) {
   std::string input_file = filename;
   ConfigMap configMap = ConfigMap::broadcast_parameters(input_file);
 
-  // test: create a HydroParams object
-  HydroParams params = HydroParams();
-  params.setup(configMap);
-
   Timers timers;
 
-  int ndim = params.dimType == TWO_D ? 2 : 3;
   // block sizes
-  uint32_t bx = configMap.getValue<uint32_t>("amr", "bx", 0);
-  uint32_t by = configMap.getValue<uint32_t>("amr", "by", 0);
-  uint32_t bz = configMap.getValue<uint32_t>("amr", "bz", 1);
+  int ndim = configMap.getValue<int>("mesh", "ndim", 3);
+  uint32_t bx = configMap.getValue<uint32_t>("amr", "bx", 4);
+  uint32_t by = configMap.getValue<uint32_t>("amr", "by", 4);
+  uint32_t bz = configMap.getValue<uint32_t>("amr", "bz", 4);
   FieldManager field_manager({ID,IP,IU,IV,IW});
   AMRmesh amr_mesh( ndim, ndim, {false, false, false}, 2, 4 );  
 
@@ -158,10 +154,6 @@ void run_test(std::string name, std::string filename) {
     std::cout << "\n";
   }
 
-  // first copy inner cells
-
-  params.gravity_type = GRAVITY_NONE;
-
   // compute CFL constraint
   real_t invDt;
   ComputeDtHydroFunctor::apply(amr_mesh.getLightOctree(),
@@ -170,7 +162,8 @@ void run_test(std::string name, std::string filename) {
                                blockSizes,
                                U.U,
                                invDt);  
-  real_t dt = params.settings.cfl / invDt;
+  real_t cfl = configMap.getValue<real_t>("hydro", "cfl", 0.5);
+  real_t dt = cfl / invDt;
 
   printf("CFL dt = %f\n",dt);
 

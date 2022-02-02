@@ -4,7 +4,7 @@
 #include <fstream>
 #include <string>
 #include <map>
-#include "shared/real_type.h"
+#include "real_type.h"
 #include "utils/config/ConfigMap.h"
 #include "utils/misc/utils.h"
 

@@ -32,17 +32,10 @@ function(dyablo_add_test UNIT_TEST_NAME TEST_MPI)
   target_compile_definitions(${UNIT_TEST_NAME} PRIVATE BOOST_TEST_DYN_LINK)
 
   target_link_libraries(${UNIT_TEST_NAME} PUBLIC
+    dyablo_core
     config
     Kokkos::kokkos
     dl
-    )
-
-  target_link_libraries(${UNIT_TEST_NAME} PUBLIC
-      muscl_block
-      )
-
-  target_link_libraries(${UNIT_TEST_NAME} PUBLIC
-    shared
     monitoring
     BITPIT::BITPIT
     Boost::unit_test_framework)
@@ -119,7 +112,7 @@ dyablo_add_test(utest_MapUserData OFF
 
 ## Implementations registered to a factory that are contained in a separate static library have to be thourouhly tested
 add_library( RegisteringFactory_impl_lib STATIC utils/RegisteringFactory_impl_to_register.cpp )
-target_link_libraries( RegisteringFactory_impl_lib PRIVATE shared )
+#target_link_libraries( RegisteringFactory_impl_lib PRIVATE shared )
 dyablo_add_test(utest_RegisteringFactory OFF
   utils/test_RegisteringFactory.cpp
   main.cpp)

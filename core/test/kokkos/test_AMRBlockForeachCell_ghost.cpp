@@ -1,10 +1,10 @@
 
-#include "shared/DyabloSession.hpp"
-#include "shared/amr/AMRmesh.h"
-#include "shared/amr/LightOctree.h"
-#include "shared/utils_hydro.h"
-#include "muscl_block/foreach_cell/AMRBlockForeachCell_group.h"
-#include "muscl_block/CopyGhostBlockCellData.h"
+#include "DyabloSession.hpp"
+#include "amr/AMRmesh.h"
+#include "amr/LightOctree.h"
+#include "utils_hydro.h"
+#include "foreach_cell/AMRBlockForeachCell_group.h"
+#include "CopyGhostBlockCellData.h"
 #include "utils/monitoring/Timers.h"
 
 namespace dyablo { 
@@ -18,7 +18,7 @@ namespace muscl_block {
 }// namespace dyablo
 }// namespace muscl_block
 
-#include "muscl_block/update/CopyGhostBlockCellData.h"
+#include "update/CopyGhostBlockCellData.h"
 
 using namespace dyablo;
 using namespace dyablo::muscl_block;

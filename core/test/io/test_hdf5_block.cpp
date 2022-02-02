@@ -12,17 +12,17 @@
 #include "bitpit_PABLO.hpp"
 
 #include "utils/config/ConfigMap.h"
-#include "shared/HydroParams.h"
-#include "shared/FieldManager.h"
-#include "shared/HDF5_IO.h"
-#include "shared/io_utils.h"
+#include "legacy/HydroParams.h"
+#include "FieldManager.h"
+#include "HDF5_IO.h"
+#include "io_utils.h"
 
-#include "muscl_block/utils_block.h"
+#include "utils_block.h"
 
 // testing muscl_block functor for initialization
-#include "muscl_block/init/InitBlast.h"
-#include "muscl_block/init/InitImplode.h"
-#include "muscl_block/init/InitGreshoVortex.h"
+#include "init/InitBlast.h"
+#include "init/InitImplode.h"
+#include "init/InitGreshoVortex.h"
 
 
 //using namespace bitpit;
