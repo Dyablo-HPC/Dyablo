@@ -2,7 +2,7 @@
 #include "legacy/ComputeDtHydroFunctor.h"
 
 namespace dyablo {
-namespace muscl_block {
+
 
 class Compute_dt_legacy : public Compute_dt
 {
@@ -36,7 +36,7 @@ private:
   AMRmesh& pmesh;
 };
 
-} // namespace muscl_block
+
 } // namespace dyablo 
 
-FACTORY_REGISTER( dyablo::muscl_block::Compute_dtFactory, dyablo::muscl_block::Compute_dt_legacy, "Compute_dt_legacy" );
+FACTORY_REGISTER( dyablo::Compute_dtFactory, dyablo::Compute_dt_legacy, "Compute_dt_legacy" );

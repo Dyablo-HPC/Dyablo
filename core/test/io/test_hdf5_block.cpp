@@ -63,7 +63,7 @@ void run(std::string input_filename)
   uint32_t by = (uint32_t) configMap.getInteger("amr", "by", 0);
   uint32_t bz = (uint32_t) configMap.getInteger("amr", "bz", 0);
 
-  dyablo::muscl_block::blockSize_t blockSizes;
+  dyablo::blockSize_t blockSizes;
   blockSizes[IX] = bx;
   blockSizes[IY] = by;
   blockSizes[IZ] = bz;
@@ -143,7 +143,7 @@ void run(std::string input_filename)
 
     DataArrayBlockHost userdataBlock_h = Kokkos::create_mirror(userdataBlock);
 
-    dyablo::muscl_block::InitBlastDataFunctor::apply(amr_mesh, 
+    dyablo::InitBlastDataFunctor::apply(amr_mesh, 
                                                      params, 
                                                      configMap, 
                                                      fm, 

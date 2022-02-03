@@ -11,7 +11,7 @@ class Timers;
 class ConfigMap;
 
 namespace dyablo {
-namespace muscl_block {
+
 
 class HydroUpdate_generic : public HydroUpdate{
 public: 
@@ -29,4 +29,3 @@ private:
 };
 
 } //namespace dyablo 
-} //namespace muscl_block

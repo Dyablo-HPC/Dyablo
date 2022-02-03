@@ -4,7 +4,7 @@
 #include "amr/AMRmesh.h"
 
 namespace dyablo{
-namespace muscl_block{
+
 
 /**
  * Interface to implement a ghost communicator
@@ -131,5 +131,5 @@ using GhostCommunicator = GhostCommunicator_serial;
 #endif
 
 
-}//namespace muscl_block
+
 }//namespace dyablo

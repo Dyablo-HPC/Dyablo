@@ -14,9 +14,6 @@
 namespace dyablo
 {
 
-namespace muscl_block
-{
-
 // =======================================================================
 // =======================================================================
 void run_test(int argc, char *argv[])
@@ -182,7 +179,7 @@ void run_test(int argc, char *argv[])
 
 } // run_test
 
-} // namespace muscl_block
+
 
 } // namespace dyablo
 

@@ -21,9 +21,6 @@
 namespace dyablo
 {
 
-namespace muscl_block
-{
-
 // =======================================================================
 // =======================================================================
 void run_test(int ndim)
@@ -223,7 +220,7 @@ void run_test(int ndim)
 
 } // run_test
 
-} // namespace muscl_block
+
 
 } // namespace dyablo
 

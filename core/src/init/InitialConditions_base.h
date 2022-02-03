@@ -8,7 +8,7 @@
 #include "foreach_cell/ForeachCell.h"
 
 namespace dyablo{
-namespace muscl_block{
+
 
 class InitialConditions{
 public:
@@ -25,5 +25,5 @@ using InitialConditionsFactory = RegisteringFactory<InitialConditions,
   ForeachCell&, 
   Timers&>;
 
-} // namespace muscl_block
+
 } // namespace dyablo

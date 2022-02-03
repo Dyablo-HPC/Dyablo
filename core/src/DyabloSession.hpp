@@ -6,7 +6,7 @@
 #include "kokkos_shared.h"
 
 namespace dyablo {
-namespace shared {
+
 
 class DyabloSession {
 private:
@@ -92,5 +92,5 @@ public:
   }
 };
 
-} // namespace shared
+
 } // namespace dyablo

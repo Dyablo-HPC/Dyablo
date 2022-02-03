@@ -7,7 +7,7 @@
 #define SCRATCH_LEVEL 1
 
 namespace dyablo {
-namespace muscl_block {
+
 
 namespace AMRBlockForeachCell_scratch_impl{
 
@@ -143,5 +143,5 @@ public:
 
 using AMRBlockForeachCell_scratch = AMRBlockForeachCell_impl<AMRBlockForeachCell_scratch_impl::PatchManager>;
 
-} // namespace muscl_block
+
 } // namespace dyablo

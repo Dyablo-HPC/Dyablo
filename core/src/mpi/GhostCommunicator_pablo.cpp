@@ -1,7 +1,7 @@
 #include "GhostCommunicator.h"
 
 namespace dyablo{
-namespace muscl_block{
+
 
 namespace GhostCommunicator_pablo_impl{
 
@@ -173,5 +173,5 @@ void GhostCommunicator_pablo::exchange_ghosts(const DataArray& U, DataArray& Ugh
     GhostCommunicator_pablo_impl::exchange_ghosts_aux<DataArray, 0>(amr_mesh, U, Ughost);
 }
 
-}//namespace muscl_block
+
 }//namespace dyablo

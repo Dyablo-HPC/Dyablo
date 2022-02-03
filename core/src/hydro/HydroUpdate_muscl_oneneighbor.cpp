@@ -18,7 +18,7 @@ class Timers;
 class ConfigMap;
 
 namespace dyablo {
-namespace muscl_block {
+
 
 namespace{
 struct BoundaryConditions {
@@ -595,7 +595,7 @@ void HydroUpdate_muscl_oneneighbor::update_aux(
     timers.get("HydroUpdate_muscl_oneneighbor").stop();
 }
 
-} //namespace muscl_block
+
 } //namespace dyablo 
 
-FACTORY_REGISTER( dyablo::muscl_block::HydroUpdateFactory , dyablo::muscl_block::HydroUpdate_muscl_oneneighbor, "HydroUpdate_muscl_oneneighbor")
+FACTORY_REGISTER( dyablo::HydroUpdateFactory , dyablo::HydroUpdate_muscl_oneneighbor, "HydroUpdate_muscl_oneneighbor")

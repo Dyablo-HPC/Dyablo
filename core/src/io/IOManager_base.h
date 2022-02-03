@@ -7,7 +7,7 @@
 #include "foreach_cell/ForeachCell.h"
 
 namespace dyablo {
-namespace muscl_block {
+
 
 /**
  * Base class for IO manager
@@ -38,4 +38,3 @@ using IOManagerFactory = RegisteringFactory< IOManager,
   Timers& /*timers*/ >;
 
 } //namespace dyablo 
-} //namespace muscl_block

@@ -7,7 +7,7 @@
 #include "utils/monitoring/Timers.h"
 
 namespace dyablo { 
-namespace muscl_block {
+
 
 struct IOManager_hdf5::Data{ 
   AMRmesh& pmesh;
@@ -106,7 +106,7 @@ void IOManager_hdf5::save_snapshot( const ForeachCell::CellArray_global_ghosted&
 }
 
 }// namespace dyablo
-}// namespace muscl_block
 
-FACTORY_REGISTER( dyablo::muscl_block::IOManagerFactory, dyablo::muscl_block::IOManager_hdf5, "IOManager_hdf5" );
+
+FACTORY_REGISTER( dyablo::IOManagerFactory, dyablo::IOManager_hdf5, "IOManager_hdf5" );
 

@@ -28,8 +28,6 @@ using namespace boost::unit_test;
 
 namespace dyablo
 {
-namespace muscl_block
-{
 
 // =======================================================================
 // =======================================================================
@@ -231,7 +229,7 @@ void run_test(int argc, char *argv[], uint32_t bSize, uint32_t nbBlocks)
 
 } // run_test
 
-} // namespace muscl_block
+
 
 } // namespace dyablo
 

@@ -99,14 +99,14 @@ public:
 
     DataArray_t dataCopy("dataLBcopy");
 
-    Kokkos::parallel_for("dyablo::muscl_block::UserDataLB::assign(1)",
+    Kokkos::parallel_for("dyablo::UserDataLB::assign(1)",
       Policy_t{0, length}, [&](uint32_t iOct)
     {
       for(uint32_t i=0; i<vals_per_oct; i++)
         get_U<iOct_pos>(dataCopy, iOct, i) = get_U<iOct_pos>(data, iOct+stride, i);
     });
 
-    Kokkos::parallel_for("dyablo::muscl_block::UserDataLB::assign(2)",
+    Kokkos::parallel_for("dyablo::UserDataLB::assign(2)",
       Policy_t{0, length}, [&](uint32_t iOct)
     {
       for(uint32_t i=0; i<vals_per_oct; i++)

@@ -5,7 +5,7 @@
 #include "foreach_cell/ForeachCell.h"
 
 namespace dyablo {
-namespace muscl_block {
+
 
 class Compute_dt{
 public: 
@@ -23,4 +23,3 @@ using Compute_dtFactory = RegisteringFactory< Compute_dt,
   Timers& /*timers*/ >;
 
 } //namespace dyablo 
-} //namespace muscl_block

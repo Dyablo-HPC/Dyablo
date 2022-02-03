@@ -9,7 +9,7 @@
 namespace bdata = boost::unit_test::data;
 
 namespace dyablo {
-namespace muscl_block {
+
 
 void run_test(const std::string& update_name, std::string ini_string)
 {
@@ -37,7 +37,7 @@ void run_test(const std::string& update_name, std::string ini_string)
                                 );
 }  
 
-} // namespace muscl_block
+
 } // namespace dyablo
 
 BOOST_AUTO_TEST_SUITE(dyablo)

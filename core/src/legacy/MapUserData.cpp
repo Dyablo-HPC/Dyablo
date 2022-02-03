@@ -4,12 +4,12 @@
 
 namespace dyablo
 {
-namespace muscl_block
-{
+
+
 
 namespace{
 
-using AMR_Remapper = dyablo::shared::AMR_Remapper;
+using AMR_Remapper = dyablo::AMR_Remapper;
 
 /// Data to be accessed inside the Kokkos kernel
 struct FunctorData{
@@ -200,5 +200,5 @@ void MapUserDataFunctor::apply( const LightOctree_pablo& lmesh_old,
              blockSizes, Usrc, Usrc_ghost, Udest );
 }
 
-} // namespace muscl_block
+
 } // namespace dyablo

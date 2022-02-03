@@ -3,21 +3,21 @@
 #include "HydroUpdate_base.h"
 
 namespace dyablo {
-namespace muscl_block {
+
 
 class HydroUpdate_legacy;
 class HydroUpdate_generic;
 class HydroUpdate_muscl_oneneighbor;
 
 } //namespace dyablo 
-} //namespace muscl_block
+
 
 template<>
-inline bool dyablo::muscl_block::HydroUpdateFactory::init()
+inline bool dyablo::HydroUpdateFactory::init()
 {
-  DECLARE_REGISTERED(dyablo::muscl_block::HydroUpdate_legacy);
-  DECLARE_REGISTERED(dyablo::muscl_block::HydroUpdate_generic);
-  DECLARE_REGISTERED(dyablo::muscl_block::HydroUpdate_muscl_oneneighbor);
+  DECLARE_REGISTERED(dyablo::HydroUpdate_legacy);
+  DECLARE_REGISTERED(dyablo::HydroUpdate_generic);
+  DECLARE_REGISTERED(dyablo::HydroUpdate_muscl_oneneighbor);
 
   return true;
 }

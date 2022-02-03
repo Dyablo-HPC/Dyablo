@@ -36,9 +36,6 @@ using Device = Kokkos::DefaultExecutionSpace;
 namespace dyablo
 {
 
-namespace muscl_block
-{
-
 using CellArray = AMRBlockForeachCell_CellArray_impl::CellArray_global_ghosted;
 
 enum NEIGH_SIZE : uint8_t
@@ -905,7 +902,7 @@ void run_test()
 
 } // run_test
 
-} // namespace muscl_block
+
 
 } // namespace dyablo
 

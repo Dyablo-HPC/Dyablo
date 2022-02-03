@@ -12,7 +12,7 @@
 #include "utils_block.h"
 
 namespace dyablo { 
-namespace muscl_block {
+
 
 /*************************************************/
 /**
@@ -94,5 +94,5 @@ public:
 
 }; // class MarkOctantsHydroFunctor
 
-} // namespace muscl_block
+
 } // namespace dyablo

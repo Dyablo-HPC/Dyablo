@@ -6,8 +6,6 @@
 
 namespace dyablo
 {
-namespace shared
-{
 
 /**
  * A GPU-compatible abstract interface to contain correspondance 
@@ -273,5 +271,5 @@ private:
   uint32_t nbOcts;
 };
 
-} // namespace muscl_block
+
 } // namespace dyablo

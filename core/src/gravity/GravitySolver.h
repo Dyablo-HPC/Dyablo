@@ -3,17 +3,17 @@
 #include "gravity/GravitySolver_base.h"
 
 namespace dyablo {
-namespace muscl_block {
+
 
 class GravitySolver_constant;
 
 } //namespace dyablo 
-} //namespace muscl_block
+
 
 template<>
-inline bool dyablo::muscl_block::GravitySolverFactory::init()
+inline bool dyablo::GravitySolverFactory::init()
 {
-  DECLARE_REGISTERED(dyablo::muscl_block::GravitySolver_constant);
+  DECLARE_REGISTERED(dyablo::GravitySolver_constant);
 
   return true;
 }

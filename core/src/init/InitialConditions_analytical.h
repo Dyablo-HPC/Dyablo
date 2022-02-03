@@ -8,7 +8,7 @@
 #include "HydroState.h"
 
 namespace dyablo{
-namespace muscl_block{
+
 
 /** 
  * Helper to implement InitialConditions with analytical formula
@@ -124,6 +124,6 @@ public:
   }  
 }; 
 
-} // namespace muscl_block
+
 
 } // namespace dyablo

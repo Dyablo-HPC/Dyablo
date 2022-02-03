@@ -11,7 +11,7 @@ class Timers;
 class ConfigMap;
 
 namespace dyablo {
-namespace muscl_block {
+
 
 class IOManager_hdf5 : public IOManager{
 public: 
@@ -28,4 +28,3 @@ private:
 };
 
 } //namespace dyablo 
-} //namespace muscl_block

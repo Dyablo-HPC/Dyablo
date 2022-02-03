@@ -3,7 +3,7 @@
 #include "utils_hydro.h"
 
 namespace dyablo {
-namespace muscl_block {
+
 
 class Compute_dt_generic : public Compute_dt
 {
@@ -68,7 +68,7 @@ private:
   real_t gamma0, smallr, smallc, smallp;  
 };
 
-} // namespace muscl_block
+
 } // namespace dyablo 
 
-FACTORY_REGISTER( dyablo::muscl_block::Compute_dtFactory, dyablo::muscl_block::Compute_dt_generic, "Compute_dt_generic" );
+FACTORY_REGISTER( dyablo::Compute_dtFactory, dyablo::Compute_dt_generic, "Compute_dt_generic" );

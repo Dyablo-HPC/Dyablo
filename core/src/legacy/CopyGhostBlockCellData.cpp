@@ -2,8 +2,6 @@
 
 namespace dyablo
 {
-namespace muscl_block
-{
 
 CopyGhostBlockCellDataFunctor::CopyGhostBlockCellDataFunctor(
     LightOctree lmesh, Params params, id2index_t fm,
@@ -802,10 +800,10 @@ void CopyGhostBlockCellDataFunctor::apply(
   team_policy_t policy(nbOctsInGroup,
                        Kokkos::AUTO() /* team size chosen by kokkos */);
   // launch computation (parallel kernel)
-  Kokkos::parallel_for("dyablo::muscl_block::CopyGhostBlockCellDataFunctor",
+  Kokkos::parallel_for("dyablo::CopyGhostBlockCellDataFunctor",
                        policy.set_scratch_size(0, Kokkos::PerTeam(NeighborCache::shmem_size())),
                        functor);
 }
 
-} // namespace muscl_block
+
 } // namespace dyablo

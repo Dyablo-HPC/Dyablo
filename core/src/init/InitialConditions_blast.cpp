@@ -136,4 +136,4 @@ struct AnalyticalFormula_blast : public AnalyticalFormula_base{
 
 } // namespace dyablo
 
-FACTORY_REGISTER(dyablo::muscl_block::InitialConditionsFactory, dyablo::muscl_block::InitialConditions_analytical<dyablo::AnalyticalFormula_blast>, "blast");
+FACTORY_REGISTER(dyablo::InitialConditionsFactory, dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_blast>, "blast");

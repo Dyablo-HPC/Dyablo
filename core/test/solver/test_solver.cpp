@@ -7,7 +7,7 @@
 int main(int argc, char *argv[])
 {
   using namespace dyablo;
-  shared::DyabloSession mpi_session(argc, argv);
+  DyabloSession mpi_session(argc, argv);
 
   /*
    * read parameter file and initialize a ConfigMap object
@@ -15,7 +15,7 @@ int main(int argc, char *argv[])
   std::string input_file = std::string(argv[1]);
   ConfigMap configMap = ConfigMap::broadcast_parameters(input_file);
 
-  muscl_block::DyabloTimeLoop simulation( configMap );
+  DyabloTimeLoop simulation( configMap );
 
   simulation.run();
 

@@ -8,8 +8,7 @@ namespace dyablo
 class LightOctree_hashmap;
 class LightOctree_pablo;
 
-namespace muscl_block
-{
+
 /// @brief Kokkos functor to fill new octants from refinement/coarsening
 class MapUserDataFunctor
 {
@@ -38,5 +37,5 @@ public:
                       DataArrayBlock& Udest  );
 };
 
-} // namespace muscl_block
+
 } // namespace dyablo

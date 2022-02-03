@@ -3,7 +3,7 @@
 #include "foreach_cell/AMRBlockForeachCell_CellArray.h"
 
 namespace dyablo {
-namespace muscl_block {
+
 
 /**
  * Constant data in AMRBlockForeachCell
@@ -290,5 +290,5 @@ public:
   }
 };
 
-} // namespace muscl_block
+
 } // namespace dyablo

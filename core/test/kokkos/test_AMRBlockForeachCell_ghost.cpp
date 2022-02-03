@@ -8,7 +8,7 @@
 #include "utils/monitoring/Timers.h"
 
 namespace dyablo { 
-namespace muscl_block {
+
   using AMRBlockForeachCell = AMRBlockForeachCell_group;
   using ForeachCell = AMRBlockForeachCell;
   using GhostedArray = typename AMRBlockForeachCell::CellArray_global_ghosted;
@@ -16,7 +16,7 @@ namespace muscl_block {
   using PatchArray = typename AMRBlockForeachCell::CellArray_patch;
   using CellIndex = typename AMRBlockForeachCell::CellIndex;
 }// namespace dyablo
-}// namespace muscl_block
+
 
 #include "hydro/CopyGhostBlockCellData.h"
 
@@ -25,7 +25,7 @@ using namespace dyablo::muscl_block;
 
 int main(int argc, char *argv[])
 {
-  shared::DyabloSession mpi_session(argc, argv);
+  DyabloSession mpi_session(argc, argv);
  
   constexpr int ITER = 10;
   constexpr int ndim = 3;
@@ -117,7 +117,7 @@ int main(int argc, char *argv[])
       InterfaceFlags interface_flags(nbOctsPerGroup);
       for(uint32_t iGroup=0; iGroup<nbOcts/nbOctsPerGroup; iGroup++ )
       {
-        dyablo::muscl_block::CopyGhostBlockCellDataFunctor::apply(
+        dyablo::CopyGhostBlockCellDataFunctor::apply(
                                           lmesh,
                                           configMap,
                                           params,

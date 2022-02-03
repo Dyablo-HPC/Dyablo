@@ -25,7 +25,7 @@ bool init_function() { return true; }
 // entry point
 int main(int argc, char *argv[])
 {
-  dyablo::shared::DyabloSession mpi_session(argc, argv);
+  dyablo::DyabloSession mpi_session(argc, argv);
  
   return boost::unit_test::unit_test_main(&init_function, argc, argv);
 }

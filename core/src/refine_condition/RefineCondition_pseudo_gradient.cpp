@@ -5,7 +5,7 @@
 #include "utils_hydro.h"
 
 namespace dyablo {
-namespace muscl_block {
+
 
 class RefineCondition_pseudo_gradient : public RefineCondition
 {
@@ -173,7 +173,7 @@ private:
   real_t error_min, error_max;  
 };
 
-} // namespace muscl_block 
+
 } // namespace dyablo 
 
-FACTORY_REGISTER( dyablo::muscl_block::RefineConditionFactory, dyablo::muscl_block::RefineCondition_pseudo_gradient, "RefineCondition_pseudo_gradient" );
+FACTORY_REGISTER( dyablo::RefineConditionFactory, dyablo::RefineCondition_pseudo_gradient, "RefineCondition_pseudo_gradient" );

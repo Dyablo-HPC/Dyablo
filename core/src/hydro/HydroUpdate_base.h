@@ -8,7 +8,7 @@
 #include "foreach_cell/ForeachCell.h"
 
 namespace dyablo {
-namespace muscl_block {
+
 
 class HydroUpdate{
 public: 
@@ -30,4 +30,3 @@ using HydroUpdateFactory = RegisteringFactory< HydroUpdate,
   Timers& /*timers*/ >;
 
 } //namespace dyablo 
-} //namespace muscl_block

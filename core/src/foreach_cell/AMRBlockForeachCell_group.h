@@ -6,7 +6,7 @@
 #define CELL_LAMBDA KOKKOS_LAMBDA
 
 namespace dyablo {
-namespace muscl_block {
+
 
 namespace AMRBlockForeachCell_group_impl{
 
@@ -173,5 +173,5 @@ public:
 
 using AMRBlockForeachCell_group = AMRBlockForeachCell_impl<AMRBlockForeachCell_group_impl::PatchManager>;
 
-} // namespace muscl_block
+
 } // namespace dyablo

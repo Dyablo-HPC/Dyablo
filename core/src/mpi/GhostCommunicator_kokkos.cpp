@@ -3,7 +3,7 @@
 #include "utils/mpi/GlobalMpiSession.h"
 
 namespace dyablo{
-namespace muscl_block{
+
 
 GhostCommunicator_kokkos::GhostCommunicator_kokkos( const std::map<int, std::vector<uint32_t>>& ghost_map, const MpiComm& mpi_comm )
   : mpi_comm(mpi_comm)
@@ -357,5 +357,5 @@ void GhostCommunicator_kokkos::exchange_ghosts(const DataArray& U, DataArray& Ug
   exchange_ghosts_aux<DataArray, 0>(U, Ughost);
 }
 
-}//namespace muscl_block
+
 }//namespace dyablo

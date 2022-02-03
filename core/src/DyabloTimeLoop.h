@@ -16,7 +16,7 @@
 #include "legacy/MapUserData.h"
 
 namespace dyablo {
-namespace muscl_block { // TODO : remove from muscl_block
+
 
 /**
  * Main class to run Dyablo simulation
@@ -382,5 +382,5 @@ private:
 
 int DyabloTimeLoop::interrupted = false;
 
-} // namespace muscl_block
+
 } // namespace dyablo

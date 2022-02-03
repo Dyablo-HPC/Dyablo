@@ -10,8 +10,6 @@
 
 namespace dyablo
 {
-namespace muscl_block
-{
 
 
 /// @brief Kokkos functor to fill ghost cell data of all octants in the group 
@@ -107,5 +105,5 @@ public :
   LightOctree lmesh;
 };
 
-} // namespace muscl_block
+
 } // namespace dyablo

@@ -9,7 +9,8 @@
 #include "kokkos_shared.h"
 #include "enums.h"
 
-namespace dyablo { namespace muscl_block {
+namespace dyablo { 
+
 
 using coord_t        = Kokkos::Array<uint32_t, 3>;
 using coord_g_t        = Kokkos::Array<uint32_t, 3>;
@@ -289,7 +290,7 @@ private :
   FlagArrayBlock flags;
 };
 
-} // namespace muscl_block
+
 
 } // namespace dyablo
 

@@ -517,7 +517,7 @@ oct_view_t exchange_ghosts_octs(AMRmesh_hashmap& mesh, const oct_view_t& local_o
 {
     // TODO : avoid deep_copies
     std::shared_ptr<AMRmesh_hashmap> this_ptr(&mesh, [](AMRmesh_hashmap*){});
-    muscl_block::GhostCommunicator_kokkos comm_ghosts(this_ptr);
+    GhostCommunicator_kokkos comm_ghosts(this_ptr);
 
     oct_view_device_t local_octs_coord_device("local_octs_coord_device", octs_coord_id::NUM_OCTS_COORDS, local_octs_coord.extent(1));
     Kokkos::deep_copy(local_octs_coord_device, local_octs_coord);
@@ -535,7 +535,7 @@ oct_view_t exchange_ghosts_octs(AMRmesh_hashmap& mesh, const oct_view_t& local_o
 void exchange_markers(AMRmesh_hashmap& mesh, AMRmesh_hashmap::markers_device_t& markers)
 {
     std::shared_ptr<AMRmesh_hashmap> this_ptr(&mesh, [](AMRmesh_hashmap*){});
-    muscl_block::GhostCommunicator_kokkos comm_ghosts(this_ptr);
+    GhostCommunicator_kokkos comm_ghosts(this_ptr);
 
     uint32_t nbOcts = mesh.getNumOctants();
     uint32_t nbGhosts = mesh.getNumGhosts();
@@ -813,7 +813,7 @@ std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(uint8_t level)
 
         // Exchange 
         {   //TODO : avoid CPU/GPU transfers
-            muscl_block::GhostCommunicator_kokkos loadbalance_communicator( loadbalance_to_send );
+            GhostCommunicator_kokkos loadbalance_communicator( loadbalance_to_send );
             oct_view_device_t local_octs_coord_old( "local_octs_coord_old", local_octs_coord.layout() );
             oct_view_device_t local_octs_coord_new;
             Kokkos::deep_copy(local_octs_coord_old , this->local_octs_coord );
@@ -866,7 +866,7 @@ template < typename View_t >
 void AMRmesh_hashmap_loadBalance( AMRmesh_hashmap& mesh, int compact_levels, View_t& userData )
 {
     auto octs_to_exchange = mesh.loadBalance(compact_levels);
-    muscl_block::GhostCommunicator_kokkos lb_comm(octs_to_exchange);
+    GhostCommunicator_kokkos lb_comm(octs_to_exchange);
     View_t userData_new;
     lb_comm.exchange_ghosts(userData, userData_new);
     userData = userData_new;

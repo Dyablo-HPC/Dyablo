@@ -6,7 +6,7 @@
 #include "mpi/GhostCommunicator.h"
 
 namespace dyablo {
-namespace muscl_block {
+
 
 class AMRBlockForeachCell_Patch;
 
@@ -585,5 +585,5 @@ CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_
 }
 
 } // namespace CellArray_impl
-} // namespace muscl_block
+
 } // namespace dyablo

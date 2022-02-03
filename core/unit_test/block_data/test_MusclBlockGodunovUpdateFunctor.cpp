@@ -28,7 +28,6 @@ using Device = Kokkos::DefaultExecutionSpace;
 
 namespace dyablo {
 
-namespace muscl_block {
 
 void run_test(std::string name, std::string filename) {
 
@@ -202,7 +201,7 @@ void run_test(std::string name, std::string filename) {
 
 } // run_test
 
-} // namespace muscl_block
+
 
 } // namespace dyablo
 

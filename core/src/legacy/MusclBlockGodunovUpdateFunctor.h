@@ -22,8 +22,6 @@
 namespace dyablo
 {
 
-namespace muscl_block
-{
 
 /*************************************************/
 /*************************************************/
@@ -2025,7 +2023,7 @@ public:
 
 }; // MusclBlockGodunovUpdateFunctor
 
-} // namespace muscl_block
+
 
 } // namespace dyablo
 

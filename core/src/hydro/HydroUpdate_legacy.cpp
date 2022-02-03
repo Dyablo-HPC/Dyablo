@@ -10,7 +10,7 @@
 #include "legacy/MusclBlockGodunovUpdateFunctor.h"
 
 namespace dyablo { 
-namespace muscl_block {
+
 
 struct HydroUpdate_legacy::Data{
   ForeachCell& foreach_cell;
@@ -160,7 +160,7 @@ void HydroUpdate_legacy::update(const ForeachCell::CellArray_global_ghosted& Uin
 }
 
 }// namespace dyablo
-}// namespace muscl_block
 
-FACTORY_REGISTER( dyablo::muscl_block::HydroUpdateFactory, dyablo::muscl_block::HydroUpdate_legacy, "HydroUpdate_legacy" );
+
+FACTORY_REGISTER( dyablo::HydroUpdateFactory, dyablo::HydroUpdate_legacy, "HydroUpdate_legacy" );
 

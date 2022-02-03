@@ -23,7 +23,8 @@
 #include "math_constants.h"
 #endif
 
-namespace dyablo { namespace muscl_block {
+namespace dyablo { 
+
 
 /*************************************************/
 /*************************************************/
@@ -89,7 +90,7 @@ public:
     team_policy_t policy ( lmesh.getNumOctants(),
                           Kokkos::AUTO() /* team size chosen by kokkos */);
 
-    Kokkos::parallel_reduce("dyablo::muscl_block::ComputeDtHydroFunctor",
+    Kokkos::parallel_reduce("dyablo::ComputeDtHydroFunctor",
                             policy, functor, invDt);
   } // apply
 
@@ -286,7 +287,7 @@ public:
   
 }; // ComputeDtHydroFunctor
 
-} // namespace muscl_block
+
 
 } // namespace dyablo
 

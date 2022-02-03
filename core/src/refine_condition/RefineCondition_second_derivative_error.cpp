@@ -5,7 +5,7 @@
 #include "utils_hydro.h"
 
 namespace dyablo {
-namespace muscl_block {
+
 namespace{
 
 using GhostedArray = ForeachCell::CellArray_global_ghosted;
@@ -15,12 +15,12 @@ using CellIndex = ForeachCell::CellIndex;
 
 }// namespace
 }// namespace dyablo
-}// namespace muscl_block
+
 
 #include "hydro/CopyGhostBlockCellData.h"
 
 namespace dyablo {
-namespace muscl_block {
+
 
 namespace{
 
@@ -266,7 +266,7 @@ private:
   
 };
 
-} // namespace muscl_block 
+
 } // namespace dyablo 
 
-FACTORY_REGISTER( dyablo::muscl_block::RefineConditionFactory, dyablo::muscl_block::RefineCondition_second_derivative_error, "RefineCondition_second_derivative_error" );
+FACTORY_REGISTER( dyablo::RefineConditionFactory, dyablo::RefineCondition_second_derivative_error, "RefineCondition_second_derivative_error" );

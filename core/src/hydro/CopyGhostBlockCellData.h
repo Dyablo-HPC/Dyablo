@@ -1,7 +1,7 @@
 #pragma once
 
 namespace dyablo { 
-namespace muscl_block {
+
 
 template< int ndim, typename Array_t >
 KOKKOS_INLINE_FUNCTION
@@ -124,4 +124,3 @@ void copyGhostBlockCellData(const GhostedArray& Uin, const CellIndex& iCell_Ugro
 }
 
 }// namespace dyablo
-}// namespace muscl_block

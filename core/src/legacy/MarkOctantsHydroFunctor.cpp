@@ -3,7 +3,7 @@
 #include "Kokkos_Atomic.hpp"
 
 namespace dyablo { 
-namespace muscl_block {
+
 
 namespace{
 
@@ -90,7 +90,7 @@ void MarkOctantsHydroFunctor::apply(
 
   uint32_t nbOcts_local = min( nbOctsPerGroup, nbOcts-iGroup*nbOctsPerGroup );
 
-  Kokkos::parallel_for( "dyablo::muscl_block::MarkOctantsHydroFunctor",
+  Kokkos::parallel_for( "dyablo::MarkOctantsHydroFunctor",
                         team_policy_t(nbOcts_local, Kokkos::AUTO()), 
                         KOKKOS_LAMBDA(const thread_t& member)
   { 
@@ -197,5 +197,5 @@ void MarkOctantsHydroFunctor::set_markers_pablo(markers_t markers, AMRmesh& pmes
   });
 }
 
-} // namespace muscl_block
+
 } // namespace dyablo

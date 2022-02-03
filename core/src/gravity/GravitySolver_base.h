@@ -8,7 +8,7 @@
 #include "foreach_cell/ForeachCell.h"
 
 namespace dyablo {
-namespace muscl_block {
+
 
 class GravitySolver{
 public: 
@@ -27,4 +27,3 @@ using GravitySolverFactory = RegisteringFactory< GravitySolver,
   Timers& /*timers*/ >;
 
 } //namespace dyablo 
-} //namespace muscl_block

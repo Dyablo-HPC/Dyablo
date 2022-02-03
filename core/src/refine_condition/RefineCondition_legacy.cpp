@@ -6,7 +6,7 @@
 #include "legacy/ConvertToPrimitivesHydroFunctor.h"
 
 namespace dyablo {
-namespace muscl_block {
+
 
 class RefineCondition_legacy : public RefineCondition
 {
@@ -142,7 +142,7 @@ private:
   
 };
 
-} // namespace muscl_block 
+
 } // namespace dyablo 
 
-FACTORY_REGISTER( dyablo::muscl_block::RefineConditionFactory, dyablo::muscl_block::RefineCondition_legacy, "RefineCondition_legacy" );
+FACTORY_REGISTER( dyablo::RefineConditionFactory, dyablo::RefineCondition_legacy, "RefineCondition_legacy" );

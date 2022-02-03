@@ -7,7 +7,7 @@
 
 
 namespace dyablo { 
-namespace muscl_block {
+
 
 struct GravitySolver_constant::Data{
   ForeachCell& foreach_cell;
@@ -69,6 +69,6 @@ void GravitySolver_constant::update_gravity_field(
 }
 
 }// namespace dyablo
-}// namespace muscl_block
 
-FACTORY_REGISTER( dyablo::muscl_block::GravitySolverFactory, dyablo::muscl_block::GravitySolver_constant, "GravitySolver_constant" );
+
+FACTORY_REGISTER( dyablo::GravitySolverFactory, dyablo::GravitySolver_constant, "GravitySolver_constant" );

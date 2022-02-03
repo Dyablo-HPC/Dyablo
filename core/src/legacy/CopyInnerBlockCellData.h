@@ -14,7 +14,8 @@
 // utils block
 #include "legacy/utils_block.h"
 
-namespace dyablo { namespace muscl_block {
+namespace dyablo { 
+
 
 /*************************************************/
 /*************************************************/
@@ -105,7 +106,7 @@ public:
                           Kokkos::AUTO() /* team size chosen by kokkos */);
     
     
-    Kokkos::parallel_for("dyablo::muscl_block::CopyInnerBlockCellDataFunctor",
+    Kokkos::parallel_for("dyablo::CopyInnerBlockCellDataFunctor",
                          policy, functor);
   }
 
@@ -208,7 +209,7 @@ public:
 
 }; // CopyInnerBlockCellDataFunctor
 
-} // namespace muscl_block
+
 
 } // namespace dyablo
 

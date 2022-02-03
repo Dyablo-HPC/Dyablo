@@ -8,7 +8,7 @@
 
 
 namespace dyablo { 
-namespace muscl_block {
+
 
 struct HydroUpdate_generic::Data{ 
   ForeachCell& foreach_cell;
@@ -66,12 +66,12 @@ using CellIndex = ForeachCell::CellIndex;
 
 }// namespace
 }// namespace dyablo
-}// namespace muscl_block
+
 
 #include "hydro/CopyGhostBlockCellData.h"
 
 namespace dyablo { 
-namespace muscl_block {
+
 namespace{
 
 template< int ndim >
@@ -542,6 +542,6 @@ void HydroUpdate_generic::update(
 }
 
 }// namespace dyablo
-}// namespace muscl_block
 
-FACTORY_REGISTER( dyablo::muscl_block::HydroUpdateFactory , dyablo::muscl_block::HydroUpdate_generic, "HydroUpdate_generic")
+
+FACTORY_REGISTER( dyablo::HydroUpdateFactory , dyablo::HydroUpdate_generic, "HydroUpdate_generic")
