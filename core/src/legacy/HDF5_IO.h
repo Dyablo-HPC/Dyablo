@@ -4,7 +4,6 @@
 #include <hdf5.h>
 #include <hdf5_hl.h>
 
-#include "legacy/HydroParams.h"
 #include "utils/config/ConfigMap.h"
 #include "FieldManager.h"
 
@@ -39,11 +38,7 @@ public:
    * next as a `Temporal` Collection.
    *
    * \param [in] amr_mesh 
-   * \param [in] fm filed manager
-   * \param [in] names2index map variables names to index
    * \param [in] ConfigMap
-   * \param [in] HydroParams
-   *
    */
   HDF5_Writer(AMRmesh* amr_mesh, 
 	      ConfigMap& configMap);

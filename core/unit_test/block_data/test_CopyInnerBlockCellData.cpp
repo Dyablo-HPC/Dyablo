@@ -14,7 +14,6 @@
 #include <impl/Kokkos_Error.hpp>
 
 #include "real_type.h"    // choose between single and double precision
-#include "legacy/HydroParams.h"  // read parameter file
 #include "FieldManager.h"
 
 

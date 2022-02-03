@@ -2,6 +2,7 @@
 
 #include <string>
 #include <map>
+#include <iostream>
 #include <fstream>
 #include <iomanip>
 #include <limits>

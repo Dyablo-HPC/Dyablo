@@ -251,7 +251,7 @@ void compute_limited_slopes(const GhostedArray& Q, const CellIndex& iCell_U,
    * @param Slope_xyz limited slopes for every cell (in the xyz direction)
    * @param cellmetadata cell meta data to retrieve cell size and position
    * @param dt timestep
-   * @param params HydroParams configuration
+   * @param params RiemannParams configuration
    */
 template< int ndim >
 KOKKOS_INLINE_FUNCTION

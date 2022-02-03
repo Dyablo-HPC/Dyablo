@@ -3,7 +3,6 @@
 
 #include <vector>
 
-#include "legacy/HydroParams.h"
 #include "utils/config/ConfigMap.h"
 #include "kokkos_shared.h"
 #include "FieldManager.h"
