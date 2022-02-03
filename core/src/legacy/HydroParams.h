@@ -70,7 +70,7 @@ struct HydroParams {
   int ghostWidth;  
   int nbvar;  /*!< number of variables in HydroState / MHDState. */
 
-  DimensionType dimType; //!< 2D or 3D.
+  int dimType; //!< 2D or 3D.
 
   int imin;   /*!< index minimum at X border*/
   int imax;   /*!< index maximum at X border*/
@@ -153,7 +153,7 @@ struct HydroParams {
   HydroParams() :
     nStepmax(0), tEnd(0.0), nOutput(0), enableOutput(true), mhdEnabled(false),
     nlog(10),
-    nx(0), ny(0), nz(0), ghostWidth(2), nbvar(4), dimType(TWO_D),
+    nx(0), ny(0), nz(0), ghostWidth(2), nbvar(4), dimType(2),
     imin(0), imax(0), jmin(0), jmax(0), kmin(0), kmax(0),
     isize(0), jsize(0), ksize(0),
     xmin(0.0), xmax(1.0), ymin(0.0), ymax(1.0), zmin(0.0), zmax(1.0),

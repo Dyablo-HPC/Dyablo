@@ -27,7 +27,6 @@
 #include "legacy/ConvertToPrimitivesHydroFunctor.h"
 #include "init/InitialConditions_analytical.h"
 #include "foreach_cell/AMRBlockForeachCell.h"
-#include "problems/ImplodeParams.h"
 
 using Device = Kokkos::DefaultExecutionSpace;
 
@@ -712,8 +711,8 @@ void run_test()
     print_neighbor(2,2) ; print_neighbor(1,3) ; print_neighbor(2,3); std::cout << std::endl;
     
 
-    // std::cout << "  FACE_LEFT   "; print_neighbor_status(FACE_LEFT);
-    // std::cout << "  FACE_RIGHT  "; print_neighbor_status(FACE_RIGHT);
+    // std::cout << "  FACE_XMIN   "; print_neighbor_status(FACE_XMIN);
+    // std::cout << "  FACE_XMAX  "; print_neighbor_status(FACE_XMAX);
     // std::cout << "  FACE_TOP    "; print_neighbor_status(FACE_TOP);
     // std::cout << "  FACE_BOTTOM "; print_neighbor_status(FACE_BOTTOM);
 
@@ -826,7 +825,6 @@ void run_test()
     // Fetch values from initial conditions and compare to actual value 
     auto check_cell = [&](uint32_t iOct_local, uint32_t ix, uint32_t iy, uint32_t iz, NEIGH_SIZE neighbor_size = NEIGH_SIZE::NEIGH_IS_SAME_SIZE )
     { 
-      ImplodeParams iParams(configMap);
       uint32_t iOct_global = iOct_local + iGroup * nbOctsPerGroup;
       const real_t octSize = amr_mesh->getSize(iOct_global);
       const real_t cellSize = octSize/bx;

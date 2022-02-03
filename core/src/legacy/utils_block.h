@@ -229,6 +229,59 @@ uint32_t coord_to_index(coord_t     coords,
 
 } // coord_to_index
 
+enum FACE_ID : uint8_t {
+  FACE_LEFT   = 0,
+  FACE_RIGHT  = 1,
+  FACE_BOTTOM = 2,
+  FACE_TOP    = 3,
+  FACE_FRONT  = 4,
+  FACE_REAR   = 5
+};
+
+enum DIR_ID : uint8_t {
+  DIR_X = 0,
+  DIR_Y = 1,
+  DIR_Z = 2
+};
+
+//! face index
+enum FaceIdType {
+  FACE_XMIN=0,
+  FACE_XMAX=1,
+  FACE_YMIN=2,
+  FACE_YMAX=3,
+  FACE_ZMIN=4,
+  FACE_ZMAX=5,
+  FACE_MIN =0,
+  FACE_MAX =1
+};
+
+//! 2:1 ratios
+//  Indicates if the neighbor is bigger or smaller
+enum InterfaceType : uint16_t {
+  INTERFACE_NONE         =    0,
+  INTERFACE_XMIN_SMALLER =    1,
+  INTERFACE_XMAX_SMALLER =    2,
+  INTERFACE_YMIN_SMALLER =    4,
+  INTERFACE_YMAX_SMALLER =    8,
+  INTERFACE_ZMIN_SMALLER =   16,
+  INTERFACE_ZMAX_SMALLER =   32,
+  INTERFACE_XMIN_BIGGER  =   64,
+  INTERFACE_XMAX_BIGGER  =  128,
+  INTERFACE_YMIN_BIGGER  =  256,
+  INTERFACE_YMAX_BIGGER  =  512,
+  INTERFACE_ZMIN_BIGGER  = 1024,
+  INTERFACE_ZMAX_BIGGER  = 2048,
+  
+  // Combinations: Non conformal interfaces
+  INTERFACE_XMIN_NC = 65,
+  INTERFACE_XMAX_NC = 130,
+  INTERFACE_YMIN_NC = 260,
+  INTERFACE_YMAX_NC = 520,
+  INTERFACE_ZMIN_NC = 1040,
+  INTERFACE_ZMAX_NC = 2080
+};
+
 class InterfaceFlags
 {
 public :

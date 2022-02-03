@@ -11,6 +11,15 @@
 
 namespace dyablo {
 
+//! Riemann solver type for hydro fluxes
+enum RiemannSolverType {
+  RIEMANN_APPROX, /*!< quasi-exact Riemann solver (hydro-only) */ 
+  RIEMANN_LLF,    /*!< LLF Local Lax-Friedrich */
+  RIEMANN_HLL,    /*!< HLL hydro and MHD Riemann solver */
+  RIEMANN_HLLC,   /*!< HLLC hydro-only Riemann solver */
+  //RIEMANN_HLLD    /*!< HLLD MHD-only Riemann solver */
+};
+
 struct RiemannParams
 {
   RiemannParams( ConfigMap& configMap )

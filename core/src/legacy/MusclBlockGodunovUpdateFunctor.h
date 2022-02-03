@@ -22,6 +22,17 @@
 namespace dyablo
 {
 
+namespace {
+
+template <class T>
+KOKKOS_INLINE_FUNCTION 
+void my_swap(T& a, T& b) {
+  T c{std::move(a)};
+  a = std::move(b);
+  b = std::move(c);
+} // my_swap
+
+} // namespace
 
 /*************************************************/
 /*************************************************/
@@ -76,6 +87,11 @@ private:
 
 public:
   using index_t = int32_t;
+
+  enum UPDATE_TYPE : uint16_t {
+    UPDATE_NON_CONSERVATIVE = 0,
+    UPDATE_CONSERVATIVE_SUM = 1
+  };
 
   void setNbTeams(uint32_t nbTeams_) { nbTeams = nbTeams_; };
 
