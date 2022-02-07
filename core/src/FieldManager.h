@@ -20,14 +20,15 @@ enum VarIndex {
   IC=7,   /*!< Z magnetic field index */ 
   IBX=5,  /*!< X magnetic field index */ 
   IBY=6,  /*!< Y magnetic field index */ 
-  IBZ=7,  /*!< Z magnetic field index */
-  IGX=8,  /*!< X gravitational field index */
-  IGY=9,  /*!< Y gravitational field index */
-  IGZ=10, /*!< Z gravitational field index */
+  IBZ=7,  /*!< Z magnetic field index */  
+  IGPHI=8,/*!< gravitational potential */
+  IGX=9,  /*!< X gravitational field index */
+  IGY=10,  /*!< Y gravitational field index */
+  IGZ=11, /*!< Z gravitational field index */
   IBFX = 0,
   IBFY = 1,
   IBFZ = 2,
-  VARINDEX_COUNT=11 /*!< invalid index, just counting number of fields */
+  VARINDEX_COUNT=12 /*!< invalid index, just counting number of fields */
 };
 
 //! a convenience alias to map id to variable names

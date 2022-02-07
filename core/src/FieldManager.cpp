@@ -14,6 +14,7 @@ const std::vector< std::pair< VarIndex, std::string > >& var_names()
     {IA, "bx"},
     {IB, "by"},
     {IC, "bz"},
+    {IGPHI, "igphi"},
     {IGX, "igx"},
     {IGY, "igy"},
     {IGZ, "igz"}
