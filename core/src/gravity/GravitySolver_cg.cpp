@@ -1,45 +1,41 @@
 #include "GravitySolver_cg.h"
 
-#include "muscl_block/utils_block.h"
 #include "utils/monitoring/Timers.h"
-
-#include "muscl_block/foreach_cell/AMRBlockForeachCell_group.h"
-#include "shared/utils_hydro.h"
-#include "shared/mpi/GhostCommunicator.h"
+#include "mpi/GhostCommunicator.h"
 #include <mpi.h>
 
 namespace dyablo { 
-namespace muscl_block {
 
 struct GravitySolver_cg::Data{
-  const ConfigMap& configMap;
-  const HydroParams& params;  
-  const LightOctree& lmesh;
-  const GhostCommunicator ghost_comm;
-  const id2index_t fm;
- 
-  uint32_t bx, by, bz; 
+  ForeachCell& foreach_cell;
   
   Timers& timers;  
 
-  uint32_t nbOctsPerGroup;
+  real_t xmin, ymin, zmin;
+  real_t xmax, ymax, zmax;
+
+  Kokkos::Array<BoundaryConditionType, 3> boundarycondition;
 };
 
 GravitySolver_cg::GravitySolver_cg(
-  const ConfigMap& configMap,
-  const HydroParams& params, 
-  std::shared_ptr<AMRmesh> pmesh,
-  const id2index_t& fm,
-  uint32_t bx, uint32_t by, uint32_t bz,
+  ConfigMap& configMap,
+  ForeachCell& foreach_cell,
   Timers& timers )
  : pdata(new Data
-    {configMap, 
-    params, 
-    pmesh->getLightOctree(), 
-    GhostCommunicator(pmesh),
-    fm,
-    bx, by, bz,
-    timers
+    {
+      foreach_cell,
+      timers,
+      configMap.getValue<real_t>("mesh", "xmin", 0.0),
+      configMap.getValue<real_t>("mesh", "ymin", 0.0),
+      configMap.getValue<real_t>("mesh", "zmin", 0.0),
+      configMap.getValue<real_t>("mesh", "xmax", 1.0),
+      configMap.getValue<real_t>("mesh", "ymax", 1.0),
+      configMap.getValue<real_t>("mesh", "zmax", 1.0),
+      {
+        configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_ABSORBING),
+        configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymin", BC_ABSORBING),
+        configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmin", BC_ABSORBING)
+      }
     })
 {
 
@@ -80,14 +76,11 @@ real_t get_value(const GhostedArray& U, const CellIndex& iCell_U, VarIndex var, 
     int di_count = (offset[IX]==0)?2:1;
     int dj_count = (offset[IY]==0)?2:1;
     int dk_count = (ndim==3 && offset[IZ]==0)?2:1;
-    int di_start = (offset[IX]==-1)?1:0;
-    int dj_start = (offset[IY]==-1)?1:0;
-    int dk_start = (offset[IZ]==-1 && ndim==3)?1:0;
     for( int8_t dk=0; dk<dk_count; dk++ )
     for( int8_t dj=0; dj<dj_count; dj++ )
     for( int8_t di=0; di<di_count; di++ )
     {
-        CellIndex iCell_ghost = iCell_U.getNeighbor({(int8_t)(di_start+di),(int8_t)(dj_start+dj),(int8_t)(dk_start+dk)});
+        CellIndex iCell_ghost = iCell_U.getNeighbor({di,dj,dk});
         sum += U.at(iCell_ghost, var);
     }
     int nbCells = di_count*dj_count*dk_count;
@@ -96,7 +89,7 @@ real_t get_value(const GhostedArray& U, const CellIndex& iCell_U, VarIndex var, 
 }
 
 KOKKOS_INLINE_FUNCTION
-real_t matprod(const GhostedArray& GCdata, const CellIndex& iCell_CGdata, VarIndex var, real_t dx, real_t dy, real_t dz, const BoundaryConditionType boundarycondition[3])
+real_t matprod(const GhostedArray& GCdata, const CellIndex& iCell_CGdata, VarIndex var, real_t dx, real_t dy, real_t dz, const Kokkos::Array<BoundaryConditionType, 3>& boundarycondition)
 {
   constexpr int ndim = 3;
 
@@ -146,47 +139,25 @@ real_t MPI_Allreduce_scalar( real_t local_v )
 } // namespace
 
 void GravitySolver_cg::update_gravity_field(
-    DataArrayBlock U_, DataArrayBlock Ughost_,
-    DataArrayBlock Uout_)
+  const ForeachCell::CellArray_global_ghosted& Uin,
+  const ForeachCell::CellArray_global_ghosted& Uout )
 {
-  const HydroParams& params = pdata->params;
-  const LightOctree& lmesh = pdata->lmesh;
-  uint8_t ndim = lmesh.getNdim();
-  const id2index_t& fm = pdata->fm;
-  uint32_t bx = pdata->bx, by = pdata->by, bz = pdata->bz;
-  real_t xmin = params.xmin, ymin = params.ymin, zmin = params.zmin;
-  real_t xmax = params.xmax, ymax = params.ymax, zmax = params.zmax;
-  const uint32_t nbOcts = lmesh.getNumOctants();
-  const uint32_t nbGhosts = lmesh.getNumGhosts();
-  const uint32_t nbOctsPerGroup = nbOcts;
-  const GhostCommunicator& ghost_comm = pdata->ghost_comm;
- BoundaryConditionType boundarycondition[3] = {params.boundary_type_xmin,params.boundary_type_ymin,params.boundary_type_zmin};
+  uint8_t ndim = pdata->foreach_cell.getDim();
+  ForeachCell& foreach_cell = pdata->foreach_cell;
+  real_t xmin = pdata->xmin, ymin = pdata->ymin, zmin = pdata->zmin;
+  real_t xmax = pdata->xmax, ymax = pdata->ymax, zmax = pdata->zmax;
+  Kokkos::Array<BoundaryConditionType, 3> boundarycondition = pdata->boundarycondition;
+  GhostCommunicator ghost_comm(std::shared_ptr<AMRmesh>(&foreach_cell.get_amr_mesh(), [](AMRmesh*){}));
 
   real_t gravity_constant = 1;// 4 pi G
   real_t eps = 1E-3; // sqrt( mean square diff )
 
-  ForeachCell foreach_cell(
-    ndim,
-    lmesh, 
-    bx, by, bz,
-    xmin, ymin, zmin,
-    xmax, ymax, zmax,
-    nbOctsPerGroup
-  );
   ForeachCell::CellMetaData cells = foreach_cell.getCellMetaData();
-
-  GhostedArray Uin =  foreach_cell.get_ghosted_array(U_, Ughost_, lmesh, fm);
-  GlobalArray Uout = foreach_cell.get_global_array(Uout_, 0, 0, 0, fm);
 
   // Setup field manager for CGdata
   FieldManager fieldManager( {CG_IP, CG_IR, CG_PHI} );
-  int fm_gc_count = fieldManager.nbfields();
-  id2index_t fm_cg = fieldManager.get_id2index();
   // Allocate global array
-  DataArrayBlock CGdata_("CGdata", bx*by*bz, fm_gc_count, nbOcts );
-  DataArrayBlock CGdata_ghosts("CGdata", bx*by*bz, fm_gc_count, nbGhosts);
-  // Link global Array to GhostedArray
-  GhostedArray CGdata = foreach_cell.get_ghosted_array(CGdata_, CGdata_ghosts, lmesh, fm_cg);
+  GhostedArray CGdata = foreach_cell.allocate_ghosted_array( "CGdata", fieldManager );
 
   pdata->timers.get("GravitySolver_cg").start();
 
@@ -327,6 +298,5 @@ void GravitySolver_cg::update_gravity_field(
 }
 
 }// namespace dyablo
-}// namespace muscl_block
 
-FACTORY_REGISTER( dyablo::muscl_block::GravitySolverFactory, dyablo::muscl_block::GravitySolver_cg, "GravitySolver_cg" );
+FACTORY_REGISTER( dyablo::GravitySolverFactory, dyablo::GravitySolver_cg, "GravitySolver_cg" );
