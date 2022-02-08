@@ -21,8 +21,9 @@ using GravityField = Kokkos::Array<real_t, 3>;
 using MHDState = Kokkos::Array<real_t, MHD_NBVAR>;
 using BField = Kokkos::Array<real_t, 3>;
 
-// =================================================================
-// =================================================================
+// ----- 
+// Operator+
+// ----- 
 template<size_t dim>
 KOKKOS_INLINE_FUNCTION
 StateNd<dim> operator+(const StateNd<dim>& lhs, const StateNd<dim>& rhs)
@@ -30,52 +31,146 @@ StateNd<dim> operator+(const StateNd<dim>& lhs, const StateNd<dim>& rhs)
   StateNd<dim> res{};
   for (size_t i=0; i<dim; ++i)
     res[i] = lhs[i] + rhs[i];
-
   return res;
-
-} // operator+=
-
+}
 template<size_t dim>
 KOKKOS_INLINE_FUNCTION
-StateNd<dim>& operator+=(StateNd<dim>& lhs, const StateNd<dim>& rhs)
+StateNd<dim> operator+(const StateNd<dim>& lhs, real_t rhs)
 {
-
+  StateNd<dim> res{};
   for (size_t i=0; i<dim; ++i)
-    lhs[i] += rhs[i];
+    res[i] = lhs[i] + rhs;
+  return res;
+}
+template<size_t dim, typename T>
+KOKKOS_INLINE_FUNCTION
+StateNd<dim> operator+( const T& lhs, const StateNd<dim>& rhs)
+{
+  return rhs + lhs;
+}
+template<size_t dim, typename T>
+KOKKOS_INLINE_FUNCTION
+StateNd<dim>& operator+=(StateNd<dim>& lhs, const T& rhs)
+{
+  return lhs = lhs + rhs;
+}
 
-  return lhs;
-
-} // operator+=
-
-// =================================================================
-// =================================================================
+// ----- 
+// Operator-
+// ----- 
 template<size_t dim>
 KOKKOS_INLINE_FUNCTION
-StateNd<dim>& operator-=(StateNd<dim>& lhs, const StateNd<dim>& rhs)
+StateNd<dim> operator-(const StateNd<dim>& lhs)
 {
-
+  StateNd<dim> res{};
   for (size_t i=0; i<dim; ++i)
-    lhs[i] -= rhs[i];
+    res[i] = -lhs[i];
+  return res;
+}
+template<size_t dim>
+KOKKOS_INLINE_FUNCTION
+StateNd<dim> operator-(const StateNd<dim>& lhs, const StateNd<dim>& rhs)
+{
+  StateNd<dim> res{};
+  for (size_t i=0; i<dim; ++i)
+    res[i] = lhs[i] - rhs[i];
+  return res;
+}
+template<size_t dim>
+KOKKOS_INLINE_FUNCTION
+StateNd<dim> operator-(const StateNd<dim>& lhs, real_t rhs)
+{
+  StateNd<dim> res{};
+  for (size_t i=0; i<dim; ++i)
+    res[i] = lhs[i] - rhs;
+  return res;
+}
+template<size_t dim>
+KOKKOS_INLINE_FUNCTION
+StateNd<dim> operator-( real_t lhs, const StateNd<dim>& rhs)
+{
+  StateNd<dim> res{};
+  for (size_t i=0; i<dim; ++i)
+    res[i] = lhs - rhs[i];
+  return res;
+}
+template<size_t dim, typename T>
+KOKKOS_INLINE_FUNCTION
+StateNd<dim>& operator-=(StateNd<dim>& lhs, const T& rhs)
+{
+  return lhs = lhs - rhs;
+}
 
-  return lhs;
-
-} // operator-=
-
-// =================================================================
-// =================================================================
+// ----- 
+// Operator*
+// ----- 
+template<size_t dim>
+KOKKOS_INLINE_FUNCTION
+StateNd<dim> operator*(const StateNd<dim>& lhs, const StateNd<dim>& rhs)
+{
+  StateNd<dim> res{};
+  for (size_t i=0; i<dim; ++i)
+    res[i] = lhs[i] * rhs[i];
+  return res;
+}
 template<size_t dim>
 KOKKOS_INLINE_FUNCTION
 StateNd<dim> operator*(const StateNd<dim>& lhs, real_t rhs)
 {
-
-  StateNd<dim> res;
-
+  StateNd<dim> res{};
   for (size_t i=0; i<dim; ++i)
     res[i] = lhs[i] * rhs;
-
   return res;
+}
+template<size_t dim, typename T>
+KOKKOS_INLINE_FUNCTION
+StateNd<dim> operator*( const T& lhs, const StateNd<dim>& rhs)
+{
+  return rhs * lhs;
+}
+template<size_t dim, typename T>
+KOKKOS_INLINE_FUNCTION
+StateNd<dim>& operator*=(StateNd<dim>& lhs, const T& rhs)
+{
+  return lhs = lhs * rhs;
+}
 
-} // operator*
+// ----- 
+// Operator/
+// ----- 
+template<size_t dim>
+KOKKOS_INLINE_FUNCTION
+StateNd<dim> operator/(const StateNd<dim>& lhs, const StateNd<dim>& rhs)
+{
+  StateNd<dim> res{};
+  for (size_t i=0; i<dim; ++i)
+    res[i] = lhs[i] / rhs[i];
+  return res;
+}
+template<size_t dim>
+KOKKOS_INLINE_FUNCTION
+StateNd<dim> operator/(const StateNd<dim>& lhs, real_t rhs)
+{
+  StateNd<dim> res{};
+  for (size_t i=0; i<dim; ++i)
+    res[i] = lhs[i] / rhs;
+  return res;
+}
+template<size_t dim>
+KOKKOS_INLINE_FUNCTION
+StateNd<dim> operator/(real_t lhs, const StateNd<dim>& rhs)
+{
+  StateNd<dim> res{};
+  for (size_t i=0; i<dim; ++i)
+    res[i] = lhs / rhs[i];
+  return res;
+}
+template<size_t dim, typename T>
+KOKKOS_INLINE_FUNCTION
+StateNd<dim>& operator/=(StateNd<dim>& lhs, const T& rhs)
+{
+  return lhs = lhs / rhs;
+}
 
 } // namespace dyablo
 
