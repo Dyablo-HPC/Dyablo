@@ -2,6 +2,7 @@
 
 #include "utils/monitoring/Timers.h"
 #include "mpi/GhostCommunicator.h"
+#include "foreach_cell/ForeachCell_utils.h"
 #include <mpi.h>
 
 namespace dyablo { 
@@ -72,18 +73,13 @@ real_t get_value(const GhostedArray& U, const CellIndex& iCell_U, VarIndex var, 
   else
   {
     real_t sum = 0;
-    // Accumulate values from neighbors of initial cell
-    int di_count = (offset[IX]==0)?2:1;
-    int dj_count = (offset[IY]==0)?2:1;
-    int dk_count = (ndim==3 && offset[IZ]==0)?2:1;
-    for( int8_t dk=0; dk<dk_count; dk++ )
-    for( int8_t dj=0; dj<dj_count; dj++ )
-    for( int8_t di=0; di<di_count; di++ )
+    int nbCells =
+    foreach_smaller_neighbor<ndim, false>( 
+      iCell_U, offset, U, 
+      [&](const ForeachCell::CellIndex& iCell_ghost)
     {
-        CellIndex iCell_ghost = iCell_U.getNeighbor({di,dj,dk});
-        sum += U.at(iCell_ghost, var);
-    }
-    int nbCells = di_count*dj_count*dk_count;
+      sum += U.at(iCell_ghost, var);
+    });
     return sum/nbCells;
   } 
 }
