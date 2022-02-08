@@ -1,5 +1,7 @@
 #pragma once
 
+#include "foreach_cell/ForeachCell_utils.h"
+
 namespace dyablo { 
 
 
@@ -99,22 +101,15 @@ void copyGhostBlockCellData(const GhostedArray& Uin, const CellIndex& iCell_Ugro
   }
   else if( iCell_Uin.level_diff() == -1 ) 
   {
-    // Neighbor is smaller : get mean of siblings
-    int dk_count = (ndim==3)?2:1;
-    int nbCells = 2*2*(dk_count);
-    HydroState3d u {0,0,0,0,0};
-    for( int8_t dk=0; dk<dk_count; dk++ )
-    for( int8_t dj=0; dj<=1; dj++ )
-    for( int8_t di=0; di<=1; di++ )
+    HydroState3d u {};
+    int nbCells =
+    foreach_sibling<ndim>( iCell_Uin, Uin, 
+      [&](const CellIndex& iCell_subcell)
     {
-        CellIndex iCell_ghost = iCell_Uin.getNeighbor({di,dj,dk}); // This assumes that all 8 subcells are in the same octant!
-        u[ID] += Uin.at(iCell_ghost, ID)/nbCells;
-        u[IP] += Uin.at(iCell_ghost, IP)/nbCells;
-        u[IU] += Uin.at(iCell_ghost, IU)/nbCells;
-        u[IV] += Uin.at(iCell_ghost, IV)/nbCells;
-        if(ndim == 3) u[IW] += Uin.at(iCell_ghost, IW)/nbCells;
-    }
-    setHydroState<ndim>( Ugroup, iCell_Ugroup, u );
+      HydroState3d u_subcell = getHydroState<ndim>(Uin, iCell_subcell);
+      u += u_subcell;
+    });
+    setHydroState<ndim>( Ugroup, iCell_Ugroup, u/nbCells );
   }
   else assert(false); // Should not happen
 

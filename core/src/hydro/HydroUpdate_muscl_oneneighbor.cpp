@@ -6,6 +6,7 @@
 #include "hydro/HydroUpdate_base.h"
 
 #include "foreach_cell/ForeachCell.h"
+#include "foreach_cell/ForeachCell_utils.h"
 #include "utils_hydro.h"
 #include "RiemannSolvers.h"
 #include "utils/config/ConfigMap.h"
@@ -227,17 +228,11 @@ void compute_limited_slopes(const GhostedArray& Q, const CellIndex& iCell_U,
                 update_minmod(dir, iCell_n0, pos_cell[dir]+1.5*offset[dir]*cell_size[dir]);
             if( iCell_n0.level_diff() == -1 ) // smaller
             {
-                // Iterate over adjacent neighbors
-                int di_count = (offset[IX]==0)?2:1;
-                int dj_count = (offset[IY]==0)?2:1;
-                int dk_count = (ndim==3 && offset[IZ]==0)?2:1;
-                for( int8_t dk=0; dk<dk_count; dk++ )
-                for( int8_t dj=0; dj<dj_count; dj++ )
-                for( int8_t di=0; di<di_count; di++ )
-                {
-                    CellIndex iCell_neighbor = iCell_n0.getNeighbor_ghost({di,dj,dk}, Q);
-                    update_minmod(dir, iCell_neighbor, pos_cell[dir]+0.75*offset[dir]*cell_size[dir]);
-                }
+              foreach_smaller_neighbor<ndim>(iCell_n0, offset, Q, 
+                [&](const CellIndex& iCell_neighbor)
+              {
+                update_minmod(dir, iCell_neighbor, pos_cell[dir]+0.75*offset[dir]*cell_size[dir]);
+              });
             }
         };
 
