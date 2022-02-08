@@ -203,6 +203,8 @@ void compute_limited_slopes(const GhostedArray& Q, const CellIndex& iCell_U,
             offset[dir] = sign;
             CellIndex iCell_n0 = iCell_U.getNeighbor_ghost( offset, Q );
 
+            if( iCell_n0.is_boundary() )
+              return;
             if( iCell_n0.level_diff() == 0 ) // same size
                 update_minmod(dir, iCell_n0, pos_cell[dir]+offset[dir]*cell_size[dir]);
             if( iCell_n0.level_diff() == 1 ) // bigger
@@ -405,21 +407,21 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
     offset[dir] = sign;
     CellIndex iCell_n0 = iCell_Q.getNeighbor_ghost( offset, Q );
 
-    HydroState3d qr_c, qr_n;
-
     if( iCell_n0.is_boundary() )
     {
-      qr_c = qprim;
-      qr_n = qprim;
-      if( (bc.boundary_type_xmin == BC_REFLECTING && iCell_Q.getNeighbor_ghost( {-1,0,0}, Q ).is_boundary())
-      ||  (bc.boundary_type_xmax == BC_REFLECTING && iCell_Q.getNeighbor_ghost( {+1,0,0}, Q ).is_boundary()) )
+      HydroState3d qr_c = qprim;
+      HydroState3d qr_n = qprim;
+      if( (offset[IX] == -1 && bc.boundary_type_xmin == BC_REFLECTING)
+       || (offset[IX] == +1 && bc.boundary_type_xmax == BC_REFLECTING) )
         qr_n[IU] = -qr_n[IU];
-      if( (bc.boundary_type_ymin == BC_REFLECTING && iCell_Q.getNeighbor_ghost( {0,-1,0}, Q ).is_boundary())
-      ||  (bc.boundary_type_ymax == BC_REFLECTING && iCell_Q.getNeighbor_ghost( {0,+1,0}, Q ).is_boundary()) )
+
+      if( (offset[IY] == -1 && bc.boundary_type_ymin == BC_REFLECTING)
+       || (offset[IY] == +1 && bc.boundary_type_ymax == BC_REFLECTING) )
         qr_n[IV] = -qr_n[IV];
-      if( (ndim==3) &&
-        ( (bc.boundary_type_zmin == BC_REFLECTING && iCell_Q.getNeighbor_ghost( {0,0,-1}, Q ).is_boundary())
-      ||  (bc.boundary_type_zmax == BC_REFLECTING && iCell_Q.getNeighbor_ghost( {0,0,+1}, Q ).is_boundary()) ) )
+
+      if( ndim == 3 )
+        if( (offset[IZ] == -1 && bc.boundary_type_zmin == BC_REFLECTING)
+         || (offset[IZ] == +1 && bc.boundary_type_zmax == BC_REFLECTING) )
         qr_n[IW] = -qr_n[IW];
 
       HydroState3d flux = riemann(qr_c, qr_n, dir, sign);
