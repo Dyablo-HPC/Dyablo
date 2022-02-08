@@ -52,8 +52,21 @@ public:
         configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymax", BC_ABSORBING),
         configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmax", BC_ABSORBING)
       },
+      gx( configMap.getValue<real_t>("gravity", "gx",  0.0) ),
+      gy( configMap.getValue<real_t>("gravity", "gy",  0.0) ),
+      gz( configMap.getValue<real_t>("gravity", "gz",  0.0) ),
       timers(timers)
-  {}
+  {
+    GravityType gravity_type = configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE);
+    this->gravity_enabled = gravity_type!=GRAVITY_NONE;
+    this->gravity_use_field = gravity_type&GRAVITY_FIELD;
+    bool gravity_use_scalar = gravity_type==GRAVITY_CST_SCALAR;
+
+    // If gravity is on it must either use the force field from U or a constant scalar force field
+    if( gravity_enabled && ( gravity_use_field == gravity_use_scalar )  )
+      throw std::runtime_error( "gravity/gravity_type inconsistant" );
+
+  }
 
   void update(  const ForeachCell::CellArray_global_ghosted& Uin,
                 const ForeachCell::CellArray_global_ghosted& Uout,
@@ -78,6 +91,9 @@ public:
     real_t xmax, ymax, zmax; 
 
     BoundaryConditions boundary_conditions;
+    real_t gx, gy, gz;
+
+    bool gravity_enabled, gravity_use_field;
     
     Timers& timers;
 };
@@ -422,7 +438,7 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
       if( ndim == 3 )
         if( (offset[IZ] == -1 && bc.boundary_type_zmin == BC_REFLECTING)
          || (offset[IZ] == +1 && bc.boundary_type_zmax == BC_REFLECTING) )
-        qr_n[IW] = -qr_n[IW];
+          qr_n[IW] = -qr_n[IW];
 
       HydroState3d flux = riemann(qr_c, qr_n, dir, sign);
       // +- dS / dV 
@@ -536,7 +552,69 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
   setHydroState<ndim>(Uout, iCell_Q, qcons);
 }
 
+/**
+ * Applies corrector step for gravity
+ * @param Uin Initial values before update
+ * @param iCell_Uin Position insides Uin/Uout (non ghosted)
+ * @param dt time step
+ * @param use_field Get gravity field from Uin
+ * @param gx, gy, gz, scalar values when use_field == false
+ * @param Uout Updated array after hydro without gravity
+ **/
+template<int ndim>
+KOKKOS_INLINE_FUNCTION
+void apply_gravity_correction( const GhostedArray& Uin,
+                               const CellIndex& iCell_Uin,
+                               real_t dt,
+                               bool use_field,
+                               real_t gx, real_t gy, real_t gz,
+                               const GhostedArray& Uout ){
+  
+  if(use_field)
+  {
+    gx = Uin.at(iCell_Uin, IGX);
+    gy = Uin.at(iCell_Uin, IGY);
+    if (ndim == 3)
+      gz = Uin.at(iCell_Uin, IGZ);
+  }
+
+  real_t rhoOld = Uin.at(iCell_Uin, ID);
+  
+  real_t rhoNew = Uout.at(iCell_Uin, ID);
+  real_t rhou = Uout.at(iCell_Uin, IU);
+  real_t rhov = Uout.at(iCell_Uin, IV);
+  real_t ekin_old = rhou*rhou + rhov*rhov;
+  real_t rhow;
+  
+  if (ndim == 3) {
+    rhow = Uout.at(iCell_Uin, IW);
+    ekin_old += rhow*rhow;
+  }
+  
+  ekin_old = 0.5 * ekin_old / rhoNew;
+
+  rhou += 0.5 * dt * gx * (rhoOld + rhoNew);
+  rhov += 0.5 * dt * gy * (rhoOld + rhoNew);
+
+  Uout.at(iCell_Uin, IU) = rhou;
+  Uout.at(iCell_Uin, IV) = rhov;
+  if (ndim == 3) {
+    rhow += 0.5 * dt * gz * (rhoOld + rhoNew);
+    Uout.at(iCell_Uin, IW) = rhow;
+  }
+
+  // Energy correction should be included in case of self-gravitation ?
+  real_t ekin_new = rhou*rhou + rhov*rhov;
+  if (ndim == 3)
+    ekin_new += rhow*rhow;
+  
+  ekin_new = 0.5 * ekin_new / rhoNew;
+  Uout.at(iCell_Uin, IE) += (ekin_new - ekin_old);
+}
+
 } // namespace
+
+
 
 template< int ndim >
 void HydroUpdate_muscl_oneneighbor::update_aux( 
@@ -549,6 +627,11 @@ void HydroUpdate_muscl_oneneighbor::update_aux(
     const BoundaryConditions& boundary_conditions = this->boundary_conditions;
     ForeachCell& foreach_cell = this->foreach_cell;
     GhostCommunicator ghost_comm(std::shared_ptr<AMRmesh>(&foreach_cell.get_amr_mesh(), [](AMRmesh*){}));
+    bool gravity_use_field = this->gravity_use_field;
+    bool gravity_enabled = this->gravity_enabled;
+    real_t gx = this->gx;
+    real_t gy = this->gy;
+    real_t gz = this->gz;
 
     timers.get("HydroUpdate_muscl_oneneighbor").start();
 
@@ -592,6 +675,9 @@ void HydroUpdate_muscl_oneneighbor::update_aux(
         compute_fluxes_and_update<ndim>(  Uin, Uout, Q, iCell_Q, 
                                           Slopes_x, Slopes_y, Slopes_z,
                                           cellmetadata, dt, riemann_params, boundary_conditions );
+        // Applying correction step for gravity
+      if (gravity_enabled)
+        apply_gravity_correction<ndim>(Uin, iCell_Q, dt, gravity_use_field, gx, gy, gz, Uout);
     });
 
     timers.get("HydroUpdate_muscl_oneneighbor").stop();
