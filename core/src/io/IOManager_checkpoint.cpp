@@ -4,6 +4,7 @@
 #include "legacy/io_utils.h"
 
 #include "utils/monitoring/Timers.h"
+#include "userdata_utils.h"
 
 #include <hdf5.h>
 #include <hdf5_hl.h>
@@ -35,21 +36,25 @@ public:
   }
 
   // iOct should be outermost index
-  template< typename T >
-  void write_view( const std::string& name, const T& view )
+  template< typename T, int iOct_pos=T::rank-1 >
+  void write_view( const std::string& name, const T& U )
   {
     hid_t hdf5_type = get_hdf5_type<typename T::value_type>();
     constexpr hid_t rank = T::rank;
+
+    T U_right_iOct;
+    userdata_utils::transpose_to_right_iOct<iOct_pos>( U, U_right_iOct );
+
     hsize_t local_dims[rank];
     hsize_t global_dims[rank];
     hsize_t local_start[rank];
     for( int i=1; i<rank; i++ )
     {
-       local_dims[i] = view.extent(rank-1-i);
-       global_dims[i] = view.extent(rank-1-i);
+       local_dims[i] = U_right_iOct.extent(rank-1-i);
+       global_dims[i] = U_right_iOct.extent(rank-1-i);
        local_start[i] = 0;
     }
-    hid_t local_oct_count = view.extent(rank-1);
+    hid_t local_oct_count = U_right_iOct.extent(rank-1);
     hid_t global_oct_count;
     MPI_Allreduce( &local_oct_count, &global_oct_count, 1, MPI_INT64_T, MPI_SUM, MPI_COMM_WORLD );
     // Perform exclusive prefix sum
@@ -73,7 +78,7 @@ public:
     hid_t dataset = H5Dcreate2( m_hdf5_file, name.c_str(), hdf5_type,
                                 filespace, H5P_DEFAULT, dataset_properties, H5P_DEFAULT );
     H5Sselect_hyperslab( filespace, H5S_SELECT_SET, local_start, nullptr, local_dims, nullptr );
-    H5Dwrite( dataset, hdf5_type, memspace, filespace, write_properties, view.data() );
+    H5Dwrite( dataset, hdf5_type, memspace, filespace, write_properties, U_right_iOct.data() );
 
     H5Dclose(dataset);
     H5Sclose(filespace);
@@ -113,7 +118,10 @@ public:
     filename << pdata->outputDir << "/" << pdata->outputPrefix << "_" << iter << ".h5";
     io_file hdf5_file(filename.str());
     hdf5_file.write_view("U", U.U);
-    hdf5_file.write_view("Octree", pdata->pmesh.getLightOctree().getStorage().getLocalSubview());
+    // Select subview containing local octants
+    auto oct_data = pdata->pmesh.getLightOctree().getStorage().getLocalSubview();
+    // NOTE : write_view + subview only works when transposition is required
+    hdf5_file.write_view<decltype(oct_data),0>("Octree", oct_data);
   }
 
   struct Data{ 

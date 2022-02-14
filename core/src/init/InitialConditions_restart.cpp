@@ -2,6 +2,7 @@
 #include "AnalyticalFormula.h"
 
 #include "foreach_cell/ForeachCell.h"
+#include "userdata_utils.h"
 
 #include <hdf5.h>
 #include <hdf5_hl.h>
@@ -35,7 +36,7 @@ public:
     H5Pclose(plist);
   }
 
-  template< typename T >
+  template< typename T, int iOct_pos=T::rank-1  >
   void read_view_init( const std::string& name, T& view )
   {
     hid_t hdf5_type = get_hdf5_type<typename T::value_type>();
@@ -48,13 +49,15 @@ public:
     hsize_t dims[rank], maxdims[rank];
     H5Sget_simple_extent_dims( filespace, dims, maxdims );
     
-    Kokkos::LayoutLeft layout = view.layout();
+    Kokkos::LayoutLeft layout_file = view.layout();
     for(int i=0; i<rank; i++)
-        layout.dimension[rank-1-i] = dims[i];
-    view = T(name, layout);
+        layout_file.dimension[rank-1-i] = dims[i];
+    T view_file(name, layout_file);
 
     hid_t read_properties = H5Pcreate(H5P_DATASET_XFER);
-    H5Dread( dataset, hdf5_type, filespace, filespace, read_properties, view.data() );
+    H5Dread( dataset, hdf5_type, filespace, filespace, read_properties, view_file.data() );
+
+    userdata_utils::transpose_from_right_iOct<iOct_pos>(view_file, view);
 
     H5Dclose(dataset);
     H5Sclose(filespace);
@@ -150,14 +153,10 @@ public:
 
     restart_file restart_file("restart.h5");
 
-    if( pmesh.getRank() == 0 )
+    // Initialize AMR tree
     {
-        // Refine to level_min
-        for (uint8_t level=0; level<level_min; ++level)
-            pmesh.adaptGlobalRefine();
-
         LightOctree_storage<>::oct_data_t lmesh_data;
-        restart_file.read_view_init( "Octree", lmesh_data );
+        restart_file.read_view_init<decltype(lmesh_data),0>( "Octree", lmesh_data );
 
         uint32_t nbCells_local = lmesh_data.extent(0);
         uint32_t nbCells_ghost = 0;
@@ -170,6 +169,13 @@ public:
         LightOctree_hashmap input_lmesh( std::move(lmesh_storage), level_min, level_max, periodic );
 
         std::cout << "Restart mesh : " << input_lmesh.getNumOctants() << " octs." << std::endl;
+        
+        // Refine to level_min
+        for (uint8_t level=0; level<level_min; ++level)
+        {
+            pmesh.adaptGlobalRefine(); 
+        } 
+        pmesh.loadBalance();
 
         // Refine until level_max using analytical markers
         for (uint8_t level=level_min; level<level_max; ++level)
