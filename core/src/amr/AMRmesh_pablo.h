@@ -17,6 +17,8 @@ public:
     {
         assert(dim == 2 || dim == 3);
         assert(balance_codim <= dim);
+        if( level_max > this->getMaxLevel() )
+            throw std::runtime_error( std::string("level_max is too big for AMRmesh_pablo : is ") + std::to_string(level_max) + " but PABLO only supports " + std::to_string(this->getMaxLevel()) );
         bitpit::log::setConsoleVerbosity(this->getLog(), bitpit::log::Verbosity::QUIET);
 
         this->setBalanceCodimension(balance_codim);
