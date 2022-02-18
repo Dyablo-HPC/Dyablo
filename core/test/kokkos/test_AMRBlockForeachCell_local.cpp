@@ -1,10 +1,10 @@
 
-#include "shared/DyabloSession.hpp"
-#include "shared/amr/AMRmesh.h"
-#include "shared/amr/LightOctree.h"
-#include "muscl_block/foreach_cell/AMRBlockForeachCell_group.h"
+#include "DyabloSession.hpp"
+#include "amr/AMRmesh.h"
+#include "amr/LightOctree.h"
+#include "foreach_cell/AMRBlockForeachCell_group.h"
 namespace dyablo { 
-namespace muscl_block {
+
   using AMRBlockForeachCell = AMRBlockForeachCell_group;
 }
 }
@@ -16,7 +16,7 @@ using namespace dyablo::muscl_block;
 
 int main(int argc, char *argv[])
 {
-  shared::DyabloSession mpi_session(argc, argv);
+  DyabloSession mpi_session(argc, argv);
  
   constexpr int ITER = 100;
   constexpr int ndim = 3;

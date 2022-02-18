@@ -14,12 +14,10 @@ target_include_directories(${EXE_NAME}
   )
 
 target_link_libraries(${EXE_NAME}
-  muscl
+  dyablo_core
   config
   Kokkos::kokkos
   dl
-  muscl_block
-  shared
   monitoring
   BITPIT::BITPIT)
 

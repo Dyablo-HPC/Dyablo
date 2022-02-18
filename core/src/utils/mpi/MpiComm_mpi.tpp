@@ -23,7 +23,9 @@ namespace MpiComm_impl{
   const std::array<MPI_Op, MpiComm::MPI_Op_t::NUM_OPS> mpi_op{
     MPI_MIN,
     MPI_MAX,
-    MPI_SUM
+    MPI_SUM,
+    MPI_LOR,
+    MPI_LAND
   };
 
 } // namespace MpiComm_impl

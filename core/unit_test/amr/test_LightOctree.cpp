@@ -11,9 +11,7 @@
 #include <impl/Kokkos_Error.hpp>
 
 #include "utils/monitoring/SimpleTimer.h"
-#include "shared/amr/LightOctree.h"
-#include "shared/HydroParams.h"
-
+#include "amr/LightOctree.h"
 #include <iostream>
 
 using Device = Kokkos::DefaultExecutionSpace;
@@ -43,11 +41,10 @@ void run_test()
   // codim 1 ==> balance through faces
   // codim 2 ==> balance through faces and corner
   // codim 3 ==> balance through faces, edges and corner (3D only)
-  HydroParams params{};
-  params.level_max = 3;
-  params.level_min = 0;
+  int level_max = 3;
+  int level_min = 0;
   int codim = dim; 
-  dyablo::AMRmesh amr_mesh(dim, codim, {true,true,true}, params.level_min, params.level_max);
+  dyablo::AMRmesh amr_mesh(dim, codim, {true,true,true}, level_min, level_max);
 
   // stage 1
   amr_mesh.adaptGlobalRefine();
@@ -491,8 +488,6 @@ void test_perf()
   using LightOctree_t = dyablo::LightOctree;
 
   std::cout << "Construct LightOctree..." << std::endl;
-  HydroParams params;
-  params.level_max = level_max;
 
   SimpleTimer time_lmesh_construct;
   const LightOctree_t& lmesh = amr_mesh.getLightOctree();

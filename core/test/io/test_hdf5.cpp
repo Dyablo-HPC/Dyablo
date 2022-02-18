@@ -12,10 +12,10 @@
 #include "bitpit_PABLO.hpp"
 
 #include "utils/config/ConfigMap.h"
-#include "shared/HydroParams.h"
-#include "shared/FieldManager.h"
-#include "shared/HDF5_IO.h"
-#include "shared/io_utils.h"
+#include "legacy/HydroParams.h"
+#include "FieldManager.h"
+#include "HDF5_IO.h"
+#include "io_utils.h"
 
 // don't you dare calling "using namespace" ever again !
 //using namespace bitpit;

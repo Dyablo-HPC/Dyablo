@@ -4,7 +4,7 @@
 #include <iomanip>
 #include <cassert>
 
-#include "shared/kokkos_shared.h"
+#include "kokkos_shared.h"
 
 #include "OpenMPTimer.h"
 #ifdef KOKKOS_ENABLE_CUDA

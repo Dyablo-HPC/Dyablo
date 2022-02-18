@@ -25,6 +25,8 @@ public:
     MIN,
     MAX,
     SUM,
+    OR,
+    AND,
     NUM_OPS
   };
 private:

@@ -7,14 +7,11 @@
 
 #include <boost/test/unit_test.hpp>
 
-#include "muscl_block/utils_block.h"
-#include "shared/amr/AMRmesh.h"
-#include "shared/mpi/GhostCommunicator.h"
+#include "legacy/utils_block.h"
+#include "amr/AMRmesh.h"
+#include "mpi/GhostCommunicator.h"
 
 namespace dyablo
-{
-
-namespace muscl_block
 {
 
 // =======================================================================
@@ -182,7 +179,7 @@ void run_test(int argc, char *argv[])
 
 } // run_test
 
-} // namespace muscl_block
+
 
 } // namespace dyablo
 

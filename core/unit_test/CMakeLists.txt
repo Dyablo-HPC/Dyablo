@@ -32,24 +32,10 @@ function(dyablo_add_test UNIT_TEST_NAME TEST_MPI)
   target_compile_definitions(${UNIT_TEST_NAME} PRIVATE BOOST_TEST_DYN_LINK)
 
   target_link_libraries(${UNIT_TEST_NAME} PUBLIC
+    dyablo_core
     config
     Kokkos::kokkos
     dl
-    )
-  
-  # muscl and muscl libraries only OK when using Kokkos::OpenMP for now
-  if(NOT Kokkos_ENABLE_CUDA)
-    target_link_libraries(${UNIT_TEST_NAME} PUBLIC
-      muscl
-      )
-  endif()
-
-  target_link_libraries(${UNIT_TEST_NAME} PUBLIC
-      muscl_block
-      )
-
-  target_link_libraries(${UNIT_TEST_NAME} PUBLIC
-    shared
     monitoring
     BITPIT::BITPIT
     Boost::unit_test_framework)
@@ -93,22 +79,18 @@ dyablo_add_test(utest_CopyInnerBlockCellData OFF
 
 # Import .ini files
 configure_file(
-  block_data/test_implode_2D_block.ini
-  block_data/test_implode_2D_block.ini COPYONLY)
+  block_data/test_blast_2D_block.ini
+  block_data/test_blast_2D_block.ini COPYONLY)
 configure_file(
-  block_data/test_implode_3D_block.ini
-  block_data/test_implode_3D_block.ini COPYONLY)
+  block_data/test_blast_3D_block.ini
+  block_data/test_blast_3D_block.ini COPYONLY)
 
 dyablo_add_test(utest_LightOctree OFF
   amr/test_LightOctree.cpp
   main.cpp)
 
-dyablo_add_test(utest_CopyGhostBlockCellData_2D ON 
-  block_data/test_CopyGhostBlockCellData_2D.cpp
-  main.cpp)
-
-dyablo_add_test(utest_CopyGhostBlockCellData_3D OFF
-  block_data/test_CopyGhostBlockCellData_3D.cpp
+dyablo_add_test(utest_CopyGhostBlockCellData ON 
+  block_data/test_CopyGhostBlockCellData.cpp
   main.cpp)
 
 dyablo_add_test(utest_MusclBlockGodunovUpdateFunctor OFF
@@ -130,7 +112,7 @@ dyablo_add_test(utest_MapUserData OFF
 
 ## Implementations registered to a factory that are contained in a separate static library have to be thourouhly tested
 add_library( RegisteringFactory_impl_lib STATIC utils/RegisteringFactory_impl_to_register.cpp )
-target_link_libraries( RegisteringFactory_impl_lib PRIVATE shared )
+#target_link_libraries( RegisteringFactory_impl_lib PRIVATE shared )
 dyablo_add_test(utest_RegisteringFactory OFF
   utils/test_RegisteringFactory.cpp
   main.cpp)

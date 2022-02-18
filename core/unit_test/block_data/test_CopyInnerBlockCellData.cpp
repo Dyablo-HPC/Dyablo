@@ -13,12 +13,11 @@
 
 #include <impl/Kokkos_Error.hpp>
 
-#include "shared/real_type.h"    // choose between single and double precision
-#include "shared/HydroParams.h"  // read parameter file
-#include "shared/FieldManager.h"
+#include "real_type.h"    // choose between single and double precision
+#include "FieldManager.h"
 
 
-#include "muscl_block/CopyInnerBlockCellData.h"
+#include "legacy/CopyInnerBlockCellData.h"
 
 using Device = Kokkos::DefaultExecutionSpace;
 
@@ -28,14 +27,12 @@ using namespace boost::unit_test;
 
 namespace dyablo
 {
-namespace muscl_block
-{
 
 // =======================================================================
 // =======================================================================
 void init_U(DataArrayBlock U,
             uint32_t nbOcts,
-            HydroParams params, 
+            int ndim, 
             blockSize_t blockSizes,
             uint32_t ghostWidth,
             id2index_t fm)
@@ -57,7 +54,7 @@ void init_U(DataArrayBlock U,
   Kokkos::parallel_for("init_U", policy,
                        KOKKOS_LAMBDA(const thread_t& member)
                        {
-                         uint32_t nbCells = params.dimType == TWO_D ? 
+                         uint32_t nbCells = ndim==2 ? 
                            bx*by : bx*by*bz;
                          uint32_t iOct = member.league_rank();
 
@@ -95,23 +92,22 @@ void run_test(int argc, char *argv[], uint32_t bSize, uint32_t nbBlocks)
    * read parameter file and initialize a ConfigMap object
    */
   // only MPI rank 0 actually reads input file
-  std::string input_file = argc>1 ? std::string(argv[1]) : "./block_data/test_implode_2D_block.ini";
-  ConfigMap configMap = broadcast_parameters(input_file);
+  std::string input_file = "./block_data/test_blast_2D_block.ini";
+  ConfigMap configMap = ConfigMap::broadcast_parameters(input_file);
 
-  // test: create a HydroParams object
-  HydroParams params = HydroParams();
-  params.setup(configMap);
+  int ndim = 2;
+  GravityType gravity_type = GRAVITY_NONE;
 
-  FieldManager fieldMgr = FieldManager::setup(params, configMap);
+  FieldManager fieldMgr = FieldManager::setup(ndim, gravity_type);
 
   auto fm = fieldMgr.get_id2index();
 
   // "geometry" setup
-  uint32_t ghostWidth = configMap.getInteger("amr", "ghostwidth", 2);
+  uint32_t ghostWidth = configMap.getValue<uint32_t>("amr", "ghostwidth", 2);
 
-  uint32_t bx = configMap.getInteger("amr", "bx", 0);
-  uint32_t by = configMap.getInteger("amr", "by", 0);
-  uint32_t bz = configMap.getInteger("amr", "bz", 1);
+  uint32_t bx = configMap.getValue<uint32_t>("amr", "bx", 0);
+  uint32_t by = configMap.getValue<uint32_t>("amr", "by", 0);
+  uint32_t bz = configMap.getValue<uint32_t>("amr", "bz", 1);
 
   uint32_t bx_g = bx + 2 * ghostWidth;
   uint32_t by_g = by + 2 * ghostWidth;
@@ -135,11 +131,11 @@ void run_test(int argc, char *argv[], uint32_t bSize, uint32_t nbBlocks)
             << "bz_g=" << bz_g << " "
             << "ghostwidth=" << ghostWidth << "\n";
 
-  uint32_t nbCellsPerOct = params.dimType == TWO_D ? bx * by : bx * by * bz;
+  uint32_t nbCellsPerOct = ndim==2 ? bx * by : bx * by * bz;
   uint32_t nbCellsPerOct_g =
-      params.dimType == TWO_D ? bx_g * by_g : bx_g * by_g * bz_g;
+      ndim==2 ? bx_g * by_g : bx_g * by_g * bz_g;
 
-  uint32_t nbOctsPerGroup = configMap.getInteger("amr", "nbOctsPerGroup", 32);
+  uint32_t nbOctsPerGroup = configMap.getValue<uint32_t>("amr", "nbOctsPerGroup", 32);
 
   /*
    * allocate/initialize U / Ugroup
@@ -147,9 +143,9 @@ void run_test(int argc, char *argv[], uint32_t bSize, uint32_t nbBlocks)
 
   uint32_t nbOcts = 128;
 
-  DataArrayBlock U = DataArrayBlock("U", nbCellsPerOct, params.nbvar, nbOcts);
+  DataArrayBlock U = DataArrayBlock("U", nbCellsPerOct, fieldMgr.nbfields(), nbOcts);
 
-  DataArrayBlock Ugroup = DataArrayBlock("Ugroup", nbCellsPerOct_g, params.nbvar, nbOctsPerGroup);
+  DataArrayBlock Ugroup = DataArrayBlock("Ugroup", nbCellsPerOct_g, fieldMgr.nbfields(), nbOctsPerGroup);
 
   uint32_t iGroup = 1;
   uint32_t iOctOffset = 1;
@@ -158,7 +154,7 @@ void run_test(int argc, char *argv[], uint32_t bSize, uint32_t nbBlocks)
 
   // TODO initialize U, reset Ugroup - write a functor for that
   std::cout << "Initializing data...\n";
-  init_U(U, nbOcts, params, blockSizes, ghostWidth, fm);
+  init_U(U, nbOcts, ndim, blockSizes, ghostWidth, fm);
 
   std::cout << "Printing U data from iOct = " << iOct << "\n";
   for (uint32_t iz=0; iz<bz; ++iz)
@@ -175,7 +171,7 @@ void run_test(int argc, char *argv[], uint32_t bSize, uint32_t nbBlocks)
     std::cout << "\n";
   }
 
-  CopyInnerBlockCellDataFunctor::apply(configMap, params, fm, 
+  CopyInnerBlockCellDataFunctor::apply({ndim, gravity_type}, fm, 
                                        blockSizes,
                                        ghostWidth, 
                                        nbOcts,
@@ -232,7 +228,7 @@ void run_test(int argc, char *argv[], uint32_t bSize, uint32_t nbBlocks)
 
 } // run_test
 
-} // namespace muscl_block
+
 
 } // namespace dyablo
 

@@ -1,4 +1,6 @@
 set (io_SRCS
+  #${CMAKE_CURRENT_SOURCE_DIR}/io_utils.cpp
+  #${CMAKE_CURRENT_SOURCE_DIR}/SimpleVTKIO.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/FileHandler.h
   ${CMAKE_CURRENT_SOURCE_DIR}/FileHandler.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/FileHandlerVtk.h

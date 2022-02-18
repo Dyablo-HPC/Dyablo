@@ -12,17 +12,17 @@
 #include "bitpit_PABLO.hpp"
 
 #include "utils/config/ConfigMap.h"
-#include "shared/HydroParams.h"
-#include "shared/FieldManager.h"
-#include "shared/HDF5_IO.h"
-#include "shared/io_utils.h"
+#include "legacy/HydroParams.h"
+#include "FieldManager.h"
+#include "HDF5_IO.h"
+#include "io_utils.h"
 
-#include "muscl_block/utils_block.h"
+#include "utils_block.h"
 
 // testing muscl_block functor for initialization
-#include "muscl_block/init/InitBlast.h"
-#include "muscl_block/init/InitImplode.h"
-#include "muscl_block/init/InitGreshoVortex.h"
+#include "init/InitBlast.h"
+#include "init/InitImplode.h"
+#include "init/InitGreshoVortex.h"
 
 
 //using namespace bitpit;
@@ -63,7 +63,7 @@ void run(std::string input_filename)
   uint32_t by = (uint32_t) configMap.getInteger("amr", "by", 0);
   uint32_t bz = (uint32_t) configMap.getInteger("amr", "bz", 0);
 
-  dyablo::muscl_block::blockSize_t blockSizes;
+  dyablo::blockSize_t blockSizes;
   blockSizes[IX] = bx;
   blockSizes[IY] = by;
   blockSizes[IZ] = bz;
@@ -143,7 +143,7 @@ void run(std::string input_filename)
 
     DataArrayBlockHost userdataBlock_h = Kokkos::create_mirror(userdataBlock);
 
-    dyablo::muscl_block::InitBlastDataFunctor::apply(amr_mesh, 
+    dyablo::InitBlastDataFunctor::apply(amr_mesh, 
                                                      params, 
                                                      configMap, 
                                                      fm, 

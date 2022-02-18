@@ -21,11 +21,11 @@
 #include <cstdlib>
 #include <string>
 
-#include "shared/kokkos_shared.h"
+#include "kokkos_shared.h"
 
-#include "shared/FieldManager.h"
-#include "shared/HydroParams.h"  // read parameter file
-#include "shared/real_type.h"    // choose between single and double precision
+#include "FieldManager.h"
+#include "legacy/HydroParams.h"  // read parameter file
+#include "real_type.h"    // choose between single and double precision
 
 #ifdef DYABLO_USE_MPI
 #include "utils/mpi/GlobalMpiSession.h"

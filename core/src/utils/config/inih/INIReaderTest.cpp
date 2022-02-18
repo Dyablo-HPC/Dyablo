@@ -28,15 +28,15 @@ int main(int argc, char* argv[])
   }
   std::cout << "Config loaded from 'test.ini': version="
 	    << reader.getInteger("protocol", "version", -1) << ", name="
-	    << reader.getString("user", "name", "UNKNOWN") << ", email="
-	    << reader.getString("user", "email", "UNKNOWN") << "\n";
+	    << reader.getValue<std::string>("user", "name", "UNKNOWN") << ", email="
+	    << reader.getValue<std::string>("user", "email", "UNKNOWN") << "\n";
   
   INIReader reader2 = reader;
   std::cout << std::endl;
   std::cout << "Config loaded from reader2: version="
 	    << reader.getInteger("protocol", "version", -1) << ", name="
-	    << reader.getString("user", "name", "UNKNOWN") << ", email="
-	    << reader.getString("user", "email", "UNKNOWN") << "\n";
+	    << reader.getValue<std::string>("user", "name", "UNKNOWN") << ", email="
+	    << reader.getValue<std::string>("user", "email", "UNKNOWN") << "\n";
   
 
   return 0;

@@ -7,16 +7,13 @@
 
 #include <boost/test/unit_test.hpp>
 
-#include "shared/mpi/GhostCommunicator.h"
+#include "mpi/GhostCommunicator.h"
 
-#include "muscl_block/utils_block.h"
-#include "shared/amr/AMRmesh.h"
+#include "legacy/utils_block.h"
+#include "amr/AMRmesh.h"
 #include "utils/io/AMRMesh_output_vtk.h"
 
 namespace dyablo
-{
-
-namespace muscl_block
 {
 
 // =======================================================================
@@ -140,7 +137,7 @@ void run_test(int argc, char *argv[])
     Kokkos::deep_copy( U, U_host );
   }
 
-  dyablo::muscl_block::GhostCommunicator ghost_communicator( amr_mesh );
+  dyablo::GhostCommunicator ghost_communicator( amr_mesh );
 
   Array_t Ughost; //solver->Ughost
   ghost_communicator.exchange_ghosts(U, Ughost);
@@ -187,7 +184,7 @@ void run_test(int argc, char *argv[])
 
 } // run_test
 
-} // namespace muscl_block
+
 
 } // namespace dyablo
 

@@ -10,11 +10,11 @@
 
 #include <bitset>
 
-#include "shared/real_type.h"
-#include "shared/kokkos_shared.h"
-#include "shared/enums.h"
+#include "real_type.h"
+#include "kokkos_shared.h"
+#include "enums.h"
 
-#include "shared/morton_utils.h"
+#include "morton_utils.h"
 
 namespace dyablo
 {
