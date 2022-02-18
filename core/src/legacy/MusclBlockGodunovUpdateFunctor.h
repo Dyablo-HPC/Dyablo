@@ -204,7 +204,7 @@ public:
                              Qgroup.extent(0),
                              Qgroup.extent(1),
                              Qgroup.extent(2));
-    if (ndim)
+    if (ndim == 3)
       SlopesZ = DataArrayBlock("SlopesZ",
                                Qgroup.extent(0),
                                Qgroup.extent(1),
