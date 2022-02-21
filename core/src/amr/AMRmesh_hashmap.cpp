@@ -482,27 +482,26 @@ std::set< std::pair<int, uint32_t> > discover_ghosts(
                     local_octants_to_send_set.insert({neighbor_rank, iOct});
             }
             else
-            {// Neighbors are scattered between multiple MPIs
-                //Iterate over neighbor's subcells
-                for( int16_t sz=0; sz<=dz_max; sz++ )
-                for( int16_t sy=0; sy<2; sy++ )
-                for( int16_t sx=0; sx<2; sx++ )
+            {// Neighbors may be scattered between multiple MPIs              
+                morton_t m_suboctant_origin = shift_level(m_neighbor, level_max, level+1); // Morton of first suboctant at level+1;
+                // Apply offset to get a neighbor
+                m_suboctant_origin += (dx == -1) << IX; // Other half of suboctant if left of original cell
+                m_suboctant_origin += (dy == -1) << IY;
+                m_suboctant_origin += (dz == -1) << IZ;
+                // Iterate over neighbor suboctants
+                int sx_max = (dx==0); // constrained to the same plane as origin if offset in this direction
+                int sy_max = (dy==0);
+                int sz_max = (ndim==2) ? 0 : (dz==0);
+                for( int16_t sz=0; sz<=sz_max; sz++ )
+                for( int16_t sy=0; sy<=sy_max; sy++ )
+                for( int16_t sx=0; sx<=sx_max; sx++ )
                 {
-                    // Add smaller neighbor only if near original octant
-                    // direction is unsconstrained OR offset left + suboctant right OR offset right + suboctant left
-                    //         (dx == 0)           OR        (dx==-1 && sx==1)      OR     (dx==1 && sx==0)
-                    if( ( (dx == 0) or (dx==-1 && sx==1) or (dx==1 && sx==0) )
-                    and ( (dy == 0) or (dy==-1 && sy==1) or (dy==1 && sy==0) )
-                    and ( (dz == 0) or (dz==-1 && sz==1) or (dz==1 && sz==0) ) )
-                    {
-                        morton_t m_suboctant = shift_level(m_neighbor, level_max, level+1); // Morton of first suboctant at level+1;
-                        m_suboctant += (sz << IZ) + (sy << IY) + (sx << IX);                // Add current suboctant coordinates
-                        m_suboctant = shift_level(m_suboctant, level+1, level_max);         // get morton of suboctant at level_max
+                    morton_t m_suboctant = m_suboctant_origin + (sz << IZ) + (sy << IY) + (sx << IX); // Add current suboctant coordinates
+                    m_suboctant = shift_level(m_suboctant, level+1, level_max);         // get morton of suboctant at level_max
 
-                        uint32_t neighbor_rank = find_rank(m_suboctant);
-                        if(neighbor_rank != mpi_rank)
-                            local_octants_to_send_set.insert({neighbor_rank, iOct});
-                    }
+                    uint32_t neighbor_rank = find_rank(m_suboctant);
+                    if(neighbor_rank != mpi_rank)
+                        local_octants_to_send_set.insert({neighbor_rank, iOct});
                 }
             }
         }

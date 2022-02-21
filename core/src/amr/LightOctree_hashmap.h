@@ -144,34 +144,31 @@ public:
             {
                 // Neighbor(s) is(are) at finer level
                 assert(level+1 <= max_level);
-
-                for( uint8_t x=0; x<2; x++ )
-                for( uint8_t y=0; y<2; y++ )
-                for( uint8_t z=0; z<(ndim-1); z++ )
+                
+                // Compute logical coord of first neighbor
+                key_t logical_coords_smaller_origin;
+                logical_coords_smaller_origin.level = logical_coords.level+1;
+                logical_coords_smaller_origin.i = (logical_coords.i << 1) + (offset[IX]==-1);
+                logical_coords_smaller_origin.j = (logical_coords.j << 1) + (offset[IY]==-1);
+                logical_coords_smaller_origin.k = (logical_coords.k << 1) + (offset[IZ]==-1);
+                int sz_max = (ndim==2) ? 0 : (offset[IZ]==0); // No offset in z in 2D
+                int sy_max = (offset[IY]==0);
+                int sx_max = (offset[IX]==0); // Constrained to plane adjacent to neighbor if offset in this direction
+                
+                for( int sz=0; sz<=sz_max; sz++ )
+                for( int sy=0; sy<=sy_max; sy++ )
+                for( int sx=0; sx<=sx_max; sx++ )
                 {
-                    // The number of smaller neighbors is hard to determine (ex : only one smaller neighbor in corners)
-                    // Add smaller neighbor only if near original octant
-                    // direction is unsconstrained OR offset left + suboctant right OR offset right + suboctant left
-                    // (offset[IX] == 0)           OR (offset[IX]==-1 && x==1)      OR (offset[IX]==1 && x==0)
-                    
-                    if( ( (offset[IX] == 0) or (offset[IX]==-1 && x==1) or (offset[IX]==1 && x==0) )
-                    and ( (offset[IY] == 0) or (offset[IY]==-1 && y==1) or (offset[IY]==1 && y==0) )
-                    and ( (offset[IZ] == 0) or (offset[IZ]==-1 && z==1) or (offset[IZ]==1 && z==0) ) )
-                    {
-                        res.m_size++;
-                        assert(res.m_size<=4);
-                        // Get the smaller neighbor (which necessarily exist)
-                        key_t logical_coords_smaller;
-                        logical_coords_smaller.level = logical_coords.level+1;
-                        logical_coords_smaller.i = (logical_coords.i << 1) + x;
-                        logical_coords_smaller.j = (logical_coords.j << 1) + y;
-                        logical_coords_smaller.k = (logical_coords.k << 1) + z;
-
-                        auto it = oct_map.find(logical_coords_smaller);
-                        assert(oct_map.valid_at(it)); // Could not find neighbor
-                        res.m_neighbors[res.m_size-1] = oct_map.value_at(it);
-                    }
+                    res.m_size++;
+                    key_t logical_coords_smaller = logical_coords_smaller_origin;
+                    logical_coords_smaller.i += sx;
+                    logical_coords_smaller.j += sy;
+                    logical_coords_smaller.k += sz;
+                    auto it = oct_map.find(logical_coords_smaller);
+                    assert(oct_map.valid_at(it)); // Could not find neighbor
+                    res.m_neighbors[res.m_size-1] = oct_map.value_at(it);
                 }
+                assert(res.m_size<=2*(ndim-1));
             }            
         }
         return res;
