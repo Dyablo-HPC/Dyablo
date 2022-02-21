@@ -479,7 +479,7 @@ std::set< std::pair<int, uint32_t> > discover_ghosts(
             // i.e : last suboctant of same-size neighbor is owned by the same MPI
             morton_t m_next = shift_level(m_neighbor, level_max, level) + 1;
                      m_next = shift_level(m_next, level, level_max);
-            if( level<level_max && m_next > morton_intervals[neighbor_rank+1] )
+            if( level<level_max && m_next < morton_intervals[neighbor_rank+1] )
             {// Neighbors are owned by only one MPI
                 if(neighbor_rank != mpi_rank)
                     local_octants_to_send_set.insert({neighbor_rank, iOct});
