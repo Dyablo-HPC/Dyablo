@@ -25,8 +25,8 @@ public:
     MIN,
     MAX,
     SUM,
-    OR,
-    AND,
+    LOR,
+    LAND,
     NUM_OPS
   };
 private:
@@ -54,6 +54,12 @@ public:
 
   template<typename T>
   void MPI_Allreduce( const T* sendbuf, T* recvbuf, int count, MPI_Op_t op ) const;
+
+  template<typename T>
+  void MPI_Allgather( const T* sendbuf, T* recvbuf, int count) const;
+
+  template<typename T>
+  void MPI_Allgatherv_inplace( T* sendrecvbuf, int count ) const;
 
   template<typename T>
   void MPI_Bcast( T* buffer, int count, int root ) const;

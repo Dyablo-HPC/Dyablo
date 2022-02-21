@@ -2,12 +2,16 @@
 
 #include <cstdint>
 #include <array>
+#include <vector>
 
 namespace dyablo
 {
 
 namespace MpiComm_impl{
-  template< typename T > inline MPI_Datatype mpi_type(){return MPI_DATATYPE_NULL;}
+  template< typename T > inline MPI_Datatype mpi_type(){ 
+    static_assert( !std::is_same<T,T>::value, "Unknown MPI type");
+    return MPI_DATATYPE_NULL;
+  }
   template<> inline MPI_Datatype mpi_type<double>(){return MPI_DOUBLE;}
   template<> inline MPI_Datatype mpi_type<float>(){return MPI_FLOAT;}
   template<> inline MPI_Datatype mpi_type<uint64_t>(){return MPI_UINT64_T;}
@@ -19,6 +23,7 @@ namespace MpiComm_impl{
   template<> inline MPI_Datatype mpi_type<int16_t>(){return MPI_INT16_T;}
   template<> inline MPI_Datatype mpi_type<int8_t>(){return MPI_INT8_T;}
   template<> inline MPI_Datatype mpi_type<char>(){return MPI_CHAR;}
+  template<> inline MPI_Datatype mpi_type<bool>(){return MPI_CXX_BOOL;}
 
   const std::array<MPI_Op, MpiComm::MPI_Op_t::NUM_OPS> mpi_op{
     MPI_MIN,
@@ -52,6 +57,31 @@ void MpiComm::MPI_Allreduce( const T* sendbuf, T* recvbuf, int count, MPI_Op_t o
 {
   using namespace MpiComm_impl;
   ::MPI_Allreduce( sendbuf, recvbuf, count, mpi_type<T>(), mpi_op[op], mpi_comm_id);
+}
+
+template<typename T>
+void MpiComm::MPI_Allgather( const T* sendbuf, T* recvbuf, int count) const
+{
+  using namespace MpiComm_impl;
+  ::MPI_Allgather( sendbuf, count, mpi_type<T>(),
+                   recvbuf, count, mpi_type<T>(), mpi_comm_id);
+}
+
+template<typename T>
+void MpiComm::MPI_Allgatherv_inplace( T* sendrecvbuf, int count) const
+{
+  int comm_size = this->MPI_Comm_size();
+
+  std::vector<int> counts( comm_size );
+  this->MPI_Allgather( &count, counts.data(), 1 );
+  std::vector<int> displs( comm_size );
+  for(int i=1; i<comm_size; i++)
+    displs[i] = displs[i-1] + counts[i-1];
+
+  using namespace MpiComm_impl;
+  ::MPI_Allgatherv( MPI_IN_PLACE, 0, 0,
+                    sendrecvbuf, counts.data(), displs.data(),
+                    mpi_type<T>(), mpi_comm_id );
 }
 
 template<typename T>

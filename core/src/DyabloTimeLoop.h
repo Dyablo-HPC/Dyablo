@@ -180,7 +180,7 @@ public:
       step();
       m_iter++;
       int any_interrupted;
-      m_communicator.MPI_Allreduce(&interrupted, &any_interrupted, 1, MpiComm::MPI_Op_t::OR);
+      m_communicator.MPI_Allreduce(&interrupted, &any_interrupted, 1, MpiComm::MPI_Op_t::LOR);
       finished = ( m_t_end > 0    && m_t >= (m_t_end - 1e-14) ) // End if physical time exceeds end time
               || ( m_iter_end > 0 && m_iter >= m_iter_end    )  // Or if iter count exceeds maximum iter count
               || any_interrupted;
