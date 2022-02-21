@@ -55,8 +55,8 @@ void AMRmesh_hashmap::adaptGlobalRefine()
     this->local_octs_coord = new_octs;
     this->markers = markers_t(this->getNumOctants());
 
-    uint32_t nb_octs = this->getNumOctants();
-    MPI_Allreduce( &nb_octs, &total_octs_count, 1, MPI_UINT32_T, MPI_SUM, MPI_COMM_WORLD );
+    uint64_t nb_octs = this->getNumOctants();
+    mpi_comm.MPI_Allreduce( &nb_octs, &total_octs_count, 1, MpiComm::MPI_Op_t::SUM );
 }
 
 void AMRmesh_hashmap::setMarkersCapacity(uint32_t capa)
@@ -577,24 +577,25 @@ void exchange_markers(AMRmesh_hashmap& mesh, AMRmesh_hashmap::markers_device_t& 
 
 std::vector<morton_t> compute_current_morton_intervals(const AMRmesh_hashmap& mesh, const oct_view_t& local_octs_coord, uint8_t level_max)
 {
-    int mpi_rank = mesh.getRank();
     int mpi_size = mesh.getNproc();
+    const MpiComm& mpi_comm = mesh.getCommunicator();
 
     // Allgather here ensures that old_morton_interval_begin/end for each process forms is a partition of [0,+inf[
     // When there is no local octant, current interval must be determined by using values of neighbor processes, 
     // otherwise we could just recieve old_morton_interval_end from next rank
-    std::vector<morton_t> old_morton_intervals(mpi_size+1);
-    old_morton_intervals[mpi_rank] = mesh.getNumOctants() == 0 ? (morton_t)-1 : get_morton_smaller(local_octs_coord, 0, level_max);
-    MPI_Allgather(  MPI_IN_PLACE, 0, 0,
-                    old_morton_intervals.data(), 1, MPI_INT64_T,
-                    MPI_COMM_WORLD);
-    old_morton_intervals[mpi_size] = std::numeric_limits<morton_t>::max();
-    for(int i=mpi_size-1; i>=0; i--)
+    uint64_t morton_first = mesh.getNumOctants() == 0 ? 0 : get_morton_smaller(local_octs_coord, 0, level_max);
+    std::vector<morton_t> morton_intervals(mpi_size+1);
+    mpi_comm.MPI_Allgather( &morton_first, morton_intervals.data(), 1 );
+    assert( morton_intervals[0] == 0 );
+    morton_intervals[mpi_size] = std::numeric_limits<morton_t>::max();
+    for(int i=mpi_size-1; i>=1; i--)
     {
-        if( old_morton_intervals[i] == (morton_t)-1 )
-            old_morton_intervals[i] = old_morton_intervals[i+1];
-    }
-    return old_morton_intervals;
+        if( morton_intervals[i]==0 )
+            morton_intervals[i] = morton_intervals[i+1];
+        assert( morton_intervals[i] <= morton_intervals[i+1] );
+    }   
+
+    return morton_intervals;
 }
 
 } // namespace
@@ -636,7 +637,7 @@ void AMRmesh_hashmap::adapt(bool dummy)
             }            
 
             // modified_global = true if at least one MPI had to make a modification since last exchange_markers()
-            MPI_Allreduce(&modified_local, &modified_global, 1, MPI_CXX_BOOL, MPI_LOR, MPI_COMM_WORLD);
+            mpi_comm.MPI_Allreduce( &modified_local, &modified_global, 1, MpiComm::MPI_Op_t::LOR );
         }
 
         adapt_clean(lmesh, local_octs_coord_device, ghost_octs_coord_device, markers_device);
@@ -652,8 +653,8 @@ void AMRmesh_hashmap::adapt(bool dummy)
 
     this->markers = markers_t(this->getNumOctants());
 
-    uint32_t nb_octs = this->getNumOctants();
-    MPI_Allreduce( &nb_octs, &total_octs_count, 1, MPI_UINT32_T, MPI_SUM, MPI_COMM_WORLD );
+    uint64_t nb_octs = this->getNumOctants();
+    mpi_comm.MPI_Allreduce( &nb_octs, &total_octs_count, 1, MpiComm::MPI_Op_t::SUM );
 
     // Update ghosts metadata
     // TODO : use markers to build new ghost list instead of complete reconstruction
@@ -677,9 +678,9 @@ void AMRmesh_hashmap::adapt(bool dummy)
 
     // Update global index begin
     {
+        uint32_t size_local = this->getNumOctants();
         std::vector<uint32_t> sizes(mpi_size);
-        sizes[mpi_rank] = this->getNumOctants();
-        MPI_Allgather(MPI_IN_PLACE, 1, MPI_UINT32_T, sizes.data(), 1, MPI_UINT32_T, MPI_COMM_WORLD); 
+        mpi_comm.MPI_Allgather(&size_local, sizes.data(), 1); 
         this->global_id_begin = std::accumulate(&sizes[0], &sizes[mpi_rank], 0);
     }
 
@@ -718,17 +719,7 @@ std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(uint8_t level)
 
         // allgather morton_intervals
         {
-            std::vector<int> morton_recv_count(mpi_size);
-            morton_recv_count[mpi_rank] = nb_mortons;
-            MPI_Allgather(  MPI_IN_PLACE,0,0,
-                            morton_recv_count.data(), 1, MPI_INT, 
-                            MPI_COMM_WORLD );
-            std::vector<int> morton_recv_displ(mpi_size+1);
-            std::partial_sum(morton_recv_count.begin(), morton_recv_count.end(), 
-                            ++morton_recv_displ.begin()); 
-            assert(morton_recv_displ[mpi_size] == mpi_size);       
-            MPI_Allgatherv( MPI_IN_PLACE, 0, 0,
-                            morton_intervals.data(), morton_recv_count.data(), morton_recv_displ.data(), MPI_UINT64_T, MPI_COMM_WORLD);
+            mpi_comm.MPI_Allgatherv_inplace( morton_intervals.data(), nb_mortons );
             morton_intervals[0] = 0;
             morton_intervals[mpi_size] = std::numeric_limits<morton_t>::max();
             for(uint32_t rank=0; rank<mpi_size; rank++)
@@ -774,18 +765,7 @@ std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(uint8_t level)
                 }
             }
 
-            // Compute and allgather pivots
-            std::vector<int> pivots_recv_count(mpi_size);
-            pivots_recv_count[mpi_rank] = nb_local_pivots;
-            MPI_Allgather(  MPI_IN_PLACE,0,0,
-                            pivots_recv_count.data(), 1, MPI_INT, 
-                            MPI_COMM_WORLD );
-            std::vector<int> pivots_recv_displ(mpi_size+1);
-            std::partial_sum(pivots_recv_count.begin(), pivots_recv_count.end(), 
-                            ++pivots_recv_displ.begin()); 
-            assert(pivots_recv_displ[mpi_size] == mpi_size);       
-            MPI_Allgatherv( MPI_IN_PLACE, 0, 0,
-                            new_intervals.data(), pivots_recv_count.data(), pivots_recv_displ.data(), MPI_UINT32_T, MPI_COMM_WORLD);
+            mpi_comm.MPI_Allgatherv_inplace( new_intervals.data(), nb_local_pivots );
             new_intervals[mpi_size] = this->total_octs_count;
 
         }

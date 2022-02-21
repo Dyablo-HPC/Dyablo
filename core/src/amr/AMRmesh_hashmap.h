@@ -67,6 +67,10 @@ public:
     }
 
     //MPI
+    const MpiComm& getCommunicator() const
+    {
+        return mpi_comm;
+    }
     int getRank() const
     {
         return mpi_comm.MPI_Comm_rank();
