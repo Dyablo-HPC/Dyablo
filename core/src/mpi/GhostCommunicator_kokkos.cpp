@@ -347,6 +347,11 @@ void GhostCommunicator_kokkos::exchange_ghosts(const Kokkos::View<uint16_t**, Ko
   exchange_ghosts_aux(U, Ughost);
 }
 
+void GhostCommunicator_kokkos::exchange_ghosts(const Kokkos::View<uint32_t**, Kokkos::LayoutLeft>& U, Kokkos::View<uint32_t**, Kokkos::LayoutLeft>& Ughost) const
+{
+  exchange_ghosts_aux(U, Ughost);
+}
+
 void GhostCommunicator_kokkos::exchange_ghosts(const Kokkos::View<int*, Kokkos::LayoutLeft>& U, Kokkos::View<int*, Kokkos::LayoutLeft>& Ughost) const
 {
   exchange_ghosts_aux(U, Ughost);

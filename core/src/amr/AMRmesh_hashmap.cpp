@@ -12,7 +12,7 @@
 
 namespace dyablo{
 
-AMRmesh_hashmap::AMRmesh_hashmap( int dim, int balance_codim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max, const MpiComm& mpi_comm )
+AMRmesh_hashmap::AMRmesh_hashmap( int dim, int balance_codim, const std::array<bool,3>& periodic, level_t level_min, level_t level_max, const MpiComm& mpi_comm )
         : dim(dim), periodic(periodic), markers(1), level_min(level_min), level_max(level_max), mpi_comm(mpi_comm)
 {
     assert(dim == 2 || dim == 3);
@@ -35,14 +35,14 @@ void AMRmesh_hashmap::adaptGlobalRefine()
     oct_view_t new_octs("local_octs_coord",  NUM_OCTS_COORDS, new_octs_count);
     for(uint32_t iOct_old=0; iOct_old<this->getNumOctants(); iOct_old++)
     {
-        uint16_t x = local_octs_coord(IX, iOct_old);
-        uint16_t y = local_octs_coord(IY, iOct_old);
-        uint16_t z = local_octs_coord(IZ, iOct_old);
-        uint16_t level = local_octs_coord(LEVEL, iOct_old);
+        coord_t x = local_octs_coord(IX, iOct_old);
+        coord_t y = local_octs_coord(IY, iOct_old);
+        coord_t z = local_octs_coord(IZ, iOct_old);
+        coord_t level = local_octs_coord(LEVEL, iOct_old);
 
-        for(uint8_t iz=0; iz<(dim-1); iz++)
-            for(uint16_t iy=0; iy<2; iy++)
-                for(uint16_t ix=0; ix<2; ix++)
+        for(int iz=0; iz<(dim-1); iz++)
+            for(int iy=0; iy<2; iy++)
+                for(int ix=0; ix<2; ix++)
                 {
                     uint32_t iOct_new = iOct_old*nb_subocts + ix + 2*iy + 4*iz;
                     new_octs(IX, iOct_new) = 2*x + ix;
@@ -76,6 +76,9 @@ void AMRmesh_hashmap::setMarker(uint32_t iOct, int marker)
 
 namespace {
 
+using morton_t = uint64_t;
+using coord_t = AMRmesh_hashmap::coord_t;
+using level_t = AMRmesh_hashmap::level_t;
 using oct_view_t = AMRmesh_hashmap::oct_view_t;
 using oct_view_device_t = AMRmesh_hashmap::oct_view_device_t;
 using octs_coord_id = AMRmesh_hashmap::octs_coord_id;
@@ -84,11 +87,11 @@ using markers_device_t = AMRmesh_hashmap::markers_device_t;
 using OctantIndex = LightOctree_base::OctantIndex;
 
 KOKKOS_INLINE_FUNCTION
-Kokkos::Array<uint16_t, 3> oct_getpos(  const oct_view_device_t& local_octs_coord, 
+Kokkos::Array<coord_t, 3> oct_getpos(  const oct_view_device_t& local_octs_coord, 
                                         const oct_view_device_t& ghost_octs_coord,
                                         const OctantIndex& iOct)
 {
-    Kokkos::Array<uint16_t, 3> pos;
+    Kokkos::Array<coord_t, 3> pos;
     if(iOct.isGhost)
     {
         pos[IX] = ghost_octs_coord(octs_coord_id::IX, iOct.iOct);
@@ -105,7 +108,7 @@ Kokkos::Array<uint16_t, 3> oct_getpos(  const oct_view_device_t& local_octs_coor
 }
 
 KOKKOS_INLINE_FUNCTION
-uint16_t oct_getlevel(  const oct_view_device_t& local_octs_coord, 
+level_t oct_getlevel(  const oct_view_device_t& local_octs_coord, 
                         const oct_view_device_t& ghost_octs_coord,
                         const OctantIndex& iOct)
 {
@@ -133,26 +136,26 @@ bool is_full_coarsening(const LightOctree_hashmap& lmesh,
     uint32_t nbOcts = lmesh.getNumOctants();
     //Position in parent octant
     auto pos = oct_getpos(local_octs_coord, ghost_octs_coord, iOct);
-    uint16_t level = oct_getlevel(local_octs_coord, ghost_octs_coord, iOct);
+    level_t level = oct_getlevel(local_octs_coord, ghost_octs_coord, iOct);
     
-    uint16_t target_level = level-1;
+    level_t target_level = level-1;
 
     int sx = (pos[IX]%2==0)?1:-1;
     int sy = (pos[IY]%2==0)?1:-1;
     int sz = (pos[IZ]%2==0)?1:-1;
 
-    int8_t ndim = lmesh.getNdim();
+    int ndim = lmesh.getNdim();
 
-    for(int8_t z=0; z<(ndim-1); z++)
-        for(int8_t y=0; y<2; y++)
-            for(int8_t x=0; x<2; x++)
+    for(int z=0; z<(ndim-1); z++)
+        for(int y=0; y<2; y++)
+            for(int x=0; x<2; x++)
             {
                 if( x!=0 || y!=0 || z!=0 )
                 {
                     auto ns = lmesh.findNeighbors(iOct,{(int8_t)(sx*x),(int8_t)(sy*y),(int8_t)(sz*z)});
                     assert(ns.size()>0);
                     const OctantIndex& iOct_other = ns[0];
-                    uint16_t target_level_n = oct_getlevel(local_octs_coord, ghost_octs_coord, iOct_other);;
+                    level_t target_level_n = oct_getlevel(local_octs_coord, ghost_octs_coord, iOct_other);;
                     uint32_t im = markers.find(OctantIndex::OctantIndex_to_iOctLocal(iOct_other, nbOcts));
                     if( markers.valid_at(im) )
                         target_level_n += markers.value_at(im);
@@ -208,24 +211,24 @@ bool need_refine_to_balance(const LightOctree_hashmap& lmesh,
 
     uint32_t nbOcts = lmesh.getNumOctants();
 
-    uint16_t new_level = oct_getlevel(local_octs_coord, ghost_octs_coord, iOct);
+    level_t new_level = oct_getlevel(local_octs_coord, ghost_octs_coord, iOct);
     uint32_t idm = markers.find(OctantIndex::OctantIndex_to_iOctLocal(iOct, nbOcts));
     if( markers.valid_at(idm) )
         new_level += markers.value_at(idm);
 
-    int8_t nz_max = lmesh.getNdim() == 2? 0:1;
-    for( int8_t nz=-nz_max; nz<=nz_max; nz++ )
-        for( int8_t ny=-1; ny<=1; ny++ )
-            for( int8_t nx=-1; nx<=1; nx++ )
+    int nz_max = lmesh.getNdim() == 2? 0:1;
+    for( int nz=-nz_max; nz<=nz_max; nz++ )
+        for( int ny=-1; ny<=1; ny++ )
+            for( int nx=-1; nx<=1; nx++ )
             {
                 if( nx!=0 || ny!=0 || nz!=0 )
                 {
                     LightOctree_base::NeighborList neighbors = 
-                        lmesh.findNeighbors(iOct, {nx,ny,nz});
+                        lmesh.findNeighbors(iOct, {(int8_t)nx,(int8_t)ny,(int8_t)nz});
                     for(uint32_t n=0; n<neighbors.size(); n++)
                     {
                         const OctantIndex& iOct_neighbor = neighbors[n];
-                        uint16_t new_level_neighbor = oct_getlevel(local_octs_coord, ghost_octs_coord, iOct_neighbor);
+                        level_t new_level_neighbor = oct_getlevel(local_octs_coord, ghost_octs_coord, iOct_neighbor);
                         uint32_t idmn = markers.find(OctantIndex::OctantIndex_to_iOctLocal(iOct_neighbor, nbOcts));
                         if( markers.valid_at(idmn) )
                             new_level_neighbor += markers.value_at(idmn);
@@ -332,9 +335,9 @@ oct_view_t adapt_apply( const oct_view_t& local_octs_coord,
             else if( marker == -1 )
             {
                 // Add coarsend octant only for first one in morton order
-                uint16_t ix = local_octs_coord(octs_coord_id::IX, iOct_old);
-                uint16_t iy = local_octs_coord(octs_coord_id::IY, iOct_old);
-                uint16_t iz = local_octs_coord(octs_coord_id::IZ, iOct_old);
+                coord_t ix = local_octs_coord(octs_coord_id::IX, iOct_old);
+                coord_t iy = local_octs_coord(octs_coord_id::IY, iOct_old);
+                coord_t iz = local_octs_coord(octs_coord_id::IZ, iOct_old);
                 if( ix%2==0 && iy%2==0 && iz%2==0 )
                     n_new_octants = 1;
                 else 
@@ -349,10 +352,10 @@ oct_view_t adapt_apply( const oct_view_t& local_octs_coord,
         
         if(final && n_new_octants>0)
         {
-            uint16_t ix = local_octs_coord(octs_coord_id::IX, iOct_old);
-            uint16_t iy = local_octs_coord(octs_coord_id::IY, iOct_old);
-            uint16_t iz = local_octs_coord(octs_coord_id::IZ, iOct_old);
-            uint16_t level = local_octs_coord(octs_coord_id::LEVEL, iOct_old);
+            coord_t ix = local_octs_coord(octs_coord_id::IX, iOct_old);
+            coord_t iy = local_octs_coord(octs_coord_id::IY, iOct_old);
+            coord_t iz = local_octs_coord(octs_coord_id::IZ, iOct_old);
+            level_t level = local_octs_coord(octs_coord_id::LEVEL, iOct_old);
 
             if(marker==1)
             {
@@ -394,9 +397,7 @@ oct_view_t adapt_apply( const oct_view_t& local_octs_coord,
     return local_octs_coord_out;
 }
 
-using morton_t = uint64_t;
-
-morton_t shift_level( morton_t m, uint16_t from_level, uint16_t to_level  )
+morton_t shift_level( morton_t m, level_t from_level, level_t to_level  )
 {
     int16_t ldiff = to_level-from_level;
     if(ldiff > 0)
@@ -406,25 +407,25 @@ morton_t shift_level( morton_t m, uint16_t from_level, uint16_t to_level  )
 }
 
 // Compute morton at level_max;
-morton_t get_morton_smaller(uint16_t ix, uint16_t iy, uint16_t iz, uint16_t level, uint16_t level_max)
+morton_t get_morton_smaller(coord_t ix, coord_t iy, coord_t iz, level_t level, level_t level_max)
 {
     morton_t morton = compute_morton_key( ix,iy,iz );
     return shift_level(morton, level, level_max);
 };
 
-morton_t get_morton_smaller(const oct_view_t& local_octs_coord, uint32_t idx, uint16_t level_max)
+morton_t get_morton_smaller(const oct_view_t& local_octs_coord, uint32_t idx, level_t level_max)
 {
-    uint16_t ix = local_octs_coord(octs_coord_id::IX, idx);
-    uint16_t iy = local_octs_coord(octs_coord_id::IY, idx);
-    uint16_t iz = local_octs_coord(octs_coord_id::IZ, idx);
-    uint16_t level = local_octs_coord(octs_coord_id::LEVEL, idx);
+    coord_t ix = local_octs_coord(octs_coord_id::IX, idx);
+    coord_t iy = local_octs_coord(octs_coord_id::IY, idx);
+    coord_t iz = local_octs_coord(octs_coord_id::IZ, idx);
+    level_t level = local_octs_coord(octs_coord_id::LEVEL, idx);
     return get_morton_smaller(ix,iy,iz,level,level_max);
 }
 
 std::set< std::pair<int, uint32_t> > discover_ghosts(
         const std::vector<morton_t>& morton_intervals,
         const AMRmesh_hashmap::oct_view_t& local_octs_coord,
-        uint8_t level_max, uint8_t ndim, const std::array<bool,3>& periodic,
+        level_t level_max, uint8_t ndim, const std::array<bool,3>& periodic,
         const MpiComm& mpi_comm)
 {
     uint32_t mpi_rank = mpi_comm.MPI_Comm_rank();
@@ -451,18 +452,18 @@ std::set< std::pair<int, uint32_t> > discover_ghosts(
     uint32_t nbOct_local = local_octs_coord.extent(1);
     for( uint32_t iOct=0; iOct < nbOct_local; iOct++ )
     {
-        uint16_t ix = local_octs_coord(octs_coord_id::IX, iOct);
-        uint16_t iy = local_octs_coord(octs_coord_id::IY, iOct);
-        uint16_t iz = local_octs_coord(octs_coord_id::IZ, iOct);
-        uint16_t level = local_octs_coord(octs_coord_id::LEVEL, iOct);
-        uint16_t max_i = std::pow(2, level);
+        coord_t ix = local_octs_coord(octs_coord_id::IX, iOct);
+        coord_t iy = local_octs_coord(octs_coord_id::IY, iOct);
+        coord_t iz = local_octs_coord(octs_coord_id::IZ, iOct);
+        level_t level = local_octs_coord(octs_coord_id::LEVEL, iOct);
+        coord_t max_i = std::pow(2, level);
 
         assert(find_rank(get_morton_smaller(ix,iy,iz,level,level_max)) == mpi_rank);
 
-        int8_t dz_max = (ndim == 2)? 0:1;
-        for( int16_t dz=-dz_max; dz<=dz_max; dz++ )
-        for( int16_t dy=-1; dy<=1; dy++ )
-        for( int16_t dx=-1; dx<=1; dx++ )
+        int dz_max = (ndim == 2)? 0:1;
+        for( int dz=-dz_max; dz<=dz_max; dz++ )
+        for( int dy=-1; dy<=1; dy++ )
+        for( int dx=-1; dx<=1; dx++ )
         if(   (dx!=0 || dy!=0 || dz!=0)
            && (periodic[IX] || ( 0<=ix+dx && ix+dx<max_i ))
            && (periodic[IY] || ( 0<=iy+dy && iy+dy<max_i ))
@@ -574,7 +575,7 @@ void exchange_markers(AMRmesh_hashmap& mesh, AMRmesh_hashmap::markers_device_t& 
     });
 }
 
-std::vector<morton_t> compute_current_morton_intervals(const AMRmesh_hashmap& mesh, const oct_view_t& local_octs_coord, uint8_t level_max)
+std::vector<morton_t> compute_current_morton_intervals(const AMRmesh_hashmap& mesh, const oct_view_t& local_octs_coord, level_t level_max)
 {
     int mpi_size = mesh.getNproc();
     const MpiComm& mpi_comm = mesh.getCommunicator();
@@ -690,7 +691,7 @@ void AMRmesh_hashmap::adapt(bool dummy)
     // }
 }
 
-std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(uint8_t level)
+std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(level_t level)
 {
     uint32_t mpi_rank = this->getRank();
     uint32_t mpi_size = this->getNproc();

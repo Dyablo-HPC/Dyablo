@@ -80,6 +80,7 @@ public:
      **/
     void exchange_ghosts(const DataArrayBlock& U, DataArrayBlock& Ughost) const;
     void exchange_ghosts(const Kokkos::View<uint16_t**, Kokkos::LayoutLeft>& U, Kokkos::View<uint16_t**, Kokkos::LayoutLeft>& Ughost) const;
+    void exchange_ghosts(const Kokkos::View<uint32_t**, Kokkos::LayoutLeft>& U, Kokkos::View<uint32_t**, Kokkos::LayoutLeft>& Ughost) const;
     void exchange_ghosts(const Kokkos::View<int*, Kokkos::LayoutLeft>& U, Kokkos::View<int*, Kokkos::LayoutLeft>& Ughost) const;
 
     /// note : iOct_pos is 0 for DataArray. (See exchange_ghosts_aux)
