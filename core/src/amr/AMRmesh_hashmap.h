@@ -64,7 +64,7 @@ public:
 
     bool getPeriodic(uint8_t i) const
     {
-        assert(i<2*dim);
+        assert(i<6);
         return periodic[i/2];
     }
 
