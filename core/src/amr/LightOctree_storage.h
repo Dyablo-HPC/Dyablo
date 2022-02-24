@@ -3,10 +3,11 @@
 #include <cassert>
 
 #include "amr/LightOctree_base.h"
+#include "enums.h"
 
 namespace dyablo { 
 
-template< typename MemorySpace_ = Kokkos::DefaultExecutionSpace::memory_space >
+template< typename MemorySpace_ = Kokkos::View<int*>::memory_space >
 class LightOctree_storage
 {
 public:
@@ -15,7 +16,7 @@ public:
   using level_t = logical_coord_t;
   using oct_data_t = Kokkos::View< logical_coord_t**, Kokkos::LayoutLeft, MemorySpace >;
   using pos_t = Kokkos::Array<real_t,3>;
-private:
+protected:
   using OctantIndex = LightOctree_base::OctantIndex;
   //! Index to access different fields in `oct_data`
   enum oct_data_field_t{
@@ -33,6 +34,13 @@ public:
   LightOctree_storage(LightOctree_storage&& lmesh) = default;
   LightOctree_storage& operator=(LightOctree_storage&& lmesh) = default;
 
+  template< typename MemorySpace_t >
+  LightOctree_storage(const LightOctree_storage<MemorySpace_t>& pmesh)
+  {
+    std::cout << "deep_copy" << std::endl;
+    assert(false);
+  }
+
   /**
    * Create LightOctree_storage from AMRmesh, when AMRmesh is not derived from LightOctree_storage
    * Uses AMRmesh public interface to extract mesh
@@ -41,10 +49,7 @@ public:
             // Disable this constructor when LightOctree_storage can be copy-contructed from AMRmesh_t
             typename = typename std::enable_if< !std::is_base_of< LightOctree_storage, AMRmesh_t >::value >::type >
   LightOctree_storage(const AMRmesh_t& pmesh)
-  : ndim(pmesh.getDim()), 
-    numOctants(pmesh.getNumOctants()), numGhosts(pmesh.getNumGhosts()), 
-    is_periodic({pmesh.getPeriodic(2*IX), pmesh.getPeriodic(2*IY), pmesh.getPeriodic(2*IZ)}),
-    oct_data("LightOctree_storage", numOctants+numGhosts, oct_data_field_t::OCT_DATA_COUNT)
+  : LightOctree_storage( pmesh.getDim(), pmesh.getNumOctants(), pmesh.getNumGhosts() )
   {
     typename oct_data_t::HostMirror oct_data_host = Kokkos::create_mirror_view(oct_data);
 
@@ -73,6 +78,13 @@ public:
     Kokkos::deep_copy(oct_data,oct_data_host);
   }
 
+  // Create an empty LightOctree_storage
+  LightOctree_storage( int ndim, uint32_t numOctants, uint32_t numGhosts )
+  : ndim(ndim), numOctants(numOctants), numGhosts(numGhosts),
+    oct_data("LightOctree_storage", numOctants+numGhosts, oct_data_field_t::OCT_DATA_COUNT)
+  {}
+
+public:
   //! @copydoc LightOctree_base::getNumOctants()
   KOKKOS_INLINE_FUNCTION 
   uint32_t getNumOctants() const
@@ -139,12 +151,6 @@ public:
       return oct_data(get_ioct_local(iOct), ILEVEL);
   }
 
-protected:
-  int ndim;
-  uint32_t numOctants, numGhosts; //! Number of local octants (no ghosts), Number of ghosts.
-  Kokkos::Array<bool,3> is_periodic;
-
-
   KOKKOS_INLINE_FUNCTION
   Kokkos::Array<logical_coord_t, 3> get_logical_coords( const OctantIndex& iOct )  const
   {
@@ -156,11 +162,42 @@ protected:
     };
   }
 
+  KOKKOS_INLINE_FUNCTION 
+  void set( const OctantIndex& iOct, 
+            logical_coord_t ix, logical_coord_t iy, logical_coord_t iz, 
+            level_t level ) const
+  {
+    uint32_t iOct_local = get_ioct_local(iOct);
+    oct_data(iOct_local, ICORNERX) = ix;
+    oct_data(iOct_local, ICORNERY) = iy;
+    oct_data(iOct_local, ICORNERZ) = iz;
+    oct_data(iOct_local, ILEVEL) = level;
+  }
+
+  oct_data_t getLocalSubview() const
+  {
+    return Kokkos::subview( 
+      oct_data, 
+      std::make_pair( (uint32_t)0, getNumOctants() ),
+      Kokkos::ALL() );
+  }
+
+  oct_data_t getGhostSubview() const
+  {
+    return Kokkos::subview( 
+      oct_data, 
+      std::make_pair( getNumOctants(), getNumOctants()+getNumGhosts() ),
+      Kokkos::ALL() );
+  }
+
+  int ndim;
+  uint32_t numOctants, numGhosts; //! Number of local octants (no ghosts), Number of ghosts.
+
   KOKKOS_INLINE_FUNCTION
   static logical_coord_t cell_count( level_t n )
   {
       assert( n < sizeof(logical_coord_t)*8 ); // 
-      return (uint32_t)1 << n;
+      return (logical_coord_t)1 << n;
   }
 
   //! Kokkos::view containing octants position and level 

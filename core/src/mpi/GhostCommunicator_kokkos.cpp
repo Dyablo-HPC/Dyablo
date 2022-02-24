@@ -304,7 +304,7 @@ void GhostCommunicator_kokkos::exchange_ghosts_aux( const DataArray_t& U, DataAr
   for(int i=iOct_pos; i<DataArray_t::rank-1; i++)
     extents_Ughost_tmp.dimension[i] = extents_Ughost_tmp.dimension[i+1];
   extents_Ughost_tmp.dimension[DataArray_t::rank-1] = this->nbghosts_recv;
-  DataArray_t Ughost_tmp("Ughost", extents_Ughost_tmp);
+  DataArray_t Ughost_tmp(U.label()+"_ghost", extents_Ughost_tmp);
 
   std::vector<MPIBuffer> recv_buffers = get_subviews<MPIBuffer>(Ughost_tmp, recv_sizes_host);
   
@@ -345,6 +345,11 @@ void GhostCommunicator_kokkos::exchange_ghosts(const DataArrayBlock& U, DataArra
 void GhostCommunicator_kokkos::exchange_ghosts(const Kokkos::View<uint16_t**, Kokkos::LayoutLeft>& U, Kokkos::View<uint16_t**, Kokkos::LayoutLeft>& Ughost) const
 {
   exchange_ghosts_aux(U, Ughost);
+}
+
+void GhostCommunicator_kokkos::exchange_ghosts(const LightOctree_storage<>::oct_data_t& U, LightOctree_storage<>::oct_data_t& Ughost) const
+{
+  exchange_ghosts_aux<LightOctree_storage<>::oct_data_t,0>(U, Ughost);
 }
 
 void GhostCommunicator_kokkos::exchange_ghosts(const Kokkos::View<uint32_t**, Kokkos::LayoutLeft>& U, Kokkos::View<uint32_t**, Kokkos::LayoutLeft>& Ughost) const

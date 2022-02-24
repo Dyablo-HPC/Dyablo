@@ -20,7 +20,7 @@ void AMRmesh_impl<Impl_t>::updateLightOctree()
   if( !lmesh_uptodate )
   {
     lmesh = nullptr;
-    lmesh = std::make_unique<LightOctree>( this, level_min, level_max );
+    lmesh = std::make_unique<LightOctree>( &this->getMesh(), level_min, level_max );
     lmesh_uptodate = true;
   }
 }

@@ -14,8 +14,9 @@ namespace dyablo {
 
 
 
-class LightOctree_hashmap : public LightOctree_base, protected LightOctree_storage<>{
+class LightOctree_hashmap : public LightOctree_base, public LightOctree_storage<>{
 public:
+    using Storage_t = LightOctree_storage<>;
     using LightOctree_base::OctantIndex;
     using LightOctree_base::pos_t;
 
@@ -24,9 +25,10 @@ public:
 
     template < typename AMRmesh_t >
     LightOctree_hashmap( const AMRmesh_t* pmesh, uint8_t level_min, uint8_t level_max )
-    : LightOctree_storage( *pmesh ),
+    : Storage_t( *pmesh ),
       oct_map(pmesh->getNumOctants()+pmesh->getNumGhosts()),
-      min_level(level_min), max_level(level_max)
+      min_level(level_min), max_level(level_max),
+      is_periodic( {pmesh->getPeriodic(2*IX), pmesh->getPeriodic(2*IY), pmesh->getPeriodic(2*IZ)} )
     {
         std::cout << "LightOctree rehash ..." << std::endl;
     
@@ -58,14 +60,14 @@ public:
         });
     }
 
-    using LightOctree_storage::getNumOctants;
-    using LightOctree_storage::getNumGhosts;
-    using LightOctree_storage::getNdim;
-    using LightOctree_storage::getCenter;
-    using LightOctree_storage::getCorner;
-    using LightOctree_storage::getSize;
-    using LightOctree_storage::getLevel;
-    using LightOctree_storage::getBound;
+    using Storage_t::getNumOctants;
+    using Storage_t::getNumGhosts;
+    using Storage_t::getNdim;
+    using Storage_t::getCenter;
+    using Storage_t::getCorner;
+    using Storage_t::getSize;
+    using Storage_t::getLevel;
+    using Storage_t::getBound;
     
     //! @copydoc LightOctree_base::findNeighbors()
     KOKKOS_INLINE_FUNCTION NeighborList findNeighbors( const OctantIndex& iOct, const offset_t& offset )  const
@@ -237,6 +239,7 @@ private:
 
     level_t min_level; //! Coarser level of the octree
     level_t max_level; //! Finer level of the octree
+    Kokkos::Array<bool, 3> is_periodic;
 };
 
 } //namespace dyablo
