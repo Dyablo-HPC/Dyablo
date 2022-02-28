@@ -6,11 +6,12 @@
 
 namespace dyablo {
 
-class AMRmesh_hashmap_new : public LightOctree_storage< Kokkos::DefaultHostExecutionSpace::memory_space >
+class AMRmesh_hashmap_new
 {
 public:
   using Storage_t = LightOctree_storage< Kokkos::DefaultHostExecutionSpace::memory_space >;
-  using level_t = uint16_t;
+  using logical_coord_t = Storage_t::logical_coord_t;
+  using level_t = Storage_t::level_t;
   using oct_index_t = uint32_t;
   using global_oct_index_t = uint64_t;
   template< typename T, int N >
@@ -23,13 +24,18 @@ public:
 
   ~AMRmesh_hashmap_new();
 
-  const Storage_t getStorage();
+  const Storage_t& getStorage()
+  {
+    return storage;
+  }
 
-  using Storage_t::getNumOctants;
-  using Storage_t::getNumGhosts;
+  oct_index_t getNumOctants() const
+  { return storage.getNumOctants(); }
+  oct_index_t getNumGhosts() const
+  { return storage.getNumGhosts(); }
 
   uint8_t getDim() const
-  { return Storage_t::getNdim(); }
+  { return storage.getNdim(); }
 
   bool getPeriodic( int i ) const
   { 
@@ -46,43 +52,43 @@ public:
   { return first_local_oct + idx; }
 
   bool getBound( oct_index_t idx ) const
-  { return Storage_t::getBound( {idx, false} ); }
+  { return storage.getBound( {idx, false} ); }
 
   array_t<real_t, 3> getCenter( uint32_t idx ) const
   { 
-    auto p = Storage_t::getCenter( {idx, false} );
+    auto p = storage.getCenter( {idx, false} );
     return {p[IX], p[IY], p[IZ]};
   }
   
   array_t<real_t, 3> getCenterGhost( uint32_t idx ) const
   { 
-    auto p = Storage_t::getCenter( {idx, true} );
+    auto p = storage.getCenter( {idx, true} );
     return {p[IX], p[IY], p[IZ]};
   }
 
   array_t<real_t, 3> getCoordinates( uint32_t idx ) const
   { 
-    auto p = Storage_t::getCorner( {idx, false} );
+    auto p = storage.getCorner( {idx, false} );
     return {p[IX], p[IY], p[IZ]};
   }
   
   array_t<real_t, 3> getCoordinatesGhost( uint32_t idx ) const
   { 
-    auto p = Storage_t::getCorner( {idx, true} );
+    auto p = storage.getCorner( {idx, true} );
     return {p[IX], p[IY], p[IZ]};
   }
 
   real_t getSize( uint32_t idx ) const
-  { return Storage_t::getSize( {idx, false} ); }
+  { return storage.getSize( {idx, false} ); }
 
   real_t getSizeGhost( uint32_t idx ) const
-  { return Storage_t::getSize( {idx, true} ); }
+  { return storage.getSize( {idx, true} ); }
 
   level_t getLevel( uint32_t idx ) const
-  { return Storage_t::getLevel( {idx, false} ); }
+  { return storage.getLevel( {idx, false} ); }
 
   level_t getLevelGhost( uint32_t idx ) const
-  { return Storage_t::getLevel( {idx, true} ); }
+  { return storage.getLevel( {idx, true} ); }
 
   // Output is not used in AMRmesh_impl
   std::map<int, std::vector<uint32_t>> loadBalance( level_t compact_levels );
@@ -108,6 +114,8 @@ public:
   }
 
 private : 
+  Storage_t storage;
+
   Kokkos::Array<bool,3> periodic;
   MpiComm mpi_comm;
   global_oct_index_t total_num_octs, first_local_oct;

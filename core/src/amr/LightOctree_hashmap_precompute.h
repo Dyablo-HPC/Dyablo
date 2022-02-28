@@ -85,13 +85,15 @@ public:
     LightOctree_hashmap_precompute( const AMRmesh_t* pmesh, uint8_t level_min, uint8_t level_max )
     : LightOctree_hashmap(pmesh, level_min, level_max)
     {
-        LightOctree_hashmap_precompute_init(*this, neighbors_count, neighbors_offset, neighbors_iOct, ndim);
+        LightOctree_hashmap_precompute_init(*this, neighbors_count, neighbors_offset, neighbors_iOct, getNdim());
     }
     
     //! @copydoc LightOctree_base::findNeighbors()
     KOKKOS_INLINE_FUNCTION NeighborList findNeighbors( const OctantIndex& iOct, const offset_t& offset )  const
     {
         assert( !iOct.isGhost );
+
+        int ndim = getNdim();
 
         uint8_t nneighbors = neighbors_count(iOct.iOct, offset_to_index(offset, ndim));
         uint32_t n_offset = neighbors_offset(iOct.iOct, offset_to_index(offset, ndim));

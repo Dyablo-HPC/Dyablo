@@ -37,20 +37,19 @@ public:
   template< typename MemorySpace_t >
   LightOctree_storage(const LightOctree_storage<MemorySpace_t>& pmesh)
   {
-    std::cout << "deep_copy" << std::endl;
-    assert(false);
+    throw std::runtime_error("Deep copy when MemorySpace is different not implemented");
   }
 
   /**
    * Create LightOctree_storage from AMRmesh, when AMRmesh is not derived from LightOctree_storage
    * Uses AMRmesh public interface to extract mesh
    **/
-  template< typename AMRmesh_t, 
-            // Disable this constructor when LightOctree_storage can be copy-contructed from AMRmesh_t
-            typename = typename std::enable_if< !std::is_base_of< LightOctree_storage, AMRmesh_t >::value >::type >
+  template< typename AMRmesh_t >
   LightOctree_storage(const AMRmesh_t& pmesh)
   : LightOctree_storage( pmesh.getDim(), pmesh.getNumOctants(), pmesh.getNumGhosts() )
   {
+    throw std::runtime_error("Slow copy!!!");
+
     typename oct_data_t::HostMirror oct_data_host = Kokkos::create_mirror_view(oct_data);
 
     Kokkos::parallel_for( "LightOctree_storage::copydata", 

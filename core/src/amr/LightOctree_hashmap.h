@@ -14,7 +14,7 @@ namespace dyablo {
 
 
 
-class LightOctree_hashmap : public LightOctree_base, public LightOctree_storage<>{
+class LightOctree_hashmap : public LightOctree_base{
 public:
     using Storage_t = LightOctree_storage<>;
     using LightOctree_base::OctantIndex;
@@ -25,14 +25,14 @@ public:
 
     template < typename AMRmesh_t >
     LightOctree_hashmap( const AMRmesh_t* pmesh, uint8_t level_min, uint8_t level_max )
-    : Storage_t( *pmesh ),
+    : storage( *pmesh ),
       oct_map(pmesh->getNumOctants()+pmesh->getNumGhosts()),
       min_level(level_min), max_level(level_max),
       is_periodic( {pmesh->getPeriodic(2*IX), pmesh->getPeriodic(2*IY), pmesh->getPeriodic(2*IZ)} )
     {
         std::cout << "LightOctree rehash ..." << std::endl;
     
-        const LightOctree_hashmap& this_ref = *this;
+        const Storage_t& storage = this->storage;
         const oct_map_t& oct_map = this->oct_map;
         uint32_t nbOcts = getNumOctants();
         uint32_t numOctants_tot = nbOcts + getNumGhosts();
@@ -44,8 +44,8 @@ public:
         {   
             OctantIndex iOct = OctantIndex::iOctLocal_to_OctantIndex( ioct_local, nbOcts );
 
-            auto logical_pos = this_ref.get_logical_coords( iOct );
-            level_t level = this_ref.getLevel( iOct );
+            auto logical_pos = storage.get_logical_coords( iOct );
+            level_t level = storage.getLevel( iOct );
             key_t logical_coords;
             logical_coords.level = level;
             logical_coords.i = logical_pos[IX];
@@ -60,19 +60,30 @@ public:
         });
     }
 
-    using Storage_t::getNumOctants;
-    using Storage_t::getNumGhosts;
-    using Storage_t::getNdim;
-    using Storage_t::getCenter;
-    using Storage_t::getCorner;
-    using Storage_t::getSize;
-    using Storage_t::getLevel;
-    using Storage_t::getBound;
+    int getNdim() const
+    {return storage.getNdim();}
+    uint32_t getNumOctants() const
+    {return storage.getNumOctants();}
+    uint32_t getNumGhosts() const
+    {return storage.getNumGhosts();}
+    pos_t getCenter(const OctantIndex& iOct)  const
+    {return storage.getCenter(iOct);}
+    pos_t getCorner(const OctantIndex& iOct)  const
+    {return storage.getCorner(iOct);}
+    real_t getSize(const OctantIndex& iOct)  const
+    {return storage.getSize(iOct);}
+    uint8_t getLevel(const OctantIndex& iOct)  const
+    {return storage.getLevel(iOct);}
+    bool getBound(const OctantIndex& iOct)  const
+    {return storage.getBound(iOct);}
+
     
     //! @copydoc LightOctree_base::findNeighbors()
     KOKKOS_INLINE_FUNCTION NeighborList findNeighbors( const OctantIndex& iOct, const offset_t& offset )  const
     {
         //assert( !iOct.isGhost );
+
+        int ndim = getNdim();
 
         if( this->isBoundary(iOct, offset) )
             return NeighborList{0,{}};
@@ -80,8 +91,8 @@ public:
         // Get logical coordinates of neighbor
         
         level_t level = getLevel(iOct);
-        auto lc = get_logical_coords(iOct);
-        logical_coord_t octant_count = cell_count( level );
+        auto lc = storage.get_logical_coords(iOct);
+        logical_coord_t octant_count = storage.cell_count( level );
         key_t logical_coords;
         logical_coords.level = getLevel(iOct);
         logical_coords.i = (lc[IX] + octant_count + offset[IX]) % octant_count; // Periodic coord only works if offset > -octant_count
@@ -172,10 +183,12 @@ public:
     KOKKOS_INLINE_FUNCTION
     OctantIndex getiOctFromCoordinates(uint16_t ix, uint16_t iy, uint16_t iz, uint16_t level) const
     {
-        assert( ix < cell_count( level )  );
-        assert( iy < cell_count( level )  );
+        int ndim = getNdim();
+
+        assert( ix < storage.cell_count( level )  );
+        assert( iy < storage.cell_count( level )  );
         if(ndim == 3)
-            assert( iz < cell_count( level )  );
+            assert( iz < storage.cell_count( level )  );
         else 
             assert( iz == 0  );
 
@@ -191,6 +204,8 @@ public:
     KOKKOS_INLINE_FUNCTION
     OctantIndex getiOctFromPos(const pos_t& pos) const
     {
+        int ndim = getNdim();
+
         assert( 0 < pos[IX] && pos[IX] < 1 );
         assert( 0 < pos[IY] && pos[IY] < 1 );
         if(ndim == 3)
@@ -200,7 +215,7 @@ public:
 
         key_t logical_coords;
         {
-            uint32_t octant_count = cell_count( max_level );
+            uint32_t octant_count = storage.cell_count( max_level );
             real_t octant_size = 1.0/octant_count;
             logical_coords.level = max_level;
             logical_coords.i = std::floor(pos[IX]/octant_size);
@@ -232,7 +247,10 @@ public:
     {
         logical_coord_t level, i, j, k;
     };
+
 private:
+    Storage_t storage;
+
     using oct_ref_t = OctantIndex; //! value type for the hashmap
     using oct_map_t = Kokkos::UnorderedMap<key_t, oct_ref_t>; //! hashmap returning an octant form a key
     oct_map_t oct_map; //! hashmap returning an octant form a key

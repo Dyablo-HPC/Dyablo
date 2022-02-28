@@ -19,7 +19,7 @@ AMRmesh_hashmap_new::AMRmesh_hashmap_new( int dim, int balance_codim,
                       const std::array<bool,3>& periodic, 
                       uint8_t level_min, uint8_t level_max,
                       const MpiComm& mpi_comm)
-: Storage_t( dim, 1, 0 ),
+: storage( dim, 1, 0 ),
   periodic({periodic[IX], periodic[IY], periodic[IZ]}),
   mpi_comm(mpi_comm),
   total_num_octs(1), first_local_oct(0),
@@ -41,7 +41,7 @@ void AMRmesh_hashmap_new::adaptGlobalRefine()
   oct_index_t old_nbOcts = getNumOctants();
   oct_index_t new_nbOcts = old_nbOcts*nbSubocts;
 
-  Storage_t& old_storage = *this;
+  Storage_t& old_storage = this->storage;
   LightOctree_storage<> old_storage_device( old_storage );
   LightOctree_storage<> new_storage_device( ndim, new_nbOcts, 0 );
 
@@ -259,7 +259,7 @@ AMRmesh_hashmap_new::loadBalance(level_t level)
           // and fill morton_intervals for this rank
           if( iOct_begin <= idx && idx <= iOct_end )
           {
-              new_morton_intervals[i] = compute_morton( *this, idx-iOct_begin, level_max );
+              new_morton_intervals[i] = compute_morton( storage, idx-iOct_begin, level_max );
               nb_mortons++;
           }
       }   
@@ -283,7 +283,7 @@ AMRmesh_hashmap_new::loadBalance(level_t level)
     {
         morton_t old_morton_interval_begin, old_morton_interval_end;
         {
-          old_morton_interval_begin = compute_morton( *this, 0, level_max );
+          old_morton_interval_begin = compute_morton( storage, 0, level_max );
           std::vector<morton_t> new_morton_intervals(mpi_size+1);
           // TODO maybe just send to mpi_rank-1 ?
           mpi_comm.MPI_Allgather( &old_morton_interval_begin, new_morton_intervals.data(), 1);
@@ -299,7 +299,7 @@ AMRmesh_hashmap_new::loadBalance(level_t level)
             if( old_morton_interval_begin <= new_morton_intervals[rank] && new_morton_intervals[rank] < old_morton_interval_end ) // Determine if pivot is inside of local process
             {
                 // find first local octant with morton >= morton_interval[rank]
-                oct_index_t pivot = lower_bound_morton( *this, new_morton_intervals[rank], level_max );
+                oct_index_t pivot = lower_bound_morton( storage, new_morton_intervals[rank], level_max );
                 nb_local_pivots++;
                 new_oct_intervals[rank] = this->getGlobalIdx(pivot);
             }
@@ -341,7 +341,7 @@ AMRmesh_hashmap_new::loadBalance(level_t level)
     LightOctree_storage<> new_storage_device(this->getDim(), new_nbOcts, 0);
     {
       // Use storage on device to perform remaining operations
-      LightOctree_storage<> old_storage_device = *this;
+      LightOctree_storage<> old_storage_device = storage;
 
       GhostCommunicator_kokkos loadbalance_communicator( loadbalance_to_send );
       loadbalance_communicator.exchange_ghosts( old_storage_device.oct_data, new_storage_device.oct_data );
@@ -355,9 +355,9 @@ AMRmesh_hashmap_new::loadBalance(level_t level)
     // TODO clean raw console outputs?
     if( getNumOctants() != 0 )
     {
-      std::cout << "Rank " << mpi_rank << ": actual morton interval [" << compute_morton( *this, 0, level_max) << ", " << compute_morton( *this,  getNumOctants()-1, level_max) << "]" << std::endl;
-      assert( compute_morton( *this, 0, level_max) >= new_morton_intervals[mpi_rank] );
-      assert( compute_morton( *this, getNumOctants()-1, level_max) < new_morton_intervals[mpi_rank+1] );
+      std::cout << "Rank " << mpi_rank << ": actual morton interval [" << compute_morton( storage, 0, level_max) << ", " << compute_morton( storage,  getNumOctants()-1, level_max) << "]" << std::endl;
+      assert( compute_morton( storage, 0, level_max) >= new_morton_intervals[mpi_rank] );
+      assert( compute_morton( storage, getNumOctants()-1, level_max) < new_morton_intervals[mpi_rank+1] );
     }
     else 
     {
@@ -373,7 +373,7 @@ AMRmesh_hashmap_new::loadBalance(level_t level)
     ghost_comm.exchange_ghosts( new_storage_device.oct_data, neighbor_octs_device );
 
     // Reallocate storage with new size
-    Storage_t& this_storage = *this;
+    Storage_t& this_storage = this->storage;
     this_storage = Storage_t( this->getDim(), new_nbOcts, neighbor_octs_device.extent(0) );
 
     Kokkos::deep_copy( this_storage.getLocalSubview(), new_storage_device.getLocalSubview() );
