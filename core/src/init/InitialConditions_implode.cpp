@@ -4,6 +4,11 @@
 
 namespace dyablo{
 
+/**
+ * 2D implosion test.
+ * Based on Liska, Wendroff "Comparison of Several Difference Schemes on 1D and 2D Test Problems 
+ * for the Euler Equations", 2003, SIAM journal on Scientific Computing
+ **/
 struct AnalyticalFormula_implode : public AnalyticalFormula_base{
   
   const int    ndim;
