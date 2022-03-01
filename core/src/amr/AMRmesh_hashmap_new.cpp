@@ -19,7 +19,7 @@ AMRmesh_hashmap_new::AMRmesh_hashmap_new( int dim, int balance_codim,
                       const std::array<bool,3>& periodic, 
                       uint8_t level_min, uint8_t level_max,
                       const MpiComm& mpi_comm)
-: storage( dim, 1, 0 ),
+: storage( dim, (mpi_comm.MPI_Comm_rank()==0)?1:0, 0 ),
   periodic({periodic[IX], periodic[IY], periodic[IZ]}),
   mpi_comm(mpi_comm),
   total_num_octs(1), first_local_oct(0),
@@ -66,7 +66,7 @@ void AMRmesh_hashmap_new::adaptGlobalRefine()
         }
   });
 
-  total_num_octs = new_nbOcts;
+  total_num_octs = total_num_octs*nbSubocts;
   old_storage = new_storage_device;
   pdata->markers = markers_t("AMRmesh_hashmap_new::markers", new_nbOcts);
 }
@@ -91,6 +91,7 @@ namespace{
 using morton_t = uint64_t;
 using level_t = AMRmesh_hashmap_new::level_t;
 using oct_index_t = AMRmesh_hashmap_new::oct_index_t;
+using logical_coord_t = AMRmesh_hashmap_new::logical_coord_t;
 
 KOKKOS_INLINE_FUNCTION
 morton_t shift_level( const morton_t& m, int level_diff )
@@ -133,109 +134,226 @@ AMRmesh_hashmap_new::oct_index_t lower_bound_morton( const AMRmesh_hashmap_new::
   return begin;
 }
 
-// std::map<int, std::vector<oct_index_t>> discover_ghosts(
-//   const AMRmesh_hashmap_new::Storage_t& octs_host,
-//   const std::vector<morton_t>& morton_intervals,
-//   level_t level_max, 
-//   const Kokkos::Array<bool,3>& periodic,
-//   const MpiComm& mpi_comm)
-// {
-//   int mpi_rank = mpi_comm.MPI_Comm_rank();
-//   int mpi_size = mpi_comm.MPI_Comm_size();
+std::map<int, std::vector<oct_index_t>> discover_ghosts(
+  const AMRmesh_hashmap_new::Storage_t& octs_host,
+  const std::vector<morton_t>& morton_intervals_,
+  level_t level_max, 
+  const Kokkos::Array<bool,3>& periodic,
+  const MpiComm& mpi_comm)
+{
+  int mpi_rank = mpi_comm.MPI_Comm_rank();
+  int mpi_size = mpi_comm.MPI_Comm_size();
+  int ndim = octs_host.getNdim();
 
-//   LightOctree_storage<> octs_device = octs_host;
+  LightOctree_storage<> storage_device = octs_host;
 
-//   Kokkos::parallel_for( "discover_ghosts", octs_device.getNumOctants(),
-//     KOKKOS_LAMBDA( oct_index_t iOct )
-//   {
-//     auto pos = octs_device.get_logical_coords( {iOct, false} );
-//     level_t level = 
+  // Copy morton_intervals to device
+  Kokkos::View<morton_t*> morton_intervals_device("discover_ghosts::morton_intervals", morton_intervals_.size());
+  {
+    auto morton_intervals_host = Kokkos::create_mirror_view( morton_intervals_device  );
+    std::copy( morton_intervals_.begin(), morton_intervals_.end(), morton_intervals_host.data() );
+    Kokkos::deep_copy( morton_intervals_device, morton_intervals_host );
+  }
+  
+  
+  size_t neighbor_count_guess = storage_device.getNumOctants();
+  struct NeighborPair
+  {
+    oct_index_t iOct_local;
+    int rank_neighbor;
+  };
+  Kokkos::UnorderedMap< NeighborPair, void > neighborMap( neighbor_count_guess );
 
+  // Storage must be allocated before launching the kernel, 
+  // but we don't know the number of ghosts to send :
+  // When insert fails, we reallocate and restart from the first failed insert
+  oct_index_t first_fail = 0;
+  while( first_fail < storage_device.getNumOctants() )
+  {
+    oct_index_t iter_start = first_fail;
+    first_fail = storage_device.getNumOctants();
+    Kokkos::parallel_reduce( "discover_ghosts", 
+      Kokkos::RangePolicy<>( iter_start, storage_device.getNumOctants()),
+      KOKKOS_LAMBDA( oct_index_t iOct, oct_index_t& first_fail_local )
+    {
+      auto compute_morton = [&]( const Kokkos::Array<logical_coord_t, 3>& pos, level_t level )
+      { 
+        morton_t morton = compute_morton_key( pos[IX], pos[IY], pos[IZ] );
+        morton = shift_level( morton, level_max-level );
+        return morton;
+      };
 
+      auto find_rank = [&]( morton_t morton )
+      { 
+        // upper_bound : first verifying value > morton
+        int rank;
+        {
+          int begin = 0;
+          int end = mpi_size;
+          while( begin < end )
+          {
+            int pivot = begin + (end-begin)/2;
+            morton_t morton_pivot = morton_intervals_device(pivot);
+            if( morton_pivot <= morton )
+              begin = pivot+1;
+            else //if( morton_pivot > morton )
+              end = pivot;
+          }
+          // Just before the upper bound
+          rank=begin-1;
+        }
+        assert( rank<mpi_size );
+        assert( morton_intervals_device(rank) <= morton);
+        assert( morton_intervals_device(rank+1) > morton);
+        return rank;
+      };
 
-//   } );   
+      // Register current octant as ghost for neighbor_rank
+      auto register_neighbor = [&]( int neighbor_rank )
+      {
+        if(neighbor_rank != mpi_rank)
+        {
+          auto insert_result = neighborMap.insert( NeighborPair{iOct, neighbor_rank } );
+          if( insert_result.failed() )
+            first_fail_local = std::min( first_fail_local, iOct );
+        }
+      };
 
+      Kokkos::Array<logical_coord_t, 3> pos = storage_device.get_logical_coords( {iOct, false} );
+      level_t level = storage_device.getLevel( {iOct, false} );
 
+      assert(find_rank(compute_morton(pos, level)) == mpi_rank);
 
+      logical_coord_t max_i = storage_device.cell_count(level);
+      int dz_max = (ndim == 2)? 0:1;
+      for( int dz=-dz_max; dz<=dz_max; dz++ )
+      for( int dy=-1; dy<=1; dy++ )
+      for( int dx=-1; dx<=1; dx++ )
+      if(   (dx!=0 || dy!=0 || dz!=0)
+          && (periodic[IX] || ( 0<=pos[IX]+dx && pos[IX]+dx<max_i ))
+          && (periodic[IY] || ( 0<=pos[IY]+dy && pos[IY]+dy<max_i ))
+          && (periodic[IZ] || ( 0<=pos[IZ]+dz && pos[IZ]+dz<max_i )) )
+      {
+        Kokkos::Array<logical_coord_t, 3> pos_n{
+          (pos[IX]+dx+max_i)%max_i, 
+          (pos[IY]+dy+max_i)%max_i, 
+          (pos[IZ]+dz+max_i)%max_i
+        };
+        morton_t morton_n = compute_morton( pos_n, level );
+        int neighbor_rank = find_rank( morton_n );
 
-//     auto find_rank = [mpi_size, &morton_intervals](morton_t morton)
-//     {
-//         // upper_bound : first verifying value > morton
-//         auto it = std::upper_bound( morton_intervals.begin(), morton_intervals.end(), morton );
-//         // neighbor_rank: last interval value <= morton
-//         int neighbor_rank = it - morton_intervals.begin() - 1;
-//         assert( neighbor_rank<mpi_size );
-//         assert( morton_intervals[neighbor_rank] <= morton);
-//         assert( morton_intervals[neighbor_rank+1] > morton);
-//         return neighbor_rank;
-//     };
+        // Verify that the whole same-size virtual neighbor is owned by neighbor_rank
+        // i.e : last suboctant of same-size neighbor is owned by the same MPI
+        // TODO : get morton of last neighbor to filter even more
+        morton_t morton_next = shift_level(morton_n, level-level_max) + 1;
+                morton_next = shift_level(morton_next, level_max-level);
+        if( level<level_max && morton_next < morton_intervals_device(neighbor_rank+1) )
+        {// Neighbors are owned by only one MPI
+          register_neighbor(neighbor_rank);
+        }
+        else
+        {// Neighbors may be scattered between multiple MPIs  
+          
+          // Apply offset to get smaller origin neighbor
+          Kokkos::Array<logical_coord_t, 3> pos_n_smaller_origin{
+            (pos_n[IX] << 1) + (dx == -1), // add one level + right half of suboctant if left of original cell
+            (pos_n[IY] << 1) + (dy == -1),
+            (pos_n[IZ] << 1) + (dz == -1),
+          };
 
-//     // TODO : Use GPU
-//     // Compute new neighborhood : determine which octants to send each MPI rank
-//     // For each local octant, compute MPI rank for each same-size virtual neighbor 
-//     // using morton_intervals. If same-size virtual neighbor is split between multiple MPI
-//     // ranks, current octant must be sent to each of these MPI ranks
-//     std::set< std::pair<int, uint32_t> > local_octants_to_send_set;
-//     uint32_t nbOct_local = local_octs_coord.extent(1);
-//     for( uint32_t iOct=0; iOct < nbOct_local; iOct++ )
-//     {
-//         coord_t ix = local_octs_coord(octs_coord_id::IX, iOct);
-//         coord_t iy = local_octs_coord(octs_coord_id::IY, iOct);
-//         coord_t iz = local_octs_coord(octs_coord_id::IZ, iOct);
-//         level_t level = local_octs_coord(octs_coord_id::LEVEL, iOct);
-//         coord_t max_i = std::pow(2, level);
+          // Iterate over neighbor suboctants
+          int sx_max = (dx==0); // constrained to the same plane as origin if offset in this direction
+          int sy_max = (dy==0);
+          int sz_max = (ndim==2) ? 0 : (dz==0);
+          for( int16_t sz=0; sz<=sz_max; sz++ )
+          for( int16_t sy=0; sy<=sy_max; sy++ )
+          for( int16_t sx=0; sx<=sx_max; sx++ )
+          {
+            Kokkos::Array<logical_coord_t, 3> pos_n_smaller{
+              pos_n_smaller_origin[IX] + sx,
+              pos_n_smaller_origin[IY] + sy,
+              pos_n_smaller_origin[IZ] + sz,
+            };
+            morton_t m_suboctant = compute_morton( pos_n_smaller, level+1 );
+            int neighbor_rank = find_rank(m_suboctant);
+            register_neighbor(neighbor_rank);
+          }
+        }
+      }
+    }, Kokkos::Min<oct_index_t>(first_fail) ); 
+  
+    // first_fail should be std::numeric_limit<oct_index_t>::max() if every insert succeeded
+    if( first_fail < storage_device.getNumOctants() )
+    {
+      std::cout << "Ghost storage too small : rehash" << std::endl;
+      neighbor_count_guess *= 2;
+      neighborMap.rehash( neighbor_count_guess );
+      std::cout << "Restart from iOct " << first_fail << std::endl;
+    }
+  }
 
-//         assert(find_rank(get_morton_smaller(ix,iy,iz,level,level_max)) == mpi_rank);
+  // Copy content of neighborMap to result variable
+  std::map<int, std::vector<oct_index_t>> to_send;
+  {
+    // Compute number of neighbors to send to each other rank
+    Kokkos::View<oct_index_t*> to_send_count_device("discover_ghosts::to_send_count", mpi_size);
+    Kokkos::parallel_for( "discover_ghosts::count_neighbors", neighborMap.capacity(),
+      KOKKOS_LAMBDA( uint32_t i )
+    {
+      if( neighborMap.valid_at(i) )
+      {
+        const NeighborPair& p = neighborMap.key_at(i);
+        Kokkos::atomic_increment( &to_send_count_device(p.rank_neighbor) );
+      }
+    });
 
-//         int dz_max = (ndim == 2)? 0:1;
-//         for( int dz=-dz_max; dz<=dz_max; dz++ )
-//         for( int dy=-1; dy<=1; dy++ )
-//         for( int dx=-1; dx<=1; dx++ )
-//         if(   (dx!=0 || dy!=0 || dz!=0)
-//            && (periodic[IX] || ( 0<=ix+dx && ix+dx<max_i ))
-//            && (periodic[IY] || ( 0<=iy+dy && iy+dy<max_i ))
-//            && (periodic[IZ] || ( 0<=iz+dz && iz+dz<max_i )) )
-//         {
-//             morton_t m_neighbor = get_morton_smaller((ix+dx+max_i)%max_i,(iy+dy+max_i)%max_i,(iz+dz+max_i)%max_i,level,level_max);
-//             // Find the first rank where morton_intervals[rank] >= m_neighbor
-//             uint32_t neighbor_rank = find_rank(m_neighbor);
+    // Compute offsets marking beginning of each process in a single contiguous list of neighbors
+    Kokkos::View<oct_index_t*> to_send_offset_device("discover_ghosts::to_send_offset", mpi_size);
+    oct_index_t to_send_count_total = 0; // Total number of neighbor octants
+    Kokkos::parallel_scan( "discover_ghosts::compute_offsets", mpi_size,
+      KOKKOS_LAMBDA( int rank, oct_index_t& offset_local, bool final )
+    {
+      if(final)
+        to_send_offset_device(rank) = offset_local;
+      offset_local += to_send_count_device(rank);
+    }, to_send_count_total);
 
-//             // Verify that the whole same-size virtual neighbor is owned by neighbor_rank
-//             // i.e : last suboctant of same-size neighbor is owned by the same MPI
-//             morton_t m_next = shift_level(m_neighbor, level_max, level) + 1;
-//                      m_next = shift_level(m_next, level, level_max);
-//             if( level<level_max && m_next < morton_intervals[neighbor_rank+1] )
-//             {// Neighbors are owned by only one MPI
-//                 if(neighbor_rank != mpi_rank)
-//                     local_octants_to_send_set.insert({neighbor_rank, iOct});
-//             }
-//             else
-//             {// Neighbors may be scattered between multiple MPIs              
-//                 morton_t m_suboctant_origin = shift_level(m_neighbor, level_max, level+1); // Morton of first suboctant at level+1;
-//                 // Apply offset to get a neighbor
-//                 m_suboctant_origin += (dx == -1) << IX; // Other half of suboctant if left of original cell
-//                 m_suboctant_origin += (dy == -1) << IY;
-//                 m_suboctant_origin += (dz == -1) << IZ;
-//                 // Iterate over neighbor suboctants
-//                 int sx_max = (dx==0); // constrained to the same plane as origin if offset in this direction
-//                 int sy_max = (dy==0);
-//                 int sz_max = (ndim==2) ? 0 : (dz==0);
-//                 for( int16_t sz=0; sz<=sz_max; sz++ )
-//                 for( int16_t sy=0; sy<=sy_max; sy++ )
-//                 for( int16_t sx=0; sx<=sx_max; sx++ )
-//                 {
-//                     morton_t m_suboctant = m_suboctant_origin + (sz << IZ) + (sy << IY) + (sx << IX); // Add current suboctant coordinates
-//                     m_suboctant = shift_level(m_suboctant, level+1, level_max);         // get morton of suboctant at level_max
+    // Copy sizes and offsets to host to allocate std::vectors
+    auto to_send_count_host = Kokkos::create_mirror_view( to_send_count_device );
+    auto to_send_offset_host = Kokkos::create_mirror( to_send_offset_device ); // Makes a copy
+    Kokkos::deep_copy(to_send_count_host, to_send_count_device);
+    Kokkos::deep_copy(to_send_offset_host, to_send_offset_device);
+    
+    // Fill to_send_device with neighbors to send to other ranks
+    Kokkos::View<oct_index_t*> to_send_device("discover_ghosts::to_send", to_send_count_total);
+    Kokkos::parallel_for( "fill_neighbors", neighborMap.capacity(),
+      KOKKOS_LAMBDA( uint32_t i )
+    {
+      if( neighborMap.valid_at(i) )
+      {
+        const NeighborPair& p = neighborMap.key_at(i);
+        oct_index_t offset = Kokkos::atomic_fetch_add( &to_send_offset_device(p.rank_neighbor), 1 );
+        to_send_device( offset ) = p.iOct_local;
+      }
+    });
 
-//                     uint32_t neighbor_rank = find_rank(m_suboctant);
-//                     if(neighbor_rank != mpi_rank)
-//                         local_octants_to_send_set.insert({neighbor_rank, iOct});
-//                 }
-//             }
-//         }
-//     }
-//     return local_octants_to_send_set;
-// }
+    // Copy from Kokkos::View to std::vector for return
+    for(int rank=0; rank<mpi_size; rank++)
+    {
+      oct_index_t rank_size = to_send_count_host(rank);
+      oct_index_t view_offset = to_send_offset_host(rank);
+
+      auto to_send_subview_device = Kokkos::subview( to_send_device, std::make_pair(view_offset, view_offset+rank_size) );
+      auto to_send_host = Kokkos::create_mirror_view( to_send_subview_device );
+      Kokkos::deep_copy( to_send_host, to_send_subview_device );
+
+      to_send[ rank ] = std::vector<oct_index_t>(to_send_host.data(), to_send_host.data()+rank_size);
+    }
+    
+  }
+
+  return to_send;  
+}
 
 } // namespace
 
@@ -251,13 +369,13 @@ AMRmesh_hashmap_new::loadBalance(level_t level)
     {
       int nb_mortons = 0;
       global_oct_index_t iOct_begin = this->getGlobalIdx( 0 );
-      global_oct_index_t iOct_end = this->getGlobalIdx( this->getNumOctants()-1 );
-      for(int i=0; i<=mpi_size; i++)
+      global_oct_index_t iOct_end = this->getGlobalIdx( this->getNumOctants() );
+      for(int i=0; i<mpi_size; i++)
       {
           global_oct_index_t idx = (this->getGlobalNumOctants()*i)/mpi_size ;
           // For each ixd inside old domain, compute morton
           // and fill morton_intervals for this rank
-          if( iOct_begin <= idx && idx <= iOct_end )
+          if( iOct_begin <= idx && idx < iOct_end )
           {
               new_morton_intervals[i] = compute_morton( storage, idx-iOct_begin, level_max );
               nb_mortons++;
@@ -283,18 +401,25 @@ AMRmesh_hashmap_new::loadBalance(level_t level)
     {
         morton_t old_morton_interval_begin, old_morton_interval_end;
         {
-          old_morton_interval_begin = compute_morton( storage, 0, level_max );
-          std::vector<morton_t> new_morton_intervals(mpi_size+1);
+          if( storage.getNumOctants() != 0 )
+            old_morton_interval_begin = compute_morton( storage, 0, level_max );
+          else
+            old_morton_interval_begin = 0;
+          std::vector<morton_t> old_morton_intervals(mpi_size+1);
           // TODO maybe just send to mpi_rank-1 ?
-          mpi_comm.MPI_Allgather( &old_morton_interval_begin, new_morton_intervals.data(), 1);
-          new_morton_intervals[mpi_size] = std::numeric_limits<morton_t>::max();
-          old_morton_interval_end = new_morton_intervals[mpi_rank+1];
+          mpi_comm.MPI_Allgather( &old_morton_interval_begin, old_morton_intervals.data(), 1);
+          old_morton_intervals[mpi_size] = std::numeric_limits<morton_t>::max();
+          for(int rank=mpi_size-1; rank>0; rank--)
+            if( old_morton_intervals[rank] == 0 )
+              old_morton_intervals[rank] = old_morton_intervals[rank+1];
+          old_morton_interval_begin = old_morton_intervals[mpi_rank];
+          old_morton_interval_end = old_morton_intervals[mpi_rank+1];
         }            
 
         std::cout << "Rank " << mpi_rank << ": old morton interval [" << old_morton_interval_begin << ", " << old_morton_interval_end << "[" << std::endl;
 
         int nb_local_pivots=0;
-        for(int rank=0; rank<=mpi_size; rank++)
+        for(int rank=0; rank<mpi_size; rank++)
         {
             if( old_morton_interval_begin <= new_morton_intervals[rank] && new_morton_intervals[rank] < old_morton_interval_end ) // Determine if pivot is inside of local process
             {
@@ -310,6 +435,7 @@ AMRmesh_hashmap_new::loadBalance(level_t level)
 
     }
     std::cout << "Rank " << mpi_rank << ": iOct interval [" << new_oct_intervals[mpi_rank] << ", " << new_oct_intervals[mpi_rank+1] << "[" << std::endl;
+    assert( new_oct_intervals[mpi_rank] <= new_oct_intervals[mpi_rank+1] );
 
     // List octants to exchange
     std::map<int, std::vector<oct_index_t>> loadbalance_to_send;
@@ -317,14 +443,14 @@ AMRmesh_hashmap_new::loadBalance(level_t level)
     {
       // intersection between local and remote ranks
       global_oct_index_t global_local_begin = this->getGlobalIdx(0);
-      global_oct_index_t global_local_end = this->getGlobalIdx(0) + this->getNumOctants();
+      global_oct_index_t global_local_end = this->getGlobalIdx(this->getNumOctants()) ;
       global_oct_index_t global_intersect_begin = std::max( new_oct_intervals[rank],   global_local_begin );
       global_oct_index_t global_intersect_end   = std::min( new_oct_intervals[rank+1], global_local_end  );
 
       if( global_intersect_begin < global_intersect_end )
       {
         oct_index_t to_send_begin = global_intersect_begin - global_local_begin;
-        oct_index_t to_send_end = global_intersect_end - global_local_end;
+        oct_index_t to_send_end = global_intersect_end - global_local_begin;
         assert( to_send_begin < this->getNumOctants() );
         assert( to_send_end <= this->getNumOctants() );
         std::vector<oct_index_t> to_send_rank(to_send_end-to_send_begin);
@@ -345,27 +471,15 @@ AMRmesh_hashmap_new::loadBalance(level_t level)
 
       GhostCommunicator_kokkos loadbalance_communicator( loadbalance_to_send );
       loadbalance_communicator.exchange_ghosts( old_storage_device.oct_data, new_storage_device.oct_data );
+
+      assert( new_storage_device.oct_data.extent(0) == new_nbOcts );
     }
 
     // update misc metadata
     this->first_local_oct = new_oct_intervals[mpi_rank];
-    pdata->distibuted_mesh = true;
+    pdata->distibuted_mesh = true;   
 
-    // Print new domain decomposition
-    // TODO clean raw console outputs?
-    if( getNumOctants() != 0 )
-    {
-      std::cout << "Rank " << mpi_rank << ": actual morton interval [" << compute_morton( storage, 0, level_max) << ", " << compute_morton( storage,  getNumOctants()-1, level_max) << "]" << std::endl;
-      assert( compute_morton( storage, 0, level_max) >= new_morton_intervals[mpi_rank] );
-      assert( compute_morton( storage, getNumOctants()-1, level_max) < new_morton_intervals[mpi_rank+1] );
-    }
-    else 
-    {
-        std::cout << "Rank " << mpi_rank << ": actual morton interval [EMPTY]" << std::endl;
-        std::cout << "WARNING : Rank has 0 octant, this is probably not okay" << std::endl;
-    }    
-
-    //pdata->local_octants_to_send = discover_ghosts(new_storage_device, new_morton_intervals, level_max, this->periodic, mpi_comm);
+    pdata->local_octants_to_send = discover_ghosts(new_storage_device, new_morton_intervals, level_max, this->periodic, mpi_comm);
 
     // Raw view for ghosts
     LightOctree_storage<>::oct_data_t neighbor_octs_device;
@@ -380,6 +494,20 @@ AMRmesh_hashmap_new::loadBalance(level_t level)
     Kokkos::deep_copy( this_storage.getGhostSubview(), neighbor_octs_device );
 
     pdata->markers = markers_t("markers", this->getNumOctants());
+
+    // Print new domain decomposition
+    // TODO clean raw console outputs?
+    if( new_nbOcts != 0 )
+    {
+      std::cout << "Rank " << mpi_rank << ": actual morton interval [" << compute_morton( storage, 0, level_max) << ", " << compute_morton( storage,  getNumOctants()-1, level_max) << "]" << std::endl;
+      assert( compute_morton( storage, 0, level_max) >= new_morton_intervals[mpi_rank] );
+      assert( compute_morton( storage, getNumOctants()-1, level_max) < new_morton_intervals[mpi_rank+1] );
+    }
+    else 
+    {
+      std::cout << "Rank " << mpi_rank << ": actual morton interval [EMPTY]" << std::endl;
+      std::cout << "WARNING : Rank has 0 octant, this is probably not okay" << std::endl;
+    } 
 
     assert(this->getNumOctants() > 0); // Process cannot be empty
 
