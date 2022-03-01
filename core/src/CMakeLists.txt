@@ -14,6 +14,7 @@ set( core_src
 set( ic_src
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_blast.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_implode.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_riemann2d.cpp
 )
      
 set( legacy_src

@@ -11,6 +11,7 @@ class InitialConditions_analytical;
 
 class AnalyticalFormula_blast;
 class AnalyticalFormula_implode;
+class AnalyticalFormula_riemann2d;
 } // namespace dyablo
 
 
@@ -20,6 +21,7 @@ bool dyablo::InitialConditionsFactory::init()
 {
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_blast> );
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_implode> );
+  DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_riemann2d> );
 
   return true;
 }
