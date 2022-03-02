@@ -35,9 +35,10 @@ public:
   LightOctree_storage& operator=(LightOctree_storage&& lmesh) = default;
 
   template< typename MemorySpace_t >
-  LightOctree_storage(const LightOctree_storage<MemorySpace_t>& pmesh)
+  LightOctree_storage(const LightOctree_storage<MemorySpace_t>& storage)
+   : LightOctree_storage( storage.getNdim(), storage.getNumOctants(), storage.getNumGhosts() )
   {
-    throw std::runtime_error("Deep copy when MemorySpace is different not implemented");
+    Kokkos::deep_copy( this->oct_data, storage.oct_data );
   }
 
   /**
@@ -48,8 +49,18 @@ public:
   LightOctree_storage(const AMRmesh_t& pmesh)
   : LightOctree_storage( pmesh.getDim(), pmesh.getNumOctants(), pmesh.getNumGhosts() )
   {
-    throw std::runtime_error("Slow copy!!!");
+    // TODO avoid slow copy when AMRmesh_t is based on LightOctree_storage
+    std::cout << "Warning : slow copy" << std::endl;
+    private_init(pmesh);   
+  }
 
+  /**
+   * DO NOT CALL THIS YOURSELF
+   * this is here because KOKKOS_LAMBDAS cannot be declared in constructors or private methods
+   **/
+  template< typename AMRmesh_t >
+  void private_init(const AMRmesh_t& pmesh)
+  {
     typename oct_data_t::HostMirror oct_data_host = Kokkos::create_mirror_view(oct_data);
 
     Kokkos::parallel_for( "LightOctree_storage::copydata", 
@@ -76,6 +87,7 @@ public:
     // Copy data to device
     Kokkos::deep_copy(oct_data,oct_data_host);
   }
+
 
   // Create an empty LightOctree_storage
   LightOctree_storage( int ndim, uint32_t numOctants, uint32_t numGhosts )

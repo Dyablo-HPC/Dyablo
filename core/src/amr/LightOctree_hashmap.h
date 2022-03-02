@@ -32,15 +32,24 @@ public:
     {
         std::cout << "LightOctree rehash ..." << std::endl;
     
+        private_init();
+    }
+
+    /**
+     * DO NOT CALL THIS YOURSELF
+     * this is here because KOKKOS_LAMBDAS cannot be declared in constructors or private methods
+     **/
+    void private_init()
+    {
         const Storage_t& storage = this->storage;
         const oct_map_t& oct_map = this->oct_map;
-        uint32_t nbOcts = getNumOctants();
-        uint32_t numOctants_tot = nbOcts + getNumGhosts();
+        uint32_t nbOcts = storage.getNumOctants();
+        uint32_t numOctants_tot = nbOcts + storage.getNumGhosts();
 
         // Put octants into hashmap on device
         Kokkos::parallel_for( "LightOctree_hashmap::hash",
-                              Kokkos::RangePolicy<>(0, numOctants_tot),
-                              KOKKOS_LAMBDA(uint32_t ioct_local)
+                            Kokkos::RangePolicy<>(0, numOctants_tot),
+                            KOKKOS_LAMBDA(uint32_t ioct_local)
         {   
             OctantIndex iOct = OctantIndex::iOctLocal_to_OctantIndex( ioct_local, nbOcts );
 
@@ -60,20 +69,35 @@ public:
         });
     }
 
+    KOKKOS_INLINE_FUNCTION
     int getNdim() const
     {return storage.getNdim();}
+    
+    KOKKOS_INLINE_FUNCTION
     uint32_t getNumOctants() const
     {return storage.getNumOctants();}
+    
+    KOKKOS_INLINE_FUNCTION
     uint32_t getNumGhosts() const
     {return storage.getNumGhosts();}
+    
+    KOKKOS_INLINE_FUNCTION
     pos_t getCenter(const OctantIndex& iOct)  const
     {return storage.getCenter(iOct);}
+   
+    KOKKOS_INLINE_FUNCTION
     pos_t getCorner(const OctantIndex& iOct)  const
     {return storage.getCorner(iOct);}
+    
+    KOKKOS_INLINE_FUNCTION
     real_t getSize(const OctantIndex& iOct)  const
     {return storage.getSize(iOct);}
+    
+    KOKKOS_INLINE_FUNCTION
     uint8_t getLevel(const OctantIndex& iOct)  const
     {return storage.getLevel(iOct);}
+    
+    KOKKOS_INLINE_FUNCTION
     bool getBound(const OctantIndex& iOct)  const
     {return storage.getBound(iOct);}
 

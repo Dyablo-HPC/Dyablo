@@ -134,6 +134,12 @@ AMRmesh_hashmap_new::oct_index_t lower_bound_morton( const AMRmesh_hashmap_new::
   return begin;
 }
 
+struct NeighborPair
+{
+  oct_index_t iOct_local;
+  int rank_neighbor;
+};
+
 std::map<int, std::vector<oct_index_t>> discover_ghosts(
   const AMRmesh_hashmap_new::Storage_t& octs_host,
   const std::vector<morton_t>& morton_intervals_,
@@ -157,11 +163,6 @@ std::map<int, std::vector<oct_index_t>> discover_ghosts(
   
   
   size_t neighbor_count_guess = storage_device.getNumOctants();
-  struct NeighborPair
-  {
-    oct_index_t iOct_local;
-    int rank_neighbor;
-  };
   Kokkos::UnorderedMap< NeighborPair, void > neighborMap( neighbor_count_guess );
 
   // Storage must be allocated before launching the kernel, 
@@ -215,7 +216,7 @@ std::map<int, std::vector<oct_index_t>> discover_ghosts(
         {
           auto insert_result = neighborMap.insert( NeighborPair{iOct, neighbor_rank } );
           if( insert_result.failed() )
-            first_fail_local = std::min( first_fail_local, iOct );
+            first_fail_local = first_fail_local < iOct ? first_fail_local : iOct;
         }
       };
 
@@ -486,12 +487,21 @@ AMRmesh_hashmap_new::loadBalance(level_t level)
     GhostCommunicator_kokkos ghost_comm( pdata->local_octants_to_send  );
     ghost_comm.exchange_ghosts( new_storage_device.oct_data, neighbor_octs_device );
 
-    // Reallocate storage with new size
-    Storage_t& this_storage = this->storage;
-    this_storage = Storage_t( this->getDim(), new_nbOcts, neighbor_octs_device.extent(0) );
+    {
+      int ndim = new_storage_device.getNdim();
+      //oct_index_t new_nbOcts = new_storage_device.getNumOctants();
+      oct_index_t new_nbGhosts = neighbor_octs_device.extent(0);
 
-    Kokkos::deep_copy( this_storage.getLocalSubview(), new_storage_device.getLocalSubview() );
-    Kokkos::deep_copy( this_storage.getGhostSubview(), neighbor_octs_device );
+      // We need to go through a temporary device storage because
+      // subviews are non-contiguous and deep_copy is only supported in same memory space
+      LightOctree_storage<> storage_device(ndim, new_nbOcts, new_nbGhosts );
+      Kokkos::deep_copy( storage_device.getLocalSubview(), new_storage_device.getLocalSubview() );
+      Kokkos::deep_copy( storage_device.getGhostSubview(), neighbor_octs_device );
+
+      // Reallocate storage with new size
+      Storage_t& this_storage = this->storage;
+      this_storage = storage_device;
+    }
 
     pdata->markers = markers_t("markers", this->getNumOctants());
 
