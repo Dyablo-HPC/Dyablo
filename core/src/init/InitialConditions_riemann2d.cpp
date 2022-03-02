@@ -33,7 +33,7 @@ struct AnalyticalFormula_riemann2d : public AnalyticalFormula_base{
     y0(configMap.getValue<real_t>("riemann2d", "y0", 0.5)),
     test_case(configMap.getValue<int>("riemann2d", "test_case", 1)-1)
   {
-    assert(ndim == 2);
+    //assert(ndim == 2);
     assert(test_case >= 0);
     assert(test_case < 19);
   }
@@ -138,10 +138,14 @@ struct AnalyticalFormula_riemann2d : public AnalyticalFormula_base{
       quadrant = (x < x0 ? 2 : 3);
 
     HydroState3d res {0.0};
-    res[ID] = densities[test_case][quadrant];
-    res[IE] = pressures[test_case][quadrant] / (gamma0-1.0);
-    res[IU] = res[ID]*vx[test_case][quadrant];
-    res[IV] = res[ID]*vy[test_case][quadrant];
+    const real_t rho = densities[test_case][quadrant];
+    const real_t u = vx[test_case][quadrant];
+    const real_t v = vy[test_case][quadrant];
+    const real_t Ek = 0.5 * rho * (u*u + v*v);
+    res[ID] = rho;
+    res[IE] = Ek + pressures[test_case][quadrant] / (gamma0-1.0);
+    res[IU] = rho*u;
+    res[IV] = rho*v;
 
     return res;
   }
