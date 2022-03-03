@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cassert>
+#include <utility>
 
 #include "amr/LightOctree_base.h"
 #include "enums.h"
@@ -41,16 +42,45 @@ public:
     Kokkos::deep_copy( this->oct_data, storage.oct_data );
   }
 
+private:
+  
+  template< class... >
+  using void_t = void;
+  /// Type-trait to detect if type has a getStorage() method
+  template <typename T, typename = void> 
+  struct HasStorage : public std::false_type
+  {};
+  template <typename T>
+  struct HasStorage<T, void_t<decltype(std::declval<T>().getStorage())>> : public std::true_type
+  {};
+
+public:
   /**
-   * Create LightOctree_storage from AMRmesh, when AMRmesh is not derived from LightOctree_storage
+   * Create LightOctree_storage from AMRmesh, when AMRmesh is derived from AMRmesh_impl<>
+   * Undelying mesh type must be extracted with getMesh()
+   **/
+  template< typename AMRmesh_t, typename std::enable_if< HasStorage<typename AMRmesh_t::Impl_t>::value, int >::type = 0 >
+  LightOctree_storage(const AMRmesh_t& pmesh)
+  : LightOctree_storage( pmesh.getMesh().getStorage() )
+  {}
+  
+  /**
+   * Create LightOctree_storage from AMRmesh, when AMRmesh is from LightOctree_storage
+   * LightOctree_storage<...> AMRmesh_t::getStorage() is detected and used to copy-construct new storage
+   **/
+  template< typename AMRmesh_t, typename std::enable_if< HasStorage<AMRmesh_t>::value, int >::type = 0>
+  LightOctree_storage(const AMRmesh_t& pmesh)
+  : LightOctree_storage( pmesh.getStorage() )
+  {}
+
+  /**
+   * Create LightOctree_storage from AMRmesh, when AMRmesh is not built around LightOctree_storage
    * Uses AMRmesh public interface to extract mesh
    **/
-  template< typename AMRmesh_t >
+  template< typename AMRmesh_t, typename std::enable_if< (!HasStorage<AMRmesh_t>::value && !HasStorage<typename AMRmesh_t::Impl_t>::value), int >::type = 0 >
   LightOctree_storage(const AMRmesh_t& pmesh)
   : LightOctree_storage( pmesh.getDim(), pmesh.getNumOctants(), pmesh.getNumGhosts() )
   {
-    // TODO avoid slow copy when AMRmesh_t is based on LightOctree_storage
-    std::cout << "Warning : slow copy" << std::endl;
     private_init(pmesh);   
   }
 
@@ -87,7 +117,6 @@ public:
     // Copy data to device
     Kokkos::deep_copy(oct_data,oct_data_host);
   }
-
 
   // Create an empty LightOctree_storage
   LightOctree_storage( int ndim, uint32_t numOctants, uint32_t numGhosts )
