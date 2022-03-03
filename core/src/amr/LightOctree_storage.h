@@ -43,41 +43,40 @@ public:
   }
 
 private:
-  
+  /// When T is AMRmesh_impl<AMRmesh_*> where  AMRmesh_* has a getStorage() method, use this
+  template< typename T >
+  static decltype(std::declval<T>().getMesh().getStorage()) getStorage( const T& t ) 
+  { return t.getMesh().getStorage(); }
+  /// When T is T has a getStorage() method, use it
+  template< typename T >
+  static decltype(std::declval<T>().getStorage()) getStorage( const T& t ) 
+  { return t.getStorage(); }
+
   template< class... >
   using void_t = void;
-  /// Type-trait to detect if type has a getStorage() method
+  /// Type-trait to detect if T is compatible with getStorage()
   template <typename T, typename = void> 
   struct HasStorage : public std::false_type
   {};
   template <typename T>
-  struct HasStorage<T, void_t<decltype(std::declval<T>().getStorage())>> : public std::true_type
+  struct HasStorage<T, void_t<decltype(getStorage(std::declval<T>()))>> : public std::true_type
   {};
 
 public:
   /**
-   * Create LightOctree_storage from AMRmesh, when AMRmesh is derived from AMRmesh_impl<>
-   * Undelying mesh type must be extracted with getMesh()
-   **/
-  template< typename AMRmesh_t, typename std::enable_if< HasStorage<typename AMRmesh_t::Impl_t>::value, int >::type = 0 >
-  LightOctree_storage(const AMRmesh_t& pmesh)
-  : LightOctree_storage( pmesh.getMesh().getStorage() )
-  {}
-  
-  /**
-   * Create LightOctree_storage from AMRmesh, when AMRmesh is from LightOctree_storage
+   * Create LightOctree_storage from AMRmesh, when AMRmesh_t uses LightOctree_storage
    * LightOctree_storage<...> AMRmesh_t::getStorage() is detected and used to copy-construct new storage
    **/
   template< typename AMRmesh_t, typename std::enable_if< HasStorage<AMRmesh_t>::value, int >::type = 0>
   LightOctree_storage(const AMRmesh_t& pmesh)
-  : LightOctree_storage( pmesh.getStorage() )
+  : LightOctree_storage( getStorage(pmesh) )
   {}
 
   /**
    * Create LightOctree_storage from AMRmesh, when AMRmesh is not built around LightOctree_storage
    * Uses AMRmesh public interface to extract mesh
    **/
-  template< typename AMRmesh_t, typename std::enable_if< (!HasStorage<AMRmesh_t>::value && !HasStorage<typename AMRmesh_t::Impl_t>::value), int >::type = 0 >
+  template< typename AMRmesh_t, typename std::enable_if< !HasStorage<AMRmesh_t>::value, int >::type = 0 >
   LightOctree_storage(const AMRmesh_t& pmesh)
   : LightOctree_storage( pmesh.getDim(), pmesh.getNumOctants(), pmesh.getNumGhosts() )
   {
@@ -117,6 +116,7 @@ public:
     // Copy data to device
     Kokkos::deep_copy(oct_data,oct_data_host);
   }
+
 
   // Create an empty LightOctree_storage
   LightOctree_storage( int ndim, uint32_t numOctants, uint32_t numGhosts )
