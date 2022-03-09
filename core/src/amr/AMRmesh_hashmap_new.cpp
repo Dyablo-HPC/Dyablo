@@ -3,6 +3,7 @@
 #include <Kokkos_UnorderedMap.hpp>
 #include "morton_utils.h"
 #include "mpi/GhostCommunicator.h"
+#include "amr/LightOctree_hashmap.h"
 
 namespace dyablo {
 
@@ -10,7 +11,7 @@ using markers_t = Kokkos::View<int*, AMRmesh_hashmap_new::Storage_t::MemorySpace
 
 struct AMRmesh_hashmap_new::PData{
   markers_t markers;
-  int level_max;
+  int level_min, level_max;
   bool distibuted_mesh = false; // true if load_balance have already been called at least once
   std::map<int, std::vector<oct_index_t>> local_octants_to_send; // Ghosts to send to each other process
 };
@@ -25,7 +26,7 @@ AMRmesh_hashmap_new::AMRmesh_hashmap_new( int dim, int balance_codim,
   total_num_octs(1), first_local_oct(0),
   pdata(std::make_unique<PData>(PData{
     markers_t( "AMRmesh_hashmap_new::markers", 1 ),
-    level_max
+    level_min, level_max
   }))
 {}
 
@@ -74,11 +75,6 @@ void AMRmesh_hashmap_new::adaptGlobalRefine()
 void AMRmesh_hashmap_new::setMarker(uint32_t iOct, int marker)
 {
   pdata->markers(iOct) = marker;
-}
-
-void AMRmesh_hashmap_new::adapt(bool dummy)
-{
-  #warning "TODO"
 }
 
 const std::map<int, std::vector<uint32_t>>& AMRmesh_hashmap_new::getBordersPerProc() const
@@ -526,10 +522,275 @@ AMRmesh_hashmap_new::loadBalance(level_t level)
 
 void AMRmesh_hashmap_new::loadBalance_userdata( level_t compact_levels, DataArrayBlock& userData )
 {
-  #warning "TODO"
+  auto octs_to_exchange = this->loadBalance(compact_levels);
+  GhostCommunicator_kokkos lb_comm(octs_to_exchange);
+  DataArrayBlock userData_new;
+  lb_comm.exchange_ghosts(userData, userData_new);
+  userData = userData_new;
 }
 
+void AMRmesh_hashmap_new::adapt(bool dummy)
+{
+  int mpi_size = mpi_comm.MPI_Comm_size();
 
+  using OctantIndex = LightOctree_hashmap::OctantIndex;
+
+  LightOctree_hashmap lmesh(this, pdata->level_min, pdata->level_max);
+  LightOctree_storage<> old_storage_device = this->getStorage();
+
+  int ndim = lmesh.getNdim();
+  oct_index_t nbOcts = getNumOctants();
+
+  Kokkos::View<int*, Kokkos::LayoutLeft> markers_device("adapt::markers_device", nbOcts);
+  Kokkos::View<int*, Kokkos::LayoutLeft> markers_ghosts_device; 
+  // Helper functions for markers
+  auto getMarker = [&]( const OctantIndex& iOct ) -> int&
+  { 
+    if( iOct.isGhost )
+      return markers_ghosts_device( iOct.iOct );
+    else
+      return markers_device( iOct.iOct );
+  };
+  auto setMarker = [&]( const OctantIndex& iOct, int marker )
+  {
+    Kokkos::atomic_fetch_max(&getMarker(iOct), marker);
+  };
+
+  // Compute correct markers : 2:1 balance and remove partially coarsened octants
+  {
+    // Copy CPU markers to markers_device
+    Kokkos::deep_copy( markers_device, pdata->markers );
+    GhostCommunicator_kokkos ghost_comm( getBordersPerProc() );
+    
+    // Check for 2:1 balance and partially coarsened octants and modify marker to enforce these rules
+    // return true if marker was modified, false otherwise
+    auto check_21_cell = KOKKOS_LAMBDA( oct_index_t iOct )
+    {
+      level_t level_current = lmesh.getLevel({iOct, false});
+      int marker_current = getMarker( {iOct, false} );
+      int marker_old = marker_current;
+
+      // Check siblings for partial coarsening
+      if( marker_current < 0 )
+      {
+        auto pos = old_storage_device.get_logical_coords( {iOct, false} );
+        // Shift to get on which size siblings are
+        int sx = (pos[IX]%2==0)?1:-1;
+        int sy = (pos[IY]%2==0)?1:-1;
+        int sz = (pos[IZ]%2==0)?1:-1;
+        // Iterate over siblings
+        for(int z=0; z<(ndim-1); z++)
+        for(int y=0; y<2; y++)
+        for(int x=0; x<2; x++)
+        if( x!=0 || y!=0 || z!=0 )
+        {
+          auto ns = lmesh.findNeighbors({iOct, false},{(int8_t)(sx*x),(int8_t)(sy*y),(int8_t)(sz*z)});
+          assert(ns.size()>0); // Siblings are never outside domain
+          level_t level_siblings = lmesh.getLevel( ns[0] );
+          assert( level_siblings >= level_current ); // Siblings cannot be coarser
+
+          int marker_siblings = getMarker( ns[0] );
+          // If current marker coarsens local cell
+          if( level_current+marker_current < level_siblings+marker_siblings )
+            marker_current = (level_siblings-level_current)+marker_siblings;
+        }
+      }          
+
+      // Check neighborhood for 2:1 violations
+      int nz_max = ndim == 2? 0:1;
+      for( int8_t nz=-nz_max; nz<=nz_max; nz++ )
+      for( int8_t ny=-1; ny<=1; ny++ )
+      for( int8_t nx=-1; nx<=1; nx++ )
+      if( nx!=0 || ny!=0 || nz!=0 )
+      {
+        auto ns = lmesh.findNeighbors({iOct,false}, {nx,ny,nz});
+        for(int n=0; n<ns.size(); n++)
+        {
+          level_t level_neighbor = lmesh.getLevel(ns[n]);
+          int maker_neighbor = getMarker( ns[n] );
+          // If current marker violates 2:1 (too coarse compared to neighbors)
+          if( level_current+marker_current < level_neighbor+maker_neighbor-1 )
+          {
+            // Set to smallest compatible marker
+            marker_current = (level_neighbor-level_current)+maker_neighbor-1;
+          }
+        }
+      }
+
+      setMarker( {iOct, false}, marker_current );
+
+      return marker_current != marker_old;
+    };
+
+    // Re-check 2:1 with updated ghosts while at last one process updated markers
+    // TODO : only re-check when ghosts have been modified
+    bool updated_markers_global = true;
+    while( updated_markers_global )
+    {
+      updated_markers_global = false;
+      
+      ghost_comm.exchange_ghosts(markers_device, markers_ghosts_device);
+
+      oct_index_t updated_markers_local = 1;
+      while( updated_markers_local != 0 )
+      {
+        // TODO only re-verify octants close to recentely modified markers
+        updated_markers_local = 0;
+        Kokkos::parallel_reduce( "adapt::check_all_2:1", nbOcts, 
+          KOKKOS_LAMBDA( oct_index_t iOct, oct_index_t& modified_count )
+        {
+          bool modified = check_21_cell(iOct);
+          if( modified ) modified_count++;
+        }, updated_markers_local);
+
+        if( updated_markers_local != 0 ) 
+        {
+          updated_markers_global = true;
+        }
+      }
+    
+      mpi_comm.MPI_Allreduce( &updated_markers_global, &updated_markers_global, 1, MpiComm::MPI_Op_t::LOR );
+    }
+  }
+
+  // Apply corrected markers
+  {
+    int nSiblings = 4*(ndim-1);
+    oct_index_t old_nbOcts = old_storage_device.getNumOctants();
+
+    // Use parallel_scan to compute new_nbOcts and oct_offsets
+    oct_index_t new_nbOcts = 0; // Number of octants after applying markers
+    // Offset in new oct data where to write new octant(s) related to old octant
+    Kokkos::View<oct_index_t*> oct_offsets("adapt::oct_offsets", old_nbOcts);
+    Kokkos::parallel_scan("adapt::count_new_nbOcts", old_nbOcts,
+      KOKKOS_LAMBDA( oct_index_t iOct_old, oct_index_t& iOct_new, bool final )
+    {
+      int marker = getMarker( {iOct_old, false} );
+      auto pos = old_storage_device.get_logical_coords( {iOct_old, false} );
+
+      // Compute number of octants written for iOct_old
+      int nwrite = 0;
+      {
+        if     ( marker == 1 )  nwrite = nSiblings;
+        else if( marker == 0 )  nwrite = 1;
+        // Write coarsened oct when iOct_old is the first sibling
+        // NOTE : ! first sibling may not be in same domain !
+        else if( marker == -1)  nwrite = ( pos[IX]%2==0 && pos[IY]%2==0 && pos[IZ]%2==0 );
+        else assert(false);
+      }
+
+      if(final) // Write offset in final pass
+        oct_offsets( iOct_old ) = iOct_new;
+
+      iOct_new += nwrite; // iOct_new is exclusive prefix sum for nwrite
+    }, new_nbOcts);
+
+    // Allocate new storage on device
+    LightOctree_storage<> new_storage_device( ndim, new_nbOcts, 0 );
+
+    // Write new octant data
+    Kokkos::parallel_for( "adapt::apply", old_nbOcts,
+      KOKKOS_LAMBDA( oct_index_t iOct_old )
+    {
+      level_t level = old_storage_device.getLevel( {iOct_old, false} );
+      auto pos = old_storage_device.get_logical_coords( {iOct_old, false} );
+      int marker = getMarker( {iOct_old, false} );
+      oct_index_t iOct_new = oct_offsets( iOct_old );
+
+      assert(marker == -1 || marker == 0 || marker == 1 ); // Only coarsen/refine one level is supported
+
+      // int nwritten = 0; // Unused, but could be used for debug with parallel_reduce
+      if( marker == 1 )
+      { // Refine : write nSiblings suboctants
+        for( int j=0; j<nSiblings; j++ )
+        {
+            int dz = j/(2*2);
+            int dy = (j-dz*2*2)/2;
+            int dx = j-dz*2*2-dy*2; // This is Z-curve order
+
+            new_storage_device.set( {iOct_new + j, false}, 
+              pos[IX]*2 + dx, 
+              pos[IY]*2 + dy, 
+              pos[IZ]*2 + dz, 
+              level + 1 );
+        }
+        //nwritten = nSiblings;
+      }
+      else if (marker == 0)
+      { // Not modified : copy old octant at nex position
+        new_storage_device.set( {iOct_new, false}, 
+              pos[IX], 
+              pos[IY], 
+              pos[IZ], 
+              level);
+        //nwritten = 1;
+      }
+      else if (marker == -1)
+      {
+        // Write coarsened oct only when iOct_old is the first sibling
+        if( pos[IX]%2==0 && pos[IY]%2==0 && pos[IZ]%2==0 )
+        {
+          new_storage_device.set( {iOct_new, false}, 
+                pos[IX]/2, 
+                pos[IY]/2, 
+                pos[IZ]/2, 
+                level - 1);
+          //nwritten = 1;
+        }
+        //else nwritten = 0;
+      }
+    });
+
+    // Compute morton interval
+    std::vector<morton_t> morton_intervals(mpi_size+1);
+    {
+      morton_t morton_interval_begin;
+      if( storage.getNumOctants() != 0 )
+        morton_interval_begin = compute_morton( new_storage_device, 0, pdata->level_max );
+      else
+        morton_interval_begin = 0;
+      
+      // TODO maybe just send to mpi_rank-1 ?
+      mpi_comm.MPI_Allgather( &morton_interval_begin, morton_intervals.data(), 1);
+      morton_intervals[mpi_size] = std::numeric_limits<morton_t>::max();
+      for(int rank=mpi_size-1; rank>0; rank--)
+        if( morton_intervals[rank] == 0 )
+         morton_intervals[rank] = morton_intervals[rank+1];
+    }
+  
+    // Compute and exchange ghosts
+    pdata->local_octants_to_send = discover_ghosts( new_storage_device, morton_intervals, pdata->level_max, this->periodic, this->mpi_comm );
+    {
+      // Raw view for ghosts
+      LightOctree_storage<>::oct_data_t neighbor_octs_device;
+      GhostCommunicator_kokkos ghost_comm( pdata->local_octants_to_send  );
+      ghost_comm.exchange_ghosts( new_storage_device.oct_data, neighbor_octs_device );
+
+      int ndim = new_storage_device.getNdim();
+      //oct_index_t new_nbOcts = new_storage_device.getNumOctants();
+      oct_index_t new_nbGhosts = neighbor_octs_device.extent(0);
+
+      // We need to go through a temporary device storage because
+      // subviews are non-contiguous and deep_copy is only supported in same memory space
+      LightOctree_storage<> newnew_storage_device(ndim, new_nbOcts, new_nbGhosts );
+      Kokkos::deep_copy( newnew_storage_device.getLocalSubview(), new_storage_device.getLocalSubview() );
+      Kokkos::deep_copy( newnew_storage_device.getGhostSubview(), neighbor_octs_device );
+
+      // Overwrite local storage with new data
+      this->storage = newnew_storage_device;      
+
+      // compute total count and global index of first local octant
+      {
+        global_oct_index_t new_nbOcts_global = new_nbOcts;
+        global_oct_index_t new_nbOcts_inclusive_prefix_sum;
+        mpi_comm.MPI_Scan( &new_nbOcts_global, &new_nbOcts_inclusive_prefix_sum, 1, MpiComm::MPI_Op_t::SUM );
+        this->first_local_oct = new_nbOcts_inclusive_prefix_sum - new_nbOcts_global;
+        mpi_comm.MPI_Allreduce( &new_nbOcts_global, &this->total_num_octs, 1, MpiComm::MPI_Op_t::SUM );
+        pdata->markers = markers_t("markers", new_nbOcts);
+      }
+    }     
+  }
+}
 
 
 } // namespace dyablo

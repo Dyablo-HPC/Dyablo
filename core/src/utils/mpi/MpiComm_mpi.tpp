@@ -60,6 +60,13 @@ void MpiComm::MPI_Allreduce( const T* sendbuf, T* recvbuf, int count, MPI_Op_t o
 }
 
 template<typename T>
+void MpiComm::MPI_Scan( const T* sendbuf, T* recvbuf, int count, MPI_Op_t op ) const
+{
+  using namespace MpiComm_impl;
+  ::MPI_Scan( sendbuf, recvbuf, count, mpi_type<T>(), mpi_op[op], mpi_comm_id);
+}
+
+template<typename T>
 void MpiComm::MPI_Allgather( const T* sendbuf, T* recvbuf, int count) const
 {
   using namespace MpiComm_impl;
@@ -105,7 +112,7 @@ MpiComm::MPI_Request_t MpiComm::MPI_Isend( const Kokkos_View_t& view, int dest, 
 {
   using namespace MpiComm_impl;
   MPI_Datatype type = mpi_type<typename Kokkos_View_t::value_type>();
-  MPI_Request_t r;
+  MPI_Request_t r = MPI_REQUEST_NULL;
   ::MPI_Isend( view.data(), view.size(), type, dest, tag, mpi_comm_id, &r);
   return r;
 }
@@ -115,7 +122,7 @@ MpiComm::MPI_Request_t MpiComm::MPI_Irecv( const Kokkos_View_t& view, int dest, 
 {
   using namespace MpiComm_impl;
   MPI_Datatype type = mpi_type<typename Kokkos_View_t::value_type>();
-  MPI_Request_t r;
+  MPI_Request_t r = MPI_REQUEST_NULL;
   ::MPI_Irecv( view.data(), view.size(), type, dest, tag, mpi_comm_id, &r);
   return r;
 }

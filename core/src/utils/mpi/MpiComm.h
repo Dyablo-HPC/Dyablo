@@ -56,6 +56,9 @@ public:
   void MPI_Allreduce( const T* sendbuf, T* recvbuf, int count, MPI_Op_t op ) const;
 
   template<typename T>
+  void MPI_Scan( const T* sendbuf, T* recvbuf, int count, MPI_Op_t op ) const;
+
+  template<typename T>
   void MPI_Allgather( const T* sendbuf, T* recvbuf, int count) const;
 
   template<typename T>
