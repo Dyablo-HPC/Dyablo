@@ -532,6 +532,7 @@ void AMRmesh_hashmap_new::loadBalance_userdata( level_t compact_levels, DataArra
 void AMRmesh_hashmap_new::adapt(bool dummy)
 {
   int mpi_size = mpi_comm.MPI_Comm_size();
+  level_t level_max = pdata->level_max;
 
   using OctantIndex = LightOctree_hashmap::OctantIndex;
 
@@ -544,14 +545,14 @@ void AMRmesh_hashmap_new::adapt(bool dummy)
   Kokkos::View<int*, Kokkos::LayoutLeft> markers_device("adapt::markers_device", nbOcts);
   Kokkos::View<int*, Kokkos::LayoutLeft> markers_ghosts_device; 
   // Helper functions for markers
-  auto getMarker = [&]( const OctantIndex& iOct ) -> int&
+  auto getMarker = KOKKOS_LAMBDA( const OctantIndex& iOct ) -> int&
   { 
     if( iOct.isGhost )
       return markers_ghosts_device( iOct.iOct );
     else
       return markers_device( iOct.iOct );
   };
-  auto setMarker = [&]( const OctantIndex& iOct, int marker )
+  auto setMarker = KOKKOS_LAMBDA( const OctantIndex& iOct, int marker )
   {
     Kokkos::atomic_fetch_max(&getMarker(iOct), marker);
   };
@@ -746,7 +747,16 @@ void AMRmesh_hashmap_new::adapt(bool dummy)
     {
       morton_t morton_interval_begin;
       if( storage.getNumOctants() != 0 )
-        morton_interval_begin = compute_morton( new_storage_device, 0, pdata->level_max );
+      {
+        Kokkos::View<morton_t> morton_interval_begin_device("morton_interval_begin");
+        Kokkos::parallel_for( "adapt:compute_morton", 1, KOKKOS_LAMBDA(int)
+        {
+          morton_interval_begin_device() = compute_morton( new_storage_device, 0, level_max );
+        });
+        auto morton_interval_begin_host = Kokkos::create_mirror_view(morton_interval_begin_device);
+        Kokkos::deep_copy( morton_interval_begin_host, morton_interval_begin_device );
+        morton_interval_begin = morton_interval_begin_host();
+      }
       else
         morton_interval_begin = 0;
       
