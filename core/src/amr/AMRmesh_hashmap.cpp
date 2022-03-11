@@ -518,7 +518,7 @@ oct_view_t exchange_ghosts_octs(AMRmesh_hashmap& mesh, const oct_view_t& local_o
 
     oct_view_device_t local_octs_coord_device("local_octs_coord_device", octs_coord_id::NUM_OCTS_COORDS, local_octs_coord.extent(1));
     Kokkos::deep_copy(local_octs_coord_device, local_octs_coord);
-    oct_view_device_t ghost_octs_coord_device;
+    oct_view_device_t ghost_octs_coord_device("ghost_octs_coord_device", octs_coord_id::NUM_OCTS_COORDS, comm_ghosts.getNumGhosts());
 
     comm_ghosts.exchange_ghosts(local_octs_coord_device, ghost_octs_coord_device);
     
@@ -552,6 +552,7 @@ void exchange_markers(AMRmesh_hashmap& mesh, AMRmesh_hashmap::markers_device_t& 
                 markers_new.insert( markers.key_at(i), markers.value_at(i) );
             }
         });
+        Kokkos::realloc(ghost_markers, comm_ghosts.getNumGhosts() );
         comm_ghosts.exchange_ghosts(local_markers, ghost_markers);
 
         markers = markers_new;
@@ -792,7 +793,7 @@ std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(level_t level)
         {   //TODO : avoid CPU/GPU transfers
             GhostCommunicator_kokkos loadbalance_communicator( loadbalance_to_send );
             oct_view_device_t local_octs_coord_old( "local_octs_coord_old", local_octs_coord.layout() );
-            oct_view_device_t local_octs_coord_new;
+            oct_view_device_t local_octs_coord_new( "local_octs_coord_new", loadbalance_communicator.getNumGhosts() );
             Kokkos::deep_copy(local_octs_coord_old , this->local_octs_coord );
             loadbalance_communicator.exchange_ghosts(local_octs_coord_old, local_octs_coord_new);
             Kokkos::realloc(this->local_octs_coord, local_octs_coord_new.layout());
@@ -844,7 +845,7 @@ void AMRmesh_hashmap_loadBalance( AMRmesh_hashmap& mesh, int compact_levels, Vie
 {
     auto octs_to_exchange = mesh.loadBalance(compact_levels);
     GhostCommunicator_kokkos lb_comm(octs_to_exchange);
-    View_t userData_new;
+    View_t userData_new( userData.label(), userData.extent(0), userData.extent(1), lb_comm.getNumGhosts() );
     lb_comm.exchange_ghosts(userData, userData_new);
     userData = userData_new;
 }

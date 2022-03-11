@@ -138,14 +138,11 @@ public:
 
 template< typename DataArray_t, int iOct_pos = DataArray_t::rank-1 >
 void exchange_ghosts_aux( AMRmesh_pablo& amr_mesh, 
-                          const DataArray_t& U, DataArray_t& Ughost)
+                          const DataArray_t& U, const DataArray_t& Ughost)
 {
   assert(U.extent( iOct_pos ) == amr_mesh.getNumOctants()); // Specified index must be iOct
 
-  uint32_t nghosts = amr_mesh.getNumGhosts();
-  auto Ughost_layout = U.layout();
-  Ughost_layout.dimension[iOct_pos] = nghosts;
-  Kokkos::realloc(Ughost, Ughost_layout);
+  assert( Ughost.extent( iOct_pos ) == amr_mesh.getNumGhosts()  );
 
   using DataArray_host_t = typename DataArray_t::HostMirror;
 
@@ -163,12 +160,12 @@ void exchange_ghosts_aux( AMRmesh_pablo& amr_mesh,
 
 } //namespace
 
-void GhostCommunicator_pablo::exchange_ghosts(const DataArrayBlock& U, DataArrayBlock& Ughost) const
+void GhostCommunicator_pablo::exchange_ghosts(const DataArrayBlock& U, const DataArrayBlock& Ughost) const
 {
     GhostCommunicator_pablo_impl::exchange_ghosts_aux(amr_mesh, U, Ughost);
 }
 
-void GhostCommunicator_pablo::exchange_ghosts(const DataArray& U, DataArray& Ughost) const
+void GhostCommunicator_pablo::exchange_ghosts(const DataArray& U, const DataArray& Ughost) const
 {
     GhostCommunicator_pablo_impl::exchange_ghosts_aux<DataArray, 0>(amr_mesh, U, Ughost);
 }

@@ -357,6 +357,7 @@ std::map<int, std::vector<oct_index_t>> discover_ghosts(
 std::map<int, std::vector<AMRmesh_hashmap_new::oct_index_t>> 
 AMRmesh_hashmap_new::loadBalance(level_t level)
 {
+    int ndim = storage.getNdim();
     int mpi_rank = this->getMpiComm().MPI_Comm_rank();
     int mpi_size = this->getMpiComm().MPI_Comm_size();
     level_t level_max = pdata->level_max;
@@ -479,20 +480,18 @@ AMRmesh_hashmap_new::loadBalance(level_t level)
     pdata->local_octants_to_send = discover_ghosts(new_storage_device, new_morton_intervals, level_max, this->periodic, mpi_comm);
 
     // Raw view for ghosts
-    LightOctree_storage<>::oct_data_t neighbor_octs_device;
     GhostCommunicator_kokkos ghost_comm( pdata->local_octants_to_send  );
-    ghost_comm.exchange_ghosts( new_storage_device.oct_data, neighbor_octs_device );
-
+    oct_index_t new_nbGhosts = ghost_comm.getNumGhosts();
+    LightOctree_storage<> new_storage_device_ghosts( ndim, 0, new_nbGhosts );   
+    ghost_comm.exchange_ghosts( new_storage_device.oct_data, new_storage_device_ghosts.oct_data );
     {
       int ndim = new_storage_device.getNdim();
-      //oct_index_t new_nbOcts = new_storage_device.getNumOctants();
-      oct_index_t new_nbGhosts = neighbor_octs_device.extent(0);
 
       // We need to go through a temporary device storage because
       // subviews are non-contiguous and deep_copy is only supported in same memory space
       LightOctree_storage<> storage_device(ndim, new_nbOcts, new_nbGhosts );
       Kokkos::deep_copy( storage_device.getLocalSubview(), new_storage_device.getLocalSubview() );
-      Kokkos::deep_copy( storage_device.getGhostSubview(), neighbor_octs_device );
+      Kokkos::deep_copy( storage_device.getGhostSubview(), new_storage_device_ghosts.getGhostSubview() );
 
       // Reallocate storage with new size
       Storage_t& this_storage = this->storage;
@@ -523,8 +522,8 @@ AMRmesh_hashmap_new::loadBalance(level_t level)
 void AMRmesh_hashmap_new::loadBalance_userdata( level_t compact_levels, DataArrayBlock& userData )
 {
   auto octs_to_exchange = this->loadBalance(compact_levels);
-  GhostCommunicator_kokkos lb_comm(octs_to_exchange);
-  DataArrayBlock userData_new;
+  GhostCommunicator_kokkos lb_comm(octs_to_exchange);  
+  DataArrayBlock userData_new( userData.label(), userData.extent(0), userData.extent(1), lb_comm.getNumGhosts() );
   lb_comm.exchange_ghosts(userData, userData_new);
   userData = userData_new;
 }
@@ -542,8 +541,8 @@ void AMRmesh_hashmap_new::adapt(bool dummy)
   int ndim = lmesh.getNdim();
   oct_index_t nbOcts = getNumOctants();
 
-  Kokkos::View<int*, Kokkos::LayoutLeft> markers_device("adapt::markers_device", nbOcts);
-  Kokkos::View<int*, Kokkos::LayoutLeft> markers_ghosts_device; 
+  Kokkos::View<int*, Kokkos::LayoutLeft> markers_device("adapt::markers", nbOcts);
+  Kokkos::View<int*, Kokkos::LayoutLeft> markers_ghosts_device("adapt::markers_ghost", this->getNumGhosts());; 
   // Helper functions for markers
   auto getMarker = KOKKOS_LAMBDA( const OctantIndex& iOct ) -> int&
   { 
@@ -771,20 +770,19 @@ void AMRmesh_hashmap_new::adapt(bool dummy)
     // Compute and exchange ghosts
     pdata->local_octants_to_send = discover_ghosts( new_storage_device, morton_intervals, pdata->level_max, this->periodic, this->mpi_comm );
     {
-      // Raw view for ghosts
-      LightOctree_storage<>::oct_data_t neighbor_octs_device;
-      GhostCommunicator_kokkos ghost_comm( pdata->local_octants_to_send  );
-      ghost_comm.exchange_ghosts( new_storage_device.oct_data, neighbor_octs_device );
-
       int ndim = new_storage_device.getNdim();
-      //oct_index_t new_nbOcts = new_storage_device.getNumOctants();
-      oct_index_t new_nbGhosts = neighbor_octs_device.extent(0);
+
+      // Raw view for ghosts
+      GhostCommunicator_kokkos ghost_comm( pdata->local_octants_to_send  );
+      oct_index_t new_nbGhosts = ghost_comm.getNumGhosts();
+      LightOctree_storage<> new_storage_device_ghosts( ndim, 0, new_nbGhosts );
+      ghost_comm.exchange_ghosts( new_storage_device.oct_data, new_storage_device_ghosts.oct_data );
 
       // We need to go through a temporary device storage because
       // subviews are non-contiguous and deep_copy is only supported in same memory space
       LightOctree_storage<> newnew_storage_device(ndim, new_nbOcts, new_nbGhosts );
       Kokkos::deep_copy( newnew_storage_device.getLocalSubview(), new_storage_device.getLocalSubview() );
-      Kokkos::deep_copy( newnew_storage_device.getGhostSubview(), neighbor_octs_device );
+      Kokkos::deep_copy( newnew_storage_device.getGhostSubview(), new_storage_device_ghosts.getGhostSubview() );
 
       // Overwrite local storage with new data
       this->storage = newnew_storage_device;      

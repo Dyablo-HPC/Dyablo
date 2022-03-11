@@ -67,6 +67,11 @@ GhostCommunicator_kokkos::GhostCommunicator_kokkos( const std::map<int, std::vec
   }
 }
 
+uint32_t GhostCommunicator_kokkos::getNumGhosts() const
+{
+  return this->nbghosts_recv;
+}
+
 namespace GhostCommunicator_kokkos_impl{
   using namespace userdata_utils;  
 
@@ -241,15 +246,13 @@ namespace GhostCommunicator_kokkos_impl{
    **/
   template <int iOct_pos, typename DataArray_t>
   std::enable_if_t< iOct_pos < DataArray_t::rank-1 , 
-  void > transpose( const DataArray_t& Ughost_right_iOct, DataArray_t& Ughost )
+  void > transpose( const DataArray_t& Ughost_right_iOct, const DataArray_t& Ughost )
   {
     // When iOct is not the rightmost index, a temportary MPI buffer 
     // with iOct rightmost index is used and has to be transposed
 
-    // Realloc Ughost with the correct number of octants
-    auto layout_Ughost = Ughost.layout();
-    layout_Ughost.dimension[iOct_pos] = Ughost_right_iOct.extent(DataArray_t::rank-1);
-    Kokkos::realloc(Ughost, layout_Ughost);
+    // Verify Ghost allocation has the right size
+    assert( Ughost.extent(iOct_pos) == Ughost_right_iOct.extent(DataArray_t::rank-1) );
 
     uint32_t elts_per_octs = octant_size<DataArray_t, iOct_pos>(Ughost);
 
@@ -270,15 +273,15 @@ namespace GhostCommunicator_kokkos_impl{
    **/
   template <int iOct_pos, typename DataArray_t>
   std::enable_if_t< iOct_pos == DataArray_t::rank-1 , 
-  void > transpose( const DataArray_t& Ughost_right_iOct, DataArray_t& Ughost )
+  void > transpose( const DataArray_t& Ughost_right_iOct, const DataArray_t& Ughost )
   {
-    Ughost = Ughost_right_iOct;
+    Kokkos::deep_copy( Ughost, Ughost_right_iOct );
   }
 
 } // namespace GhostCommunicator_kokkos_impl
 
 template< typename DataArray_t, int iOct_pos >
-void GhostCommunicator_kokkos::exchange_ghosts_aux( const DataArray_t& U, DataArray_t& Ughost) const
+void GhostCommunicator_kokkos::exchange_ghosts_aux( const DataArray_t& U, const DataArray_t& Ughost) const
 { 
   using namespace GhostCommunicator_kokkos_impl;
   using MPI_Request_t = MpiComm::MPI_Request_t;
@@ -292,12 +295,6 @@ void GhostCommunicator_kokkos::exchange_ghosts_aux( const DataArray_t& U, DataAr
 
   // Pack send buffers from U, allocate recieve buffers
   std::vector<MPIBuffer> send_buffers = pack<MPIBuffer, iOct_pos>( U, this->send_iOcts, this->send_sizes_host );
-
-  // Clear Ughost to avoid Ughost_tmp + Ughost in memory at the same time when not needed
-  // + set other extents of Ughost
-  Kokkos::LayoutLeft extents_Ughost = U.layout();
-  extents_Ughost.dimension[iOct_pos] = 0;
-  Kokkos::realloc(Ughost, extents_Ughost);
 
   // Allocate Ughost_tmp with same volume of data, but with iOct at rightmost position
   Kokkos::LayoutLeft extents_Ughost_tmp = U.layout();
@@ -337,32 +334,32 @@ void GhostCommunicator_kokkos::exchange_ghosts_aux( const DataArray_t& U, DataAr
   transpose<iOct_pos>( Ughost_tmp, Ughost );
 }
 
-void GhostCommunicator_kokkos::exchange_ghosts(const DataArrayBlock& U, DataArrayBlock& Ughost) const
+void GhostCommunicator_kokkos::exchange_ghosts(const DataArrayBlock& U, const DataArrayBlock& Ughost) const
 {
   exchange_ghosts_aux(U, Ughost);
 }
 
-void GhostCommunicator_kokkos::exchange_ghosts(const Kokkos::View<uint16_t**, Kokkos::LayoutLeft>& U, Kokkos::View<uint16_t**, Kokkos::LayoutLeft>& Ughost) const
+void GhostCommunicator_kokkos::exchange_ghosts(const Kokkos::View<uint16_t**, Kokkos::LayoutLeft>& U, const Kokkos::View<uint16_t**, Kokkos::LayoutLeft>& Ughost) const
 {
   exchange_ghosts_aux(U, Ughost);
 }
 
-void GhostCommunicator_kokkos::exchange_ghosts(const LightOctree_storage<>::oct_data_t& U, LightOctree_storage<>::oct_data_t& Ughost) const
+void GhostCommunicator_kokkos::exchange_ghosts(const LightOctree_storage<>::oct_data_t& U, const LightOctree_storage<>::oct_data_t& Ughost) const
 {
   exchange_ghosts_aux<LightOctree_storage<>::oct_data_t,0>(U, Ughost);
 }
 
-void GhostCommunicator_kokkos::exchange_ghosts(const Kokkos::View<uint32_t**, Kokkos::LayoutLeft>& U, Kokkos::View<uint32_t**, Kokkos::LayoutLeft>& Ughost) const
+void GhostCommunicator_kokkos::exchange_ghosts(const Kokkos::View<uint32_t**, Kokkos::LayoutLeft>& U, const Kokkos::View<uint32_t**, Kokkos::LayoutLeft>& Ughost) const
 {
   exchange_ghosts_aux(U, Ughost);
 }
 
-void GhostCommunicator_kokkos::exchange_ghosts(const Kokkos::View<int*, Kokkos::LayoutLeft>& U, Kokkos::View<int*, Kokkos::LayoutLeft>& Ughost) const
+void GhostCommunicator_kokkos::exchange_ghosts(const Kokkos::View<int*, Kokkos::LayoutLeft>& U, const Kokkos::View<int*, Kokkos::LayoutLeft>& Ughost) const
 {
   exchange_ghosts_aux(U, Ughost);
 }
 
-void GhostCommunicator_kokkos::exchange_ghosts(const DataArray& U, DataArray& Ughost) const
+void GhostCommunicator_kokkos::exchange_ghosts(const DataArray& U, const DataArray& Ughost) const
 {
   exchange_ghosts_aux<DataArray, 0>(U, Ughost);
 }

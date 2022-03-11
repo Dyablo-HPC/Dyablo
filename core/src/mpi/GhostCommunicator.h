@@ -20,6 +20,9 @@ public:
     //template <typename Datatype>
     //using View_t = Kokkos::View<Datatype,Kokkos::LayoutLeft>;
 
+    /// Get number of local ghosts
+    //uint32_t getNumGhosts() const;
+
     /**
      * Exchange ghost octants data
      * @tparam View_DataType is Datatype template parameter for View_t
@@ -49,10 +52,10 @@ public:
      * 
      * Copy data back to host and call Paratree::communicate()
      **/
-    void exchange_ghosts(const DataArrayBlock& U, DataArrayBlock& Ughost) const;
+    void exchange_ghosts(const DataArrayBlock& U, const DataArrayBlock& Ughost) const;
     
     /// Note : octant index for DataArray is leftmost subscript
-    void exchange_ghosts(const DataArray& U, DataArray& Ughost) const;
+    void exchange_ghosts(const DataArray& U, const DataArray& Ughost) const;
 private:
     AMRmesh_pablo& amr_mesh;  
 };
@@ -73,19 +76,22 @@ public:
      : GhostCommunicator_kokkos(amr_mesh->getBordersPerProc(), mpi_comm)
     {}
     
+    /// @copydoc GhostCommunicator_base::getNumGhosts
+    uint32_t getNumGhosts() const;
+
     /**
      * @copydoc GhostCommunicator_base::exchange_ghosts
      * 
      * Copy data back to host and call Paratree::communicate()
      **/
-    void exchange_ghosts(const DataArrayBlock& U, DataArrayBlock& Ughost) const;
-    void exchange_ghosts(const Kokkos::View<uint16_t**, Kokkos::LayoutLeft>& U, Kokkos::View<uint16_t**, Kokkos::LayoutLeft>& Ughost) const;
-    void exchange_ghosts(const LightOctree_storage<>::oct_data_t& U, LightOctree_storage<>::oct_data_t& Ughost) const;
-    void exchange_ghosts(const Kokkos::View<uint32_t**, Kokkos::LayoutLeft>& U, Kokkos::View<uint32_t**, Kokkos::LayoutLeft>& Ughost) const;
-    void exchange_ghosts(const Kokkos::View<int*, Kokkos::LayoutLeft>& U, Kokkos::View<int*, Kokkos::LayoutLeft>& Ughost) const;
+    void exchange_ghosts(const DataArrayBlock& U, const DataArrayBlock& Ughost) const;
+    void exchange_ghosts(const Kokkos::View<uint16_t**, Kokkos::LayoutLeft>& U, const Kokkos::View<uint16_t**, Kokkos::LayoutLeft>& Ughost) const;
+    void exchange_ghosts(const LightOctree_storage<>::oct_data_t& U, const LightOctree_storage<>::oct_data_t& Ughost) const;
+    void exchange_ghosts(const Kokkos::View<uint32_t**, Kokkos::LayoutLeft>& U, const Kokkos::View<uint32_t**, Kokkos::LayoutLeft>& Ughost) const;
+    void exchange_ghosts(const Kokkos::View<int*, Kokkos::LayoutLeft>& U, const Kokkos::View<int*, Kokkos::LayoutLeft>& Ughost) const;
 
     /// note : iOct_pos is 0 for DataArray. (See exchange_ghosts_aux)
-    void exchange_ghosts(const DataArray& U, DataArray& Ughost) const;
+    void exchange_ghosts(const DataArray& U, const DataArray& Ughost) const;
 private:
     Kokkos::View<uint32_t*> recv_sizes, send_sizes; //!Number of octants to send/recv for each proc
     Kokkos::View<uint32_t*>::HostMirror recv_sizes_host, send_sizes_host; //!Number of octants to send/recv for each proc
@@ -104,7 +110,7 @@ public:
      * @param Ughost is the ghost octant data to fill, it will be resized to match the number of ghost octants
      **/
     template< typename DataArray_t, int iOct_pos = DataArray_t::rank-1 >
-    void exchange_ghosts_aux( const DataArray_t& U, DataArray_t& Ughost) const;
+    void exchange_ghosts_aux( const DataArray_t& U, const DataArray_t& Ughost) const;
 };
 
 /**
@@ -119,7 +125,7 @@ public:
     {}
     
     template< typename DataArray_t>
-    void exchange_ghosts( const DataArray_t& U, DataArray_t& Ughost) const
+    void exchange_ghosts( const DataArray_t& U, const DataArray_t& Ughost) const
     {
         assert(Ughost.size() == 0);
         /* Nothing to do */
