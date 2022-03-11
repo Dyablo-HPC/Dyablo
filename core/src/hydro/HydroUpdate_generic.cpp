@@ -6,6 +6,8 @@
 #include "utils_hydro.h"
 #include "RiemannSolvers.h"
 
+#include "HydroUpdate_utils.h"
+
 
 namespace dyablo { 
 
@@ -74,77 +76,8 @@ namespace dyablo {
 
 namespace{
 
-template< int ndim >
-KOKKOS_INLINE_FUNCTION
-void compute_primitives(const RiemannParams& params, const PatchArray& Ugroup, const CellIndex& iCell_Ugroup, const PatchArray& Qgroup)
-{
-  HydroState3d uLoc = getHydroState<ndim>( Ugroup, iCell_Ugroup );
-      
-  // get primitive variables in current cell
-  HydroState3d qLoc;
-  real_t c = 0.0;
-  if(ndim==3)
-    computePrimitives(uLoc, &c, qLoc, params.gamma0, params.smallr, params.smallp);
-  else
-  {
-    auto copy_state = [](auto& to, const auto& from){
-      to[ID] = from[ID];
-      to[IP] = from[IP];
-      to[IU] = from[IU];
-      to[IV] = from[IV];
-    };
-    HydroState2d uLoc_2d, qLoc_2d;
-    copy_state(uLoc_2d, uLoc);
-    computePrimitives(uLoc_2d, &c, qLoc_2d, params.gamma0, params.smallr, params.smallp);
-    copy_state(qLoc, qLoc_2d);
-  }
 
-  setHydroState<ndim>( Qgroup, iCell_Ugroup, qLoc );
-}
 
-/// Compute slope for one cell (q_) in one direction
-template< int ndim >
-KOKKOS_INLINE_FUNCTION
-HydroState3d compute_slope( const HydroState3d& qMinus_, 
-                            const HydroState3d& q_, 
-                            const HydroState3d& qPlus_, 
-                            int slope_type)
-{
-  assert(slope_type == 1 || slope_type == 2);
-
-  HydroState3d dq_ = {};
-  auto compute_slope_var = [&](VarIndex ivar)
-  {
-    const real_t& q = q_[ivar];
-    const real_t& qPlus = qPlus_[ivar];
-    const real_t& qMinus = qMinus_[ivar];
-    real_t& dq = dq_[ivar];
-
-    // slopes in first coordinate direction
-    const real_t dlft = slope_type * (q - qMinus);
-    const real_t drgt = slope_type * (qPlus - q);
-    const real_t dcen = HALF_F * (qPlus - qMinus);
-    const real_t dsgn = (dcen >= ZERO_F) ? ONE_F : -ONE_F;
-    if( std::isnan(dlft) or std::isnan(drgt)  )
-    {
-      dq_[ivar] = std::nan("");
-      return;
-    }
-    const real_t slop = fmin(FABS(dlft), FABS(drgt));
-    real_t dlim = slop;
-    if ((dlft * drgt) <= ZERO_F)
-      dlim = ZERO_F;
-    dq = dsgn * fmin(dlim, FABS(dcen));
-  };
-
-  compute_slope_var(ID);
-  compute_slope_var(IP);
-  compute_slope_var(IU);
-  compute_slope_var(IV);
-  if(ndim==3) compute_slope_var(IW);
-
-  return dq_;
-}
 
 template< int ndim >
 KOKKOS_INLINE_FUNCTION
@@ -215,7 +148,7 @@ void compute_slopes( const PatchArray& Qgroup, const CellIndex& iCell_Sources, i
     HydroState3d qm = getHydroState<ndim>( Qgroup, ib + o_t{-1, 0, 0});
     HydroState3d qp = getHydroState<ndim>( Qgroup, ib + o_t{ 1, 0, 0});     
 
-    sx = compute_slope<ndim>(qm, qc, qp, slope_type);
+    sx = compute_slope<ndim>(qm, qc, qp, 1.0, 1.0);
     CellIndex iCell_x = SlopesX.convert_index_ghost(iCell_Sources);
     if(iCell_x.is_valid())
     {
@@ -228,7 +161,7 @@ void compute_slopes( const PatchArray& Qgroup, const CellIndex& iCell_Sources, i
     HydroState3d qm = getHydroState<ndim>( Qgroup, ib + o_t{ 0,-1, 0});
     HydroState3d qp = getHydroState<ndim>( Qgroup, ib + o_t{ 0, 1, 0});       
 
-    sy = compute_slope<ndim>(qm, qc, qp, slope_type);
+    sy = compute_slope<ndim>(qm, qc, qp, 1.0, 1.0);
 
     CellIndex iCell_y = SlopesY.convert_index_ghost(iCell_Sources);
     if(iCell_y.is_valid())
@@ -243,7 +176,7 @@ void compute_slopes( const PatchArray& Qgroup, const CellIndex& iCell_Sources, i
     HydroState3d qm = getHydroState<ndim>( Qgroup, ib + o_t{ 0, 0,-1});
     HydroState3d qp = getHydroState<ndim>( Qgroup, ib + o_t{ 0, 0, 1});       
 
-    sz = compute_slope<ndim>(qm, qc, qp, slope_type);
+    sz = compute_slope<ndim>(qm, qc, qp, 1.0, 1.0);
 
     CellIndex iCell_z = SlopesZ.convert_index_ghost(iCell_Sources);
     if(iCell_z.is_valid())
