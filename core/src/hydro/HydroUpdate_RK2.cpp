@@ -235,6 +235,8 @@ void update_aux(
 {
   Timers& timers = pdata->timers; 
   ForeachCell& foreach_cell = pdata->foreach_cell;
+  GhostCommunicator ghost_comm(std::shared_ptr<AMRmesh>(&foreach_cell.get_amr_mesh(), [](AMRmesh*){}));
+    
 
   // Temporary Ustar array
   auto fm = FieldManager(Uin.fm.enabled_fields()); 
@@ -243,6 +245,7 @@ void update_aux(
   // Two update stages and one correction stage
   timers.get("HydroUpdate_RK2").start();
   rk_update<ndim>("update1", pdata, Uin,  Ustar, dt);
+  Ustar.exchange_ghosts(ghost_comm);
   rk_update<ndim>("update2", pdata, Ustar, Uout, dt);
   rk_correct<ndim>(pdata, Uin, Uout);
 
