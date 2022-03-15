@@ -14,29 +14,18 @@
 
 #include "morton_utils.h"
 
-#include <boost/test/unit_test.hpp>
-namespace utf = boost::unit_test;
+#include "gtest/gtest.h"
 
 #include <cstdint>
 
-BOOST_AUTO_TEST_SUITE(dyablo)
-
-BOOST_AUTO_TEST_SUITE(shared)
-
-BOOST_AUTO_TEST_CASE(morton_utils)
+TEST(dyablo, morton_utils)
 {
-
   uint32_t value = 2 + 4; // 0x10  + 0x100
   auto v1 = dyablo::splitBy3<3>(value);
-  BOOST_CHECK_EQUAL(v1, 72);
+  EXPECT_EQ(v1, 72);
 
   value = 20;
   v1 = dyablo::splitBy3<3>(value);
-  BOOST_CHECK_EQUAL(v1, 4160);
-
+  EXPECT_EQ(v1, 4160);
 } // morton_utils
 
-
-BOOST_AUTO_TEST_SUITE_END() /* shared */
-
-BOOST_AUTO_TEST_SUITE_END() /* dyablo */

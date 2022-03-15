@@ -14,18 +14,15 @@
 
 #include <Kokkos_Core.hpp>
 
-#define BOOST_TEST_NO_MAIN
-#include <boost/test/unit_test.hpp>
+#include "gtest/gtest.h"
 
 #include "DyabloSession.hpp"
-
-// initialization function
-bool init_function() { return true; }
 
 // entry point
 int main(int argc, char *argv[])
 {
   dyablo::DyabloSession mpi_session(argc, argv);
- 
-  return boost::unit_test::unit_test_main(&init_function, argc, argv);
+
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
 }

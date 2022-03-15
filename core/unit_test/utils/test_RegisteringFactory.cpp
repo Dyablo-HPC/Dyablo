@@ -1,4 +1,4 @@
-#include <boost/test/unit_test.hpp>
+#include "gtest/gtest.h"
 
 #include "utils/misc/RegisteringFactory.h"
 
@@ -34,18 +34,13 @@ bool BaseFactory::init()
   return true;
 }
 
-
-BOOST_AUTO_TEST_SUITE(dyablo)
-
-BOOST_AUTO_TEST_CASE(test_RegisteringFactory)
+TEST(dyablo, test_RegisteringFactory)
 {
   std::unique_ptr<Base> p_int = BaseFactory::make_instance("int", 5);
   std::unique_ptr<Base> p_double = BaseFactory::make_instance("double", 3.5);
   std::unique_ptr<Base> p_double2 = BaseFactory::make_instance("double2", 4);
 
-  BOOST_CHECK_CLOSE(5, p_int->test(), 0.001);;
-  BOOST_CHECK_CLOSE(3.5, p_double->test(), 0.001);;
-  BOOST_CHECK_CLOSE(4.5, p_double2->test(), 0.001);;
+  EXPECT_EQ( 5, p_int->test() );
+  EXPECT_DOUBLE_EQ( 3.5, p_double->test() );
+  EXPECT_DOUBLE_EQ( 4.5, p_double2->test() );
 }
-
-BOOST_AUTO_TEST_SUITE_END() /* dyablo */

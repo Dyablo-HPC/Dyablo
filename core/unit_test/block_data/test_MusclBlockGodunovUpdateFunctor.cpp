@@ -23,7 +23,7 @@
 
 using Device = Kokkos::DefaultExecutionSpace;
 
-#include <boost/test/unit_test.hpp>
+#include "gtest/gtest.h"
 
 namespace dyablo {
 
@@ -204,22 +204,13 @@ void run_test(std::string name, std::string filename) {
 
 } // namespace dyablo
 
-
-BOOST_AUTO_TEST_SUITE(dyablo)
-
-BOOST_AUTO_TEST_SUITE(muscl_block)
-
-BOOST_AUTO_TEST_CASE(test_HydroUpdate_generic_blast_2D)
+TEST(dyablo, test_HydroUpdate_generic_blast_2D)
 {
-  run_test("HydroUpdate_generic (2D)", "./block_data/test_blast_2D_block.ini");
+  dyablo::run_test("HydroUpdate_generic (2D)", "./block_data/test_blast_2D_block.ini");
 }
 
-BOOST_AUTO_TEST_CASE(test_HydroUpdate_generic_blast_3D)
+TEST(dyablo, test_HydroUpdate_generic_blast_3D)
 {
-  run_test("HydroUpdate_generic (3D)", "./block_data/test_blast_3D_block.ini");
+  dyablo::run_test("HydroUpdate_generic (3D)", "./block_data/test_blast_3D_block.ini");
 }
-
-BOOST_AUTO_TEST_SUITE_END() /* muscl_block */
-
-BOOST_AUTO_TEST_SUITE_END() /* dyablo */
 

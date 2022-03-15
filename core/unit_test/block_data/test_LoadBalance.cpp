@@ -4,8 +4,7 @@
  * Tests loadbalance MPI communication
  */
 
-
-#include <boost/test/unit_test.hpp>
+#include "gtest/gtest.h"
 
 #include "legacy/utils_block.h"
 #include "amr/AMRmesh.h"
@@ -16,7 +15,7 @@ namespace dyablo
 
 // =======================================================================
 // =======================================================================
-void run_test(int argc, char *argv[])
+void run_test()
 {
   std::cout << "// =========================================\n";
   std::cout << "// Testing LoadBalance ...\n";
@@ -148,9 +147,9 @@ void run_test(int argc, char *argv[])
 
     std::cout << "Check U ( nbOcts=" << nbOcts << ")" << std::endl;
 
-    BOOST_CHECK_EQUAL(U.extent(0), nbCellsPerOct);
-    BOOST_CHECK_EQUAL(U.extent(1), nbfields);
-    BOOST_CHECK_EQUAL(U.extent(2), nbOcts);
+    EXPECT_EQ(U.extent(0), nbCellsPerOct);
+    EXPECT_EQ(U.extent(1), nbfields);
+    EXPECT_EQ(U.extent(2), nbOcts);
 
     auto Uhost = Kokkos::create_mirror_view(U);
     Kokkos::deep_copy(Uhost, U);
@@ -170,9 +169,9 @@ void run_test(int argc, char *argv[])
         real_t expected_y = oct_pos[IY] + cy*oct_size/by;
         real_t expected_z = oct_pos[IZ] + cz*oct_size/bz;
 
-        BOOST_CHECK_CLOSE( Uhost(c, IX, iOct), expected_x , 0.01);
-        BOOST_CHECK_CLOSE( Uhost(c, IY, iOct), expected_y , 0.01);
-        BOOST_CHECK_CLOSE( Uhost(c, IZ, iOct), expected_z , 0.01);
+        EXPECT_NEAR( Uhost(c, IX, iOct), expected_x , 0.01);
+        EXPECT_NEAR( Uhost(c, IY, iOct), expected_y , 0.01);
+        EXPECT_NEAR( Uhost(c, IZ, iOct), expected_z , 0.01);
       }
     }
   }
@@ -183,18 +182,8 @@ void run_test(int argc, char *argv[])
 
 } // namespace dyablo
 
-BOOST_AUTO_TEST_SUITE(dyablo)
 
-BOOST_AUTO_TEST_SUITE(muscl_block)
-
-BOOST_AUTO_TEST_CASE(test_GhostCommunicator)
+TEST(dyablo, test_GhostCommunicator)
 {
-
-  run_test(boost::unit_test::framework::master_test_suite().argc,
-           boost::unit_test::framework::master_test_suite().argv);
-
+  dyablo::run_test();
 }
-
-BOOST_AUTO_TEST_SUITE_END() /* muscl_block */
-
-BOOST_AUTO_TEST_SUITE_END() /* dyablo */
