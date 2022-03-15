@@ -18,14 +18,17 @@
 
 #include <cstdint>
 
-TEST(dyablo, morton_utils)
+TEST(Test_morton_utils, test_6)
 {
   uint32_t value = 2 + 4; // 0x10  + 0x100
   auto v1 = dyablo::splitBy3<3>(value);
   EXPECT_EQ(v1, 72);
+}
 
-  value = 20;
-  v1 = dyablo::splitBy3<3>(value);
+TEST(Test_morton_utils, test_20)
+{
+  uint32_t value = 20;
+  auto v1 = dyablo::splitBy3<3>(value);
   EXPECT_EQ(v1, 4160);
-} // morton_utils
+}
 

@@ -60,8 +60,8 @@ endfunction(dyablo_add_test)
 # here we create our tests
 #
 #####################################################################
-dyablo_add_test(tst_shared_MortonUtils OFF
-  shared/morton_utils_test.cpp
+dyablo_add_test(utest_morton_utils OFF
+  shared/test_morton_utils.cpp
   main.cpp)
 
   if(NOT Kokkos_ENABLE_CUDA)
