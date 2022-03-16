@@ -1,134 +1,62 @@
 # set minimal version the one requested by kokkos
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.16)
 
-if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
-  message(STATUS "Setting policy CMP0076 to use new behavior")
-  cmake_policy(SET CMP0076 NEW)
-endif()
 if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.19.0")
   message(STATUS "Setting policy CMP0114 to use new behavior")
-  cmake_policy(SET CMP0114 NEW)
+  cmake_policy(SET CMP0114 OLD)
 endif()
 
 ###################################################################
-#
-# Handle superbuild first building
-# 1. required dependencies (here only bitpit)
-# 2. bitpit + kokkos
-#
-# To clarify : the superbuild drives the build of
+# Use the CMake Superbuild pattern to help build dependencies 
+# before building Dyablo.
+# Uses ExternalProject_add to build dependencies :
 # - bitpit
-# - dyablo + kokkos
-# both using the cmake ExternalProject_add macro.
-#
-# The main reason behind this design is that it allows to separate in a
-# clean way those two builds, especially regarding GPU builds. Indeed
-# bitpit can't build with nvcc (too many parsing errors from nvcc front
-# end), so bitpit is build with a regular CPU compiler (defaults to g++)
-# and dyablo+kokkos with a compiler adapted to the target architecture :
-# - g++ or clang++ or icpc for Kokkos/OpenMP
-# - nvcc_wrapper Kokkos/CUDA
-#
+# (Kokkos is compiled as a subdyrectory in Dyablo)
+# external dependencies are also verified
+# - bitpit : libxml2, MPI
+# - Dyablo : MPI, HDF5
+# Dependencies may be verified twice (here and when compilig Dyablo externalproject)
+# The intent is to find as much external dependency errors at configure time as possible
 ###################################################################
 project (dyablo_superbuild LANGUAGES C CXX)
 
 include(GNUInstallDirs)
 
-#
-# default local cmake macro repository
-#
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/core/cmake)
-
-#
-# Prevent from build in source tree
-#
 include(preventBuildInSource)
 
-#
-# dyablo options
-#
-# if CUDA is enable, you need to be careful about the version of boost
+###################################################################
+# Global options for Dyablo supported by Superbuild
+# Additional options can be accessed from actual Dyablo project core/CMakeLists.txt
+###################################################################
 option (DYABLO_ENABLE_UNIT_TESTING "Enable unit testing" OFF)
-option (DYABLO_BUILD_EXPERIMENTS "Build optional experiments from core/test" OFF)
 option (DYABLO_USE_MPI "Activate / want MPI build" ON)
-option (DYABLO_USE_VTK "Activate / want VTK build" OFF)
-option (DYABLO_USE_DOUBLE "build with double precision" ON)
-#option (USE_MOOD "build MOOD numerical schemes" OFF)
-#option (USE_SDM "build Spectral Difference Method numerical schemes" OFF)
 option (DYABLO_USE_HDF5 "build HDF5 input/output support" ON)
-option (DYABLO_USE_PNETCDF "build PNETCDF input/output support (MPI required)" OFF)
-option (DYABLO_USE_FPE_DEBUG "build with floating point Nan tracing (signal handler)" OFF)
 option (DYABLO_USE_MPI_CUDA_AWARE_ENFORCED "Some MPI cuda-aware implementation are not well detected; use this to enforce" OFF)
+option (DYABLO_USE_INTERNAL_BITPIT "Compile bitpit from source in external/bitpit" ON)
+set( DYABLO_CXX_COMPILER  ${CMAKE_CXX_COMPILER} CACHE STRING "compiler used to build dyablo")
+set( BITPIT_COMPILER  ${CMAKE_CXX_COMPILER} CACHE STRING "compiler used to build bitpit when DYABLO_USE_INTERNAL_BITPIT=ON")
+option ( DYABLO_HIDE_BITPIT_COMPILATION "Don't show bitpit compilation log in console" ON )
+option (DYABLO_USE_INTERNAL_KOKKOS "Use internal Kokkos from external/kokkos" ON)
+option (Kokkos_ENABLE_CUDA "Enable Kokkos::CUDA backend" OFF)
+set( Kokkos_ARCH  "" CACHE STRING "List of architectures to set for Kokkos : -DKokkos_ARCH_<arch>=ON")
+set( DYABLO_CMAKE_ARGS "" CACHE STRING "Additional cmake command line arguments to forward to Dyablo subproject"  )
 
-# Enforce rebuilding bitpit
-option(FORCE_BITPIT_BUILD "Enforce rebuilding bitpit" OFF)
-
-# Enforce rebuilding kokkos
-option(FORCE_KOKKOS_BUILD "Enforce rebuilding kokkos" OFF)
-
-#
-# documentation related options
-#
-option(DYABLO_BUILD_DOC  "Enable / disable documentation build" OFF)
-
-# documentation type - the only valid values are : doxygen and mkdocs
-set(DYABLO_DOC "doxygen" CACHE STRING "documentation type (doxygen or mkdocs)")
-
-###################################################################
-#
-# this is where the superbuild starts
-#
-###################################################################
-
-# dyablo and bitpit will for sure be built as external projects
 include (ExternalProject)
+set (DYABLO_EXTERNALPROJECT_DEPENDENCIES)
+set (DYABLO_CMAKE_ARGS_ ${DYABLO_CMAKE_ARGS})
 
-##############################################################
-# let's try first to detect bitpit
-# this will only work if option -DBITPIT_DIR=/some/where
-# was given on the command line
-# the path should contain file BITPITConfig.cmake
-##############################################################
-find_package(BITPIT CONFIG QUIET)
+if( DYABLO_USE_INTERNAL_BITPIT )
+message( STATUS "== Setup Bitpit ExternalProject ==" )
 
-# retrieve BITPIT_DIR as given on the command line
-set(MY_BITPIT_DIR ${BITPIT_DIR})
-
-# list of dependencies to build before dyablo itself;
-# currently the only dependency is bitpit external project;
-# kokkos is still built inline
-# DEPENDENCIES is initialized as empty, but in case BITPIT_FOUND
-# is false, we add bitpit to DEPENDENCIES
-set (DEPENDENCIES)
-
-####################################################
-#
-# if BITPIT is not found, then build / install it
-# then use our custom BITPIT_DIR to build dyablo
-#
-####################################################
-if ( (NOT BITPIT_FOUND) OR FORCE_BITPIT_BUILD )
-
-  list (APPEND DEPENDENCIES bitpit_external)
-
-  message( STATUS "== Setup bitpit ExternalProject ==" )
-
-  #find bitpit dependencies
+  # verify bitpit dependencies
   find_package( LibXml2 REQUIRED )
-  find_package( MPI REQUIRED COMPONENTS C CXX )
+  if(DYABLO_USE_MPI)
+    find_package( MPI REQUIRED COMPONENTS C CXX )
+  endif()
 
-  #
-  # build our custom BitPit version
-  # enforce a CPU build of BITPIT/PABLO
-  # anyway PABLO is a CPU library
-  # anyway PABLO is not at all in a shape to pass nvcc_wrapper compilation
-  # anyway we won't use PABLO internal structure in the core Kokkos
-  # computing functors
-  set(BITPIT_COMPILER  ${CMAKE_CXX_COMPILER} CACHE STRING "compiler used to build bitpit")
   set_property(DIRECTORY PROPERTY EP_BASE ${CMAKE_BINARY_DIR}/external)
   ExternalProject_Add (bitpit_external
-    #URL https://github.com/pkestene/bitpit/archive/bitpit-1.7.0-devel-dyablo-v0.2.tar.gz
-    #URL_MD5 5d7a8672b711addc01708ac483d74b5c
     SOURCE_DIR ${PROJECT_SOURCE_DIR}/external/bitpit
     UPDATE_COMMAND ""
     CMAKE_ARGS
@@ -151,182 +79,89 @@ if ( (NOT BITPIT_FOUND) OR FORCE_BITPIT_BUILD )
       -DBITPIT_MODULE_VOLCARTESIAN=OFF
       -DBITPIT_MODULE_VOLOCTREE=OFF
       -DBITPIT_MODULE_VOLUNSTRUCTURED=OFF
-    LOG_CONFIGURE 1
-    LOG_BUILD 1
-    LOG_INSTALL 1
-    )
+    LOG_CONFIGURE ${DYABLO_HIDE_BITPIT_COMPILATION}
+    LOG_BUILD ${DYABLO_HIDE_BITPIT_COMPILATION}
+    LOG_INSTALL ${DYABLO_HIDE_BITPIT_COMPILATION}
+  )
 
-  set (BITPIT_VERSION_SHORT 1.7)
-
-  set(MY_BITPIT_DIR "${CMAKE_BINARY_DIR}/external/Install/bitpit_external/lib/cmake/bitpit-${BITPIT_VERSION_SHORT}")
-
+  list( APPEND DYABLO_EXTERNALPROJECT_DEPENDENCIES bitpit_external )
+  set( BITPIT_VERSION_SHORT "1.7" )
+  set( DYABLO_BITPIT_DIR "${CMAKE_BINARY_DIR}/external/Install/bitpit_external/lib/cmake/bitpit-${BITPIT_VERSION_SHORT}" )
+else( DYABLO_USE_INTERNAL_BITPIT )
+  # Find installed bitpit
+  find_package(BITPIT CONFIG REQUIRED)
+  set( DYABLO_BITPIT_DIR ${BITPIT_DIR} )
 endif()
 
-####################################################
-#
-# if KOKKOS is not found, then build / install it
-#
-####################################################
-# some top-level cmake option (super-build)
-option(Kokkos_ENABLE_HWLOC  "enable HWLOC in Kokkos" ON)
-option(Kokkos_ENABLE_OPENMP "enable Kokkos::OpenMP backend" ON)
-option(Kokkos_ENABLE_CUDA   "enable Kokkos::Cuda backend" OFF)
-option(Kokkos_ENABLE_CUDA_LAMBDA   "enable Kokkos::Cuda backend with LAMBDA" ON)
-option(Kokkos_ENABLE_CUDA_CONSTEXPR   "enable Kokkos::Cuda backend with LAMBDA" OFF)
-option(Kokkos_ENABLE_CUDA_UVM   "enable Kokkos::Cuda backend with LAMBDA" OFF)
-
-option(Kokkos_ENABLE_DEBUG  "build Kokkos in debug mode" OFF)
-option(Kokkos_ENABLE_DEBUG_BOUNDS_CHECK  "build Kokkos in debug mode" OFF)
-
-# only usefull when building for Kokkos::Cuda backend
-set(Kokkos_ARCH  "" CACHE STRING "Kokkos arch (KEPLER37, PASCAL60, ...)")
-option(Kokkos_ENABLE_AGGRESSIVE_VECTORIZATION "Enable aggressive vectorization on CPU (e.g. #pragma ivdep for intel)" OFF )
-
-find_package(Kokkos 3.1 QUIET)
-
-set(KOKKOS_COMPILER_CONFIG ${CMAKE_CXX_COMPILER})
-if (Kokkos_ENABLE_CUDA)
-  enable_language(CUDA)
-  # /!\ Changing CUDA compiler for something else than the one in system path 
-  # (for instance with cmake -DCMAKE_CUDA_COMPILER) is not supported by nvcc_wrapper
-  set(KOKKOS_COMPILER_CONFIG "${PROJECT_SOURCE_DIR}/external/kokkos/bin/nvcc_wrapper")
-  # TODO : add a way ton configure sm arch and backend compilers for nvcc_wrapper
-endif()
-
-set(KOKKOS_CXX_COMPILER  ${KOKKOS_COMPILER_CONFIG} CACHE STRING "compiler used to build kokkos (default to cmake compiler if CUDA is not enabled, if CUDA enabled, set to nvcc_wrapper internally)")
-
-if ( (NOT Kokkos_FOUND) OR FORCE_KOKKOS_BUILD )
-
-  # enforce kokkos build before dyablo
-  list (APPEND DEPENDENCIES kokkos_external)
-
-  message( STATUS "== Setup kokkos ExternalProject ==" )
-
-  # /!\ Hwloc is not checked during superbuild : find_package() could fail at Kokkos configure step
-  set(Kokkos_HWLOC_DIR  "" CACHE STRING "Directory containing hwloc library for Kokkos ( Kokkos will find system HWLOC if this directory doesn't contain HWLOC )")
-
-  list (APPEND KOKKOS_CMAKE_ARGS
-    -DCMAKE_INSTALL_PREFIX:PATH=${PROJECT_BINARY_DIR}/external/Install/kokkos_external
-    -DCMAKE_CXX_COMPILER=${KOKKOS_CXX_COMPILER}
-    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-    -DKokkos_ENABLE_HWLOC=${Kokkos_ENABLE_HWLOC}
-    -DKokkos_HWLOC_DIR=${Kokkos_HWLOC_DIR}
-    -DKokkos_ENABLE_OPENMP=${Kokkos_ENABLE_OPENMP}
-    -DKokkos_ENABLE_DEBUG=${Kokkos_ENABLE_DEBUG}
-    -DKokkos_ENABLE_DEBUG_BOUNDS_CHECK=${Kokkos_ENABLE_DEBUG_BOUNDS_CHECK}
-    -DKokkos_ENABLE_AGGRESSIVE_VECTORIZATION=${Kokkos_ENABLE_AGGRESSIVE_VECTORIZATION}
-    )
-
-  message( STATUS "Enabled architectures for Kokkos:" )
+if( DYABLO_USE_INTERNAL_KOKKOS )
+  # Read list from ${Kokkos_ARCH} and set appropriate -DKokkos_ARCH_*=ON
+  message( STATUS "Forced architectures for Kokkos:" )
   foreach(ARCH ${Kokkos_ARCH})
-    list (APPEND KOKKOS_CMAKE_ARGS
+    list (APPEND DYABLO_CMAKE_ARGS_
       -DKokkos_ARCH_${ARCH}=ON
     )
     message( STATUS "- Kokkos_ARCH_${ARCH}=ON" )
   endforeach()
-  
-  # CUDA specific argument
-  if (Kokkos_ENABLE_CUDA)
-    list (APPEND KOKKOS_CMAKE_ARGS
-      -DKokkos_ENABLE_CUDA=${Kokkos_ENABLE_CUDA}
-      -DKokkos_ENABLE_CUDA_LAMBDA=${Kokkos_ENABLE_CUDA_LAMBDA}
-      -DKokkos_ENABLE_CUDA_CONSTEXPR=${Kokkos_ENABLE_CUDA_CONSTEXPR}
-      -DKokkos_ENABLE_CUDA_UVM=${Kokkos_ENABLE_CUDA_UVM}
-      )
-  endif()
+  set(DYABLO_KOKKOS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/kokkos")
+else( DYABLO_USE_INTERNAL_KOKKOS )
+  # Find installed Kokkos 
+  find_package(Kokkos 3.3 REQUIRED)
 
-  #
-  # build kokkos
-  #
-  set_property(DIRECTORY PROPERTY EP_BASE ${CMAKE_BINARY_DIR}/external)
-  ExternalProject_Add (kokkos_external
-    UPDATE_COMMAND ""
-    SOURCE_DIR ${PROJECT_SOURCE_DIR}/external/kokkos
-    CMAKE_ARGS ${KOKKOS_CMAKE_ARGS}
-    LOG_CONFIGURE 1
-    LOG_BUILD 1
-    LOG_INSTALL 1
-    BUILD_ALWAYS ${FORCE_KOKKOS_BUILD}
-    )
-
+  set(DYABLO_KOKKOS_DIR ${Kokkos_DIR})
 endif()
 
 #####################################
-#####################################
-# now we build dyablo
-#####################################
+# Now we build dyablo
 #####################################
 
 message( STATUS "== Setup Dyablo ExternalProject ==" )
 
-#
-# prepare cmake arguments list
-#
-set (DYABLO_CMAKE_ARGS)
-
 # Check external dependencies
 if( DYABLO_USE_MPI )
   find_package(MPI REQUIRED)
+  list (APPEND DYABLO_CMAKE_ARGS_
+    -DMPI_C_COMPILER=${MPI_C_COMPILER}
+    -DMPI_CXX_COMPILER=${MPI_CXX_COMPILER}
+  )
 endif()
 # hdf5
 if (DYABLO_USE_HDF5)
-  if (DYABLO_USE_MPI)
-    set(HDF5_PREFER_PARALLEL TRUE)
-  endif(DYABLO_USE_MPI)
   set( HDF5_PREFER_PARALLEL ON )
   find_package( HDF5 REQUIRED COMPONENTS C)
   if( DYABLO_USE_MPI AND NOT HDF5_IS_PARALLEL )
     message( FATAL_ERROR "HDF5 library must be parallel when compiling Dyablo with MPI" )
   endif()
+  list (APPEND DYABLO_CMAKE_ARGS_
+    -DHDF5_C_COMPILER_EXECUTABLE=${HDF5_C_COMPILER_EXECUTABLE}
+  )
 endif()
 
-set(DYABLO_CXX_COMPILER  ${KOKKOS_CXX_COMPILER} CACHE STRING "compiler used to build dyablo (should be the same as KOKKOS_CXX_COMPILER)")
-
 # default arguments - common to all platform
-list (APPEND DYABLO_CMAKE_ARGS
+list (APPEND DYABLO_CMAKE_ARGS_
   -DCMAKE_CXX_COMPILER=${DYABLO_CXX_COMPILER}
   -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-  -DDYABLO_USE_HDF5=${DYABLO_USE_HDF5}
-  -DHDF5_C_COMPILER_EXECUTABLE=${HDF5_C_COMPILER_EXECUTABLE}
-  -DDYABLO_USE_MPI=${DYABLO_USE_MPI}
-  -DMPI_C_COMPILER=${MPI_C_COMPILER}
-  -DMPI_CXX_COMPILER=${MPI_CXX_COMPILER}
-  -DDYABLO_USE_MPI_CUDA_AWARE_ENFORCED=${DYABLO_USE_MPI_CUDA_AWARE_ENFORCED}
-  -DDYABLO_USE_PNETCDF=${DYABLO_USE_PNETCDF}
-  -DDYABLO_USE_VTK=${DYABLO_USE_VTK}  
-  -DDYABLO_USE_DOUBLE=${DYABLO_USE_DOUBLE}
-  -DDYABLO_USE_FPE_DEBUG=${DYABLO_USE_FPE_DEBUG}
-  -DDYABLO_BUILD_DOC=${DYABLO_BUILD_DOC}
-  -DDYABLO_DOC=${DYABLO_DOC}
   -DDYABLO_ENABLE_UNIT_TESTING=${DYABLO_ENABLE_UNIT_TESTING}
-  -DDYABLO_BUILD_EXPERIMENTS=${DYABLO_BUILD_EXPERIMENTS}
-  -DBITPIT_DIR=${MY_BITPIT_DIR}
-  )
+  -DDYABLO_USE_MPI=${DYABLO_USE_MPI}
+  -DDYABLO_USE_HDF5=${DYABLO_USE_HDF5}
+  -DDYABLO_USE_MPI_CUDA_AWARE_ENFORCED=${DYABLO_USE_MPI_CUDA_AWARE_ENFORCED}
+  -DDYABLO_USE_INTERNAL_KOKKOS=${DYABLO_USE_INTERNAL_KOKKOS}
+  -DKokkos_ENABLE_CUDA=${Kokkos_ENABLE_CUDA}
+  -DBITPIT_DIR=${DYABLO_BITPIT_DIR}
+  -DKokkos_DIR=${DYABLO_KOKKOS_DIR}
+)
 
-# if Kokkos was not found in the first place, it means we built it (see above),
-# so instruct dyablo with the path to Kokkos
-if ( (NOT Kokkos_FOUND) OR FORCE_KOKKOS_BUILD )
-  list (APPEND DYABLO_CMAKE_ARGS
-    -DKokkos_DIR=${PROJECT_BINARY_DIR}/external/Install/kokkos_external/${CMAKE_INSTALL_LIBDIR}/cmake/Kokkos)
-endif()
-
-#
-#
-# build dyablo
-#
-#
+# Build dyablo
 ExternalProject_Add (dyablo
-  DEPENDS ${DEPENDENCIES}
+  DEPENDS ${DYABLO_EXTERNALPROJECT_DEPENDENCIES}
   BUILD_ALWAYS TRUE
   SOURCE_DIR ${PROJECT_SOURCE_DIR}/core
-  CMAKE_ARGS ${DYABLO_CMAKE_ARGS}
+  CMAKE_ARGS ${DYABLO_CMAKE_ARGS_}
   INSTALL_COMMAND ""
   BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/dyablo)
 
 # add target dyablo-test
 if (DYABLO_ENABLE_UNIT_TESTING)
-
   ExternalProject_Add_Step (dyablo test
     COMMAND           make test
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/dyablo
@@ -335,19 +170,14 @@ if (DYABLO_ENABLE_UNIT_TESTING)
     EXCLUDE_FROM_MAIN TRUE
     )
   ExternalProject_Add_StepTargets(dyablo test)
-
 endif()
 
-# add target dyablo-doc
-if (DYABLO_BUILD_DOC)
+message(  ${DYABLO_CMAKE_ARGS_} )
 
-  ExternalProject_Add_Step (dyablo doc
-    COMMAND           make doc
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/dyablo
-    COMMENT           "building dyablo doc"
-    ALWAYS            TRUE
-    EXCLUDE_FROM_MAIN TRUE
-  )
-  ExternalProject_Add_StepTargets(dyablo doc)
+message( WARNING "This is not an error, just a reminder: 
+CMake superbuild is meant to help you setup dyablo by compiling dependencies (PABLO, etc...) before configuring the actual Dyablo cmake project.
+CMake variables are not forwarded to the actual Dyablo CMake project : if you wish to setup dyablo with custom variables (such as CMAKE_CXX_FLAGS), you need to modify the CMakeCache (with cmake-gui or ccmake for instance) from subdirectory ${CMAKE_CURRENT_BINARY_DIR}/dyablo" )
 
+if( CMAKE_CXX_FLAGS )
+  message( FATAL_ERROR "CMAKE_CXX_FLAGS is not forwarded to Dyablo subproject : see warning above" )
 endif()
