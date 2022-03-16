@@ -34,13 +34,18 @@ bool BaseFactory::init()
   return true;
 }
 
-TEST(dyablo, test_RegisteringFactory)
+TEST( Test_RegisteringFactory, same_compile_unit )
 {
   std::unique_ptr<Base> p_int = BaseFactory::make_instance("int", 5);
   std::unique_ptr<Base> p_double = BaseFactory::make_instance("double", 3.5);
+
+  EXPECT_DOUBLE_EQ( 5, p_int->test() );
+  EXPECT_DOUBLE_EQ( 3.5, p_double->test() );
+}
+
+TEST( Test_RegisteringFactory, different_compile_unit )
+{
   std::unique_ptr<Base> p_double2 = BaseFactory::make_instance("double2", 4);
 
-  EXPECT_EQ( 5, p_int->test() );
-  EXPECT_DOUBLE_EQ( 3.5, p_double->test() );
   EXPECT_DOUBLE_EQ( 4.5, p_double2->test() );
 }
