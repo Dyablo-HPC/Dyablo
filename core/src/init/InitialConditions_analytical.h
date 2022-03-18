@@ -68,7 +68,7 @@ public:
         ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
         U  = foreach_cell.allocate_ghosted_array( "U" , fieldMgr );
 
-        Kokkos::View<bool*> markers( "InitialConditions_analytical::markers", nbOcts );
+        Kokkos::View<int*> markers( "InitialConditions_analytical::markers", nbOcts );
         // Apply refine condition given by AnalyticalFormula::need_refine for each cell
         // An octant needs to be refined if at least one cell verifies the condition
         foreach_cell.foreach_cell( "InitialConditions_analytical::mark_octants", U,
@@ -77,9 +77,9 @@ public:
             ForeachCell::CellMetaData::pos_t c = cellmetadata.getCellCenter(iCell_U);
             ForeachCell::CellMetaData::pos_t s = cellmetadata.getCellSize(iCell_U);
 
-            bool need_refine = analytical_formula.need_refine( c[IX], c[IY], c[IZ], s[IX], s[IY], s[IZ] );
+            int need_refine = analytical_formula.need_refine( c[IX], c[IY], c[IZ], s[IX], s[IY], s[IZ] );
             
-            Kokkos::atomic_or( &markers(iCell_U.iOct.iOct), need_refine );
+            Kokkos::atomic_fetch_or( &markers(iCell_U.iOct.iOct), need_refine );
         });
 
         // Copy computed markers to pmesh

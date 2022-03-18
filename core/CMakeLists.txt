@@ -1,121 +1,85 @@
 # set minimal version the one requested by kokkos
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.16)
 
-if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
-  message(STATUS "Setting policy CMP0076, CMP0079 to use new behavior")
-  cmake_policy(SET CMP0076 NEW)
-  cmake_policy(SET CMP0079 NEW)
-endif()
+project(dyablo C CXX)
 
-set(PROJECT_LANGUAGES ${PROJECT_LANGUAGES} C CXX)
-project(dyablo
-  LANGUAGES ${PROJECT_LANGUAGES})
-
-#
 # default local cmake macro repository
-#
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-
-#
 # Prevent from build in source tree
-#
 include(preventBuildInSource)
-
-#
 # Write a small header with build data, git version, etc...
-#
 include(write_version)
-
-#
 # Init build type: Release, Debug, ...
-#
 include(initBuildType)
-
 # always export compile commands database
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# dyablo options are defined in top level CMakeLists.txt
+include(FetchContent)
 
 # C++14 is for Kokkos
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-#
-# dyablo options
-#
-# if CUDA is enable, you need to be careful about the version of boost
+# dyablo options from Superbuild
 option (DYABLO_ENABLE_UNIT_TESTING "Enable unit testing" OFF)
+option (DYABLO_USE_MPI "Activate / want MPI build" ON)
+option (DYABLO_USE_HDF5 "build HDF5 input/output support" ON)
+option (DYABLO_USE_MPI_CUDA_AWARE_ENFORCED "Some MPI cuda-aware implementation are not well detected; use this to enforce" OFF)
+option (DYABLO_USE_INTERNAL_KOKKOS "Use internal Kokkos from external/kokkos" ON)
+option (Kokkos_ENABLE_CUDA   "enable Kokkos::Cuda backend" OFF)
+set    (BITPIT_DIR "BITPIT package directory" CACHE PATH ""  )
+set    (Kokkos_DIR "Kokkos installation directory or internal source" CACHE PATH ""  )
+
+
+# Options not forwarded from superbuild
 option (DYABLO_BUILD_EXPERIMENTS "Build optional experiments from core/test" OFF)
 option (DYABLO_BUILD_DOC  "Enable / disable documentation build" OFF)
 set    (DYABLO_DOC "doxygen" CACHE STRING "documentation type (doxygen or mkdocs)")
-option (DYABLO_USE_MPI "Activate / want MPI build" ON)
-option (DYABLO_USE_VTK "Activate / want VTK build" OFF)
 option (DYABLO_USE_DOUBLE "build with double precision" ON)
-#option (USE_MOOD "build MOOD numerical schemes" OFF)
-#option (USE_SDM "build Spectral Difference Method numerical schemes" OFF)
-option (DYABLO_USE_HDF5 "build HDF5 input/output support" ON)
-option (DYABLO_USE_PNETCDF "build PNETCDF input/output support (MPI required)" OFF)
 option (DYABLO_USE_FPE_DEBUG "build with floating point Nan tracing (signal handler)" OFF)
-option (DYABLO_USE_MPI_CUDA_AWARE_ENFORCED "Some MPI cuda-aware implementation are not well detected; use this to enforce" OFF)
-option (Kokkos_ENABLE_CUDA  "enable Kokkos::Cuda backend" OFF)
+option (Kokkos_ENABLE_OPENMP "enable Kokkos::OpenMP backend" ON)
+set (Kokkos_ENABLE_CUDA_LAMBDA ${Kokkos_ENABLE_CUDA} CACHE BOOL "Enable use of cuda lambdas" FORCE)
 
-
-#####################################################################
-# External packages: MPI, ...
-#####################################################################
 
 #####################################################################
 # BitPit
 #####################################################################
 find_package(BITPIT REQUIRED)
 # create imported target for bitpit library
-if (BITPIT_FOUND)
-  if(NOT TARGET BITPIT::BITPIT)
-    get_filename_component(LIB_EXT "${BITPIT_LIBRARY}" EXT)
-    if(LIB_EXT STREQUAL ".a" OR LIB_EXT STREQUAL ".lib")
-      set(LIB_TYPE STATIC)
-    else()
-      set(LIB_TYPE SHARED)
-    endif()
-    add_library(BITPIT::BITPIT ${LIB_TYPE} IMPORTED GLOBAL)
-    set(_tmp_dep_libs "${BITPIT_LIBRARIES}")
-    list(REMOVE_DUPLICATES _tmp_dep_libs)
-    set_target_properties(BITPIT::BITPIT
-      PROPERTIES
-      IMPORTED_LOCATION "${BITPIT_LIBRARY}"
-      INTERFACE_INCLUDE_DIRECTORIES "${BITPIT_INCLUDE_DIRS}"
-      INTERFACE_LINK_LIBRARIES "${_tmp_dep_libs}")
+if(NOT TARGET BITPIT::BITPIT)
+  get_filename_component(LIB_EXT "${BITPIT_LIBRARY}" EXT)
+  if(LIB_EXT STREQUAL ".a" OR LIB_EXT STREQUAL ".lib")
+    set(LIB_TYPE STATIC)
+  else()
+    set(LIB_TYPE SHARED)
   endif()
-endif(BITPIT_FOUND)
+  add_library(BITPIT::BITPIT ${LIB_TYPE} IMPORTED GLOBAL)
+  set(_tmp_dep_libs "${BITPIT_LIBRARIES}")
+  list(REMOVE_DUPLICATES _tmp_dep_libs)
+  set_target_properties(BITPIT::BITPIT
+    PROPERTIES
+    IMPORTED_LOCATION "${BITPIT_LIBRARY}"
+    INTERFACE_INCLUDE_DIRECTORIES "${BITPIT_INCLUDE_DIRS}"
+    INTERFACE_LINK_LIBRARIES "${_tmp_dep_libs}")
+endif()
 
 #####################################################################
 # Kokkos
 #####################################################################
-find_package(Kokkos 3.1 REQUIRED)
-if(Kokkos_ENABLE_CUDA)
-  # kokkos_check is defined in KokkosConfigCommon.cmake
-  kokkos_check(OPTIONS CUDA_LAMBDA)
-endif()
-
-set(COMPILER_IS_NVCC_WRAPPER false)
-get_filename_component(COMPILER_NAME ${CMAKE_CXX_COMPILER} NAME)
-if (COMPILER_NAME MATCHES "^nvcc_wrapper")
-  set(COMPILER_IS_NVCC_WRAPPER true)
-  message(STATUS "Compiler is Kokkos's nvcc_wrapper")
-endif()
-
-# HostOnly interface to force nvcc_wrapper to use only host compiler
-# When using nvcc_wrapper, each file must depend either on HostOnly or 
-# Kokkos::kokkos targets to avoid "sm_35 deprecated" warning 
-# (Kokkos::kokkos enables architecture specific optims (-march=), HostOnly doesn't)
-add_library(HostOnly INTERFACE)
-if( COMPILER_IS_NVCC_WRAPPER )
-  target_compile_options(HostOnly INTERFACE --host-only)
-  # TODO allow configuration of host compiler with nvcc_wrapper
-  #if( CMAKE_CUDA_HOST_COMPILER )
-  #  target_compile_options(HostOnly INTERFACE -ccbin ${CMAKE_CUDA_HOST_COMPILER})
-  #  target_compile_options(Kokkos::kokkoscore INTERFACE -ccbin ${CMAKE_CUDA_HOST_COMPILER}) 
-  #endif()
+if( DYABLO_USE_INTERNAL_KOKKOS )
+  FetchContent_Declare( kokkos_external
+    SOURCE_DIR ${Kokkos_DIR}
+  )
+  # Import kokkos targets
+  FetchContent_MakeAvailable(kokkos_external)
+else( DYABLO_USE_INTERNAL_KOKKOS )
+  find_package( Kokkos 3.5 REQUIRED )
+  kokkos_check( DEVICES "OpenMP" )
+  if(Kokkos_ENABLE_CUDA)
+    # kokkos_check is defined in KokkosConfigCommon.cmake
+    kokkos_check( DEVICES "Cuda" )
+    kokkos_check( OPTIONS CUDA_LAMBDA)
+  endif()
 endif()
 
 #####################################################################
@@ -171,28 +135,6 @@ if (DYABLO_USE_MPI)
   endif()
 endif()
 
-
-#####################################################################
-# VTK configuration tips, see
-# /usr/lib/cmake/vtk-6.2/VTKConfig.cmake
-# /usr/lib/cmake/vtk-6.2/UseVTK.cmake
-#####################################################################
-if (DYABLO_USE_VTK)
-  # look for VTK only if requested; VTK macro might even be not present
-  # on the target platform
-  find_package(VTK)
-  
-  # the following add VTK to all targets
-  # if(VTK_FOUND)
-  #   include(${VTK_USE_FILE})
-  # endif(VTK_FOUND)
-  if (VTK_FOUND)
-    message("***VTK FOUND ${VTK_MAJOR_VERSION}.${VTK_MINOR_VERSION}")
-  else()
-    message ("*** VTK NOT FOUND")
-  endIF()
-endif(DYABLO_USE_VTK)
-
 #####################################################################
 # HDF5
 #####################################################################
@@ -214,34 +156,24 @@ if (DYABLO_USE_HDF5)
 endif(DYABLO_USE_HDF5)
 
 #####################################################################
-# PNETCDF
+# Backward-cpp
 #####################################################################
-if (DYABLO_USE_MPI)
-  if (DYABLO_USE_PNETCDF)
-    find_package(PNETCDF)
-    if (PNETCDF_FOUND)
-      add_compile_options(-DDYABLO_USE_PNETCDF)
-      include_directories(${PNETCDF_INCLUDE_DIRS})
-    endif(PNETCDF_FOUND)
-  endif(DYABLO_USE_PNETCDF)
-endif(DYABLO_USE_MPI)  
+FetchContent_Declare( backward-cpp_external
+  SOURCE_DIR ${PROJECT_SOURCE_DIR}/../external/backward-cpp
+)
+# Import kokkos targets
+FetchContent_MakeAvailable(backward-cpp_external)
 
-#
 # common flags
-#
-
 if (Kokkos_ENABLE_CUDA)
   add_compile_options(-DCUDA)
 endif()
-
 if (DYABLO_USE_DOUBLE)
   add_compile_options(-DDYABLO_USE_DOUBLE)
 endif()
-
 if (DYABLO_USE_MPI)
   add_compile_options(-DDYABLO_USE_MPI)    
 endif()
-
 if (DYABLO_USE_FPE_DEBUG)
   add_compile_options(-DDYABLO_USE_FPE_DEBUG)
 endif()
@@ -254,25 +186,11 @@ endif()
 #add_definitions( -Wall -Wextra )
 add_definitions( -Wall )
 
-#
-# sources
-#
-add_subdirectory(../external/backward-cpp external/backward-cpp)
-# Add Kokkos to set correct nvcc_wrapper flags
-target_link_libraries(backward_object INTERFACE HostOnly)
-target_link_libraries(backward INTERFACE HostOnly)
-
-#add_subdirectory(../external/kokkos external/kokkos)
-
-# pass Kokkos include directories to our target application
-#include_directories(${Kokkos_INCLUDE_DIRS_RET})
-
 if( DYABLO_BUILD_EXPERIMENTS )
 add_subdirectory(test)
 else()
 add_subdirectory(test/solver)
 endif()
-
 
 add_subdirectory(src)
 
@@ -312,14 +230,6 @@ if (Kokkos_FOUND)
   message("  Kokkos_ENABLE_CUDA_UVM=${Kokkos_ENABLE_CUDA_UVM}")
   message("  Kokkos_ARCH=${Kokkos_ARCH}")
 endif(Kokkos_FOUND)
-
-if (Kokkos_ENABLE_CUDA)
-  message("  CUDA Compiler      : ${CMAKE_CUDA_COMPILER}")
-  message("  CUDA Compiler exec : ${CUDA_NVCC_EXECUTABLE}")
-  message("  CUDA Compile flags : ${CUDA_NVCC_FLAGS}")
-else(Kokkos_ENABLE_CUDA)
-  message("  CUDA not enabled")
-endif(Kokkos_ENABLE_CUDA)
 if (DYABLO_USE_HDF5)
   if (HDF5_FOUND)
     message("  HDF5 found version    : ${HDF5_VERSION}")

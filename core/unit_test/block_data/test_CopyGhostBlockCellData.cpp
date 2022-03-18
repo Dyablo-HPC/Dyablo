@@ -29,7 +29,7 @@
 
 using Device = Kokkos::DefaultExecutionSpace;
 
-#include <boost/test/unit_test.hpp>
+#include "gtest/gtest.h"
 
 namespace dyablo
 {
@@ -868,8 +868,9 @@ void run_test()
       uint32_t index = ix + bx_g * iy + bx_g * by_g * iz;
       real_t& actual = UgroupHost(index, fm[IP], iOct_local);
 
-      BOOST_CHECK_CLOSE(actual, expected, 0.0001);      
-      
+      //EXPECT_NEAR(actual, expected, 0.0001);      
+      EXPECT_DOUBLE_EQ(actual, expected);
+
       //// ---------------------- Debug prints ------------------------
       if( actual != expected )
       {
@@ -903,20 +904,13 @@ void run_test()
 
 } // namespace dyablo
 
-BOOST_AUTO_TEST_SUITE(dyablo)
 
-BOOST_AUTO_TEST_SUITE(muscl_block)
-
-BOOST_AUTO_TEST_CASE(test_CopyGhostBlockCellData_2D)
+TEST(dyablo, test_CopyGhostBlockCellData_2D)
 {
-  run_test<2>();
+  dyablo::run_test<2>();
 }
 
-BOOST_AUTO_TEST_CASE(test_CopyGhostBlockCellData_3D)
+TEST(dyablo, test_CopyGhostBlockCellData_3D)
 {
-  run_test<3>();
+  dyablo::run_test<3>();
 }
-
-BOOST_AUTO_TEST_SUITE_END() /* muscl_block */
-
-BOOST_AUTO_TEST_SUITE_END() /* dyablo */

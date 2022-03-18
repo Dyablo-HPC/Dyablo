@@ -1,16 +1,13 @@
 #####################################################################
-# Boost (for unit testing)
-# Note : we only check for boost if unit testing is enabled
+# Fetch Google test
 #####################################################################
-find_package(Boost 1.65 REQUIRED COMPONENTS unit_test_framework)
 
-message(" BOOST found : ${Boost_FOUND}")
-if (Boost_FOUND)
-  message(" BOOST version   : ${Boost_VERSION}")
-  message(" BOOST inc dirs  : ${Boost_INCLUDE_DIRS}")
-  message(" BOOST lib dirs  : ${Boost_LIBRARY_DIRS}")
-  message(" BOOST libraries : ${Boost_LIBRARIES}")
-endif(Boost_FOUND)
+include(FetchContent)
+FetchContent_Declare(
+  googletest
+  SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../external/gtest
+)
+FetchContent_MakeAvailable(googletest)
 
 #####################################################################
 #
@@ -27,10 +24,6 @@ function(dyablo_add_test UNIT_TEST_NAME TEST_MPI)
   target_sources(${UNIT_TEST_NAME} PRIVATE
     ${ARGN})
 
-  # this is necessary to have BOOST_TEST_ALTERNATIVE_INIT_API
-  # and thus being able to initialize with empty function init_function
-  target_compile_definitions(${UNIT_TEST_NAME} PRIVATE BOOST_TEST_DYN_LINK)
-
   target_link_libraries(${UNIT_TEST_NAME} PUBLIC
     dyablo_core
     config
@@ -38,7 +31,7 @@ function(dyablo_add_test UNIT_TEST_NAME TEST_MPI)
     dl
     monitoring
     BITPIT::BITPIT
-    Boost::unit_test_framework)
+    gtest)
 
   if (DYABLO_USE_MPI)
     target_compile_definitions(${UNIT_TEST_NAME} PUBLIC BITPIT_ENABLE_MPI)
@@ -67,8 +60,8 @@ endfunction(dyablo_add_test)
 # here we create our tests
 #
 #####################################################################
-dyablo_add_test(tst_shared_MortonUtils OFF
-  shared/morton_utils_test.cpp
+dyablo_add_test(utest_morton_utils OFF
+  shared/test_morton_utils.cpp
   main.cpp)
 
   if(NOT Kokkos_ENABLE_CUDA)

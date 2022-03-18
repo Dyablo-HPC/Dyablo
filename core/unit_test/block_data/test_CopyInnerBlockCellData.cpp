@@ -21,8 +21,7 @@
 
 using Device = Kokkos::DefaultExecutionSpace;
 
-#include <boost/test/unit_test.hpp>
-using namespace boost::unit_test;
+#include "gtest/gtest.h"
 
 
 namespace dyablo
@@ -78,7 +77,7 @@ void init_U(DataArrayBlock U,
 
 // =======================================================================
 // =======================================================================
-void run_test(int argc, char *argv[], uint32_t bSize, uint32_t nbBlocks)
+void run_test(uint32_t bSize, uint32_t nbBlocks)
 {
 
   /*
@@ -214,7 +213,7 @@ void run_test(int argc, char *argv[], uint32_t bSize, uint32_t nbBlocks)
             iy < ghostWidth + by )
         {
           uint32_t uindex = (ix-ghostWidth) + bx * (iy-ghostWidth);
-          BOOST_CHECK_CLOSE(Ugroup(index, fm[ID], iOctOffset),
+          EXPECT_NEAR(Ugroup(index, fm[ID], iOctOffset),
                             U(uindex, fm[ID], iOct),
                             0.1);
         }
@@ -232,22 +231,12 @@ void run_test(int argc, char *argv[], uint32_t bSize, uint32_t nbBlocks)
 
 } // namespace dyablo
 
-BOOST_AUTO_TEST_SUITE(dyablo)
-
-BOOST_AUTO_TEST_SUITE(muscl_block)
-
-BOOST_AUTO_TEST_CASE(test_CopyGhostBlockCellData)
+TEST(dyablo, test_CopyGhostBlockCellData)
 {
 
   uint32_t bSize = 4;
   uint32_t nbBlocks = 32;
 
-  run_test(framework::master_test_suite().argc,
-           framework::master_test_suite().argv,
-           bSize, nbBlocks);
+  dyablo::run_test(bSize, nbBlocks);
 
 }
-
-BOOST_AUTO_TEST_SUITE_END() /* muscl_block */
-
-BOOST_AUTO_TEST_SUITE_END() /* dyablo */

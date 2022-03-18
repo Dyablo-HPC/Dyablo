@@ -10,7 +10,7 @@
  */
 
 
-#include <boost/test/unit_test.hpp>
+#include "gtest/gtest.h"
 
 #include "legacy/MapUserData.h"
 
@@ -176,9 +176,9 @@ void run_test(int ndim)
 
     std::cout << "Check Unew ( nbOcts=" << nbOcts << ")" << std::endl;
 
-    BOOST_CHECK_EQUAL(Unew.U.extent(0), nbCellsPerOct);
-    BOOST_CHECK_EQUAL(Unew.U.extent(1), nbfields);
-    BOOST_CHECK_EQUAL(Unew.U.extent(2), nbOcts);
+    EXPECT_EQ(Unew.U.extent(0), nbCellsPerOct);
+    EXPECT_EQ(Unew.U.extent(1), nbfields);
+    EXPECT_EQ(Unew.U.extent(2), nbOcts);
 
     auto Unew_host = Kokkos::create_mirror_view(Unew.U);
     Kokkos::deep_copy(Unew_host, Unew.U);
@@ -211,9 +211,9 @@ void run_test(int ndim)
           expected_z = oct_size_initial/(2*bz);
 
 
-        BOOST_CHECK_CLOSE( Unew_host(c, IX, iOct), expected_x , 0.0001);
-        BOOST_CHECK_CLOSE( Unew_host(c, IY, iOct), expected_y , 0.0001);
-        BOOST_CHECK_CLOSE( Unew_host(c, IZ, iOct), expected_z , 0.0001);
+        EXPECT_NEAR( Unew_host(c, IX, iOct), expected_x , 0.0001);
+        EXPECT_NEAR( Unew_host(c, IY, iOct), expected_y , 0.0001);
+        EXPECT_NEAR( Unew_host(c, IZ, iOct), expected_z , 0.0001);
       }
     }
   }
@@ -224,24 +224,16 @@ void run_test(int ndim)
 
 } // namespace dyablo
 
-BOOST_AUTO_TEST_SUITE(dyablo)
-
-BOOST_AUTO_TEST_SUITE(muscl_block)
-
-BOOST_AUTO_TEST_CASE(test_MapUserData_2D)
+TEST(dyablo, test_MapUserData_2D)
 {
 
-  run_test(2);
+  dyablo::run_test(2);
 
 }
 
-BOOST_AUTO_TEST_CASE(test_MapUserData_3D)
+TEST(dyablo, test_MapUserData_3D)
 {
 
-  run_test(3);
+  dyablo::run_test(3);
 
 }
-
-BOOST_AUTO_TEST_SUITE_END() /* muscl_block */
-
-BOOST_AUTO_TEST_SUITE_END() /* dyablo */
