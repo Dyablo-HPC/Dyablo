@@ -20,12 +20,7 @@
  * borders because of boundary conditions. 
  */
 
-//https://github.com/boostorg/test/issues/220
-#if defined(__NVCC__)
-#define BOOST_PP_VARIADICS 1
-#endif
-#include <boost/test/unit_test.hpp>
-
+#include "gtest/gtest.h"
 #include "amr/AMRmesh.h"
 #include "mpi/GhostCommunicator.h"
 #include "gravity/GravitySolver_cg.h"
@@ -35,7 +30,6 @@ namespace dyablo {
 namespace constants{
   constexpr double Pi = 3.14;
 }
-namespace muscl_block {
 
 //https://arxiv.org/pdf/1712.07070.pdf , Appendix A
 struct Hernquist{
@@ -309,7 +303,7 @@ void test_GravitySolver( std::shared_ptr<AMRmesh> amr_mesh )
         real_t Phi_err = std::abs(Phi_ana-Phi_num)/std::abs(Phi_ana);
 
         if( r2 < rcore*rcore )
-          BOOST_TEST( Phi_ana == Phi_num, boost::test_tools::tolerance(1E-2) );
+          EXPECT_NEAR( Phi_ana, Phi_num, 1E-2 );
         U_host(c, fm[IGPHI], iOct) = U_host(c, fm[IGPHI], iOct);
         U_host(c, fm[IGX], iOct) = Phi_ana;
         U_host(c, fm[IGY], iOct) = Phi_num;
@@ -325,20 +319,21 @@ void test_GravitySolver( std::shared_ptr<AMRmesh> amr_mesh )
   
 }
 
-} // namespace muscl_block
 } // namespace dyablo
 
-BOOST_AUTO_TEST_SUITE(dyablo)
-BOOST_AUTO_TEST_SUITE(muscl_block)
-BOOST_AUTO_TEST_SUITE(test_GravitySolver_cg)
+#include <future>
 
-BOOST_AUTO_TEST_CASE(Hernquist, * boost::unit_test::timeout(120))
+TEST(Test_GravitySolver_cg, mesh_amrgrid_semiperiodic_sphere)
 {
-  dyablo::muscl_block::test_GravitySolver(dyablo::muscl_block::mesh_amrgrid_semiperiodic_sphere());
-}
+  // Launch with std::async to avoid infinite loop since conjuguate gradient is an iterative process that may not converge
+  int timeout_seconds = 100;
+  auto test_run_future = std::async(std::launch::async, 
+    []() 
+  {
+    dyablo::test_GravitySolver(dyablo::mesh_amrgrid_semiperiodic_sphere());
+  });
 
-BOOST_AUTO_TEST_SUITE_END() /* test_GravitySolver_cg */
-BOOST_AUTO_TEST_SUITE_END() /* muscl_block */
-BOOST_AUTO_TEST_SUITE_END() /* dyablo */
+  EXPECT_TRUE(test_run_future.wait_for(std::chrono::seconds(timeout_seconds)) != std::future_status::timeout) << "Timeout " << timeout_seconds << " s";
+}
 
 
