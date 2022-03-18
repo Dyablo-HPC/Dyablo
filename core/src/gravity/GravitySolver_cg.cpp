@@ -16,6 +16,9 @@ struct GravitySolver_cg::Data{
   real_t xmax, ymax, zmax;
 
   Kokkos::Array<BoundaryConditionType, 3> boundarycondition;
+
+  real_t gravity_constant = 1;
+  real_t CG_eps;
 };
 
 GravitySolver_cg::GravitySolver_cg(
@@ -36,7 +39,9 @@ GravitySolver_cg::GravitySolver_cg(
         configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_ABSORBING),
         configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymin", BC_ABSORBING),
         configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmin", BC_ABSORBING)
-      }
+      },
+      configMap.getValue<real_t>("gravity", "4_Pi_G", 1.0), // 4*Pi*G
+      configMap.getValue<real_t>("gravity", "CG_eps", 1E-3)  // target ||r||/||b|| for conjugate gradient
     })
 {
 
@@ -152,8 +157,8 @@ void GravitySolver_cg::update_gravity_field(
   Kokkos::Array<BoundaryConditionType, 3> boundarycondition = pdata->boundarycondition;
   GhostCommunicator ghost_comm(std::shared_ptr<AMRmesh>(&foreach_cell.get_amr_mesh(), [](AMRmesh*){}));
 
-  real_t gravity_constant = 1;// 4 pi G
-  real_t eps = 1E-3; // sqrt( mean square diff )
+  real_t gravity_constant = pdata->gravity_constant;
+  real_t eps = pdata->CG_eps;
 
   ForeachCell::CellMetaData cells = foreach_cell.getCellMetaData();
 
