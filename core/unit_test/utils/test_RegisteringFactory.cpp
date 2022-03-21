@@ -34,6 +34,16 @@ bool BaseFactory::init()
   return true;
 }
 
+TEST( Test_RegisteringFactory, available_ids_count )
+{
+  auto ids = BaseFactory::get_available_ids();
+  EXPECT_EQ( 3, ids.size() );
+
+  std::cout << "ids: " << std::endl;
+  for(size_t i=0; i<ids.size(); i++)
+    std::cout << "\'" << ids[i] << "\'" << std::endl;
+}
+
 TEST( Test_RegisteringFactory, same_compile_unit )
 {
   std::unique_ptr<Base> p_int = BaseFactory::make_instance("int", 5);
