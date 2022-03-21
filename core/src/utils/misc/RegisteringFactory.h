@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <map>
+#include <vector>
 #include <string>
 #include <utility>
 #include <stdexcept>
@@ -39,6 +40,16 @@ public:
    * ```
    **/
   static bool init();
+
+  /// List all available IDs for this factory
+  static std::vector<std::string> get_available_ids()
+  {
+    std::vector<std::string> res;
+    auto& constructs = get_constructs(); 
+    for(auto& p : constructs)
+      res.push_back( p.first );
+    return res;
+  }
 
   /**
    * Construct an instance of BaseType with the actual dynamic type corresponding to the id registered with FACTORY_REGISTER
