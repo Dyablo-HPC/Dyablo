@@ -130,6 +130,22 @@ run_all::cuda_4mpi:
 
 # Run separate testcases
 # -------------------------
+run::gravity_spheres_3D::openmp_4mpi:
+  extends:  
+    - .run_template
+    - .openmp_template
+  script: 
+    - .gitlab-ci/run_testcase_mpi.sh test_gravity_spheres_3D.ini 4
+    - .gitlab-ci/render.sh visu_gravity_spheres_3D.pvsm
+
+run::gravity_spheres_3D::cuda_4mpi:
+  extends:  
+    - .run_template
+    - .cuda_template
+  script: 
+    - .gitlab-ci/run_testcase_mpi.sh test_gravity_spheres_3D.ini 4
+    - .gitlab-ci/render.sh visu_gravity_spheres_3D.pvsm
+
 # Blast 3D block based testcase
 run::blast_3D_block::openmp:
   extends:  
