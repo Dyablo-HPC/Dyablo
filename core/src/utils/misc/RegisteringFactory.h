@@ -44,6 +44,8 @@ public:
   /// List all available IDs for this factory
   static std::vector<std::string> get_available_ids()
   {
+    init();
+
     std::vector<std::string> res;
     auto& constructs = get_constructs(); 
     for(auto& p : constructs)
