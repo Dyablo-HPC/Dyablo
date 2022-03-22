@@ -222,6 +222,23 @@ run::blast_2D_cell::openmp_4mpi:
     - .gitlab-ci/run_testcase_mpi.sh test_blast_2D.ini 4
     - .gitlab-ci/render.sh visu_blast_2D_cell.pvsm
 
+# Riemann 2D
+run::riemann2d::openmp:
+  extends:
+    - .run_template
+    - .openmp_template
+  script: 
+    - .gitlab-ci/run_testcase.sh test_riemann_2D.ini
+    - .gitlab-ci/render.sh visu_riemann_2D_cell.pvsm
+
+run::riemann2d::cuda:
+  extends:
+    - .run_template
+    - .cuda_template
+  script: 
+    - .gitlab-ci/run_testcase.sh test_riemann_2D.ini
+    - .gitlab-ci/render.sh visu_riemann_2D_cell.pvsm
+
 
 # Read ci/Readme.md for instructions on how to add new testcases
 
