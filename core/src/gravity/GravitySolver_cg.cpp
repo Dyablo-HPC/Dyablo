@@ -19,6 +19,7 @@ struct GravitySolver_cg::Data{
 
   real_t gravity_constant = 1;
   real_t CG_eps;
+  bool print_cg_iter;
 };
 
 GravitySolver_cg::GravitySolver_cg(
@@ -41,7 +42,8 @@ GravitySolver_cg::GravitySolver_cg(
         configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmin", BC_ABSORBING)
       },
       configMap.getValue<real_t>("gravity", "4_Pi_G", 1.0), // 4*Pi*G
-      configMap.getValue<real_t>("gravity", "CG_eps", 1E-3)  // target ||r||/||b|| for conjugate gradient
+      configMap.getValue<real_t>("gravity", "CG_eps", 1E-3),  // target ||r||/||b|| for conjugate gradient
+      configMap.getValue<bool>("gravity", "print_cg_iter", false) 
     })
 {
 
@@ -201,8 +203,9 @@ void GravitySolver_cg::update_gravity_field(
   R = MPI_Allreduce_scalar(R);
   B = MPI_Allreduce_scalar(B);
   r_dot_z = MPI_Allreduce_scalar(r_dot_z);
-    
-  std::cout << "GC : " << R << "...";
+  
+  if(pdata->print_cg_iter)
+    std::cout << "GC : " << R << "...";
   // Conjugate gradient iteration
   int it=0;
   while( R/B > eps*eps )
@@ -263,7 +266,8 @@ void GravitySolver_cg::update_gravity_field(
     R = Rnext;
     r_dot_z = r_dot_z_next;
   }
-  std::cout << R << " : " << it << " iter" << std::endl;
+  if(pdata->print_cg_iter)
+    std::cout << R << " : " << it << " iter" << std::endl;
   // Communicate ghosts for CG_PHI
   // TODO : exchange only CG_PHI 
   CGdata.exchange_ghosts(ghost_comm);
@@ -277,14 +281,14 @@ void GravitySolver_cg::update_gravity_field(
 
     auto gradient = [&](ComponentIndex3D dir)
     {
-      real_t phy_C = CGdata.at(iCell_CGdata, CG_PHI);
-      Uout.at(iCell_Uout, IGPHI) = phy_C;
+      real_t phi_C = CGdata.at(iCell_CGdata, CG_PHI);
+      Uout.at(iCell_Uout, IGPHI) = phi_C;
       CellIndex::offset_t off_L = {}; off_L[dir] = -1;
       CellIndex::offset_t off_R = {}; off_R[dir] = +1;
       CellIndex iCell_L = iCell_CGdata.getNeighbor_ghost(off_L, CGdata);
       CellIndex iCell_R = iCell_CGdata.getNeighbor_ghost(off_R, CGdata);
-      real_t phy_L = get_value( CGdata, iCell_L, CG_PHI, off_L );
-      real_t phy_R = get_value( CGdata, iCell_R, CG_PHI, off_R );
+      real_t phi_L = get_value( CGdata, iCell_L, CG_PHI, off_L );
+      real_t phi_R = get_value( CGdata, iCell_R, CG_PHI, off_R );
 
       // If neighbor is bigger h (which was dx_small) becomes ( dx_small/2 + dx_big/2 = 3/2*dx_small )
       real_t hl = size[dir];
@@ -294,13 +298,13 @@ void GravitySolver_cg::update_gravity_field(
       if( iCell_R.level_diff()==1 ) hr *= 1.5;
       if( iCell_R.level_diff()==-1 ) hr *= 0.75;
       
-      real_t dphy_L = (phy_L - phy_C)/hl;
-      real_t dphy_R = (phy_C - phy_R)/hr;
+      real_t dphi_L = (phi_L - phi_C)/hl;
+      real_t dphi_R = (phi_C - phi_R)/hr;
 
-      if( boundarycondition[dir] == BC_ABSORBING && iCell_L.is_boundary() ) dphy_L = 0;
-      if( boundarycondition[dir] == BC_ABSORBING && iCell_R.is_boundary() ) dphy_R = 0;
+      if( boundarycondition[dir] == BC_ABSORBING && iCell_L.is_boundary() ) dphi_L = 0;
+      if( boundarycondition[dir] == BC_ABSORBING && iCell_R.is_boundary() ) dphi_R = 0;
 
-      Uout.at(iCell_Uout, (VarIndex)(IGX+dir)) = (dphy_L + dphy_R)/2; 
+      Uout.at(iCell_Uout, (VarIndex)(IGX+dir)) = (dphi_L + dphi_R)/2; 
     };
     gradient(IX);
     gradient(IY);
