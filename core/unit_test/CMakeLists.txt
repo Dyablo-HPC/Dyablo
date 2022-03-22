@@ -48,7 +48,9 @@ function(dyablo_add_test UNIT_TEST_NAME TEST_MPI)
     if(TEST_MPI)
       add_test(
         NAME "${UNIT_TEST_NAME}_MPI"
-        COMMAND ${MPIEXEC_EXECUTABLE} -np 3 ./${UNIT_TEST_NAME}
+        COMMAND cmake -E env
+          OMP_NUM_THREADS=4 
+          ${MPIEXEC_EXECUTABLE} -np 3 ./${UNIT_TEST_NAME}
         WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/unit_test/)
     endif()
   endif()
@@ -100,6 +102,10 @@ dyablo_add_test(utest_LoadBalance ON
   
 dyablo_add_test(utest_MapUserData OFF
   block_data/test_MapUserData.cpp
+  main.cpp)
+
+dyablo_add_test(utest_GravitySolver_cg ON
+  gravity/test_GravitySolver_cg.cpp
   main.cpp)
 
 

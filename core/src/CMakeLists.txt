@@ -5,6 +5,7 @@ set( core_src
     ${CMAKE_CURRENT_SOURCE_DIR}/hydro/HydroUpdate_generic.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/hydro/HydroUpdate_muscl_oneneighbor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gravity/GravitySolver_constant.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gravity/GravitySolver_cg.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/compute_dt/Compute_dt_generic.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/refine_condition/RefineCondition_second_derivative_error.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/refine_condition/RefineCondition_pseudo_gradient.cpp
@@ -54,4 +55,3 @@ endif (DYABLO_USE_HDF5)
 
 # config file reader / ConfigMap / monitoring timer
 add_subdirectory(utils)
-
