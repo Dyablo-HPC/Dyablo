@@ -9,7 +9,7 @@ namespace dyablo{
  * Based on Lecoanet et al "A validated non-linear kelvin-helmholtz benchmark for numerical 
  * hydrodynamics", 2016, Monthly Notices of the Royal Astronomy Society
  **/
-struct AnalyticalFormula_KH : public AnalyticalFormula_base{
+struct AnalyticalFormula_KelvinHelmholtz : public AnalyticalFormula_base{
   
   const int    ndim;
   const real_t gamma0;
@@ -28,7 +28,7 @@ struct AnalyticalFormula_KH : public AnalyticalFormula_base{
   const real_t P0;      // Base pressure
   const real_t uflow;   // Base horizontal velocity
 
-  AnalyticalFormula_KH( ConfigMap& configMap ) : 
+  AnalyticalFormula_KelvinHelmholtz( ConfigMap& configMap ) : 
     ndim(configMap.getValue<int>("mesh", "ndim", 2)),
     gamma0(configMap.getValue<real_t>("hydro","gamma0", 1.4)),
     smallr(configMap.getValue<real_t>("hydro","smallr", 1e-10)),
@@ -83,5 +83,5 @@ struct AnalyticalFormula_KH : public AnalyticalFormula_base{
 };
 } // namespace dyablo
 
-FACTORY_REGISTER(dyablo::InitialConditionsFactory, dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_KH>, "kelvin_helmholtz");
+FACTORY_REGISTER(dyablo::InitialConditionsFactory, dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_KelvinHelmholtz>, "kelvin_helmholtz");
 

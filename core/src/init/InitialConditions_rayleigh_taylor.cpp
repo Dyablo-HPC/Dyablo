@@ -11,7 +11,7 @@ namespace dyablo{
  * Based on the description of the Athena code :
  * https://www.astro.princeton.edu/~jstone/Athena/tests/rt/rt.html
  **/
-struct AnalyticalFormula_RT : public AnalyticalFormula_base{
+struct AnalyticalFormula_RayleighTaylor : public AnalyticalFormula_base{
   using RNGPool = Kokkos::Random_XorShift64_Pool<>;
   using RNGType = RNGPool::generator_type;
 
@@ -34,7 +34,7 @@ struct AnalyticalFormula_RT : public AnalyticalFormula_base{
 
   real_t gz;               // Vertical gravitational acceleration
 
-  AnalyticalFormula_RT( ConfigMap& configMap ) : 
+  AnalyticalFormula_RayleighTaylor( ConfigMap& configMap ) : 
     ndim(configMap.getValue<int>("mesh", "ndim", 2)),
     gamma0(configMap.getValue<real_t>("hydro","gamma0", 1.4)),
     smallr(configMap.getValue<real_t>("hydro","smallr", 1e-10)),
@@ -110,5 +110,5 @@ struct AnalyticalFormula_RT : public AnalyticalFormula_base{
 };
 } // namespace dyablo
 
-FACTORY_REGISTER(dyablo::InitialConditionsFactory, dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_RT>, "rayleigh_taylor");
+FACTORY_REGISTER(dyablo::InitialConditionsFactory, dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_RayleighTaylor>, "rayleigh_taylor");
 
