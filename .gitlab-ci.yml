@@ -64,6 +64,13 @@ build::cuda-9.2:
 .test_template:
   stage: test
   script: .gitlab-ci/run_unit_tests.sh
+  artifacts:
+    when: always
+    paths:
+      - build/dyablo/unit_test/gtest_reports/*.xml
+    reports:
+      junit: 
+      - build/dyablo/unit_test/gtest_reports/*.xml
 
 .openmp_template:
   needs: 
