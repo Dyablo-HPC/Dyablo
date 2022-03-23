@@ -87,8 +87,7 @@ std::shared_ptr<AMRmesh> init_amr_mesh( ConfigMap& configMap )
   return std::make_shared<AMRmesh>( ndim, codim, periodic, amr_level_min, amr_level_max );
 }
 
-template<int ndim>
-void run_test() {
+void run_test(int ndim, std::string HydroUpdateFactory_id ) {
 
   std::cout << "// =========================================\n";
   std::cout << "// Testing conservativity ...\n";
@@ -108,7 +107,7 @@ void run_test() {
   // block sizes with ghosts
   uint32_t bx = configMap.getValue<uint32_t>("amr", "bx", 4);
   uint32_t by = configMap.getValue<uint32_t>("amr", "by", 4);
-  uint32_t bz = configMap.getValue<uint32_t>("amr", "bz", 4);
+  uint32_t bz = configMap.getValue<uint32_t>("amr", "bz", (ndim == 2 ? 1 : 4));
   uint32_t bx_g = bx + 2 * ghostWidth;
   uint32_t by_g = by + 2 * ghostWidth;
   uint32_t bz_g = bz + 2 * ghostWidth;
@@ -136,21 +135,19 @@ void run_test() {
   
   ForeachCell::CellArray_global_ghosted U;
   auto Uhost = Kokkos::create_mirror_view(U.U);
-
-  auto ids = HydroUpdateFactory::get_available_ids();
   DiagosticsFunctor diags(foreach_cell);
-  for (auto &k : ids) {
-    if (k == "HydroUpdate_muscl_oneneighbor") {
-      std::cout << "Skipping " << k << std::endl;
-      continue;
+  {
+    if (HydroUpdateFactory_id == "HydroUpdate_muscl_oneneighbor") {
+      std::cout << "Skipping " << HydroUpdateFactory_id << std::endl;
+      return;
     }
 
     DiagArray diag0;
     DiagArray diag1;
 
     std::cout << std::endl << std::endl;
-    std::cout << "==== Testing construct name : " << k << std::endl;
-    auto updater = HydroUpdateFactory::make_instance(k, configMap, 
+    std::cout << "==== Testing construct name : " << HydroUpdateFactory_id << std::endl;
+    auto updater = HydroUpdateFactory::make_instance(HydroUpdateFactory_id, configMap, 
                                                   foreach_cell,
                                                   timers);
 
@@ -201,12 +198,27 @@ void run_test() {
 
 }
 
-TEST(dyablo, test_Conservativity_2D)
+class Test_Hydro_Conservativity 
+  : public testing::TestWithParam<std::tuple<int, std::string>> 
+{};
+
+TEST_P(Test_Hydro_Conservativity, mass_and_energy_conserved)
 {
-  dyablo::run_test<2>();
+  int ndim = std::get<0>(GetParam());
+  std::string id = std::get<1>(GetParam());
+  dyablo::run_test(ndim, id );
 }
 
-TEST(dyablo, test_Conservativity_3D)
-{
-  dyablo::run_test<3>();
-}
+INSTANTIATE_TEST_SUITE_P(
+    Test_Hydro_Conservativity, Test_Hydro_Conservativity,
+    testing::Combine(
+        testing::Values(2,3),
+        testing::ValuesIn( dyablo::HydroUpdateFactory::get_available_ids() )
+    ),
+    [](const testing::TestParamInfo<Test_Hydro_Conservativity::ParamType>& info) {
+      std::string name = 
+          (std::get<0>(info.param) == 2 ? std::string("2D") : std::string("3D"))
+          + "_" + std::get<1>(info.param);
+      return name;
+    }
+);
