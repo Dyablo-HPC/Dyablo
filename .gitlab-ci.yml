@@ -239,6 +239,22 @@ run::riemann2d::cuda:
     - .gitlab-ci/run_testcase.sh test_riemann_2D.ini
     - .gitlab-ci/render.sh visu_riemann_2D_cell.pvsm
 
+run::riemann2d_block::openmp:
+  extends:
+    - .run_template
+    - .openmp_template
+  script: 
+    - .gitlab-ci/run_testcase.sh test_riemann_2D_block.ini
+    - .gitlab-ci/render.sh visu_riemann_2D_block.pvsm
+
+run::riemann2d_block::cuda:
+  extends:
+    - .run_template
+    - .cuda_template
+  script: 
+    - .gitlab-ci/run_testcase.sh test_riemann_2D_block.ini
+    - .gitlab-ci/render.sh visu_riemann_2D_block.pvsm
+
 
 # Read ci/Readme.md for instructions on how to add new testcases
 
