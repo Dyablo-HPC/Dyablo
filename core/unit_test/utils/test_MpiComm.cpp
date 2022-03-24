@@ -1,10 +1,10 @@
-#include <boost/test/unit_test.hpp>
+#include "gtest/gtest.h"
 
 #include "utils/mpi/GlobalMpiSession.h"
 
-BOOST_AUTO_TEST_SUITE(dyablo)
+using namespace dyablo;
 
-BOOST_AUTO_TEST_CASE(test_MpiComm_Allgather)
+TEST(Test_MpiComm, Allgather)
 {
   const MpiComm& comm = dyablo::GlobalMpiSession::get_comm_world();
 
@@ -20,12 +20,12 @@ BOOST_AUTO_TEST_CASE(test_MpiComm_Allgather)
   std::vector<double> buff_recv(total_size);
 
   comm.MPI_Allgather( buff_send.data(), buff_recv.data(), rank_size );
-  BOOST_TEST(total_size!=0);
+  EXPECT_NE(0, total_size);
   for(int i=0; i<total_size; i++)
-    BOOST_TEST(buff_recv[i] == i+1);
+    EXPECT_EQ(i+1, buff_recv[i]);
 }
 
-BOOST_AUTO_TEST_CASE(test_MpiComm_Allgatherv_inplace)
+TEST(Test_MpiComm, Allgatherv_inplace)
 {
   const MpiComm& comm = dyablo::GlobalMpiSession::get_comm_world();
 
@@ -49,7 +49,5 @@ BOOST_AUTO_TEST_CASE(test_MpiComm_Allgatherv_inplace)
   comm.MPI_Allgatherv_inplace( buff.data(), size_local );
 
   for(int i=0; i<size_tot; i++)
-    BOOST_TEST( buff[i] == i+1 );
+    EXPECT_EQ( i+1, buff[i] );
 } 
-
-BOOST_AUTO_TEST_SUITE_END() /* dyablo */
