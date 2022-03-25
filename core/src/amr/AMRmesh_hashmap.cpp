@@ -579,7 +579,7 @@ void exchange_markers(AMRmesh_hashmap& mesh, AMRmesh_hashmap::markers_device_t& 
 std::vector<morton_t> compute_current_morton_intervals(const AMRmesh_hashmap& mesh, const oct_view_t& local_octs_coord, level_t level_max)
 {
     int mpi_size = mesh.getNproc();
-    const MpiComm& mpi_comm = mesh.getCommunicator();
+    const MpiComm& mpi_comm = mesh.getMpiComm();
 
     // Allgather here ensures that old_morton_interval_begin/end for each process forms is a partition of [0,+inf[
     // When there is no local octant, current interval must be determined by using values of neighbor processes, 
@@ -793,7 +793,7 @@ std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(level_t level)
         {   //TODO : avoid CPU/GPU transfers
             GhostCommunicator_kokkos loadbalance_communicator( loadbalance_to_send );
             oct_view_device_t local_octs_coord_old( "local_octs_coord_old", local_octs_coord.layout() );
-            oct_view_device_t local_octs_coord_new( "local_octs_coord_new", loadbalance_communicator.getNumGhosts() );
+            oct_view_device_t local_octs_coord_new( "local_octs_coord_new", octs_coord_id::NUM_OCTS_COORDS, loadbalance_communicator.getNumGhosts() );
             Kokkos::deep_copy(local_octs_coord_old , this->local_octs_coord );
             loadbalance_communicator.exchange_ghosts(local_octs_coord_old, local_octs_coord_new);
             Kokkos::realloc(this->local_octs_coord, local_octs_coord_new.layout());

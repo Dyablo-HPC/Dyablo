@@ -200,7 +200,7 @@ public:
   using AMRmesh_t = AMRmesh_t_;
 };
 
-using AMRmesh_types = ::testing::Types<AMRmesh_pablo, AMRmesh_hashmap>;
+using AMRmesh_types = ::testing::Types<AMRmesh_pablo, AMRmesh_hashmap, AMRmesh_hashmap_new>;
 TYPED_TEST_SUITE( Test_AMRmesh, AMRmesh_types );
 
 TYPED_TEST(Test_AMRmesh, narrow_h6)

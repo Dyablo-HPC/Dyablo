@@ -69,7 +69,7 @@ public:
     }
 
     //MPI
-    const MpiComm& getCommunicator() const
+    const MpiComm& getMpiComm() const
     {
         return mpi_comm;
     }

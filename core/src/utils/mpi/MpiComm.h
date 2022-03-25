@@ -30,11 +30,11 @@ public:
     NUM_OPS
   };
 private:
-  /// Construct a MpiComm for a given MPI communicator
-  inline MpiComm(MPI_Comm_t mpi_comm_id);
   /// Construct MpiComm from MPI_COMM_WORLD
   inline MpiComm();
 public:
+  /// Construct a MpiComm for a given MPI communicator
+  inline MpiComm(MPI_Comm_t mpi_comm_id);
   /// Get an object representing MPI_COMM_WORLD 
   inline static MpiComm& world()
   {

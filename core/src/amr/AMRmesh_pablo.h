@@ -2,6 +2,7 @@
 
 #include "bitpit_PABLO.hpp"
 #include "amr/UserDataLB.h"
+#include "utils/mpi/MpiComm.h"
 
 namespace dyablo {
 
@@ -11,9 +12,11 @@ namespace dyablo {
  **/
 class AMRmesh_pablo : public bitpit::PabloUniform
 {
+private:
+    MpiComm mpi_comm;
 public:
     AMRmesh_pablo( int dim, int balance_codim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max )
-        : PabloUniform(dim)
+        : PabloUniform(dim), mpi_comm( PabloUniform::getComm() )
     {
         assert(dim == 2 || dim == 3);
         assert(balance_codim <= dim);
@@ -44,6 +47,11 @@ public:
     explicit AMRmesh_pablo( int dim )
      : AMRmesh_pablo(dim, 1, {false, false, false}, 1, 20)
     {}
+
+    const MpiComm& getMpiComm() const
+    {
+        return mpi_comm;
+    }
 
     std::array<bool, 6> getPeriodic() const{
         bitpit::bvector p = PabloUniform::getPeriodic();        

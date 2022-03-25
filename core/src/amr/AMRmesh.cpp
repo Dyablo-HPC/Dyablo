@@ -27,5 +27,5 @@ void AMRmesh_impl<Impl_t>::updateLightOctree()
 
 template class AMRmesh_impl<AMRmesh_pablo>;
 template class AMRmesh_impl<AMRmesh_hashmap>;
-
+template class AMRmesh_impl<AMRmesh_hashmap_new>;
 } //namespace dyablo
