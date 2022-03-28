@@ -105,6 +105,7 @@ test::cuda:
   image: "arnodurocher/dyablo-ci:cuda-11.0-visu"
   when: manual
   artifacts:
+    when: always
     paths:
       - "*.png"
     expire_in: 1 week
