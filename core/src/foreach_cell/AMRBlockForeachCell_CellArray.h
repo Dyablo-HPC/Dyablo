@@ -423,7 +423,7 @@ CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_
   else
   { // Neighbor cell is outside local octant : need to find cell in neighbor octant
     const LightOctree::OctantIndex& iOct = this->iOct; 
-    assert(!iOct.isGhost);
+    //assert(!iOct.isGhost);
     if( lmesh.isBoundary( iOct, oct_offset ) )
     {
       return CELLINDEX_BOUNDARY;
