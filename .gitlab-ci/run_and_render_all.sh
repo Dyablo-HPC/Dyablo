@@ -28,5 +28,10 @@ run_and_render test_blast_3D.ini visu_blast_3D_cell.pvsm blast_3d_cell.png
 run_and_render test_blast_2D_block.ini visu_blast_2D_block.pvsm blast_2d_block.png 
 run_and_render test_blast_2D.ini visu_blast_2D_cell.pvsm blast_2d_cell.png 
 
+run_and_render test_riemann_2D.ini visu_riemann_2D_cell.pvsm riemann_2d_cell.png
+run_and_render test_riemann_2D_block.ini visu_riemann_2D_block.pvsm riemann_2d_block.png
+
+run_and_render test_gravity_spheres_3D.ini visu_gravity_spheres_3D.pvsm gravity_3D.png 
+
 echo "${err_count}/${run_count} runs failed"
 exit $err_count

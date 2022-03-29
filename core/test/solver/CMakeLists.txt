@@ -42,3 +42,14 @@ configure_file(visu_blast_2D_block.pvsm visu_blast_2D_block.pvsm COPYONLY)
 # Blast 2D cell based 
 configure_file(test_blast_2D.ini test_blast_2D.ini COPYONLY)
 configure_file(visu_blast_2D_cell.pvsm visu_blast_2D_cell.pvsm COPYONLY)
+# Riemann 2D cell based 
+configure_file(test_riemann_2D.ini test_riemann_2D.ini COPYONLY)
+configure_file(visu_riemann_2D_cell.pvsm visu_riemann_2D_cell.pvsm COPYONLY)
+# Riemann 2D block based 
+configure_file(test_riemann_2D_block.ini test_riemann_2D_block.ini COPYONLY)
+configure_file(visu_riemann_2D_block.pvsm visu_riemann_2D_block.pvsm COPYONLY)
+
+
+# Gravity 3D test
+configure_file(test_gravity_spheres_3D.ini test_gravity_spheres_3D.ini COPYONLY)
+configure_file(visu_gravity_spheres_3D.pvsm visu_gravity_spheres_3D.pvsm COPYONLY)

@@ -41,16 +41,16 @@ function(dyablo_add_test UNIT_TEST_NAME TEST_MPI)
 
   add_test(
     NAME ${UNIT_TEST_NAME}
-    COMMAND ./${UNIT_TEST_NAME}
+    COMMAND ./${UNIT_TEST_NAME} --gtest_output=xml:gtest_reports/${UNIT_TEST_NAME}.xml
     WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/unit_test/)
-  
+
   if(DYABLO_USE_MPI)
     if(TEST_MPI)
       add_test(
         NAME "${UNIT_TEST_NAME}_MPI"
         COMMAND cmake -E env
           OMP_NUM_THREADS=4 
-          ${MPIEXEC_EXECUTABLE} -np 3 ./${UNIT_TEST_NAME}
+          ${MPIEXEC_EXECUTABLE} -np 1 ./${UNIT_TEST_NAME} --gtest_output=xml:gtest_reports/${UNIT_TEST_NAME}_MPI.xml : -np 2 ./${UNIT_TEST_NAME}
         WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/unit_test/)
     endif()
   endif()
@@ -108,6 +108,16 @@ dyablo_add_test(utest_GravitySolver_cg ON
   gravity/test_GravitySolver_cg.cpp
   main.cpp)
 
+dyablo_add_test(utest_Conservativity ON
+  hydro/test_Conservativity.cpp
+  main.cpp)
+
+configure_file(
+  hydro/test_blast_2D_block.ini
+  hydro/test_blast_2D_block.ini COPYONLY)
+configure_file(
+  hydro/test_blast_3D_block.ini
+  hydro/test_blast_3D_block.ini COPYONLY)
 
 ## Implementations registered to a factory that are contained in a separate static library have to be thourouhly tested
 add_library( RegisteringFactory_impl_lib STATIC utils/RegisteringFactory_impl_to_register.cpp )

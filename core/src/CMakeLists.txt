@@ -1,7 +1,6 @@
 set( core_src
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh_hashmap.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_blast.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/hydro/HydroUpdate_generic.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/hydro/HydroUpdate_muscl_oneneighbor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gravity/GravitySolver_constant.cpp
@@ -10,6 +9,14 @@ set( core_src
     ${CMAKE_CURRENT_SOURCE_DIR}/refine_condition/RefineCondition_second_derivative_error.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/refine_condition/RefineCondition_pseudo_gradient.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/FieldManager.cpp
+)
+
+set( ic_src
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_blast.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_implode.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_riemann2d.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_kelvin_helmholtz.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_rayleigh_taylor.cpp
 )
      
 set( legacy_src
@@ -33,7 +40,7 @@ set( hdf5_src
     ${CMAKE_CURRENT_SOURCE_DIR}/io/IOManager_hdf5.cpp
 )
 
-add_library( dyablo_core ${core_src} ${legacy_src} )
+add_library( dyablo_core ${core_src} ${ic_src} ${legacy_src} )
 target_include_directories( dyablo_core PUBLIC . )
 target_link_libraries( dyablo_core PUBLIC
     Kokkos::kokkos

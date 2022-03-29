@@ -64,6 +64,13 @@ build::cuda-9.2:
 .test_template:
   stage: test
   script: .gitlab-ci/run_unit_tests.sh
+  artifacts:
+    when: always
+    paths:
+      - build/dyablo/unit_test/gtest_reports/*.xml
+    reports:
+      junit: 
+      - build/dyablo/unit_test/gtest_reports/*.xml
 
 .openmp_template:
   needs: 
@@ -98,6 +105,7 @@ test::cuda:
   image: "arnodurocher/dyablo-ci:cuda-11.0-visu"
   when: manual
   artifacts:
+    when: always
     paths:
       - "*.png"
     expire_in: 1 week
@@ -122,6 +130,22 @@ run_all::cuda_4mpi:
 
 # Run separate testcases
 # -------------------------
+run::gravity_spheres_3D::openmp_4mpi:
+  extends:  
+    - .run_template
+    - .openmp_template
+  script: 
+    - .gitlab-ci/run_testcase_mpi.sh test_gravity_spheres_3D.ini 4
+    - .gitlab-ci/render.sh visu_gravity_spheres_3D.pvsm
+
+run::gravity_spheres_3D::cuda_4mpi:
+  extends:  
+    - .run_template
+    - .cuda_template
+  script: 
+    - .gitlab-ci/run_testcase_mpi.sh test_gravity_spheres_3D.ini 4
+    - .gitlab-ci/render.sh visu_gravity_spheres_3D.pvsm
+
 # Blast 3D block based testcase
 run::blast_3D_block::openmp:
   extends:  
@@ -221,6 +245,39 @@ run::blast_2D_cell::openmp_4mpi:
   script: 
     - .gitlab-ci/run_testcase_mpi.sh test_blast_2D.ini 4
     - .gitlab-ci/render.sh visu_blast_2D_cell.pvsm
+
+# Riemann 2D
+run::riemann2d::openmp:
+  extends:
+    - .run_template
+    - .openmp_template
+  script: 
+    - .gitlab-ci/run_testcase.sh test_riemann_2D.ini
+    - .gitlab-ci/render.sh visu_riemann_2D_cell.pvsm
+
+run::riemann2d::cuda:
+  extends:
+    - .run_template
+    - .cuda_template
+  script: 
+    - .gitlab-ci/run_testcase.sh test_riemann_2D.ini
+    - .gitlab-ci/render.sh visu_riemann_2D_cell.pvsm
+
+run::riemann2d_block::openmp:
+  extends:
+    - .run_template
+    - .openmp_template
+  script: 
+    - .gitlab-ci/run_testcase.sh test_riemann_2D_block.ini
+    - .gitlab-ci/render.sh visu_riemann_2D_block.pvsm
+
+run::riemann2d_block::cuda:
+  extends:
+    - .run_template
+    - .cuda_template
+  script: 
+    - .gitlab-ci/run_testcase.sh test_riemann_2D_block.ini
+    - .gitlab-ci/render.sh visu_riemann_2D_block.pvsm
 
 
 # Read ci/Readme.md for instructions on how to add new testcases

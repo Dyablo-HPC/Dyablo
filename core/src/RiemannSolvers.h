@@ -612,7 +612,7 @@ void riemann_hydro( const HydroState& qleft,
 		                HydroState& flux,
 		                const RiemannParams& params)
 {
-  assert(params.riemannSolverType == RIEMANN_HLLC);
+  //assert(params.riemannSolverType == RIEMANN_HLLC);
   // switch(params.riemannSolverType){
   //   case RIEMANN_APPROX:
   //     riemann_approx(qleft,qright,flux,params);
