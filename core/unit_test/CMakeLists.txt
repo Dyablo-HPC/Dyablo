@@ -99,6 +99,10 @@ dyablo_add_test(utest_GhostCommunicator ON
 dyablo_add_test(utest_LoadBalance ON
   block_data/test_LoadBalance.cpp
   main.cpp)
+
+dyablo_add_test(utest_ForeachCell ON
+  block_data/test_ForeachCell.cpp
+  main.cpp)
   
 dyablo_add_test(utest_MapUserData OFF
   block_data/test_MapUserData.cpp
