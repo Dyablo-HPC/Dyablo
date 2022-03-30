@@ -41,6 +41,10 @@ public:
   { 
     return {periodic[i/2]}; 
   }
+  int get_max_supported_level()
+  {
+    return 20; // Maybe more? (But never tested)
+  }
 
   const MpiComm& getMpiComm() const
   { return mpi_comm; }
