@@ -90,7 +90,7 @@ public:
     //! @copydoc LightOctree_base::findNeighbors()
     KOKKOS_INLINE_FUNCTION NeighborList findNeighbors( const OctantIndex& iOct, const offset_t& offset )  const
     {
-        assert( !iOct.isGhost );
+        //assert( !iOct.isGhost );
 
         if( this->isBoundary(iOct, offset) )
             return NeighborList{0,{}};
@@ -169,7 +169,7 @@ public:
     /// @copydoc LightOctree_base::isBoundary()
     KOKKOS_INLINE_FUNCTION
     bool isBoundary(const OctantIndex& iOct, const offset_t& offset) const {
-      assert( !iOct.isGhost );
+      //assert( !iOct.isGhost );
       real_t dh = this->getSize(iOct);
       pos_t center = this->getCenter(iOct);    
       pos_t pos {
