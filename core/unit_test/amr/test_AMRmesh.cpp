@@ -221,15 +221,14 @@ TYPED_TEST(Test_AMRmesh, narrow_h18)
   run_test<dyablo::AMRmesh_impl<typename TestFixture::AMRmesh_t>>(td);
 }
 
-// TODO : 20 is too much for LightOctree for now...
-// TYPED_TEST(Test_AMRmesh, narrow_h20)
-// {
-//   Test_data td{};
-//   td.level_min = 4;
-//   td.level_max = 20;
-//   td.width = 5;
-//   run_test<dyablo::AMRmesh_impl<typename TestFixture::AMRmesh_t>>(td);
-// }
+TYPED_TEST(Test_AMRmesh, narrow_h20)
+{
+  Test_data td{};
+  td.level_min = 4;
+  td.level_max = 20;
+  td.width = 5;
+  run_test<dyablo::AMRmesh_impl<typename TestFixture::AMRmesh_t>>(td);
+}
 
 TYPED_TEST(Test_AMRmesh, wide_h10)
 {

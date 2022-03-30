@@ -64,7 +64,7 @@ public:
 
     int get_max_supported_level()
     {
-        return getMaxLevel();
+        return getMaxLevel()-1; // max_level=20 is too much for AMRmesh_pablo
     }
 
     uint32_t getNodesCount(){
