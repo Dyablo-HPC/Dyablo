@@ -10,9 +10,6 @@
 
 #include "mpi/GhostCommunicator.h"
 
-// TODO cleaner conditional compilation
-#ifdef DYABLO_USE_GPU_MESH
-
 namespace dyablo{
 
 AMRmesh_hashmap::AMRmesh_hashmap( int dim, int balance_codim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max, const MpiComm& mpi_comm )
@@ -479,7 +476,7 @@ std::set< std::pair<int, uint32_t> > discover_ghosts(
             // i.e : last suboctant of same-size neighbor is owned by the same MPI
             morton_t m_next = shift_level(m_neighbor, level_max, level) + 1;
                      m_next = shift_level(m_next, level, level_max);
-            if( level<level_max && m_next > morton_intervals[neighbor_rank+1] )
+            if( level<level_max && m_next < morton_intervals[neighbor_rank+1] )
             {// Neighbors are owned by only one MPI
                 if(neighbor_rank != mpi_rank)
                     local_octants_to_send_set.insert({neighbor_rank, iOct});
@@ -889,5 +886,3 @@ const std::map<int, std::vector<uint32_t>>& AMRmesh_hashmap::getBordersPerProc()
 }
 
 }
-
-#endif // DYABLO_USE_GPU_MESH

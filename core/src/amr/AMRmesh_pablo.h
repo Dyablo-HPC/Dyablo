@@ -52,6 +52,11 @@ public:
     }  
     using PabloUniform::getPeriodic;
 
+    int get_max_supported_level()
+    {
+        return getMaxLevel();
+    }
+
     uint32_t getNodesCount(){
         return bitpit::ParaTree::getNodes().size();
     }
