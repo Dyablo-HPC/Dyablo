@@ -161,6 +161,8 @@ std::shared_ptr<AMRmesh> create_mesh<2>()
   amr_mesh->adaptGlobalRefine();
   amr_mesh->adaptGlobalRefine();
   amr_mesh->adaptGlobalRefine();
+  amr_mesh->loadBalance();
+  EXPECT_GT( amr_mesh->getNumOctants(), 28 ) << "Internal test error : too few local octants";
   amr_mesh->setMarker(15,1);
   amr_mesh->setMarker(16,1);
   amr_mesh->setMarker(17,1);
@@ -173,6 +175,7 @@ std::shared_ptr<AMRmesh> create_mesh<2>()
 
   amr_mesh->adapt();
   amr_mesh->updateConnectivity();
+  amr_mesh->loadBalance();
 
   return amr_mesh;
 }
@@ -188,6 +191,8 @@ std::shared_ptr<AMRmesh> create_mesh<3>()
   amr_mesh->adaptGlobalRefine();
   amr_mesh->adaptGlobalRefine();
   amr_mesh->adaptGlobalRefine();
+  amr_mesh->loadBalance();
+  EXPECT_GT( amr_mesh->getNumOctants(), 121 ) << "Internal test error : too few local octants";
   // Refine initial 47 (final smaller 47..54)
   amr_mesh->setMarker(47,1);
   // Refine around initial 78
@@ -221,6 +226,7 @@ std::shared_ptr<AMRmesh> create_mesh<3>()
 
   amr_mesh->adapt();
   amr_mesh->updateConnectivity();
+  amr_mesh->loadBalance();
 
   return amr_mesh;
 }
