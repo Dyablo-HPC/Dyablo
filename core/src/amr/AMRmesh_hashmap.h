@@ -55,6 +55,11 @@ public:
         return {periodic[0],periodic[0],periodic[1],periodic[1],periodic[2],periodic[2]};
     }
 
+    int get_max_supported_level()
+    {
+        return sizeof(oct_view_device_t::value_type)*8-1;
+    }
+
     bool getPeriodic(uint8_t i) const
     {
         assert(i<2*dim);

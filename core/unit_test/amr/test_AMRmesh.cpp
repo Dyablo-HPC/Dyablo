@@ -40,6 +40,11 @@ void run_test(const Test_data& test_data)
   };
 
   AMRmesh_t amr_mesh(dim, dim, {perodic_x,perodic_y,perodic_z}, level_min, level_max);
+  if( test_data.level_max > amr_mesh.get_max_supported_level() )
+  {
+    std::cerr << "Test skipped : h=" << test_data.level_max << " unsupported by this AMRmesh implementation" << std::endl;
+    GTEST_SKIP();
+  }
 
   for( int i=0; i<level_min; i++ )
   {
@@ -216,6 +221,7 @@ TYPED_TEST(Test_AMRmesh, narrow_h18)
   run_test<dyablo::AMRmesh_impl<typename TestFixture::AMRmesh_t>>(td);
 }
 
+// TODO : 20 is too much for LightOctree for now...
 // TYPED_TEST(Test_AMRmesh, narrow_h20)
 // {
 //   Test_data td{};

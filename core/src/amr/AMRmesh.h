@@ -51,6 +51,11 @@ public:
   bool getPeriodic(uint8_t i) const
   { return Impl::getPeriodic(i); }
 
+  int get_max_supported_level()
+  {
+    return Impl::get_max_supported_level();
+  }
+
   int get_level_min()
   {return level_min;}
 
