@@ -541,25 +541,28 @@ void AMRmesh_hashmap_new::adapt(bool dummy)
   int ndim = lmesh.getNdim();
   oct_index_t nbOcts = getNumOctants();
 
-  Kokkos::View<int*, Kokkos::LayoutLeft> markers_device("adapt::markers", nbOcts);
-  Kokkos::View<int*, Kokkos::LayoutLeft> markers_ghosts_device("adapt::markers_ghost", this->getNumGhosts());; 
+  // Double buffering for markers
+  Kokkos::View<int*, Kokkos::LayoutLeft> markers_device_in("adapt::markers", nbOcts);
+  Kokkos::View<int*, Kokkos::LayoutLeft> markers_device_out("adapt::markers", nbOcts);
+  Kokkos::View<int*, Kokkos::LayoutLeft> markers_ghosts_device("adapt::markers_ghost", this->getNumGhosts());
   // Helper functions for markers
-  auto getMarker = KOKKOS_LAMBDA( const OctantIndex& iOct ) -> int&
+  auto getMarker = KOKKOS_LAMBDA( const OctantIndex& iOct ) -> int
   { 
     if( iOct.isGhost )
       return markers_ghosts_device( iOct.iOct );
     else
-      return markers_device( iOct.iOct );
+      return markers_device_in( iOct.iOct );
   };
   auto setMarker = KOKKOS_LAMBDA( const OctantIndex& iOct, int marker )
   {
-    Kokkos::atomic_fetch_max(&getMarker(iOct), marker);
+    assert( !iOct.isGhost ); // Remote markers cannot be modified locally
+    markers_device_out( iOct.iOct ) = marker;
   };
 
   // Compute correct markers : 2:1 balance and remove partially coarsened octants
   {
     // Copy CPU markers to markers_device
-    Kokkos::deep_copy( markers_device, pdata->markers );
+    Kokkos::deep_copy( markers_device_in, pdata->markers );
     GhostCommunicator_kokkos ghost_comm( getBordersPerProc() );
     
     // Check for 2:1 balance and partially coarsened octants and modify marker to enforce these rules
@@ -570,8 +573,11 @@ void AMRmesh_hashmap_new::adapt(bool dummy)
       int marker_current = getMarker( {iOct, false} );
       int marker_old = marker_current;
 
+      assert( marker_current >= -1 );
+      assert( marker_current <= 1 );
+
       // Check siblings for partial coarsening
-      if( marker_current < 0 )
+      if( marker_current == -1 )
       {
         auto pos = old_storage_device.get_logical_coords( {iOct, false} );
         // Shift to get on which size siblings are
@@ -590,9 +596,9 @@ void AMRmesh_hashmap_new::adapt(bool dummy)
           assert( level_siblings >= level_current ); // Siblings cannot be coarser
 
           int marker_siblings = getMarker( ns[0] );
-          // If current marker coarsens local cell
+          // Cancel coarsening if siblings cannot be coarsened enough
           if( level_current+marker_current < level_siblings+marker_siblings )
-            marker_current = (level_siblings-level_current)+marker_siblings;
+            marker_current = 0;
         }
       }          
 
@@ -617,6 +623,9 @@ void AMRmesh_hashmap_new::adapt(bool dummy)
         }
       }
 
+      assert( marker_current >= -1 );
+      assert( marker_current <= 1 );
+
       setMarker( {iOct, false}, marker_current );
 
       return marker_current != marker_old;
@@ -629,7 +638,7 @@ void AMRmesh_hashmap_new::adapt(bool dummy)
     {
       updated_markers_global = false;
       
-      ghost_comm.exchange_ghosts(markers_device, markers_ghosts_device);
+      ghost_comm.exchange_ghosts(markers_device_in, markers_ghosts_device);
 
       oct_index_t updated_markers_local = 1;
       while( updated_markers_local != 0 )
@@ -642,6 +651,9 @@ void AMRmesh_hashmap_new::adapt(bool dummy)
           bool modified = check_21_cell(iOct);
           if( modified ) modified_count++;
         }, updated_markers_local);
+
+        // Swap marker buffers
+        Kokkos::deep_copy( markers_device_in, markers_device_out );
 
         if( updated_markers_local != 0 ) 
         {
