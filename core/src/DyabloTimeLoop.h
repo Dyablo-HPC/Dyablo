@@ -58,7 +58,8 @@ public:
     m_gravity_type( configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE) ),
     m_communicator( GlobalMpiSession::get_comm_world() ),
     m_amr_mesh( init_amr_mesh( configMap ) ),
-    m_foreach_cell( *m_amr_mesh, configMap ) 
+    m_foreach_cell( *m_amr_mesh, configMap ),
+    m_loadbalance_coherent_levels( configMap.getValue<int>("amr", "loadbalance_coherent_levels", 3) )
   {
     int ndim = configMap.getValue<int>("mesh", "ndim", 3);
     GravityType gravity_type = m_gravity_type;
@@ -349,12 +350,7 @@ public:
       {
         timers.get("AMR: load-balance").start();
 
-        /* (Load)Balance the octree over the processes with communicating the data.
-        * Preserve the family compact up to 3 levels over the max deepth reached
-        * in the octree. */
-        uint8_t levels = 3;
-
-        m_amr_mesh->loadBalance_userdata(levels, U.U);
+        m_amr_mesh->loadBalance_userdata(m_loadbalance_coherent_levels, U.U);
         Kokkos::realloc(U.Ughost, U.Ughost.extent(0), U.Ughost.extent(1), m_amr_mesh->getNumGhosts());
         U.update_lightOctree(m_amr_mesh->getLightOctree());
 
@@ -385,6 +381,7 @@ private:
   MpiComm m_communicator;
   std::shared_ptr<AMRmesh> m_amr_mesh;
   ForeachCell m_foreach_cell;
+  int m_loadbalance_coherent_levels;
 
   using CellArray = ForeachCell::CellArray_global_ghosted;
 
