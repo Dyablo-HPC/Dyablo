@@ -6,8 +6,8 @@ namespace dyablo {
 
 
 class HydroUpdate_legacy;
-class HydroUpdate_generic;
-class HydroUpdate_muscl_oneneighbor;
+class HydroUpdate_hancock;
+class HydroUpdate_hancock_oneneighbor;
 class HydroUpdate_euler;
 class HydroUpdate_RK2;
 
@@ -18,8 +18,8 @@ template<>
 inline bool dyablo::HydroUpdateFactory::init()
 {
   DECLARE_REGISTERED(dyablo::HydroUpdate_legacy);
-  DECLARE_REGISTERED(dyablo::HydroUpdate_generic);
-  DECLARE_REGISTERED(dyablo::HydroUpdate_muscl_oneneighbor);
+  DECLARE_REGISTERED(dyablo::HydroUpdate_hancock);
+  DECLARE_REGISTERED(dyablo::HydroUpdate_hancock_oneneighbor);
   DECLARE_REGISTERED(dyablo::HydroUpdate_euler);
   DECLARE_REGISTERED(dyablo::HydroUpdate_RK2);
 

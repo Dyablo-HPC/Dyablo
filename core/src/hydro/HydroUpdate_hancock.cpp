@@ -1,4 +1,4 @@
-#include "HydroUpdate_generic.h"
+#include "HydroUpdate_hancock.h"
 
 #include "utils/monitoring/Timers.h"
 
@@ -12,7 +12,7 @@
 namespace dyablo { 
 
 
-struct HydroUpdate_generic::Data{ 
+struct HydroUpdate_hancock::Data{ 
   ForeachCell& foreach_cell;
   real_t xmin, ymin, zmin;
   real_t xmax, ymax, zmax;  
@@ -28,7 +28,7 @@ struct HydroUpdate_generic::Data{
   real_t gx, gy, gz;
 };
 
-HydroUpdate_generic::HydroUpdate_generic(
+HydroUpdate_hancock::HydroUpdate_hancock(
   ConfigMap& configMap,
   ForeachCell& foreach_cell,
   Timers& timers )
@@ -56,7 +56,7 @@ HydroUpdate_generic::HydroUpdate_generic(
   } 
 }
 
-HydroUpdate_generic::~HydroUpdate_generic()
+HydroUpdate_hancock::~HydroUpdate_hancock()
 {}
 
 namespace{
@@ -356,7 +356,7 @@ void apply_gravity_correction( const GlobalArray& Uin,
 
 template< int ndim >
 void update_aux(
-    const HydroUpdate_generic::Data* pdata,
+    const HydroUpdate_hancock::Data* pdata,
     const ForeachCell::CellArray_global_ghosted& Uin,
     const ForeachCell::CellArray_global_ghosted& Uout,
     real_t dt)
@@ -400,12 +400,12 @@ void update_aux(
     SlopesZ_ = foreach_cell.reserve_patch_tmp("SlopesZ", 0, 0, 1, fm, 5);
   PatchArray::Ref Sources_ = foreach_cell.reserve_patch_tmp("Sources", 1, 1, (ndim == 3)?1:0, fm, 5);
 
-  timers.get("HydroUpdate_generic").start();
+  timers.get("HydroUpdate_hancock").start();
 
   ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
 
   // Iterate over patches
-  foreach_cell.foreach_patch( "HydroUpdate_generic::update",
+  foreach_cell.foreach_patch( "HydroUpdate_hancock::update",
     PATCH_LAMBDA( const ForeachCell::Patch& patch )
   {
     PatchArray Ugroup = patch.allocate_tmp(Ugroup_);
@@ -456,13 +456,13 @@ void update_aux(
     });
   });
 
-  timers.get("HydroUpdate_generic").stop();
+  timers.get("HydroUpdate_hancock").stop();
 
 }
 
 } // namespace
 
-void HydroUpdate_generic::update(
+void HydroUpdate_hancock::update(
     const ForeachCell::CellArray_global_ghosted& Uin,
     const ForeachCell::CellArray_global_ghosted& Uout,
     real_t dt)
@@ -477,4 +477,4 @@ void HydroUpdate_generic::update(
 }// namespace dyablo
 
 
-FACTORY_REGISTER( dyablo::HydroUpdateFactory , dyablo::HydroUpdate_generic, "HydroUpdate_generic")
+FACTORY_REGISTER( dyablo::HydroUpdateFactory , dyablo::HydroUpdate_hancock, "HydroUpdate_hancock")
