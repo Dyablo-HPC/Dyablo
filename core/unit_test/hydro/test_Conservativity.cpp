@@ -143,11 +143,6 @@ void run_test(int ndim, std::string HydroUpdateFactory_id ) {
   auto Uhost = Kokkos::create_mirror_view(U.U);
   DiagosticsFunctor diags(foreach_cell);
   {
-    if (HydroUpdateFactory_id == "HydroUpdate_hancock_oneneighbor") {
-      std::cout << "Skipping " << HydroUpdateFactory_id << std::endl;
-      return;
-    }
-
     DiagArray diag0;
     DiagArray diag1;
 
