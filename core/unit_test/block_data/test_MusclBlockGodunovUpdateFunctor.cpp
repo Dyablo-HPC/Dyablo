@@ -167,7 +167,7 @@ void run_test(std::string name, std::string filename) {
 
   // testing MusclBlockGodunovUpdateFunctor
   {
-    std::unique_ptr<HydroUpdate> godunov_updater = HydroUpdateFactory::make_instance( "HydroUpdate_generic",
+    std::unique_ptr<HydroUpdate> godunov_updater = HydroUpdateFactory::make_instance( "HydroUpdate_hancock",
       configMap,
       foreach_cell,
       timers
@@ -204,13 +204,13 @@ void run_test(std::string name, std::string filename) {
 
 } // namespace dyablo
 
-TEST(dyablo, test_HydroUpdate_generic_blast_2D)
+TEST(dyablo, test_HydroUpdate_hancock_blast_2D)
 {
-  dyablo::run_test("HydroUpdate_generic (2D)", "./block_data/test_blast_2D_block.ini");
+  dyablo::run_test("HydroUpdate_hancock (2D)", "./block_data/test_blast_2D_block.ini");
 }
 
-TEST(dyablo, test_HydroUpdate_generic_blast_3D)
+TEST(dyablo, test_HydroUpdate_hancock_blast_3D)
 {
-  dyablo::run_test("HydroUpdate_generic (3D)", "./block_data/test_blast_3D_block.ini");
+  dyablo::run_test("HydroUpdate_hancock (3D)", "./block_data/test_blast_3D_block.ini");
 }
 

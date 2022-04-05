@@ -1,8 +1,10 @@
 set( core_src
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh_hashmap.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/hydro/HydroUpdate_generic.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/hydro/HydroUpdate_muscl_oneneighbor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/hydro/HydroUpdate_hancock.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/hydro/HydroUpdate_hancock_oneneighbor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/hydro/HydroUpdate_euler.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/hydro/HydroUpdate_RK2.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gravity/GravitySolver_constant.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gravity/GravitySolver_cg.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/compute_dt/Compute_dt_generic.cpp

@@ -65,7 +65,7 @@ public:
 
     m_field_manager = FieldManager::setup(ndim, gravity_type); // TODO : configure from what is needed by kernels
 
-    std::string godunov_updater_id = configMap.getValue<std::string>("hydro", "update", "HydroUpdate_generic");
+    std::string godunov_updater_id = configMap.getValue<std::string>("hydro", "update", "HydroUpdate_hancock");
     this->godunov_updater = HydroUpdateFactory::make_instance( godunov_updater_id,
       configMap,
       this->m_foreach_cell,

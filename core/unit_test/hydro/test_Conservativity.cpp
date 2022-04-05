@@ -11,6 +11,7 @@
 #include "real_type.h"    // choose between single and double precision
 #include "FieldManager.h"
 
+#include "utils/mpi/GlobalMpiSession.h"
 #include "utils/monitoring/Timers.h"
 #include "foreach_cell/ForeachCell.h"
 #include "compute_dt/Compute_dt.h"
@@ -49,7 +50,7 @@ struct DiagosticsFunctor {
       
       HydroState3d uLoc;
       uLoc[ID] = U.at(iCell,ID);
-      uLoc[IP] = U.at(iCell,IP);
+      uLoc[IE] = U.at(iCell,IE);
       uLoc[IU] = U.at(iCell,IU);
       uLoc[IV] = U.at(iCell,IV);
       uLoc[IW] = (ndim==2)? 0 : U.at(iCell, IW);
@@ -59,7 +60,10 @@ struct DiagosticsFunctor {
 
     }, Kokkos::Sum<real_t>(mass), Kokkos::Sum<real_t>(energy) );
 
-    DiagArray res {mass, energy};
+    DiagArray res_local {mass, energy};
+    DiagArray res;
+    auto m_communicator = GlobalMpiSession::get_comm_world();
+    m_communicator.MPI_Allreduce(res_local.data(), res.data(), 2, MpiComm::MPI_Op_t::SUM);
     return res;    
   }
 
@@ -124,7 +128,9 @@ void run_test(int ndim, std::string HydroUpdateFactory_id ) {
 
   auto amr_mesh = init_amr_mesh(configMap);
   ForeachCell foreach_cell(*amr_mesh, configMap);
-  Timers timers;    
+  Timers timers;  
+
+  auto communicator = GlobalMpiSession::get_comm_world();  
   
   std::string compute_dt_id = configMap.getValue<std::string>("dt", "dt_kernel", "Compute_dt_generic");
   auto compute_dt = Compute_dtFactory::make_instance( compute_dt_id,
@@ -137,19 +143,14 @@ void run_test(int ndim, std::string HydroUpdateFactory_id ) {
   auto Uhost = Kokkos::create_mirror_view(U.U);
   DiagosticsFunctor diags(foreach_cell);
   {
-    if (HydroUpdateFactory_id == "HydroUpdate_muscl_oneneighbor") {
-      std::cout << "Skipping " << HydroUpdateFactory_id << std::endl;
-      return;
-    }
-
     DiagArray diag0;
     DiagArray diag1;
 
     std::cout << std::endl << std::endl;
     std::cout << "==== Testing construct name : " << HydroUpdateFactory_id << std::endl;
     auto updater = HydroUpdateFactory::make_instance(HydroUpdateFactory_id, configMap, 
-                                                  foreach_cell,
-                                                  timers);
+                                                    foreach_cell,
+                                                    timers);
 
     auto initial_conditions =
       InitialConditionsFactory::make_instance(init_name, 
@@ -165,15 +166,18 @@ void run_test(int ndim, std::string HydroUpdateFactory_id ) {
     // 2- Computing initial mass and energy
     std::cout << " . Computing initial quantities" << std::endl;
     diag0 = diags.compute(U);
+    GhostCommunicator ghost_comm(amr_mesh, communicator);
 
     // 3- Advancing a few steps
     std::cout << " . Running hydro solver" << std::endl;
     constexpr int nsteps = 10;
     for (int i=0; i < nsteps; ++i) {
       real_t dt = compute_dt->compute_dt(U);
-      std::cout << "   Iteration #" << i << std::endl;
       updater->update(U, U2, dt);
       Kokkos::deep_copy(U.U, U2.U);
+      U.exchange_ghosts( ghost_comm );
+      diag1 = diags.compute(U);
+      std::cout << "   Iteration #" << i << std::endl;
     }
 
     // 4- Computing final mass and energy
@@ -184,7 +188,7 @@ void run_test(int ndim, std::string HydroUpdateFactory_id ) {
     std::cout << " . Final conservation :" << std::endl;
     std::cout << "Quantity\tInitial\tFinal\tVariation\tPercent" << std::endl;
     real_t dM = diag1[0] - diag0[0];
-    real_t dE = diag1[1] - diag1[1];
+    real_t dE = diag1[1] - diag0[1];
     real_t pct_M = 100.0*dM/diag0[0];
     real_t pct_E = 100.0*dE/diag0[1];
     std::cout << "Mass\t" << diag0[0] << "\t" << diag1[0] << "\t" << dM << "\t" << pct_M << std::endl;
@@ -192,8 +196,8 @@ void run_test(int ndim, std::string HydroUpdateFactory_id ) {
 
     // TODO : 0.1
     real_t percent_threshold = 5;
-    EXPECT_LT(fabs(pct_M), percent_threshold) << "Mass is not conserved at less than 0.1% !";
-    EXPECT_LT(fabs(pct_E), percent_threshold) << "Energy is not conserved at less than 0.1% !";
+    EXPECT_LT(fabs(pct_M), percent_threshold) << "Mass is not conserved at less than " << percent_threshold << "% !";
+    EXPECT_LT(fabs(pct_E), percent_threshold) << "Energy is not conserved at less than " << percent_threshold << "% !";
   }
 
 }

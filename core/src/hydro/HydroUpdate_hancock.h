@@ -13,13 +13,13 @@ class ConfigMap;
 namespace dyablo {
 
 
-class HydroUpdate_generic : public HydroUpdate{
+class HydroUpdate_hancock : public HydroUpdate{
 public: 
-  HydroUpdate_generic(
+  HydroUpdate_hancock(
                 ConfigMap& configMap,
                 ForeachCell& foreach_cell,
                 Timers& timers );
-  ~HydroUpdate_generic();
+  ~HydroUpdate_hancock();
   void update(  const ForeachCell::CellArray_global_ghosted& Uin,
                 const ForeachCell::CellArray_global_ghosted& Uout,
                 real_t dt);

@@ -1,4 +1,4 @@
-#include "HydroUpdate_generic.h"
+#include "HydroUpdate_hancock.h"
 
 #include "utils/monitoring/Timers.h"
 
@@ -6,11 +6,13 @@
 #include "utils_hydro.h"
 #include "RiemannSolvers.h"
 
+#include "HydroUpdate_utils.h"
+
 
 namespace dyablo { 
 
 
-struct HydroUpdate_generic::Data{ 
+struct HydroUpdate_hancock::Data{ 
   ForeachCell& foreach_cell;
   real_t xmin, ymin, zmin;
   real_t xmax, ymax, zmax;  
@@ -26,7 +28,7 @@ struct HydroUpdate_generic::Data{
   real_t gx, gy, gz;
 };
 
-HydroUpdate_generic::HydroUpdate_generic(
+HydroUpdate_hancock::HydroUpdate_hancock(
   ConfigMap& configMap,
   ForeachCell& foreach_cell,
   Timers& timers )
@@ -54,7 +56,7 @@ HydroUpdate_generic::HydroUpdate_generic(
   } 
 }
 
-HydroUpdate_generic::~HydroUpdate_generic()
+HydroUpdate_hancock::~HydroUpdate_hancock()
 {}
 
 namespace{
@@ -74,77 +76,8 @@ namespace dyablo {
 
 namespace{
 
-template< int ndim >
-KOKKOS_INLINE_FUNCTION
-void compute_primitives(const RiemannParams& params, const PatchArray& Ugroup, const CellIndex& iCell_Ugroup, const PatchArray& Qgroup)
-{
-  HydroState3d uLoc = getHydroState<ndim>( Ugroup, iCell_Ugroup );
-      
-  // get primitive variables in current cell
-  HydroState3d qLoc;
-  real_t c = 0.0;
-  if(ndim==3)
-    computePrimitives(uLoc, &c, qLoc, params.gamma0, params.smallr, params.smallp);
-  else
-  {
-    auto copy_state = [](auto& to, const auto& from){
-      to[ID] = from[ID];
-      to[IP] = from[IP];
-      to[IU] = from[IU];
-      to[IV] = from[IV];
-    };
-    HydroState2d uLoc_2d, qLoc_2d;
-    copy_state(uLoc_2d, uLoc);
-    computePrimitives(uLoc_2d, &c, qLoc_2d, params.gamma0, params.smallr, params.smallp);
-    copy_state(qLoc, qLoc_2d);
-  }
 
-  setHydroState<ndim>( Qgroup, iCell_Ugroup, qLoc );
-}
 
-/// Compute slope for one cell (q_) in one direction
-template< int ndim >
-KOKKOS_INLINE_FUNCTION
-HydroState3d compute_slope( const HydroState3d& qMinus_, 
-                            const HydroState3d& q_, 
-                            const HydroState3d& qPlus_, 
-                            int slope_type)
-{
-  assert(slope_type == 1 || slope_type == 2);
-
-  HydroState3d dq_ = {};
-  auto compute_slope_var = [&](VarIndex ivar)
-  {
-    const real_t& q = q_[ivar];
-    const real_t& qPlus = qPlus_[ivar];
-    const real_t& qMinus = qMinus_[ivar];
-    real_t& dq = dq_[ivar];
-
-    // slopes in first coordinate direction
-    const real_t dlft = slope_type * (q - qMinus);
-    const real_t drgt = slope_type * (qPlus - q);
-    const real_t dcen = HALF_F * (qPlus - qMinus);
-    const real_t dsgn = (dcen >= ZERO_F) ? ONE_F : -ONE_F;
-    if( std::isnan(dlft) or std::isnan(drgt)  )
-    {
-      dq_[ivar] = std::nan("");
-      return;
-    }
-    const real_t slop = fmin(FABS(dlft), FABS(drgt));
-    real_t dlim = slop;
-    if ((dlft * drgt) <= ZERO_F)
-      dlim = ZERO_F;
-    dq = dsgn * fmin(dlim, FABS(dcen));
-  };
-
-  compute_slope_var(ID);
-  compute_slope_var(IP);
-  compute_slope_var(IU);
-  compute_slope_var(IV);
-  if(ndim==3) compute_slope_var(IW);
-
-  return dq_;
-}
 
 template< int ndim >
 KOKKOS_INLINE_FUNCTION
@@ -215,7 +148,7 @@ void compute_slopes( const PatchArray& Qgroup, const CellIndex& iCell_Sources, i
     HydroState3d qm = getHydroState<ndim>( Qgroup, ib + o_t{-1, 0, 0});
     HydroState3d qp = getHydroState<ndim>( Qgroup, ib + o_t{ 1, 0, 0});     
 
-    sx = compute_slope<ndim>(qm, qc, qp, slope_type);
+    sx = compute_slope<ndim>(qm, qc, qp, 1.0, 1.0);
     CellIndex iCell_x = SlopesX.convert_index_ghost(iCell_Sources);
     if(iCell_x.is_valid())
     {
@@ -228,7 +161,7 @@ void compute_slopes( const PatchArray& Qgroup, const CellIndex& iCell_Sources, i
     HydroState3d qm = getHydroState<ndim>( Qgroup, ib + o_t{ 0,-1, 0});
     HydroState3d qp = getHydroState<ndim>( Qgroup, ib + o_t{ 0, 1, 0});       
 
-    sy = compute_slope<ndim>(qm, qc, qp, slope_type);
+    sy = compute_slope<ndim>(qm, qc, qp, 1.0, 1.0);
 
     CellIndex iCell_y = SlopesY.convert_index_ghost(iCell_Sources);
     if(iCell_y.is_valid())
@@ -243,7 +176,7 @@ void compute_slopes( const PatchArray& Qgroup, const CellIndex& iCell_Sources, i
     HydroState3d qm = getHydroState<ndim>( Qgroup, ib + o_t{ 0, 0,-1});
     HydroState3d qp = getHydroState<ndim>( Qgroup, ib + o_t{ 0, 0, 1});       
 
-    sz = compute_slope<ndim>(qm, qc, qp, slope_type);
+    sz = compute_slope<ndim>(qm, qc, qp, 1.0, 1.0);
 
     CellIndex iCell_z = SlopesZ.convert_index_ghost(iCell_Sources);
     if(iCell_z.is_valid())
@@ -423,7 +356,7 @@ void apply_gravity_correction( const GlobalArray& Uin,
 
 template< int ndim >
 void update_aux(
-    const HydroUpdate_generic::Data* pdata,
+    const HydroUpdate_hancock::Data* pdata,
     const ForeachCell::CellArray_global_ghosted& Uin,
     const ForeachCell::CellArray_global_ghosted& Uout,
     real_t dt)
@@ -467,12 +400,12 @@ void update_aux(
     SlopesZ_ = foreach_cell.reserve_patch_tmp("SlopesZ", 0, 0, 1, fm, 5);
   PatchArray::Ref Sources_ = foreach_cell.reserve_patch_tmp("Sources", 1, 1, (ndim == 3)?1:0, fm, 5);
 
-  timers.get("HydroUpdate_generic").start();
+  timers.get("HydroUpdate_hancock").start();
 
   ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
 
   // Iterate over patches
-  foreach_cell.foreach_patch( "HydroUpdate_generic::update",
+  foreach_cell.foreach_patch( "HydroUpdate_hancock::update",
     PATCH_LAMBDA( const ForeachCell::Patch& patch )
   {
     PatchArray Ugroup = patch.allocate_tmp(Ugroup_);
@@ -523,13 +456,13 @@ void update_aux(
     });
   });
 
-  timers.get("HydroUpdate_generic").stop();
+  timers.get("HydroUpdate_hancock").stop();
 
 }
 
 } // namespace
 
-void HydroUpdate_generic::update(
+void HydroUpdate_hancock::update(
     const ForeachCell::CellArray_global_ghosted& Uin,
     const ForeachCell::CellArray_global_ghosted& Uout,
     real_t dt)
@@ -544,4 +477,4 @@ void HydroUpdate_generic::update(
 }// namespace dyablo
 
 
-FACTORY_REGISTER( dyablo::HydroUpdateFactory , dyablo::HydroUpdate_generic, "HydroUpdate_generic")
+FACTORY_REGISTER( dyablo::HydroUpdateFactory , dyablo::HydroUpdate_hancock, "HydroUpdate_hancock")

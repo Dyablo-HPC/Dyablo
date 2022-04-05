@@ -1,33 +1,9 @@
 #pragma once
 
 #include "foreach_cell/ForeachCell_utils.h"
+#include "HydroUpdate_utils.h"
 
 namespace dyablo { 
-
-
-template< int ndim, typename Array_t >
-KOKKOS_INLINE_FUNCTION
-HydroState3d getHydroState( const Array_t& U, const CellIndex& iCell )
-{
-  HydroState3d res;
-  res[ID] = U.at(iCell, ID);
-  res[IP] = U.at(iCell, IP);
-  res[IU] = U.at(iCell, IU);
-  res[IV] = U.at(iCell, IV);
-  if(ndim==3) res[IW] = U.at(iCell, IW);
-  return res;
-}
-
-template< int ndim, typename Array_t >
-KOKKOS_INLINE_FUNCTION
-void setHydroState( const Array_t& U, const CellIndex& iCell, const HydroState3d& state )
-{
-  U.at(iCell, ID) = state[ID];
-  U.at(iCell, IP) = state[IP];
-  U.at(iCell, IU) = state[IU];
-  U.at(iCell, IV) = state[IV];
-  if(ndim==3) U.at(iCell, IW) = state[IW];
-}
 
 template< int ndim >
 KOKKOS_INLINE_FUNCTION
