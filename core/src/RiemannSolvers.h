@@ -20,13 +20,17 @@ enum RiemannSolverType {
   //RIEMANN_HLLD    /*!< HLLD MHD-only Riemann solver */
 };
 
+} // namespace dyablo
+
 template<>
-inline named_enum<RiemannSolverType>::init_list named_enum<RiemannSolverType>::names = {
+inline named_enum<dyablo::RiemannSolverType>::init_list named_enum<dyablo::RiemannSolverType>::names = {
     {dyablo::RiemannSolverType::RIEMANN_APPROX, "approx"},
     {dyablo::RiemannSolverType::RIEMANN_LLF, "llf"},
     {dyablo::RiemannSolverType::RIEMANN_HLL, "hll"},
     {dyablo::RiemannSolverType::RIEMANN_HLLC, "hllc"},
 };
+
+namespace dyablo {
 
 struct RiemannParams
 {
