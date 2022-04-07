@@ -20,10 +20,18 @@ enum RiemannSolverType {
   //RIEMANN_HLLD    /*!< HLLD MHD-only Riemann solver */
 };
 
+template<>
+inline named_enum<RiemannSolverType>::init_list named_enum<RiemannSolverType>::names = {
+    {dyablo::RiemannSolverType::RIEMANN_APPROX, "approx"},
+    {dyablo::RiemannSolverType::RIEMANN_LLF, "llf"},
+    {dyablo::RiemannSolverType::RIEMANN_HLL, "hll"},
+    {dyablo::RiemannSolverType::RIEMANN_HLLC, "hllc"},
+};
+
 struct RiemannParams
 {
   RiemannParams( ConfigMap& configMap )
-  : 
+  : riemannSolverType( configMap.getValue<RiemannSolverType>("hydro","riemann", RIEMANN_HLLC)),
     gamma0( configMap.getValue<real_t>("hydro","gamma0", 1.4) ),
     gamma6( (gamma0 + 1) / (2*gamma0)),
     smallr( configMap.getValue<real_t>("hydro","smallr", 1e-10) ),
@@ -32,26 +40,7 @@ struct RiemannParams
     smallpp( smallr*smallp ),
     rsst_enabled( configMap.getValue<bool>("low_mach", "rsst_enabled", false) ),
     rsst_ksi( configMap.getValue<real_t>("low_mach", "rsst_ksi", 10.0) )
-  {
-
-    // TODO : embed string parse for enums in in configMap
-    std::string riemannSolverStr = configMap.getValue<std::string>("hydro","riemann", "approx");
-    if ( !riemannSolverStr.compare("approx") ) {
-      riemannSolverType = RIEMANN_APPROX;
-    } else if ( !riemannSolverStr.compare("llf") ) {
-      riemannSolverType = RIEMANN_LLF;
-    } else if ( !riemannSolverStr.compare("hll") ) {
-      riemannSolverType = RIEMANN_HLL;
-    } else if ( !riemannSolverStr.compare("hllc") ) {
-      riemannSolverType = RIEMANN_HLLC;
-    } 
-    // else if ( !riemannSolverStr.compare("hlld") ) {
-    //   riemannSolverType = RIEMANN_HLLD;
-    // } 
-    else {
-      std::runtime_error("Unknown Riemann solver (hydro/riemann in .ini)");
-    }
-  }
+  { }
 
   RiemannSolverType riemannSolverType;
 

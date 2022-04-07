@@ -12,11 +12,20 @@
 #include "utils/mpi/GlobalMpiSession.h"
 #include "utils/config/inih/ini.h"
 #include "enums.h"
+#include "named_enum.h"
 #include <cassert>
 
 namespace Impl{
 
-// TODO move to cpp file
+/**
+ * Parse string to type T
+ * @tparam Type to convert to
+ * @param str string to parse into type T
+ * 
+ * Specialization when type is not an enum :
+ * use std::ostringstream::operator<< to parse string.
+ * throws std::runtime_error if there is a parsing error (either << fails or stream contains multiple tokens) 
+ **/
 template< typename T >
 typename std::enable_if< !std::is_enum<T>::value, T >::
 type convert_to( const std::string& str )
@@ -44,12 +53,20 @@ type convert_to( const std::string& str )
   return res;
 }
 
+/**
+ * convert_to specialization for std::string : 
+ * Just return input string
+ **/
 template<>
 inline std::string convert_to<std::string>( const std::string& str )
 {
   return str;
 }
 
+/**
+ * convert_to specialization for bool : 
+ * also parse 1/0, yes/no, true/false, on/off as bool
+ **/
 template<>
 inline bool convert_to<bool>( const std::string& str )
 {
@@ -68,15 +85,78 @@ inline bool convert_to<bool>( const std::string& str )
 }
 
 /**
- * convert_to for enums
- * TODO : enable string parse for enums
+ * convert_to specialization for enums :
+ * Parse numbers and names listed in named_enum<T> to enum type T 
  **/
 template<typename T>
 typename std::enable_if< std::is_enum<T>::value, T >::
 type convert_to( const std::string& str )
 {
-  return static_cast<T>(convert_to<typename std::underlying_type<T>::type>(str));
+  try { // Try parsing integer
+    return static_cast<T>(convert_to<typename std::underlying_type<T>::type>(str));
+  } 
+  catch(...) {} // Ignore and try other conversion
+  
+  try { // Try parsing named enum
+    return named_enum<T>::from_string(str);
+  } 
+  catch(...) 
+  {
+    std::ostringstream sst;
+    sst << "Could not parse enum. typeid : " << typeid(T).name() << ", Input : `" << str << "`";
+    auto names = named_enum<T>::available_names();
+    sst << "Possible values (" << names.size() << ") are :" << std::endl;
+    for( const std::string& name : names )
+    {
+      sst << "- `" << name << "` -> " << named_enum<T>::from_string( name ) << std::endl; 
+    }
+    throw std::runtime_error( sst.str() );
+  }
 }
+
+
+/**
+ * Convert t to string
+ * 
+ * Specialization when type is not an enum :
+ * use std::istringstream::operator<< to convert.
+ **/
+template< typename T >
+typename std::enable_if< !std::is_enum<T>::value, std::string >::
+type to_string( const T& t )
+{
+  std::ostringstream sst;
+  sst << std::boolalpha; // write true/false for bool
+  sst << t;
+  return sst.str();
+}
+
+/**
+ * Convert t to string
+ * 
+ * Specialization when type an enum :
+ * use named_enum<T>::to_string() to convert.
+ * throws runtime_error if no name has been defined for t
+ **/
+template< typename T >
+typename std::enable_if< std::is_enum<T>::value, std::string >::
+type to_string( const T& t )
+{
+  try{
+    return named_enum<T>::to_string( t ); 
+  } catch(...) {
+    std::ostringstream sst;
+    sst << "Could not find name for enum value. typeid : " << typeid(T).name() << ", Input : `" << t << "`" << std::endl;
+    auto names = named_enum<T>::available_names();
+    sst << "Possible values (" << names.size() << ") are :" << std::endl;
+    for( const std::string& name : names )
+    {
+      sst << "- `" << name << "` -> " << named_enum<T>::from_string( name ) << std::endl; 
+    }
+    throw std::runtime_error( sst.str() );
+  } 
+}
+
 
 
 } // namespace Impl
@@ -161,6 +241,16 @@ public:
    * Throws std::runtime_error if value cannot be parsed to type T 
    * or if there is still something left in <value> after parsing
    * ( e.g if "2.5" is parsed as integer, ".5" will remain )
+   * 
+   * Most types are parsed using std::ostream::operator<<, but some types are parsed differently:
+   * - bool : allowed values are 1/0, yes/no, true/false, on/off 
+   * - std::string : are returned without modification until end of line
+   * - enumerations : are parsed using named_enum<T>. Names for enum values must be registered in 
+   *                  named_enum<T>. Integers can be used for enum values in .ini, but a name must be 
+   *                  configured to write default values to last.ini
+   * 
+   * Note : getValue can be called for different types with the same section/name. 
+   * This is not recommended and may have unpredictable beahavior (especially concerning rounding errors)
    **/
   template< typename T >
   T getValue( std::string section, std::string name, const T& default_value )
@@ -172,10 +262,7 @@ public:
     
     if(!is_present)
     {
-      std::ostringstream sst;
-      sst << std::boolalpha;
-      sst << default_value;
-      val.value = sst.str();
+      val.value = Impl::to_string( default_value );
     }
 
     val.used = true;
@@ -207,7 +294,16 @@ public:
     return res;
   }
 
-
+  /**
+   * Write configured .ini in o
+   * 
+   * Variables are printed in the order they are stored in the ConfigMap
+   * Comments are added to help understand which variables are defined in .ini file but unused in dyablo, 
+   * and which variables have been defaulted because they were not present in original ini file
+   * 
+   * NOTE : variables present in original .ini files are left as they were defined originally. 
+   * ex : enum values set as 1 appear as 1 in last.ini, and will not be replaced by the name in named_enum<T>
+   **/
   void output(std::ostream& o)
   {
     constexpr std::string::size_type name_width = 20;
