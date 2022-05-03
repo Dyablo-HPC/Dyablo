@@ -7,7 +7,7 @@
 
 #include "amr/LightOctree_forward.h"
 
-#define DYABLO_USE_GPU_MESH
+//#define DYABLO_USE_GPU_MESH
 
 namespace dyablo{
 
@@ -283,15 +283,10 @@ public:
 
 namespace dyablo {
 
-//template class AMRmesh_impl<AMRmesh_hashmap>;
-//template class AMRmesh_impl<AMRmesh_pablo>;
-
+#ifdef DYABLO_USE_GPU_MESH
 using AMRmesh = AMRmesh_impl<AMRmesh_hashmap_new>;
-
-// #ifdef DYABLO_USE_GPU_MESH
-// using AMRmesh = AMRmesh_impl<AMRmesh_hashmap>;
-// #else
-// using AMRmesh = AMRmesh_impl<AMRmesh_pablo>;
-// #endif
+#else
+using AMRmesh = AMRmesh_impl<AMRmesh_pablo>;
+#endif
 
 }// namespace dyablo
