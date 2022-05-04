@@ -1,15 +1,17 @@
-
-#include <Kokkos_Core.hpp>
-#include <Kokkos_Parallel.hpp>
-#include <Kokkos_View.hpp>
-
-#include <Kokkos_Macros.hpp> // for KOKKOS_ENABLE_XXX
-
-#include <impl/Kokkos_Error.hpp>
-
-
-#include "real_type.h"    // choose between single and double precision
-#include "FieldManager.h"
+/**
+ * Test all HydroUpdate implementations for conservativity
+ * 
+ * For each HydroUpdate registered in the factory int 2d/3d :
+ * - Generate a low resolution blast with a few AMR levels in 2d / 3d,
+ * - Execute HydroUpdate for a few iterations
+ * - Check that the total mass and energy are conserved
+ * 
+ * Target conservativity for each HydroUpdate kernel can be 
+ * personalized in expected_conservativity_percent()
+ * Generate vizualization output files with the same name for 
+ * each HydroUpdate/dim pair : use --gtest_filter to run a 
+ * specific Kernel/dim and view the result
+ **/
 
 #include "utils/mpi/GlobalMpiSession.h"
 #include "utils/monitoring/Timers.h"
@@ -18,6 +20,7 @@
 #include "init/InitialConditions.h"
 #include "hydro/HydroUpdate.h"
 #include "utils_hydro.h"
+#include "io/IOManager.h"
 using blockSize_t    = Kokkos::Array<uint32_t, 3>;
 
 using Device = Kokkos::DefaultExecutionSpace;
@@ -25,6 +28,23 @@ using Device = Kokkos::DefaultExecutionSpace;
 #include "gtest/gtest.h"
 
 namespace dyablo {
+
+real_t expected_conservativity_percent( const std::string& HydroUpdate_id )
+{
+  static std::map<std::string, real_t> expected_map =
+  {
+    {"HydroUpdate_hancock", 1},
+    {"HydroUpdate_legacy", 1},
+    // Add custom conservativity target for non-conservative Solvers
+  };
+  real_t expected_default = 1e-10;
+
+  auto it = expected_map.find( HydroUpdate_id );
+  if(it == expected_map.end() )
+    return expected_default;
+  else
+    return it->second;
+}
 
 using DiagArray = std::array<real_t, 2>;
 
@@ -73,116 +93,127 @@ struct DiagosticsFunctor {
 
 std::shared_ptr<AMRmesh> init_amr_mesh( ConfigMap& configMap )
 {
-  int ndim = configMap.getValue<int>("mesh", "ndim", 3);
+  int ndim = configMap.getValue<int>("mesh", "ndim", -1); // ndim was set prior to calling init_amr_mesh()
   int codim = ndim;
-  BoundaryConditionType bxmin  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_ABSORBING);
-  BoundaryConditionType bxmax  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmax", BC_ABSORBING);
-  BoundaryConditionType bymin  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymin", BC_ABSORBING);
-  BoundaryConditionType bymax  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymax", BC_ABSORBING);
-  BoundaryConditionType bzmin  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmin", BC_ABSORBING);
-  BoundaryConditionType bzmax  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmax", BC_ABSORBING);
+  BoundaryConditionType bxmin  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_PERIODIC);
+  BoundaryConditionType bxmax  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmax", BC_PERIODIC);
+  BoundaryConditionType bymin  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymin", BC_PERIODIC);
+  BoundaryConditionType bymax  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymax", BC_PERIODIC);
+  BoundaryConditionType bzmin  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmin", BC_PERIODIC);
+  BoundaryConditionType bzmax  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmax", BC_PERIODIC);
   std::array<bool,3> periodic = {
     bxmin == BC_PERIODIC || bxmax == BC_PERIODIC,
     bymin == BC_PERIODIC || bymax == BC_PERIODIC,
     bzmin == BC_PERIODIC || bzmax == BC_PERIODIC
   };
-  int amr_level_min = configMap.getValue<int>("amr","level_min", 5);
-  int amr_level_max = configMap.getValue<int>("amr","level_max", 10);
+  int amr_level_min = configMap.getValue<int>("amr","level_min", 2);
+  int amr_level_max = configMap.getValue<int>("amr","level_max", 4);
   return std::make_shared<AMRmesh>( ndim, codim, periodic, amr_level_min, amr_level_max );
 }
 
-void run_test(int ndim, std::string HydroUpdateFactory_id ) {
-
+void run_test(int ndim, std::string HydroUpdate_id ) {
   std::cout << "// =========================================\n";
-  std::cout << "// Testing conservativity ...\n";
+  std::cout << "// Testing " << HydroUpdate_id << "\n";
   std::cout << "// =========================================\n";
-  
-  std::string input_file = (ndim == 2 ? "./hydro/test_blast_2D_block.ini" : "./hydro/test_blast_3D_block.ini");
-  ConfigMap configMap = ConfigMap::broadcast_parameters(input_file);
-  std::string init_name = configMap.getValue<std::string>("hydro", "problem", "unknown");
 
-  FieldManager field_manager = (ndim == 2 
-                              ? FieldManager({ID, IP, IU, IV}) 
-                              : FieldManager({ID, IP, IU, IV, IW}));
+  // Content of .ini file used ton configure configmap and HydroParams
+  char configmap_cstr[] = 
+    "[output]\n"
+    "outputPrefix=test_Conservativity\n"
+    "write_variables=rho,level,rank\n"
+    "enable_hdf5=on\n"
+    "[amr]\n"
+    "use_block_data=yes\n"
+    "\n";
+  int configmap_cstr_len = sizeof(configmap_cstr);
+  char* configmap_charptr = configmap_cstr;
+  ConfigMap configMap(configmap_charptr, configmap_cstr_len);
 
-  // block ghost width
-  uint32_t ghostWidth = configMap.getValue<uint32_t>("amr", "ghostwidth", 2);
-
+  // Set ndim in configmap
+  configMap.getValue<int>("mesh", "ndim", ndim);
   // block sizes with ghosts
-  uint32_t bx = configMap.getValue<uint32_t>("amr", "bx", 4);
-  uint32_t by = configMap.getValue<uint32_t>("amr", "by", 4);
-  uint32_t bz = configMap.getValue<uint32_t>("amr", "bz", (ndim == 2 ? 1 : 4));
-  uint32_t bx_g = bx + 2 * ghostWidth;
-  uint32_t by_g = by + 2 * ghostWidth;
-  uint32_t bz_g = bz + 2 * ghostWidth;
-
-  blockSize_t blockSizes, blockSizes_g;
-  blockSizes[IX] = bx;
-  blockSizes[IY] = by;
-  blockSizes[IZ] = (ndim == 2 ? 1 : bz);
-
-  blockSizes_g[IX] = bx_g;
-  blockSizes_g[IY] = by_g;
-  blockSizes_g[IZ] = (ndim == 2 ? 1 : bz_g);
-
+  configMap.getValue<uint32_t>("amr", "bx", 4);
+  configMap.getValue<uint32_t>("amr", "by", 4);
+  configMap.getValue<uint32_t>("amr", "bz", (ndim == 2 ? 1 : 4));
 
   auto amr_mesh = init_amr_mesh(configMap);
   ForeachCell foreach_cell(*amr_mesh, configMap);
   Timers timers;  
+  
+  // Initializing kernels
+  std::cout << " . Initializing kernels" << std::endl;
+  std::unique_ptr<Compute_dt> compute_dt;
+  std::unique_ptr<HydroUpdate> updater;
+  std::unique_ptr<IOManager> iomanager;
+  {
+    std::string compute_dt_id = configMap.getValue<std::string>("dt", "dt_kernel", "Compute_dt_generic");
+    compute_dt = Compute_dtFactory::make_instance("Compute_dt_generic",
+                                                  configMap,
+                                                  foreach_cell, 
+                                                  timers);
 
-  auto communicator = GlobalMpiSession::get_comm_world();  
-  
-  std::string compute_dt_id = configMap.getValue<std::string>("dt", "dt_kernel", "Compute_dt_generic");
-  auto compute_dt = Compute_dtFactory::make_instance( compute_dt_id,
-      configMap,
-      foreach_cell, 
-      timers
-  );
-  
-  ForeachCell::CellArray_global_ghosted U;
-  auto Uhost = Kokkos::create_mirror_view(U.U);
+    updater = HydroUpdateFactory::make_instance(HydroUpdate_id, 
+                                                configMap, 
+                                                foreach_cell,
+                                                timers);
+
+    iomanager = IOManagerFactory::make_instance("IOManager_hdf5", 
+                                                configMap, 
+                                                foreach_cell,
+                                                timers);
+  }
+
+  // Initializing data (U + amr_mesh)
+  std::cout << " . Initializing data" << std::endl;
+  ForeachCell::CellArray_global_ghosted U, U2;
+  {
+    std::string init_name = configMap.getValue<std::string>("hydro", "problem", "blast");
+
+     FieldManager field_manager = (ndim == 2 
+                              ? FieldManager({ID, IP, IU, IV}) 
+                              : FieldManager({ID, IP, IU, IV, IW}));
+
+    auto initial_conditions = InitialConditionsFactory::make_instance(
+                                init_name, 
+                                configMap,
+                                foreach_cell,
+                                timers);
+
+    initial_conditions->init(U, field_manager);
+    U2 = foreach_cell.allocate_ghosted_array("U2", field_manager); 
+  }  
+
+  GhostCommunicator ghost_comm(amr_mesh);
+  U.exchange_ghosts( ghost_comm );
+
   DiagosticsFunctor diags(foreach_cell);
   {
-    DiagArray diag0;
-    DiagArray diag1;
-
-    std::cout << std::endl << std::endl;
-    std::cout << "==== Testing construct name : " << HydroUpdateFactory_id << std::endl;
-    auto updater = HydroUpdateFactory::make_instance(HydroUpdateFactory_id, configMap, 
-                                                    foreach_cell,
-                                                    timers);
-
-    auto initial_conditions =
-      InitialConditionsFactory::make_instance(init_name, 
-        configMap,
-        foreach_cell,
-        timers);
-
-    // 1- Initializing data
-    std::cout << " . Initializing" << std::endl;
-    initial_conditions->init(U, field_manager);
-    ForeachCell::CellArray_global_ghosted U2 = foreach_cell.allocate_ghosted_array("U2", field_manager); 
-
-    // 2- Computing initial mass and energy
+    // Computing initial mass and energy
     std::cout << " . Computing initial quantities" << std::endl;
-    diag0 = diags.compute(U);
-    GhostCommunicator ghost_comm(amr_mesh, communicator);
-
-    // 3- Advancing a few steps
+    DiagArray diag0 = diags.compute(U);
+    
+    // Advancing a few steps
     std::cout << " . Running hydro solver" << std::endl;
     constexpr int nsteps = 10;
+    real_t time = 0;
+    iomanager->save_snapshot(U, 0, time);
     for (int i=0; i < nsteps; ++i) {
-      real_t dt = compute_dt->compute_dt(U);
-      updater->update(U, U2, dt);
-      Kokkos::deep_copy(U.U, U2.U);
+      real_t dt_local = compute_dt->compute_dt(U);
+      real_t dt;
+      GlobalMpiSession::get_comm_world().MPI_Allreduce(&dt_local, &dt, 1, MpiComm::MPI_Op_t::MIN);
       U.exchange_ghosts( ghost_comm );
-      diag1 = diags.compute(U);
+      updater->update(U, U2, dt);
+      Kokkos::deep_copy(U.U, U2.U);           
+      
+      time += dt;
+      iomanager->save_snapshot(U, i+1, time);
+      
       std::cout << "   Iteration #" << i << std::endl;
     }
 
     // 4- Computing final mass and energy
     std::cout << " . Computing final quantities" << std::endl;
-    diag1 = diags.compute(U);
+    DiagArray diag1 = diags.compute(U);
 
     // 5- Checking values
     std::cout << " . Final conservation :" << std::endl;
@@ -194,8 +225,7 @@ void run_test(int ndim, std::string HydroUpdateFactory_id ) {
     std::cout << "Mass\t" << diag0[0] << "\t" << diag1[0] << "\t" << dM << "\t" << pct_M << std::endl;
     std::cout << "Energy\t" << diag0[1] << "\t" << diag1[1] << "\t" << dE << "\t" << pct_E << std::endl;
 
-    // TODO : 0.1
-    real_t percent_threshold = 5;
+    real_t percent_threshold = expected_conservativity_percent(HydroUpdate_id);
     EXPECT_LT(fabs(pct_M), percent_threshold) << "Mass is not conserved at less than " << percent_threshold << "% !";
     EXPECT_LT(fabs(pct_E), percent_threshold) << "Energy is not conserved at less than " << percent_threshold << "% !";
   }

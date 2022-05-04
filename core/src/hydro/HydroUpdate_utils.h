@@ -7,6 +7,16 @@
 
 namespace dyablo {
 
+/**
+ * @brief Returns the hydro state at a given cell index in an array
+ * 
+ * @tparam ndim the number of dimensions
+ * @tparam Array_t the type of array where we are looking up
+ * @tparam CellIndex the type of cell index used
+ * @param U the array in which we are getting the state
+ * @param iCell the index of the cell 
+ * @return the hydro state at position iCell in U
+ */
 template< int ndim, typename Array_t, typename CellIndex >
 KOKKOS_INLINE_FUNCTION
 HydroState3d getHydroState( const Array_t& U, const CellIndex& iCell )
@@ -16,10 +26,20 @@ HydroState3d getHydroState( const Array_t& U, const CellIndex& iCell )
   res[IP] = U.at(iCell, IP);
   res[IU] = U.at(iCell, IU);
   res[IV] = U.at(iCell, IV);
-  if(ndim==3) res[IW] = U.at(iCell, IW);
+  res[IW] = (ndim == 3 ? U.at(iCell, IW) : 0.0);
   return res;
 }
 
+/**
+ * @brief Sets the hydro state at a given cell index in an array
+ * 
+ * @tparam ndim the number of dimensions
+ * @tparam Array_t the type of array where we are looking up
+ * @tparam CellIndex the type of cell index used
+ * @param U the array in which we are setting the state
+ * @param iCell the index of the cell 
+ * @param state the state to define at iCell in U
+ */
 template< int ndim, typename Array_t, typename CellIndex >
 KOKKOS_INLINE_FUNCTION
 void setHydroState( const Array_t& U, const CellIndex& iCell, const HydroState3d& state )
@@ -31,46 +51,70 @@ void setHydroState( const Array_t& U, const CellIndex& iCell, const HydroState3d
   if(ndim==3) U.at(iCell, IW) = state[IW];
 }
 
+/**
+ * @brief Converts a given conservative variables hydro state to a 
+ *        primitive hydro state 
+ * 
+ * @tparam ndim the number of dimensions
+ * @param params hydro parameters for the conversion
+ * @param Uloc the hydro state
+ * @return KOKKOS_INLINE_FUNCTION 
+ */
 template < int ndim >
 KOKKOS_INLINE_FUNCTION
-HydroState3d cons_to_prim(const RiemannParams& params, const HydroState3d U) {
+HydroState3d cons_to_prim(const RiemannParams& params, const HydroState3d &Uloc) {
   real_t c;
   HydroState3d q;
-  computePrimitives(U, &c, q, params.gamma0, params.smallr, params.smallp);
+  assert( ndim==3 || Uloc[IW] == 0 );
+  computePrimitives(Uloc, &c, q, params.gamma0, params.smallr, params.smallp);
+  
   return q;
 }
 
+/**
+ * @brief Computes the primitive variables at a given cell index in an array
+ *        and stores it in another array
+ * 
+ * @tparam ndim the number of dimensions
+ * @tparam Array_t the type of array passed to the method
+ * @tparam CellIndex the type of index passed to the method
+ * @param params the hydro parameters for the conversion
+ * @param Ugroup The array where the conservative variables are stored
+ * @param iCell_Ugroup the index where to look and where to store
+ * @param Qgroup the array where the primitive variables are written
+ * 
+ * @note Ugroup and Qgroup should have the same sizes and properties
+ */
 template< int ndim, typename Array_t, typename CellIndex >
 KOKKOS_INLINE_FUNCTION
 void compute_primitives(const RiemannParams& params, const Array_t& Ugroup, 
                         const CellIndex& iCell_Ugroup, const Array_t& Qgroup)
 {
   HydroState3d uLoc = getHydroState<ndim>( Ugroup, iCell_Ugroup );
-      
+  real_t c; 
   // get primitive variables in current cell
   HydroState3d qLoc;
-  real_t c = 0.0;
-  if(ndim==3)
-    computePrimitives(uLoc, &c, qLoc, params.gamma0, params.smallr, params.smallp);
-  else
-  {
-    auto copy_state = [](auto& to, const auto& from){
-      to[ID] = from[ID];
-      to[IP] = from[IP];
-      to[IU] = from[IU];
-      to[IV] = from[IV];
-    };
-    HydroState2d uLoc_2d, qLoc_2d;
-    copy_state(uLoc_2d, uLoc);
-    computePrimitives(uLoc_2d, &c, qLoc_2d, params.gamma0, params.smallr, params.smallp);
-    copy_state(qLoc, qLoc_2d);
-  }
+  computePrimitives(uLoc, &c, qLoc, params.gamma0, params.smallr, params.smallp);
 
   setHydroState<ndim>( Qgroup, iCell_Ugroup, qLoc );
 }
 
 
-/// Compute slope for one cell (q_) in one direction
+/**
+ * @brief Computes the slope for a given hydrostate according to given neighbors
+ * 
+ * @tparam ndim the number of dimensions
+ * @param qMinus_ the "left" neighbor considered
+ * @param q_ the current cell state
+ * @param qPlus_ the "right" neighbor considered
+ * @param dL the relative distance separating q_ from qMinus_
+ * @param dR the relative distance separating q_ from qPlus_
+ * @return the slope for each variable of q_
+ * 
+ * @note the relative distance is expressed in units of the size of the current cell.
+ *       hence, if the neighbor has the same size, the distance will be 1.0. If the neighbor
+ *       is bigger, it will be 3/2 and if it is smaller it will be 3/4.
+ */
 template< int ndim >
 KOKKOS_INLINE_FUNCTION
 HydroState3d compute_slope( const HydroState3d& qMinus_, 
@@ -106,14 +150,15 @@ HydroState3d compute_slope( const HydroState3d& qMinus_,
 }
 
 /**
- * Reconstructs a state from a source value and a slope.
- * \param q      a HydroState3d containing the primitive variables to be reconstructed
- * \param slope  the slope to apply
- * \param sign   the direction in which we are applying the reconstruction 
+ * @brief Reconstructs a state from a source value and a slope.
+ *
+ * @param q      a HydroState3d containing the primitive variables to be reconstructed
+ * @param slope  the slope to apply
+ * @param sign   the direction in which we are applying the reconstruction 
  *               (-1 left; +1 right)
- * \param smallr a minimum value for the density in case reconstruction goes negative
- * \param size   the length of the slope to apply.
- * \return a HydroState3d storing the reconstructed value
+ * @param smallr a minimum value for the density in case reconstruction goes negative
+ * @param size   the length of the slope to apply.
+ * @return a HydroState3d storing the reconstructed value
  **/
 KOKKOS_INLINE_FUNCTION
 HydroState3d reconstruct_lin_state( const HydroState3d& q, 
@@ -126,8 +171,21 @@ HydroState3d reconstruct_lin_state( const HydroState3d& q,
 }
 
 
+/**
+ * @brief Computes the flux at the interface between two cells
+ * 
+ * @tparam ndim the number of dimensions
+ * @param sourceL the value left of the interface
+ * @param sourceR the value right of the interface
+ * @param slopeL the slope left of the interface
+ * @param slopeR the slope right of the interface
+ * @param dir the direction of the flux 
+ * @param params the hydro parameters of the run
+ * @param dL the distance for the reconstruction between the left value and the interface
+ * @param dR the distance for the reconstruction between the right value and the interface
+ * @return the flux calculated at the interface
+ */
 template< int ndim >
-/// Reconstruct state and apply Riemann solver at the interface between cell L and R
 KOKKOS_INLINE_FUNCTION
 HydroState3d compute_euler_flux( const HydroState3d& sourceL, const HydroState3d& sourceR, 
                                  const HydroState3d& slopeL, const HydroState3d& slopeR,
@@ -170,6 +228,24 @@ HydroState3d compute_euler_flux( const HydroState3d& sourceL, const HydroState3d
   return flux;
 }
 
+/**
+ * @brief Calculates one Euler hydro time-step given an input. where Uout = U+dt*dU/dt
+ *        and dU/dt is calculated from using a Godunov method.
+ * 
+ * @tparam ndim the number of dimensions 
+ * @tparam CellIndex the type of index on the array U
+ * @tparam PatchArray the type of patch array for the run
+ * @tparam ArrayIn the type of array provided as input
+ * @tparam ArrayOut the type of array provided as output
+ * @param params the hydro parameters of the run
+ * @param dir the direction for the update
+ * @param iCell_Uout the index of the cell where the results will be written
+ * @param U the input array
+ * @param Qgroup a ghosted array holding primitive variables
+ * @param dt the timestep
+ * @param ddir the size of the current cell
+ * @param Uout the output array 
+ */
 template<int ndim, 
          typename CellIndex, 
          typename PatchArray, 
@@ -347,7 +423,6 @@ void euler_update(const RiemannParams &params,
                 const HydroState3d slopeR = compute_slope<ndim> ( qC, qR, qRR, dslope_R, dslope_RR );
                 fluxR += compute_euler_flux<ndim>( qC, qR, slopeC, slopeR, dir, params, dflux_RL, dflux_RR );
               });
- 
     fluxR *= fac;      
   }
 
