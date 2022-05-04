@@ -8,6 +8,7 @@ FetchContent_Declare(
   SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../external/gtest
 )
 FetchContent_MakeAvailable(googletest)
+include(GoogleTest)
 
 #####################################################################
 #
@@ -39,10 +40,12 @@ function(dyablo_add_test UNIT_TEST_NAME TEST_MPI)
     target_link_libraries(${UNIT_TEST_NAME} PUBLIC mpiUtils)
   endif()
 
-  add_test(
-    NAME ${UNIT_TEST_NAME}
-    COMMAND ./${UNIT_TEST_NAME} --gtest_output=xml:gtest_reports/${UNIT_TEST_NAME}.xml
-    WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/unit_test/)
+  gtest_add_tests(${UNIT_TEST_NAME} "--gtest_output=xml:gtest_reports/" AUTO)
+
+  # add_test(
+  #   NAME ${UNIT_TEST_NAME}
+  #   COMMAND ./${UNIT_TEST_NAME} --gtest_output=xml:gtest_reports/${UNIT_TEST_NAME}.xml
+  #   WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/unit_test/)
 
   if(DYABLO_USE_MPI)
     if(TEST_MPI)
@@ -135,3 +138,6 @@ dyablo_add_test(utest_RegisteringFactory OFF
   main.cpp)
 target_link_libraries( utest_RegisteringFactory PUBLIC RegisteringFactory_impl_lib )
 
+dyablo_add_test(utest_MpiComm ON
+  utils/test_MpiComm.cpp
+  main.cpp)

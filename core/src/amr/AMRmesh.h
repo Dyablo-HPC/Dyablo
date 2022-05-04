@@ -2,6 +2,8 @@
 
 #include "AMRmesh_pablo.h"
 #include "AMRmesh_hashmap.h"
+#include "AMRmesh_hashmap_new.h"
+
 
 #include "amr/LightOctree_forward.h"
 
@@ -10,7 +12,7 @@
 namespace dyablo{
 
 template < typename Impl >
-class AMRmesh_impl : private Impl{
+class AMRmesh_impl : protected Impl{
 public:
   using Impl_t = Impl;
 private: 
@@ -45,7 +47,9 @@ public:
 
   /// Get periodicity of faces {X-,X+,Y-,Y+,[Z-],[Z+]}
   array_t<bool, 6> getPeriodic() const
-  { return Impl::getPeriodic(); }
+  { return {getPeriodic(0),getPeriodic(1),
+            getPeriodic(2),getPeriodic(3),
+            getPeriodic(4),getPeriodic(5)} ;}
 
   /// Get periodicity of face i (equivalent to getPeriodic()[i])
   bool getPeriodic(uint8_t i) const
@@ -79,10 +83,10 @@ public:
   //----- MPI info -----
   /// MPI rank
   int getRank() const
-  { return Impl::getRank(); }
+  { return Impl::getMpiComm().MPI_Comm_rank(); }
   // MPI communicator size
   int getNproc() const
-  { return Impl::getNproc(); }
+  { return Impl::getMpiComm().MPI_Comm_size(); }
 
   //----- Octant count -----
   /// Get number of local octants
@@ -94,11 +98,11 @@ public:
   { return Impl::getNumGhosts(); }
 
   /// Get total number of octants across all MPI process
-  uint32_t getGlobalNumOctants() const
+  uint64_t getGlobalNumOctants() const
   { return Impl::getGlobalNumOctants(); }
 
   /// Get the global id associated to local octant idx
-  uint32_t getGlobalIdx( uint32_t idx ) const
+  uint64_t getGlobalIdx( uint32_t idx ) const
   { return Impl::getGlobalIdx(idx); }
 
   //----- Local Octant info -----
@@ -279,11 +283,8 @@ public:
 
 namespace dyablo {
 
-//template class AMRmesh_impl<AMRmesh_hashmap>;
-//template class AMRmesh_impl<AMRmesh_pablo>;
-
 #ifdef DYABLO_USE_GPU_MESH
-using AMRmesh = AMRmesh_impl<AMRmesh_hashmap>;
+using AMRmesh = AMRmesh_impl<AMRmesh_hashmap_new>;
 #else
 using AMRmesh = AMRmesh_impl<AMRmesh_pablo>;
 #endif

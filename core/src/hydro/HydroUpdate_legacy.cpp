@@ -30,7 +30,7 @@ HydroUpdate_legacy::HydroUpdate_legacy(
   Timers& timers )
  : pdata(new Data
     {foreach_cell, 
-    foreach_cell.get_amr_mesh().getNumOctants(),
+    configMap.getValue<uint32_t>("amr","nbOctsPerGroup",64),
     foreach_cell.get_amr_mesh().getDim(),
     MusclBlockGodunovUpdateFunctor::Params(configMap),
     configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_ABSORBING),
@@ -41,10 +41,6 @@ HydroUpdate_legacy::HydroUpdate_legacy(
     configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmax", BC_ABSORBING),
     timers})
 {
-  pdata->nbOctsPerGroup = std::min( 
-      foreach_cell.get_amr_mesh().getNumOctants(), 
-      configMap.getValue<uint32_t>("amr","nbOctsPerGroup",foreach_cell.get_amr_mesh().getNumOctants()));
-
 }
 
 HydroUpdate_legacy::~HydroUpdate_legacy()
@@ -61,7 +57,10 @@ void HydroUpdate_legacy::update(const ForeachCell::CellArray_global_ghosted& Uin
   const LightOctree& lmesh = foreach_cell.get_amr_mesh().getLightOctree();
   const id2index_t& fm = Uin.fm;
 
-  uint32_t nbOctsPerGroup = pdata->nbOctsPerGroup;
+  uint32_t nbOctsPerGroup = std::min( 
+      lmesh.getNumOctants(), 
+      pdata->nbOctsPerGroup
+    );
   uint32_t bx = Uin.bx, by = Uin.by, bz = Uin.bz;  
   Timers& timers = pdata->timers; 
   GravityType gravity_type = pdata->params.gravity_type;

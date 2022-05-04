@@ -2,6 +2,7 @@
 
 #include "bitpit_PABLO.hpp"
 #include "amr/UserDataLB.h"
+#include "utils/mpi/MpiComm.h"
 
 namespace dyablo {
 
@@ -11,12 +12,16 @@ namespace dyablo {
  **/
 class AMRmesh_pablo : public bitpit::PabloUniform
 {
+private:
+    MpiComm mpi_comm;
 public:
     AMRmesh_pablo( int dim, int balance_codim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max )
-        : PabloUniform(dim)
+        : PabloUniform(dim), mpi_comm( PabloUniform::getComm() )
     {
         assert(dim == 2 || dim == 3);
         assert(balance_codim <= dim);
+        if( level_max > this->getMaxLevel() )
+            throw std::runtime_error( std::string("level_max is too big for AMRmesh_pablo : is ") + std::to_string(level_max) + " but PABLO only supports " + std::to_string(this->getMaxLevel()) );
         bitpit::log::setConsoleVerbosity(this->getLog(), bitpit::log::Verbosity::QUIET);
 
         this->setBalanceCodimension(balance_codim);
@@ -43,6 +48,11 @@ public:
      : AMRmesh_pablo(dim, 1, {false, false, false}, 1, 20)
     {}
 
+    const MpiComm& getMpiComm() const
+    {
+        return mpi_comm;
+    }
+
     std::array<bool, 6> getPeriodic() const{
         bitpit::bvector p = PabloUniform::getPeriodic();        
         if( p.size() == 4 )
@@ -54,7 +64,7 @@ public:
 
     int get_max_supported_level()
     {
-        return getMaxLevel();
+        return getMaxLevel()-1; // max_level=20 is too much for AMRmesh_pablo
     }
 
     uint32_t getNodesCount(){

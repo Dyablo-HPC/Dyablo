@@ -25,16 +25,16 @@ public:
     MIN,
     MAX,
     SUM,
-    OR,
-    AND,
+    LOR,
+    LAND,
     NUM_OPS
   };
 private:
-  /// Construct a MpiComm for a given MPI communicator
-  inline MpiComm(MPI_Comm_t mpi_comm_id);
   /// Construct MpiComm from MPI_COMM_WORLD
   inline MpiComm();
 public:
+  /// Construct a MpiComm for a given MPI communicator
+  inline MpiComm(MPI_Comm_t mpi_comm_id);
   /// Get an object representing MPI_COMM_WORLD 
   inline static MpiComm& world()
   {
@@ -54,6 +54,15 @@ public:
 
   template<typename T>
   void MPI_Allreduce( const T* sendbuf, T* recvbuf, int count, MPI_Op_t op ) const;
+
+  template<typename T>
+  void MPI_Scan( const T* sendbuf, T* recvbuf, int count, MPI_Op_t op ) const;
+
+  template<typename T>
+  void MPI_Allgather( const T* sendbuf, T* recvbuf, int count) const;
+
+  template<typename T>
+  void MPI_Allgatherv_inplace( T* sendrecvbuf, int count ) const;
 
   template<typename T>
   void MPI_Bcast( T* buffer, int count, int root ) const;

@@ -12,7 +12,7 @@
 
 namespace dyablo{
 
-AMRmesh_hashmap::AMRmesh_hashmap( int dim, int balance_codim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max, const MpiComm& mpi_comm )
+AMRmesh_hashmap::AMRmesh_hashmap( int dim, int balance_codim, const std::array<bool,3>& periodic, level_t level_min, level_t level_max, const MpiComm& mpi_comm )
         : dim(dim), periodic(periodic), markers(1), level_min(level_min), level_max(level_max), mpi_comm(mpi_comm)
 {
     assert(dim == 2 || dim == 3);
@@ -35,14 +35,14 @@ void AMRmesh_hashmap::adaptGlobalRefine()
     oct_view_t new_octs("local_octs_coord",  NUM_OCTS_COORDS, new_octs_count);
     for(uint32_t iOct_old=0; iOct_old<this->getNumOctants(); iOct_old++)
     {
-        uint16_t x = local_octs_coord(IX, iOct_old);
-        uint16_t y = local_octs_coord(IY, iOct_old);
-        uint16_t z = local_octs_coord(IZ, iOct_old);
-        uint16_t level = local_octs_coord(LEVEL, iOct_old);
+        coord_t x = local_octs_coord(IX, iOct_old);
+        coord_t y = local_octs_coord(IY, iOct_old);
+        coord_t z = local_octs_coord(IZ, iOct_old);
+        coord_t level = local_octs_coord(LEVEL, iOct_old);
 
-        for(uint8_t iz=0; iz<(dim-1); iz++)
-            for(uint16_t iy=0; iy<2; iy++)
-                for(uint16_t ix=0; ix<2; ix++)
+        for(int iz=0; iz<(dim-1); iz++)
+            for(int iy=0; iy<2; iy++)
+                for(int ix=0; ix<2; ix++)
                 {
                     uint32_t iOct_new = iOct_old*nb_subocts + ix + 2*iy + 4*iz;
                     new_octs(IX, iOct_new) = 2*x + ix;
@@ -55,8 +55,8 @@ void AMRmesh_hashmap::adaptGlobalRefine()
     this->local_octs_coord = new_octs;
     this->markers = markers_t(this->getNumOctants());
 
-    uint32_t nb_octs = this->getNumOctants();
-    MPI_Allreduce( &nb_octs, &total_octs_count, 1, MPI_UINT32_T, MPI_SUM, MPI_COMM_WORLD );
+    uint64_t nb_octs = this->getNumOctants();
+    mpi_comm.MPI_Allreduce( &nb_octs, &total_octs_count, 1, MpiComm::MPI_Op_t::SUM );
 }
 
 void AMRmesh_hashmap::setMarkersCapacity(uint32_t capa)
@@ -76,6 +76,9 @@ void AMRmesh_hashmap::setMarker(uint32_t iOct, int marker)
 
 namespace {
 
+using morton_t = uint64_t;
+using coord_t = AMRmesh_hashmap::coord_t;
+using level_t = AMRmesh_hashmap::level_t;
 using oct_view_t = AMRmesh_hashmap::oct_view_t;
 using oct_view_device_t = AMRmesh_hashmap::oct_view_device_t;
 using octs_coord_id = AMRmesh_hashmap::octs_coord_id;
@@ -84,11 +87,11 @@ using markers_device_t = AMRmesh_hashmap::markers_device_t;
 using OctantIndex = LightOctree_base::OctantIndex;
 
 KOKKOS_INLINE_FUNCTION
-Kokkos::Array<uint16_t, 3> oct_getpos(  const oct_view_device_t& local_octs_coord, 
+Kokkos::Array<coord_t, 3> oct_getpos(  const oct_view_device_t& local_octs_coord, 
                                         const oct_view_device_t& ghost_octs_coord,
                                         const OctantIndex& iOct)
 {
-    Kokkos::Array<uint16_t, 3> pos;
+    Kokkos::Array<coord_t, 3> pos;
     if(iOct.isGhost)
     {
         pos[IX] = ghost_octs_coord(octs_coord_id::IX, iOct.iOct);
@@ -105,7 +108,7 @@ Kokkos::Array<uint16_t, 3> oct_getpos(  const oct_view_device_t& local_octs_coor
 }
 
 KOKKOS_INLINE_FUNCTION
-uint16_t oct_getlevel(  const oct_view_device_t& local_octs_coord, 
+level_t oct_getlevel(  const oct_view_device_t& local_octs_coord, 
                         const oct_view_device_t& ghost_octs_coord,
                         const OctantIndex& iOct)
 {
@@ -133,26 +136,26 @@ bool is_full_coarsening(const LightOctree_hashmap& lmesh,
     uint32_t nbOcts = lmesh.getNumOctants();
     //Position in parent octant
     auto pos = oct_getpos(local_octs_coord, ghost_octs_coord, iOct);
-    uint16_t level = oct_getlevel(local_octs_coord, ghost_octs_coord, iOct);
+    level_t level = oct_getlevel(local_octs_coord, ghost_octs_coord, iOct);
     
-    uint16_t target_level = level-1;
+    level_t target_level = level-1;
 
     int sx = (pos[IX]%2==0)?1:-1;
     int sy = (pos[IY]%2==0)?1:-1;
     int sz = (pos[IZ]%2==0)?1:-1;
 
-    int8_t ndim = lmesh.getNdim();
+    int ndim = lmesh.getNdim();
 
-    for(int8_t z=0; z<(ndim-1); z++)
-        for(int8_t y=0; y<2; y++)
-            for(int8_t x=0; x<2; x++)
+    for(int z=0; z<(ndim-1); z++)
+        for(int y=0; y<2; y++)
+            for(int x=0; x<2; x++)
             {
                 if( x!=0 || y!=0 || z!=0 )
                 {
                     auto ns = lmesh.findNeighbors(iOct,{(int8_t)(sx*x),(int8_t)(sy*y),(int8_t)(sz*z)});
                     assert(ns.size()>0);
                     const OctantIndex& iOct_other = ns[0];
-                    uint16_t target_level_n = oct_getlevel(local_octs_coord, ghost_octs_coord, iOct_other);;
+                    level_t target_level_n = oct_getlevel(local_octs_coord, ghost_octs_coord, iOct_other);;
                     uint32_t im = markers.find(OctantIndex::OctantIndex_to_iOctLocal(iOct_other, nbOcts));
                     if( markers.valid_at(im) )
                         target_level_n += markers.value_at(im);
@@ -208,24 +211,24 @@ bool need_refine_to_balance(const LightOctree_hashmap& lmesh,
 
     uint32_t nbOcts = lmesh.getNumOctants();
 
-    uint16_t new_level = oct_getlevel(local_octs_coord, ghost_octs_coord, iOct);
+    level_t new_level = oct_getlevel(local_octs_coord, ghost_octs_coord, iOct);
     uint32_t idm = markers.find(OctantIndex::OctantIndex_to_iOctLocal(iOct, nbOcts));
     if( markers.valid_at(idm) )
         new_level += markers.value_at(idm);
 
-    int8_t nz_max = lmesh.getNdim() == 2? 0:1;
-    for( int8_t nz=-nz_max; nz<=nz_max; nz++ )
-        for( int8_t ny=-1; ny<=1; ny++ )
-            for( int8_t nx=-1; nx<=1; nx++ )
+    int nz_max = lmesh.getNdim() == 2? 0:1;
+    for( int nz=-nz_max; nz<=nz_max; nz++ )
+        for( int ny=-1; ny<=1; ny++ )
+            for( int nx=-1; nx<=1; nx++ )
             {
                 if( nx!=0 || ny!=0 || nz!=0 )
                 {
                     LightOctree_base::NeighborList neighbors = 
-                        lmesh.findNeighbors(iOct, {nx,ny,nz});
+                        lmesh.findNeighbors(iOct, {(int8_t)nx,(int8_t)ny,(int8_t)nz});
                     for(uint32_t n=0; n<neighbors.size(); n++)
                     {
                         const OctantIndex& iOct_neighbor = neighbors[n];
-                        uint16_t new_level_neighbor = oct_getlevel(local_octs_coord, ghost_octs_coord, iOct_neighbor);
+                        level_t new_level_neighbor = oct_getlevel(local_octs_coord, ghost_octs_coord, iOct_neighbor);
                         uint32_t idmn = markers.find(OctantIndex::OctantIndex_to_iOctLocal(iOct_neighbor, nbOcts));
                         if( markers.valid_at(idmn) )
                             new_level_neighbor += markers.value_at(idmn);
@@ -332,9 +335,9 @@ oct_view_t adapt_apply( const oct_view_t& local_octs_coord,
             else if( marker == -1 )
             {
                 // Add coarsend octant only for first one in morton order
-                uint16_t ix = local_octs_coord(octs_coord_id::IX, iOct_old);
-                uint16_t iy = local_octs_coord(octs_coord_id::IY, iOct_old);
-                uint16_t iz = local_octs_coord(octs_coord_id::IZ, iOct_old);
+                coord_t ix = local_octs_coord(octs_coord_id::IX, iOct_old);
+                coord_t iy = local_octs_coord(octs_coord_id::IY, iOct_old);
+                coord_t iz = local_octs_coord(octs_coord_id::IZ, iOct_old);
                 if( ix%2==0 && iy%2==0 && iz%2==0 )
                     n_new_octants = 1;
                 else 
@@ -349,10 +352,10 @@ oct_view_t adapt_apply( const oct_view_t& local_octs_coord,
         
         if(final && n_new_octants>0)
         {
-            uint16_t ix = local_octs_coord(octs_coord_id::IX, iOct_old);
-            uint16_t iy = local_octs_coord(octs_coord_id::IY, iOct_old);
-            uint16_t iz = local_octs_coord(octs_coord_id::IZ, iOct_old);
-            uint16_t level = local_octs_coord(octs_coord_id::LEVEL, iOct_old);
+            coord_t ix = local_octs_coord(octs_coord_id::IX, iOct_old);
+            coord_t iy = local_octs_coord(octs_coord_id::IY, iOct_old);
+            coord_t iz = local_octs_coord(octs_coord_id::IZ, iOct_old);
+            level_t level = local_octs_coord(octs_coord_id::LEVEL, iOct_old);
 
             if(marker==1)
             {
@@ -394,9 +397,7 @@ oct_view_t adapt_apply( const oct_view_t& local_octs_coord,
     return local_octs_coord_out;
 }
 
-using morton_t = uint64_t;
-
-morton_t shift_level( morton_t m, uint16_t from_level, uint16_t to_level  )
+morton_t shift_level( morton_t m, level_t from_level, level_t to_level  )
 {
     int16_t ldiff = to_level-from_level;
     if(ldiff > 0)
@@ -406,25 +407,25 @@ morton_t shift_level( morton_t m, uint16_t from_level, uint16_t to_level  )
 }
 
 // Compute morton at level_max;
-morton_t get_morton_smaller(uint16_t ix, uint16_t iy, uint16_t iz, uint16_t level, uint16_t level_max)
+morton_t get_morton_smaller(coord_t ix, coord_t iy, coord_t iz, level_t level, level_t level_max)
 {
     morton_t morton = compute_morton_key( ix,iy,iz );
     return shift_level(morton, level, level_max);
 };
 
-morton_t get_morton_smaller(const oct_view_t& local_octs_coord, uint32_t idx, uint16_t level_max)
+morton_t get_morton_smaller(const oct_view_t& local_octs_coord, uint32_t idx, level_t level_max)
 {
-    uint16_t ix = local_octs_coord(octs_coord_id::IX, idx);
-    uint16_t iy = local_octs_coord(octs_coord_id::IY, idx);
-    uint16_t iz = local_octs_coord(octs_coord_id::IZ, idx);
-    uint16_t level = local_octs_coord(octs_coord_id::LEVEL, idx);
+    coord_t ix = local_octs_coord(octs_coord_id::IX, idx);
+    coord_t iy = local_octs_coord(octs_coord_id::IY, idx);
+    coord_t iz = local_octs_coord(octs_coord_id::IZ, idx);
+    level_t level = local_octs_coord(octs_coord_id::LEVEL, idx);
     return get_morton_smaller(ix,iy,iz,level,level_max);
 }
 
 std::set< std::pair<int, uint32_t> > discover_ghosts(
         const std::vector<morton_t>& morton_intervals,
         const AMRmesh_hashmap::oct_view_t& local_octs_coord,
-        uint8_t level_max, uint8_t ndim, const std::array<bool,3>& periodic,
+        level_t level_max, uint8_t ndim, const std::array<bool,3>& periodic,
         const MpiComm& mpi_comm)
 {
     uint32_t mpi_rank = mpi_comm.MPI_Comm_rank();
@@ -451,18 +452,18 @@ std::set< std::pair<int, uint32_t> > discover_ghosts(
     uint32_t nbOct_local = local_octs_coord.extent(1);
     for( uint32_t iOct=0; iOct < nbOct_local; iOct++ )
     {
-        uint16_t ix = local_octs_coord(octs_coord_id::IX, iOct);
-        uint16_t iy = local_octs_coord(octs_coord_id::IY, iOct);
-        uint16_t iz = local_octs_coord(octs_coord_id::IZ, iOct);
-        uint16_t level = local_octs_coord(octs_coord_id::LEVEL, iOct);
-        uint16_t max_i = std::pow(2, level);
+        coord_t ix = local_octs_coord(octs_coord_id::IX, iOct);
+        coord_t iy = local_octs_coord(octs_coord_id::IY, iOct);
+        coord_t iz = local_octs_coord(octs_coord_id::IZ, iOct);
+        level_t level = local_octs_coord(octs_coord_id::LEVEL, iOct);
+        coord_t max_i = std::pow(2, level);
 
         assert(find_rank(get_morton_smaller(ix,iy,iz,level,level_max)) == mpi_rank);
 
-        int8_t dz_max = (ndim == 2)? 0:1;
-        for( int16_t dz=-dz_max; dz<=dz_max; dz++ )
-        for( int16_t dy=-1; dy<=1; dy++ )
-        for( int16_t dx=-1; dx<=1; dx++ )
+        int dz_max = (ndim == 2)? 0:1;
+        for( int dz=-dz_max; dz<=dz_max; dz++ )
+        for( int dy=-1; dy<=1; dy++ )
+        for( int dx=-1; dx<=1; dx++ )
         if(   (dx!=0 || dy!=0 || dz!=0)
            && (periodic[IX] || ( 0<=ix+dx && ix+dx<max_i ))
            && (periodic[IY] || ( 0<=iy+dy && iy+dy<max_i ))
@@ -482,27 +483,26 @@ std::set< std::pair<int, uint32_t> > discover_ghosts(
                     local_octants_to_send_set.insert({neighbor_rank, iOct});
             }
             else
-            {// Neighbors are scattered between multiple MPIs
-                //Iterate over neighbor's subcells
-                for( int16_t sz=0; sz<=dz_max; sz++ )
-                for( int16_t sy=0; sy<2; sy++ )
-                for( int16_t sx=0; sx<2; sx++ )
+            {// Neighbors may be scattered between multiple MPIs              
+                morton_t m_suboctant_origin = shift_level(m_neighbor, level_max, level+1); // Morton of first suboctant at level+1;
+                // Apply offset to get a neighbor
+                m_suboctant_origin += (dx == -1) << IX; // Other half of suboctant if left of original cell
+                m_suboctant_origin += (dy == -1) << IY;
+                m_suboctant_origin += (dz == -1) << IZ;
+                // Iterate over neighbor suboctants
+                int sx_max = (dx==0); // constrained to the same plane as origin if offset in this direction
+                int sy_max = (dy==0);
+                int sz_max = (ndim==2) ? 0 : (dz==0);
+                for( int16_t sz=0; sz<=sz_max; sz++ )
+                for( int16_t sy=0; sy<=sy_max; sy++ )
+                for( int16_t sx=0; sx<=sx_max; sx++ )
                 {
-                    // Add smaller neighbor only if near original octant
-                    // direction is unsconstrained OR offset left + suboctant right OR offset right + suboctant left
-                    //         (dx == 0)           OR        (dx==-1 && sx==1)      OR     (dx==1 && sx==0)
-                    if( ( (dx == 0) or (dx==-1 && sx==1) or (dx==1 && sx==0) )
-                    and ( (dy == 0) or (dy==-1 && sy==1) or (dy==1 && sy==0) )
-                    and ( (dz == 0) or (dz==-1 && sz==1) or (dz==1 && sz==0) ) )
-                    {
-                        morton_t m_suboctant = shift_level(m_neighbor, level_max, level+1); // Morton of first suboctant at level+1;
-                        m_suboctant += (sz << IZ) + (sy << IY) + (sx << IX);                // Add current suboctant coordinates
-                        m_suboctant = shift_level(m_suboctant, level+1, level_max);         // get morton of suboctant at level_max
+                    morton_t m_suboctant = m_suboctant_origin + (sz << IZ) + (sy << IY) + (sx << IX); // Add current suboctant coordinates
+                    m_suboctant = shift_level(m_suboctant, level+1, level_max);         // get morton of suboctant at level_max
 
-                        uint32_t neighbor_rank = find_rank(m_suboctant);
-                        if(neighbor_rank != mpi_rank)
-                            local_octants_to_send_set.insert({neighbor_rank, iOct});
-                    }
+                    uint32_t neighbor_rank = find_rank(m_suboctant);
+                    if(neighbor_rank != mpi_rank)
+                        local_octants_to_send_set.insert({neighbor_rank, iOct});
                 }
             }
         }
@@ -518,7 +518,7 @@ oct_view_t exchange_ghosts_octs(AMRmesh_hashmap& mesh, const oct_view_t& local_o
 
     oct_view_device_t local_octs_coord_device("local_octs_coord_device", octs_coord_id::NUM_OCTS_COORDS, local_octs_coord.extent(1));
     Kokkos::deep_copy(local_octs_coord_device, local_octs_coord);
-    oct_view_device_t ghost_octs_coord_device;
+    oct_view_device_t ghost_octs_coord_device("ghost_octs_coord_device", octs_coord_id::NUM_OCTS_COORDS, comm_ghosts.getNumGhosts());
 
     comm_ghosts.exchange_ghosts(local_octs_coord_device, ghost_octs_coord_device);
     
@@ -552,6 +552,7 @@ void exchange_markers(AMRmesh_hashmap& mesh, AMRmesh_hashmap::markers_device_t& 
                 markers_new.insert( markers.key_at(i), markers.value_at(i) );
             }
         });
+        Kokkos::realloc(ghost_markers, comm_ghosts.getNumGhosts() );
         comm_ghosts.exchange_ghosts(local_markers, ghost_markers);
 
         markers = markers_new;
@@ -575,26 +576,27 @@ void exchange_markers(AMRmesh_hashmap& mesh, AMRmesh_hashmap::markers_device_t& 
     });
 }
 
-std::vector<morton_t> compute_current_morton_intervals(const AMRmesh_hashmap& mesh, const oct_view_t& local_octs_coord, uint8_t level_max)
+std::vector<morton_t> compute_current_morton_intervals(const AMRmesh_hashmap& mesh, const oct_view_t& local_octs_coord, level_t level_max)
 {
-    int mpi_rank = mesh.getRank();
     int mpi_size = mesh.getNproc();
+    const MpiComm& mpi_comm = mesh.getMpiComm();
 
     // Allgather here ensures that old_morton_interval_begin/end for each process forms is a partition of [0,+inf[
     // When there is no local octant, current interval must be determined by using values of neighbor processes, 
     // otherwise we could just recieve old_morton_interval_end from next rank
-    std::vector<morton_t> old_morton_intervals(mpi_size+1);
-    old_morton_intervals[mpi_rank] = mesh.getNumOctants() == 0 ? (morton_t)-1 : get_morton_smaller(local_octs_coord, 0, level_max);
-    MPI_Allgather(  MPI_IN_PLACE, 0, 0,
-                    old_morton_intervals.data(), 1, MPI_INT64_T,
-                    MPI_COMM_WORLD);
-    old_morton_intervals[mpi_size] = std::numeric_limits<morton_t>::max();
-    for(int i=mpi_size-1; i>=0; i--)
+    uint64_t morton_first = mesh.getNumOctants() == 0 ? 0 : get_morton_smaller(local_octs_coord, 0, level_max);
+    std::vector<morton_t> morton_intervals(mpi_size+1);
+    mpi_comm.MPI_Allgather( &morton_first, morton_intervals.data(), 1 );
+    assert( morton_intervals[0] == 0 );
+    morton_intervals[mpi_size] = std::numeric_limits<morton_t>::max();
+    for(int i=mpi_size-1; i>=1; i--)
     {
-        if( old_morton_intervals[i] == (morton_t)-1 )
-            old_morton_intervals[i] = old_morton_intervals[i+1];
-    }
-    return old_morton_intervals;
+        if( morton_intervals[i]==0 )
+            morton_intervals[i] = morton_intervals[i+1];
+        assert( morton_intervals[i] <= morton_intervals[i+1] );
+    }   
+
+    return morton_intervals;
 }
 
 } // namespace
@@ -636,7 +638,7 @@ void AMRmesh_hashmap::adapt(bool dummy)
             }            
 
             // modified_global = true if at least one MPI had to make a modification since last exchange_markers()
-            MPI_Allreduce(&modified_local, &modified_global, 1, MPI_CXX_BOOL, MPI_LOR, MPI_COMM_WORLD);
+            mpi_comm.MPI_Allreduce( &modified_local, &modified_global, 1, MpiComm::MPI_Op_t::LOR );
         }
 
         adapt_clean(lmesh, local_octs_coord_device, ghost_octs_coord_device, markers_device);
@@ -652,8 +654,8 @@ void AMRmesh_hashmap::adapt(bool dummy)
 
     this->markers = markers_t(this->getNumOctants());
 
-    uint32_t nb_octs = this->getNumOctants();
-    MPI_Allreduce( &nb_octs, &total_octs_count, 1, MPI_UINT32_T, MPI_SUM, MPI_COMM_WORLD );
+    uint64_t nb_octs = this->getNumOctants();
+    mpi_comm.MPI_Allreduce( &nb_octs, &total_octs_count, 1, MpiComm::MPI_Op_t::SUM );
 
     // Update ghosts metadata
     // TODO : use markers to build new ghost list instead of complete reconstruction
@@ -677,9 +679,9 @@ void AMRmesh_hashmap::adapt(bool dummy)
 
     // Update global index begin
     {
+        uint32_t size_local = this->getNumOctants();
         std::vector<uint32_t> sizes(mpi_size);
-        sizes[mpi_rank] = this->getNumOctants();
-        MPI_Allgather(MPI_IN_PLACE, 1, MPI_UINT32_T, sizes.data(), 1, MPI_UINT32_T, MPI_COMM_WORLD); 
+        mpi_comm.MPI_Allgather(&size_local, sizes.data(), 1); 
         this->global_id_begin = std::accumulate(&sizes[0], &sizes[mpi_rank], 0);
     }
 
@@ -690,7 +692,7 @@ void AMRmesh_hashmap::adapt(bool dummy)
     // }
 }
 
-std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(uint8_t level)
+std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(level_t level)
 {
     uint32_t mpi_rank = this->getRank();
     uint32_t mpi_size = this->getNproc();
@@ -718,17 +720,7 @@ std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(uint8_t level)
 
         // allgather morton_intervals
         {
-            std::vector<int> morton_recv_count(mpi_size);
-            morton_recv_count[mpi_rank] = nb_mortons;
-            MPI_Allgather(  MPI_IN_PLACE,0,0,
-                            morton_recv_count.data(), 1, MPI_INT, 
-                            MPI_COMM_WORLD );
-            std::vector<int> morton_recv_displ(mpi_size+1);
-            std::partial_sum(morton_recv_count.begin(), morton_recv_count.end(), 
-                            ++morton_recv_displ.begin()); 
-            assert(morton_recv_displ[mpi_size] == mpi_size);       
-            MPI_Allgatherv( MPI_IN_PLACE, 0, 0,
-                            morton_intervals.data(), morton_recv_count.data(), morton_recv_displ.data(), MPI_UINT64_T, MPI_COMM_WORLD);
+            mpi_comm.MPI_Allgatherv_inplace( morton_intervals.data(), nb_mortons );
             morton_intervals[0] = 0;
             morton_intervals[mpi_size] = std::numeric_limits<morton_t>::max();
             for(uint32_t rank=0; rank<mpi_size; rank++)
@@ -774,18 +766,7 @@ std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(uint8_t level)
                 }
             }
 
-            // Compute and allgather pivots
-            std::vector<int> pivots_recv_count(mpi_size);
-            pivots_recv_count[mpi_rank] = nb_local_pivots;
-            MPI_Allgather(  MPI_IN_PLACE,0,0,
-                            pivots_recv_count.data(), 1, MPI_INT, 
-                            MPI_COMM_WORLD );
-            std::vector<int> pivots_recv_displ(mpi_size+1);
-            std::partial_sum(pivots_recv_count.begin(), pivots_recv_count.end(), 
-                            ++pivots_recv_displ.begin()); 
-            assert(pivots_recv_displ[mpi_size] == mpi_size);       
-            MPI_Allgatherv( MPI_IN_PLACE, 0, 0,
-                            new_intervals.data(), pivots_recv_count.data(), pivots_recv_displ.data(), MPI_UINT32_T, MPI_COMM_WORLD);
+            mpi_comm.MPI_Allgatherv_inplace( new_intervals.data(), nb_local_pivots );
             new_intervals[mpi_size] = this->total_octs_count;
 
         }
@@ -812,7 +793,7 @@ std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(uint8_t level)
         {   //TODO : avoid CPU/GPU transfers
             GhostCommunicator_kokkos loadbalance_communicator( loadbalance_to_send );
             oct_view_device_t local_octs_coord_old( "local_octs_coord_old", local_octs_coord.layout() );
-            oct_view_device_t local_octs_coord_new;
+            oct_view_device_t local_octs_coord_new( "local_octs_coord_new", octs_coord_id::NUM_OCTS_COORDS, loadbalance_communicator.getNumGhosts() );
             Kokkos::deep_copy(local_octs_coord_old , this->local_octs_coord );
             loadbalance_communicator.exchange_ghosts(local_octs_coord_old, local_octs_coord_new);
             Kokkos::realloc(this->local_octs_coord, local_octs_coord_new.layout());
@@ -864,7 +845,7 @@ void AMRmesh_hashmap_loadBalance( AMRmesh_hashmap& mesh, int compact_levels, Vie
 {
     auto octs_to_exchange = mesh.loadBalance(compact_levels);
     GhostCommunicator_kokkos lb_comm(octs_to_exchange);
-    View_t userData_new;
+    View_t userData_new( userData.label(), userData.extent(0), userData.extent(1), lb_comm.getNumGhosts() );
     lb_comm.exchange_ghosts(userData, userData_new);
     userData = userData_new;
 }

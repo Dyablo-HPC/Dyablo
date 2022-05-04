@@ -21,7 +21,9 @@ public:
         LEVEL,
         NUM_OCTS_COORDS
     };
-    using oct_view_device_t = Kokkos::View<uint16_t**, Kokkos::LayoutLeft> ;
+    using coord_t = uint32_t;
+    using level_t = uint16_t;
+    using oct_view_device_t = Kokkos::View<coord_t**, Kokkos::LayoutLeft> ;
     using markers_device_t = Kokkos::UnorderedMap<uint32_t, int>;
     using oct_view_t = oct_view_device_t::HostMirror ;
     using markers_t = markers_device_t::HostMirror;
@@ -41,7 +43,7 @@ private:
 
     std::map<int, std::vector<uint32_t>> local_octants_to_send; /// rank -> array of remote ghosts to send to rank
 
-    uint8_t level_min, level_max;
+    level_t level_min, level_max;
     MpiComm mpi_comm;
 
 public:
@@ -62,11 +64,15 @@ public:
 
     bool getPeriodic(uint8_t i) const
     {
-        assert(i<2*dim);
+        assert(i<6);
         return periodic[i/2];
     }
 
     //MPI
+    const MpiComm& getMpiComm() const
+    {
+        return mpi_comm;
+    }
     int getRank() const
     {
         return mpi_comm.MPI_Comm_rank();
@@ -88,10 +94,10 @@ public:
      *         a GhostCommunicator_kokkos to communicate user data of migrated octants
      **/
     
-    std::map<int, std::vector<uint32_t>> loadBalance(uint8_t level=0);
+    std::map<int, std::vector<uint32_t>> loadBalance(level_t level=0);
 
     template< typename T >
-    void loadBalance(T&, uint8_t level)
+    void loadBalance(T&, level_t level)
     {
         if(this->getNproc() > 1)
             assert(false); // loadBalance( UserCommLB ) cannot be used without PABLO : User data are not exchanged
@@ -119,12 +125,12 @@ public:
 
     bool getBound( uint32_t idx ) const
     {
-        uint16_t ix = local_octs_coord(IX, idx);
-        uint16_t iy = local_octs_coord(IY, idx);
-        uint16_t iz = local_octs_coord(IZ, idx);
-        uint16_t level = getLevel(idx);
+        coord_t ix = local_octs_coord(IX, idx);
+        coord_t iy = local_octs_coord(IY, idx);
+        coord_t iz = local_octs_coord(IZ, idx);
+        level_t level = getLevel(idx);
 
-        uint32_t last_oct = std::pow(2, level)-1;
+        coord_t last_oct = std::pow(2, level)-1;
 
         return ix == 0 || iy == 0 || iz == 0 || ix == last_oct || iy == last_oct || iz == last_oct; 
     }
@@ -139,9 +145,9 @@ public:
 
     std::array<real_t, 3> getCoordinates( uint32_t idx ) const
     {
-        uint16_t ix = local_octs_coord(IX, idx);
-        uint16_t iy = local_octs_coord(IY, idx);
-        uint16_t iz = local_octs_coord(IZ, idx);
+        coord_t ix = local_octs_coord(IX, idx);
+        coord_t iy = local_octs_coord(IY, idx);
+        coord_t iz = local_octs_coord(IZ, idx);
 
         real_t size = getSize(idx);
 
@@ -150,12 +156,12 @@ public:
 
     real_t getSize( uint32_t idx ) const
     {
-        uint16_t level = getLevel(idx);
+        level_t level = getLevel(idx);
 
         return 1.0/std::pow(2,level);
     }
 
-    uint8_t getLevel( uint32_t idx ) const
+    level_t getLevel( uint32_t idx ) const
     {
         return local_octs_coord(LEVEL, idx);
     }
@@ -169,9 +175,9 @@ public:
 
     std::array<real_t, 3> getCoordinatesGhost( uint32_t idx ) const
     {
-        uint16_t ix = ghost_octs_coord(IX, idx);
-        uint16_t iy = ghost_octs_coord(IY, idx);
-        uint16_t iz = ghost_octs_coord(IZ, idx);
+        coord_t ix = ghost_octs_coord(IX, idx);
+        coord_t iy = ghost_octs_coord(IY, idx);
+        coord_t iz = ghost_octs_coord(IZ, idx);
 
         real_t size = getSizeGhost(idx);
 
@@ -180,12 +186,12 @@ public:
 
     real_t getSizeGhost( uint32_t idx ) const
     {
-        uint16_t level = getLevelGhost(idx);
+        level_t level = getLevelGhost(idx);
 
         return 1.0/std::pow(2,level);
     }
 
-    uint8_t getLevelGhost( uint32_t idx ) const
+    level_t getLevelGhost( uint32_t idx ) const
     {
         return ghost_octs_coord(LEVEL, idx);
     }
@@ -239,7 +245,7 @@ public:
      *               3 ==> balance through faces, edges and corner (3D only)
      * @param periodic set perodicity for each dimension (last is ignored in 2D)
      **/
-    AMRmesh_hashmap( int dim, int balance_codim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world());
+    AMRmesh_hashmap( int dim, int balance_codim, const std::array<bool,3>& periodic, level_t level_min, level_t level_max, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world());
     
     void findNeighbours(uint32_t iOct, uint8_t iface, uint8_t codim , 
                         std::vector<uint32_t>& neighbor_iOcts, std::vector<bool>& neighbor_isGhost) const

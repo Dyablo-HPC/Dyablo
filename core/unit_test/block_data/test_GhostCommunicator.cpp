@@ -85,19 +85,19 @@ void run_test()
 
     debug::output_vtk("before_initial", *amr_mesh);
     if( amr_mesh->getRank() == 0 )
-      amr_mesh->setMarker(239 ,1);      
+      amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
     amr_mesh->adapt();
     debug::output_vtk("after_adapt1", *amr_mesh);
     if( amr_mesh->getRank() == 0 )
-      amr_mesh->setMarker(244 ,1);      
+      amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
     amr_mesh->adapt();
     debug::output_vtk("after_adapt2", *amr_mesh);
     if( amr_mesh->getRank() == 0 )
-      amr_mesh->setMarker(256 ,1);      
+      amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
     amr_mesh->adapt();
     debug::output_vtk("after_adapt3", *amr_mesh);
     if( amr_mesh->getRank() == 0 )
-      amr_mesh->setMarker(268 ,1);      
+      amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
     amr_mesh->adapt();
     debug::output_vtk("after_adapt4", *amr_mesh);
 
@@ -137,7 +137,8 @@ void run_test()
 
   dyablo::GhostCommunicator ghost_communicator( amr_mesh );
 
-  Array_t Ughost; //solver->Ughost
+  auto Ughostlayout = layout<Array_t>(bx,by,bz,nbfields,ghost_communicator.getNumGhosts());
+  Array_t Ughost("Ughost", Ughostlayout);
   ghost_communicator.exchange_ghosts(U, Ughost);
 
   // Test Ughost
