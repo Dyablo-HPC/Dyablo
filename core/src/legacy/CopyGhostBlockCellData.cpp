@@ -568,7 +568,6 @@ KOKKOS_INLINE_FUNCTION CellData get_cell_data( const Functor& f, uint32_t iOct_l
     uint32_t oct_level = f.lmesh.getLevel({iOct_global,false});
     
     assert(neighbors.size() > 0); //Should have at least one neighbor (Boundaries already taken care of)
-    if(neighbors.size() == 0) return CellData({std::nan(""),std::nan(""),std::nan(""),std::nan(""),std::nan("")});
 
     // All neighbors are on same level as neighbor[0]
     uint32_t neigh_level = f.lmesh.getLevel(neighbors[0]);

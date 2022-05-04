@@ -102,6 +102,7 @@ private:
   /// Base virtual class to store construct<T> as a uniform type in map 
   struct construct_base{
     virtual std::unique_ptr<BaseType> make_instance(Args... args) = 0;
+    virtual ~construct_base() = default;
   };
   
   /// Wrapper type to construct type T from the parameters given as template parameters in the factory

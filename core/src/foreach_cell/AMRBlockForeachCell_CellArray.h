@@ -223,6 +223,7 @@ public :
 };
 
 template< typename View_t >
+KOKKOS_INLINE_FUNCTION
 CellIndex CellArray_base<View_t>::convert_index(const CellIndex& in) const
 {
   assert( in.is_valid() ); // Index needs to be valid for conversion
@@ -246,6 +247,7 @@ CellIndex CellArray_base<View_t>::convert_index(const CellIndex& in) const
 }
 
 template< typename View_t >
+KOKKOS_INLINE_FUNCTION
 CellIndex CellArray_base<View_t>::convert_index_ghost(const CellIndex& in) const
 {
   assert( in.is_valid() ); // Index needs to be valid for conversion
@@ -318,12 +320,14 @@ CellIndex convert_index_ghost_aux(const CellArray_global_ghosted& array, const C
   }
 }
 
+KOKKOS_INLINE_FUNCTION
 CellIndex CellArray_global_ghosted::convert_index_getNeighbor(const CellIndex& in) const
 {
   CellIndex::offset_t offset{};
   return convert_index_ghost_aux(*this, in, offset);
 }
 
+KOKKOS_INLINE_FUNCTION
 CellIndex CellArray_global_ghosted::convert_index_ghost(const CellIndex& in) const
 {
   CellIndex::offset_t offset{};
@@ -344,6 +348,7 @@ CellIndex CellArray_global_ghosted::convert_index_ghost(const CellIndex& in) con
 }
 
 template< typename View_t >
+KOKKOS_INLINE_FUNCTION
 real_t& CellArray_base<View_t>::at(const CellIndex& iCell, VarIndex field) const
 {
   assert(bx == iCell.bx);
@@ -354,6 +359,7 @@ real_t& CellArray_base<View_t>::at(const CellIndex& iCell, VarIndex field) const
   return U(i, fm[field], iCell.iOct.iOct%nbOcts);
 }
 
+KOKKOS_INLINE_FUNCTION
 real_t& CellArray_global_ghosted::at(const CellIndex& iCell, VarIndex field) const
 {
   assert(bx == iCell.bx);
@@ -372,6 +378,7 @@ real_t& CellArray_global_ghosted::at(const CellIndex& iCell, VarIndex field) con
   }
 }
 
+KOKKOS_INLINE_FUNCTION
 CellIndex CellIndex::getNeighbor( const offset_t& offset ) const
 {
   assert(is_valid());
@@ -391,6 +398,7 @@ CellIndex CellIndex::getNeighbor( const offset_t& offset ) const
   return res;
 }
 
+KOKKOS_INLINE_FUNCTION
 CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_global_ghosted& array ) const
 {
   assert(this->is_valid());
@@ -559,6 +567,7 @@ CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_
 }
 
 template< typename View_t >
+KOKKOS_INLINE_FUNCTION
 CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_base<View_t>& array ) const
 {
   assert(this->is_valid());

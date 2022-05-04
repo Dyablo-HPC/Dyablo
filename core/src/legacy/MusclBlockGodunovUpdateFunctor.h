@@ -493,7 +493,7 @@ public:
       const real_t drgt = slope_type * (qPlus - q);
       const real_t dcen = HALF_F * (qPlus - qMinus);
       const real_t dsgn = (dcen >= ZERO_F) ? ONE_F : -ONE_F;
-      if( std::isnan(dlft) or std::isnan(drgt)  ) return std::nan("");
+      if( std::isnan(dlft) or std::isnan(drgt)  ) return dlft+drgt;
       const real_t slop = fmin(FABS(dlft), FABS(drgt));
       real_t dlim = slop;
       if ((dlft * drgt) <= ZERO_F)
@@ -546,7 +546,7 @@ public:
       const real_t drgt = slope_type * (qPlus - q);
       const real_t dcen = HALF_F * (qPlus - qMinus);
       const real_t dsgn = (dcen >= ZERO_F) ? ONE_F : -ONE_F;
-      if( std::isnan(dlft) or std::isnan(drgt)  ) return std::nan("");
+      if( std::isnan(dlft) or std::isnan(drgt)  ) return dlft+drgt;
       const real_t slop = fmin(FABS(dlft), FABS(drgt));
       real_t dlim = slop;
       if ((dlft * drgt) <= ZERO_F)
