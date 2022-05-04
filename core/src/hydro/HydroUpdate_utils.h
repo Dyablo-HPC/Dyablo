@@ -36,7 +36,21 @@ KOKKOS_INLINE_FUNCTION
 HydroState3d cons_to_prim(const RiemannParams& params, const HydroState3d U) {
   real_t c;
   HydroState3d q;
-  computePrimitives(U, &c, q, params.gamma0, params.smallr, params.smallp);
+  if (ndim == 3) {
+    computePrimitives(U, &c, q, params.gamma0, params.smallr, params.smallp);
+  }
+  else {
+    auto copy_state = [](auto& to, const auto& from){
+      to[ID] = from[ID];
+      to[IP] = from[IP];
+      to[IU] = from[IU];
+      to[IV] = from[IV];
+    };
+    HydroState2d uLoc_2d, qLoc_2d;
+    copy_state(uLoc_2d, U);
+    computePrimitives(uLoc_2d, &c, qLoc_2d, params.gamma0, params.smallr, params.smallp);
+    copy_state(q, qLoc_2d);  
+  }
   return q;
 }
 
@@ -133,11 +147,17 @@ HydroState3d compute_euler_flux( const HydroState3d& sourceL, const HydroState3d
                                  const HydroState3d& slopeL, const HydroState3d& slopeR,
                                  ComponentIndex3D dir, 
                                  const RiemannParams& params,
-                                 real_t dL, real_t dR)
+                                 real_t dL, real_t dR, bool debug)
 {
   const real_t smallr = params.smallr;
   HydroState3d qL = reconstruct_lin_state( sourceL, slopeL,  1, smallr, dL );
   HydroState3d qR = reconstruct_lin_state( sourceR, slopeR, -1, smallr, dR );
+
+  if (debug) {
+    printf("Lstate : %lf %lf %lf %lf; Rstate : %lf %lf %lf %lf\n",
+          qL[ID], qL[IP], qL[IU], qL[IV],
+          qR[ID], qR[IP], qR[IU], qR[IV]);
+  }
 
   VarIndex swap_component = (dir==IX) ? IU : (dir==IY) ? IV : IW;
 
@@ -295,7 +315,15 @@ void euler_update(const RiemannParams &params,
     // value of qR (so with a cell size equal to the current one).
     // SlopeCL considers a right averaged value, SlopeCR considers a left averaged value
     const HydroState3d slopeCL = compute_slope<ndim>( qL, qC, qR, dslope_L, 1.0);
-    fluxL = compute_euler_flux<ndim>( qL, qC, slopeL, slopeCL, dir, params, dflux_LL, dflux_LR );
+    fluxL = compute_euler_flux<ndim>( qL, qC, slopeL, slopeCL, dir, params, dflux_LL, dflux_LR, false );
+
+    if (ldiff_L > 0 && iin.iOct.iOct==63) {
+      printf("At iOct63, left, pos %d %d; flux = %lf %lf %lf %lf; value left = %lf %lf %lf %lf; my value = %lf %lf %lf %lf; SL=%lf %lf %lf %lf; SR=%lf %lf %lf %lf\n",
+              iin.i, iin.j, fluxL[ID], fluxL[IP], fluxL[IU], fluxL[IV],
+              qL[ID], qL[IP], qL[IU], qL[IV], qC[ID], qC[IP], qC[IU], qC[IV],
+              slopeL[ID], slopeL[IP], slopeL[IU], slopeL[IV],
+              slopeCL[ID], slopeCL[IP], slopeCL[IU], slopeCL[IV]);
+    }
   }
   // 2- Smaller
   else {
@@ -311,7 +339,7 @@ void euler_update(const RiemannParams &params,
                 qLL = cons_to_prim<ndim>( params, uLL );
                 const HydroState3d slopeC = compute_slope<ndim> ( qL, qC, qR, dslope_L, dslope_R );
                 const HydroState3d slopeL = compute_slope<ndim> ( qLL, qL, qC, dslope_LL, dslope_L );
-                fluxL += compute_euler_flux<ndim>( qL, qC, slopeL, slopeC, dir, params, dflux_LL, dflux_LR );
+                fluxL += compute_euler_flux<ndim>( qL, qC, slopeL, slopeC, dir, params, dflux_LL, dflux_LR, false );
               });
     fluxL *= fac; 
   }
@@ -328,7 +356,7 @@ void euler_update(const RiemannParams &params,
     const HydroState3d slopeR = compute_slope<ndim>(qC, qR, qRR, dslope_R, dslope_RR);
     
     HydroState3d slopeCR = compute_slope<ndim>( qL, qC, qR, 1.0, dslope_R);
-    fluxR = compute_euler_flux<ndim>( qC, qR, slopeCR, slopeR, dir, params, dflux_RL, dflux_RR );
+    fluxR = compute_euler_flux<ndim>( qC, qR, slopeCR, slopeR, dir, params, dflux_RL, dflux_RR, false );
   }
   // 2- Smaller :
   else {
@@ -345,9 +373,17 @@ void euler_update(const RiemannParams &params,
                 qRR = cons_to_prim<ndim>( params, uRR );
                 const HydroState3d slopeC = compute_slope<ndim> ( qL, qC, qR, dslope_L, dslope_R );
                 const HydroState3d slopeR = compute_slope<ndim> ( qC, qR, qRR, dslope_R, dslope_RR );
-                fluxR += compute_euler_flux<ndim>( qC, qR, slopeC, slopeR, dir, params, dflux_RL, dflux_RR );
+                fluxR += compute_euler_flux<ndim>( qC, qR, slopeC, slopeR, dir, params, dflux_RL, dflux_RR, iin.iOct.iOct==62 );
+                if (iin.iOct.iOct==62) {
+                  printf("At iOct62, right, pos %d %d; flux = %lf %lf %lf %lf; value right %lf %lf %lf %lf; (conservative) : %lf %lf %lf %lf; my value %lf %lf %lf %lf; SL=%lf %lf %lf %lf; SR=%lf %lf %lf %lf\n",
+                    iin.i, iin.j, fluxR[ID], fluxR[IP], fluxR[IU], fluxR[IV],
+                    qR[ID], qR[IP], qR[IU], qR[IV],
+                    uR[ID], uR[IP], uR[IU], uR[IV],
+                    qC[ID], qC[IP], qC[IU], qC[IV],
+                    slopeC[ID], slopeC[IP], slopeC[IU], slopeC[IV],
+                    slopeR[ID], slopeR[IP], slopeR[IU], slopeR[IV]);
+                }
               });
- 
     fluxR *= fac;      
   }
 
