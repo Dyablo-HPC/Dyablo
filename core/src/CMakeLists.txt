@@ -23,7 +23,6 @@ set( ic_src
 )
      
 set( legacy_src
-    ${CMAKE_CURRENT_SOURCE_DIR}/legacy/MapUserData.cpp 
     ${CMAKE_CURRENT_SOURCE_DIR}/legacy/CopyGhostBlockCellData.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/legacy/MarkOctantsHydroFunctor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/legacy/io_utils.cpp
