@@ -129,13 +129,10 @@ void apply_aux( const AMR_Remapper& remap,
                 blockSize_t blockSizes,
                 DataArrayBlock Usrc,
                 DataArrayBlock Usrc_ghost,
-                DataArrayBlock& Udest  )
+                const DataArrayBlock& Udest  )
 {
-  uint32_t nbOcts = remap.getNumOctants();
   uint32_t nbFields = Usrc.extent(1);
   uint32_t nbCellsPerOct = Usrc.extent(0);
-
-  Kokkos::realloc(Udest, nbCellsPerOct, nbFields, nbOcts);
 
   const FunctorData d{
     nbFields,
@@ -183,7 +180,7 @@ void MapUserDataFunctor::apply( const LightOctree_hashmap& lmesh_old,
                                 blockSize_t blockSizes,
                                 DataArrayBlock Usrc,
                                 DataArrayBlock Usrc_ghost,
-                                DataArrayBlock& Udest  )
+                                const DataArrayBlock& Udest  )
 {
   apply_aux( AMR_Remapper(lmesh_old, lmesh_new), lmesh_new.getNdim(),
              blockSizes, Usrc, Usrc_ghost, Udest );
@@ -194,7 +191,7 @@ void MapUserDataFunctor::apply( const LightOctree_pablo& lmesh_old,
                                 blockSize_t blockSizes,
                                 DataArrayBlock Usrc,
                                 DataArrayBlock Usrc_ghost,
-                                DataArrayBlock& Udest  )
+                                const DataArrayBlock& Udest  )
 {
   apply_aux( AMR_Remapper(lmesh_new.getMesh()), lmesh_new.getNdim(),
              blockSizes, Usrc, Usrc_ghost, Udest );

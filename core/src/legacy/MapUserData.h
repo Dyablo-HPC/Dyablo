@@ -27,14 +27,14 @@ public:
                       blockSize_t blockSizes,
                       DataArrayBlock Usrc,
                       DataArrayBlock Usrc_ghost,
-                      DataArrayBlock& Udest  );
+                      const DataArrayBlock& Udest  );
 
   static void apply(  const LightOctree_hashmap& lmesh_old,
                       const LightOctree_hashmap& lmesh_new,
                       blockSize_t blockSizes,
                       DataArrayBlock Usrc,
                       DataArrayBlock Usrc_ghost,
-                      DataArrayBlock& Udest  );
+                      const DataArrayBlock& Udest  );
 };
 
 
