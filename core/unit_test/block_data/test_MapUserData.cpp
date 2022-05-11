@@ -81,7 +81,7 @@ void run_test(int ndim)
   
   ForeachCell foreach_cell( *amr_mesh, configMap );
 
-  std::string mapUserData_id = configMap.getValue<std::string>("amr", "remap", "MapUserData_legacy");
+  std::string mapUserData_id = configMap.getValue<std::string>("amr", "remap", "MapUserData_mean");
   std::unique_ptr<MapUserData> mapUserData = MapUserDataFactory::make_instance( mapUserData_id,
     configMap,
     foreach_cell,
