@@ -23,7 +23,7 @@ namespace dyablo
 
 // =======================================================================
 // =======================================================================
-void run_test(int ndim)
+void run_test(int ndim, std::string mapUserData_id)
 {
   std::cout << "// =========================================\n";
   std::cout << "// Testing MapUserData ...\n";
@@ -81,7 +81,6 @@ void run_test(int ndim)
   
   ForeachCell foreach_cell( *amr_mesh, configMap );
 
-  std::string mapUserData_id = configMap.getValue<std::string>("amr", "remap", "MapUserData_mean");
   std::unique_ptr<MapUserData> mapUserData = MapUserDataFactory::make_instance( mapUserData_id,
     configMap,
     foreach_cell,
@@ -223,20 +222,29 @@ void run_test(int ndim)
 
 } // run_test
 
-
-
 } // namespace dyablo
 
-TEST(dyablo, test_MapUserData_2D)
+class Test_MapUserData
+  : public testing::TestWithParam<std::tuple<int, std::string>> 
+{};
+
+TEST_P(Test_MapUserData, position_field_conserved)
 {
-
-  dyablo::run_test(2);
-
+  int ndim = std::get<0>(GetParam());
+  std::string id = std::get<1>(GetParam());
+  dyablo::run_test(ndim, id );
 }
 
-TEST(dyablo, test_MapUserData_3D)
-{
-
-  dyablo::run_test(3);
-
-}
+INSTANTIATE_TEST_SUITE_P(
+    Test_MapUserData, Test_MapUserData,
+    testing::Combine(
+        testing::Values(2,3),
+        testing::ValuesIn( dyablo::MapUserDataFactory::get_available_ids() )
+    ),
+    [](const testing::TestParamInfo<Test_MapUserData::ParamType>& info) {
+      std::string name = 
+          (std::get<0>(info.param) == 2 ? std::string("2D") : std::string("3D"))
+          + "_" + std::get<1>(info.param);
+      return name;
+    }
+);
