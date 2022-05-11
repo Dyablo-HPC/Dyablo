@@ -73,7 +73,7 @@ public:
       timers
     );
 
-    std::string mapUserData_id = configMap.getValue<std::string>("amr", "remap", "MapUserData_legacy");
+    std::string mapUserData_id = configMap.getValue<std::string>("amr", "remap", "MapUserData_mean");
     this->mapUserData = MapUserDataFactory::make_instance( mapUserData_id,
       configMap,
       this->m_foreach_cell,

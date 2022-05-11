@@ -1,6 +1,6 @@
 #include "amr/MapUserData_base.h"
 
-#include "amr/AMR_Remapper.h"
+#include "legacy/AMR_Remapper.h"
 #include "legacy/utils_block.h"
 
 namespace dyablo {
