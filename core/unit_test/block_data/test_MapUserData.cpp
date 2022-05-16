@@ -12,7 +12,7 @@
 
 #include "gtest/gtest.h"
 
-#include "legacy/MapUserData.h"
+#include "amr/MapUserData.h"
 
 #include "amr/AMRmesh.h"
 #include "amr/LightOctree.h"
@@ -23,7 +23,7 @@ namespace dyablo
 
 // =======================================================================
 // =======================================================================
-void run_test(int ndim)
+void run_test(int ndim, std::string mapUserData_id)
 {
   std::cout << "// =========================================\n";
   std::cout << "// Testing MapUserData ...\n";
@@ -59,6 +59,8 @@ void run_test(int ndim)
     amr_mesh->updateConnectivity();
   }
 
+  Timers timers;
+
   char config_str[] = 
     "[output]\n"
     "hdf5_enabled=true\n"
@@ -79,6 +81,11 @@ void run_test(int ndim)
   
   ForeachCell foreach_cell( *amr_mesh, configMap );
 
+  std::unique_ptr<MapUserData> mapUserData = MapUserDataFactory::make_instance( mapUserData_id,
+    configMap,
+    foreach_cell,
+    timers
+  );
   
   uint32_t nbCellsPerOct = bx*by*bz;
   FieldManager field_manager({IU,IV,IW});
@@ -131,7 +138,6 @@ void run_test(int ndim)
     Kokkos::deep_copy( U.Ughost, Ughost_host );
   }
 
-  Timers timers;
   std::string iomanager_id = "IOManager_hdf5";
   std::unique_ptr<IOManager> io_manager = IOManagerFactory::make_instance( iomanager_id,
     configMap,
@@ -140,7 +146,7 @@ void run_test(int ndim)
   );
   io_manager->save_snapshot(U, 0, 1);
 
-  LightOctree lmesh_old = amr_mesh->getLightOctree();
+  mapUserData->save_old_mesh();
   {
     std::cout << "Coarsen/Refine octants" << std::endl;
 
@@ -158,16 +164,12 @@ void run_test(int ndim)
 
     amr_mesh->adapt(true);
   }
-  const LightOctree& lmesh_new = amr_mesh->getLightOctree();
-
   
   ForeachCell::CellArray_global_ghosted Unew = foreach_cell.allocate_ghosted_array("Unew", field_manager);
 
   std::cout << "Remap user data..." << std::endl;
 
-  MapUserDataFunctor::apply(lmesh_old, lmesh_new,
-                            {bx, by, bz}, 
-                            U.U, U.Ughost, Unew.U);
+  mapUserData->remap(U, Unew);
 
   {
     io_manager->save_snapshot(Unew, 1, 2);
@@ -220,20 +222,29 @@ void run_test(int ndim)
 
 } // run_test
 
-
-
 } // namespace dyablo
 
-TEST(dyablo, test_MapUserData_2D)
+class Test_MapUserData
+  : public testing::TestWithParam<std::tuple<int, std::string>> 
+{};
+
+TEST_P(Test_MapUserData, position_field_conserved)
 {
-
-  dyablo::run_test(2);
-
+  int ndim = std::get<0>(GetParam());
+  std::string id = std::get<1>(GetParam());
+  dyablo::run_test(ndim, id );
 }
 
-TEST(dyablo, test_MapUserData_3D)
-{
-
-  dyablo::run_test(3);
-
-}
+INSTANTIATE_TEST_SUITE_P(
+    Test_MapUserData, Test_MapUserData,
+    testing::Combine(
+        testing::Values(2,3),
+        testing::ValuesIn( dyablo::MapUserDataFactory::get_available_ids() )
+    ),
+    [](const testing::TestParamInfo<Test_MapUserData::ParamType>& info) {
+      std::string name = 
+          (std::get<0>(info.param) == 2 ? std::string("2D") : std::string("3D"))
+          + "_" + std::get<1>(info.param);
+      return name;
+    }
+);

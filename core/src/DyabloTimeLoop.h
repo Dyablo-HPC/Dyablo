@@ -13,7 +13,7 @@
 #include "io/IOManager.h"
 #include "gravity/GravitySolver.h"
 #include "hydro/HydroUpdate.h"
-#include "legacy/MapUserData.h"
+#include "amr/MapUserData.h"
 
 namespace dyablo {
 
@@ -68,6 +68,13 @@ public:
 
     std::string godunov_updater_id = configMap.getValue<std::string>("hydro", "update", "HydroUpdate_hancock");
     this->godunov_updater = HydroUpdateFactory::make_instance( godunov_updater_id,
+      configMap,
+      this->m_foreach_cell,
+      timers
+    );
+
+    std::string mapUserData_id = configMap.getValue<std::string>("amr", "remap", "MapUserData_mean");
+    this->mapUserData = MapUserDataFactory::make_instance( mapUserData_id,
       configMap,
       this->m_foreach_cell,
       timers
@@ -313,7 +320,7 @@ public:
         timers.get("AMR: Mark cells").stop();
 
         // Backup old mesh
-        LightOctree lmesh_old = m_amr_mesh->getLightOctree();
+        mapUserData->save_old_mesh();
 
         timers.get("AMR: adapt").start();
         // 1. adapt mesh with mapper enabled
@@ -328,8 +335,9 @@ public:
         std::cout << "Reallocate U + U2 after remap : " << DataArrayBlock::required_allocation_size(U2.U.extent(0), U2.U.extent(1), U2.U.extent(2)) * (2/1e6) 
             << " -> " << DataArrayBlock::required_allocation_size(U2.U.extent(0), U2.U.extent(1), m_amr_mesh->getNumOctants()) * (2/1e6) << " MBytes" << std::endl;
         U = m_foreach_cell.allocate_ghosted_array("U", m_field_manager);
-        MapUserDataFunctor::apply( lmesh_old, m_amr_mesh->getLightOctree(), {U.bx,U.by,U.bz},
-                      U2.U, U.Ughost, U.U );        
+
+        mapUserData->remap( U2, U );
+
         // now U contains the most up to date data after mesh adaptation
         // we can resize U2 for the next time-step
         U2 = m_foreach_cell.allocate_ghosted_array("U2", m_field_manager);
@@ -391,6 +399,7 @@ private:
   std::unique_ptr<Compute_dt> compute_dt;
   std::unique_ptr<RefineCondition> refine_condition;
   std::unique_ptr<HydroUpdate> godunov_updater;
+  std::unique_ptr<MapUserData> mapUserData;
   std::unique_ptr<IOManager> io_manager;
   std::unique_ptr<GravitySolver> gravity_solver;
 

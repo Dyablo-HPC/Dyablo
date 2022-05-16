@@ -1,15 +1,39 @@
-#include "MapUserData.h"
+#include "amr/MapUserData_base.h"
 
-#include "amr/AMR_Remapper.h"
+#include "legacy/AMR_Remapper.h"
+#include "legacy/utils_block.h"
 
-namespace dyablo
-{
+namespace dyablo {
 
+class MapUserData_legacy : public MapUserData{
+public: 
+  MapUserData_legacy(
+                ConfigMap& configMap,
+                ForeachCell& foreach_cell,
+                Timers& timers )
+    : bx( configMap.getValue<uint32_t>("amr", "bx", 0) ),
+      by( configMap.getValue<uint32_t>("amr", "by", 0) ),
+      bz( configMap.getValue<uint32_t>("amr", "bz", 1) ),
+      foreach_cell(foreach_cell)
+  {}
+  
+  ~MapUserData_legacy(){}
 
+  void save_old_mesh() override
+  {
+    this->lmesh_old = this->foreach_cell.get_amr_mesh().getLightOctree();
+  }
+
+  void remap(   const ForeachCell::CellArray_global_ghosted& Uin,
+                const ForeachCell::CellArray_global_ghosted& Uout ) override;
+
+private:
+  uint32_t bx, by, bz;
+  ForeachCell& foreach_cell;
+  LightOctree lmesh_old;
+};
 
 namespace{
-
-using AMR_Remapper = dyablo::AMR_Remapper;
 
 /// Data to be accessed inside the Kokkos kernel
 struct FunctorData{
@@ -129,13 +153,10 @@ void apply_aux( const AMR_Remapper& remap,
                 blockSize_t blockSizes,
                 DataArrayBlock Usrc,
                 DataArrayBlock Usrc_ghost,
-                DataArrayBlock& Udest  )
+                const DataArrayBlock& Udest  )
 {
-  uint32_t nbOcts = remap.getNumOctants();
   uint32_t nbFields = Usrc.extent(1);
   uint32_t nbCellsPerOct = Usrc.extent(0);
-
-  Kokkos::realloc(Udest, nbCellsPerOct, nbFields, nbOcts);
 
   const FunctorData d{
     nbFields,
@@ -176,29 +197,38 @@ void apply_aux( const AMR_Remapper& remap,
 
 }
 
-} //namespace
-
-void MapUserDataFunctor::apply( const LightOctree_hashmap& lmesh_old,
+[[maybe_unused]] void MapUserDataFunctor_apply( const LightOctree_hashmap& lmesh_old,
                                 const LightOctree_hashmap& lmesh_new,
                                 blockSize_t blockSizes,
                                 DataArrayBlock Usrc,
                                 DataArrayBlock Usrc_ghost,
-                                DataArrayBlock& Udest  )
+                                const DataArrayBlock& Udest  )
 {
   apply_aux( AMR_Remapper(lmesh_old, lmesh_new), lmesh_new.getNdim(),
              blockSizes, Usrc, Usrc_ghost, Udest );
 }
 
-void MapUserDataFunctor::apply( const LightOctree_pablo& lmesh_old,
+[[maybe_unused]] void MapUserDataFunctor_apply( const LightOctree_pablo& lmesh_old,
                                 const LightOctree_pablo& lmesh_new,
                                 blockSize_t blockSizes,
                                 DataArrayBlock Usrc,
                                 DataArrayBlock Usrc_ghost,
-                                DataArrayBlock& Udest  )
+                                const DataArrayBlock& Udest  )
 {
   apply_aux( AMR_Remapper(lmesh_new.getMesh()), lmesh_new.getNdim(),
              blockSizes, Usrc, Usrc_ghost, Udest );
 }
 
+} //namespace
 
-} // namespace dyablo
+void MapUserData_legacy::remap(   const ForeachCell::CellArray_global_ghosted& Uin,
+                                  const ForeachCell::CellArray_global_ghosted& Uout )
+{
+  const LightOctree& lmesh_new = foreach_cell.get_amr_mesh().getLightOctree();
+
+  MapUserDataFunctor_apply( this->lmesh_old, lmesh_new, blockSize_t{bx,by,bz}, Uin.U, Uin.Ughost, Uout.U );
+}
+
+} //namespace dyablo 
+
+FACTORY_REGISTER( dyablo::MapUserDataFactory , dyablo::MapUserData_legacy, "MapUserData_legacy")

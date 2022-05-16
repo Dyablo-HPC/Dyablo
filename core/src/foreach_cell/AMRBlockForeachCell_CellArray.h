@@ -139,6 +139,12 @@ public:
   uint32_t nbOcts;
   id2index_t fm;
 
+  KOKKOS_INLINE_FUNCTION
+  int nbfields() const
+  {
+    return fm.nbfields();
+  }
+
   /**
    * Convert cell index used for another array into an 
    * index compatible with current array. 
@@ -155,12 +161,20 @@ public:
   CellIndex convert_index_ghost(const CellIndex& iCell) const;
 
   /**
-   *  Get value of field for cell iCell
-   * 
-   * @param iCell must have a block size compatible with array
+   * Get value of field for cell iCell
+   * @param iCell cell index of value to fetch( must have a block size compatible with array )
    **/
   KOKKOS_INLINE_FUNCTION
   real_t& at( const CellIndex& iCell, VarIndex field ) const;
+
+  /**
+   * Get value of n-th field for cell (skips the conversion with FieldManager)
+   * @param iCell cell index of value to fetch
+   * @param ivar position of requested field in array (after conversion with FieldManager)
+   * NOTE : ivar cannot be a VarIndex
+   **/
+  KOKKOS_INLINE_FUNCTION
+  real_t& at_ivar( const CellIndex& iCell, int ivar ) const;
 };
 
 class CellArray_global_ghosted : public CellArray_global{
@@ -209,12 +223,21 @@ public :
 
 
   /**
-   *  Get value of field for cell iCell
-   * 
-   * @param iCell must have a block size compatible with array
+   * Get value of field for cell iCell
+   * @param iCell cell index of value to fetch( must have a block size compatible with array )
+   * Note ; iCell can point to a ghost cell
    **/
   KOKKOS_INLINE_FUNCTION
   real_t& at( const CellIndex& iCell, VarIndex field ) const;
+
+  /**
+   * Get value of n-th field for cell (skips the conversion with FieldManager)
+   * @param iCell cell index of value to fetch
+   * @param ivar position of requested field in array (after conversion with FieldManager)
+   * NOTE : ivar cannot be a VarIndex
+   **/
+  KOKKOS_INLINE_FUNCTION
+  real_t& at_ivar( const CellIndex& iCell, int ivar ) const;
 
   void exchange_ghosts(const GhostCommunicator& ghost_comm)
   {
@@ -346,21 +369,33 @@ CellIndex CellArray_global_ghosted::convert_index_ghost(const CellIndex& in) con
     return iCell_n;
   }
 }
-
 template< typename View_t >
 KOKKOS_INLINE_FUNCTION
 real_t& CellArray_base<View_t>::at(const CellIndex& iCell, VarIndex field) const
+{
+  return this->at_ivar(iCell, fm[field]);
+}
+
+template< typename View_t >
+KOKKOS_INLINE_FUNCTION
+real_t& CellArray_base<View_t>::at_ivar(const CellIndex& iCell, int iVar) const
 {
   assert(bx == iCell.bx);
   assert(by == iCell.by);
   assert(bz == iCell.bz);
 
   uint32_t i = iCell.i + iCell.j*iCell.bx + iCell.k*iCell.bx*iCell.by;
-  return U(i, fm[field], iCell.iOct.iOct%nbOcts);
+  return U(i, iVar, iCell.iOct.iOct%nbOcts);
 }
 
 KOKKOS_INLINE_FUNCTION
 real_t& CellArray_global_ghosted::at(const CellIndex& iCell, VarIndex field) const
+{
+  return this->at_ivar(iCell, fm[field]);
+}
+
+KOKKOS_INLINE_FUNCTION
+real_t& CellArray_global_ghosted::at_ivar(const CellIndex& iCell, int ivar) const
 {
   assert(bx == iCell.bx);
   assert(by == iCell.by);
@@ -370,11 +405,11 @@ real_t& CellArray_global_ghosted::at(const CellIndex& iCell, VarIndex field) con
   if( iCell.iOct.isGhost )
   {
     assert( Ughost.is_allocated() );
-    return Ughost(i, fm[field], iCell.iOct.iOct);
+    return Ughost(i, ivar, iCell.iOct.iOct);
   }
   else
   {
-    return U(i, fm[field], iCell.iOct.iOct);
+    return U(i, ivar, iCell.iOct.iOct);
   }
 }
 
@@ -401,6 +436,8 @@ CellIndex CellIndex::getNeighbor( const offset_t& offset ) const
 KOKKOS_INLINE_FUNCTION
 CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_global_ghosted& array ) const
 {
+  const LightOctree& lmesh = array.lmesh;
+
   assert(this->is_valid());
   assert(this->bx == array.bx );
   assert(this->by == array.by );
@@ -408,9 +445,7 @@ CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_
   assert(this->is_local() || this->level_diff() == -1);
   assert(int(this->bx) >= abs(offset[IX])*2 - 1 );
   assert(int(this->by) >= abs(offset[IY])*2 - 1 );
-  assert(int(this->bz) >= abs(offset[IZ])*2 - 1 );
-
-  const LightOctree& lmesh = array.lmesh;
+  assert(int(this->bz) >= abs(offset[IZ])*2 - 1 );  
 
   int32_t i = this->i + offset[IX];
   int32_t j = this->j + offset[IY];
