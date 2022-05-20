@@ -112,13 +112,13 @@ public:
             ForeachCell::CellMetaData::pos_t c = cellmetadata.getCellCenter(iCell_U);
             ForeachCell::CellMetaData::pos_t s = cellmetadata.getCellSize(iCell_U);
 
-            HydroState3d val = analytical_formula.value( c[IX], c[IY], c[IZ], s[IX], s[IY], s[IZ] );
-            U.at(iCell_U, ID) = val[ID];
-            U.at(iCell_U, IP) = val[IP];
-            U.at(iCell_U, IU) = val[IU];
-            U.at(iCell_U, IV) = val[IV];
+            ConsHydroState val = analytical_formula.value( c[IX], c[IY], c[IZ], s[IX], s[IY], s[IZ] );
+            U.at(iCell_U, ID) = val.rho;
+            U.at(iCell_U, IE) = val.e_tot;
+            U.at(iCell_U, IU) = val.rho_u;
+            U.at(iCell_U, IV) = val.rho_v;
             if( ndim == 3 )
-                U.at(iCell_U, IW) = val[IW];
+                U.at(iCell_U, IW) = val.rho_w;
         });
     }
   }  

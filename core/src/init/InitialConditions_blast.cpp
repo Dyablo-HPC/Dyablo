@@ -57,7 +57,7 @@ struct AnalyticalFormula_blast : public AnalyticalFormula_base{
         real_t smallp = this->smallp;
         real_t error_max = this->error_max;
         return AnalyticalFormula_tools::auto_refine( *this, gamma0, smallr, smallp, error_max,
-                                                     x, y, z, dx, dy, dz );
+                                                      x, y, z, dx, dy, dz );
     }
 
     // Geometrical version
@@ -100,7 +100,7 @@ struct AnalyticalFormula_blast : public AnalyticalFormula_base{
     // } 
 
     KOKKOS_INLINE_FUNCTION
-    HydroState3d value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
+    ConsHydroState value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
     {
         // Quadrant size
         real_t qsx = 1.0 / this->blast_nx;
@@ -120,14 +120,14 @@ struct AnalyticalFormula_blast : public AnalyticalFormula_base{
         real_t r2 = (x-qcx)*(x-qcx) + (y-qcy)*(y-qcy);
         if( this->ndim == 3 ) r2 += (z-qcz)*(z-qcz);
         
-        HydroState3d res {};
+        ConsHydroState res;
 
         if (r2 < radius*radius) {
-            res[ID] = blast_density_in;
-            res[IP] = blast_pressure_in/(gamma0-1.0);;
+            res.rho = blast_density_in;
+            res.e_tot = blast_pressure_in/(gamma0-1.0);;
         } else {
-            res[ID] = blast_density_out;
-            res[IP] = blast_pressure_out/(gamma0-1.0);
+            res.rho = blast_density_out;
+            res.e_tot = blast_pressure_out/(gamma0-1.0);
         }
 
         return res;
@@ -136,4 +136,6 @@ struct AnalyticalFormula_blast : public AnalyticalFormula_base{
 
 } // namespace dyablo
 
-FACTORY_REGISTER(dyablo::InitialConditionsFactory, dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_blast>, "blast");
+FACTORY_REGISTER(dyablo::InitialConditionsFactory, 
+                dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_blast>, 
+                "blast");

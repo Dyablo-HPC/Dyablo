@@ -123,6 +123,10 @@ dyablo_add_test(utest_Conservativity ON
   hydro/test_Conservativity.cpp
   main.cpp)
 
+dyablo_add_test(utest_States ON
+  hydro/test_States.cpp
+  main.cpp)
+
 configure_file(
   hydro/test_blast_2D_block.ini
   hydro/test_blast_2D_block.ini COPYONLY)

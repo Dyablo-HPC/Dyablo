@@ -47,14 +47,14 @@ public:
    * \param[out] Qdata primitive variables
    */
   ConvertToPrimitivesHydroFunctor(Params    params,
-				  id2index_t     fm,
+				                          id2index_t     fm,
                                   blockSize_t    blockSizes,
                                   uint32_t       ghostWidth,
                                   uint32_t       nbOcts,
                                   uint32_t       nbOctsPerGroup,
                                   uint32_t       iGroup,
-				  DataArrayBlock Ugroup,
-				  DataArrayBlock Qgroup) :
+                                  DataArrayBlock Ugroup,
+                                  DataArrayBlock Qgroup) :
     params(params), fm(fm), blockSizes(blockSizes), ghostWidth(ghostWidth),
     nbOcts(nbOcts), nbOctsPerGroup(nbOctsPerGroup),
     iGroup(iGroup), Ugroup(Ugroup), Qgroup(Qgroup)
@@ -71,7 +71,7 @@ public:
   };
   
   // static method which does it all: create and execute functor
-  static void apply(Params    params,
+  static void apply(Params         params,
                     id2index_t     fm,
                     blockSize_t    blockSizes,
                     uint32_t       ghostWidth,
@@ -97,59 +97,36 @@ public:
 
   // ========================================================================
   // ========================================================================
+  template <
+    int ndim,
+    typename PrimState,
+    typename ConsState >
   KOKKOS_INLINE_FUNCTION
-  void cons2prim_2d(const int32_t index,
-                    const uint32_t iOct_local) const
+  void cons2prim(const int32_t index,
+                 const uint32_t iOct_local) const
   {
-  
-    HydroState2d uLoc; // conservative variables in current cell
-    HydroState2d qLoc; // primitive    variables in current cell
+    ConsState uLoc; // conservative variables in current cell
+    PrimState qLoc; // primitive    variables in current cell
     real_t c = 0.0;
     
     // get local conservative variable
-    uLoc[ID] = Ugroup(index,fm[ID],iOct_local);
-    uLoc[IP] = Ugroup(index,fm[IP],iOct_local);
-    uLoc[IU] = Ugroup(index,fm[IU],iOct_local);
-    uLoc[IV] = Ugroup(index,fm[IV],iOct_local);
+    uLoc.rho   = Ugroup(index, fm[ID], iOct_local);
+    uLoc.e_tot = Ugroup(index, fm[IP], iOct_local);
+    uLoc.rho_u = Ugroup(index, fm[IU], iOct_local);
+    uLoc.rho_v = Ugroup(index, fm[IV], iOct_local);
+    if (ndim == 3)
+      uLoc.rho_w = Ugroup(index, fm[IW], iOct_local);
     
     // get primitive variables in current cell
-    computePrimitives(uLoc, &c, qLoc, params.gamma0, params.smallr, params.smallp);
+    computePrimitives<PrimState, ConsState>(uLoc, &c, qLoc, params.gamma0, params.smallr, params.smallp);
     
     // copy q state in q global
-    Qgroup(index,fm[ID],iOct_local) = qLoc[ID];
-    Qgroup(index,fm[IP],iOct_local) = qLoc[IP];
-    Qgroup(index,fm[IU],iOct_local) = qLoc[IU];
-    Qgroup(index,fm[IV],iOct_local) = qLoc[IV];
-    
-  } // cons2prim_2d
-
-  // ========================================================================
-  // ========================================================================
-  KOKKOS_INLINE_FUNCTION
-  void cons2prim_3d(const int32_t index,
-                    const uint32_t iOct_local) const
-  {
-  
-    HydroState3d uLoc; // conservative variables in current cell
-    HydroState3d qLoc; // primitive    variables in current cell
-    real_t c = 0.0;
-    
-    // get local conservative variable
-    uLoc[ID] = Ugroup(index,fm[ID],iOct_local);
-    uLoc[IP] = Ugroup(index,fm[IP],iOct_local);
-    uLoc[IU] = Ugroup(index,fm[IU],iOct_local);
-    uLoc[IV] = Ugroup(index,fm[IV],iOct_local);
-    uLoc[IW] = Ugroup(index,fm[IW],iOct_local);
-    
-    // get primitive variables in current cell
-    computePrimitives(uLoc, &c, qLoc, params.gamma0, params.smallr, params.smallp);
-    
-    // copy q state in q global
-    Qgroup(index,fm[ID],iOct_local) = qLoc[ID];
-    Qgroup(index,fm[IP],iOct_local) = qLoc[IP];
-    Qgroup(index,fm[IU],iOct_local) = qLoc[IU];
-    Qgroup(index,fm[IV],iOct_local) = qLoc[IV];
-    Qgroup(index,fm[IW],iOct_local) = qLoc[IW];
+    Qgroup(index, fm[ID], iOct_local) = qLoc.rho;
+    Qgroup(index, fm[IP], iOct_local) = qLoc.p;
+    Qgroup(index, fm[IU], iOct_local) = qLoc.u;
+    Qgroup(index, fm[IV], iOct_local) = qLoc.v;
+    if (ndim == 3)
+      Qgroup(index, fm[IW], iOct_local) = qLoc.w;
     
   } // cons2prim_3d
 
@@ -171,10 +148,9 @@ public:
       [&](const int32_t index) {
 
         if (params.ndim==2)
-          cons2prim_2d(index, iOct_local);
-
-        else if (params.ndim==3)
-          cons2prim_3d(index, iOct_local);
+          cons2prim<2, PrimHydroState, ConsHydroState>(index, iOct_local);
+        else 
+          cons2prim<3, PrimHydroState, ConsHydroState>(index, iOct_local);
 
       }); // end TeamVectorRange
   } // operator()

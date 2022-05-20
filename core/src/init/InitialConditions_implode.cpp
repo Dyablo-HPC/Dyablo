@@ -43,6 +43,7 @@ struct AnalyticalFormula_implode : public AnalyticalFormula_base{
     assert(ndim == 2);
   }
 
+
   KOKKOS_INLINE_FUNCTION
   bool need_refine( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const 
   {
@@ -51,11 +52,11 @@ struct AnalyticalFormula_implode : public AnalyticalFormula_base{
     real_t smallp = this->smallp;
     real_t error_max = this->error_max;
     return AnalyticalFormula_tools::auto_refine( *this, gamma0, smallr, smallp, error_max,
-                                                  x, y, z, dx, dy, dz );
+                                                 x, y, z, dx, dy, dz );
   }
 
   KOKKOS_INLINE_FUNCTION
-  HydroState3d value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
+  ConsHydroState value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
   {
     bool inside = (y < x-x0);
     real_t p, rho;
@@ -67,14 +68,16 @@ struct AnalyticalFormula_implode : public AnalyticalFormula_base{
       p = p_out;
       rho = rho_out;
     }
-    HydroState3d res;
-    res[ID] = rho;
-    res[IE] = p / (gamma0-1.0);
+    ConsHydroState res;
+    res.rho   = rho;
+    res.e_tot = p / (gamma0-1.0);
 
     return res; 
   }
 };
 } // namespace dyablo
 
-FACTORY_REGISTER(dyablo::InitialConditionsFactory, dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_implode>, "implode");
+FACTORY_REGISTER(dyablo::InitialConditionsFactory, 
+                 dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_implode>, 
+                 "implode");
 

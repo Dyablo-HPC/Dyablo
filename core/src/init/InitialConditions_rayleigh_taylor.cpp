@@ -69,9 +69,9 @@ struct AnalyticalFormula_RayleighTaylor : public AnalyticalFormula_base{
   }
 
   KOKKOS_INLINE_FUNCTION
-  HydroState3d value(real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz) const 
+  ConsHydroState value(real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz) const 
   {
-    HydroState3d res;
+    ConsHydroState res;
     // Overriding vertical direction
     z = (ndim == 2 ? y : z);
     real_t rho, P, u, v, w;
@@ -99,16 +99,18 @@ struct AnalyticalFormula_RayleighTaylor : public AnalyticalFormula_base{
     }
 
     real_t Ek = 0.5 * rho * (u*u+v*v+w*w);
-    res[ID] = rho;
-    res[IU] = rho*u;
-    res[IV] = rho*v;
-    res[IW] = rho*w;
-    res[IE] = Ek + P / (gamma0-1.0);
+    res.rho   = rho;
+    res.rho_u = rho*u;
+    res.rho_v = rho*v;
+    res.rho_w = rho*w;
+    res.e_tot = Ek + P / (gamma0-1.0);
 
     return res; 
   }
 };
 } // namespace dyablo
 
-FACTORY_REGISTER(dyablo::InitialConditionsFactory, dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_RayleighTaylor>, "rayleigh_taylor");
+FACTORY_REGISTER(dyablo::InitialConditionsFactory, 
+                 dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_RayleighTaylor>, 
+                 "rayleigh_taylor");
 

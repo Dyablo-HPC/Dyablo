@@ -129,7 +129,10 @@ void apply_gravity_correction( const GlobalArray& Uin,
   Uout.at(iCell_Uin, IE) += (ekin_new - ekin_old);
 }
 
-template< int ndim >
+template< 
+  int ndim,
+  typename PrimState,
+  typename ConsState >
 void update_aux(
     const HydroUpdate_euler::Data* pdata,
     const ForeachCell::CellArray_global_ghosted& Uin,
@@ -191,18 +194,18 @@ void update_aux(
 
     patch.foreach_cell(Ugroup, CELL_LAMBDA(const CellIndex& iCell_Ugroup)
     { 
-      compute_primitives<ndim>(params, Ugroup, iCell_Ugroup, Qgroup);
+      compute_primitives<ndim, PrimState, ConsState>(params, Ugroup, iCell_Ugroup, Qgroup);
     });
     
     patch.foreach_cell( Uout, CELL_LAMBDA(const CellIndex& iCell_Uout)
     {
       auto size = cellmetadata.getCellSize(iCell_Uout);
-      HydroState3d u0 = getHydroState<ndim>( Uin, iCell_Uout );
-      setHydroState<ndim>( Uout, iCell_Uout, u0);
-      euler_update<ndim>(params, IX, iCell_Uout, Uin, Qgroup, dt, size[IX], Uout);
-      euler_update<ndim>(params, IY, iCell_Uout, Uin, Qgroup, dt, size[IY], Uout);
-      if(ndim==3) 
-        euler_update<ndim>(params, IZ, iCell_Uout, Uin, Qgroup, dt, size[IZ], Uout);
+      ConsState u0 = getConservativeState<ndim>( Uin, iCell_Uout );
+      setConservativeState<ndim>( Uout, iCell_Uout, u0);
+      euler_update<ndim, PrimState, ConsState>(params, IX, iCell_Uout, Uin, Qgroup, dt, size[IX], Uout);
+      euler_update<ndim, PrimState, ConsState>(params, IY, iCell_Uout, Uin, Qgroup, dt, size[IY], Uout);
+      if(ndim==3)   
+        euler_update<ndim, PrimState, ConsState>(params, IZ, iCell_Uout, Uin, Qgroup, dt, size[IZ], Uout);
     
       // Applying correction step for gravity
       if (has_gravity)
@@ -223,9 +226,9 @@ void HydroUpdate_euler::update(
 {
   uint32_t ndim = pdata->foreach_cell.getDim();
   if(ndim == 2)
-    update_aux<2>(this->pdata.get(), Uin, Uout, dt);
+    update_aux<2, PrimHydroState, ConsHydroState>(this->pdata.get(), Uin, Uout, dt);
   else
-    update_aux<3>(this->pdata.get(), Uin, Uout, dt);  
+    update_aux<3, PrimHydroState, ConsHydroState>(this->pdata.get(), Uin, Uout, dt);  
 }
 }
 

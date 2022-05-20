@@ -72,20 +72,20 @@ void copyGhostBlockCellData(const GhostedArray& Uin, const CellIndex& iCell_Ugro
   if( iCell_Uin.level_diff() >= 0 ) 
   {
     // Neighbor is bigger or same size : copy the only neighbor cell
-    HydroState3d u = getHydroState<ndim>( Uin, iCell_Uin );
-    setHydroState<ndim>( Ugroup, iCell_Ugroup, u );
+    ConsHydroState u = getConservativeState<ndim>( Uin, iCell_Uin );
+    setConservativeState<ndim>( Ugroup, iCell_Ugroup, u );
   }
   else if( iCell_Uin.level_diff() == -1 ) 
   {
-    HydroState3d u {};
+    ConsHydroState u;
     int nbCells =
     foreach_sibling<ndim>( iCell_Uin, Uin, 
       [&](const CellIndex& iCell_subcell)
     {
-      HydroState3d u_subcell = getHydroState<ndim>(Uin, iCell_subcell);
+      ConsHydroState u_subcell = getConservativeState<ndim>(Uin, iCell_subcell);
       u += u_subcell;
     });
-    setHydroState<ndim>( Ugroup, iCell_Ugroup, u/nbCells );
+    setConservativeState<ndim>( Ugroup, iCell_Ugroup, u/nbCells );
   }
   else assert(false); // Should not happen
 

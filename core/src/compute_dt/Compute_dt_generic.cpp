@@ -9,8 +9,8 @@ class Compute_dt_generic : public Compute_dt
 {
 public:
   Compute_dt_generic(   ConfigMap& configMap,
-                ForeachCell& foreach_cell,
-                Timers& timers )
+                        ForeachCell& foreach_cell,
+                        Timers& timers )
   : foreach_cell(foreach_cell),
     cfl( configMap.getValue<real_t>("hydro", "cfl", 0.5) ),
     gamma0( configMap.getValue<real_t>("hydro","gamma0", 1.4) ),
@@ -37,20 +37,20 @@ public:
       real_t dy = cell_size[IY];
       real_t dz = cell_size[IZ];
       
-      HydroState3d uLoc;
-      uLoc[ID] = U.at(iCell,ID);
-      uLoc[IP] = U.at(iCell,IP);
-      uLoc[IU] = U.at(iCell,IU);
-      uLoc[IV] = U.at(iCell,IV);
-      uLoc[IW] = (ndim==2)? 0 : U.at(iCell, IW);
+      ConsHydroState uLoc;
+      uLoc.rho   = U.at(iCell,ID);
+      uLoc.e_tot = U.at(iCell,IE);
+      uLoc.rho_u = U.at(iCell,IU);
+      uLoc.rho_v = U.at(iCell,IV);
+      uLoc.rho_w = (ndim==2)? 0 : U.at(iCell, IW);
 
       real_t c;
-      HydroState3d qLoc;
+      PrimHydroState qLoc;
       computePrimitives(uLoc, &c, qLoc, gamma0, smallr, smallp);
 
-      real_t vx = c + FABS(qLoc[IU]);
-      real_t vy = c + FABS(qLoc[IV]);
-      real_t vz =  (ndim==2)? 0 : c + FABS(qLoc[IW]);
+      real_t vx = c + qLoc.u;
+      real_t vy = c + qLoc.v;
+      real_t vz =  (ndim==2)? 0 : c + qLoc.w;
 
       inv_dt_update = FMAX( inv_dt_update, vx/dx + vy/dy + vz/dz );
 

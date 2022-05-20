@@ -68,15 +68,15 @@ struct DiagosticsFunctor {
       real_t dz = cell_size[IZ];
       real_t dV = dx*dy*(ndim==3 ? dz : 1.0);
       
-      HydroState3d uLoc;
-      uLoc[ID] = U.at(iCell,ID);
-      uLoc[IE] = U.at(iCell,IE);
-      uLoc[IU] = U.at(iCell,IU);
-      uLoc[IV] = U.at(iCell,IV);
-      uLoc[IW] = (ndim==2)? 0 : U.at(iCell, IW);
+      ConsHydroState uLoc;
+      uLoc.rho = U.at(iCell,ID);
+      uLoc.e_tot = U.at(iCell,IE);
+      uLoc.rho_u = U.at(iCell,IU);
+      uLoc.rho_v = U.at(iCell,IV);
+      uLoc.rho_w = (ndim==2)? 0 : U.at(iCell, IW);
 
-      mass   += dV * uLoc[ID];
-      energy += dV * uLoc[IE];
+      mass   += dV * uLoc.rho;
+      energy += dV * uLoc.e_tot;
 
     }, Kokkos::Sum<real_t>(mass), Kokkos::Sum<real_t>(energy) );
 

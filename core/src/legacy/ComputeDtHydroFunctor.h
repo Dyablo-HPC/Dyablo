@@ -112,72 +112,10 @@ public:
 
   // ====================================================================
   // ====================================================================
+  template <
+    int ndim>
   KOKKOS_INLINE_FUNCTION
-  void operator_2d(const thread_t& member, real_t &invDt) const
-  {
-    uint32_t iOct = member.league_rank();
-    //uint32_t iCell = member.team_rank();
-
-    const int& bx = blockSizes[IX];
-    const int& by = blockSizes[IY];
-
-    const real_t Lx = params.xmax - params.xmin;
-    const real_t Ly = params.ymax - params.ymin;
-
-    // number of cells per octant
-    uint32_t nbCells = bx*by;
-
-    // initialize reduction variable
-    real_t invDt_local = invDt;
-
-    // 2D version
-    HydroState2d uLoc; // conservative variables in current cell
-    HydroState2d qLoc; // primitive    variables in current cell
-    real_t c = 0.0;
-    real_t vx, vy;
-      
-    // retrieve cell size from mesh
-    real_t dx = lmesh.getSize({iOct,false}) * Lx / bx;
-    real_t dy = lmesh.getSize({iOct,false}) * Ly / by;
-
-    // initialialize cell id
-    uint32_t iCell = member.team_rank();
-    while (iCell < nbCells) {
-      
-      // get local conservative variable
-      uLoc[ID] = Udata(iCell,fm[ID],iOct);
-      uLoc[IP] = Udata(iCell,fm[IP],iOct);
-      uLoc[IU] = Udata(iCell,fm[IU],iOct);
-      uLoc[IV] = Udata(iCell,fm[IV],iOct);
-      
-      // get primitive variables in current cell
-      computePrimitives(uLoc, &c, qLoc, params.gamma0, params.smallr, params.smallp);
-
-      if (params.rsst_enabled and params.rsst_cfl_enabled) {
-        vx = c/params.rsst_ksi + FABS(qLoc[IU]);
-        vy = c/params.rsst_ksi + FABS(qLoc[IV]);
-      } else {
-        vx = c + FABS(qLoc[IU]);
-        vy = c + FABS(qLoc[IV]);
-      }
-
-      invDt_local = FMAX(invDt_local, vx / dx + vy / dy);
-
-      iCell += member.team_size();
-    
-    } // end while iCell
-
-
-    // update global reduced value
-    if (invDt < invDt_local)
-      invDt = invDt_local;
-
-  } // operator_2d
-
-  // ====================================================================
-  // ====================================================================
-  KOKKOS_INLINE_FUNCTION
-  void operator_3d(const thread_t& member, real_t &invDt) const
+  void apply(const thread_t& member, real_t &invDt) const
   {
     uint32_t iOct = member.league_rank();
 
@@ -194,8 +132,8 @@ public:
     real_t invDt_local = invDt;
     
     // 3D version
-    HydroState3d uLoc; // conservative variables in current cell
-    HydroState3d qLoc; // primitive    variables in current cell
+    ConsHydroState uLoc; // conservative variables in current cell
+    PrimHydroState qLoc; // primitive    variables in current cell
     real_t c = 0.0;
     real_t vx, vy, vz;
 
@@ -208,24 +146,19 @@ public:
     while (iCell < nbCells) {
   
       // get local conservative variable
-      uLoc[ID] = Udata(iCell,fm[ID],iOct);
-      uLoc[IP] = Udata(iCell,fm[IP],iOct);
-      uLoc[IU] = Udata(iCell,fm[IU],iOct);
-      uLoc[IV] = Udata(iCell,fm[IV],iOct);
-      uLoc[IW] = Udata(iCell,fm[IW],iOct);
+      uLoc.rho   = Udata(iCell, fm[ID], iOct);
+      uLoc.e_tot = Udata(iCell, fm[IE], iOct);
+      uLoc.rho_u = Udata(iCell, fm[IU], iOct);
+      uLoc.rho_v = Udata(iCell, fm[IV], iOct);
+      if (ndim == 3)
+        uLoc.rho_w = Udata(iCell, fm[IW], iOct);
       
       // get primitive variables in current cell
       computePrimitives(uLoc, &c, qLoc, params.gamma0, params.smallr, params.smallp);
 
-      if (params.rsst_enabled and params.rsst_cfl_enabled) {
-        vx = c/params.rsst_ksi + FABS(qLoc[IU]);
-        vy = c/params.rsst_ksi + FABS(qLoc[IV]);
-        vz = c/params.rsst_ksi + FABS(qLoc[IW]);
-      } else {
-        vx = c + FABS(qLoc[IU]);
-        vy = c + FABS(qLoc[IV]);
-        vz = c + FABS(qLoc[IW]);
-      }
+      vx = c + FABS(qLoc.u);
+      vy = c + FABS(qLoc.v);
+      vz = (ndim == 3 ? c + FABS(qLoc.w) : 0.0);
 
       invDt_local = FMAX(invDt_local, vx / dx + vy / dy + vz / dz);
 
@@ -238,7 +171,7 @@ public:
     if (invDt < invDt_local)
       invDt = invDt_local;
 
-  } // operator_3d
+  }
 
 
   // ====================================================================
@@ -246,14 +179,11 @@ public:
   KOKKOS_INLINE_FUNCTION
   void operator()(const thread_t& member, real_t &invDt) const
   {
-
     int ndims = lmesh.getNdim();
     if (ndims == 2)
-      operator_2d(member,invDt);
-
-    if (ndims == 3)
-      operator_3d(member,invDt);
-    
+      apply<2>(member, invDt);
+    else
+      apply<3>(member, invDt);
   }
   
   // "Join" intermediate results from different threads.
