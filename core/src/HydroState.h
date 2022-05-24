@@ -303,7 +303,9 @@ State_t operator+(const State_t& lhs_, const T& rhs)
     return Conv::to_State_t(res);
 }
 
-template<typename State_t, typename T>
+template<typename State_t, 
+         typename T,
+         std::enable_if_t<StateNd_conversion<State_t>::is_convertible, bool> = true>
 KOKKOS_INLINE_FUNCTION
 State_t& operator+=(State_t &lhs, const T &rhs) {
   return lhs = lhs + rhs;
@@ -371,7 +373,8 @@ State_t operator*(const T& lhs, const State_t& rhs)
   return rhs*lhs;
 }
 
-template<typename State_t>
+template<typename State_t,
+         std::enable_if_t<StateNd_conversion<State_t>::is_convertible, bool> = true >
 KOKKOS_INLINE_FUNCTION
 State_t& operator*=(State_t &lhs, const real_t &rhs) {
   return lhs = lhs * rhs;
