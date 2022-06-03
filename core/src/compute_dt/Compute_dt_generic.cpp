@@ -48,9 +48,9 @@ public:
       HydroState3d qLoc;
       computePrimitives(uLoc, &c, qLoc, gamma0, smallr, smallp);
 
-      real_t vx = c + qLoc[IU];
-      real_t vy = c + qLoc[IV];
-      real_t vz =  (ndim==2)? 0 : c + qLoc[IW];
+      real_t vx = c + FABS(qLoc[IU]);
+      real_t vy = c + FABS(qLoc[IV]);
+      real_t vz =  (ndim==2)? 0 : c + FABS(qLoc[IW]);
 
       inv_dt_update = FMAX( inv_dt_update, vx/dx + vy/dy + vz/dz );
 
