@@ -12,164 +12,7 @@ using StateNd = Kokkos::Array<real_t, dim>;
 using HydroState2d = StateNd<4>;
 using HydroState3d = StateNd<5>;
 
-
-
-using GravityField = Kokkos::Array<real_t, 3>;
-
-/** 
- * Direct StateNd operations
- * NOTE : Kept here for backwards compatibility.
- *        Those are used in Kokkos::Array<double> operations
- * Eventually, these should maybe moved to another place where we store all the
- * aliases such as "offset_t", "pos_t", etc.
- **/
-template<size_t dim>
-KOKKOS_INLINE_FUNCTION
-StateNd<dim> operator+(const StateNd<dim>& lhs, const StateNd<dim>& rhs)
-{
-  StateNd<dim> res{};
-  for (size_t i=0; i<dim; ++i)
-    res[i] = lhs[i] + rhs[i];
-  return res;
-}
-template<size_t dim>
-KOKKOS_INLINE_FUNCTION
-StateNd<dim> operator+(const StateNd<dim>& lhs, real_t rhs)
-{
-  StateNd<dim> res{};
-  for (size_t i=0; i<dim; ++i)
-    res[i] = lhs[i] + rhs;
-  return res;
-}
-template<size_t dim, typename T>
-KOKKOS_INLINE_FUNCTION
-StateNd<dim> operator+( const T& lhs, const StateNd<dim>& rhs)
-{
-  return rhs + lhs;
-}
-template<size_t dim, typename T>
-KOKKOS_INLINE_FUNCTION
-StateNd<dim>& operator+=(StateNd<dim>& lhs, const T& rhs)
-{
-  return lhs = lhs + rhs;
-}
-
-// ----- 
-// Operator-
-// ----- 
-template<size_t dim>
-KOKKOS_INLINE_FUNCTION
-StateNd<dim> operator-(const StateNd<dim>& lhs)
-{
-  StateNd<dim> res{};
-  for (size_t i=0; i<dim; ++i)
-    res[i] = -lhs[i];
-  return res;
-}
-template<size_t dim>
-KOKKOS_INLINE_FUNCTION
-StateNd<dim> operator-(const StateNd<dim>& lhs, const StateNd<dim>& rhs)
-{
-  StateNd<dim> res{};
-  for (size_t i=0; i<dim; ++i)
-    res[i] = lhs[i] - rhs[i];
-  return res;
-}
-template<size_t dim>
-KOKKOS_INLINE_FUNCTION
-StateNd<dim> operator-(const StateNd<dim>& lhs, real_t rhs)
-{
-  StateNd<dim> res{};
-  for (size_t i=0; i<dim; ++i)
-    res[i] = lhs[i] - rhs;
-  return res;
-}
-template<size_t dim>
-KOKKOS_INLINE_FUNCTION
-StateNd<dim> operator-( real_t lhs, const StateNd<dim>& rhs)
-{
-  StateNd<dim> res{};
-  for (size_t i=0; i<dim; ++i)
-    res[i] = lhs - rhs[i];
-  return res;
-}
-template<size_t dim, typename T>
-KOKKOS_INLINE_FUNCTION
-StateNd<dim>& operator-=(StateNd<dim>& lhs, const T& rhs)
-{
-  return lhs = lhs - rhs;
-}
-
-// ----- 
-// Operator*
-// ----- 
-template<size_t dim>
-KOKKOS_INLINE_FUNCTION
-StateNd<dim> operator*(const StateNd<dim>& lhs, const StateNd<dim>& rhs)
-{
-  StateNd<dim> res{};
-  for (size_t i=0; i<dim; ++i)
-    res[i] = lhs[i] * rhs[i];
-  return res;
-}
-template<size_t dim>
-KOKKOS_INLINE_FUNCTION
-StateNd<dim> operator*(const StateNd<dim>& lhs, real_t rhs)
-{
-  StateNd<dim> res{};
-  for (size_t i=0; i<dim; ++i)
-    res[i] = lhs[i] * rhs;
-  return res;
-}
-template<size_t dim, typename T>
-KOKKOS_INLINE_FUNCTION
-StateNd<dim> operator*( const T& lhs, const StateNd<dim>& rhs)
-{
-  return rhs * lhs;
-}
-template<size_t dim, typename T>
-KOKKOS_INLINE_FUNCTION
-StateNd<dim>& operator*=(StateNd<dim>& lhs, const T& rhs)
-{
-  return lhs = lhs * rhs;
-}
-
-// -----
-// Operator/
-// -----
-template<size_t dim>
-KOKKOS_INLINE_FUNCTION
-StateNd<dim> operator/(const StateNd<dim>& lhs, const StateNd<dim>& rhs)
-{
-  StateNd<dim> res{};
-  for (size_t i=0; i<dim; ++i)
-    res[i] = lhs[i] / rhs[i];
-  return res;
-}
-template<size_t dim>
-KOKKOS_INLINE_FUNCTION
-StateNd<dim> operator/(const StateNd<dim>& lhs, real_t rhs)
-{
-  StateNd<dim> res{};
-  for (size_t i=0; i<dim; ++i)
-    res[i] = lhs[i] / rhs;
-  return res;
-}
-template<size_t dim>
-KOKKOS_INLINE_FUNCTION
-StateNd<dim> operator/(real_t lhs, const StateNd<dim>& rhs)
-{
-  StateNd<dim> res{};
-  for (size_t i=0; i<dim; ++i)
-    res[i] = lhs / rhs[i];
-  return res;
-}
-template<size_t dim, typename T>
-KOKKOS_INLINE_FUNCTION
-StateNd<dim>& operator/=(StateNd<dim>& lhs, const T& rhs)
-{
-  return lhs = lhs / rhs;
-}
+using GravityField = StateNd<3>;
 
 /**
  * @brief Trait used to indicate if a State_t is convertible to a StateNd.
@@ -181,44 +24,41 @@ struct StateNd_conversion
   static constexpr bool is_convertible = false;
 };
 
+template<size_t N_>
+struct StateNd_conversion<StateNd<N_>> 
+{
+    static constexpr bool is_convertible = true;
+    static constexpr size_t N = N_;
+    using State_t = StateNd<N>;
+    using StateNd_t = StateNd<N>;
+
+    KOKKOS_INLINE_FUNCTION
+    static const StateNd_t& to_StateNd_t(const State_t& v)
+    {
+        return v;
+    }
+    KOKKOS_INLINE_FUNCTION
+    static const State_t& to_State_t(const StateNd_t& v)
+    {
+        return v;
+    }
+};
+
+static_assert( StateNd_conversion<HydroState2d>::is_convertible );
+
 /**
  * @brief Structure holding conservative hydrodynamics variables
  **/ 
 struct ConsHydroState {
-  real_t rho;
-  real_t e_tot;
-  real_t rho_u;
-  real_t rho_v;
-  real_t rho_w;
-
-  KOKKOS_INLINE_FUNCTION
-  ConsHydroState() : rho(0.0), e_tot(0.0), rho_u(0.0), rho_v(0.0), rho_w(0.0) {};
-
-  KOKKOS_INLINE_FUNCTION
-  ConsHydroState(real_t rho, real_t e_tot, real_t rho_u, real_t rho_v, real_t rho_w)
-    : rho(rho), e_tot(e_tot), rho_u(rho_u), rho_v(rho_v), rho_w(rho_w) {};
+  real_t rho = 0;
+  real_t e_tot = 0;
+  real_t rho_u = 0;
+  real_t rho_v = 0;
+  real_t rho_w = 0;
 };
 
 /**
- * @brief Structure holding primitive hydrodynamics variables
- */
-struct PrimHydroState {
-  real_t rho;
-  real_t p;
-  real_t u;
-  real_t v;
-  real_t w;
-
-  KOKKOS_INLINE_FUNCTION
-  PrimHydroState() : rho(0.0), p(0.0), u(0.0), v(0.0), w(0.0) {};
-  
-  KOKKOS_INLINE_FUNCTION
-  PrimHydroState(real_t rho, real_t p, real_t u, real_t v, real_t w)
-    : rho(rho), p(p), u(u), v(v), w(w) {};
-};
-
-/**
- * @brief Converts a conservative hydro state to and from a StateNd
+ * @brief StateNd_conversion for ConsHydroState
  */
 template<>
 struct StateNd_conversion<ConsHydroState> 
@@ -227,8 +67,6 @@ struct StateNd_conversion<ConsHydroState>
     static constexpr size_t N = 5;
     using State_t = ConsHydroState;
     using StateNd_t = StateNd<N>;
-
-    static_assert( sizeof(State_t) == N*sizeof(real_t) );
 
     KOKKOS_INLINE_FUNCTION
     static StateNd_t to_StateNd_t(const State_t& v)
@@ -242,8 +80,20 @@ struct StateNd_conversion<ConsHydroState>
     }
 };
 
+
 /**
- * @brief Converts a primitive hydro state to and from a StateNd  
+ * @brief Structure holding primitive hydrodynamics variables
+ */
+struct PrimHydroState {
+  real_t rho = 0;
+  real_t p = 0;
+  real_t u = 0;
+  real_t v = 0;
+  real_t w = 0;
+};
+
+/**
+ * @brief StateNd_conversion for PrimHydroState  
  */
 template<>
 struct StateNd_conversion<PrimHydroState> 
@@ -252,8 +102,6 @@ struct StateNd_conversion<PrimHydroState>
     static constexpr size_t N = 5;
     using State_t = PrimHydroState;
     using StateNd_t = StateNd<N>;
-
-    static_assert( sizeof(State_t) == N*sizeof(real_t) );
 
     KOKKOS_INLINE_FUNCTION
     static StateNd_t to_StateNd_t(const State_t& v)
@@ -327,6 +175,31 @@ State_t operator-(const State_t& lhs_, const State_t& rhs_)
     for (size_t i=0; i<N; ++i)
         res[i] = lhs[i] - rhs[i];
     return Conv::to_State_t(res);
+}
+
+template<typename State_t, 
+         typename T,
+         std::enable_if_t<StateNd_conversion<State_t>::is_convertible, bool> = true >
+KOKKOS_INLINE_FUNCTION
+State_t operator-(const State_t& lhs_, const T& rhs)
+{
+    using Conv = StateNd_conversion<State_t>;
+    constexpr size_t N = Conv::N;
+    using StateNd_t = StateNd<N>;
+
+    StateNd_t res{};
+    StateNd_t lhs = Conv::to_StateNd_t(lhs_);
+    for (size_t i=0; i<N; ++i)
+        res[i] = lhs[i] - rhs;
+    return Conv::to_State_t(res);
+}
+
+template<typename State_t, 
+         typename T,
+         std::enable_if_t<StateNd_conversion<State_t>::is_convertible, bool> = true>
+KOKKOS_INLINE_FUNCTION
+State_t& operator-=(State_t &lhs, const T &rhs) {
+  return lhs = lhs - rhs;
 }
 
 // Operator *
