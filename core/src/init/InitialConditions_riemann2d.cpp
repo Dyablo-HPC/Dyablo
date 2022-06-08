@@ -145,7 +145,7 @@ struct AnalyticalFormula_riemann2d : public AnalyticalFormula_base{
     res.rho   = rho;
     res.e_tot = Ek + pressures[test_case][quadrant] / (gamma0-1.0);
     res.rho_u = rho*u;
-    res.rho_w = rho*v;
+    res.rho_v = rho*v;
 
     return res;
   }
