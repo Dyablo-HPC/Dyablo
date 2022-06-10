@@ -468,7 +468,7 @@ AMRmesh_hashmap_new::loadBalance(level_t level)
       LightOctree_storage<> old_storage_device = storage;
 
       GhostCommunicator_kokkos loadbalance_communicator( loadbalance_to_send );
-      loadbalance_communicator.exchange_ghosts( old_storage_device.oct_data, new_storage_device.oct_data );
+      loadbalance_communicator.exchange_ghosts<0>( old_storage_device.oct_data, new_storage_device.oct_data );
 
       assert( new_storage_device.oct_data.extent(0) == new_nbOcts );
     }
@@ -483,7 +483,7 @@ AMRmesh_hashmap_new::loadBalance(level_t level)
     GhostCommunicator_kokkos ghost_comm( pdata->local_octants_to_send  );
     oct_index_t new_nbGhosts = ghost_comm.getNumGhosts();
     LightOctree_storage<> new_storage_device_ghosts( ndim, 0, new_nbGhosts );   
-    ghost_comm.exchange_ghosts( new_storage_device.oct_data, new_storage_device_ghosts.oct_data );
+    ghost_comm.exchange_ghosts<0>( new_storage_device.oct_data, new_storage_device_ghosts.oct_data );
     {
       int ndim = new_storage_device.getNdim();
 
@@ -524,7 +524,7 @@ void AMRmesh_hashmap_new::loadBalance_userdata( level_t compact_levels, DataArra
   auto octs_to_exchange = this->loadBalance(compact_levels);
   GhostCommunicator_kokkos lb_comm(octs_to_exchange);  
   DataArrayBlock userData_new( userData.label(), userData.extent(0), userData.extent(1), lb_comm.getNumGhosts() );
-  lb_comm.exchange_ghosts(userData, userData_new);
+  lb_comm.exchange_ghosts<2>(userData, userData_new);
   userData = userData_new;
 }
 
@@ -638,7 +638,7 @@ void AMRmesh_hashmap_new::adapt(bool dummy)
     {
       updated_markers_global = false;
       
-      ghost_comm.exchange_ghosts(markers_device_in, markers_ghosts_device);
+      ghost_comm.exchange_ghosts<0>(markers_device_in, markers_ghosts_device);
 
       oct_index_t updated_markers_local = 1;
       while( updated_markers_local != 0 )
@@ -788,7 +788,7 @@ void AMRmesh_hashmap_new::adapt(bool dummy)
       GhostCommunicator_kokkos ghost_comm( pdata->local_octants_to_send  );
       oct_index_t new_nbGhosts = ghost_comm.getNumGhosts();
       LightOctree_storage<> new_storage_device_ghosts( ndim, 0, new_nbGhosts );
-      ghost_comm.exchange_ghosts( new_storage_device.oct_data, new_storage_device_ghosts.oct_data );
+      ghost_comm.exchange_ghosts<0>( new_storage_device.oct_data, new_storage_device_ghosts.oct_data );
 
       // We need to go through a temporary device storage because
       // subviews are non-contiguous and deep_copy is only supported in same memory space

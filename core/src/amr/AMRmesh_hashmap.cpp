@@ -520,7 +520,7 @@ oct_view_t exchange_ghosts_octs(AMRmesh_hashmap& mesh, const oct_view_t& local_o
     Kokkos::deep_copy(local_octs_coord_device, local_octs_coord);
     oct_view_device_t ghost_octs_coord_device("ghost_octs_coord_device", octs_coord_id::NUM_OCTS_COORDS, comm_ghosts.getNumGhosts());
 
-    comm_ghosts.exchange_ghosts(local_octs_coord_device, ghost_octs_coord_device);
+    comm_ghosts.exchange_ghosts<1>(local_octs_coord_device, ghost_octs_coord_device);
     
     oct_view_t ghost_octs_coord("ghost_octs_coord", ghost_octs_coord_device.layout());
     Kokkos::deep_copy(ghost_octs_coord, ghost_octs_coord_device);
@@ -553,7 +553,7 @@ void exchange_markers(AMRmesh_hashmap& mesh, AMRmesh_hashmap::markers_device_t& 
             }
         });
         Kokkos::realloc(ghost_markers, comm_ghosts.getNumGhosts() );
-        comm_ghosts.exchange_ghosts(local_markers, ghost_markers);
+        comm_ghosts.exchange_ghosts<0>(local_markers, ghost_markers);
 
         markers = markers_new;
     }   
@@ -795,7 +795,7 @@ std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(level_t level)
             oct_view_device_t local_octs_coord_old( "local_octs_coord_old", local_octs_coord.layout() );
             oct_view_device_t local_octs_coord_new( "local_octs_coord_new", octs_coord_id::NUM_OCTS_COORDS, loadbalance_communicator.getNumGhosts() );
             Kokkos::deep_copy(local_octs_coord_old , this->local_octs_coord );
-            loadbalance_communicator.exchange_ghosts(local_octs_coord_old, local_octs_coord_new);
+            loadbalance_communicator.exchange_ghosts<1>(local_octs_coord_old, local_octs_coord_new);
             Kokkos::realloc(this->local_octs_coord, local_octs_coord_new.layout());
             Kokkos::deep_copy( this->local_octs_coord, local_octs_coord_new );
         }
@@ -840,25 +840,25 @@ std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(level_t level)
 }
 
 namespace{
-template < typename View_t >
+template < int iOct, typename View_t >
 void AMRmesh_hashmap_loadBalance( AMRmesh_hashmap& mesh, int compact_levels, View_t& userData )
 {
     auto octs_to_exchange = mesh.loadBalance(compact_levels);
     GhostCommunicator_kokkos lb_comm(octs_to_exchange);
     View_t userData_new( userData.label(), userData.extent(0), userData.extent(1), lb_comm.getNumGhosts() );
-    lb_comm.exchange_ghosts(userData, userData_new);
+    lb_comm.exchange_ghosts<iOct>(userData, userData_new);
     userData = userData_new;
 }
 } // namespace
 
 void AMRmesh_hashmap::loadBalance_userdata( int compact_levels, DataArrayBlock& userData )
 {
-    AMRmesh_hashmap_loadBalance(*this, compact_levels, userData);
+    AMRmesh_hashmap_loadBalance<2>(*this, compact_levels, userData);
 }
 
 void AMRmesh_hashmap::loadBalance_userdata( int compact_levels, DataArray& userData )
 {
-    AMRmesh_hashmap_loadBalance(*this, compact_levels, userData);
+    AMRmesh_hashmap_loadBalance<0>(*this, compact_levels, userData);
 }
 
 const std::map<int, std::vector<uint32_t>>& AMRmesh_hashmap::getBordersPerProc() const
