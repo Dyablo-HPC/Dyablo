@@ -1,7 +1,6 @@
 #pragma once
 
 #include "kokkos_shared.h"
-#include "HydroState.h"
 
 namespace dyablo {
 

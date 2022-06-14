@@ -2,6 +2,8 @@
 
 #include "utils_hydro.h"
 
+#include "states/HydroState.h"
+
 namespace dyablo {
 
 class AnalyticalFormula_base{

@@ -9,7 +9,7 @@
 
 #include "kokkos_shared.h"
 #include "FieldManager.h"
-#include "HydroState.h"
+#include "states/HydroState.h"
 
 // AMR utils
 #include "amr/LightOctree.h"

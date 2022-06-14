@@ -7,7 +7,7 @@
 #include "foreach_cell/ForeachCell.h"
 #include "compute_dt/Compute_dt.h"
 #include "init/InitialConditions.h"
-#include "HydroState.h"
+#include "states/HydroState.h"
 #include "io/IOManager.h"
 using blockSize_t    = Kokkos::Array<uint32_t, 3>;
 

@@ -7,7 +7,7 @@
 
 #include <math.h>
 
-#include "HydroState.h"
+#include "states/HydroState.h"
 
 namespace dyablo {
 

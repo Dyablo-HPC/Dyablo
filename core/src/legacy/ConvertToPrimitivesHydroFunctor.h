@@ -7,7 +7,7 @@
 
 #include "kokkos_shared.h"
 #include "FieldManager.h"
-#include "HydroState.h"
+#include "states/HydroState.h"
 
 #include "bitpit_PABLO.hpp"
 #include "amr/AMRmesh.h"
