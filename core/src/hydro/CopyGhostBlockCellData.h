@@ -77,7 +77,7 @@ void copyGhostBlockCellData(const GhostedArray& Uin, const CellIndex& iCell_Ugro
   }
   else if( iCell_Uin.level_diff() == -1 ) 
   {
-    ConsHydroState u;
+    ConsHydroState u{};
     int nbCells =
     foreach_sibling<ndim>( iCell_Uin, Uin, 
       [&](const CellIndex& iCell_subcell)

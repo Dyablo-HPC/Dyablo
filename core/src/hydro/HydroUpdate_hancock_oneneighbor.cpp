@@ -116,7 +116,7 @@ void computePrimitives(const RiemannParams& params, const GhostedArray& Ugroup,
                        const CellIndex& iCell_Ugroup, const GhostedArray& Qgroup)
 {
   ConsState uLoc = getConservativeState<ndim>( Ugroup, iCell_Ugroup );
-  PrimState qLoc;
+  PrimState qLoc{};
   real_t c;
   computePrimitives<PrimState, ConsState>(uLoc, &c, qLoc, params.gamma0, params.smallr, params.smallp);
   setPrimitiveState<ndim>( Qgroup, iCell_Ugroup, qLoc );
@@ -267,7 +267,7 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
 
     PrimState &qr_L = (sign<0)?qr_n:qr_c;
     PrimState &qr_R = (sign<0)?qr_c:qr_n;
-    ConsState flux;
+    ConsState flux{};
 
     riemann_hydro(qr_L, qr_R, flux, params);
 
@@ -318,7 +318,7 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
 
     PrimState diff_x = getPrimitiveState<ndim>( Slopes_x, iCell_U ) * cell_size[IX] * 0.5;
     PrimState diff_y = getPrimitiveState<ndim>( Slopes_y, iCell_U ) * cell_size[IY] * 0.5;
-    PrimState diff_z = {};
+    PrimState diff_z{};
 
     // retrieve primitive variables in current quadrant
     real_t r = q.rho;

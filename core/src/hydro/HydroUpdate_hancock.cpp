@@ -113,7 +113,7 @@ PrimState compute_source( const PrimState& q,
   const real_t dvz = slopeZ.v   * 0.5;
   const real_t dwz = slopeZ.w   * 0.5;
 
-  PrimState source;
+  PrimState source{};
   if( ndim == 3 )
   {
     source.rho = r + (-u * drx - dux * r) * dtdx + (-v * dry - dvy * r) * dtdy + (-w * drz - dwz * r) * dtdz;
@@ -142,7 +142,7 @@ void compute_slopes( const PatchArray& Qgroup, const CellIndex& iCell_Sources, i
 {
   using o_t = typename CellIndex::offset_t;
 
-  PrimState sx, sy, sz;
+  PrimState sx{}, sy{}, sz{};
 
   CellIndex ib = Qgroup.convert_index(iCell_Sources);
   PrimState qc = getPrimitiveState<ndim>( Qgroup, ib );
@@ -155,9 +155,7 @@ void compute_slopes( const PatchArray& Qgroup, const CellIndex& iCell_Sources, i
     sx = compute_slope<ndim>(qm, qc, qp, 1.0, 1.0);
     CellIndex iCell_x = SlopesX.convert_index_ghost(iCell_Sources);
     if(iCell_x.is_valid())
-    {
       setPrimitiveState<ndim>(SlopesX, iCell_x, sx);
-    }
   }
 
   {
@@ -169,9 +167,7 @@ void compute_slopes( const PatchArray& Qgroup, const CellIndex& iCell_Sources, i
 
     CellIndex iCell_y = SlopesY.convert_index_ghost(iCell_Sources);
     if(iCell_y.is_valid())
-    {
       setPrimitiveState<ndim>(SlopesY, iCell_y, sy);
-    }
   }
 
   if( ndim == 3 )
@@ -184,9 +180,7 @@ void compute_slopes( const PatchArray& Qgroup, const CellIndex& iCell_Sources, i
 
     CellIndex iCell_z = SlopesZ.convert_index_ghost(iCell_Sources);
     if(iCell_z.is_valid())
-    {
       setPrimitiveState<ndim>(SlopesZ, iCell_z, sz);
-    }
   }
 
   {
