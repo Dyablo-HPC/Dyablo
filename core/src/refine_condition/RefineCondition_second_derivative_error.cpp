@@ -32,7 +32,8 @@ KOKKOS_INLINE_FUNCTION
 void compute_primitives(const PatchArray& Ugroup, const CellIndex& iCell_Ugroup, const PatchArray& Qgroup,
                         real_t gamma0, real_t smallr, real_t smallp)
 {
-  ConsState uLoc = getConservativeState<ndim>( Ugroup, iCell_Ugroup );
+  ConsState uLoc;
+  getConservativeState<ndim>( Ugroup, iCell_Ugroup, uLoc );
       
   // get primitive variables in current cell
   PrimState qLoc;

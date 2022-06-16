@@ -115,7 +115,8 @@ KOKKOS_INLINE_FUNCTION
 void computePrimitives(const RiemannParams& params, const GhostedArray& Ugroup, 
                        const CellIndex& iCell_Ugroup, const GhostedArray& Qgroup)
 {
-  ConsState uLoc = getConservativeState<ndim>( Ugroup, iCell_Ugroup );
+  ConsState uLoc;
+  getConservativeState<ndim>( Ugroup, iCell_Ugroup, uLoc );
   PrimState qLoc{};
   real_t c;
   computePrimitives<PrimState, ConsState>(uLoc, &c, qLoc, params.gamma0, params.smallr, params.smallp);
@@ -241,9 +242,11 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
   ForeachCell::CellMetaData::pos_t cell_size = cellmetadata.getCellSize(iCell_Q);
   ForeachCell::CellMetaData::pos_t pos_c = cellmetadata.getCellCenter(iCell_Q);
 
-  PrimState qprim = getPrimitiveState<ndim>( Q, iCell_Q );
-  ConsState qcons = getConservativeState<ndim>( Uin, iCell_Q );
-  
+  PrimState qprim;
+  ConsState qcons;
+  getPrimitiveState<ndim>(Q, iCell_Q, qprim);
+  getConservativeState<ndim>(Uin, iCell_Q, qcons);
+
   /**
    * Solve riemann problem at interface between cells
    * @param qr_c primitive variables for current cell
@@ -316,9 +319,14 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
     const real_t dtdx = dt/cell_size[IX];
     const real_t dtdy = dt/cell_size[IY];
 
-    PrimState diff_x = getPrimitiveState<ndim>( Slopes_x, iCell_U ) * cell_size[IX] * 0.5;
-    PrimState diff_y = getPrimitiveState<ndim>( Slopes_y, iCell_U ) * cell_size[IY] * 0.5;
+    PrimState diff_x;
+    PrimState diff_y;
     PrimState diff_z{};
+
+    getPrimitiveState<ndim>( Slopes_x, iCell_U, diff_x );
+    getPrimitiveState<ndim>( Slopes_y, iCell_U, diff_y );
+    diff_x *= cell_size[IX] * 0.5;
+    diff_y *= cell_size[IY] * 0.5;
 
     // retrieve primitive variables in current quadrant
     real_t r = q.rho;
@@ -346,7 +354,8 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
       real_t dwx = diff_x.w;
       real_t dwy = diff_y.w;
 
-      diff_z = getPrimitiveState<ndim>( Slopes_z, iCell_U ) * cell_size[IZ] * 0.5;
+      getPrimitiveState<ndim>( Slopes_z, iCell_U, diff_z );
+      diff_z *= cell_size[IZ] * 0.5;
 
       real_t drz = diff_z.rho;
       real_t dpz = diff_z.p;
@@ -411,7 +420,8 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
       if( iCell_n0.level_diff() >= 0 ) // Only one cell
       {
         // 0. retrieve primitive variables in neighbor cell
-        PrimState qprim_n = getPrimitiveState<ndim>( Q, iCell_n0 );
+        PrimState qprim_n;
+        getPrimitiveState<ndim>( Q, iCell_n0, qprim_n );
 
         // 1. reconstruct primitive variables on both sides of current interface (iface)
 
@@ -464,7 +474,8 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
         {
             CellIndex iCell_n = iCell_n0.getNeighbor_ghost({di,dj,dk}, Q);
             // 0. retrieve primitive variables in neighbor cell
-            PrimState qprim_n = getPrimitiveState<ndim>( Q, iCell_n );
+            PrimState qprim_n;
+            getPrimitiveState<ndim>( Q, iCell_n, qprim_n );
 
             // 1. reconstruct primitive variables on both sides of current interface (iface)
 

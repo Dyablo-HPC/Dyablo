@@ -1,5 +1,5 @@
 #include "HydroUpdate_hancock.h"
-
+#include "states/State_forward.h"
 #include "utils/monitoring/Timers.h"
 
 #include "foreach_cell/ForeachCell.h"
@@ -79,8 +79,7 @@ namespace{
 
 template < 
   int ndim,
-  typename PrimState,
-  typename ConsState >
+  typename PrimState >
 KOKKOS_INLINE_FUNCTION
 PrimState compute_source( const PrimState& q,
                           const PrimState& slopeX,
@@ -134,23 +133,25 @@ PrimState compute_source( const PrimState& q,
 
 template < 
   int ndim,
-  typename PrimState,
-  typename ConsState >
+  typename State >
 KOKKOS_INLINE_FUNCTION
 void compute_slopes( const PatchArray& Qgroup, const CellIndex& iCell_Sources, int slope_type, real_t gamma, real_t dx, real_t dy, real_t dz, real_t dt,
                      const PatchArray& Sources, const PatchArray& SlopesX, const PatchArray& SlopesY, const PatchArray& SlopesZ)
 {
   using o_t = typename CellIndex::offset_t;
+  using PrimState = typename State::PrimState;
 
   PrimState sx{}, sy{}, sz{};
 
   CellIndex ib = Qgroup.convert_index(iCell_Sources);
-  PrimState qc = getPrimitiveState<ndim>( Qgroup, ib );
+  PrimState qc;
+  getPrimitiveState<ndim>( Qgroup, ib, qc );
 
   {
     // neighbor along x axis
-    PrimState qm = getPrimitiveState<ndim>( Qgroup, ib + o_t{-1, 0, 0});
-    PrimState qp = getPrimitiveState<ndim>( Qgroup, ib + o_t{ 1, 0, 0});     
+    PrimState qm, qp;
+    getPrimitiveState<ndim>( Qgroup, ib + o_t{-1, 0, 0}, qm);
+    getPrimitiveState<ndim>( Qgroup, ib + o_t{ 1, 0, 0}, qp);     
 
     sx = compute_slope<ndim>(qm, qc, qp, 1.0, 1.0);
     CellIndex iCell_x = SlopesX.convert_index_ghost(iCell_Sources);
@@ -160,8 +161,9 @@ void compute_slopes( const PatchArray& Qgroup, const CellIndex& iCell_Sources, i
 
   {
     // neighbor along y axis
-    PrimState qm = getPrimitiveState<ndim>( Qgroup, ib + o_t{ 0,-1, 0});
-    PrimState qp = getPrimitiveState<ndim>( Qgroup, ib + o_t{ 0, 1, 0});       
+    PrimState qm, qp;
+    getPrimitiveState<ndim>( Qgroup, ib + o_t{ 0,-1, 0}, qm);
+    getPrimitiveState<ndim>( Qgroup, ib + o_t{ 0, 1, 0}, qp);       
 
     sy = compute_slope<ndim>(qm, qc, qp, 1.0, 1.0);
 
@@ -173,8 +175,9 @@ void compute_slopes( const PatchArray& Qgroup, const CellIndex& iCell_Sources, i
   if( ndim == 3 )
   {      
     // neighbor along z axis
-    PrimState qm = getPrimitiveState<ndim>( Qgroup, ib + o_t{ 0, 0,-1});
-    PrimState qp = getPrimitiveState<ndim>( Qgroup, ib + o_t{ 0, 0, 1});       
+    PrimState qm, qp;
+    getPrimitiveState<ndim>( Qgroup, ib + o_t{ 0, 0,-1}, qm);
+    getPrimitiveState<ndim>( Qgroup, ib + o_t{ 0, 0, 1}, qp);       
 
     sz = compute_slope<ndim>(qm, qc, qp, 1.0, 1.0);
 
@@ -184,7 +187,7 @@ void compute_slopes( const PatchArray& Qgroup, const CellIndex& iCell_Sources, i
   }
 
   {
-    PrimState source = compute_source<ndim, PrimState, ConsState>(qc, sx, sy, sz, dt/dx, dt/dy, dt/dz, gamma);
+    PrimState source = compute_source<ndim>(qc, sx, sy, sz, dt/dx, dt/dy, dt/dz, gamma);
     setPrimitiveState<ndim>(Sources, iCell_Sources, source);
   }
 }
@@ -210,14 +213,16 @@ PrimState reconstruct_state(const PrimState& source,
 
 template< 
   int ndim, 
-  typename PrimState,
-  typename ConsState >
+  typename State >
 /// Reconstruct state and apply Riemann solver at the interface between cell L and R
 KOKKOS_INLINE_FUNCTION
-ConsState compute_flux( const PrimState& sourceL, const PrimState& sourceR, 
-                        const PrimState& slopeL,  const PrimState& slopeR,
-                        ComponentIndex3D dir, real_t smallr, const RiemannParams& params )
+typename State::ConsState compute_flux( const typename State::PrimState& sourceL, const typename State::PrimState& sourceR, 
+                                        const typename State::PrimState& slopeL,  const typename State::PrimState& slopeR,
+                                        ComponentIndex3D dir, real_t smallr, const RiemannParams& params )
 {
+  using PrimState = typename State::PrimState;
+  using ConsState = typename State::ConsState;
+
   PrimState qL = reconstruct_state( sourceL, slopeL, 1, smallr );
   PrimState qR = reconstruct_state( sourceR, slopeR, -1, smallr );
 
@@ -249,8 +254,7 @@ ConsState compute_flux( const PrimState& sourceL, const PrimState& sourceR,
  **/
 template < 
   int ndim,
-  typename PrimState,
-  typename ConsState>
+  typename State>
 KOKKOS_INLINE_FUNCTION
 void compute_fluxes(ComponentIndex3D dir, 
                     const CellIndex& iCell_Uout, 
@@ -262,6 +266,9 @@ void compute_fluxes(ComponentIndex3D dir,
                     const GlobalArray& Uout
                     )
 {
+  using PrimState = typename State::PrimState;
+  using ConsState = typename State::ConsState;
+
   typename CellIndex::offset_t offsetm = {};
   typename CellIndex::offset_t offsetp = {};
   offsetm[dir] = -1;
@@ -274,15 +281,19 @@ void compute_fluxes(ComponentIndex3D dir,
   CellIndex iCell_Slopes_R = iCell_Slopes_C + offsetp;
 
 
-  PrimState sourceL = getPrimitiveState<ndim>( Source, iCell_Source_L );
-  PrimState sourceC = getPrimitiveState<ndim>( Source, iCell_Source_C );
-  PrimState sourceR = getPrimitiveState<ndim>( Source, iCell_Source_R );
-  PrimState slopeL  = getPrimitiveState<ndim>( Slopes, iCell_Slopes_L );
-  PrimState slopeC  = getPrimitiveState<ndim>( Slopes, iCell_Slopes_C );
-  PrimState slopeR  = getPrimitiveState<ndim>( Slopes, iCell_Slopes_R );
+  PrimState sourceL, sourceC, sourceR;
+  PrimState slopeL, slopeC, slopeR;
 
-  ConsState fluxL = compute_flux<ndim, PrimState, ConsState>( sourceL, sourceC, slopeL, slopeC, dir, smallr, params );
-  ConsState fluxR = compute_flux<ndim, PrimState, ConsState>( sourceC, sourceR, slopeC, slopeR, dir, smallr, params );
+  getPrimitiveState<ndim>(Source, iCell_Source_L, sourceL);
+  getPrimitiveState<ndim>(Source, iCell_Source_C, sourceC);
+  getPrimitiveState<ndim>(Source, iCell_Source_R, sourceR);
+
+  getPrimitiveState<ndim>(Slopes, iCell_Slopes_L, slopeL);
+  getPrimitiveState<ndim>(Slopes, iCell_Slopes_C, slopeC);
+  getPrimitiveState<ndim>(Slopes, iCell_Slopes_R, slopeR);
+
+  ConsState fluxL = compute_flux<ndim, State>( sourceL, sourceC, slopeL, slopeC, dir, smallr, params );
+  ConsState fluxR = compute_flux<ndim, State>( sourceC, sourceR, slopeC, slopeR, dir, smallr, params );
 
   Uout.at(iCell_Uout, ID) += (fluxL.rho - fluxR.rho) * dtddir;
   Uout.at(iCell_Uout, IE) += (fluxL.e_tot - fluxR.e_tot) * dtddir;
@@ -352,14 +363,14 @@ void apply_gravity_correction( const GlobalArray& Uin,
 
 template< 
   int ndim,
-  typename PrimState,
-  typename ConsState >
+  typename State >
 void update_aux(
     const HydroUpdate_hancock::Data* pdata,
     const ForeachCell::CellArray_global_ghosted& Uin,
     const ForeachCell::CellArray_global_ghosted& Uout,
     real_t dt)
 {
+  using ConsState = typename State::ConsState;
   
   const RiemannParams& params = pdata->params;  
   const int slope_type = pdata->slope_type;
@@ -428,13 +439,13 @@ void update_aux(
 
     patch.foreach_cell(Ugroup, CELL_LAMBDA(const CellIndex& iCell_Ugroup)
     { 
-      compute_primitives<ndim, PrimState, ConsState>(params, Ugroup, iCell_Ugroup, Qgroup);
+      compute_primitives<ndim, State>(params, Ugroup, iCell_Ugroup, Qgroup);
     });
 
     patch.foreach_cell(Sources, CELL_LAMBDA(const CellIndex& iCell_Sources)
     { 
       auto size = cellmetadata.getCellSize(iCell_Sources);
-      compute_slopes<ndim, PrimState, ConsState>(
+      compute_slopes<ndim, State>(
         Qgroup, iCell_Sources, slope_type, gamma, size[IX], size[IY], size[IZ], dt,
         Sources, SlopesX, SlopesY, SlopesZ
       );
@@ -443,11 +454,12 @@ void update_aux(
     patch.foreach_cell( Uout, CELL_LAMBDA(const CellIndex& iCell_Uout)
     {
       auto size = cellmetadata.getCellSize(iCell_Uout);
-      ConsHydroState u0 = getConservativeState<ndim>( Uin, iCell_Uout );
-      setConservativeState<ndim>( Uout, iCell_Uout, u0);
-      compute_fluxes<ndim, PrimState, ConsState>(IX, iCell_Uout, SlopesX, Sources, params, smallr, dt/size[IX], Uout);
-      compute_fluxes<ndim, PrimState, ConsState>(IY, iCell_Uout, SlopesY, Sources, params, smallr, dt/size[IY], Uout);
-      if( ndim==3 ) compute_fluxes<ndim, PrimState, ConsState>(IZ, iCell_Uout, SlopesZ, Sources, params, smallr, dt/size[IZ], Uout);
+      ConsState u0;
+      getConservativeState<ndim>(Uin, iCell_Uout, u0);
+      setConservativeState<ndim>(Uout, iCell_Uout, u0);
+      compute_fluxes<ndim, State>(IX, iCell_Uout, SlopesX, Sources, params, smallr, dt/size[IX], Uout);
+      compute_fluxes<ndim, State>(IY, iCell_Uout, SlopesY, Sources, params, smallr, dt/size[IY], Uout);
+      if( ndim==3 ) compute_fluxes<ndim, State>(IZ, iCell_Uout, SlopesZ, Sources, params, smallr, dt/size[IZ], Uout);
     
       // Applying correction step for gravity
       if (has_gravity)
@@ -468,9 +480,9 @@ void HydroUpdate_hancock::update(
 {
   uint32_t ndim = pdata->foreach_cell.getDim();
   if(ndim == 2)
-    update_aux<2, PrimHydroState, ConsHydroState>( this->pdata.get(), Uin, Uout, dt );
+    update_aux<2, HydroState>( this->pdata.get(), Uin, Uout, dt );
   else
-    update_aux<3, PrimHydroState, ConsHydroState>( this->pdata.get(), Uin, Uout, dt );
+    update_aux<3, HydroState>( this->pdata.get(), Uin, Uout, dt );
 }
 
 }// namespace dyablo

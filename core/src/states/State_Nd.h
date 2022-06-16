@@ -5,6 +5,7 @@
 
 namespace dyablo {
 
+
 template<size_t dim>
 using StateNd = Kokkos::Array<real_t, dim>;
 
@@ -12,7 +13,6 @@ using StateNd = Kokkos::Array<real_t, dim>;
 using HydroState2d = StateNd<4>;
 using HydroState3d = StateNd<5>;
 using GravityField = StateNd<3>;
-
 
 /**
  * @brief Trait used to indicate if a State_t is convertible to a StateNd.

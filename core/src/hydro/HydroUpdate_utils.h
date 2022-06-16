@@ -8,29 +8,6 @@
 namespace dyablo {
 
 /**
- * @brief Converts a given conservative variables hydro state to a 
- *        primitive hydro state 
- * 
- * @tparam ndim the number of dimensions
- * @param params hydro parameters for the conversion
- * @param Uloc the hydro state
- * @return KOKKOS_INLINE_FUNCTION 
- */
-template < 
-  int ndim, 
-  typename PrimState,
-  typename ConsState>
-KOKKOS_INLINE_FUNCTION
-PrimState cons_to_prim(const RiemannParams& params, const ConsState &Uloc) {
-  real_t c;
-  PrimState q;
-  assert( ndim==3 || Uloc.rho_w == 0 );
-  computePrimitives<PrimState, ConsState>(Uloc, &c, q, params.gamma0, params.smallr, params.smallp);
-  
-  return q;
-}
-
-/**
  * @brief Computes the primitive variables at a given cell index in an array
  *        and stores it in another array
  * 
@@ -46,21 +23,20 @@ PrimState cons_to_prim(const RiemannParams& params, const ConsState &Uloc) {
  */
 template< 
   int ndim, 
-  typename PrimState,
-  typename ConsState,
+  typename State,
   typename Array_t, 
   typename CellIndex >
 KOKKOS_INLINE_FUNCTION
-void compute_primitives(const RiemannParams& params, const Array_t& Ugroup, 
+void compute_primitives(const RiemannParams& params,   const Array_t& Ugroup, 
                         const CellIndex& iCell_Ugroup, const Array_t& Qgroup)
 {
-  ConsState uLoc = getConservativeState<ndim>( Ugroup, iCell_Ugroup );
-  real_t c; 
-  // get primitive variables in current cell
-  PrimState qLoc;
-  computePrimitives(uLoc, &c, qLoc, params.gamma0, params.smallr, params.smallp);
+  using ConsState = typename State::ConsState;
+  using PrimState = typename State::PrimState;
 
-  setPrimitiveState<ndim>( Qgroup, iCell_Ugroup, qLoc );
+  ConsState uLoc;
+  getConservativeState<ndim>(Ugroup, iCell_Ugroup, uLoc);
+  PrimState qLoc = consToPrim<ndim>(uLoc, params.gamma0);
+  setPrimitiveState<ndim>(Qgroup, iCell_Ugroup, qLoc);
 }
 
 
@@ -111,6 +87,8 @@ PrimState compute_slope( const PrimState& qMinus,
   if (ndim == 3)
     dq.w = slope(qMinus.w, q.w, qPlus.w);
 
+  // TODO : Find a way to do this with MHD states ?
+
   return dq;
 }
 
@@ -141,6 +119,7 @@ PrimState reconstruct_lin_state(const PrimState& q,
  * @brief Computes the flux at the interface between two cells
  * 
  * @tparam ndim the number of dimensions
+ * 
  * @param sourceL the value left of the interface
  * @param sourceR the value right of the interface
  * @param slopeL the slope left of the interface
@@ -152,19 +131,24 @@ PrimState reconstruct_lin_state(const PrimState& q,
  * @return the flux calculated at the interface
  */
 template< 
-  int ndim, 
-  typename ConsState, 
-  typename PrimState>
+  int ndim,
+  typename State>
 KOKKOS_INLINE_FUNCTION
-ConsState compute_euler_flux( const PrimState& sourceL, const PrimState& sourceR, 
-                              const PrimState& slopeL, const PrimState& slopeR,
-                              ComponentIndex3D dir, 
-                              const RiemannParams& params,
-                              real_t dL, real_t dR)
+typename State::ConsState 
+compute_euler_flux(const typename State::PrimState& sourceL, 
+                   const typename State::PrimState& sourceR, 
+                   const typename State::PrimState& slopeL, 
+                   const typename State::PrimState& slopeR,
+                   ComponentIndex3D                 dir, 
+                   const RiemannParams&             params,
+                   real_t dL, real_t dR)
 {
+  using PrimState = typename State::PrimState;
+  using ConsState = typename State::ConsState;
+
   const real_t smallr = params.smallr;
-  PrimState qL = reconstruct_lin_state( sourceL, slopeL,  1, smallr, dL );
-  PrimState qR = reconstruct_lin_state( sourceR, slopeR, -1, smallr, dR );
+  PrimState qL = reconstruct_lin_state(sourceL, slopeL,  1, smallr, dL);
+  PrimState qR = reconstruct_lin_state(sourceR, slopeR, -1, smallr, dR);
 
   // riemann solver along Y or Z direction requires to 
   // swap velocity components
@@ -198,6 +182,7 @@ ConsState compute_euler_flux( const PrimState& sourceL, const PrimState& sourceR
  * @tparam PatchArray the type of patch array for the run
  * @tparam ArrayIn the type of array provided as input
  * @tparam ArrayOut the type of array provided as output
+ * 
  * @param params the hydro parameters of the run
  * @param dir the direction for the update
  * @param iCell_Uout the index of the cell where the results will be written
@@ -208,22 +193,24 @@ ConsState compute_euler_flux( const PrimState& sourceL, const PrimState& sourceR
  * @param Uout the output array 
  */
 template<int ndim, 
-         typename PrimState,
-         typename ConsState,
+         typename State,
          typename CellIndex, 
          typename PatchArray, 
          typename ArrayIn,
          typename ArrayOut>
 KOKKOS_INLINE_FUNCTION
-void euler_update(const RiemannParams &params, 
-                        ComponentIndex3D dir, 
-                  const CellIndex& iCell_Uout,
-                  const ArrayIn& U,
-                  const PatchArray& Qgroup,
-                  const real_t dt,
-                  const real_t ddir,
-                  const ArrayOut& Uout)
+void euler_update(const RiemannParams&    params, 
+                        ComponentIndex3D  dir, 
+                  const CellIndex&        iCell_Uout,
+                  const ArrayIn&          U,
+                  const PatchArray&       Qgroup,
+                  const real_t            dt,
+                  const real_t            ddir,
+                  const ArrayOut&         Uout)
 {
+  using PrimState = typename State::PrimState;
+  using ConsState = typename State::ConsState;
+
   typename CellIndex::offset_t offsetm = {};
   typename CellIndex::offset_t offsetp = {};
   offsetm[dir] = -1;
@@ -232,9 +219,10 @@ void euler_update(const RiemannParams &params,
   CellIndex ib = Qgroup.convert_index(iCell_Uout);
   ConsState fluxL; 
   ConsState fluxR;
-  PrimState qC = getPrimitiveState<ndim>( Qgroup, ib );
-  PrimState qL = getPrimitiveState<ndim>( Qgroup, ib + offsetm );
-  PrimState qR = getPrimitiveState<ndim>( Qgroup, ib + offsetp );
+  PrimState qC, qL, qR;
+  getPrimitiveState<ndim>(Qgroup, ib, qC);
+  getPrimitiveState<ndim>(Qgroup, ib + offsetm, qL);
+  getPrimitiveState<ndim>(Qgroup, ib + offsetp, qR);
   PrimState qLL, qRR;
   const real_t dtddir = dt / ddir;
 
@@ -321,11 +309,12 @@ void euler_update(const RiemannParams &params,
   // 1- Same size or bigger
   if (ldiff_L >= 0) {
     if (ldiff_L > 0) {
-      const ConsState uLL = getConservativeState<ndim>( U, iUinL + offsetm );
-      qLL = cons_to_prim<ndim, PrimState>(params, uLL);
+      ConsState uLL;
+      getConservativeState<ndim>(U, iUinL + offsetm, uLL);
+      qLL = consToPrim<ndim>(uLL, params.gamma0);
     }
     else
-      qLL = getPrimitiveState<ndim>( Qgroup, ib + offsetm + offsetm );
+      getPrimitiveState<ndim>(Qgroup, ib + offsetm + offsetm, qLL);
     const PrimState slopeL = compute_slope<ndim>(qLL, qL, qC, dslope_LL, dslope_L);
     
     // Central slope when looking left and right.
@@ -333,8 +322,8 @@ void euler_update(const RiemannParams &params,
     // SlopeC can induce a loss of conservation. For slope recreation in those cases you just use the averaged
     // value of qR (so with a cell size equal to the current one).
     // SlopeCL considers a right averaged value, SlopeCR considers a left averaged value
-    const PrimState slopeCL = compute_slope<ndim>( qL, qC, qR, dslope_L, 1.0);
-    fluxL = compute_euler_flux<ndim, ConsState>( qL, qC, slopeL, slopeCL, dir, params, dflux_LL, dflux_LR );
+    const PrimState slopeCL = compute_slope<ndim>(qL, qC, qR, dslope_L, 1.0);
+    fluxL = compute_euler_flux<ndim, State>(qL, qC, slopeL, slopeCL, dir, params, dflux_LL, dflux_LR);
   }
   // 2- Smaller
   else {
@@ -342,14 +331,15 @@ void euler_update(const RiemannParams &params,
     foreach_smaller_neighbor<ndim>(iUinL, offsetm, U, 
                 [&](const CellIndex& iCell_neighbor)
               {
-                const ConsState uL = getConservativeState<ndim>( U, iCell_neighbor );
-                const ConsState uLL = getConservativeState<ndim>( U, iCell_neighbor + offsetm );
+                ConsState uL, uLL;
+                getConservativeState<ndim>(U, iCell_neighbor, uL);
+                getConservativeState<ndim>(U, iCell_neighbor + offsetm, uLL);
 
-                const PrimState qL = cons_to_prim<ndim, PrimState>( params, uL );
-                qLL = cons_to_prim<ndim, PrimState>( params, uLL );
-                const PrimState slopeC = compute_slope<ndim> ( qL, qC, qR, dslope_L, dslope_R );
-                const PrimState slopeL = compute_slope<ndim> ( qLL, qL, qC, dslope_LL, dslope_L );
-                fluxL += compute_euler_flux<ndim, ConsState>( qL, qC, slopeL, slopeC, dir, params, dflux_LL, dflux_LR );
+                const PrimState qL = consToPrim<ndim>(uL, params.gamma0);
+                qLL = consToPrim<ndim>(uLL, params.gamma0);
+                const PrimState slopeC = compute_slope<ndim>(qL, qC, qR, dslope_L, dslope_R);
+                const PrimState slopeL = compute_slope<ndim>(qLL, qL, qC, dslope_LL, dslope_L);
+                fluxL += compute_euler_flux<ndim, State>(qL, qC, slopeL, slopeC, dir, params, dflux_LL, dflux_LR);
               });
     fluxL *= fac; 
   }
@@ -358,15 +348,16 @@ void euler_update(const RiemannParams &params,
   // 1- Same size or bigger
   if (ldiff_R >= 0) {
     if (ldiff_R > 0) {
-      const ConsState uRR = getConservativeState<ndim>( U, iUinR + offsetp );
-      qRR = cons_to_prim<ndim, PrimState>( params, uRR ); 
+      ConsState uRR;
+      getConservativeState<ndim>(U, iUinR + offsetp, uRR);
+      qRR = consToPrim<ndim>(uRR, params.gamma0); 
     }
     else
-      qRR = getPrimitiveState<ndim>( Qgroup, ib + offsetp + offsetp );
+      getPrimitiveState<ndim>(Qgroup, ib + offsetp + offsetp, qRR);
     const PrimState slopeR = compute_slope<ndim>(qC, qR, qRR, dslope_R, dslope_RR);
     
-    PrimState slopeCR = compute_slope<ndim>( qL, qC, qR, 1.0, dslope_R);
-    fluxR = compute_euler_flux<ndim, ConsState>( qC, qR, slopeCR, slopeR, dir, params, dflux_RL, dflux_RR );
+    PrimState slopeCR = compute_slope<ndim>(qL, qC, qR, 1.0, dslope_R);
+    fluxR = compute_euler_flux<ndim, State>(qC, qR, slopeCR, slopeR, dir, params, dflux_RL, dflux_RR);
   }
   // 2- Smaller :
   else {
@@ -375,14 +366,15 @@ void euler_update(const RiemannParams &params,
     foreach_smaller_neighbor<ndim>(iUinR, offsetp, U, 
                 [&](const CellIndex& iCell_neighbor)
               {
-                const ConsState uR = getConservativeState<ndim>( U, iCell_neighbor );
-                const ConsState uRR = getConservativeState<ndim>( U, iCell_neighbor + offsetp );
+                ConsState uR, uRR;
+                getConservativeState<ndim>(U, iCell_neighbor, uR);
+                getConservativeState<ndim>(U, iCell_neighbor + offsetp, uRR);
 
-                const PrimState qR = cons_to_prim<ndim, PrimState>( params, uR );
-                qRR = cons_to_prim<ndim, PrimState>( params, uRR );
-                const PrimState slopeC = compute_slope<ndim> ( qL, qC, qR, dslope_L, dslope_R );
-                const PrimState slopeR = compute_slope<ndim> ( qC, qR, qRR, dslope_R, dslope_RR );
-                fluxR += compute_euler_flux<ndim, ConsState>( qC, qR, slopeC, slopeR, dir, params, dflux_RL, dflux_RR );
+                const PrimState qR = consToPrim<ndim>(uR, params.gamma0);
+                qRR = consToPrim<ndim>(uRR, params.gamma0);
+                const PrimState slopeC = compute_slope<ndim>(qL, qC, qR,  dslope_L, dslope_R);
+                const PrimState slopeR = compute_slope<ndim>(qC, qR, qRR, dslope_R, dslope_RR);
+                fluxR += compute_euler_flux<ndim, State>(qC, qR, slopeC, slopeR, dir, params, dflux_RL, dflux_RR);
               });
     fluxR *= fac;      
   }

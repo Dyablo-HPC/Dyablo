@@ -131,8 +131,7 @@ void apply_gravity_correction( const GlobalArray& Uin,
 
 template< 
   int ndim,
-  typename PrimState,
-  typename ConsState >
+  typename State >
 void rk_update(std::string kernel_name, 
                const HydroUpdate_RK2::Data* pdata, 
                const ForeachCell::CellArray_global_ghosted Uin, 
@@ -187,18 +186,19 @@ void rk_update(std::string kernel_name,
 
     patch.foreach_cell(Ugroup, CELL_LAMBDA(const CellIndex& iCell_Ugroup)
     { 
-      compute_primitives<ndim, PrimState, ConsState>(params, Ugroup, iCell_Ugroup, Qgroup);
+      compute_primitives<ndim, State>(params, Ugroup, iCell_Ugroup, Qgroup);
     });
     
     patch.foreach_cell( Uout, CELL_LAMBDA(const CellIndex& iCell_Uout)
     {
       auto size = cellmetadata.getCellSize(iCell_Uout);
-      ConsState u0 = getConservativeState<ndim>( Uin, iCell_Uout );
-      setConservativeState<ndim>( Uout, iCell_Uout, u0);
-      euler_update<ndim, PrimState, ConsState>(params, IX, iCell_Uout, Uin, Qgroup, dt, size[IX], Uout);
-      euler_update<ndim, PrimState, ConsState>(params, IY, iCell_Uout, Uin, Qgroup, dt, size[IY], Uout);
+      typename State::ConsState u0;
+      getConservativeState<ndim>(Uin, iCell_Uout, u0);
+      setConservativeState<ndim>(Uout, iCell_Uout, u0);
+      euler_update<ndim, State>(params, IX, iCell_Uout, Uin, Qgroup, dt, size[IX], Uout);
+      euler_update<ndim, State>(params, IY, iCell_Uout, Uin, Qgroup, dt, size[IY], Uout);
       if(ndim==3) 
-        euler_update<ndim, PrimState, ConsState>(params, IZ, iCell_Uout, Uin, Qgroup, dt, size[IZ], Uout);
+        euler_update<ndim, State>(params, IZ, iCell_Uout, Uin, Qgroup, dt, size[IZ], Uout);
     
       // Applying correction step for gravity
       if (has_gravity)
@@ -209,12 +209,13 @@ void rk_update(std::string kernel_name,
 
 template< 
   int ndim,
-  typename PrimState,
-  typename ConsState>
+  typename State>
 void rk_correct(const HydroUpdate_RK2::Data* pdata, 
                 const ForeachCell::CellArray_global_ghosted Uin, 
                 const ForeachCell::CellArray_global_ghosted Uout) 
 {
+  using ConsState = typename State::ConsState;
+
   auto foreach_cell = pdata->foreach_cell;
 
   foreach_cell.foreach_patch("HydroUpdate_RK2::correct",
@@ -223,8 +224,9 @@ void rk_correct(const HydroUpdate_RK2::Data* pdata,
     patch.foreach_cell( Uout, CELL_LAMBDA(const CellIndex &iCell_Uout) {
       auto iCell_Uin = Uin.convert_index(iCell_Uout);
       
-      const ConsState uin  = getConservativeState<ndim>(Uin,  iCell_Uin);
-      const ConsState uout = getConservativeState<ndim>(Uout, iCell_Uout);
+      ConsState uin, uout;
+      getConservativeState<ndim>(Uin,  iCell_Uin,  uin);
+      getConservativeState<ndim>(Uout, iCell_Uout, uout);
       const ConsState res = 0.5 * (uin + uout);
       
       setConservativeState<ndim>( Uout, iCell_Uout, res);
@@ -234,8 +236,7 @@ void rk_correct(const HydroUpdate_RK2::Data* pdata,
 
 template< 
   int ndim,
-  typename PrimState,
-  typename ConsState>
+  typename State>
 void update_aux(
     const HydroUpdate_RK2::Data* pdata,
     const ForeachCell::CellArray_global_ghosted& Uin,
@@ -253,10 +254,10 @@ void update_aux(
   
   // Two update stages and one correction stage
   timers.get("HydroUpdate_RK2").start();
-  rk_update<ndim, PrimState, ConsState>("update1", pdata, Uin,  Ustar, dt);
+  rk_update<ndim, State>("update1", pdata, Uin,  Ustar, dt);
   Ustar.exchange_ghosts(ghost_comm);
-  rk_update<ndim, PrimState, ConsState>("update2", pdata, Ustar, Uout, dt);
-  rk_correct<ndim, PrimState, ConsState>(pdata, Uin, Uout);
+  rk_update<ndim, State>("update2", pdata, Ustar, Uout, dt);
+  rk_correct<ndim, State>(pdata, Uin, Uout);
 
   timers.get("HydroUpdate_RK2").stop();
 }
@@ -269,9 +270,9 @@ void HydroUpdate_RK2::update(
 {
   uint32_t ndim = pdata->foreach_cell.getDim();
   if(ndim == 2)
-    update_aux<2, PrimHydroState, ConsHydroState>(this->pdata.get(), Uin, Uout, dt);
+    update_aux<2, HydroState>(this->pdata.get(), Uin, Uout, dt);
   else
-    update_aux<3, PrimHydroState, ConsHydroState>(this->pdata.get(), Uin, Uout, dt);  
+    update_aux<3, HydroState>(this->pdata.get(), Uin, Uout, dt);  
 }
 }
 

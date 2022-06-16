@@ -21,7 +21,7 @@
 #include "hydro/HydroUpdate.h"
 #include "utils_hydro.h"
 #include "io/IOManager.h"
-#include "states/HydroState.h"
+#include "states/State_hydro.h"
 using blockSize_t    = Kokkos::Array<uint32_t, 3>;
 
 using Device = Kokkos::DefaultExecutionSpace;

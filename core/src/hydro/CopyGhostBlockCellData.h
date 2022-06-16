@@ -72,7 +72,8 @@ void copyGhostBlockCellData(const GhostedArray& Uin, const CellIndex& iCell_Ugro
   if( iCell_Uin.level_diff() >= 0 ) 
   {
     // Neighbor is bigger or same size : copy the only neighbor cell
-    ConsHydroState u = getConservativeState<ndim>( Uin, iCell_Uin );
+    ConsHydroState u;
+    getConservativeState<ndim>( Uin, iCell_Uin, u );
     setConservativeState<ndim>( Ugroup, iCell_Ugroup, u );
   }
   else if( iCell_Uin.level_diff() == -1 ) 
@@ -82,7 +83,8 @@ void copyGhostBlockCellData(const GhostedArray& Uin, const CellIndex& iCell_Ugro
     foreach_sibling<ndim>( iCell_Uin, Uin, 
       [&](const CellIndex& iCell_subcell)
     {
-      ConsHydroState u_subcell = getConservativeState<ndim>(Uin, iCell_subcell);
+      ConsHydroState u_subcell;
+      getConservativeState<ndim>(Uin, iCell_subcell, u_subcell);
       u += u_subcell;
     });
     setConservativeState<ndim>( Ugroup, iCell_Ugroup, u/nbCells );

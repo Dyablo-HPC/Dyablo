@@ -7,7 +7,7 @@
 
 #include "kokkos_shared.h"
 #include "FieldManager.h"
-#include "states/HydroState.h"
+#include "states/State_hydro.h"
 
 #include "amr/LightOctree.h"
 #include "RiemannSolvers.h"

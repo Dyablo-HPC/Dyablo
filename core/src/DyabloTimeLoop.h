@@ -64,8 +64,6 @@ public:
     int ndim = configMap.getValue<int>("mesh", "ndim", 3);
     GravityType gravity_type = m_gravity_type;
 
-    m_field_manager = FieldManager::setup(ndim, gravity_type); // TODO : configure from what is needed by kernels
-
     std::string godunov_updater_id = configMap.getValue<std::string>("hydro", "update", "HydroUpdate_hancock");
     this->godunov_updater = HydroUpdateFactory::make_instance( godunov_updater_id,
       configMap,
@@ -111,6 +109,8 @@ public:
       m_foreach_cell,
       timers
     );
+
+    m_field_manager = FieldManager::setup(ndim, gravity_type, godunov_updater_id); // TODO : configure from what is needed by kernels
 
     // Get initial conditions id
     std::string init_id = configMap.getValue<std::string>("hydro", "problem", "unknown");

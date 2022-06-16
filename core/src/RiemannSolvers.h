@@ -7,7 +7,7 @@
 
 #include <math.h>
 
-#include "states/HydroState.h"
+#include "states/State_forward.h"
 
 namespace dyablo {
 
@@ -178,6 +178,38 @@ ConsHydroState riemann_hydro( const PrimHydroState& qleft,
                               const RiemannParams& params)
 {
   ConsHydroState flux;
+  riemann_hydro(qleft, qright, flux, params);
+  return flux;
+
+} // riemann_hydro
+
+/**
+ * TEMPORARY !!!!!
+ * Wrapper function calling the actual riemann solver.
+ */
+KOKKOS_INLINE_FUNCTION
+void riemann_hydro( const PrimMHDState& qleft,
+		                const PrimMHDState& qright,
+		                ConsMHDState& flux,
+		                const RiemannParams& params)
+{
+
+  PrimHydroState qleft_{qleft.rho, qleft.p, qleft.u, qleft.v, qleft.w};
+  PrimHydroState qright_{qright.rho, qright.p, qright.u, qright.v, qright.w};
+  ConsHydroState flux_;
+  riemann_hllc(qleft_,qright_,flux_,params);
+  flux = {flux_.rho, flux_.e_tot, flux_.rho_u, flux_.rho_v, flux_.rho_w};
+} // riemann_hydro
+
+/**
+ * Another Wrapper function calling the actual riemann solver.
+ */
+KOKKOS_INLINE_FUNCTION
+ConsMHDState riemann_hydro( const PrimMHDState& qleft,
+                            const PrimMHDState& qright,
+                            const RiemannParams& params)
+{
+  ConsMHDState flux;
   riemann_hydro(qleft, qright, flux, params);
   return flux;
 

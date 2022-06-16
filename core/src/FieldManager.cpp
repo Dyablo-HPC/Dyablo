@@ -11,9 +11,9 @@ const std::vector< std::pair< VarIndex, std::string > >& var_names()
     {IV, "rho_vy"},
     {IW, "rho_vz"},
     {IE, "e_tot"},
-    {IA, "bx"},
-    {IB, "by"},
-    {IC, "bz"},
+    {IBX, "Bx"},
+    {IBY, "By"},
+    {IBZ, "Bz"},
     {IGPHI, "igphi"},
     {IGX, "igx"},
     {IGY, "igy"},
@@ -34,7 +34,7 @@ std::set< VarIndex > FieldManager::enabled_fields() const
   return id2index.enabled_fields();
 }
 
-FieldManager FieldManager::setup(int ndim, GravityType gravity_type) {    
+FieldManager FieldManager::setup(int ndim, GravityType gravity_type, std::string godunov_updater_id) {    
   
   // always enable rho, energy and velocity components
   std::set< VarIndex > enabled_vars( {ID, IP, IE, IU, IV} );
@@ -48,6 +48,12 @@ FieldManager FieldManager::setup(int ndim, GravityType gravity_type) {
     enabled_vars.insert( IGX );
     enabled_vars.insert( IGY );
     if( three_d ) enabled_vars.insert( IGZ );
+  }
+
+  if (godunov_updater_id.find("MHD") != std::string::npos) {
+    enabled_vars.insert( IBX );
+    enabled_vars.insert( IBY );
+    if ( three_d ) enabled_vars.insert( IBZ );
   }
   
   return FieldManager( enabled_vars );
