@@ -53,7 +53,7 @@ FieldManager FieldManager::setup(int ndim, GravityType gravity_type, std::string
   if (godunov_updater_id.find("MHD") != std::string::npos) {
     enabled_vars.insert( IBX );
     enabled_vars.insert( IBY );
-    if ( three_d ) enabled_vars.insert( IBZ );
+    enabled_vars.insert( IBZ );
   }
   
   return FieldManager( enabled_vars );
