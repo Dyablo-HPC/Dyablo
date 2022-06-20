@@ -1,74 +1,14 @@
-#include "HydroUpdate_RK2.h"
-
+#include "HydroUpdate_base.h"
 #include "RiemannSolvers.h"
 #include "HydroUpdate_utils.h"
 
 namespace dyablo {
-
-struct HydroUpdate_RK2::Data{ 
-  ForeachCell& foreach_cell;
-  real_t xmin, ymin, zmin;
-  real_t xmax, ymax, zmax;  
-  
-  Timers& timers;  
-
-  RiemannParams params;
-
-  real_t slope_type;
-
-  BoundaryConditionType boundary_type_xmin,boundary_type_ymin, boundary_type_zmin;
-  GravityType gravity_type;
-  real_t gx, gy, gz;
-};
-
-
-HydroUpdate_RK2::HydroUpdate_RK2(
-        ConfigMap& configMap,
-        ForeachCell& foreach_cell,
-        Timers& timers) 
- : pdata(new Data
-    {foreach_cell,
-    configMap.getValue<real_t>("mesh", "xmin", 0.0),
-    configMap.getValue<real_t>("mesh", "ymin", 0.0),
-    configMap.getValue<real_t>("mesh", "zmin", 0.0),
-    configMap.getValue<real_t>("mesh", "xmax", 1.0),
-    configMap.getValue<real_t>("mesh", "ymax", 1.0),
-    configMap.getValue<real_t>("mesh", "zmax", 1.0),
-    timers,
-    RiemannParams( configMap ),
-    configMap.getValue<real_t>("hydro","slope_type",1.0),
-    configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_ABSORBING),
-    configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymin", BC_ABSORBING),
-    configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmin", BC_ABSORBING),
-    configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE)
-    })
-{
-  if (pdata->gravity_type & GRAVITY_CONSTANT) {
-    pdata->gx = configMap.getValue<real_t>("gravity", "gx",  0.0);
-    pdata->gy = configMap.getValue<real_t>("gravity", "gy",  0.0);
-    pdata->gz = configMap.getValue<real_t>("gravity", "gz",  0.0);
-  } 
-}
-
-HydroUpdate_RK2::~HydroUpdate_RK2() {
-}
-
 namespace{
 
 using GhostedArray = ForeachCell::CellArray_global_ghosted;
 using GlobalArray = ForeachCell::CellArray_global;
 using PatchArray = ForeachCell::CellArray_patch;
 using CellIndex = ForeachCell::CellIndex;
-
-}// namespace
-}// namespace dyablo
-
-#include "hydro/CopyGhostBlockCellData.h"
-
-
-namespace dyablo { 
-
-namespace{
 
 /**
  * Applies corrector step for gravity
@@ -129,153 +69,209 @@ void apply_gravity_correction( const GlobalArray& Uin,
   Uout.at(iCell_Uin, IE) += (ekin_new - ekin_old);
 }
 
-template< 
-  int ndim,
-  typename State >
-void rk_update(std::string kernel_name, 
-               const HydroUpdate_RK2::Data* pdata, 
-               const ForeachCell::CellArray_global_ghosted Uin, 
-               const ForeachCell::CellArray_global_ghosted Uout, 
-               real_t dt) 
-{
-  auto fm = Uin.fm;
-  auto foreach_cell = pdata->foreach_cell;
-  auto gravity_type = pdata->gravity_type;
-  auto params = pdata->params;
+}// namespace
+}// namespace dyablo
 
-  // Create abstract temporary ghosted arrays for patches 
-  PatchArray::Ref Ugroup_ = foreach_cell.reserve_patch_tmp("Ugroup", 2, 2, (ndim == 3)?2:0, fm, 5);
-  PatchArray::Ref Qgroup_ = foreach_cell.reserve_patch_tmp("Qgroup", 2, 2, (ndim == 3)?2:0, fm, 5);
-  
-  ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
+#include "hydro/CopyGhostBlockCellData.h"
 
-  real_t xmin = pdata->xmin, ymin = pdata->ymin, zmin = pdata->zmin;
-  real_t xmax = pdata->xmax, ymax = pdata->ymax, zmax = pdata->zmax;
-  BoundaryConditionType xbound = pdata->boundary_type_xmin;
-  BoundaryConditionType ybound = pdata->boundary_type_ymin;
-  BoundaryConditionType zbound = pdata->boundary_type_zmin;
+namespace dyablo {
 
-  bool has_gravity = gravity_type!=GRAVITY_NONE;
-  bool gravity_use_field = gravity_type&GRAVITY_FIELD;
-  #ifndef NDEBUG
-  bool gravity_use_scalar = gravity_type==GRAVITY_CST_SCALAR;
-  #endif
-  real_t gx = pdata->gx, gy = pdata->gy, gz = pdata->gz;
 
-  // If gravity is on it must either use the force field from U or a constant scalar force field
-  assert( !has_gravity || ( gravity_use_field != gravity_use_scalar )  );
-
-  // Iterate over patches
-  foreach_cell.foreach_patch( "HydroUpdate_euler::update",
-    PATCH_LAMBDA( const ForeachCell::Patch& patch )
-  {
-    PatchArray Ugroup = patch.allocate_tmp(Ugroup_);
-    PatchArray Qgroup = patch.allocate_tmp(Qgroup_);
-
-    // Copy non ghosted array Uin into temporary ghosted Ugroup with two ghosts
-    patch.foreach_cell(Ugroup, CELL_LAMBDA(const CellIndex& iCell_Ugroup)
-    {
-        copyGhostBlockCellData<ndim>(
-        Uin, iCell_Ugroup, 
-        cellmetadata, 
-        xmin, ymin, zmin, 
-        xmax, ymax, zmax, 
-        xbound, ybound, zbound,
-        Ugroup);
-    });
-
-    patch.foreach_cell(Ugroup, CELL_LAMBDA(const CellIndex& iCell_Ugroup)
-    { 
-      compute_primitives<ndim, State>(params, Ugroup, iCell_Ugroup, Qgroup);
-    });
-    
-    patch.foreach_cell( Uout, CELL_LAMBDA(const CellIndex& iCell_Uout)
-    {
-      auto size = cellmetadata.getCellSize(iCell_Uout);
-      typename State::ConsState u0;
-      getConservativeState<ndim>(Uin, iCell_Uout, u0);
-      setConservativeState<ndim>(Uout, iCell_Uout, u0);
-      euler_update<ndim, State>(params, IX, iCell_Uout, Uin, Qgroup, dt, size[IX], Uout);
-      euler_update<ndim, State>(params, IY, iCell_Uout, Uin, Qgroup, dt, size[IY], Uout);
-      if(ndim==3) 
-        euler_update<ndim, State>(params, IZ, iCell_Uout, Uin, Qgroup, dt, size[IZ], Uout);
-    
-      // Applying correction step for gravity
-      if (has_gravity)
-        apply_gravity_correction<ndim>(Uin, iCell_Uout, dt, gravity_use_field, gx, gy, gz, Uout);
-    });
-  });
-}
-
-template< 
-  int ndim,
-  typename State>
-void rk_correct(const HydroUpdate_RK2::Data* pdata, 
-                const ForeachCell::CellArray_global_ghosted Uin, 
-                const ForeachCell::CellArray_global_ghosted Uout) 
-{
+template<typename State_>
+class HydroUpdate_RK2: public HydroUpdate {
+public:
+  using State = State_;
+  using PrimState = typename State::PrimState;
   using ConsState = typename State::ConsState;
 
-  auto foreach_cell = pdata->foreach_cell;
-
-  foreach_cell.foreach_patch("HydroUpdate_RK2::correct",
-    PATCH_LAMBDA( const ForeachCell::Patch& patch )
+  HydroUpdate_RK2(
+          ConfigMap& configMap,
+          ForeachCell& foreach_cell,
+          Timers& timers) 
+  : foreach_cell(foreach_cell),
+    xmin(configMap.getValue<real_t>("mesh", "xmin", 0.0)),
+    ymin(configMap.getValue<real_t>("mesh", "ymin", 0.0)),
+    zmin(configMap.getValue<real_t>("mesh", "zmin", 0.0)),
+    xmax(configMap.getValue<real_t>("mesh", "xmax", 1.0)),
+    ymax(configMap.getValue<real_t>("mesh", "ymax", 1.0)),
+    zmax(configMap.getValue<real_t>("mesh", "zmax", 1.0)),
+    timers(timers),
+    params(configMap),
+    boundary_type_xmin(configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_ABSORBING)),
+    boundary_type_ymin(configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymin", BC_ABSORBING)),
+    boundary_type_zmin(configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmin", BC_ABSORBING)),
+    gravity_type(configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE))
   {
-    patch.foreach_cell( Uout, CELL_LAMBDA(const CellIndex &iCell_Uout) {
-      auto iCell_Uin = Uin.convert_index(iCell_Uout);
-      
-      ConsState uin, uout;
-      getConservativeState<ndim>(Uin,  iCell_Uin,  uin);
-      getConservativeState<ndim>(Uout, iCell_Uout, uout);
-      const ConsState res = 0.5 * (uin + uout);
-      
-      setConservativeState<ndim>( Uout, iCell_Uout, res);
-    });
-  });
-}
+    if (gravity_type & GRAVITY_CONSTANT) {
+      gx = configMap.getValue<real_t>("gravity", "gx",  0.0);
+      gy = configMap.getValue<real_t>("gravity", "gy",  0.0);
+      gz = configMap.getValue<real_t>("gravity", "gz",  0.0);
+    } 
+  }
 
-template< 
-  int ndim,
-  typename State>
-void update_aux(
-    const HydroUpdate_RK2::Data* pdata,
-    const ForeachCell::CellArray_global_ghosted& Uin,
-    const ForeachCell::CellArray_global_ghosted& Uout,
-    real_t dt)
-{
-  Timers& timers = pdata->timers; 
-  ForeachCell& foreach_cell = pdata->foreach_cell;
-  GhostCommunicator ghost_comm(std::shared_ptr<AMRmesh>(&foreach_cell.get_amr_mesh(), [](AMRmesh*){}));
+  ~HydroUpdate_RK2() {}
+
+  /**
+   * @brief Solves hydro for one step using the RK2 method
+   * 
+   * @param Uin the input global array
+   * @param Uout the output global array
+   * @param dt the timestep
+   */
+  void update(
+      const ForeachCell::CellArray_global_ghosted& Uin,
+      const ForeachCell::CellArray_global_ghosted& Uout,
+      real_t dt)
+  {
+    uint32_t ndim = foreach_cell.getDim();
+    if (ndim == 2)
+      update_aux<2>(Uin, Uout, dt);
+    else if(ndim == 3)
+      update_aux<3>(Uin, Uout, dt);  
+    else
+      assert(false);
+  }
+
+  template<int ndim>
+  void update_aux(
+      const ForeachCell::CellArray_global_ghosted& Uin,
+      const ForeachCell::CellArray_global_ghosted& Uout,
+      real_t dt)
+  {
+    Timers& timers = this->timers; 
+    ForeachCell& foreach_cell = this->foreach_cell;
+    GhostCommunicator ghost_comm(std::shared_ptr<AMRmesh>(&foreach_cell.get_amr_mesh(), [](AMRmesh*){}));
+      
+    // Temporary Ustar array
+    auto fm = FieldManager(Uin.fm.enabled_fields()); 
+    auto Ustar = foreach_cell.allocate_ghosted_array("U*", fm);
     
+    // Two update stages and one correction stage
+    timers.get("HydroUpdate_RK2").start();
+    rk_update<ndim>(Uin,  Ustar, dt);
+    Ustar.exchange_ghosts(ghost_comm);
+    rk_update<ndim>(Ustar, Uout, dt);
+    rk_correct<ndim>(Uin, Uout);
 
-  // Temporary Ustar array
-  auto fm = FieldManager(Uin.fm.enabled_fields()); 
-  auto Ustar = foreach_cell.allocate_ghosted_array("U*", fm);
-  
-  // Two update stages and one correction stage
-  timers.get("HydroUpdate_RK2").start();
-  rk_update<ndim, State>("update1", pdata, Uin,  Ustar, dt);
-  Ustar.exchange_ghosts(ghost_comm);
-  rk_update<ndim, State>("update2", pdata, Ustar, Uout, dt);
-  rk_correct<ndim, State>(pdata, Uin, Uout);
+    timers.get("HydroUpdate_RK2").stop();
+  }
 
-  timers.get("HydroUpdate_RK2").stop();
-}
+  template<int ndim>
+  void rk_update(const ForeachCell::CellArray_global_ghosted Uin, 
+                 const ForeachCell::CellArray_global_ghosted Uout, 
+                 real_t dt) 
+  {
+    auto fm = Uin.fm;
+    auto foreach_cell = this->foreach_cell;
+    auto gravity_type = this->gravity_type;
+    auto params = this->params;
+
+    // Create abstract temporary ghosted arrays for patches 
+    PatchArray::Ref Ugroup_ = foreach_cell.reserve_patch_tmp("Ugroup", 2, 2, (ndim == 3)?2:0, fm, State::N);
+    PatchArray::Ref Qgroup_ = foreach_cell.reserve_patch_tmp("Qgroup", 2, 2, (ndim == 3)?2:0, fm, State::N);
+    
+    ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
+
+    real_t xmin = this->xmin, ymin = this->ymin, zmin = this->zmin;
+    real_t xmax = this->xmax, ymax = this->ymax, zmax = this->zmax;
+    BoundaryConditionType xbound = this->boundary_type_xmin;
+    BoundaryConditionType ybound = this->boundary_type_ymin;
+    BoundaryConditionType zbound = this->boundary_type_zmin;
+
+    bool has_gravity = gravity_type!=GRAVITY_NONE;
+    bool gravity_use_field = gravity_type&GRAVITY_FIELD;
+    #ifndef NDEBUG
+    bool gravity_use_scalar = gravity_type==GRAVITY_CST_SCALAR;
+    #endif
+    real_t gx = this->gx, gy = this->gy, gz = this->gz;
+
+    // If gravity is on it must either use the force field from U or a constant scalar force field
+    assert( !has_gravity || ( gravity_use_field != gravity_use_scalar )  );
+
+    // Iterate over patches
+    foreach_cell.foreach_patch( "HydroUpdate_euler::update",
+      PATCH_LAMBDA( const ForeachCell::Patch& patch )
+    {
+      PatchArray Ugroup = patch.allocate_tmp(Ugroup_);
+      PatchArray Qgroup = patch.allocate_tmp(Qgroup_);
+
+      // Copy non ghosted array Uin into temporary ghosted Ugroup with two ghosts
+      patch.foreach_cell(Ugroup, CELL_LAMBDA(const CellIndex& iCell_Ugroup)
+      {
+          copyGhostBlockCellData<ndim>(
+          Uin, iCell_Ugroup, 
+          cellmetadata, 
+          xmin, ymin, zmin, 
+          xmax, ymax, zmax, 
+          xbound, ybound, zbound,
+          Ugroup);
+      });
+
+      patch.foreach_cell(Ugroup, CELL_LAMBDA(const CellIndex& iCell_Ugroup)
+      { 
+        compute_primitives<ndim, State>(params, Ugroup, iCell_Ugroup, Qgroup);
+      });
+      
+      patch.foreach_cell( Uout, CELL_LAMBDA(const CellIndex& iCell_Uout)
+      {
+        auto size = cellmetadata.getCellSize(iCell_Uout);
+        typename State::ConsState u0;
+        getConservativeState<ndim>(Uin, iCell_Uout, u0);
+        setConservativeState<ndim>(Uout, iCell_Uout, u0);
+        euler_update<ndim, State>(params, IX, iCell_Uout, Uin, Qgroup, dt, size[IX], Uout);
+        euler_update<ndim, State>(params, IY, iCell_Uout, Uin, Qgroup, dt, size[IY], Uout);
+        if(ndim==3) 
+          euler_update<ndim, State>(params, IZ, iCell_Uout, Uin, Qgroup, dt, size[IZ], Uout);
+      
+        // Applying correction step for gravity
+        if (has_gravity)
+          apply_gravity_correction<ndim>(Uin, iCell_Uout, dt, gravity_use_field, gx, gy, gz, Uout);
+      });
+    });
+  }
+
+  template<int ndim>
+  void rk_correct(const ForeachCell::CellArray_global_ghosted Uin, 
+                  const ForeachCell::CellArray_global_ghosted Uout) 
+  {
+    auto foreach_cell = this->foreach_cell;
+
+    foreach_cell.foreach_patch("HydroUpdate_RK2::correct",
+      PATCH_LAMBDA( const ForeachCell::Patch& patch )
+    {
+      patch.foreach_cell( Uout, CELL_LAMBDA(const CellIndex &iCell_Uout) {
+        auto iCell_Uin = Uin.convert_index(iCell_Uout);
+        
+        ConsState uin, uout;
+        getConservativeState<ndim>(Uin,  iCell_Uin,  uin);
+        getConservativeState<ndim>(Uout, iCell_Uout, uout);
+        const ConsState res = 0.5 * (uin + uout);
+        setConservativeState<ndim>( Uout, iCell_Uout, res);
+      });
+    });
+  }
+
+private:
+  ForeachCell& foreach_cell;
+  real_t xmin, ymin, zmin;
+  real_t xmax, ymax, zmax;
+
+  Timers& timers;  
+
+  RiemannParams params;
+
+  BoundaryConditionType boundary_type_xmin,boundary_type_ymin, boundary_type_zmin;
+  GravityType gravity_type;
+  real_t gx, gy, gz;
+};
+
 }
 
-void HydroUpdate_RK2::update(
-    const ForeachCell::CellArray_global_ghosted& Uin,
-    const ForeachCell::CellArray_global_ghosted& Uout,
-    real_t dt)
-{
-  uint32_t ndim = pdata->foreach_cell.getDim();
-  if(ndim == 2)
-    update_aux<2, HydroState>(this->pdata.get(), Uin, Uout, dt);
-  else
-    update_aux<3, HydroState>(this->pdata.get(), Uin, Uout, dt);  
-}
-}
 
 FACTORY_REGISTER( dyablo::HydroUpdateFactory, 
-                  dyablo::HydroUpdate_RK2, 
+                  dyablo::HydroUpdate_RK2<dyablo::HydroState>, 
                   "HydroUpdate_RK2")
+
+FACTORY_REGISTER( dyablo::HydroUpdateFactory, 
+                  dyablo::HydroUpdate_RK2<dyablo::MHDState>, 
+                  "MHDUpdate_RK2")

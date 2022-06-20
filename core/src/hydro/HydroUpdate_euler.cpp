@@ -101,7 +101,6 @@ public:
     zmax(configMap.getValue<real_t>("mesh", "zmax", 1.0)),
     timers(timers),
     params(configMap),
-    slope_type(configMap.getValue<real_t>("hydro","slope_type",1.0)),
     boundary_type_xmin(configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_ABSORBING)),
     boundary_type_ymin(configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymin", BC_ABSORBING)),
     boundary_type_zmin(configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmin", BC_ABSORBING)),
@@ -114,8 +113,7 @@ public:
     } 
   }
 
-  ~HydroUpdate_euler() {
-  }
+  ~HydroUpdate_euler() {}
 
   /**
    * @brief Solves hydro for one step using the euler method
@@ -231,8 +229,6 @@ private:
   Timers& timers;  
 
   RiemannParams params;
-
-  real_t slope_type;
 
   BoundaryConditionType boundary_type_xmin,boundary_type_ymin, boundary_type_zmin;
   GravityType gravity_type;

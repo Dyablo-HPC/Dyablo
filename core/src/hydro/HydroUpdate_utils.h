@@ -175,7 +175,7 @@ compute_euler_flux(const typename State::PrimState& sourceL,
 
 /**
  * @brief Calculates one Euler hydro time-step given an input. where Uout = U+dt*dU/dt
- *        and dU/dt is calculated from using a Godunov method.
+ *        and dU/dt is calculated using a Godunov method.
  * 
  * @tparam ndim the number of dimensions 
  * @tparam CellIndex the type of index on the array U
