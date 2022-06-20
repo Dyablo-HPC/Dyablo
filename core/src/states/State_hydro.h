@@ -20,6 +20,27 @@ struct ConsHydroState {
 };
 
 /**
+ * @brief Structure holding primitive hydrodynamics variables
+ */
+struct PrimHydroState {
+  real_t rho = 0;
+  real_t p = 0;
+  real_t u = 0;
+  real_t v = 0;
+  real_t w = 0;
+};
+
+/**
+ * @brief Structure grouping the primitive and conservative hydro state as well
+ *        as information on the number of fields to store per state
+ */
+struct HydroState {
+  using PrimState = PrimHydroState;
+  using ConsState = ConsHydroState;
+  static constexpr size_t N = 5;
+};
+
+/**
  * @brief StateNd_conversion for ConsHydroState
  */
 template<>
@@ -40,18 +61,6 @@ struct StateNd_conversion<ConsHydroState>
     {
         return {v[0],v[1],v[2],v[3],v[4]};
     }
-};
-
-
-/**
- * @brief Structure holding primitive hydrodynamics variables
- */
-struct PrimHydroState {
-  real_t rho = 0;
-  real_t p = 0;
-  real_t u = 0;
-  real_t v = 0;
-  real_t w = 0;
 };
 
 /**
@@ -75,12 +84,6 @@ struct StateNd_conversion<PrimHydroState>
     {
         return {v[0],v[1],v[2],v[3],v[4]};
     }
-};
-
-struct HydroState {
-  using PrimState = PrimHydroState;
-  using ConsState = ConsHydroState;
-  static constexpr size_t N = 5;
 };
 
 /**

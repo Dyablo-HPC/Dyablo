@@ -21,6 +21,30 @@ struct ConsMHDState {
 };
 
 /**
+ * @brief Structure holding primitive magneto-hydrodynamics variables
+ */
+struct PrimMHDState {
+  real_t rho = 0;
+  real_t p = 0;
+  real_t u = 0;
+  real_t v = 0;
+  real_t w = 0;
+  real_t Bx = 0;
+  real_t By = 0;
+  real_t Bz = 0;
+};
+
+/**
+ * @brief Structure grouping the primitive and conservative MHD state as well
+ *        as information on the number of fields to store per state
+ */
+struct MHDState {
+  using PrimState = PrimMHDState;
+  using ConsState = ConsMHDState;
+  static constexpr size_t N = 8;
+};
+
+/**
  * @brief StateNd_conversion for ConsMHDState
  */
 template<>
@@ -41,21 +65,6 @@ struct StateNd_conversion<ConsMHDState>
     {
         return {v[0],v[1],v[2],v[3],v[4],v[5],v[6],v[7]};
     }
-};
-
-
-/**
- * @brief Structure holding primitive magneto-hydrodynamics variables
- */
-struct PrimMHDState {
-  real_t rho = 0;
-  real_t p = 0;
-  real_t u = 0;
-  real_t v = 0;
-  real_t w = 0;
-  real_t Bx = 0;
-  real_t By = 0;
-  real_t Bz = 0;
 };
 
 /**
@@ -79,13 +88,6 @@ struct StateNd_conversion<PrimMHDState>
     {
         return {v[0],v[1],v[2],v[3],v[4],v[5],v[6],v[7]};
     }
-};
-
-
-struct MHDState {
-  using PrimState = PrimMHDState;
-  using ConsState = ConsMHDState;
-  static constexpr size_t N = 8;
 };
 
 /**
@@ -112,7 +114,7 @@ void getConservativeState( const Array_t& U, const CellIndex& iCell, ConsMHDStat
   res.rho_w = (ndim == 3 ? U.at(iCell, IW) : 0.0);
   res.Bx = U.at(iCell, IBX);
   res.By = U.at(iCell, IBY);
-  res.Bz = (ndim == 3 ? U.at(iCell, IBZ) : 0.0);
+  res.Bz = U.at(iCell, IBZ);
 }
 
 /**
@@ -139,7 +141,7 @@ void getPrimitiveState( const Array_t& U, const CellIndex& iCell, PrimMHDState &
   res.w   = (ndim == 3 ? U.at(iCell, IW) : 0.0);
   res.Bx  = U.at(iCell, IBX);
   res.By  = U.at(iCell, IBY);
-  res.Bz  = (ndim == 3 ? U.at(iCell, IBZ) : 0.0);
+  res.Bz  = U.at(iCell, IBZ);
 }
 
 /**
@@ -162,9 +164,9 @@ void setPrimitiveState( const Array_t& U, const CellIndex& iCell, PrimMHDState u
   U.at(iCell, IV) = u.v;
   U.at(iCell, IBX) = u.Bx;
   U.at(iCell, IBY) = u.By;
+  U.at(iCell, IBZ) = u.Bz;
   if (ndim == 3) {
     U.at(iCell, IW) = u.w;
-    U.at(iCell, IBZ) = u.Bz;
   }
 }
 
@@ -188,9 +190,9 @@ void setConservativeState( const Array_t& U, const CellIndex& iCell, ConsMHDStat
   U.at(iCell, IV) = u.rho_v;
   U.at(iCell, IBX) = u.Bx;
   U.at(iCell, IBY) = u.By;
+  U.at(iCell, IBZ) = u.Bz;
   if (ndim == 3) {
     U.at(iCell, IW) = u.rho_w;
-    U.at(iCell, IBZ) = u.Bz;
   }
 }
 
@@ -207,7 +209,8 @@ template<int ndim>
 KOKKOS_INLINE_FUNCTION
 PrimMHDState consToPrim(const ConsMHDState &U, real_t gamma0) {
   const real_t Ek = 0.5 * (U.rho_u*U.rho_u+U.rho_v*U.rho_v+U.rho_w*U.rho_w)/U.rho;
-  const real_t p = (U.e_tot - Ek) * (gamma0-1.0);
+  const real_t Em = 0.5 * (U.Bx*U.Bx + U.By*U.By + U.Bz*U.Bz);
+  const real_t p = (U.e_tot - Ek - Em) * (gamma0-1.0);
   return {U.rho, 
           p, 
           U.rho_u/U.rho, 
@@ -215,7 +218,7 @@ PrimMHDState consToPrim(const ConsMHDState &U, real_t gamma0) {
           (ndim == 3 ? U.rho_w/U.rho : 0.0),
           U.Bx,
           U.By,
-          (ndim == 3 ? U.Bz : 0.0)};
+          U.Bz};
 }
 
 /**
@@ -231,7 +234,8 @@ template<int ndim>
 KOKKOS_INLINE_FUNCTION
 ConsMHDState primToCons(const PrimMHDState &Q, real_t gamma0) {
   const real_t Ek = 0.5 * Q.rho * (Q.u*Q.u+Q.v*Q.v+Q.w*Q.w);
-  const real_t E  = Ek + Q.p / (gamma0-1.0);
+  const real_t Em = 0.5 * (Q.Bx*Q.Bx + Q.By*Q.By + Q.Bz*Q.Bz);
+  const real_t E  = Ek + Em + Q.p / (gamma0-1.0);
   return {Q.rho, 
           E, 
           Q.rho*Q.u, 
@@ -239,7 +243,7 @@ ConsMHDState primToCons(const PrimMHDState &Q, real_t gamma0) {
           (ndim ==3 ? Q.rho*Q.w : 0.0),
           Q.Bx,
           Q.By,
-          (ndim == 3 ? Q.Bz : 0.0)};
+          Q.Bz};
 }
 
 } // namespace dyablo
