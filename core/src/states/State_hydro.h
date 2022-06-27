@@ -220,5 +220,51 @@ ConsHydroState primToCons(const PrimHydroState &Q, real_t gamma0) {
             (ndim ==3 ? Q.rho*Q.w : 0.0)};
 }
 
+/**
+ * @brief Swaps a component in velocity with the X component. 
+ *        The Riemann problem is always solved by considering an interface on the 
+ *        X-axis. So when solving it for other components, those should be swapped 
+ *        before and after solving the Riemann problem.
+ *  
+ * @param Q (IN/OUT) the primitive MHD state to modify
+ * @param comp the component to swap with X
+ */
+KOKKOS_INLINE_FUNCTION
+void swapComponents(PrimHydroState &q, ComponentIndex3D comp) {
+  if (comp == IY) {
+    real_t tmp_v = q.v;
+    q.v  = q.u;
+    q.u  = tmp_v;
+  }
+  else if (comp == IZ) {
+    real_t tmp_v = q.w;
+    q.w  = q.u;
+    q.u  = tmp_v;
+  }
+}
+
+/**
+ * @brief Swaps a component in velocity with the X component. 
+ *        The Riemann problem is always solved by considering an interface on the 
+ *        X-axis. So when solving it for other components, those should be swapped 
+ *        before and after solving the Riemann problem.
+ *  
+ * @param Q (IN/OUT) the primitive MHD state to modify
+ * @param comp the component to swap with X
+ */
+KOKKOS_INLINE_FUNCTION
+void swapComponents(ConsHydroState &u, ComponentIndex3D comp) {
+  if (comp == IY) {
+    real_t tmp_v = u.rho_v;
+    u.rho_v = u.rho_u;
+    u.rho_u = tmp_v;
+  }
+  else if (comp == IZ) {
+    real_t tmp_v = u.rho_w;
+    u.rho_w = u.rho_u;
+    u.rho_u = tmp_v;
+  }
+}
+
 } // namespace dyablo
 

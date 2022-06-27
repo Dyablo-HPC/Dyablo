@@ -208,7 +208,10 @@ void setConservativeState( const Array_t& U, const CellIndex& iCell, ConsMHDStat
 template<int ndim>
 KOKKOS_INLINE_FUNCTION
 PrimMHDState consToPrim(const ConsMHDState &U, real_t gamma0) {
-  const real_t Ek = 0.5 * (U.rho_u*U.rho_u+U.rho_v*U.rho_v+U.rho_w*U.rho_w)/U.rho;
+  const real_t Ek = 0.5 * (U.rho_u*U.rho_u
+                          +U.rho_v*U.rho_v
+                          +(ndim == 3 ? U.rho_w*U.rho_w : 0.0))/U.rho;
+
   const real_t Em = 0.5 * (U.Bx*U.Bx + U.By*U.By + U.Bz*U.Bz);
   const real_t p = (U.e_tot - Ek - Em) * (gamma0-1.0);
   return {U.rho, 
@@ -233,7 +236,10 @@ PrimMHDState consToPrim(const ConsMHDState &U, real_t gamma0) {
 template<int ndim>
 KOKKOS_INLINE_FUNCTION
 ConsMHDState primToCons(const PrimMHDState &Q, real_t gamma0) {
-  const real_t Ek = 0.5 * Q.rho * (Q.u*Q.u+Q.v*Q.v+Q.w*Q.w);
+  const real_t Ek = 0.5 * Q.rho * (Q.u*Q.u
+                                  +Q.v*Q.v
+                                  +(ndim == 3 ? Q.w*Q.w : 0.0));
+                                  
   const real_t Em = 0.5 * (Q.Bx*Q.Bx + Q.By*Q.By + Q.Bz*Q.Bz);
   const real_t E  = Ek + Em + Q.p / (gamma0-1.0);
   return {Q.rho, 
@@ -246,5 +252,62 @@ ConsMHDState primToCons(const PrimMHDState &Q, real_t gamma0) {
           Q.Bz};
 }
 
+/**
+ * @brief Swaps a component in velocity and magnetic field with the X component. 
+ *        The Riemann problem is always solved by considering an interface on the 
+ *        X-axis. So when solving it for other components, those should be swapped 
+ *        before and after solving the Riemann problem.
+ *  
+ * @param Q (IN/OUT) the primitive MHD state to modify
+ * @param comp the component to swap with X
+ */
+KOKKOS_INLINE_FUNCTION
+void swapComponents(PrimMHDState &q, ComponentIndex3D comp) {
+  if (comp == IY) {
+    real_t tmp_v = q.v;
+    real_t tmp_B = q.By;
+    q.v  = q.u;
+    q.By = q.Bx;
+    q.u  = tmp_v;
+    q.Bx = tmp_B;
+  }
+  else if (comp == IZ) {
+    real_t tmp_v = q.w;
+    real_t tmp_B = q.Bz;
+    q.w  = q.u;
+    q.Bz = q.Bx;
+    q.u  = tmp_v;
+    q.Bx = tmp_B;
+  }
+}
+
+/**
+ * @brief Swaps a component in velocity and magnetic field with the X component. 
+ *        The Riemann problem is always solved by considering an interface on the 
+ *        X-axis. So when solving it for other components, those should be swapped 
+ *        before and after solving the Riemann problem.
+ *  
+ * @param Q (IN/OUT) the primitive MHD state to modify
+ * @param comp the component to swap with X
+ */
+KOKKOS_INLINE_FUNCTION
+void swapComponents(ConsMHDState &u, ComponentIndex3D comp) {
+  if (comp == IY) {
+    real_t tmp_v = u.rho_v;
+    real_t tmp_B = u.By;
+    u.rho_v = u.rho_u;
+    u.By    = u.Bx;
+    u.rho_u = tmp_v;
+    u.Bx    = tmp_B;
+  }
+  else if (comp == IZ) {
+    real_t tmp_v = u.rho_w;
+    real_t tmp_B = u.Bz;
+    u.rho_w = u.rho_u;
+    u.Bz    = u.Bx;
+    u.rho_u = tmp_v;
+    u.Bx    = tmp_B;
+  }
+}
 } // namespace dyablo
 
