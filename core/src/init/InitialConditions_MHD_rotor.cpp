@@ -37,7 +37,12 @@ struct AnalyticalFormula_MHD_rotor : public AnalyticalFormula_base{
   KOKKOS_INLINE_FUNCTION
   bool need_refine( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const 
   {
-    return false;
+    const real_t gamma0 = this->gamma0;
+    const real_t smallr = this->smallr;
+    const real_t smallp = this->smallp;
+    const real_t error_max = this->error_max;
+    return AnalyticalFormula_tools::auto_refine( *this, gamma0, smallr, smallp, error_max,
+                                                  x, y, z, dx, dy, dz );
   }
 
   KOKKOS_INLINE_FUNCTION

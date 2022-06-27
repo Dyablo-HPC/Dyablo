@@ -20,16 +20,13 @@ bool auto_refine( const Formula_t& formula,
     real_t err = 0;
     for( ComponentIndex3D dir : {IX,IY,IZ})
     {
-        ConsHydroState uc = formula.value(x               ,y              ,z              ,dx,dy,dz);
-        ConsHydroState ul = formula.value(x-(dir==IX)*dx  ,y-(dir==IY)*dy ,z-(dir==IZ)*dz ,dx,dy,dz);
-        ConsHydroState ur = formula.value(x+(dir==IX)*dx  ,y+(dir==IY)*dy ,z+(dir==IZ)*dz ,dx,dy,dz);
+        auto uc = formula.value(x               ,y              ,z              ,dx,dy,dz);
+        auto ul = formula.value(x-(dir==IX)*dx  ,y-(dir==IY)*dy ,z-(dir==IZ)*dz ,dx,dy,dz);
+        auto ur = formula.value(x+(dir==IX)*dx  ,y+(dir==IY)*dy ,z+(dir==IZ)*dz ,dx,dy,dz);
 
-        real_t c;
-
-        PrimHydroState Ql, Qc, Qr;
-        computePrimitives( ul, &c, Ql, gamma0, smallr, smallp );
-        computePrimitives( uc, &c, Qc, gamma0, smallr, smallp );
-        computePrimitives( ur, &c, Qr, gamma0, smallr, smallp );
+        auto Ql = consToPrim<3>(ul, gamma0);
+        auto Qc = consToPrim<3>(uc, gamma0);
+        auto Qr = consToPrim<3>(ur, gamma0);
 
         auto compute_err = [&](real_t qm1, real_t q, real_t qp1) {
             real_t fr = qp1 - q;    
