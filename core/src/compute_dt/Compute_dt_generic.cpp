@@ -18,15 +18,15 @@ public:
     gamma0( configMap.getValue<real_t>("hydro","gamma0", 1.4) ),
     smallr( configMap.getValue<real_t>("hydro","smallr", 1e-10) ),
     smallc( configMap.getValue<real_t>("hydro","smallc", 1e-10) ),
-    smallp( smallc*smallc/gamma0 )
+    smallp( smallc*smallc/gamma0 ),
+    has_mhd( configMap.getValue<std::string>("hydro", "update", "HydroUpdate_hancock").find("MHD") != std::string::npos )
   {}
 
-  double compute_dt( const ForeachCell::CellArray_global_ghosted& U)
+  double compute_dt( const ForeachCell::CellArray_global_ghosted& U )
   {
     int ndim = foreach_cell.getDim();
     real_t gamma0 = this->gamma0;
-    real_t smallr = this->smallr;
-    real_t smallp = this->smallp;
+    bool has_mhd = this->has_mhd;
 
     ForeachCell::CellMetaData cells = foreach_cell.getCellMetaData();
 
@@ -40,21 +40,44 @@ public:
       real_t dz = cell_size[IZ];
       
       ConsHydroState uLoc;
-      uLoc.rho   = U.at(iCell,ID);
-      uLoc.e_tot = U.at(iCell,IE);
-      uLoc.rho_u = U.at(iCell,IU);
-      uLoc.rho_v = U.at(iCell,IV);
-      uLoc.rho_w = (ndim==2)? 0 : U.at(iCell, IW);
+      if (ndim == 2)
+        getConservativeState<2>(U, iCell, uLoc);
+      else
+        getConservativeState<3>(U, iCell, uLoc);
+      
+      PrimHydroState qLoc = consToPrim<3>(uLoc, gamma0);
+      const real_t cs = sqrt(qLoc.p * gamma0 / qLoc.rho);
 
-      real_t c;
-      PrimHydroState qLoc;
-      computePrimitives(uLoc, &c, qLoc, gamma0, smallr, smallp);
-
-      real_t vx = c + qLoc.u;
-      real_t vy = c + qLoc.v;
-      real_t vz =  (ndim==2)? 0 : c + qLoc.w;
+      real_t vx = cs + qLoc.u;
+      real_t vy = cs + qLoc.v;
+      real_t vz = (ndim==2)? 0 : cs + qLoc.w;
 
       inv_dt_update = FMAX( inv_dt_update, vx/dx + vy/dy + vz/dz );
+
+      // TODO : Find a BETTER way to do this !
+      // In fine, compute_dt should be templated by the type of State
+      // and calculations of inv_dt should be held in a separate State function
+      if (has_mhd) {
+        const real_t Bx = U.at(iCell,IBX);
+        const real_t By = U.at(iCell,IBY);
+        const real_t Bz = U.at(iCell,IBZ);
+        const real_t gr = cs*cs*qLoc.rho;
+        const real_t Bt2 [] = {By*By+Bz*Bz,
+                               Bx*Bx+Bz*Bz,
+                               Bx*Bx+By*By};
+        const real_t B2 = Bx*Bx + By*By + Bz*Bz;
+        const real_t cf1 = gr-B2;
+        const real_t V [] = {qLoc.u, qLoc.v, qLoc.w};
+        const real_t D [] = {dx, dy, dz};
+
+        for (int i=0; i < ndim; ++i) {
+          const real_t cf2 = gr + B2 + sqrt(cf1*cf1 + 4.0*gr*Bt2[i]);
+          const real_t cf = sqrt(0.5 * cf2 / qLoc.rho);
+
+          const real_t cmax = FMAX(FABS(V[i] - cf), FABS(V[i] + cf));
+          inv_dt_update = FMAX(inv_dt_update, cmax/D[i]);
+        }
+     }
 
     }, Kokkos::Max<real_t>(inv_dt) );
 
@@ -68,6 +91,7 @@ private:
 
   real_t cfl;
   real_t gamma0, smallr, smallc, smallp;  
+  bool has_mhd;
 };
 
 

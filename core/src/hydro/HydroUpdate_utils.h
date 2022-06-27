@@ -64,7 +64,7 @@ PrimState compute_slope( const PrimState& qMinus,
 {
   PrimState dq;
 
-  auto slope_mm = [](real_t dvp, real_t dvm) 
+  auto minmod = [](real_t dvp, real_t dvm) 
   {
     if (dvp * dvm <= 0.0)
       return 0.0;
@@ -72,22 +72,35 @@ PrimState compute_slope( const PrimState& qMinus,
       return fabs(dvp) > fabs(dvm) ? dvm : dvp;
   };
 
-  auto slope = [&](const real_t qMinus_v, const real_t q_v, const real_t qPlus_v) 
+  auto van_leer = [](real_t dvp, real_t dvm) {
+    if (dvp * dvm <= 0.0)
+      return 0.0;
+    else
+      return 2.0 * dvp * dvm / (dvp+dvm);
+  };
+
+  auto slope = [&](const real_t qMinus_v, const real_t q_v, const real_t qPlus_v, auto limiter) 
   {
     const real_t dvp = (qPlus_v - q_v)  / dR;
     const real_t dvm = (q_v - qMinus_v) / dL;
 
-    return slope_mm(dvp, dvm);
+    return limiter(dvp, dvm);
   };
 
-  dq.rho = slope(qMinus.rho, q.rho, qPlus.rho);
-  dq.p   = slope(qMinus.p, q.p, qPlus.p);
-  dq.u   = slope(qMinus.u, q.u, qPlus.u);
-  dq.v   = slope(qMinus.v, q.v, qPlus.v);
+  dq.rho = slope(qMinus.rho, q.rho, qPlus.rho, minmod);
+  dq.p   = slope(qMinus.p, q.p, qPlus.p, minmod);
+  dq.u   = slope(qMinus.u, q.u, qPlus.u, minmod);
+  dq.v   = slope(qMinus.v, q.v, qPlus.v, minmod);
   if (ndim == 3)
-    dq.w = slope(qMinus.w, q.w, qPlus.w);
+    dq.w = slope(qMinus.w, q.w, qPlus.w, minmod);
 
-  // TODO : Find a way to do this with MHD states ?
+  // TODO : Find a better way
+  
+  if constexpr (std::is_same<PrimState, PrimMHDState>::value) {
+    dq.Bx = slope(qMinus.Bx, q.Bx, qPlus.Bx, minmod);
+    dq.By = slope(qMinus.By, q.By, qPlus.By, minmod);
+    dq.Bz = slope(qMinus.Bz, q.Bz, qPlus.Bz, minmod);
+  }
 
   return dq;
 }
@@ -152,23 +165,13 @@ compute_euler_flux(const typename State::PrimState& sourceL,
 
   // riemann solver along Y or Z direction requires to 
   // swap velocity components
-  if (dir == IY) {
-    swap(qL.u, qL.v);
-    swap(qR.u, qR.v);
-  }
-  else if (dir == IZ) {
-    swap(qL.u, qL.w);
-    swap(qR.u, qR.w);
-  }
+  swapComponents(qL, dir);
+  swapComponents(qR, dir);
 
   // step 4 : compute flux (Riemann solver)
-  ConsState flux;
+  ConsState flux{};
   flux = riemann_hydro(qL, qR, params);
-
-  if (dir == IY)
-    swap(flux.rho_u, flux.rho_v);
-  else if (dir == IZ)
-    swap(flux.rho_u, flux.rho_w);
+  swapComponents(flux, dir);
   
   return flux;
 }
@@ -313,8 +316,9 @@ void euler_update(const RiemannParams&    params,
       getConservativeState<ndim>(U, iUinL + offsetm, uLL);
       qLL = consToPrim<ndim>(uLL, params.gamma0);
     }
-    else
+    else 
       getPrimitiveState<ndim>(Qgroup, ib + offsetm + offsetm, qLL);
+
     const PrimState slopeL = compute_slope<ndim>(qLL, qL, qC, dslope_LL, dslope_L);
     
     // Central slope when looking left and right.
@@ -354,6 +358,7 @@ void euler_update(const RiemannParams&    params,
     }
     else
       getPrimitiveState<ndim>(Qgroup, ib + offsetp + offsetp, qRR);
+
     const PrimState slopeR = compute_slope<ndim>(qC, qR, qRR, dslope_R, dslope_RR);
     
     PrimState slopeCR = compute_slope<ndim>(qL, qC, qR, 1.0, dslope_R);
@@ -379,12 +384,22 @@ void euler_update(const RiemannParams&    params,
     fluxR *= fac;      
   }
 
-  ConsState rhs = (fluxL - fluxR) * dtddir;
-  Uout.at(iCell_Uout, ID) += rhs.rho;
-  Uout.at(iCell_Uout, IE) += rhs.e_tot;
-  Uout.at(iCell_Uout, IU) += rhs.rho_u;
-  Uout.at(iCell_Uout, IV) += rhs.rho_v;
-  if(ndim==3) Uout.at(iCell_Uout, IW) += rhs.rho_w;
+  ConsState u;
+  getConservativeState<ndim>(Uout, iCell_Uout, u);
+  u += (fluxL - fluxR) * dtddir;
+
+  // This is fugly. Can't we do better ? We shouldn't need this for the code to be stable ...
+  PrimState q = consToPrim<ndim>(u, params.gamma0);
+  if (q.rho < 0.0) {
+    printf("WARNING ! Negative density detected !!!\n");
+    q.rho = params.smallr;
+  }
+  if (q.p < 0.0) {
+    printf("WARNING ! Negative pressure detected !!!\n");
+    q.p   = params.smallp;
+  }
+  u = primToCons<ndim>(q, params.gamma0);
+  setConservativeState<ndim>(Uout, iCell_Uout, u);
 }
 
 }

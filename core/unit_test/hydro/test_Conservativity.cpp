@@ -35,6 +35,7 @@ real_t expected_conservativity_percent( const std::string& HydroUpdate_id )
   static std::map<std::string, real_t> expected_map =
   {
     {"HydroUpdate_hancock", 1},
+    {"MHDUpdate_hancock", 1},
     {"HydroUpdate_legacy", 1},
     // Add custom conservativity target for non-conservative Solvers
   };
@@ -170,9 +171,17 @@ void run_test(int ndim, std::string HydroUpdate_id ) {
   {
     std::string init_name = configMap.getValue<std::string>("hydro", "problem", "blast");
 
-     FieldManager field_manager = (ndim == 2 
-                              ? FieldManager({ID, IP, IU, IV}) 
-                              : FieldManager({ID, IP, IU, IV, IW}));
+    bool has_mhd = (HydroUpdate_id.find("MHD") != std::string::npos);
+    std::set<VarIndex> active_vars{ID, IP, IU, IV};
+    if (ndim == 3)
+      active_vars.insert(IW);
+    if (has_mhd) {
+      active_vars.insert(IBX);
+      active_vars.insert(IBY);
+      active_vars.insert(IBZ);
+    }
+
+    FieldManager field_manager{active_vars}; 
 
     auto initial_conditions = InitialConditionsFactory::make_instance(
                                 init_name, 

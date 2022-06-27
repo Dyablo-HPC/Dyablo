@@ -198,7 +198,7 @@ public:
       // Copy non ghosted array Uin into temporary ghosted Ugroup with two ghosts
       patch.foreach_cell(Ugroup, CELL_LAMBDA(const CellIndex& iCell_Ugroup)
       {
-          copyGhostBlockCellData<ndim>(
+          copyGhostBlockCellData<ndim, State>(
           Uin, iCell_Ugroup, 
           cellmetadata, 
           xmin, ymin, zmin, 
@@ -234,8 +234,6 @@ public:
   void rk_correct(const ForeachCell::CellArray_global_ghosted Uin, 
                   const ForeachCell::CellArray_global_ghosted Uout) 
   {
-    auto foreach_cell = this->foreach_cell;
-
     foreach_cell.foreach_patch("HydroUpdate_RK2::correct",
       PATCH_LAMBDA( const ForeachCell::Patch& patch )
     {

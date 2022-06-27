@@ -17,6 +17,7 @@ enum RiemannSolverType {
   RIEMANN_LLF,    /*!< LLF Local Lax-Friedrich */
   RIEMANN_HLL,    /*!< HLL hydro and MHD Riemann solver */
   RIEMANN_HLLC,   /*!< HLLC hydro-only Riemann solver */
+  RIEMANN_MHD     /*!< MHD only solver */
   //RIEMANN_HLLD    /*!< HLLD MHD-only Riemann solver */
 };
 
@@ -28,6 +29,7 @@ inline named_enum<dyablo::RiemannSolverType>::init_list named_enum<dyablo::Riema
     {dyablo::RiemannSolverType::RIEMANN_LLF, "llf"},
     {dyablo::RiemannSolverType::RIEMANN_HLL, "hll"},
     {dyablo::RiemannSolverType::RIEMANN_HLLC, "hllc"},
+    {dyablo::RiemannSolverType::RIEMANN_MHD,  "five_waves"}
 };
 
 namespace dyablo {
@@ -39,9 +41,10 @@ struct RiemannParams
     gamma0( configMap.getValue<real_t>("hydro","gamma0", 1.4) ),
     gamma6( (gamma0 + 1) / (2*gamma0)),
     smallr( configMap.getValue<real_t>("hydro","smallr", 1e-10) ),
-    smallc( configMap.getValue<real_t>("hydro","smallc", 1e-10) ),
-    smallp( smallc*smallc/gamma0 ),
-    smallpp( smallr*smallp )
+    smallp( configMap.getValue<real_t>("hydro","smallp", 1e-10) ),
+    smallc( sqrt(smallp*gamma0/smallr) ),
+    smallpp( smallr*smallp ),
+    three_waves( configMap.getValue<bool>("hydro", "three_waves", false))
   { }
 
   RiemannSolverType riemannSolverType;
@@ -49,9 +52,11 @@ struct RiemannParams
   real_t gamma0;
   real_t gamma6;
   real_t smallr;
-  real_t smallc;
   real_t smallp;
+  real_t smallc;
   real_t smallpp;
+
+  bool three_waves;
 };  
 
 /** 
@@ -157,6 +162,100 @@ void riemann_hllc(const PrimHydroState& qleft,
   }
 } // riemann_hllc
 
+KOKKOS_INLINE_FUNCTION
+void riemann_mhd(const PrimMHDState& qleft, 
+                 const PrimMHDState& qright, 
+                       ConsMHDState& flux, 
+                 const RiemannParams& params) {
+  using vec_t = StateNd<3>;
+
+  constexpr real_t epsilon = 1.0e-16; // No std::numeric_limits
+
+  // Left quantities
+  const real_t emagL = 0.5 * (qleft.Bx*qleft.Bx + qleft.By*qleft.By + qleft.Bz*qleft.Bz); 
+  const real_t B2L   = qleft.Bx*qleft.Bx;
+  const real_t B2TL  = 2.0*emagL - B2L;
+  const real_t BNBTL = sqrt(B2L*B2TL);   
+  const real_t cs_L  = sqrt(params.gamma0 * qleft.p / qleft.rho);
+        real_t c_AL  = sqrt(qleft.rho * (1.5*B2L + 0.5*B2TL)) + epsilon;
+        real_t c_BL  = sqrt(qleft.rho*(qleft.rho*cs_L*cs_L + 1.5*B2TL + 0.5*B2L));
+
+
+  // Right quantities 
+  const real_t emagR = 0.5 * (qright.Bx*qright.Bx + qright.By*qright.By + qright.Bz*qright.Bz);    
+  const real_t B2R   = qright.Bx*qright.Bx;
+  const real_t B2TR  = 2.0*emagR - B2R;
+  const real_t BNBTR = sqrt(B2R*B2TR);   
+  const real_t cs_R  = sqrt(params.gamma0 * qright.p / qright.rho);
+        real_t c_AR  = sqrt(qright.rho * (1.5*B2R + 0.5*B2TR)) + epsilon;
+        real_t c_BR  = sqrt(qright.rho*(qright.rho*cs_R*cs_R + 1.5*B2TR + 0.5*B2R));
+
+  const vec_t pL {-qleft.Bx * qleft.Bx + emagL + qleft.p,
+                  -qleft.Bx * qleft.By,
+                  -qleft.Bx * qleft.Bz};
+  const vec_t pR {-qright.Bx * qright.Bx + emagR + qright.p,
+                  -qright.Bx * qright.By,
+                  -qright.Bx * qright.Bz};
+
+  auto computeFastMagnetoAcousticSpeed = [&](const PrimMHDState &q, const real_t B2, const real_t cs) {
+    const real_t c02  = cs*cs;
+    const real_t ca2  = B2 / q.rho;
+    const real_t cap2 = q.Bx*q.Bx/q.rho;
+    // Remi's version
+    return sqrt(0.5*(c02+ca2)+0.5*sqrt((c02+ca2)*(c02+ca2)-4.0*c02*cap2));
+  };
+
+  // Using 3-wave if hyperbolicity is lost
+  if ( qleft.Bx*qright.Bx < -epsilon 
+    || qleft.By*qright.By < -epsilon
+    || qleft.Bz*qright.Bz < -epsilon 
+    || params.three_waves) {
+    
+    const real_t cL = qleft.rho  * computeFastMagnetoAcousticSpeed(qleft,  emagL*2.0, cs_L);
+    const real_t cR = qright.rho * computeFastMagnetoAcousticSpeed(qright, emagR*2.0, cs_R);
+    const real_t c = fmax(cL, cR);
+
+    c_AL = c;
+    c_AR = c;
+    c_BL = c;
+    c_BR = c;
+  }
+
+  const real_t inv_sum_A = 1.0 / (c_AL+c_AR);
+  const real_t inv_sum_B = 1.0 / (c_BL+c_BR);
+  const vec_t cL {c_BL, c_AL, c_AL};
+  const vec_t cR {c_BR, c_AR, c_AR};
+  const vec_t clpcrm1 {inv_sum_B, inv_sum_A, inv_sum_A};
+  
+  const vec_t vL {qleft.u,  qleft.v,  qleft.w};
+  const vec_t vR {qright.u, qright.v, qright.w};
+
+  const vec_t ustar = clpcrm1 * (cL*vL + cR*vR + pL - pR);
+  const vec_t pstar = clpcrm1 * (cR*pL + cL*pR + cL*cR*(vL-vR));
+
+  PrimMHDState qr;
+  real_t Bnext;
+  if (ustar[IX] > 0.0) {
+    qr = qleft;
+    Bnext = qright.Bx;
+  }
+  else {
+    qr = qright;
+    Bnext = qleft.Bx;
+  }
+
+  ConsMHDState ur = primToCons<3>(qr, params.gamma0);
+  real_t us = ustar[IX];
+  flux.rho   = us*ur.rho;
+  flux.rho_u = us*ur.rho_u + pstar[IX];
+  flux.rho_v = us*ur.rho_v + pstar[IY];
+  flux.rho_w = us*ur.rho_w + pstar[IZ];
+  flux.e_tot = us*ur.e_tot + (pstar[IX]*ustar[IX]+pstar[IY]*ustar[IY]+pstar[IZ]*ustar[IZ]);
+  flux.Bx    = us*ur.Bx - Bnext*ustar[IX];
+  flux.By    = us*ur.By - Bnext*ustar[IY];
+  flux.Bz    = us*ur.Bz - Bnext*ustar[IZ];
+}
+
 /**
  * Wrapper function calling the actual riemann solver.
  */
@@ -184,24 +283,6 @@ ConsHydroState riemann_hydro( const PrimHydroState& qleft,
 } // riemann_hydro
 
 /**
- * TEMPORARY !!!!!
- * Wrapper function calling the actual riemann solver.
- */
-KOKKOS_INLINE_FUNCTION
-void riemann_hydro( const PrimMHDState& qleft,
-		                const PrimMHDState& qright,
-		                ConsMHDState& flux,
-		                const RiemannParams& params)
-{
-
-  PrimHydroState qleft_{qleft.rho, qleft.p, qleft.u, qleft.v, qleft.w};
-  PrimHydroState qright_{qright.rho, qright.p, qright.u, qright.v, qright.w};
-  ConsHydroState flux_;
-  riemann_hllc(qleft_,qright_,flux_,params);
-  flux = {flux_.rho, flux_.e_tot, flux_.rho_u, flux_.rho_v, flux_.rho_w};
-} // riemann_hydro
-
-/**
  * Another Wrapper function calling the actual riemann solver.
  */
 KOKKOS_INLINE_FUNCTION
@@ -210,7 +291,7 @@ ConsMHDState riemann_hydro( const PrimMHDState& qleft,
                             const RiemannParams& params)
 {
   ConsMHDState flux;
-  riemann_hydro(qleft, qright, flux, params);
+  riemann_mhd(qleft, qright, flux, params);
   return flux;
 
 } // riemann_hydro

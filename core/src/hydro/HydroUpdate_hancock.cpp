@@ -93,7 +93,6 @@ namespace {
    * @tparam State the current state being manipulated
    * @param Qgroup Array of primitive variables
    * @param iCell_Sources Index of the current cell in Qgroup
-   * @param slope_type type of slope to compute
    * @param gamma adiabatic index
    * @param dx space-step
    * @param dy 
@@ -108,7 +107,7 @@ namespace {
     int ndim,
     typename State >
   KOKKOS_INLINE_FUNCTION
-  void compute_slopes( const PatchArray& Qgroup, const CellIndex& iCell_Sources, int slope_type, real_t gamma, real_t dx, real_t dy, real_t dz, real_t dt,
+  void compute_slopes( const PatchArray& Qgroup, const CellIndex& iCell_Sources, real_t gamma, real_t dx, real_t dy, real_t dz, real_t dt,
                        const PatchArray& Sources, const PatchArray& SlopesX, const PatchArray& SlopesY, const PatchArray& SlopesZ)
   {
     using o_t = typename CellIndex::offset_t;
@@ -431,7 +430,6 @@ public:
       real_t dt)
   {
     const RiemannParams& params = this->params;  
-    const int slope_type = this->slope_type;
     const real_t gamma = params.gamma0;
     const double smallr = params.smallr;
     const GravityType gravity_type = this->gravity_type;
@@ -486,7 +484,7 @@ public:
       // Copy non ghosted array Uin into temporary ghosted Ugroup with two ghosts
       patch.foreach_cell(Ugroup, CELL_LAMBDA(const CellIndex& iCell_Ugroup)
       {
-          copyGhostBlockCellData<ndim>(
+          copyGhostBlockCellData<ndim, State>(
           Uin, iCell_Ugroup, 
           cellmetadata, 
           xmin, ymin, zmin, 
@@ -504,7 +502,7 @@ public:
       { 
         auto size = cellmetadata.getCellSize(iCell_Sources);
         compute_slopes<ndim, State>(
-          Qgroup, iCell_Sources, slope_type, gamma, size[IX], size[IY], size[IZ], dt,
+          Qgroup, iCell_Sources, gamma, size[IX], size[IY], size[IZ], dt,
           Sources, SlopesX, SlopesY, SlopesZ
         );
       });

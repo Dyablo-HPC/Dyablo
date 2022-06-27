@@ -187,7 +187,7 @@ public:
       // Copy non ghosted array Uin into temporary ghosted Ugroup with two ghosts
       patch.foreach_cell(Ugroup, CELL_LAMBDA(const CellIndex& iCell_Ugroup)
       {
-        copyGhostBlockCellData<ndim>(
+        copyGhostBlockCellData<ndim, State>(
           Uin, iCell_Ugroup, 
           cellmetadata, 
           xmin, ymin, zmin, 

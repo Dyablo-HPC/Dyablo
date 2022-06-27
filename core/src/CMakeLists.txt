@@ -21,6 +21,9 @@ set( ic_src
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_riemann2d.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_kelvin_helmholtz.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_rayleigh_taylor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_orszag_tang.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_MHD_blast.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_MHD_rotor.cpp
 )
      
 set( legacy_src
