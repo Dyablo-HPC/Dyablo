@@ -1,107 +1,234 @@
-#include "io/IOManager_hdf5.h"
+#include "io/IOManager_base.h"
 
-#include "legacy/utils_block.h"
-#include "legacy/io_utils.h"
-#include "legacy/HDF5_IO.h"
+#include <cstdio>
+#include <sstream>
+
+#include "kokkos_shared.h"
+#include "FieldManager.h"
+#include "amr/LightOctree.h"
+#include "io/IOManager_base.h"
+#include "utils/io/HDF5ViewWriter.h"
+#include "foreach_cell/ForeachCell.h"
 
 #include "utils/monitoring/Timers.h"
 
 namespace dyablo { 
 
+class IOManager_hdf5 : public IOManager{
+public: 
+  IOManager_hdf5(
+    ConfigMap& configMap,
+    ForeachCell& foreach_cell,
+    Timers& timers )
+  : foreach_cell(foreach_cell),
+    timers( timers ),
+    filename( configMap.getValue<std::string>("output", "outputDir", "./") + "/" + configMap.getValue<std::string>("output", "outputPrefix", "output") )
+  {
+    std::string write_variables = configMap.getValue<std::string>("output", "write_variables", "rho" );
+    std::stringstream sstream(write_variables);
+    std::string var_name;
+    while(std::getline(sstream, var_name, ','))
+    { //use comma as delim for cutting string
+      write_varindexes.insert(FieldManager::getiVar(var_name));
+    }
+    
+    { // Write main xdmf file with 0 timesteps
+      // prepare suffix string
+      main_xdmf_fd = fopen( (filename + "_main.xmf").c_str(), "w" );
+      fprintf(main_xdmf_fd, 
+R"xml(<?xml version="1.0" ?>
+<!DOCTYPE Xdmf SYSTEM "Xdmf.dtd" []>
+<Xdmf xmlns:xi="http://www.w3.org/2001/XInclude" Version="2.0">
+  <Domain Name="MainTimeSeries">
+    <Grid Name="MainTimeSeries" GridType="Collection" CollectionType="Temporal">
+    </Grid>
+  </Domain>
+</Xdmf>)xml");
+      fflush(main_xdmf_fd);
+    }
+  }
+  ~IOManager_hdf5()
+  {
+    fclose(main_xdmf_fd);
+  }
 
-struct IOManager_hdf5::Data{ 
-  AMRmesh& pmesh;
-  Timers& timers;  
-  HDF5_Writer hdf5_writer;
-  std::string outputDir, outputPrefix;
-  std::string write_variables;
+  void save_snapshot( const ForeachCell::CellArray_global_ghosted& U, uint32_t iter, real_t time );
+
+  struct Data;
+private:
+  const ForeachCell& foreach_cell;
+  Timers& timers;
+  std::string filename;
+  std::set<VarIndex> write_varindexes;
+  FILE* main_xdmf_fd;
 };
-
-IOManager_hdf5::IOManager_hdf5(
-  ConfigMap& configMap,
-  ForeachCell& foreach_cell,
-  Timers& timers )
- : pdata(new Data
-    {foreach_cell.get_amr_mesh(), 
-    timers,
-    HDF5_Writer( &foreach_cell.get_amr_mesh(), configMap ),
-    configMap.getValue<std::string>("output", "outputDir", "./"),
-    configMap.getValue<std::string>("output", "outputPrefix", "output"),
-    configMap.getValue<std::string>("output", "write_variables", "rho")
-  })
-{ 
-}
-
-IOManager_hdf5::~IOManager_hdf5()
-{}
 
 void IOManager_hdf5::save_snapshot( const ForeachCell::CellArray_global_ghosted& U_, uint32_t iter, real_t time )
 {
-  const FieldManager fieldMgr( U_.fm.enabled_fields() );
-  const id2index_t& fm = U_.fm;
-  HDF5_Writer* hdf5_writer = &(pdata->hdf5_writer);
-  std::string write_variables = pdata->write_variables;
+  static_assert( std::is_same_v<decltype(U_.U), DataArrayBlock>, "Only compatible with DataArrayBlock" );
 
-  DataArrayBlock U = U_.U;
+  int ndim = foreach_cell.getDim();
+  int nbNodesPerCell = (ndim-1)*4;
 
-  // a map containing ID and name of the variable to write
-  str2int_t names2index; // this is initially empty
-  build_var_to_write_map(names2index, fieldMgr, write_variables);
-
-  // prepare output filename
-  std::string outputPrefix = pdata->outputPrefix;
-  std::string outputDir = pdata->outputDir;
-  
-  
-  // prepare suffix string
-  std::ostringstream strsuffix;
-  strsuffix << "iter";
-  strsuffix.width(7);
-  strsuffix.fill('0');
-  strsuffix << iter;
-
-  // actual writing
+  std::string base_filename;
   {
-    DataArrayBlock::HostMirror Uhost = Kokkos::create_mirror_view(U);
-    // copy device data to host
-    Kokkos::deep_copy(Uhost, U);
+    // prepare suffix string
+    std::ostringstream strsuffix;
+    strsuffix << "_iter";
+    strsuffix.width(7);
+    strsuffix.fill('0');
+    strsuffix << iter;
+    strsuffix.str();
+    base_filename = filename + strsuffix.str();
+  }
 
-    hdf5_writer->update_mesh_info();
+  if( foreach_cell.get_amr_mesh().getRank() == 0 )
+  { 
+    // Append Current timestep to main xmdf file
+    fseek( main_xdmf_fd, -32, SEEK_END );
+    fprintf(main_xdmf_fd,
+R"xml(
+      <xi:include href="%s" xpointer="xpointer(//Xdmf/Domain/Grid)" />)xml",
+      (base_filename + ".xmf").c_str());
+    fprintf(main_xdmf_fd, 
+R"xml(
+    </Grid>
+  </Domain>
+</Xdmf>)xml");
+    fflush(main_xdmf_fd);
 
-    // open the new file and write our stuff
-    std::string basename = outputPrefix + "_" + strsuffix.str();
-    
-    hdf5_writer->open(basename, outputDir);
-    hdf5_writer->write_header(time);
+    // Write xdmf file (only master MPI process)
+    FILE* fd = fopen( (base_filename + ".xmf").c_str(), "w" );
 
-    // write user the fake data (all scalar fields, here only one)
-    hdf5_writer->write_quadrant_attribute(Uhost, fm, names2index);
+    uint64_t global_num_cells = foreach_cell.getNumCells_global();
 
-    // check if we want to write velocity or rhoV vector fields
-    // if (write_variables.find("velocity") != std::string::npos) {
-    //   hdf5_writer->write_quadrant_velocity(U, fm, false);
-    // } else if (write_variables.find("rhoV") != std::string::npos) {
-    //   hdf5_writer->write_quadrant_velocity(U, fm, true);
-    // } 
-    
-    if (write_variables.find("Mach") != std::string::npos) {
-      // mach number will be recomputed from conservative variables
-      // we could have used primitive variables, but since here Q
-      // may not have the same size, Q may need to be resized
-      // and recomputed anyway.
-      hdf5_writer->write_quadrant_mach_number(Uhost, fm);
+    fprintf(fd, 
+R"xml(<?xml version="1.0" ?>
+<!DOCTYPE Xdmf SYSTEM "Xdmf.dtd" []>
+<Xdmf Version="2.0">
+  <Domain>
+    <Grid Name="%s" GridType="Uniform">
+      <Time TimeType="Single" Value="%g" />
+      <Topology TopologyType="%s" NumberOfElements="%lu">
+        <DataItem Dimensions="%lu %d" DataType="Int" Format="HDF">
+          %s.h5:/connectivity
+        </DataItem>
+      </Topology>
+      <Geometry GeometryType="XYZ">
+        <DataItem Dimensions="%lu 3" NumberType="Float" Precision="%d" Format="HDF">
+          %s.h5:/coordinates
+        </DataItem>
+      </Geometry>)xml",
+      base_filename.c_str(), 
+      time,
+      ndim==2?"Quadrilateral":"Hexahedron", global_num_cells,
+      global_num_cells, nbNodesPerCell,
+      base_filename.c_str(),
+      global_num_cells*nbNodesPerCell, (int)sizeof(real_t),
+      base_filename.c_str()
+    );
+
+    for( const VarIndex& iVar : write_varindexes )
+    {
+      if( U_.fm.enabled(iVar) )
+      {
+        fprintf(fd, 
+R"xml(
+      <Attribute Name="%s" AttributeType="Scalar" Center="Cell">
+        <DataItem Dimensions="%lu 1" NumberType="Float" Precision="%d" Format="HDF">
+         %s.h5:/%s
+        </DataItem>
+      </Attribute>)xml",
+          FieldManager::var_name(iVar).c_str(),
+          global_num_cells, (int)sizeof(real_t),
+          base_filename.c_str(), FieldManager::var_name(iVar).c_str()
+        );
+      }
     }
 
-    if (write_variables.find("P") != std::string::npos) {
-      hdf5_writer->write_quadrant_pressure(Uhost, fm);
+    fprintf(fd, 
+R"xml(
+    </Grid>
+  </Domain>
+</Xdmf>
+)xml");
+
+    fclose(fd);
+  }
+
+  { // Write hdf5 file 
+    auto linearize_iCell = KOKKOS_LAMBDA(const ForeachCell::CellIndex& iCell)
+    {
+      return iCell.i + iCell.bx * (iCell.j + iCell.by * ( iCell.k + iCell.bz * iCell.iOct.iOct )); 
+    };
+
+    uint32_t local_num_cells = foreach_cell.getNumCells();
+
+    HDF5ViewWriter hdf5_writer( base_filename + ".h5" );
+
+    // Compute and write node coordinates
+    {
+      Kokkos::View< real_t**, Kokkos::LayoutLeft > coordinates("coordinates", 3, nbNodesPerCell*local_num_cells);
+
+      ForeachCell::CellMetaData cells = foreach_cell.getCellMetaData();
+
+      foreach_cell.foreach_cell( "compute_node_coordinates", U_,
+        CELL_LAMBDA( const ForeachCell::CellIndex& iCell )
+      {
+        auto pos = cells.getCellCenter(iCell);
+        auto size = cells.getCellSize(iCell);
+
+        uint32_t iCell_lin = linearize_iCell( iCell );
+        for(int k=0; k<(ndim-1); k++)
+        for(int j=0; j<2; j++)
+        for(int i=0; i<2; i++)
+        {
+          int iNode = i+2*j+4*k;
+          coordinates( IX, iCell_lin*nbNodesPerCell + iNode ) = pos[IX]+(i-0.5)*size[IX];
+          coordinates( IY, iCell_lin*nbNodesPerCell + iNode ) = pos[IY]+(j-0.5)*size[IY];
+          coordinates( IZ, iCell_lin*nbNodesPerCell + iNode ) = pos[IZ]+(k-0.5)*size[IZ];
+        }
+
+      });
+
+      hdf5_writer.collective_write( "coordinates", coordinates );
     }
 
-    if (write_variables.find("iOct") != std::string::npos)
-      hdf5_writer->write_quadrant_id(Uhost);
+    // Compute and write node connectivity
+    {
+      int first_cell = foreach_cell.get_amr_mesh().getGlobalIdx(0)*U_.bx*U_.by*U_.bz;
 
-    // close the file
-    hdf5_writer->write_footer();
-    hdf5_writer->close();
+      Kokkos::View< int**, Kokkos::LayoutLeft > connectivity("connectivity", nbNodesPerCell, local_num_cells);
+      Kokkos::parallel_for( "fill_connectivity", local_num_cells*nbNodesPerCell,
+        KOKKOS_LAMBDA( int i )
+      {
+        constexpr int node_shuffle[] = {0,1,3,2,4,5,7,6};
+
+        uint32_t iNode = i%nbNodesPerCell;
+        uint32_t iCell = i/nbNodesPerCell;
+
+        connectivity(iNode, iCell) = (first_cell+iCell)*nbNodesPerCell + node_shuffle[iNode];
+      });
+
+      hdf5_writer.collective_write( "connectivity", connectivity );
+    }
+
+    // Write selected variables
+    for( const VarIndex& iVar : write_varindexes )
+    {
+      if( U_.fm.enabled(iVar) )
+      {
+        std::string var_name = FieldManager::var_name(iVar).c_str();
+        Kokkos::View< real_t* > tmp_view(var_name, local_num_cells);
+        foreach_cell.foreach_cell( "compute_node_coordinates", U_,
+        CELL_LAMBDA( const ForeachCell::CellIndex& iCell )
+        {
+          uint32_t iCell_lin = linearize_iCell( iCell );
+          tmp_view(iCell_lin) = U_.at(iCell, iVar);
+        });
+        hdf5_writer.collective_write( var_name, tmp_view );
+      }
+    }   
   }
 }
 

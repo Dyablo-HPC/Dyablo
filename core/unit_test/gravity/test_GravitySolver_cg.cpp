@@ -24,7 +24,7 @@
 #include "amr/AMRmesh.h"
 #include "mpi/GhostCommunicator.h"
 #include "gravity/GravitySolver_cg.h"
-#include "io/IOManager_hdf5.h"
+#include "io/IOManager.h"
 
 namespace dyablo {
 namespace constants{
@@ -225,7 +225,8 @@ void test_GravitySolver( std::shared_ptr<AMRmesh> amr_mesh )
     foreach_cell,
     timers
   );
-  IOManager_hdf5 iomanager(
+  std::unique_ptr<IOManager> iomanager = IOManagerFactory::make_instance( 
+    "IOManager_hdf5",
     configMap,
     foreach_cell,
     timers
@@ -238,7 +239,7 @@ void test_GravitySolver( std::shared_ptr<AMRmesh> amr_mesh )
 
   int iter = 0;
   int time = 0;
-  iomanager.save_snapshot(Uout, iter++, time++);
+  iomanager->save_snapshot(Uout, iter++, time++);
 
   
   real_t rcore = 2*Hernquist::r0;
@@ -311,7 +312,7 @@ void test_GravitySolver( std::shared_ptr<AMRmesh> amr_mesh )
     Kokkos::deep_copy( Uout.U, U_host );
   }
 
-  iomanager.save_snapshot(Uout, iter++, time++);
+  iomanager->save_snapshot(Uout, iter++, time++);
   
 }
 

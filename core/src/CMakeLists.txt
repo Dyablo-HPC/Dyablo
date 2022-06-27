@@ -43,7 +43,6 @@ set( mpi_src
 )
 
 set( hdf5_src
-    ${CMAKE_CURRENT_SOURCE_DIR}/legacy/HDF5_IO.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/io/IOManager_hdf5.cpp
 )
 
