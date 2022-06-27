@@ -72,13 +72,6 @@ PrimState compute_slope( const PrimState& qMinus,
       return fabs(dvp) > fabs(dvm) ? dvm : dvp;
   };
 
-  auto van_leer = [](real_t dvp, real_t dvm) {
-    if (dvp * dvm <= 0.0)
-      return 0.0;
-    else
-      return 2.0 * dvp * dvm / (dvp+dvm);
-  };
-
   auto slope = [&](const real_t qMinus_v, const real_t q_v, const real_t qPlus_v, auto limiter) 
   {
     const real_t dvp = (qPlus_v - q_v)  / dR;
