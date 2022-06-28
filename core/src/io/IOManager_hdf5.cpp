@@ -29,7 +29,11 @@ public:
     std::string var_name;
     while(std::getline(sstream, var_name, ','))
     { //use comma as delim for cutting string
-      write_varindexes.insert(FieldManager::getiVar(var_name));
+      try{
+        write_varindexes.insert( FieldManager::getiVar(var_name) );
+      } catch (...) {
+        std::cout << "WARNING : Output variable not found : '" << var_name << "'" << std::endl; 
+      }      
     }
     
     { // Write main xdmf file with 0 timesteps
