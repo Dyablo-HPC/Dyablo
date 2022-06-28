@@ -92,11 +92,11 @@ public:
     hsize_t first_global_indexes[view_rank] = {};
     for( int i=0; i<view_rank; i++ )
     {
-      local_extents[i] = data.extent(i);
-      global_extents[i] = data.extent(i);
+      local_extents[i] = data.extent(view_rank-1-i);
+      global_extents[i] = data.extent(view_rank-1-i);
     }
-    global_extents[view_rank-1] = global_extent;
-    first_global_indexes[view_rank-1] = first_global_index;
+    global_extents[0] = global_extent;
+    first_global_indexes[0] = first_global_index;
     hid_t type_id = hdf5_type_id<typename View_t::value_type>();
 
     hid_t memspace;

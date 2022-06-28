@@ -110,7 +110,7 @@ R"xml(<?xml version="1.0" ?>
     <Grid Name="%s" GridType="Uniform">
       <Time TimeType="Single" Value="%g" />
       <Topology TopologyType="%s" NumberOfElements="%lu">
-        <DataItem Dimensions="%lu %d" DataType="Int" Format="HDF">
+        <DataItem Dimensions="%lu %d" DataType="UInt" Precision="8" Format="HDF">
           %s.h5:/connectivity
         </DataItem>
       </Topology>
@@ -196,18 +196,19 @@ R"xml(
 
     // Compute and write node connectivity
     {
-      int first_cell = foreach_cell.get_amr_mesh().getGlobalIdx(0)*U_.bx*U_.by*U_.bz;
+      uint64_t first_cell = foreach_cell.get_amr_mesh().getGlobalIdx(0)*U_.bx*U_.by*U_.bz;
 
-      Kokkos::View< int**, Kokkos::LayoutLeft > connectivity("connectivity", nbNodesPerCell, local_num_cells);
+      Kokkos::View< uint64_t**, Kokkos::LayoutLeft > connectivity("connectivity", nbNodesPerCell, local_num_cells);
+
       Kokkos::parallel_for( "fill_connectivity", local_num_cells*nbNodesPerCell,
-        KOKKOS_LAMBDA( int i )
+        KOKKOS_LAMBDA( uint64_t i )
       {
         constexpr int node_shuffle[] = {0,1,3,2,4,5,7,6};
 
-        uint32_t iNode = i%nbNodesPerCell;
-        uint32_t iCell = i/nbNodesPerCell;
+        uint64_t iNode = i%nbNodesPerCell;
+        uint64_t iCell = i/nbNodesPerCell;
 
-        connectivity(iNode, iCell) = (first_cell+iCell)*nbNodesPerCell + node_shuffle[iNode];
+        connectivity(iNode, iCell) =  (first_cell+iCell)*nbNodesPerCell + node_shuffle[iNode];
       });
 
       hdf5_writer.collective_write( "connectivity", connectivity );
@@ -219,7 +220,7 @@ R"xml(
       if( U_.fm.enabled(iVar) )
       {
         std::string var_name = FieldManager::var_name(iVar).c_str();
-        Kokkos::View< real_t* > tmp_view(var_name, local_num_cells);
+        Kokkos::View< real_t*, Kokkos::LayoutLeft > tmp_view(var_name, local_num_cells);
         foreach_cell.foreach_cell( "compute_node_coordinates", U_,
         CELL_LAMBDA( const ForeachCell::CellIndex& iCell )
         {
