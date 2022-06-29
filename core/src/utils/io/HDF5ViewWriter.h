@@ -122,7 +122,18 @@ public:
       #ifdef DYABLO_USE_MPI
         H5Pset_dxpl_mpio(write_properties, H5FD_MPIO_COLLECTIVE);
       #endif
-      H5Dwrite(dataset, type_id, memspace, filespace, write_properties, data.data());
+      #ifdef HDF5_IS_CUDA_AWARE
+      {
+        Kokkos::fence();
+        H5Dwrite(dataset, type_id, memspace, filespace, write_properties, data.data());
+      }
+      #else
+      {
+        auto data_host = Kokkos::create_mirror_view( data );
+        Kokkos::deep_copy( data_host, data );
+        H5Dwrite(dataset, type_id, memspace, filespace, write_properties, data_host.data());
+      }
+      #endif
       H5Pclose(write_properties);
     }
 
