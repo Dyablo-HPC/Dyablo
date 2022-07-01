@@ -14,6 +14,13 @@
 
 namespace dyablo { 
 
+namespace{
+  std::string main_xdmf_footer=R"xml(
+    </Grid>
+  </Domain>
+</Xdmf>)xml";
+}
+
 class IOManager_hdf5 : public IOManager{
 public: 
   IOManager_hdf5(
@@ -44,10 +51,8 @@ R"xml(<?xml version="1.0" ?>
 <!DOCTYPE Xdmf SYSTEM "Xdmf.dtd" []>
 <Xdmf xmlns:xi="http://www.w3.org/2001/XInclude" Version="2.0">
   <Domain Name="MainTimeSeries">
-    <Grid Name="MainTimeSeries" GridType="Collection" CollectionType="Temporal">
-    </Grid>
-  </Domain>
-</Xdmf>)xml");
+    <Grid Name="MainTimeSeries" GridType="Collection" CollectionType="Temporal">)xml");
+      fprintf(main_xdmf_fd, main_xdmf_footer.c_str());
       fflush(main_xdmf_fd);
     }
   }
@@ -60,7 +65,7 @@ R"xml(<?xml version="1.0" ?>
 
   struct Data;
 private:
-  const ForeachCell& foreach_cell;
+  ForeachCell& foreach_cell;
   Timers& timers;
   std::string filename;
   std::set<VarIndex> write_varindexes;
@@ -73,6 +78,19 @@ void IOManager_hdf5::save_snapshot( const ForeachCell::CellArray_global_ghosted&
 
   int ndim = foreach_cell.getDim();
   int nbNodesPerCell = (ndim-1)*4;
+
+  uint32_t nbOcts_local = foreach_cell.get_amr_mesh().getNumOctants();
+  uint64_t nbOcts_global = foreach_cell.get_amr_mesh().getGlobalNumOctants();
+  uint32_t bx = U_.bx;
+  uint32_t by = U_.by;
+  uint32_t bz = U_.bz;
+  uint32_t nbCellsPerOct = bx*by*bz;
+  uint32_t Bx = bx+1;
+  uint32_t By = by+1;
+  uint32_t Bz = bz+1;
+  uint32_t nbNodesPerOct = Bx*By*Bz;
+  
+  const LightOctree& lmesh = foreach_cell.get_amr_mesh().getLightOctree();
 
   std::string base_filename;
   {
@@ -88,17 +106,15 @@ void IOManager_hdf5::save_snapshot( const ForeachCell::CellArray_global_ghosted&
 
   if( foreach_cell.get_amr_mesh().getRank() == 0 )
   { 
+
+
     // Append Current timestep to main xmdf file
-    fseek( main_xdmf_fd, -32, SEEK_END );
+    fseek( main_xdmf_fd, -main_xdmf_footer.size(), SEEK_END );
     fprintf(main_xdmf_fd,
 R"xml(
       <xi:include href="%s" xpointer="xpointer(//Xdmf/Domain/Grid)" />)xml",
       (base_filename + ".xmf").c_str());
-    fprintf(main_xdmf_fd, 
-R"xml(
-    </Grid>
-  </Domain>
-</Xdmf>)xml");
+    fprintf(main_xdmf_fd, main_xdmf_footer.c_str());
     fflush(main_xdmf_fd);
 
     // Write xdmf file (only master MPI process)
@@ -128,7 +144,7 @@ R"xml(<?xml version="1.0" ?>
       ndim==2?"Quadrilateral":"Hexahedron", global_num_cells,
       global_num_cells, nbNodesPerCell,
       base_filename.c_str(),
-      global_num_cells*nbNodesPerCell, (int)sizeof(real_t),
+      nbOcts_global*nbNodesPerOct, (int)sizeof(real_t),
       base_filename.c_str()
     );
 
@@ -166,53 +182,64 @@ R"xml(
       return iCell.i + iCell.bx * (iCell.j + iCell.by * ( iCell.k + iCell.bz * iCell.iOct.iOct )); 
     };
 
-    uint32_t local_num_cells = foreach_cell.getNumCells();
-
     HDF5ViewWriter hdf5_writer( base_filename + ".h5" );
 
     // Compute and write node coordinates
     {
-      Kokkos::View< real_t**, Kokkos::LayoutLeft > coordinates("coordinates", 3, nbNodesPerCell*local_num_cells);
+      Kokkos::View< real_t**, Kokkos::LayoutLeft > coordinates("coordinates", 3, nbOcts_local*nbNodesPerOct);
 
       ForeachCell::CellMetaData cells = foreach_cell.getCellMetaData();
 
-      foreach_cell.foreach_cell( "compute_node_coordinates", U_,
-        CELL_LAMBDA( const ForeachCell::CellIndex& iCell )
+      // Create (bx+1)*(by+1)*(bz+1) nodes per octant
+      Kokkos::parallel_for( "compute_coordinates", nbOcts_local*nbNodesPerOct,
+        KOKKOS_LAMBDA( uint64_t index )
       {
-        auto pos = cells.getCellCenter(iCell);
-        auto size = cells.getCellSize(iCell);
+        uint32_t iOct = index/nbNodesPerOct;
+        uint32_t iNode = index%nbNodesPerOct;
+        int k = iNode/(Bx*By);
+        int j = (iNode/Bx)%By;
+        int i = iNode%Bx;
 
-        uint32_t iCell_lin = linearize_iCell( iCell );
-        for(int k=0; k<(ndim-1); k++)
-        for(int j=0; j<2; j++)
-        for(int i=0; i<2; i++)
-        {
-          int iNode = i+2*j+4*k;
-          coordinates( IX, iCell_lin*nbNodesPerCell + iNode ) = pos[IX]+(i-0.5)*size[IX];
-          coordinates( IY, iCell_lin*nbNodesPerCell + iNode ) = pos[IY]+(j-0.5)*size[IY];
-          coordinates( IZ, iCell_lin*nbNodesPerCell + iNode ) = pos[IZ]+(k-0.5)*size[IZ];
-        }
-
+        auto pos = lmesh.getCorner( {iOct, false} );
+        real_t oct_size = lmesh.getSize( {iOct, false} );
+        coordinates(IX, index) = pos[IX] + (i * oct_size)/bx;
+        coordinates(IY, index) = pos[IY] + (j * oct_size)/by;
+        coordinates(IZ, index) = pos[IZ] + (k * oct_size)/bz;
       });
 
       hdf5_writer.collective_write( "coordinates", coordinates );
     }
 
+    uint32_t local_num_cells = foreach_cell.getNumCells();
+
     // Compute and write node connectivity
     {
-      uint64_t first_cell = foreach_cell.get_amr_mesh().getGlobalIdx(0)*U_.bx*U_.by*U_.bz;
+      uint64_t first_iOct = foreach_cell.get_amr_mesh().getGlobalIdx(0);
 
       Kokkos::View< uint64_t**, Kokkos::LayoutLeft > connectivity("connectivity", nbNodesPerCell, local_num_cells);
 
       Kokkos::parallel_for( "fill_connectivity", local_num_cells*nbNodesPerCell,
         KOKKOS_LAMBDA( uint64_t i )
       {
-        constexpr int node_shuffle[] = {0,1,3,2,4,5,7,6};
-
-        uint64_t iNode = i%nbNodesPerCell;
+        uint32_t iNode_cell = i%nbNodesPerCell;        
         uint64_t iCell = i/nbNodesPerCell;
+        uint32_t iOct = iCell/nbCellsPerOct;
+        uint32_t iNode_block = iCell%nbCellsPerOct;
 
-        connectivity(iNode, iCell) =  (first_cell+iCell)*nbNodesPerCell + node_shuffle[iNode];
+        // Compute logical position of cell corner in [0,1]^3 
+        // node_shuffle to list nodes in right order for paraview
+        constexpr uint32_t node_shuffle[8] = {0,1,3,2,4,5,7,6};
+        uint32_t iNode_cell_shuffle = node_shuffle[iNode_cell];
+        uint32_t i_cell = iNode_cell_shuffle%2;
+        uint32_t j_cell = (iNode_cell_shuffle/2)%2;
+        uint32_t k_cell = iNode_cell_shuffle/4;
+        // Compute logical position of cell in block
+        uint32_t i_block = iNode_block%bx;
+        uint32_t j_block = (iNode_block/bx)%by;
+        uint32_t k_block = iNode_block/(bx*by);          
+
+        connectivity(iNode_cell, iCell) = (first_iOct+iOct)*nbNodesPerOct 
+                                        + (i_cell+i_block) + (j_cell+j_block)*Bx + (k_cell+k_block)*Bx*By ;
       });
 
       hdf5_writer.collective_write( "connectivity", connectivity );
