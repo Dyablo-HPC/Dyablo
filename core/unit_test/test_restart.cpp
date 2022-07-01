@@ -119,6 +119,32 @@ by=4
         U.at(iCell, Ipz) = pos[IZ];
     });
 
+    ForeachParticle foreach_particle( *amr_mesh, configMap  );
+
+    uint32_t Wp1 = 10;
+    uint32_t Np1 = Wp1*Wp1*Wp1;
+    U_.new_ParticleArray("p1", Np1);
+    U_.new_ParticleAttribute("p1", "a1");
+    U_.new_ParticleAttribute("p1", "a2");
+
+    const auto& P1 = U_.getParticleArray("p1");
+    enum VarIndex_chekpoint_p1{IA1, IA2};
+    UserData::ParticleAccessor P1a = U_.getParticleAccessor( "p1", {{"a1",IA1}, {"a2",IA2}} );
+    foreach_particle.foreach_particle( "Fill p1", U_.getParticleArray("p1"),
+        KOKKOS_LAMBDA(const ForeachParticle::ParticleIndex& iPart)
+    {
+      uint32_t ix =  iPart%Wp1;
+      uint32_t iy = (iPart/Wp1)%Wp1;
+      uint32_t iz =  iPart/(Wp1*Wp1);
+
+      P1.pos( iPart, IX ) = (ix+0.5)/Wp1;
+      P1.pos( iPart, IY ) = (iy+0.5)/Wp1;
+      P1.pos( iPart, IZ ) = (ndim-2)*((iz+0.5)/Wp1);
+      P1a.at( iPart, IA1 ) = ix;
+      P1a.at( iPart, IA2 ) = iy;
+    });
+
+
     int mpi_size = GlobalMpiSession::get_comm_world().MPI_Comm_size();
     Timers timers;
     configMap.getValue<std::string>("output", "outputDir", "./"),
@@ -127,6 +153,12 @@ by=4
     
     std::cout << "Checkpoint...";
     io_checkpoint->save_snapshot(U_, 0, 0.0);
+    std::cout << "Done" << std::endl;
+    
+    configMap.getValue<std::string>("output", "write_particle_variables", "p1/a1,p1/a2" );
+    std::unique_ptr<IOManager> io_hdf5 = IOManagerFactory::make_instance( "IOManager_hdf5", configMap, foreach_cell, timers );
+    std::cout << "Output...";
+    io_hdf5->save_snapshot(U_, 0, 0.0);
     std::cout << "Done" << std::endl;
 }
 
@@ -190,6 +222,43 @@ void test_restart()
     }, error_count);
 
     EXPECT_EQ( 0, error_count );
+    error_count=0;
+
+    uint32_t Wp1 = 10;
+    uint32_t Np1 = Wp1*Wp1*Wp1;
+
+    EXPECT_TRUE( U_.has_ParticleArray("p1") );
+    EXPECT_TRUE( U_.has_ParticleAttribute("p1", "a1") );
+    EXPECT_TRUE( U_.has_ParticleAttribute("p1", "a2") );
+
+    const auto& P1 = U_.getParticleArray("p1");
+    EXPECT_EQ( P1.getNumParticles() , Np1 );
+
+    ForeachParticle foreach_particle( amr_mesh, configMap  );
+    enum VarIndex_chekpoint_p1{IA1, IA2};
+    UserData::ParticleAccessor P1a = U_.getParticleAccessor( "p1", {{"a1",IA1}, {"a2",IA2}} );
+    foreach_particle.reduce_particle( "check p1", U_.getParticleArray("p1"),
+        KOKKOS_LAMBDA(const ForeachParticle::ParticleIndex& iPart, int& error_count)
+    {
+      uint32_t ix =  iPart%Wp1;
+      uint32_t iy = (iPart/Wp1)%Wp1;
+      uint32_t iz =  iPart/(Wp1*Wp1);
+
+      if( P1.pos( iPart, IX ) != (ix+0.5)/Wp1) 
+        error_count++;
+      if( P1.pos( iPart, IY ) != (iy+0.5)/Wp1) 
+        error_count++;
+      if( P1.pos( iPart, IZ ) != (ndim-2)*((iz+0.5)/Wp1)) 
+        error_count++;
+      if( P1a.at( iPart, IA1 ) != ix) 
+        error_count++;
+      if( P1a.at( iPart, IA2 ) != iy) 
+        error_count++;
+    }, error_count);
+
+    EXPECT_EQ( 0, error_count );
+
+
 }
 
 } // namespace dyablo

@@ -8,8 +8,8 @@ class ForeachParticle;
 
 class ParticleArray
 {
-    friend ForeachParticle;
-    friend UserData;
+    //friend ForeachParticle;
+    //friend UserData;
 public:
     using ParticleIndex = uint32_t;
     ParticleArray() = default;
@@ -34,14 +34,14 @@ public:
         return particle_position(iPart, iDir);
     }
 
-protected:
+//protected:
     Kokkos::View< real_t**, Kokkos::LayoutLeft > particle_position;
 };
 
 class ParticleData : public ParticleArray
 {
-    friend ForeachParticle;
-    friend UserData;
+    //friend ForeachParticle;
+    //friend UserData;
 public:
     ParticleData() = default;
     ParticleData( const ParticleData& pa ) = default;
@@ -84,7 +84,7 @@ public:
     {
         return particle_data( iPart, ivar );
     }
-private:
+//private:
     Kokkos::View< real_t**, Kokkos::LayoutLeft > particle_data;
     id2index_t fm;
 };

@@ -49,6 +49,7 @@ void run_test(int ndim)
     "hdf5_enabled=true\n"
     "write_mesh_info=true\n"
     "write_variables=rho_vx,rho_vy,rho_vz\n"
+    "write_particle_variables=rho_vx,rho_vy,rho_vz\n"
     "write_iOct=false\n"
     "outputPrefix=output\n"
     "outputDir=./\n"
@@ -81,13 +82,13 @@ void run_test(int ndim)
     U.at(iCell, CZ) = pos[IZ];
   });
 
-  // std::string iomanager_id = "IOManager_hdf5";
-  // std::unique_ptr<IOManager> io_manager = IOManagerFactory::make_instance( iomanager_id,
-  //   configMap,
-  //   foreach_cell,
-  //   timers
-  // );
-  // io_manager->save_snapshot(U, 0, 1);
+  std::string iomanager_id = "IOManager_hdf5";
+  Timers timers;
+  std::unique_ptr<IOManager> io_manager = IOManagerFactory::make_instance( iomanager_id,
+    configMap,
+    foreach_cell,
+    timers
+  );
 
   uint32_t px=10, py=10, pz=10;
   uint32_t nParticles_tot = px*py*pz;
@@ -111,8 +112,12 @@ void run_test(int ndim)
       particles.pos( iPart, IZ ) = (ndim-2)*((iz+0.5)/pz);
   });
 
+  //io_manager->save_snapshot(U, 0, 1);
+
   // Exchange particles between MPI domains to match local AMR mesh
   foreach_particle.distribute( particles );
+
+  //io_manager->save_snapshot(U, 1, 2);
   
   { // Check particle count
     int nParticles_tot_old = nParticles_tot;
@@ -141,6 +146,8 @@ void run_test(int ndim)
     particles.at( iPart, CY ) = U.at( iCell, CY );
     particles.at( iPart, CZ ) = U.at( iCell, CZ );
   });
+
+  //io_manager->save_snapshot(U, 2, 3);
 
   int nerrors = 0;
   foreach_particle.reduce_particle( "check_particle_cell", particles,

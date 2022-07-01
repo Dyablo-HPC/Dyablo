@@ -5,6 +5,7 @@
 #include "utils/misc/RegisteringFactory.h"
 #include "utils/monitoring/Timers.h"
 #include "foreach_cell/ForeachCell.h"
+#include "particles/ForeachParticle.h"
 #include "UserData.h"
 
 namespace dyablo {

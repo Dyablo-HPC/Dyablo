@@ -275,6 +275,23 @@ public:
         });
       }      
     }
+
+    {     
+      for( std::string particle_array : restart_file.list_fields("particles/") )
+      {
+        U.new_ParticleArray(particle_array, 1000);
+        const auto& P_pos = U.getParticleArray(particle_array);
+        restart_file.read_view( std::string("particles/")+particle_array+"/pos/x", Kokkos::subview( P_pos.particle_position, Kokkos::ALL(), (int)IX ) );
+        restart_file.read_view( std::string("particles/")+particle_array+"/pos/y", Kokkos::subview( P_pos.particle_position, Kokkos::ALL(), (int)IY ) );
+        restart_file.read_view( std::string("particles/")+particle_array+"/pos/z", Kokkos::subview( P_pos.particle_position, Kokkos::ALL(), (int)IZ ) );
+
+        for( std::string attr : restart_file.list_fields(std::string("particles/")+particle_array+"/attributes"))
+        {
+          U.new_ParticleAttribute( particle_array, attr );
+          restart_file.read_view( std::string("particles/")+particle_array+"/attributes/"+attr, U.getParticleAttribute(particle_array, attr).particle_data );
+        }
+      }      
+    }
   }  
 };
 

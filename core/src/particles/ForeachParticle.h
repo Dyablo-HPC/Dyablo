@@ -11,6 +11,7 @@ namespace dyablo
 class ForeachParticle
 {
 public:
+  using ParticleArray = dyablo::ParticleArray;
   using ParticleIndex = ParticleArray::ParticleIndex;
 
   ForeachParticle(AMRmesh &pmesh, ConfigMap &configMap) 
