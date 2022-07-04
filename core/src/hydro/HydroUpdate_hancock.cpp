@@ -216,23 +216,14 @@ namespace {
 
     // Riemann solver along Y or Z direction requires to 
     // swap velocity components
-    if (dir == IY) {
-      swap(qL.u, qL.v);
-      swap(qR.u, qR.v);
-    }
-    else if (dir == IZ) {
-      swap(qL.u, qL.w);
-      swap(qR.u, qR.w);
-    }
+    swapComponents(qL, dir);
+    swapComponents(qR, dir);
 
     // Compute flux (Riemann solver)
     ConsState flux = riemann_hydro(qL, qR, params);
     
-    if (dir == IY)
-      swap(flux.rho_u, flux.rho_v);
-    else if (dir == IZ)
-      swap(flux.rho_u, flux.rho_w);
-
+    swapComponents(flux, dir);
+    
     return flux;
   }
 
@@ -548,7 +539,3 @@ private:
 FACTORY_REGISTER(dyablo::HydroUpdateFactory, 
                  dyablo::HydroUpdate_hancock<dyablo::HydroState>, 
                  "HydroUpdate_hancock")
-
-FACTORY_REGISTER(dyablo::HydroUpdateFactory, 
-                 dyablo::HydroUpdate_hancock<dyablo::MHDState>, 
-                 "MHDUpdate_hancock")

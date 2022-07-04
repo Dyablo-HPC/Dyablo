@@ -11,6 +11,8 @@
 #include "RiemannSolvers.h"
 #include "utils/config/ConfigMap.h"
 
+#include "states/State_forward.h"
+
 #ifdef __CUDA_ARCH__
 #include "math_constants.h"
 #endif
@@ -26,82 +28,6 @@ struct BoundaryConditions {
   BoundaryConditionType boundary_type_xmin, boundary_type_ymin, boundary_type_zmin;
   BoundaryConditionType boundary_type_xmax, boundary_type_ymax, boundary_type_zmax;
 };
-}
-
-using AMRBlockForeachCell = AMRBlockForeachCell_group;
-//using AMRBlockForeachCell = AMRBlockForeachCell_scratch;
-
-class HydroUpdate_hancock_oneneighbor : public HydroUpdate{
-public: 
-  HydroUpdate_hancock_oneneighbor(
-                ConfigMap& configMap,
-                ForeachCell& foreach_cell,
-                Timers& timers )
-    : foreach_cell(foreach_cell),
-      riemann_params(configMap),
-      xmin( configMap.getValue<real_t>("mesh", "xmin", 0.0) ),
-      ymin( configMap.getValue<real_t>("mesh", "ymin", 0.0) ),
-      zmin( configMap.getValue<real_t>("mesh", "zmin", 0.0) ),
-      xmax( configMap.getValue<real_t>("mesh", "xmax", 1.0) ),
-      ymax( configMap.getValue<real_t>("mesh", "ymax", 1.0) ),
-      zmax( configMap.getValue<real_t>("mesh", "zmax", 1.0) ),
-      boundary_conditions {
-        configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_ABSORBING),
-        configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymin", BC_ABSORBING),
-        configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmin", BC_ABSORBING),
-        configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmax", BC_ABSORBING),
-        configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymax", BC_ABSORBING),
-        configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmax", BC_ABSORBING)
-      },
-      gx( configMap.getValue<real_t>("gravity", "gx",  0.0) ),
-      gy( configMap.getValue<real_t>("gravity", "gy",  0.0) ),
-      gz( configMap.getValue<real_t>("gravity", "gz",  0.0) ),
-      timers(timers)
-  {
-    GravityType gravity_type = configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE);
-    this->gravity_enabled = gravity_type!=GRAVITY_NONE;
-    this->gravity_use_field = gravity_type&GRAVITY_FIELD;
-    bool gravity_use_scalar = gravity_type==GRAVITY_CST_SCALAR;
-
-    // If gravity is on it must either use the force field from U or a constant scalar force field
-    if( gravity_enabled && ( gravity_use_field == gravity_use_scalar )  )
-      throw std::runtime_error( "gravity/gravity_type inconsistant" );
-
-  }
-
-  void update(  const ForeachCell::CellArray_global_ghosted& Uin,
-                const ForeachCell::CellArray_global_ghosted& Uout,
-                real_t dt)
-  {
-    int ndim = foreach_cell.getDim();
-    if(ndim==2)
-      update_aux<2, PrimHydroState, ConsHydroState>(Uin,Uout, dt);
-    else if(ndim==3)
-      update_aux<3, PrimHydroState, ConsHydroState>(Uin,Uout, dt);
-    else assert(false);
-  }
-
-  template< int ndim,
-            typename PrimState,
-            typename ConsState>
-  void update_aux(  const ForeachCell::CellArray_global_ghosted& Uin,
-                    const ForeachCell::CellArray_global_ghosted& Uout,
-                    real_t dt);
-  private:
-    ForeachCell& foreach_cell;
-    RiemannParams riemann_params;  
-    real_t xmin, ymin, zmin;
-    real_t xmax, ymax, zmax; 
-
-    BoundaryConditions boundary_conditions;
-    real_t gx, gy, gz;
-
-    bool gravity_enabled, gravity_use_field;
-    
-    Timers& timers;
-};
-
-namespace{
 
 using GhostedArray = ForeachCell::CellArray_global_ghosted;
 using CellIndex = ForeachCell::CellIndex;
@@ -109,17 +35,17 @@ using CellIndex = ForeachCell::CellIndex;
 //Copied from HydroUpdate_generic
 template < 
   int ndim,
-  typename PrimState,
-  typename ConsState >
+  typename State >
 KOKKOS_INLINE_FUNCTION
 void computePrimitives(const RiemannParams& params, const GhostedArray& Ugroup, 
                        const CellIndex& iCell_Ugroup, const GhostedArray& Qgroup)
 {
+  using PrimState = typename State::PrimState;
+  using ConsState = typename State::ConsState;
+
   ConsState uLoc;
   getConservativeState<ndim>( Ugroup, iCell_Ugroup, uLoc );
-  PrimState qLoc{};
-  real_t c;
-  computePrimitives<PrimState, ConsState>(uLoc, &c, qLoc, params.gamma0, params.smallr, params.smallp);
+  PrimState qLoc = consToPrim<ndim>( uLoc, params.gamma0 );
   setPrimitiveState<ndim>( Qgroup, iCell_Ugroup, qLoc );
 }
 
@@ -138,83 +64,106 @@ real_t big_real()
  * @param cell_size size of the cell
  * @param Slope_xyz limited slopes for every cell (in the xyz direction)
  **/
-template< int ndim >
+template< int ndim, typename State >
 KOKKOS_INLINE_FUNCTION
 void compute_limited_slopes(const GhostedArray& Q, const CellIndex& iCell_U, 
                             ForeachCell::CellMetaData::pos_t pos_cell, ForeachCell::CellMetaData::pos_t cell_size,
                             const GhostedArray& Slope_x, const GhostedArray& Slope_y, const GhostedArray& Slope_z)
 {
-    constexpr VarIndex vars[] = {ID,IP,IU,IV,IW};
+  // TODO : Same as for the other implementations, we need a 
+  //        definition of the slope-limiting operators that is
+  //        independent of the type of state. Otherwise we have
+  //        to use this kind of horror ...
+  using PrimState = typename State::PrimState;
+  using StateD    = StateNd<State::N>;
+  using Conv      = StateNd_conversion<PrimState>;
 
-    for( int i=0; i< ( ndim==2 ? 4 : 5 ); i++ )
-    {
-        VarIndex ivar = vars[i];
-        Kokkos::Array<real_t,3> grad {big_real(), big_real(), big_real()};
+  StateD grad[ndim];
+  for (int d=0; d < ndim; ++d) 
+    for (size_t i=0; i < State::N; ++i)
+      grad[d][i] = big_real();
         
-        /// Compute gradient and apply slope limiter for neighbor 'iCell_neighbor' at position 'pos_neighbor' and in direction 'dir'
-        auto update_minmod =[&]( const ComponentIndex3D& dir, const CellIndex& iCell_neighbor, real_t pos_n )
-        {
-          // default returned value (limited gradient didn't change)
-          real_t old_value = grad[dir];
-          real_t new_value = old_value;
 
-          // compute distance along direction "dir" between current and
-          // neighbor cell
-          real_t pos_c = pos_cell[dir];
-          real_t delta_x = pos_n - pos_c;
+  PrimState qP;
+  getPrimitiveState<ndim>(Q, iCell_U, qP);
+  auto q = Conv::to_StateNd_t(qP);
+  
+  /// Compute gradient and apply slope limiter for neighbor 'iCell_neighbor' at position 'pos_neighbor' and in direction 'dir'
+  auto update_minmod =[&]( const ComponentIndex3D& dir, const CellIndex& iCell_neighbor, real_t pos_n )
+  {
+    // default returned value (limited gradient didn't change)
+    auto old_value = grad[dir];
+    auto new_value = old_value;
 
-          real_t new_grad = (Q.at(iCell_neighbor, ivar) - Q.at(iCell_U, ivar))/delta_x;
+    // compute distance along direction "dir" between current and
+    // neighbor cell
+    real_t pos_c = pos_cell[dir];
+    real_t delta_x = pos_n - pos_c;
 
-          // this first test ensure a correct initialization
-          if ( old_value == big_real() )
-            new_value = new_grad;
-          else if (old_value * new_grad < 0)
-            new_value = 0.0;
-          else if ( fabs(new_grad) < fabs(old_value) )
-            new_value = new_grad;
+    PrimState qNeighP;
+    getPrimitiveState<ndim>(Q, iCell_neighbor, qNeighP);
+    auto qNeigh = Conv::to_StateNd_t(qNeighP);
 
-          grad[dir] = new_value;
-        };
+    auto new_grad = (qNeigh - q)/delta_x;
 
-        // Compute gradient and apply slope limiter for every neighbor in direction dir (sign = Left(-1)/Right(1))
-        auto process_neighbors = [&]( ComponentIndex3D dir, int sign )
-        {
-            CellIndex::offset_t offset{};
-            offset[dir] = sign;
-            CellIndex iCell_n0 = iCell_U.getNeighbor_ghost( offset, Q );
-
-            if( iCell_n0.is_boundary() )
-              return;
-            if( iCell_n0.level_diff() == 0 ) // same size
-                update_minmod(dir, iCell_n0, pos_cell[dir]+offset[dir]*cell_size[dir]);
-            if( iCell_n0.level_diff() == 1 ) // bigger
-                update_minmod(dir, iCell_n0, pos_cell[dir]+1.5*offset[dir]*cell_size[dir]);
-            if( iCell_n0.level_diff() == -1 ) // smaller
-            {
-              foreach_smaller_neighbor<ndim>(iCell_n0, offset, Q, 
-                [&](const CellIndex& iCell_neighbor)
-              {
-                update_minmod(dir, iCell_neighbor, pos_cell[dir]+0.75*offset[dir]*cell_size[dir]);
-              });
-            }
-        };
-
-        process_neighbors(IX, +1);
-        process_neighbors(IX, -1);
-        process_neighbors(IY, +1);
-        process_neighbors(IY, -1);
-        if(ndim==3)
-        {
-          process_neighbors(IZ, +1);
-          process_neighbors(IZ, -1);
-        }
-
-        Slope_x.at( iCell_U, ivar ) = grad[IX];
-        Slope_y.at( iCell_U, ivar ) = grad[IY];
-        if(ndim==3)
-          Slope_z.at( iCell_U, ivar ) = grad[IZ];
-          
+    // this first test ensure a correct initialization
+    for (size_t iVar=0; iVar < State::N; ++iVar) {
+      if ( old_value[iVar] == big_real() )
+        new_value[iVar] = new_grad[iVar];
+      else if (old_value[iVar] * new_grad[iVar] < 0)
+        new_value[iVar] = 0.0;
+      else if ( fabs(new_grad[iVar]) < fabs(old_value[iVar]) )
+        new_value[iVar] = new_grad[iVar];
     }
+
+    grad[dir] = new_value;
+  };
+
+  // Compute gradient and apply slope limiter for every neighbor in direction dir (sign = Left(-1)/Right(1))
+  auto process_neighbors = [&]( ComponentIndex3D dir, int sign )
+  {
+      CellIndex::offset_t offset{};
+      offset[dir] = sign;
+      CellIndex iCell_n0 = iCell_U.getNeighbor_ghost( offset, Q );
+
+      if( iCell_n0.is_boundary() )
+        return;
+      if( iCell_n0.level_diff() == 0 ) // same size
+          update_minmod(dir, iCell_n0, pos_cell[dir]+offset[dir]*cell_size[dir]);
+      if( iCell_n0.level_diff() == 1 ) // bigger
+          update_minmod(dir, iCell_n0, pos_cell[dir]+1.5*offset[dir]*cell_size[dir]);
+      if( iCell_n0.level_diff() == -1 ) // smaller
+      {
+        foreach_smaller_neighbor<ndim>(iCell_n0, offset, Q, 
+          [&](const CellIndex& iCell_neighbor)
+        {
+          update_minmod(dir, iCell_neighbor, pos_cell[dir]+0.75*offset[dir]*cell_size[dir]);
+        });
+      }
+  };
+
+  process_neighbors(IX, +1);
+  process_neighbors(IX, -1);
+  process_neighbors(IY, +1);
+  process_neighbors(IY, -1);
+  if(ndim==3)
+  {
+    process_neighbors(IZ, +1);
+    process_neighbors(IZ, -1);
+  }
+
+  PrimState gradP[ndim]{};
+
+  //gradP[IX] = Conv::to_State_t(grad[IX]);
+  setPrimitiveState<ndim>(Slope_x, iCell_U, gradP[IX]);
+
+  //gradP[IY] = Conv::to_State_t(grad[IY]);
+  setPrimitiveState<ndim>(Slope_y, iCell_U, gradP[IY]);
+
+  if(ndim==3) {
+    //gradP[IZ] = Conv::to_State_t(grad[IZ]);
+    setPrimitiveState<ndim>(Slope_z, iCell_U, gradP[IZ]);
+  }
 }
 
 /**
@@ -231,14 +180,16 @@ void compute_limited_slopes(const GhostedArray& Q, const CellIndex& iCell_U,
    */
 template< 
   int ndim,
-  typename PrimState,
-  typename ConsState >
+  typename State >
 KOKKOS_INLINE_FUNCTION
 void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uout, const GhostedArray& Q, const CellIndex& iCell_Q,
                                 const GhostedArray& Slopes_x, const GhostedArray& Slopes_y, const GhostedArray& Slopes_z,
                                 const ForeachCell::CellMetaData& cellmetadata, real_t dt, const RiemannParams& params,
                                 const BoundaryConditions& bc)
 {
+  using PrimState = typename State::PrimState;
+  using ConsState = typename State::ConsState;
+
   ForeachCell::CellMetaData::pos_t cell_size = cellmetadata.getCellSize(iCell_Q);
   ForeachCell::CellMetaData::pos_t pos_c = cellmetadata.getCellCenter(iCell_Q);
 
@@ -257,27 +208,14 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
    **/
   auto riemann = [&](PrimState qr_c, PrimState qr_n, ComponentIndex3D dir, int sign)
   {
-    if( dir == IY )
-    {
-      swap(qr_c.u, qr_c.v);
-      swap(qr_n.u, qr_n.v);
-    }
-    if( dir == IZ )
-    {
-      swap(qr_c.u, qr_c.w);
-      swap(qr_n.u, qr_n.w);
-    }
+    swapComponents(qr_c, dir);
+    swapComponents(qr_n, dir);
 
     PrimState &qr_L = (sign<0)?qr_n:qr_c;
     PrimState &qr_R = (sign<0)?qr_c:qr_n;
-    ConsState flux{};
+    ConsState flux = riemann_hydro(qr_L, qr_R, params);
 
-    riemann_hydro(qr_L, qr_R, flux, params);
-
-    if (dir == IY)
-      swap(flux.rho_u, flux.rho_v);
-    if (dir == IZ)
-      swap(flux.rho_u, flux.rho_w);
+    swapComponents(flux, dir);
       
     return flux;
   };
@@ -582,20 +520,71 @@ void apply_gravity_correction( const GhostedArray& Uin,
   Uout.at(iCell_Uin, IE) += (ekin_new - ekin_old);
 }
 
-} // namespace
+}
 
+using AMRBlockForeachCell = AMRBlockForeachCell_group;
+//using AMRBlockForeachCell = AMRBlockForeachCell_scratch;
 
+template <typename State_>
+class HydroUpdate_hancock_oneneighbor : public HydroUpdate{
+public: 
+  using State = State_;
+  using PrimState = typename State::PrimState;
+  using ConsState = typename State::ConsState;
 
-template< 
-  int ndim,
-  typename PrimState,
-  typename ConsState >
-void HydroUpdate_hancock_oneneighbor::update_aux( 
-  const ForeachCell::CellArray_global_ghosted& Uin,
-  const ForeachCell::CellArray_global_ghosted& Uout,
-  real_t dt)
-{
-    using GhostedArray = ForeachCell::CellArray_global_ghosted;
+  HydroUpdate_hancock_oneneighbor(
+                ConfigMap& configMap,
+                ForeachCell& foreach_cell,
+                Timers& timers )
+    : foreach_cell(foreach_cell),
+      riemann_params(configMap),
+      xmin( configMap.getValue<real_t>("mesh", "xmin", 0.0) ),
+      ymin( configMap.getValue<real_t>("mesh", "ymin", 0.0) ),
+      zmin( configMap.getValue<real_t>("mesh", "zmin", 0.0) ),
+      xmax( configMap.getValue<real_t>("mesh", "xmax", 1.0) ),
+      ymax( configMap.getValue<real_t>("mesh", "ymax", 1.0) ),
+      zmax( configMap.getValue<real_t>("mesh", "zmax", 1.0) ),
+      boundary_conditions {
+        configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_ABSORBING),
+        configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymin", BC_ABSORBING),
+        configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmin", BC_ABSORBING),
+        configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmax", BC_ABSORBING),
+        configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymax", BC_ABSORBING),
+        configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmax", BC_ABSORBING)
+      },
+      gx( configMap.getValue<real_t>("gravity", "gx",  0.0) ),
+      gy( configMap.getValue<real_t>("gravity", "gy",  0.0) ),
+      gz( configMap.getValue<real_t>("gravity", "gz",  0.0) ),
+      timers(timers)
+  {
+    GravityType gravity_type = configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE);
+    this->gravity_enabled = gravity_type!=GRAVITY_NONE;
+    this->gravity_use_field = gravity_type&GRAVITY_FIELD;
+    bool gravity_use_scalar = gravity_type==GRAVITY_CST_SCALAR;
+
+    // If gravity is on it must either use the force field from U or a constant scalar force field
+    if( gravity_enabled && ( gravity_use_field == gravity_use_scalar )  )
+      throw std::runtime_error( "gravity/gravity_type inconsistant" );
+
+  }
+
+  void update(  const ForeachCell::CellArray_global_ghosted& Uin,
+                const ForeachCell::CellArray_global_ghosted& Uout,
+                real_t dt)
+  {
+    int ndim = foreach_cell.getDim();
+    if(ndim==2)
+      update_aux<2>(Uin,Uout, dt);
+    else if(ndim==3)
+      update_aux<3>(Uin,Uout, dt);
+    else assert(false);
+  }
+
+  template< int ndim>
+  void update_aux(  const ForeachCell::CellArray_global_ghosted& Uin,
+                    const ForeachCell::CellArray_global_ghosted& Uout,
+                    real_t dt) {
+  using GhostedArray = ForeachCell::CellArray_global_ghosted;
     const RiemannParams& riemann_params = this->riemann_params;
     const BoundaryConditions& boundary_conditions = this->boundary_conditions;
     ForeachCell& foreach_cell = this->foreach_cell;
@@ -610,6 +599,11 @@ void HydroUpdate_hancock_oneneighbor::update_aux(
 
     std::set<VarIndex> enabled_fields = {ID,IP,IU,IV};
     if( ndim == 3) enabled_fields.insert(IW);
+    if constexpr (std::is_same<State, MHDState>::value) {
+      enabled_fields.insert(IBX);
+      enabled_fields.insert(IBY);
+      enabled_fields.insert(IBZ);
+    }
     FieldManager field_manager( enabled_fields );
     
     GhostedArray Q = foreach_cell.allocate_ghosted_array( "Q", field_manager );
@@ -617,7 +611,7 @@ void HydroUpdate_hancock_oneneighbor::update_aux(
     // Fill Q with primitive variables
     foreach_cell.foreach_cell("HydroUpdate_hancock_oneneighbor::convertToPrimitives", Q, CELL_LAMBDA(const CellIndex& iCell_Q)
     { 
-        computePrimitives<ndim, PrimState, ConsState>(riemann_params, Uin, iCell_Q, Q);
+        computePrimitives<ndim, State>(riemann_params, Uin, iCell_Q, Q);
     });
     // Primitive variables of ghost cells are needed to compute slopes
     Q.exchange_ghosts(ghost_comm);
@@ -634,7 +628,7 @@ void HydroUpdate_hancock_oneneighbor::update_aux(
     // Fill slope arrays
     foreach_cell.foreach_cell("HydroUpdate_hancock_oneneighbor::reconstruct_gradients", Q, CELL_LAMBDA(const CellIndex& iCell_Q)
     { 
-        compute_limited_slopes<ndim>(Q, iCell_Q, cellmetadata.getCellCenter(iCell_Q), cellmetadata.getCellSize(iCell_Q), Slopes_x, Slopes_y, Slopes_z);
+        compute_limited_slopes<ndim, State>(Q, iCell_Q, cellmetadata.getCellCenter(iCell_Q), cellmetadata.getCellSize(iCell_Q), Slopes_x, Slopes_y, Slopes_z);
     });
     // Slopes of ghost cells are needed to compute flux
     Slopes_x.exchange_ghosts(ghost_comm);
@@ -645,18 +639,32 @@ void HydroUpdate_hancock_oneneighbor::update_aux(
     // Compute flux and update Uout
     foreach_cell.foreach_cell("HydroUpdate_hancock_oneneighbor::flux_and_update", Q, CELL_LAMBDA(const CellIndex& iCell_Q)
     { 
-        compute_fluxes_and_update<ndim, PrimState, ConsState>(Uin, Uout, Q, iCell_Q, 
-                                          Slopes_x, Slopes_y, Slopes_z,
-                                          cellmetadata, dt, riemann_params, boundary_conditions );
+        compute_fluxes_and_update<ndim, State>(Uin, Uout, Q, iCell_Q, 
+                                               Slopes_x, Slopes_y, Slopes_z,
+                                               cellmetadata, dt, riemann_params, boundary_conditions );
         // Applying correction step for gravity
       if (gravity_enabled)
         apply_gravity_correction<ndim>(Uin, iCell_Q, dt, gravity_use_field, gx, gy, gz, Uout);
     });
 
     timers.get("HydroUpdate_hancock_oneneighbor").stop();
-}
+  }
+  private:
+    ForeachCell& foreach_cell;
+    RiemannParams riemann_params;  
+    real_t xmin, ymin, zmin;
+    real_t xmax, ymax, zmax; 
 
+    BoundaryConditions boundary_conditions;
+    real_t gx, gy, gz;
+
+    bool gravity_enabled, gravity_use_field;
+    
+    Timers& timers;
+};
 
 } //namespace dyablo 
 
-FACTORY_REGISTER( dyablo::HydroUpdateFactory, dyablo::HydroUpdate_hancock_oneneighbor, "HydroUpdate_hancock_oneneighbor")
+FACTORY_REGISTER( dyablo::HydroUpdateFactory, 
+                  dyablo::HydroUpdate_hancock_oneneighbor<dyablo::HydroState>, 
+                  "HydroUpdate_hancock_oneneighbor")
