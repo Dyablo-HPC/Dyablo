@@ -154,14 +154,14 @@ void compute_limited_slopes(const GhostedArray& Q, const CellIndex& iCell_U,
 
   PrimState gradP[ndim]{};
 
-  //gradP[IX] = Conv::to_State_t(grad[IX]);
+  gradP[IX] = Conv::to_State_t(grad[IX]);
   setPrimitiveState<ndim>(Slope_x, iCell_U, gradP[IX]);
 
-  //gradP[IY] = Conv::to_State_t(grad[IY]);
+  gradP[IY] = Conv::to_State_t(grad[IY]);
   setPrimitiveState<ndim>(Slope_y, iCell_U, gradP[IY]);
 
   if(ndim==3) {
-    //gradP[IZ] = Conv::to_State_t(grad[IZ]);
+    gradP[IZ] = Conv::to_State_t(grad[IZ]);
     setPrimitiveState<ndim>(Slope_z, iCell_U, gradP[IZ]);
   }
 }
