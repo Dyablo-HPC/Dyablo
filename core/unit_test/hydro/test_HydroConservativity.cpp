@@ -118,6 +118,8 @@ void run_test(int ndim, std::string HydroUpdate_id ) {
   std::cout << "// Testing " << HydroUpdate_id << "\n";
   std::cout << "// =========================================\n";
 
+  bool has_mhd = HydroUpdate_id.find("MHD") != std::string::npos;
+
   // Content of .ini file used ton configure configmap and HydroParams
   char configmap_cstr[] = 
     "[output]\n"
@@ -170,8 +172,9 @@ void run_test(int ndim, std::string HydroUpdate_id ) {
   ForeachCell::CellArray_global_ghosted U, U2;
   {
     std::string init_name = configMap.getValue<std::string>("hydro", "problem", "blast");
+    if (has_mhd)
+      init_name = "MHD_" + init_name;
 
-    bool has_mhd = (HydroUpdate_id.find("MHD") != std::string::npos);
     std::set<VarIndex> active_vars{ID, IP, IU, IV};
     if (ndim == 3)
       active_vars.insert(IW);
@@ -180,7 +183,7 @@ void run_test(int ndim, std::string HydroUpdate_id ) {
       active_vars.insert(IBY);
       active_vars.insert(IBZ);
     }
-
+    
     FieldManager field_manager{active_vars}; 
 
     auto initial_conditions = InitialConditionsFactory::make_instance(
@@ -244,11 +247,11 @@ void run_test(int ndim, std::string HydroUpdate_id ) {
 
 }
 
-class Test_Hydro_Conservativity 
+class Test_Conservativity 
   : public testing::TestWithParam<std::tuple<int, std::string>> 
 {};
 
-TEST_P(Test_Hydro_Conservativity, mass_and_energy_conserved)
+TEST_P(Test_Conservativity, mass_and_energy_conserved)
 {
   int ndim = std::get<0>(GetParam());
   std::string id = std::get<1>(GetParam());
@@ -256,12 +259,12 @@ TEST_P(Test_Hydro_Conservativity, mass_and_energy_conserved)
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    Test_Hydro_Conservativity, Test_Hydro_Conservativity,
+    Test_Conservativity, Test_Conservativity,
     testing::Combine(
         testing::Values(2,3),
         testing::ValuesIn( dyablo::HydroUpdateFactory::get_available_ids() )
     ),
-    [](const testing::TestParamInfo<Test_Hydro_Conservativity::ParamType>& info) {
+    [](const testing::TestParamInfo<Test_Conservativity::ParamType>& info) {
       std::string name = 
           (std::get<0>(info.param) == 2 ? std::string("2D") : std::string("3D"))
           + "_" + std::get<1>(info.param);
