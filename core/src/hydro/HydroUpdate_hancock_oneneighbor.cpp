@@ -11,6 +11,8 @@
 #include "RiemannSolvers.h"
 #include "utils/config/ConfigMap.h"
 
+#include "hydro/HydroUpdate_utils.h"
+
 #include "states/State_forward.h"
 
 #ifdef __CUDA_ARCH__
@@ -251,11 +253,13 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
   {
     assert( ndim==3 || offsets[IZ]==0 );
 
-    const double gamma  = params.gamma0;
-    const double smallr = params.smallr;
+    const real_t gamma  = params.gamma0;
+    const real_t smallr = params.smallr;
+    const real_t smallp = params.smallp;
     
     const real_t dtdx = dt/cell_size[IX];
     const real_t dtdy = dt/cell_size[IY];
+    const real_t dtdz = dt/cell_size[IZ];
 
     PrimState diff_x;
     PrimState diff_y;
@@ -263,61 +267,18 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
 
     getPrimitiveState<ndim>( Slopes_x, iCell_U, diff_x );
     getPrimitiveState<ndim>( Slopes_y, iCell_U, diff_y );
-    diff_x *= cell_size[IX] * 0.5;
-    diff_y *= cell_size[IY] * 0.5;
-
-    // retrieve primitive variables in current quadrant
-    real_t r = q.rho;
-    real_t p = q.p;
-    real_t u = q.u;
-    real_t v = q.v;     
-    
-    // retrieve variations = dx * slopes
-    real_t drx = diff_x.rho;
-    real_t dpx = diff_x.p;
-    real_t dux = diff_x.u;
-    real_t dvx = diff_x.v;    
-
-    real_t dry = diff_y.rho;
-    real_t dpy = diff_y.p;
-    real_t duy = diff_y.u;
-    real_t dvy = diff_y.v;    
-
-    PrimState qs;
-    if( ndim == 3 )
-    {
-      const real_t dtdz = dt/cell_size[IZ];
-
-      real_t w = q.w;
-      real_t dwx = diff_x.w;
-      real_t dwy = diff_y.w;
-
+    if (ndim == 3)
       getPrimitiveState<ndim>( Slopes_z, iCell_U, diff_z );
-      diff_z *= cell_size[IZ] * 0.5;
 
-      real_t drz = diff_z.rho;
-      real_t dpz = diff_z.p;
-      real_t duz = diff_z.u;
-      real_t dvz = diff_z.v;
-      real_t dwz = diff_z.w;
+    diff_x *= cell_size[IX];
+    diff_y *= cell_size[IY];
+    diff_z *= cell_size[IZ];
 
-      qs.rho = r + (-u * drx - dux * r) * dtdx + (-v * dry - dvy * r) * dtdy + (-w * drz - dwz * r) * dtdz;
-      qs.u = u + (-u * dux - dpx / r) * dtdx + (-v * duy) * dtdy + (-w * duz) * dtdz;
-      qs.v = v + (-u * dvx) * dtdx + (-v * dvy - dpy / r) * dtdy + (-w * dvz) * dtdz;
-      qs.w = w + (-u * dwx) * dtdx + (-v * dwy) * dtdy + (-w * dwz - dpz / r) * dtdz;
-      qs.p = p + (-u * dpx - dux * gamma * p) * dtdx + (-v * dpy - dvy * gamma * p) * dtdy + (-w * dpz - dwz * gamma * p) * dtdz;
-    }
-    else
-    {
-      qs.rho = r + (-u * drx - dux * r) * dtdx + (-v * dry - dvy * r) * dtdy;
-      qs.u = u + (-u * dux - dpx / r) * dtdx + (-v * duy) * dtdy;
-      qs.v = v + (-u * dvx) * dtdx + (-v * dvy - dpy / r) * dtdy;
-      qs.p = p + (-u * dpx - dux * gamma * p) * dtdx + (-v * dpy - dvy * gamma * p) * dtdy;
-    }
-
+    auto qs = compute_source<ndim>(q, diff_x, diff_y, diff_z, dtdx, dtdy, dtdz, gamma);
     // reconstruct state on interface
-    PrimState qr = qs + diff_x * offsets[IX] + diff_y * offsets[IY] + diff_z * offsets[IZ];
+    PrimState qr = qs + diff_x * 0.5 * offsets[IX] + diff_y * 0.5 * offsets[IY] + diff_z * 0.5 * offsets[IZ];
     qr.rho = fmax(smallr, qr.rho);
+    qr.p   = fmax(smallp, qr.p);
 
     return qr;    
   };
@@ -456,6 +417,17 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
     process_dir(IZ, +1);
     process_dir(IZ, -1);
   }
+
+  auto q = consToPrim<ndim>(qcons, params.gamma0);
+  if (q.rho < 0.0) {
+    printf("WARNING ! Negative density detected !!!\n");
+    q.rho = params.smallr;
+  }
+  if (q.p < 0.0) {
+    printf("WARNING ! Negative pressure detected !!!\n");
+    q.p   = params.smallp;
+  }
+  qcons = primToCons<ndim>(q, params.gamma0);
 
   setConservativeState<ndim>(Uout, iCell_Q, qcons);
 }
@@ -668,3 +640,6 @@ public:
 FACTORY_REGISTER( dyablo::HydroUpdateFactory, 
                   dyablo::HydroUpdate_hancock_oneneighbor<dyablo::HydroState>, 
                   "HydroUpdate_hancock_oneneighbor")
+FACTORY_REGISTER( dyablo::HydroUpdateFactory, 
+                  dyablo::HydroUpdate_hancock_oneneighbor<dyablo::MHDState>, 
+                  "MHDUpdate_hancock_oneneighbor")

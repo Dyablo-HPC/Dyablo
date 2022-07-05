@@ -170,6 +170,179 @@ compute_euler_flux(const typename State::PrimState& sourceL,
 }
 
 /**
+   * @brief Computes the source term from the muscl-hancock algorithm
+   *        Specialized for Hydro states
+   * 
+   * @tparam ndim The number of dimensions
+   * @param q Centered primitive variable
+   * @param slopeX Slopes along each direction
+   * @param slopeY 
+   * @param slopeZ 
+   * @param dtdx time step over space step along each direction
+   * @param dtdy 
+   * @param dtdz 
+   * @param gamma adiabatic index
+   * @return A primitive state corresponding to the half-step evolved variable in the cell
+   * 
+   * @todo Adapt this to any PrimState possible !
+   */
+  template<int ndim >
+  KOKKOS_INLINE_FUNCTION
+  PrimHydroState compute_source( const PrimHydroState& q,
+                                 const PrimHydroState& slopeX,
+                                 const PrimHydroState& slopeY,
+                                 const PrimHydroState& slopeZ,
+                                 real_t dtdx, real_t dtdy, real_t dtdz,
+                                 real_t gamma )
+  {
+    // retrieve primitive variables in current quadrant
+    const real_t r = q.rho;
+    const real_t p = q.p;
+    const real_t u = q.u;
+    const real_t v = q.v;
+    const real_t w = q.w;
+
+    // retrieve variations = dx * slopes
+    const real_t drx = slopeX.rho * 0.5;
+    const real_t dpx = slopeX.p   * 0.5;
+    const real_t dux = slopeX.u   * 0.5;
+    const real_t dvx = slopeX.v   * 0.5;
+    const real_t dwx = slopeX.w   * 0.5;    
+    const real_t dry = slopeY.rho * 0.5;
+    const real_t dpy = slopeY.p   * 0.5;
+    const real_t duy = slopeY.u   * 0.5;
+    const real_t dvy = slopeY.v   * 0.5;
+    const real_t dwy = slopeY.w   * 0.5;    
+    const real_t drz = slopeZ.rho * 0.5;
+    const real_t dpz = slopeZ.p   * 0.5;
+    const real_t duz = slopeZ.u   * 0.5;
+    const real_t dvz = slopeZ.v   * 0.5;
+    const real_t dwz = slopeZ.w   * 0.5;
+
+    PrimHydroState source{};
+    if( ndim == 3 )
+    {
+      source.rho = r + (-u * drx - dux * r) * dtdx + (-v * dry - dvy * r) * dtdy + (-w * drz - dwz * r) * dtdz;
+      source.u   = u + (-u * dux - dpx / r) * dtdx + (-v * duy) * dtdy + (-w * duz) * dtdz;
+      source.v   = v + (-u * dvx) * dtdx + (-v * dvy - dpy / r) * dtdy + (-w * dvz) * dtdz;
+      source.w   = w + (-u * dwx) * dtdx + (-v * dwy) * dtdy + (-w * dwz - dpz / r) * dtdz;
+      source.p   = p + (-u * dpx - dux * gamma * p) * dtdx + (-v * dpy - dvy * gamma * p) * dtdy + (-w * dpz - dwz * gamma * p) * dtdz;
+    }
+    else
+    {
+      source.rho = r + (-u * drx - dux * r) * dtdx + (-v * dry - dvy * r) * dtdy;
+      source.u   = u + (-u * dux - dpx / r) * dtdx + (-v * duy) * dtdy;
+      source.v   = v + (-u * dvx) * dtdx + (-v * dvy - dpy / r) * dtdy;
+      source.p   = p + (-u * dpx - dux * gamma * p) * dtdx + (-v * dpy - dvy * gamma * p) * dtdy;
+    }
+    return source;
+  }
+
+  /**
+   * @brief Computes the source term from the muscl-hancock algorithm
+   *        Specialized for MHD states
+   * 
+   * @tparam ndim The number of dimensions
+   * @param q Centered primitive variable
+   * @param slopeX Slopes along each direction
+   * @param slopeY 
+   * @param slopeZ 
+   * @param dtdx time step over space step along each direction
+   * @param dtdy 
+   * @param dtdz 
+   * @param gamma adiabatic index
+   * @return A primitive state corresponding to the half-step evolved variable in the cell
+   * 
+   * @todo Adapt this to any PrimState possible !
+   */
+  template<int ndim >
+  KOKKOS_INLINE_FUNCTION
+  PrimMHDState compute_source( const PrimMHDState& q,
+                               const PrimMHDState& slopeX,
+                               const PrimMHDState& slopeY,
+                               const PrimMHDState& slopeZ,
+                               real_t dtdx, real_t dtdy, real_t dtdz,
+                               real_t gamma )
+  {
+    // retrieve primitive variables in current quadrant
+    const real_t r = q.rho;
+    const real_t p = q.p;
+    const real_t u = q.u;
+    const real_t v = q.v;
+    const real_t w = q.w;
+    const real_t Bx = q.Bx;
+    const real_t By = q.By;
+    const real_t Bz = q.Bz;
+
+    // retrieve variations = dx * slopes
+    const real_t drx  = slopeX.rho * 0.5;
+    const real_t dpx  = slopeX.p   * 0.5;
+    const real_t dux  = slopeX.u   * 0.5;
+    const real_t dvx  = slopeX.v   * 0.5;
+    const real_t dwx  = slopeX.w   * 0.5;
+    const real_t dBxx = slopeX.Bx  * 0.5;
+    const real_t dByx = slopeX.By  * 0.5;
+    const real_t dBzx = slopeX.Bz  * 0.5;
+
+    const real_t dry  = slopeY.rho * 0.5;
+    const real_t dpy  = slopeY.p   * 0.5;
+    const real_t duy  = slopeY.u   * 0.5;
+    const real_t dvy  = slopeY.v   * 0.5;
+    const real_t dwy  = slopeY.w   * 0.5;    
+    const real_t dBxy = slopeY.Bx  * 0.5;    
+    const real_t dByy = slopeY.By  * 0.5;    
+    const real_t dBzy = slopeY.Bz  * 0.5;
+    
+    const real_t drz  = slopeZ.rho * 0.5;
+    const real_t dpz  = slopeZ.p   * 0.5;
+    const real_t duz  = slopeZ.u   * 0.5;
+    const real_t dvz  = slopeZ.v   * 0.5;
+    const real_t dwz  = slopeZ.w   * 0.5;    
+    const real_t dBxz = slopeZ.Bx  * 0.5;    
+    const real_t dByz = slopeZ.By  * 0.5;    
+    const real_t dBzz = slopeZ.Bz  * 0.5;
+
+    PrimMHDState source{};
+    if( ndim == 3 )
+    {
+      source.rho = r + (-u * drx - dux * r) * dtdx + (-v * dry - dvy * r) * dtdy + (-w * drz - dwz * r) * dtdz;
+      source.u   = u + dtdx * (-u * dux - (dpx + By*dByx + Bz*dBzx) / r) 
+                     + dtdy * (-v * duy + By*dBxy/r) 
+                     + dtdz * (-w * duz + Bz*dBxz/r);
+      source.v   = v + dtdx * (-u * dvx + Bx*dByx/r) 
+                     + dtdy * (-v * dvy - (dpy + Bx*dBxy + Bz*dBzy) / r)
+                     + dtdz * (-w * dvz + Bz*dByz/r);
+      source.w   = w + dtdx * (-u * dwx + Bx*dBzx/r) 
+                     + dtdy * (-v * dwy + By*dBzy/r)
+                     + dtdz * (-w * dwz - (dpz + Bx*dBxz + By*dByz) / r);
+
+      source.p   = p + (-u * dpx - dux * gamma * p) * dtdx + (-v * dpy - dvy * gamma * p) * dtdy + (-w * dpz - dwz * gamma * p) * dtdz;
+      source.Bx  = Bx + dtdy * (u*dByy + duy*By - v*dBxy - dvy*Bx)
+                      + dtdz * (u*dBzz + duz*Bz - w*dBxz - dwz*Bx);
+      source.By  = By + dtdx * (v*dBxx + dvx*Bx - u*dByx - dux*By)
+                      + dtdz * (v*dBzz + dvz*Bz - w*dByz - dwz*By);
+      source.Bz  = Bz + dtdx * (w*dBxx + dwx*Bx - u*dBzx - dux*Bz)
+                      + dtdy * (w*dByy + dwy*By - v*dBzy - dvy*Bz);
+    }
+    else
+    {
+      source.rho = r + (-u * drx - dux * r) * dtdx + (-v * dry - dvy * r) * dtdy;
+      source.u   = u + dtdx * (-u * dux - (dpx + By*dByx + Bz*dBzx) / r) 
+                     + dtdy * (-v * duy + By*dBxy/r);
+      source.v   = v + dtdx * (-u * dvx + Bx*dByx/r) 
+                     + dtdy * (-v * dvy - (dpy + Bx*dBxy + Bz*dBzy) / r);
+
+      source.p   = p + (-u * dpx - dux * gamma * p) * dtdx + (-v * dpy - dvy * gamma * p) * dtdy;
+      source.Bx  = Bx + dtdy * (u*dByy + duy*By - v*dBxy - dvy*Bx);
+      source.By  = By + dtdx * (v*dBxx + dvx*Bx - u*dByx - dux*By);
+      source.Bz  = Bz + dtdx * (-u*dBzx -dux*Bz)
+                      + dtdy * (-v*dBzy -dvy*Bz);
+    }
+    return source;
+  }
+
+
+/**
  * @brief Calculates one Euler hydro time-step given an input. where Uout = U+dt*dU/dt
  *        and dU/dt is calculated using a Godunov method.
  * 

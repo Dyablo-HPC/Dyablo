@@ -18,75 +18,6 @@ namespace {
   using CellIndex = ForeachCell::CellIndex;
 
   /**
-   * @brief Computes the source term from the muscl-hancock algorithm
-   * 
-   * @tparam ndim The number of dimensions
-   * @tparam PrimState The primitive state variable being manipulated
-   * @param q Centered primitive variable
-   * @param slopeX Slopes along each direction
-   * @param slopeY 
-   * @param slopeZ 
-   * @param dtdx time step over space step along each direction
-   * @param dtdy 
-   * @param dtdz 
-   * @param gamma adiabatic index
-   * @return A primitive state corresponding to the half-step evolved variable in the cell
-   * 
-   * @todo Adapt this to any PrimState possible !
-   */
-  template<int ndim, typename PrimState >
-  KOKKOS_INLINE_FUNCTION
-  PrimState compute_source( const PrimState& q,
-                            const PrimState& slopeX,
-                            const PrimState& slopeY,
-                            const PrimState& slopeZ,
-                            real_t dtdx, real_t dtdy, real_t dtdz,
-                            real_t gamma )
-  {
-    // retrieve primitive variables in current quadrant
-    const real_t r = q.rho;
-    const real_t p = q.p;
-    const real_t u = q.u;
-    const real_t v = q.v;
-    const real_t w = q.w;
-
-    // retrieve variations = dx * slopes
-    const real_t drx = slopeX.rho * 0.5;
-    const real_t dpx = slopeX.p   * 0.5;
-    const real_t dux = slopeX.u   * 0.5;
-    const real_t dvx = slopeX.v   * 0.5;
-    const real_t dwx = slopeX.w   * 0.5;    
-    const real_t dry = slopeY.rho * 0.5;
-    const real_t dpy = slopeY.p   * 0.5;
-    const real_t duy = slopeY.u   * 0.5;
-    const real_t dvy = slopeY.v   * 0.5;
-    const real_t dwy = slopeY.w   * 0.5;    
-    const real_t drz = slopeZ.rho * 0.5;
-    const real_t dpz = slopeZ.p   * 0.5;
-    const real_t duz = slopeZ.u   * 0.5;
-    const real_t dvz = slopeZ.v   * 0.5;
-    const real_t dwz = slopeZ.w   * 0.5;
-
-    PrimState source{};
-    if( ndim == 3 )
-    {
-      source.rho = r + (-u * drx - dux * r) * dtdx + (-v * dry - dvy * r) * dtdy + (-w * drz - dwz * r) * dtdz;
-      source.u   = u + (-u * dux - dpx / r) * dtdx + (-v * duy) * dtdy + (-w * duz) * dtdz;
-      source.v   = v + (-u * dvx) * dtdx + (-v * dvy - dpy / r) * dtdy + (-w * dvz) * dtdz;
-      source.w   = w + (-u * dwx) * dtdx + (-v * dwy) * dtdy + (-w * dwz - dpz / r) * dtdz;
-      source.p   = p + (-u * dpx - dux * gamma * p) * dtdx + (-v * dpy - dvy * gamma * p) * dtdy + (-w * dpz - dwz * gamma * p) * dtdz;
-    }
-    else
-    {
-      source.rho = r + (-u * drx - dux * r) * dtdx + (-v * dry - dvy * r) * dtdy;
-      source.u   = u + (-u * dux - dpx / r) * dtdx + (-v * duy) * dtdy;
-      source.v   = v + (-u * dvx) * dtdx + (-v * dvy - dpy / r) * dtdy;
-      source.p   = p + (-u * dpx - dux * gamma * p) * dtdx + (-v * dpy - dvy * gamma * p) * dtdy;
-    }
-    return source;
-  }
-
-  /**
    * @brief Computes slopes and sources along each directions on a cell 
    * 
    * @tparam ndim the number of dimensions 
@@ -289,6 +220,17 @@ namespace {
     ConsState umod;
     getConservativeState<ndim>(Uout, iCell_Uout, umod);
     umod += (fluxL - fluxR) * dtddir;
+
+    auto q = consToPrim<ndim>(umod, params.gamma0);
+    if (q.rho < 0.0) {
+      printf("WARNING ! Negative density detected !!!\n");
+      q.rho = params.smallr;
+    }
+    if (q.p < 0.0) {
+      printf("WARNING ! Negative pressure detected !!!\n");
+      q.p   = params.smallp;
+    }
+    umod = primToCons<ndim>(q, params.gamma0);
     setConservativeState<ndim>(Uout, iCell_Uout, umod);
   }
 
@@ -539,3 +481,7 @@ private:
 FACTORY_REGISTER(dyablo::HydroUpdateFactory, 
                  dyablo::HydroUpdate_hancock<dyablo::HydroState>, 
                  "HydroUpdate_hancock")
+
+FACTORY_REGISTER(dyablo::HydroUpdateFactory, 
+                 dyablo::HydroUpdate_hancock<dyablo::MHDState>, 
+                 "MHDUpdate_hancock")
