@@ -331,6 +331,7 @@ compute_euler_flux(const typename State::PrimState& sourceL,
                      + dtdy * (-v * duy + By*dBxy/r);
       source.v   = v + dtdx * (-u * dvx + Bx*dByx/r) 
                      + dtdy * (-v * dvy - (dpy + Bx*dBxy + Bz*dBzy) / r);
+      source.w   = 0.0;
 
       source.p   = p + (-u * dpx - dux * gamma * p) * dtdx + (-v * dpy - dvy * gamma * p) * dtdy;
       source.Bx  = Bx + dtdy * (u*dByy + duy*By - v*dBxy - dvy*Bx);
