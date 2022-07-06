@@ -233,7 +233,7 @@ void riemann_mhd(const PrimMHDState& qleft,
   const vec_t ustar = clpcrm1 * (cL*vL + cR*vR + pL - pR);
   const vec_t pstar = clpcrm1 * (cR*pL + cL*pR + cL*cR*(vL-vR));
 
-  PrimMHDState qr;
+  PrimMHDState qr{};
   real_t Bnext;
   if (ustar[IX] > 0.0) {
     qr = qleft;
@@ -290,7 +290,7 @@ ConsMHDState riemann_hydro( const PrimMHDState& qleft,
                             const PrimMHDState& qright,
                             const RiemannParams& params)
 {
-  ConsMHDState flux;
+  ConsMHDState flux{};
   riemann_mhd(qleft, qright, flux, params);
   return flux;
 

@@ -37,8 +37,8 @@ struct AnalyticalFormula_MHD_blast : public AnalyticalFormula_base{
         blast_density_out ( configMap.getValue<real_t>("blast","density_out", 1.0) ),
         blast_pressure_in ( configMap.getValue<real_t>("blast","pressure_in", 10.0) ),
         blast_pressure_out ( configMap.getValue<real_t>("blast","pressure_out", 0.1) ),
-        blast_B ( configMap.getValue<real_t>("blast", "blast_B", 3.54490770) ),
-        blast_B_angle ( configMap.getValue<real_t>("blast", "blast_alpha", 0.7853981633974483) ),
+        blast_B ( configMap.getValue<real_t>("blast", "blast_B", 3.54491) ),
+        blast_B_angle ( configMap.getValue<real_t>("blast", "blast_alpha", 0.785398) ),
         // Number of quadrants in each direction
         blast_nx ( configMap.getValue<int>("blast", "blast_nx", 1) ),
         blast_ny ( configMap.getValue<int>("blast", "blast_ny", 1) ),
