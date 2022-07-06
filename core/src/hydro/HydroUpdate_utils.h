@@ -33,7 +33,7 @@ void compute_primitives(const RiemannParams& params,   const Array_t& Ugroup,
   using ConsState = typename State::ConsState;
   using PrimState = typename State::PrimState;
 
-  ConsState uLoc;
+  ConsState uLoc{};
   getConservativeState<ndim>(Ugroup, iCell_Ugroup, uLoc);
   PrimState qLoc = consToPrim<ndim>(uLoc, params.gamma0);
   setPrimitiveState<ndim>(Qgroup, iCell_Ugroup, qLoc);
@@ -62,7 +62,7 @@ PrimState compute_slope( const PrimState& qMinus,
                          const PrimState& qPlus, 
                          real_t dL, real_t dR)
 {
-  PrimState dq;
+  PrimState dq{};
 
   auto minmod = [](real_t dvp, real_t dvm) 
   {
@@ -386,13 +386,13 @@ void euler_update(const RiemannParams&    params,
   offsetp[dir] = 1;
 
   CellIndex ib = Qgroup.convert_index(iCell_Uout);
-  ConsState fluxL; 
-  ConsState fluxR;
-  PrimState qC, qL, qR;
+  ConsState fluxL{}; 
+  ConsState fluxR{};
+  PrimState qC{}, qL{}, qR{};
   getPrimitiveState<ndim>(Qgroup, ib, qC);
   getPrimitiveState<ndim>(Qgroup, ib + offsetm, qL);
   getPrimitiveState<ndim>(Qgroup, ib + offsetp, qR);
-  PrimState qLL, qRR;
+  PrimState qLL{}, qRR{};
   const real_t dtddir = dt / ddir;
 
   // Getting the current cell in U
@@ -478,7 +478,7 @@ void euler_update(const RiemannParams&    params,
   // 1- Same size or bigger
   if (ldiff_L >= 0) {
     if (ldiff_L > 0) {
-      ConsState uLL;
+      ConsState uLL{};
       getConservativeState<ndim>(U, iUinL + offsetm, uLL);
       qLL = consToPrim<ndim>(uLL, params.gamma0);
     }
@@ -501,7 +501,7 @@ void euler_update(const RiemannParams&    params,
     foreach_smaller_neighbor<ndim>(iUinL, offsetm, U, 
                 [&](const CellIndex& iCell_neighbor)
               {
-                ConsState uL, uLL;
+                ConsState uL{}, uLL{};
                 getConservativeState<ndim>(U, iCell_neighbor, uL);
                 getConservativeState<ndim>(U, iCell_neighbor + offsetm, uLL);
 
@@ -518,7 +518,7 @@ void euler_update(const RiemannParams&    params,
   // 1- Same size or bigger
   if (ldiff_R >= 0) {
     if (ldiff_R > 0) {
-      ConsState uRR;
+      ConsState uRR{};
       getConservativeState<ndim>(U, iUinR + offsetp, uRR);
       qRR = consToPrim<ndim>(uRR, params.gamma0); 
     }
@@ -537,7 +537,7 @@ void euler_update(const RiemannParams&    params,
     foreach_smaller_neighbor<ndim>(iUinR, offsetp, U, 
                 [&](const CellIndex& iCell_neighbor)
               {
-                ConsState uR, uRR;
+                ConsState uR{}, uRR{};
                 getConservativeState<ndim>(U, iCell_neighbor, uR);
                 getConservativeState<ndim>(U, iCell_neighbor + offsetp, uRR);
 
@@ -550,7 +550,7 @@ void euler_update(const RiemannParams&    params,
     fluxR *= fac;      
   }
 
-  ConsState u;
+  ConsState u{};
   getConservativeState<ndim>(Uout, iCell_Uout, u);
   u += (fluxL - fluxR) * dtddir;
 

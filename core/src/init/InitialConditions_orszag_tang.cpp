@@ -43,7 +43,7 @@ struct AnalyticalFormula_OrszagTang : public AnalyticalFormula_base{
   KOKKOS_INLINE_FUNCTION
   ConsMHDState value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
   {
-    PrimMHDState res;
+    PrimMHDState res {};
     constexpr real_t rho0 = 25.0 / (36.0*M_PI);
     constexpr real_t P0   = 5.0  / (12.0*M_PI);
     const real_t B0       = 1.0  / sqrt(4.0*M_PI);
@@ -61,8 +61,7 @@ struct AnalyticalFormula_OrszagTang : public AnalyticalFormula_base{
     res.By  = By;
     res.Bz  = 0.0;
     
-    ConsMHDState cons_res;
-    cons_res = primToCons<3>(res, gamma0);
+    ConsMHDState cons_res = primToCons<3>(res, gamma0);
     return cons_res; 
   }
 };

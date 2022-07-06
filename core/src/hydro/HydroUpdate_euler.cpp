@@ -204,7 +204,7 @@ public:
       patch.foreach_cell( Uout, CELL_LAMBDA(const CellIndex& iCell_Uout)
       {
         auto size = cellmetadata.getCellSize(iCell_Uout);
-        ConsState u0;
+        ConsState u0{};
         getConservativeState<ndim>(Uin,  iCell_Uout, u0);
         setConservativeState<ndim>(Uout, iCell_Uout, u0);
         euler_update<ndim, State>(params, IX, iCell_Uout, Uin, Qgroup, dt, size[IX], Uout);

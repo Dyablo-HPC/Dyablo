@@ -47,12 +47,12 @@ namespace {
     PrimState sx{}, sy{}, sz{};
 
     CellIndex ib = Qgroup.convert_index(iCell_Sources);
-    PrimState qc;
+    PrimState qc{};
     getPrimitiveState<ndim>( Qgroup, ib, qc );
 
     {
       // neighbor along x axis
-      PrimState qm, qp;
+      PrimState qm{}, qp{};
       getPrimitiveState<ndim>( Qgroup, ib + o_t{-1, 0, 0}, qm);
       getPrimitiveState<ndim>( Qgroup, ib + o_t{ 1, 0, 0}, qp);     
 
@@ -64,7 +64,7 @@ namespace {
 
     {
       // neighbor along y axis
-      PrimState qm, qp;
+      PrimState qm{}, qp{};
       getPrimitiveState<ndim>( Qgroup, ib + o_t{ 0,-1, 0}, qm);
       getPrimitiveState<ndim>( Qgroup, ib + o_t{ 0, 1, 0}, qp);       
 
@@ -78,7 +78,7 @@ namespace {
     if( ndim == 3 )
     {      
       // neighbor along z axis
-      PrimState qm, qp;
+      PrimState qm{}, qp{};
       getPrimitiveState<ndim>( Qgroup, ib + o_t{ 0, 0,-1}, qm);
       getPrimitiveState<ndim>( Qgroup, ib + o_t{ 0, 0, 1}, qp);       
 
@@ -203,8 +203,8 @@ namespace {
     CellIndex iCell_Slopes_R = iCell_Slopes_C + offsetp;
 
 
-    PrimState sourceL, sourceC, sourceR;
-    PrimState slopeL, slopeC, slopeR;
+    PrimState sourceL{}, sourceC{}, sourceR{};
+    PrimState slopeL{}, slopeC{}, slopeR{};
 
     getPrimitiveState<ndim>(Source, iCell_Source_L, sourceL);
     getPrimitiveState<ndim>(Source, iCell_Source_C, sourceC);
@@ -217,7 +217,7 @@ namespace {
     ConsState fluxL = compute_flux<ndim, State>( sourceL, sourceC, slopeL, slopeC, dir, smallr, params );
     ConsState fluxR = compute_flux<ndim, State>( sourceC, sourceR, slopeC, slopeR, dir, smallr, params );
 
-    ConsState umod;
+    ConsState umod{};
     getConservativeState<ndim>(Uout, iCell_Uout, umod);
     umod += (fluxL - fluxR) * dtddir;
 
@@ -443,7 +443,7 @@ public:
       patch.foreach_cell( Uout, CELL_LAMBDA(const CellIndex& iCell_Uout)
       {
         auto size = cellmetadata.getCellSize(iCell_Uout);
-        ConsState u0;
+        ConsState u0{};
         getConservativeState<ndim>(Uin, iCell_Uout, u0);
         setConservativeState<ndim>(Uout, iCell_Uout, u0);
         compute_fluxes<ndim, State>(IX, iCell_Uout, SlopesX, Sources, params, smallr, dt/size[IX], Uout);

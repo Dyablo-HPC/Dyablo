@@ -70,7 +70,7 @@ struct DiagosticsFunctor {
       real_t dz = cell_size[IZ];
       real_t dV = dx*dy*(ndim==3 ? dz : 1.0);
       
-      ConsHydroState uLoc;
+      ConsHydroState uLoc{};
       uLoc.rho = U.at(iCell,ID);
       uLoc.e_tot = U.at(iCell,IE);
       uLoc.rho_u = U.at(iCell,IU);
@@ -124,7 +124,7 @@ void run_test(int ndim, std::string HydroUpdate_id ) {
   char configmap_cstr[] = 
     "[output]\n"
     "outputPrefix=test_Conservativity\n"
-    "write_variables=rho,level,rank\n"
+    "write_variables=rho,e_tot,Bx,By,Bz,level,rank\n"
     "enable_hdf5=on\n"
     "[amr]\n"
     "use_block_data=yes\n"

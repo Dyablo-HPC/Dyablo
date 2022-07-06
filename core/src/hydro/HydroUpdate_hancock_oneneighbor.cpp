@@ -45,7 +45,7 @@ void computePrimitives(const RiemannParams& params, const GhostedArray& Ugroup,
   using PrimState = typename State::PrimState;
   using ConsState = typename State::ConsState;
 
-  ConsState uLoc;
+  ConsState uLoc{};
   getConservativeState<ndim>( Ugroup, iCell_Ugroup, uLoc );
   PrimState qLoc = consToPrim<ndim>( uLoc, params.gamma0 );
   setPrimitiveState<ndim>( Qgroup, iCell_Ugroup, qLoc );
@@ -86,7 +86,7 @@ void compute_limited_slopes(const GhostedArray& Q, const CellIndex& iCell_U,
       grad[d][i] = big_real();
         
 
-  PrimState qP;
+  PrimState qP{};
   getPrimitiveState<ndim>(Q, iCell_U, qP);
   auto q = Conv::to_StateNd_t(qP);
   
@@ -102,7 +102,7 @@ void compute_limited_slopes(const GhostedArray& Q, const CellIndex& iCell_U,
     real_t pos_c = pos_cell[dir];
     real_t delta_x = pos_n - pos_c;
 
-    PrimState qNeighP;
+    PrimState qNeighP{};
     getPrimitiveState<ndim>(Q, iCell_neighbor, qNeighP);
     auto qNeigh = Conv::to_StateNd_t(qNeighP);
 
@@ -195,8 +195,8 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
   ForeachCell::CellMetaData::pos_t cell_size = cellmetadata.getCellSize(iCell_Q);
   ForeachCell::CellMetaData::pos_t pos_c = cellmetadata.getCellCenter(iCell_Q);
 
-  PrimState qprim;
-  ConsState qcons;
+  PrimState qprim{};
+  ConsState qcons{};
   getPrimitiveState<ndim>(Q, iCell_Q, qprim);
   getConservativeState<ndim>(Uin, iCell_Q, qcons);
 
@@ -261,8 +261,8 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
     const real_t dtdy = dt/cell_size[IY];
     const real_t dtdz = dt/cell_size[IZ];
 
-    PrimState diff_x;
-    PrimState diff_y;
+    PrimState diff_x{};
+    PrimState diff_y{};
     PrimState diff_z{};
 
     getPrimitiveState<ndim>( Slopes_x, iCell_U, diff_x );
@@ -319,7 +319,7 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
       if( iCell_n0.level_diff() >= 0 ) // Only one cell
       {
         // 0. retrieve primitive variables in neighbor cell
-        PrimState qprim_n;
+        PrimState qprim_n{};
         getPrimitiveState<ndim>( Q, iCell_n0, qprim_n );
 
         // 1. reconstruct primitive variables on both sides of current interface (iface)
@@ -373,7 +373,7 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
         {
             CellIndex iCell_n = iCell_n0.getNeighbor_ghost({di,dj,dk}, Q);
             // 0. retrieve primitive variables in neighbor cell
-            PrimState qprim_n;
+            PrimState qprim_n{};
             getPrimitiveState<ndim>( Q, iCell_n, qprim_n );
 
             // 1. reconstruct primitive variables on both sides of current interface (iface)
