@@ -11,6 +11,9 @@
 #include "amr/AMRmesh.h"
 #include "utils/io/AMRMesh_output_vtk.h"
 
+#include "foreach_cell/ForeachCell.h"
+#include "foreach_cell/ForeachCell_utils.h"
+
 namespace dyablo
 {
 
@@ -53,8 +56,6 @@ Kokkos::LayoutLeft layout<DataArray>(int bx, int by, int bz, int nbfields, int n
 {
   return Kokkos::LayoutLeft(nbOcts,nbfields);
 }
-
-
 
 template< typename Array_t >
 void run_test()
@@ -243,4 +244,138 @@ void test_GhostCommunicator_domains()
 TEST(dyablo, test_GhostCommunicator_domains)
 {
   test_GhostCommunicator_domains();
+}
+
+void run_test_reduce()
+{
+  using namespace dyablo;
+
+  std::cout << "// =========================================\n";
+  std::cout << "// Testing GhostCommunicator ...\n";
+  std::cout << "// =========================================\n";
+
+  std::cout << "Create mesh..." << std::endl;
+  std::shared_ptr<AMRmesh> amr_mesh; //solver->amr_mesh 
+  {
+    int ndim = 3;
+    amr_mesh = std::make_shared<AMRmesh>(ndim, ndim, std::array<bool,3>{true,true,true}, 3, 7);
+    //amr_mesh->setBalanceCodimension(ndim);
+    //uint32_t idx = 0;
+    //amr_mesh->setBalance(idx,true);
+    // mr_mesh->setPeriodic(0);
+    // amr_mesh->setPeriodic(1);
+    // amr_mesh->setPeriodic(2);
+    // amr_mesh->setPeriodic(3);
+    //amr_mesh->setPeriodic(4);
+    //amr_mesh->setPeriodic(5);
+
+    debug::output_vtk("before_initial", *amr_mesh);
+    if( amr_mesh->getRank() == 0 )
+      amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
+    amr_mesh->adapt();
+    debug::output_vtk("after_adapt1", *amr_mesh);
+    if( amr_mesh->getRank() == 0 )
+      amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
+    amr_mesh->adapt();
+    debug::output_vtk("after_adapt2", *amr_mesh);
+    if( amr_mesh->getRank() == 0 )
+      amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
+    amr_mesh->adapt();
+    debug::output_vtk("after_adapt3", *amr_mesh);
+    if( amr_mesh->getRank() == 0 )
+      amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
+    amr_mesh->adapt();
+    debug::output_vtk("after_adapt4", *amr_mesh);
+
+    amr_mesh->loadBalance();
+    amr_mesh->updateConnectivity();
+  }
+
+  // Content of .ini file used ton configure configmap and HydroParams
+  ConfigMap configMap("");
+
+  // Fill default values
+  constexpr int ndim = 3;
+  configMap.getValue<int>("run", "ndim", ndim);
+  /*uint32_t bx = */configMap.getValue<uint32_t>("amr", "bx", 8);
+  /*uint32_t by = */configMap.getValue<uint32_t>("amr", "by", 8);
+  /*uint32_t bz = */configMap.getValue<uint32_t>("amr", "bz", (ndim==2)?1:8);
+
+  ForeachCell foreach_cell( *amr_mesh, configMap );
+  FieldManager fieldManager({IU,IV,IW});
+  typename ForeachCell::CellArray_global_ghosted U = foreach_cell.allocate_ghosted_array("U", fieldManager);
+
+  using CellIndex = typename ForeachCell::CellIndex;
+
+  foreach_cell.foreach_cell( "Fill_neighbors", U,
+    CELL_LAMBDA( const CellIndex& iCell )
+  {
+    auto fill_neighbor = [&](CellIndex::offset_t offset, VarIndex iVar)
+    {
+      CellIndex iCell_n = iCell.getNeighbor_ghost( offset, U );    
+      assert( iCell_n.is_valid() ); // This test uses periodic
+      assert( iCell_n.level_diff() >= -1 &&  iCell_n.level_diff() <= 1 );
+      if( iCell_n.level_diff() == 0 ) // Same size
+      {
+        Kokkos::atomic_add(&U.at( iCell_n, iVar ), 1); 
+      }
+      else if( iCell_n.level_diff() == 1 ) // Neighbor is bigger
+      {
+        Kokkos::atomic_add(&U.at( iCell_n, iVar ), 0.25); 
+      }
+      else if( iCell_n.level_diff() == -1 ) // Neighbors are smaller
+      {
+        foreach_smaller_neighbor<ndim>( iCell_n, offset, U,
+          [&]( const CellIndex& iCell_ns )
+        {
+          Kokkos::atomic_add(&U.at( iCell_ns, iVar ), 1);
+        });       
+      }
+      else
+      {
+        assert(false);
+      }
+    };
+    fill_neighbor( { 1, 0, 0}, IU );
+    fill_neighbor( {-1, 0, 0}, IU );
+    fill_neighbor( { 0, 1, 0}, IV );
+    fill_neighbor( { 0,-1, 0}, IV );
+    fill_neighbor( { 0, 0, 1}, IW );
+    fill_neighbor( { 0, 0,-1}, IW );
+  });
+
+  dyablo::GhostCommunicator ghost_communicator( amr_mesh );
+  ghost_communicator.reduce_ghosts<2>( U.U, U.Ughost );
+
+  int nerrors = 0;
+  foreach_cell.reduce_cell( "check_values", U,
+    CELL_LAMBDA( const CellIndex& iCell, int& nerrors )
+  {
+    constexpr real_t eps = 1e-10;
+    real_t U_IU = U.at( iCell, IU );
+    real_t U_IV = U.at( iCell, IV );
+    real_t U_IW = U.at( iCell, IW );
+
+    #ifndef __CUDA_ARCH__
+    EXPECT_NEAR( 2, U_IU, eps);
+    EXPECT_NEAR( 2, U_IV, eps);
+    EXPECT_NEAR( 2, U_IW, eps);
+    #endif
+
+    if( abs( U_IU - 2) > eps )
+      nerrors++;
+    if( abs( U_IV - 2) > eps )
+      nerrors++;
+    if( abs( U_IW - 2) > eps )
+      nerrors++;
+    
+  }, nerrors);
+
+  EXPECT_EQ(nerrors, 0);
+
+} // run_test_reduce
+
+TEST(dyablo, test_GhostCommunicator_reduce)
+{
+  run_test_reduce();
 }
