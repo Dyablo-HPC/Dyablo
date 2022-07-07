@@ -2,7 +2,7 @@
 
 #include "real_type.h"
 #include "kokkos_shared.h"
-#include "State_Nd.h"
+#include "State_Ops.h"
 
 namespace dyablo {
 
@@ -20,6 +20,16 @@ struct ConsMHDState {
   real_t Bz = 0;
 };
 
+DECLARE_STATE_TYPE( ConsMHDState, 8 );
+DECLARE_STATE_GET( ConsMHDState, 0, rho );
+DECLARE_STATE_GET( ConsMHDState, 1, e_tot );
+DECLARE_STATE_GET( ConsMHDState, 2, rho_u );
+DECLARE_STATE_GET( ConsMHDState, 3, rho_v );
+DECLARE_STATE_GET( ConsMHDState, 4, rho_w );
+DECLARE_STATE_GET( ConsMHDState, 5, Bx );
+DECLARE_STATE_GET( ConsMHDState, 6, By );
+DECLARE_STATE_GET( ConsMHDState, 7, Bz );
+
 /**
  * @brief Structure holding primitive magneto-hydrodynamics variables
  */
@@ -34,6 +44,18 @@ struct PrimMHDState {
   real_t Bz = 0;
 };
 
+DECLARE_STATE_TYPE( PrimMHDState, 8 );
+DECLARE_STATE_GET( PrimMHDState, 0, rho );
+DECLARE_STATE_GET( PrimMHDState, 1, p );
+DECLARE_STATE_GET( PrimMHDState, 2, u );
+DECLARE_STATE_GET( PrimMHDState, 3, v );
+DECLARE_STATE_GET( PrimMHDState, 4, w );
+DECLARE_STATE_GET( PrimMHDState, 5, Bx );
+DECLARE_STATE_GET( PrimMHDState, 6, By );
+DECLARE_STATE_GET( PrimMHDState, 7, Bz );
+
+
+
 /**
  * @brief Structure grouping the primitive and conservative MHD state as well
  *        as information on the number of fields to store per state
@@ -42,52 +64,6 @@ struct MHDState {
   using PrimState = PrimMHDState;
   using ConsState = ConsMHDState;
   static constexpr size_t N = 8;
-};
-
-/**
- * @brief StateNd_conversion for ConsMHDState
- */
-template<>
-struct StateNd_conversion<ConsMHDState> 
-{
-    static constexpr bool is_convertible = true;
-    static constexpr size_t N = 8;
-    using State_t = ConsMHDState;
-    using StateNd_t = StateNd<N>;
-
-    KOKKOS_INLINE_FUNCTION
-    static StateNd_t to_StateNd_t(const State_t& v)
-    {
-        return {v.rho, v.e_tot, v.rho_u, v.rho_v, v.rho_w, v.Bx, v.By, v.Bz};
-    }
-    KOKKOS_INLINE_FUNCTION
-    static State_t to_State_t(const StateNd_t& v)
-    {
-        return {v[0],v[1],v[2],v[3],v[4],v[5],v[6],v[7]};
-    }
-};
-
-/**
- * @brief StateNd_conversion for PrimMHDState  
- */
-template<>
-struct StateNd_conversion<PrimMHDState> 
-{
-    static constexpr bool is_convertible = true;
-    static constexpr size_t N = 8;
-    using State_t = PrimMHDState;
-    using StateNd_t = StateNd<N>;
-
-    KOKKOS_INLINE_FUNCTION
-    static StateNd_t to_StateNd_t(const State_t& v)
-    {
-        return {v.rho, v.p, v.u, v.v, v.w, v.Bx, v.By, v.Bz};
-    }
-    KOKKOS_INLINE_FUNCTION
-    static State_t to_State_t(const StateNd_t& v)
-    {
-        return {v[0],v[1],v[2],v[3],v[4],v[5],v[6],v[7]};
-    }
 };
 
 /**

@@ -6,7 +6,7 @@
 #define RIEMANN_SOLVERS_H_
 
 #include <math.h>
-
+#include "states/State_Nd.h"
 #include "states/State_forward.h"
 
 namespace dyablo {
