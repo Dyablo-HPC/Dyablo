@@ -7,7 +7,7 @@
 #include "foreach_cell/ForeachCell.h"
 #include "compute_dt/Compute_dt.h"
 #include "init/InitialConditions.h"
-#include "states/State_hydro.h"
+#include "states/State_forward.h"
 #include "io/IOManager.h"
 using blockSize_t    = Kokkos::Array<uint32_t, 3>;
 
@@ -17,7 +17,7 @@ using Device = Kokkos::DefaultExecutionSpace;
 
 using namespace dyablo;
 
-TEST( Test_HydroStates, StateNd_manipulation )
+TEST( Test_StateNd, StateNd_manipulation )
 {
   StateNd<3> offset {-2.0, 1.0, 0.1};
   StateNd<3> offset2 {5.3, 0.1, -0.1};
@@ -47,7 +47,7 @@ TEST( Test_HydroStates, StateNd_manipulation )
     EXPECT_DOUBLE_EQ(offset3[i], offset[i]/q3);
 }
 
-TEST( Test_HydroStates, HydroState2d_legacy ) 
+TEST( Test_Hydro_legacy, HydroState2d ) 
 {
   HydroState2d state1 {1.0, 0.1, 0.1, 0.2};
   HydroState2d state2 {0.12, 0.22, 1.54, -2.3};
@@ -80,7 +80,7 @@ TEST( Test_HydroStates, HydroState2d_legacy )
     EXPECT_DOUBLE_EQ(state3[i], state1[i]/q3);
 }
 
-TEST( Test_HydroStates, HydroState3d_legacy ) 
+TEST( Test_Hydro_legacy, HydroState3d ) 
 {
   HydroState3d state1 {6.4, 0.23, -0.23, 0.72, 4.15};
   HydroState3d state2 {0.0, 1.02, 1.24, -1.0, 4.2};
@@ -113,7 +113,9 @@ TEST( Test_HydroStates, HydroState3d_legacy )
     EXPECT_DOUBLE_EQ(state3[i], state1[i]/q3);
 }
 
-TEST( Test_HydroStates, PrimHydroState )
+////// Hydro
+
+TEST( Test_Hydro_States, PrimHydroState )
 {
   auto test_eq = [&](const PrimHydroState& state, 
                      real_t rho, 
@@ -225,7 +227,7 @@ TEST( Test_HydroStates, PrimHydroState )
   test_eq_st(state1, div);
 }
 
-TEST( Test_HydroStates, ConsHydroState )
+TEST( Test_Hydro_States, ConsHydroState )
 {
 auto test_eq = [&](const ConsHydroState& state, 
                      real_t rho, 
@@ -332,6 +334,286 @@ auto test_eq = [&](const ConsHydroState& state,
           state1.rho_u / q5,
           state1.rho_v / q5,
           state1.rho_w / q5);
+
+  state1 /= q5;
+  test_eq_st(state1, div);
+}
+
+////// MHD
+
+TEST( Test_MHD_States, PrimMHDState )
+{
+  auto test_eq = [&](const PrimMHDState& state, 
+                     real_t rho, 
+                     real_t p,
+                     real_t u,
+                     real_t v,
+                     real_t w,
+                     real_t Bx,
+                     real_t By,
+                     real_t Bz) {
+    EXPECT_DOUBLE_EQ(state.rho, rho);
+    EXPECT_DOUBLE_EQ(state.p,  p);
+    EXPECT_DOUBLE_EQ(state.u,  u);
+    EXPECT_DOUBLE_EQ(state.v,  v);
+    EXPECT_DOUBLE_EQ(state.w,  w);
+    EXPECT_DOUBLE_EQ(state.Bx, Bx);
+    EXPECT_DOUBLE_EQ(state.By, By);
+    EXPECT_DOUBLE_EQ(state.Bz, Bz);
+  };
+
+  auto test_eq_st = [&](const PrimMHDState& state1,
+                        const PrimMHDState& state2) {
+    EXPECT_DOUBLE_EQ(state1.rho, state2.rho);
+    EXPECT_DOUBLE_EQ(state1.p,   state2.p);
+    EXPECT_DOUBLE_EQ(state1.u,   state2.u);
+    EXPECT_DOUBLE_EQ(state1.v,   state2.v);
+    EXPECT_DOUBLE_EQ(state1.w,   state2.w);
+    EXPECT_DOUBLE_EQ(state1.Bx,  state2.Bx);
+    EXPECT_DOUBLE_EQ(state1.By,  state2.By);
+    EXPECT_DOUBLE_EQ(state1.Bz,  state2.Bz);
+  };
+
+  // Default constructor
+  PrimMHDState state0;
+  test_eq(state0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+
+  // Init constructor
+  PrimMHDState state1 {1.0, 2.56, 2.1, -7.8, 0.01, 1.2, -0.3, 24.3};
+  test_eq(state1, 1.0, 2.56, 2.1, -7.8, 0.01, 1.2, -0.3, 24.3);
+
+  // Copy constructor
+  PrimMHDState state2 {0.1, 1.5, -1.0, -0.2, -9.2, -1.0, 3.0, -2.0};
+  PrimMHDState state3{state2};
+  test_eq_st(state3, state2);
+
+  // operator +
+  auto add = state1 + state2;
+  test_eq(add, 
+          state1.rho + state2.rho,
+          state1.p   + state2.p,
+          state1.u   + state2.u,
+          state1.v   + state2.v,
+          state1.w   + state2.w,
+          state1.Bx  + state2.Bx,
+          state1.By  + state2.By,
+          state1.Bz  + state2.Bz);
+
+  real_t q1 = 2.942;
+  auto add2 = state1 + q1;
+  test_eq(add2,
+          state1.rho + q1,
+          state1.p   + q1,
+          state1.u   + q1,
+          state1.v   + q1,
+          state1.w   + q1,
+          state1.Bx  + q1,
+          state1.By  + q1,
+          state1.Bz  + q1);
+
+  // operator +=
+  state3 += state1;
+  test_eq_st(state3, add);
+
+  state3 = state1;
+  state3 += q1;
+  test_eq_st(state3, add2);
+
+  // operator -
+  auto sub = state1 - state2;
+  test_eq(sub,
+          state1.rho - state2.rho,
+          state1.p   - state2.p,
+          state1.u   - state2.u,
+          state1.v   - state2.v,
+          state1.w   - state2.w,
+          state1.Bx  - state2.Bx,
+          state1.By  - state2.By,
+          state1.Bz  - state2.Bz);
+
+  // operator*
+  auto mul = state1 * state2;
+  test_eq(mul,
+          state1.rho * state2.rho,
+          state1.p   * state2.p,
+          state1.u   * state2.u,
+          state1.v   * state2.v,
+          state1.w   * state2.w,
+          state1.Bx  * state2.Bx,
+          state1.By  * state2.By,
+          state1.Bz  * state2.Bz);
+
+  real_t q3 = 7.123927;
+  auto mul2 = state2 * q3;
+  test_eq(mul2,
+          state2.rho * q3,
+          state2.p   * q3,
+          state2.u   * q3,
+          state2.v   * q3,
+          state2.w   * q3,
+          state2.Bx  * q3,
+          state2.By  * q3,
+          state2.Bz  * q3);
+
+  auto mul3 = q3 * state2;
+  test_eq_st(mul3, mul2);
+
+  real_t q4 = -137.22;
+  auto state4{state1};
+  state4 *= q4;
+  test_eq_st(state4, state1*q4);
+
+  // operator/
+  real_t q5 = 0.289;
+  auto div = state1 / q5;
+  test_eq(div,
+          state1.rho / q5,
+          state1.p   / q5,
+          state1.u   / q5,
+          state1.v   / q5,
+          state1.w   / q5,
+          state1.Bx  / q5,
+          state1.By  / q5,
+          state1.Bz  / q5);
+
+  state1 /= q5;
+  test_eq_st(state1, div);
+}
+
+TEST( Test_MHD_States, ConsMHDState )
+{
+auto test_eq = [&](const ConsMHDState& state, 
+                     real_t rho, 
+                     real_t e_tot,
+                     real_t rho_u,
+                     real_t rho_v,
+                     real_t rho_w,
+                     real_t Bx,
+                     real_t By,
+                     real_t Bz) {
+    EXPECT_DOUBLE_EQ(state.rho,   rho);
+    EXPECT_DOUBLE_EQ(state.e_tot, e_tot);
+    EXPECT_DOUBLE_EQ(state.rho_u, rho_u);
+    EXPECT_DOUBLE_EQ(state.rho_v, rho_v);
+    EXPECT_DOUBLE_EQ(state.rho_w, rho_w);
+    EXPECT_DOUBLE_EQ(state.Bx,    Bx);
+    EXPECT_DOUBLE_EQ(state.By,    By);
+    EXPECT_DOUBLE_EQ(state.Bz,    Bz);
+  };
+
+  auto test_eq_st = [&](const ConsMHDState& state1,
+                        const ConsMHDState& state2) {
+    EXPECT_DOUBLE_EQ(state1.rho,   state2.rho);
+    EXPECT_DOUBLE_EQ(state1.e_tot, state2.e_tot);
+    EXPECT_DOUBLE_EQ(state1.rho_u, state2.rho_u);
+    EXPECT_DOUBLE_EQ(state1.rho_v, state2.rho_v);
+    EXPECT_DOUBLE_EQ(state1.rho_w, state2.rho_w);
+    EXPECT_DOUBLE_EQ(state1.Bx,    state2.Bx);
+    EXPECT_DOUBLE_EQ(state1.By,    state2.By);
+    EXPECT_DOUBLE_EQ(state1.Bz,    state2.Bz);
+  };
+
+  // Default constructor
+  ConsMHDState state0;
+  test_eq(state0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+
+  // Init constructor
+  ConsMHDState state1 {393.23, 9.11, 0.023, 0.0001, -1.78e3, -1.0, 5.2e3, 1.2343};
+  test_eq(state1, 393.23, 9.11, 0.023, 0.0001, -1.78e3, -1.0, 5.2e3, 1.2343);
+
+  // Copy constructor
+  ConsMHDState state2 {0.001, 2.3e1, 0.323, 0.87, -1.3e2, 0.1, 0.2, 0.75};
+  ConsMHDState state3{state2};
+  test_eq_st(state3, state2);
+
+  // operator +
+  auto add = state1 + state2;
+  test_eq(add, 
+          state1.rho   + state2.rho,
+          state1.e_tot + state2.e_tot,
+          state1.rho_u + state2.rho_u,
+          state1.rho_v + state2.rho_v,
+          state1.rho_w + state2.rho_w,
+          state1.Bx    + state2.Bx,
+          state1.By    + state2.By,
+          state1.Bz    + state2.Bz);
+
+  real_t q1 = 837.222;
+  auto add2 = state1 + q1;
+  test_eq(add2,
+          state1.rho + q1,
+          state1.e_tot + q1,
+          state1.rho_u + q1,
+          state1.rho_v + q1,
+          state1.rho_w + q1,
+          state1.Bx + q1,
+          state1.By + q1,
+          state1.Bz + q1);
+
+  // operator +=
+  state3 += state1;
+  test_eq_st(state3, add);
+
+  state3 = state1;
+  state3 += q1;
+  test_eq_st(state3, add2);
+
+  // operator -
+  auto sub = state1 - state2;
+  test_eq(sub,
+          state1.rho - state2.rho,
+          state1.e_tot - state2.e_tot,
+          state1.rho_u - state2.rho_u,
+          state1.rho_v - state2.rho_v,
+          state1.rho_w - state2.rho_w,
+          state1.Bx    - state2.Bx,
+          state1.By    - state2.By,
+          state1.Bz    - state2.Bz);
+
+  // operator*
+  auto mul = state1 * state2;
+  test_eq(mul,
+          state1.rho * state2.rho,
+          state1.e_tot * state2.e_tot,
+          state1.rho_u * state2.rho_u,
+          state1.rho_v * state2.rho_v,
+          state1.rho_w * state2.rho_w,
+          state1.Bx    * state2.Bx,
+          state1.By    * state2.By,
+          state1.Bz    * state2.Bz);
+
+  real_t q3 = -1.2394;
+  auto mul2 = state2 * q3;
+  test_eq(mul2,
+          state2.rho * q3,
+          state2.e_tot * q3,
+          state2.rho_u * q3,
+          state2.rho_v * q3,
+          state2.rho_w * q3,
+          state2.Bx    * q3,
+          state2.By    * q3,
+          state2.Bz    * q3);
+
+  auto mul3 = q3 * state2;
+  test_eq_st(mul3, mul2);
+
+  real_t q4 = 13.22;
+  auto state4{state1};
+  state4 *= q4;
+  test_eq_st(state4, state1*q4);
+
+  // operator/
+  real_t q5 = 1.0e2;
+  auto div = state1 / q5;
+  test_eq(div,
+          state1.rho / q5,
+          state1.e_tot / q5,
+          state1.rho_u / q5,
+          state1.rho_v / q5,
+          state1.rho_w / q5,
+          state1.Bx    / q5,
+          state1.By    / q5,
+          state1.Bz    / q5);
 
   state1 /= q5;
   test_eq_st(state1, div);
