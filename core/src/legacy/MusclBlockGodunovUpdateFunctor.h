@@ -727,7 +727,7 @@ public:
                       const HydroState &qMinus) const
   {
 
-    const real_t slope_type = params.slope_type;
+    //const real_t slope_type = params.slope_type;
 
     HydroState dq;
 

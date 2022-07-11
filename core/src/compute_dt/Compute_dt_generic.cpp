@@ -18,7 +18,6 @@ public:
     gamma0( configMap.getValue<real_t>("hydro","gamma0", 1.4) ),
     smallr( configMap.getValue<real_t>("hydro","smallr", 1e-10) ),
     smallc( configMap.getValue<real_t>("hydro","smallc", 1e-10) ),
-    smallp( smallc*smallc/gamma0 ),
     has_mhd( configMap.getValue<std::string>("hydro", "update", "HydroUpdate_hancock").find("MHD") != std::string::npos )
   {}
 
@@ -90,7 +89,7 @@ private:
   ForeachCell& foreach_cell;
 
   real_t cfl;
-  real_t gamma0, smallr, smallc, smallp;  
+  real_t gamma0, smallr, smallc;  
   bool has_mhd;
 };
 

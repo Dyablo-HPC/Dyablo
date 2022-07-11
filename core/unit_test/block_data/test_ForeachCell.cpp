@@ -86,9 +86,6 @@ void run_test()
     amr_mesh->loadBalance();
   }
 
-  uint32_t nbOcts = amr_mesh->getNumOctants();
-  uint32_t nbGhosts = amr_mesh->getNumGhosts();
-
   // Content of .ini file used ton configure configmap and HydroParams
   char configmap_cstr[] = "";
   int configmap_cstr_len = sizeof(configmap_cstr);
