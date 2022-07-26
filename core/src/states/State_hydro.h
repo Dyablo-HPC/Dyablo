@@ -198,16 +198,18 @@ ConsHydroState primToCons(const PrimHydroState &Q, real_t gamma0) {
  * @param comp the component to swap with X
  */
 KOKKOS_INLINE_FUNCTION
-void swapComponents(PrimHydroState &q, ComponentIndex3D comp) {
-  if (comp == IY) {
-    real_t tmp_v = q.v;
-    q.v  = q.u;
-    q.u  = tmp_v;
-  }
-  else if (comp == IZ) {
-    real_t tmp_v = q.w;
-    q.w  = q.u;
-    q.u  = tmp_v;
+PrimHydroState swapComponents(const PrimHydroState &q, ComponentIndex3D comp) {
+  switch( comp )
+  {
+    case IX:
+      return q;
+    case IY:
+      return PrimHydroState{q.rho, q.p, q.v, q.u, q.w};
+    case IZ:
+      return PrimHydroState{q.rho, q.p, q.w, q.v, q.u};
+    default:
+      assert(false);
+      return PrimHydroState{};
   }
 }
 
@@ -221,16 +223,18 @@ void swapComponents(PrimHydroState &q, ComponentIndex3D comp) {
  * @param comp the component to swap with X
  */
 KOKKOS_INLINE_FUNCTION
-void swapComponents(ConsHydroState &u, ComponentIndex3D comp) {
-  if (comp == IY) {
-    real_t tmp_v = u.rho_v;
-    u.rho_v = u.rho_u;
-    u.rho_u = tmp_v;
-  }
-  else if (comp == IZ) {
-    real_t tmp_v = u.rho_w;
-    u.rho_w = u.rho_u;
-    u.rho_u = tmp_v;
+ConsHydroState swapComponents(const ConsHydroState &u, ComponentIndex3D comp) {
+  switch( comp )
+  {
+    case IX:
+      return u;
+    case IY:
+      return ConsHydroState{u.rho, u.e_tot, u.rho_v, u.rho_u, u.rho_w};
+    case IZ:
+      return ConsHydroState{u.rho, u.e_tot, u.rho_w, u.rho_v, u.rho_u};
+    default:
+      assert(false);
+      return ConsHydroState{};
   }
 }
 

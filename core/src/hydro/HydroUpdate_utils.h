@@ -158,15 +158,13 @@ compute_euler_flux(const typename State::PrimState& sourceL,
 
   // riemann solver along Y or Z direction requires to 
   // swap velocity components
-  swapComponents(qL, dir);
-  swapComponents(qR, dir);
+  PrimState qL_swap = swapComponents(qL, dir);
+  PrimState qR_swap = swapComponents(qR, dir);
 
   // step 4 : compute flux (Riemann solver)
   ConsState flux{};
-  flux = riemann_hydro(qL, qR, params);
-  swapComponents(flux, dir);
-  
-  return flux;
+  flux = riemann_hydro(qL_swap, qR_swap, params);
+  return swapComponents(flux, dir);
 }
 
 /**

@@ -147,15 +147,13 @@ namespace {
 
     // Riemann solver along Y or Z direction requires to 
     // swap velocity components
-    swapComponents(qL, dir);
-    swapComponents(qR, dir);
+    PrimState qL_swap = swapComponents(qL, dir);
+    PrimState qR_swap = swapComponents(qR, dir);
 
     // Compute flux (Riemann solver)
-    ConsState flux = riemann_hydro(qL, qR, params);
+    ConsState flux = riemann_hydro(qL_swap, qR_swap, params);
     
-    swapComponents(flux, dir);
-    
-    return flux;
+    return swapComponents(flux, dir);
   }
 
   /**

@@ -238,22 +238,18 @@ ConsMHDState primToCons(const PrimMHDState &Q, real_t gamma0) {
  * @param comp the component to swap with X
  */
 KOKKOS_INLINE_FUNCTION
-void swapComponents(PrimMHDState &q, ComponentIndex3D comp) {
-  if (comp == IY) {
-    real_t tmp_v = q.v;
-    real_t tmp_B = q.By;
-    q.v  = q.u;
-    q.By = q.Bx;
-    q.u  = tmp_v;
-    q.Bx = tmp_B;
-  }
-  else if (comp == IZ) {
-    real_t tmp_v = q.w;
-    real_t tmp_B = q.Bz;
-    q.w  = q.u;
-    q.Bz = q.Bx;
-    q.u  = tmp_v;
-    q.Bx = tmp_B;
+PrimMHDState swapComponents(const PrimMHDState &q, ComponentIndex3D comp) {
+  switch( comp )
+  {
+    case IX:
+      return q;
+    case IY:
+      return PrimMHDState{q.rho, q.p, q.v, q.u, q.w, q.By, q.Bx, q.Bz};
+    case IZ:
+      return PrimMHDState{q.rho, q.p, q.w, q.v, q.u, q.Bz, q.By, q.Bx};
+    default:
+      assert(false);
+      return PrimMHDState{};
   }
 }
 
@@ -267,22 +263,18 @@ void swapComponents(PrimMHDState &q, ComponentIndex3D comp) {
  * @param comp the component to swap with X
  */
 KOKKOS_INLINE_FUNCTION
-void swapComponents(ConsMHDState &u, ComponentIndex3D comp) {
-  if (comp == IY) {
-    real_t tmp_v = u.rho_v;
-    real_t tmp_B = u.By;
-    u.rho_v = u.rho_u;
-    u.By    = u.Bx;
-    u.rho_u = tmp_v;
-    u.Bx    = tmp_B;
-  }
-  else if (comp == IZ) {
-    real_t tmp_v = u.rho_w;
-    real_t tmp_B = u.Bz;
-    u.rho_w = u.rho_u;
-    u.Bz    = u.Bx;
-    u.rho_u = tmp_v;
-    u.Bx    = tmp_B;
+ConsMHDState swapComponents(const ConsMHDState &u, ComponentIndex3D comp) {
+  switch( comp )
+  {
+    case IX:
+      return u;
+    case IY:
+      return ConsMHDState{u.rho, u.e_tot, u.rho_v, u.rho_u, u.rho_w, u.By, u.Bx, u.Bz};
+    case IZ:
+      return ConsMHDState{u.rho, u.e_tot, u.rho_w, u.rho_v, u.rho_u, u.Bz, u.By, u.Bx};
+    default:
+      assert(false);
+      return ConsMHDState{};
   }
 }
 } // namespace dyablo

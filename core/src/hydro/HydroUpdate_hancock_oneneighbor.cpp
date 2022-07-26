@@ -208,16 +208,14 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
    **/
   auto riemann = [&](PrimState qr_c, PrimState qr_n, ComponentIndex3D dir, int sign)
   {
-    swapComponents(qr_c, dir);
-    swapComponents(qr_n, dir);
+    PrimState qr_c_swap = swapComponents(qr_c, dir);
+    PrimState qr_n_swap = swapComponents(qr_n, dir);
 
-    PrimState &qr_L = (sign<0)?qr_n:qr_c;
-    PrimState &qr_R = (sign<0)?qr_c:qr_n;
+    PrimState &qr_L = (sign<0)?qr_n_swap:qr_c_swap;
+    PrimState &qr_R = (sign<0)?qr_c_swap:qr_n_swap;
     ConsState flux = riemann_hydro(qr_L, qr_R, params);
 
-    swapComponents(flux, dir);
-      
-    return flux;
+    return swapComponents(flux, dir);
   };
 
   
