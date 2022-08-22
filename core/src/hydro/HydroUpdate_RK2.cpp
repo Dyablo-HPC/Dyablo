@@ -226,6 +226,23 @@ public:
         // Applying correction step for gravity
         if (has_gravity)
           apply_gravity_correction<ndim>(Uin, iCell_Uout, dt, gravity_use_field, gx, gy, gz, Uout);
+
+        {
+          ConsState u{};
+          getConservativeState<ndim>(Uout, iCell_Uout, u);
+          // This is fugly. Can't we do better ? We shouldn't need this for the code to be stable ...
+          PrimState q = consToPrim<ndim>(u, params.gamma0);
+          if (q.rho < 0.0) {
+            printf("WARNING ! Negative density detected !!!\n");
+            q.rho = params.smallr;
+          }
+          if (q.p < 0.0) {
+            printf("WARNING ! Negative pressure detected !!!\n");
+            q.p   = params.smallp;
+          }
+          u = primToCons<ndim>(q, params.gamma0);
+          setConservativeState<ndim>(Uout, iCell_Uout, u);
+        }
       });
     });
   }

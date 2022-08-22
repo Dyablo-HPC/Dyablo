@@ -158,15 +158,13 @@ compute_euler_flux(const typename State::PrimState& sourceL,
 
   // riemann solver along Y or Z direction requires to 
   // swap velocity components
-  swapComponents(qL, dir);
-  swapComponents(qR, dir);
+  PrimState qL_swap = swapComponents(qL, dir);
+  PrimState qR_swap = swapComponents(qR, dir);
 
   // step 4 : compute flux (Riemann solver)
   ConsState flux{};
-  flux = riemann_hydro(qL, qR, params);
-  swapComponents(flux, dir);
-  
-  return flux;
+  flux = riemann_hydro(qL_swap, qR_swap, params);
+  return swapComponents(flux, dir);
 }
 
 /**
@@ -554,18 +552,6 @@ void euler_update(const RiemannParams&    params,
   ConsState u{};
   getConservativeState<ndim>(Uout, iCell_Uout, u);
   u += (fluxL - fluxR) * dtddir;
-
-  // This is fugly. Can't we do better ? We shouldn't need this for the code to be stable ...
-  PrimState q = consToPrim<ndim>(u, params.gamma0);
-  if (q.rho < 0.0) {
-    printf("WARNING ! Negative density detected !!!\n");
-    q.rho = params.smallr;
-  }
-  if (q.p < 0.0) {
-    printf("WARNING ! Negative pressure detected !!!\n");
-    q.p   = params.smallp;
-  }
-  u = primToCons<ndim>(q, params.gamma0);
   setConservativeState<ndim>(Uout, iCell_Uout, u);
 }
 

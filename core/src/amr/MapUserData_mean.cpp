@@ -62,7 +62,6 @@ public:
   }
 
 private:
-  uint32_t bx, by, bz;
   ForeachCell& foreach_cell;
   LightOctree lmesh_old;
 };

@@ -39,7 +39,7 @@ public:
 
   bool getPeriodic( int i ) const
   { 
-    return {periodic[i/2]}; 
+    return periodic[i/2]; 
   }
   int get_max_supported_level()
   {

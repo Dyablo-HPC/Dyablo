@@ -6,7 +6,7 @@
 #define RIEMANN_SOLVERS_H_
 
 #include <math.h>
-
+#include "states/State_Nd.h"
 #include "states/State_forward.h"
 
 namespace dyablo {
@@ -175,7 +175,7 @@ void riemann_mhd(const PrimMHDState& qleft,
   const real_t emagL = 0.5 * (qleft.Bx*qleft.Bx + qleft.By*qleft.By + qleft.Bz*qleft.Bz); 
   const real_t B2L   = qleft.Bx*qleft.Bx;
   const real_t B2TL  = 2.0*emagL - B2L;
-  const real_t BNBTL = sqrt(B2L*B2TL);   
+  //const real_t BNBTL = sqrt(B2L*B2TL);   
   const real_t cs_L  = sqrt(params.gamma0 * qleft.p / qleft.rho);
         real_t c_AL  = sqrt(qleft.rho * (1.5*B2L + 0.5*B2TL)) + epsilon;
         real_t c_BL  = sqrt(qleft.rho*(qleft.rho*cs_L*cs_L + 1.5*B2TL + 0.5*B2L));
@@ -185,7 +185,7 @@ void riemann_mhd(const PrimMHDState& qleft,
   const real_t emagR = 0.5 * (qright.Bx*qright.Bx + qright.By*qright.By + qright.Bz*qright.Bz);    
   const real_t B2R   = qright.Bx*qright.Bx;
   const real_t B2TR  = 2.0*emagR - B2R;
-  const real_t BNBTR = sqrt(B2R*B2TR);   
+  //const real_t BNBTR = sqrt(B2R*B2TR);   
   const real_t cs_R  = sqrt(params.gamma0 * qright.p / qright.rho);
         real_t c_AR  = sqrt(qright.rho * (1.5*B2R + 0.5*B2TR)) + epsilon;
         real_t c_BR  = sqrt(qright.rho*(qright.rho*cs_R*cs_R + 1.5*B2TR + 0.5*B2R));

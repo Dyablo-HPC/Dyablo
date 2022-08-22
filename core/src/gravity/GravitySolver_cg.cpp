@@ -97,7 +97,7 @@ real_t get_value(const GhostedArray& U, const CellIndex& iCell_U, VarIndex var, 
 KOKKOS_INLINE_FUNCTION
 real_t matprod(const GhostedArray& GCdata, const CellIndex& iCell_CGdata, VarIndex var, real_t dx, real_t dy, real_t dz, const Kokkos::Array<BoundaryConditionType, 3>& boundarycondition)
 {
-  constexpr int ndim = 3;
+  //constexpr int ndim = 3;
 
   Kokkos::Array<real_t, 3> ddir { dx, dy, dz };
 

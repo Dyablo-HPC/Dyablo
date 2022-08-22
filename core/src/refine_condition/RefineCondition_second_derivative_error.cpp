@@ -76,7 +76,7 @@ public:
                 ForeachCell& foreach_cell,
                 Timers& timers )
     : foreach_cell(foreach_cell),
-      timers(timers),
+      //timers(timers),
       error_min ( configMap.getValue<real_t>("amr", "error_min", 0.2) ),
       error_max ( configMap.getValue<real_t>("amr", "error_max", 0.8) ),
       gravity_type( configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE) ),
@@ -241,7 +241,6 @@ public:
 
 private:
   ForeachCell& foreach_cell;
-  Timers& timers;
   real_t error_min, error_max;
 
   GravityType gravity_type;

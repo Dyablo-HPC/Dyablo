@@ -14,7 +14,7 @@ public:
                 ForeachCell& foreach_cell,
                 Timers& timers )
     : foreach_cell(foreach_cell),
-      timers(timers),
+      //timers(timers),
       error_min ( configMap.getValue<real_t>("amr", "epsilon_coarsen", 0.002) ), // TODO : pick better names
       error_max ( configMap.getValue<real_t>("amr", "epsilon_refine", 0.001) )
   {}
@@ -169,7 +169,7 @@ public:
 
 private:
   ForeachCell& foreach_cell;
-  Timers& timers;
+  //Timers& timers;
   real_t error_min, error_max;  
 };
 

@@ -2,7 +2,7 @@
 
 #include "real_type.h"
 #include "kokkos_shared.h"
-#include "State_Nd.h"
+#include "State_Ops.h"
 #include "FieldManager.h"
 
 namespace dyablo {
@@ -19,6 +19,13 @@ struct ConsHydroState {
   real_t rho_w = 0;
 };
 
+DECLARE_STATE_TYPE( ConsHydroState, 5 );
+DECLARE_STATE_GET( ConsHydroState, 0, rho );
+DECLARE_STATE_GET( ConsHydroState, 1, e_tot );
+DECLARE_STATE_GET( ConsHydroState, 2, rho_u );
+DECLARE_STATE_GET( ConsHydroState, 3, rho_v );
+DECLARE_STATE_GET( ConsHydroState, 4, rho_w );
+
 /**
  * @brief Structure holding primitive hydrodynamics variables
  */
@@ -30,6 +37,13 @@ struct PrimHydroState {
   real_t w = 0;
 };
 
+DECLARE_STATE_TYPE( PrimHydroState, 5 );
+DECLARE_STATE_GET( PrimHydroState, 0, rho );
+DECLARE_STATE_GET( PrimHydroState, 1, p );
+DECLARE_STATE_GET( PrimHydroState, 2, u );
+DECLARE_STATE_GET( PrimHydroState, 3, v );
+DECLARE_STATE_GET( PrimHydroState, 4, w );
+
 /**
  * @brief Structure grouping the primitive and conservative hydro state as well
  *        as information on the number of fields to store per state
@@ -38,52 +52,6 @@ struct HydroState {
   using PrimState = PrimHydroState;
   using ConsState = ConsHydroState;
   static constexpr size_t N = 5;
-};
-
-/**
- * @brief StateNd_conversion for ConsHydroState
- */
-template<>
-struct StateNd_conversion<ConsHydroState> 
-{
-    static constexpr bool is_convertible = true;
-    static constexpr size_t N = 5;
-    using State_t = ConsHydroState;
-    using StateNd_t = StateNd<N>;
-
-    KOKKOS_INLINE_FUNCTION
-    static StateNd_t to_StateNd_t(const State_t& v)
-    {
-        return {v.rho, v.e_tot, v.rho_u, v.rho_v, v.rho_w};
-    }
-    KOKKOS_INLINE_FUNCTION
-    static State_t to_State_t(const StateNd_t& v)
-    {
-        return {v[0],v[1],v[2],v[3],v[4]};
-    }
-};
-
-/**
- * @brief StateNd_conversion for PrimHydroState  
- */
-template<>
-struct StateNd_conversion<PrimHydroState> 
-{
-    static constexpr bool is_convertible = true;
-    static constexpr size_t N = 5;
-    using State_t = PrimHydroState;
-    using StateNd_t = StateNd<N>;
-
-    KOKKOS_INLINE_FUNCTION
-    static StateNd_t to_StateNd_t(const State_t& v)
-    {
-        return {v.rho, v.p, v.u, v.v, v.w};
-    }
-    KOKKOS_INLINE_FUNCTION
-    static State_t to_State_t(const StateNd_t& v)
-    {
-        return {v[0],v[1],v[2],v[3],v[4]};
-    }
 };
 
 /**
@@ -230,16 +198,18 @@ ConsHydroState primToCons(const PrimHydroState &Q, real_t gamma0) {
  * @param comp the component to swap with X
  */
 KOKKOS_INLINE_FUNCTION
-void swapComponents(PrimHydroState &q, ComponentIndex3D comp) {
-  if (comp == IY) {
-    real_t tmp_v = q.v;
-    q.v  = q.u;
-    q.u  = tmp_v;
-  }
-  else if (comp == IZ) {
-    real_t tmp_v = q.w;
-    q.w  = q.u;
-    q.u  = tmp_v;
+PrimHydroState swapComponents(const PrimHydroState &q, ComponentIndex3D comp) {
+  switch( comp )
+  {
+    case IX:
+      return q;
+    case IY:
+      return PrimHydroState{q.rho, q.p, q.v, q.u, q.w};
+    case IZ:
+      return PrimHydroState{q.rho, q.p, q.w, q.v, q.u};
+    default:
+      assert(false);
+      return PrimHydroState{};
   }
 }
 
@@ -253,16 +223,18 @@ void swapComponents(PrimHydroState &q, ComponentIndex3D comp) {
  * @param comp the component to swap with X
  */
 KOKKOS_INLINE_FUNCTION
-void swapComponents(ConsHydroState &u, ComponentIndex3D comp) {
-  if (comp == IY) {
-    real_t tmp_v = u.rho_v;
-    u.rho_v = u.rho_u;
-    u.rho_u = tmp_v;
-  }
-  else if (comp == IZ) {
-    real_t tmp_v = u.rho_w;
-    u.rho_w = u.rho_u;
-    u.rho_u = tmp_v;
+ConsHydroState swapComponents(const ConsHydroState &u, ComponentIndex3D comp) {
+  switch( comp )
+  {
+    case IX:
+      return u;
+    case IY:
+      return ConsHydroState{u.rho, u.e_tot, u.rho_v, u.rho_u, u.rho_w};
+    case IZ:
+      return ConsHydroState{u.rho, u.e_tot, u.rho_w, u.rho_v, u.rho_u};
+    default:
+      assert(false);
+      return ConsHydroState{};
   }
 }
 

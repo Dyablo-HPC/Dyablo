@@ -14,199 +14,209 @@ using HydroState2d = StateNd<4>;
 using HydroState3d = StateNd<5>;
 using GravityField = StateNd<3>;
 
-/**
- * @brief Trait used to indicate if a State_t is convertible to a StateNd.
- * @tparam State_t the class to convert to a StateNd
- */
-template< typename State_t >
-struct StateNd_conversion
-{
-  static constexpr bool is_convertible = false;
-};
-
-template<size_t N_>
-struct StateNd_conversion<StateNd<N_>> 
-{
-    static constexpr bool is_convertible = true;
-    static constexpr size_t N = N_;
-    using State_t = StateNd<N>;
-    using StateNd_t = StateNd<N>;
-
-    KOKKOS_INLINE_FUNCTION
-    static const StateNd_t& to_StateNd_t(const State_t& v)
-    {
-        return v;
-    }
-    KOKKOS_INLINE_FUNCTION
-    static const State_t& to_State_t(const StateNd_t& v)
-    {
-        return v;
-    }
-};
-
-static_assert( StateNd_conversion<HydroState2d>::is_convertible );
-
-// Operators on convertible states
+// Operators on StateNd
 // Operator +
-template<typename State_t,
-         std::enable_if_t<StateNd_conversion<State_t>::is_convertible, bool> = true >
+template< size_t N >
 KOKKOS_INLINE_FUNCTION
-State_t operator+(const State_t& lhs_, const State_t& rhs_)
+StateNd<N> operator+(const StateNd<N>& lhs, const StateNd<N>& rhs)
 {
-    using Conv = StateNd_conversion<State_t>;
-    constexpr size_t N = Conv::N;
-    using StateNd_t = StateNd<N>;
-
-    StateNd_t res{};
-    StateNd_t lhs = Conv::to_StateNd_t(lhs_);
-    StateNd_t rhs = Conv::to_StateNd_t(rhs_);
+    StateNd<N> res {};
     for (size_t i=0; i<N; ++i)
         res[i] = lhs[i] + rhs[i];
-    return Conv::to_State_t(res);
+    return res;
 }
 
-template<typename State_t, 
-         typename T,
-         std::enable_if_t<StateNd_conversion<State_t>::is_convertible, bool> = true >
+template< size_t N >
 KOKKOS_INLINE_FUNCTION
-State_t operator+(const State_t& lhs_, const T& rhs)
+StateNd<N> operator+(const StateNd<N>& lhs, real_t rhs)
 {
-    using Conv = StateNd_conversion<State_t>;
-    constexpr size_t N = Conv::N;
-    using StateNd_t = StateNd<N>;
-
-    StateNd_t res{};
-    StateNd_t lhs = Conv::to_StateNd_t(lhs_);
+    StateNd<N> res {};
     for (size_t i=0; i<N; ++i)
         res[i] = lhs[i] + rhs;
-    return Conv::to_State_t(res);
+    return res;
 }
 
-template<typename State_t, 
-         typename T,
-         std::enable_if_t<StateNd_conversion<State_t>::is_convertible, bool> = true>
+template< size_t N >
 KOKKOS_INLINE_FUNCTION
-State_t& operator+=(State_t &lhs, const T &rhs) {
-  return lhs = lhs + rhs;
+StateNd<N> operator+(real_t lhs, const StateNd<N>& rhs)
+{
+    StateNd<N> res {};
+    for (size_t i=0; i<N; ++i)
+        res[i] = lhs + rhs[i];
+    return res;
+}
+
+template< size_t N >
+KOKKOS_INLINE_FUNCTION
+StateNd<N> operator+=(StateNd<N>& lhs, const StateNd<N>& rhs)
+{
+    StateNd<N> res {};
+    for (size_t i=0; i<N; ++i)
+        lhs[i] += rhs[i];
+    return res;
+}
+
+template< size_t N >
+KOKKOS_INLINE_FUNCTION
+StateNd<N> operator+=(StateNd<N>& lhs, real_t rhs)
+{
+    StateNd<N> res {};
+    for (size_t i=0; i<N; ++i)
+        lhs[i] += rhs;
+    return res;
 }
 
 // Operator -
-template<typename State_t,
-         std::enable_if_t<StateNd_conversion<State_t>::is_convertible, bool> = true >
+template< size_t N >
 KOKKOS_INLINE_FUNCTION
-State_t operator-(const State_t& lhs_, const State_t& rhs_)
+StateNd<N> operator-(const StateNd<N>& lhs, const StateNd<N>& rhs)
 {
-    using Conv = StateNd_conversion<State_t>;
-    constexpr size_t N = Conv::N;
-    using StateNd_t = StateNd<N>;
-
-    StateNd_t res{};
-    StateNd_t lhs = Conv::to_StateNd_t(lhs_);
-    StateNd_t rhs = Conv::to_StateNd_t(rhs_);
+    StateNd<N> res {};
     for (size_t i=0; i<N; ++i)
         res[i] = lhs[i] - rhs[i];
-    return Conv::to_State_t(res);
+    return res;
 }
 
-template<typename State_t, 
-         typename T,
-         std::enable_if_t<StateNd_conversion<State_t>::is_convertible, bool> = true >
+template< size_t N >
 KOKKOS_INLINE_FUNCTION
-State_t operator-(const State_t& lhs_, const T& rhs)
+StateNd<N> operator-(const StateNd<N>& lhs, real_t rhs)
 {
-    using Conv = StateNd_conversion<State_t>;
-    constexpr size_t N = Conv::N;
-    using StateNd_t = StateNd<N>;
-
-    StateNd_t res{};
-    StateNd_t lhs = Conv::to_StateNd_t(lhs_);
+    StateNd<N> res {};
     for (size_t i=0; i<N; ++i)
         res[i] = lhs[i] - rhs;
-    return Conv::to_State_t(res);
+    return res;
 }
 
-template<typename State_t, 
-         typename T,
-         std::enable_if_t<StateNd_conversion<State_t>::is_convertible, bool> = true>
+template< size_t N >
 KOKKOS_INLINE_FUNCTION
-State_t& operator-=(State_t &lhs, const T &rhs) {
-  return lhs = lhs - rhs;
+StateNd<N> operator-(real_t lhs, const StateNd<N>& rhs)
+{
+    StateNd<N> res {};
+    for (size_t i=0; i<N; ++i)
+        res[i] = lhs - rhs[i];
+    return res;
+}
+
+template< size_t N >
+KOKKOS_INLINE_FUNCTION
+StateNd<N> operator-=(StateNd<N>& lhs, const StateNd<N>& rhs)
+{
+    StateNd<N> res {};
+    for (size_t i=0; i<N; ++i)
+        lhs[i] -= rhs[i];
+    return res;
+}
+
+template< size_t N >
+KOKKOS_INLINE_FUNCTION
+StateNd<N> operator-=(StateNd<N>& lhs, real_t rhs)
+{
+    StateNd<N> res {};
+    for (size_t i=0; i<N; ++i)
+        lhs[i] -= rhs;
+    return res;
 }
 
 // Operator *
-template<typename State_t,
-         std::enable_if_t<StateNd_conversion<State_t>::is_convertible, bool> = true >
+template< size_t N >
 KOKKOS_INLINE_FUNCTION
-State_t operator*(const State_t& lhs_, const State_t& rhs_)
+StateNd<N> operator*(const StateNd<N>& lhs, const StateNd<N>& rhs)
 {
-    using Conv = StateNd_conversion<State_t>;
-    constexpr size_t N = Conv::N;
-    using StateNd_t = StateNd<N>;
-
-    StateNd_t res{};
-    StateNd_t lhs = Conv::to_StateNd_t(lhs_);
-    StateNd_t rhs = Conv::to_StateNd_t(rhs_);
+    StateNd<N> res {};
     for (size_t i=0; i<N; ++i)
         res[i] = lhs[i] * rhs[i];
-    return Conv::to_State_t(res);
+    return res;
 }
 
-template<typename State_t, 
-         typename T,
-         std::enable_if_t<StateNd_conversion<State_t>::is_convertible, bool> = true >
+template< size_t N >
 KOKKOS_INLINE_FUNCTION
-State_t operator*(const State_t& lhs_, const T& rhs)
+StateNd<N> operator*(const StateNd<N>& lhs, real_t rhs)
 {
-    using Conv = StateNd_conversion<State_t>;
-    constexpr size_t N = Conv::N;
-    using StateNd_t = StateNd<N>;
-
-    StateNd_t res{};
-    StateNd_t lhs = Conv::to_StateNd_t(lhs_);
+    StateNd<N> res {};
     for (size_t i=0; i<N; ++i)
         res[i] = lhs[i] * rhs;
-    return Conv::to_State_t(res);
+    return res;
 }
 
-template<typename State_t, 
-         typename T,
-         std::enable_if_t<StateNd_conversion<State_t>::is_convertible, bool> = true >
+template< size_t N >
 KOKKOS_INLINE_FUNCTION
-State_t operator*(const T& lhs, const State_t& rhs)
+StateNd<N> operator*(real_t lhs, const StateNd<N>& rhs)
 {
-  return rhs*lhs;
+    StateNd<N> res {};
+    for (size_t i=0; i<N; ++i)
+        res[i] = lhs * rhs[i];
+    return res;
 }
 
-template<typename State_t,
-         std::enable_if_t<StateNd_conversion<State_t>::is_convertible, bool> = true >
+template< size_t N >
 KOKKOS_INLINE_FUNCTION
-State_t& operator*=(State_t &lhs, const real_t &rhs) {
-  return lhs = lhs * rhs;
+StateNd<N> operator*=(StateNd<N>& lhs, const StateNd<N>& rhs)
+{
+    StateNd<N> res {};
+    for (size_t i=0; i<N; ++i)
+        lhs[i] *= rhs[i];
+    return res;
 }
 
+template< size_t N >
+KOKKOS_INLINE_FUNCTION
+StateNd<N> operator*=(StateNd<N>& lhs, real_t rhs)
+{
+    StateNd<N> res {};
+    for (size_t i=0; i<N; ++i)
+        lhs[i] *= rhs;
+    return res;
+}
 
 // Operator /
-template<typename State_t,
-         std::enable_if_t<StateNd_conversion<State_t>::is_convertible, bool> = true >
+template< size_t N >
 KOKKOS_INLINE_FUNCTION
-State_t operator/(const State_t& lhs_, const real_t rhs_)
+StateNd<N> operator/(const StateNd<N>& lhs, const StateNd<N>& rhs)
 {
-    using Conv = StateNd_conversion<State_t>;
-    constexpr size_t N = Conv::N;
-    using StateNd_t = StateNd<N>;
-
-    StateNd_t res{};
-    StateNd_t lhs = Conv::to_StateNd_t(lhs_);
+    StateNd<N> res {};
     for (size_t i=0; i<N; ++i)
-        res[i] = lhs[i] / rhs_;
-    return Conv::to_State_t(res);
+        res[i] = lhs[i] / rhs[i];
+    return res;
 }
 
-template<typename State_t,
-         std::enable_if_t<StateNd_conversion<State_t>::is_convertible, bool> = true >
+template< size_t N >
 KOKKOS_INLINE_FUNCTION
-State_t& operator/=(State_t &lhs, const real_t &rhs) {
-  return lhs = lhs / rhs;
+StateNd<N> operator/(const StateNd<N>& lhs, real_t rhs)
+{
+    StateNd<N> res {};
+    for (size_t i=0; i<N; ++i)
+        res[i] = lhs[i] / rhs;
+    return res;
+}
+
+template< size_t N >
+KOKKOS_INLINE_FUNCTION
+StateNd<N> operator/(real_t lhs, const StateNd<N>& rhs)
+{
+    StateNd<N> res {};
+    for (size_t i=0; i<N; ++i)
+        res[i] = lhs / rhs[i];
+    return res;
+}
+
+template< size_t N >
+KOKKOS_INLINE_FUNCTION
+StateNd<N> operator/=(StateNd<N>& lhs, const StateNd<N>& rhs)
+{
+    StateNd<N> res {};
+    for (size_t i=0; i<N; ++i)
+        lhs[i] /= rhs[i];
+    return res;
+}
+
+template< size_t N >
+KOKKOS_INLINE_FUNCTION
+StateNd<N> operator/=(StateNd<N>& lhs, real_t rhs)
+{
+    StateNd<N> res {};
+    for (size_t i=0; i<N; ++i)
+        lhs[i] /= rhs;
+    return res;
 }
 
 

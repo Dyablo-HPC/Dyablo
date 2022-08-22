@@ -45,13 +45,19 @@ The CMake superbuild should automatically find dependencies and warn you if any 
 You will need a recent C++ compiler capable of compiling Kokkos. We regularly compile Dyablo using :
 * `g++` (7.5, 9.1, 11.1, ...)
 * `icc` (19, 20)
+* `clang`
 
 Other dependencies include :
 * MPI (OpenMPI)
 * HDF5 (parallel)
 * libxml2
 
-To compile for GPU, a CUDA installation is needed, preferably newer than CUDA 11.0. Versions before CUDA 10 may need a custom version of PABLO to compile, you can find it here : [PABLO](git@github.com:pkestene/bitpit.git), branches ending with *-dyablo. Dyablo supports both CUDA-Aware and non CUDA-Aware MPI implementations when compiling for GPU, make sure that cuda-aware support has been correctly detected in the CMake logs.
+To compile for GPU, a CUDA installation is needed, preferably newer than CUDA 11.2. Versions before CUDA 10 may need a custom version of PABLO to compile, you can find it here : [PABLO](git@github.com:pkestene/bitpit.git), branches ending with *-dyablo. Dyablo supports both CUDA-Aware and non CUDA-Aware MPI implementations when compiling for GPU, make sure that cuda-aware support has been correctly detected in the CMake logs.
+
+Kokkos automatically detects and sets the CUDA compiler when Kokkos_ENABLE_CUDA is ON :
+* When the C++ compiler is not compatible with CUDA, Kokkos uses NVCC to compile device code. NVCC version must be >= 11.2
+* When the C++ compiler is compatible with CUDA (e.g clang), Kokkos uses this compiler
+For more details, see the [Kokkos documentation](https://github.com/kokkos/kokkos/wiki/Compiling)
 
 Build commands for some HPC clusters are available [here](https://gitlab.maisondelasimulation.fr/pkestene/dyablo/-/wikis/Compilation-instructions-for-super-computers) to help you find modules that work well with each others.
 

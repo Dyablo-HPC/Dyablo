@@ -2,7 +2,7 @@
 
 #include "real_type.h"
 #include "kokkos_shared.h"
-#include "State_Nd.h"
+#include "State_Ops.h"
 
 namespace dyablo {
 
@@ -20,6 +20,16 @@ struct ConsMHDState {
   real_t Bz = 0;
 };
 
+DECLARE_STATE_TYPE( ConsMHDState, 8 );
+DECLARE_STATE_GET( ConsMHDState, 0, rho );
+DECLARE_STATE_GET( ConsMHDState, 1, e_tot );
+DECLARE_STATE_GET( ConsMHDState, 2, rho_u );
+DECLARE_STATE_GET( ConsMHDState, 3, rho_v );
+DECLARE_STATE_GET( ConsMHDState, 4, rho_w );
+DECLARE_STATE_GET( ConsMHDState, 5, Bx );
+DECLARE_STATE_GET( ConsMHDState, 6, By );
+DECLARE_STATE_GET( ConsMHDState, 7, Bz );
+
 /**
  * @brief Structure holding primitive magneto-hydrodynamics variables
  */
@@ -34,6 +44,18 @@ struct PrimMHDState {
   real_t Bz = 0;
 };
 
+DECLARE_STATE_TYPE( PrimMHDState, 8 );
+DECLARE_STATE_GET( PrimMHDState, 0, rho );
+DECLARE_STATE_GET( PrimMHDState, 1, p );
+DECLARE_STATE_GET( PrimMHDState, 2, u );
+DECLARE_STATE_GET( PrimMHDState, 3, v );
+DECLARE_STATE_GET( PrimMHDState, 4, w );
+DECLARE_STATE_GET( PrimMHDState, 5, Bx );
+DECLARE_STATE_GET( PrimMHDState, 6, By );
+DECLARE_STATE_GET( PrimMHDState, 7, Bz );
+
+
+
 /**
  * @brief Structure grouping the primitive and conservative MHD state as well
  *        as information on the number of fields to store per state
@@ -42,52 +64,6 @@ struct MHDState {
   using PrimState = PrimMHDState;
   using ConsState = ConsMHDState;
   static constexpr size_t N = 8;
-};
-
-/**
- * @brief StateNd_conversion for ConsMHDState
- */
-template<>
-struct StateNd_conversion<ConsMHDState> 
-{
-    static constexpr bool is_convertible = true;
-    static constexpr size_t N = 8;
-    using State_t = ConsMHDState;
-    using StateNd_t = StateNd<N>;
-
-    KOKKOS_INLINE_FUNCTION
-    static StateNd_t to_StateNd_t(const State_t& v)
-    {
-        return {v.rho, v.e_tot, v.rho_u, v.rho_v, v.rho_w, v.Bx, v.By, v.Bz};
-    }
-    KOKKOS_INLINE_FUNCTION
-    static State_t to_State_t(const StateNd_t& v)
-    {
-        return {v[0],v[1],v[2],v[3],v[4],v[5],v[6],v[7]};
-    }
-};
-
-/**
- * @brief StateNd_conversion for PrimMHDState  
- */
-template<>
-struct StateNd_conversion<PrimMHDState> 
-{
-    static constexpr bool is_convertible = true;
-    static constexpr size_t N = 8;
-    using State_t = PrimMHDState;
-    using StateNd_t = StateNd<N>;
-
-    KOKKOS_INLINE_FUNCTION
-    static StateNd_t to_StateNd_t(const State_t& v)
-    {
-        return {v.rho, v.p, v.u, v.v, v.w, v.Bx, v.By, v.Bz};
-    }
-    KOKKOS_INLINE_FUNCTION
-    static State_t to_State_t(const StateNd_t& v)
-    {
-        return {v[0],v[1],v[2],v[3],v[4],v[5],v[6],v[7]};
-    }
 };
 
 /**
@@ -262,22 +238,18 @@ ConsMHDState primToCons(const PrimMHDState &Q, real_t gamma0) {
  * @param comp the component to swap with X
  */
 KOKKOS_INLINE_FUNCTION
-void swapComponents(PrimMHDState &q, ComponentIndex3D comp) {
-  if (comp == IY) {
-    real_t tmp_v = q.v;
-    real_t tmp_B = q.By;
-    q.v  = q.u;
-    q.By = q.Bx;
-    q.u  = tmp_v;
-    q.Bx = tmp_B;
-  }
-  else if (comp == IZ) {
-    real_t tmp_v = q.w;
-    real_t tmp_B = q.Bz;
-    q.w  = q.u;
-    q.Bz = q.Bx;
-    q.u  = tmp_v;
-    q.Bx = tmp_B;
+PrimMHDState swapComponents(const PrimMHDState &q, ComponentIndex3D comp) {
+  switch( comp )
+  {
+    case IX:
+      return q;
+    case IY:
+      return PrimMHDState{q.rho, q.p, q.v, q.u, q.w, q.By, q.Bx, q.Bz};
+    case IZ:
+      return PrimMHDState{q.rho, q.p, q.w, q.v, q.u, q.Bz, q.By, q.Bx};
+    default:
+      assert(false);
+      return PrimMHDState{};
   }
 }
 
@@ -291,22 +263,18 @@ void swapComponents(PrimMHDState &q, ComponentIndex3D comp) {
  * @param comp the component to swap with X
  */
 KOKKOS_INLINE_FUNCTION
-void swapComponents(ConsMHDState &u, ComponentIndex3D comp) {
-  if (comp == IY) {
-    real_t tmp_v = u.rho_v;
-    real_t tmp_B = u.By;
-    u.rho_v = u.rho_u;
-    u.By    = u.Bx;
-    u.rho_u = tmp_v;
-    u.Bx    = tmp_B;
-  }
-  else if (comp == IZ) {
-    real_t tmp_v = u.rho_w;
-    real_t tmp_B = u.Bz;
-    u.rho_w = u.rho_u;
-    u.Bz    = u.Bx;
-    u.rho_u = tmp_v;
-    u.Bx    = tmp_B;
+ConsMHDState swapComponents(const ConsMHDState &u, ComponentIndex3D comp) {
+  switch( comp )
+  {
+    case IX:
+      return u;
+    case IY:
+      return ConsMHDState{u.rho, u.e_tot, u.rho_v, u.rho_u, u.rho_w, u.By, u.Bx, u.Bz};
+    case IZ:
+      return ConsMHDState{u.rho, u.e_tot, u.rho_w, u.rho_v, u.rho_u, u.Bz, u.By, u.Bx};
+    default:
+      assert(false);
+      return ConsMHDState{};
   }
 }
 } // namespace dyablo

@@ -77,18 +77,14 @@ void compute_limited_slopes(const GhostedArray& Q, const CellIndex& iCell_U,
   //        independent of the type of state. Otherwise we have
   //        to use this kind of horror ...
   using PrimState = typename State::PrimState;
-  using StateD    = StateNd<State::N>;
-  using Conv      = StateNd_conversion<PrimState>;
 
-  StateD grad[ndim];
+  PrimState grad[ndim];
   for (int d=0; d < ndim; ++d) 
-    for (size_t i=0; i < State::N; ++i)
-      grad[d][i] = big_real();
-        
+    state_foreach_var( [](real_t& res){ res=big_real(); }, grad[d] );        
 
   PrimState qP{};
   getPrimitiveState<ndim>(Q, iCell_U, qP);
-  auto q = Conv::to_StateNd_t(qP);
+  PrimState q = qP;
   
   /// Compute gradient and apply slope limiter for neighbor 'iCell_neighbor' at position 'pos_neighbor' and in direction 'dir'
   auto update_minmod =[&]( const ComponentIndex3D& dir, const CellIndex& iCell_neighbor, real_t pos_n )
@@ -104,19 +100,21 @@ void compute_limited_slopes(const GhostedArray& Q, const CellIndex& iCell_U,
 
     PrimState qNeighP{};
     getPrimitiveState<ndim>(Q, iCell_neighbor, qNeighP);
-    auto qNeigh = Conv::to_StateNd_t(qNeighP);
+    PrimState qNeigh = qNeighP;
 
-    auto new_grad = (qNeigh - q)/delta_x;
+    PrimState new_grad = (qNeigh - q)/delta_x;
 
     // this first test ensure a correct initialization
-    for (size_t iVar=0; iVar < State::N; ++iVar) {
-      if ( old_value[iVar] == big_real() )
-        new_value[iVar] = new_grad[iVar];
-      else if (old_value[iVar] * new_grad[iVar] < 0)
-        new_value[iVar] = 0.0;
-      else if ( fabs(new_grad[iVar]) < fabs(old_value[iVar]) )
-        new_value[iVar] = new_grad[iVar];
-    }
+    state_foreach_var( 
+      [](real_t& new_value, real_t old_value, real_t new_grad)
+    {
+      if ( old_value == big_real() )
+        new_value = new_grad;
+      else if (old_value * new_grad < 0)
+        new_value = 0.0;
+      else if ( fabs(new_grad) < fabs(old_value) )
+        new_value = new_grad;
+    }, new_value, old_value, new_grad ); 
 
     grad[dir] = new_value;
   };
@@ -156,14 +154,14 @@ void compute_limited_slopes(const GhostedArray& Q, const CellIndex& iCell_U,
 
   PrimState gradP[ndim]{};
 
-  gradP[IX] = Conv::to_State_t(grad[IX]);
+  gradP[IX] = grad[IX];
   setPrimitiveState<ndim>(Slope_x, iCell_U, gradP[IX]);
 
-  gradP[IY] = Conv::to_State_t(grad[IY]);
+  gradP[IY] = grad[IY];
   setPrimitiveState<ndim>(Slope_y, iCell_U, gradP[IY]);
 
   if(ndim==3) {
-    gradP[IZ] = Conv::to_State_t(grad[IZ]);
+    gradP[IZ] = grad[IZ];
     setPrimitiveState<ndim>(Slope_z, iCell_U, gradP[IZ]);
   }
 }
@@ -210,16 +208,14 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
    **/
   auto riemann = [&](PrimState qr_c, PrimState qr_n, ComponentIndex3D dir, int sign)
   {
-    swapComponents(qr_c, dir);
-    swapComponents(qr_n, dir);
+    PrimState qr_c_swap = swapComponents(qr_c, dir);
+    PrimState qr_n_swap = swapComponents(qr_n, dir);
 
-    PrimState &qr_L = (sign<0)?qr_n:qr_c;
-    PrimState &qr_R = (sign<0)?qr_c:qr_n;
+    PrimState &qr_L = (sign<0)?qr_n_swap:qr_c_swap;
+    PrimState &qr_R = (sign<0)?qr_c_swap:qr_n_swap;
     ConsState flux = riemann_hydro(qr_L, qr_R, params);
 
-    swapComponents(flux, dir);
-      
-    return flux;
+    return swapComponents(flux, dir);
   };
 
   

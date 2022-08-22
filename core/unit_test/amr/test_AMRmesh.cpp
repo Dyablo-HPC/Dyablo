@@ -166,8 +166,8 @@ void run_test(const Test_data& test_data)
                 {
                   int current_level = lmesh.getLevel({iOct, false});
 
-                  bool boundary = lmesh.isBoundary( {iOct, false}, {nx,ny,nz} );
                   dyablo::LightOctree::NeighborList ns = lmesh.findNeighbors( {iOct, false}, {nx,ny,nz} );
+                  //bool boundary = lmesh.isBoundary( {iOct, false}, {nx,ny,nz} );
                   //EXPECT_TRUE( ns.size()>0 || boundary );
 
                   for( int i=0; i<ns.size(); i++ )

@@ -131,7 +131,7 @@ public:
         pmesh->findNeighbours(iOct.iOct, pablo_iface, pablo_codim, iOct_neighbors, isghost_neighbors);
 
         // Fill NeighborList from PABLO's result
-        NeighborList neighbors={0,{99,true}};
+        NeighborList neighbors={0,{OctantIndex{99,true}}};
         if( iOct_neighbors.size() == 0 )
         {
             // If PABLO returns 0 neighbors, he might be wrong (see fix_missing_corner_neighbor())
