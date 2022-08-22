@@ -72,10 +72,6 @@ void compute_limited_slopes(const GhostedArray& Q, const CellIndex& iCell_U,
                             ForeachCell::CellMetaData::pos_t pos_cell, ForeachCell::CellMetaData::pos_t cell_size,
                             const GhostedArray& Slope_x, const GhostedArray& Slope_y, const GhostedArray& Slope_z)
 {
-  // TODO : Same as for the other implementations, we need a 
-  //        definition of the slope-limiting operators that is
-  //        independent of the type of state. Otherwise we have
-  //        to use this kind of horror ...
   using PrimState = typename State::PrimState;
 
   PrimState grad[ndim];

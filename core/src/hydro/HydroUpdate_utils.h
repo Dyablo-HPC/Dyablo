@@ -62,38 +62,16 @@ PrimState compute_slope( const PrimState& qMinus,
                          const PrimState& qPlus, 
                          real_t dL, real_t dR)
 {
-  PrimState dq{};
-
-  auto minmod = [](real_t dvp, real_t dvm) 
-  {
-    if (dvp * dvm <= 0.0)
-      return 0.0;
-    else
-      return fabs(dvp) > fabs(dvm) ? dvm : dvp;
-  };
-
-  auto slope = [&](const real_t qMinus_v, const real_t q_v, const real_t qPlus_v, auto limiter) 
-  {
-    const real_t dvp = (qPlus_v - q_v)  / dR;
-    const real_t dvm = (q_v - qMinus_v) / dL;
-
-    return limiter(dvp, dvm);
-  };
-
-  dq.rho = slope(qMinus.rho, q.rho, qPlus.rho, minmod);
-  dq.p   = slope(qMinus.p, q.p, qPlus.p, minmod);
-  dq.u   = slope(qMinus.u, q.u, qPlus.u, minmod);
-  dq.v   = slope(qMinus.v, q.v, qPlus.v, minmod);
-  if (ndim == 3)
-    dq.w = slope(qMinus.w, q.w, qPlus.w, minmod);
-
-  // TODO : Find a better way
+  auto dqp = (qPlus - q)  / dR;
+  auto dqm = (q - qMinus) / dL;
   
-  if constexpr (std::is_same<PrimState, PrimMHDState>::value) {
-    dq.Bx = slope(qMinus.Bx, q.Bx, qPlus.Bx, minmod);
-    dq.By = slope(qMinus.By, q.By, qPlus.By, minmod);
-    dq.Bz = slope(qMinus.Bz, q.Bz, qPlus.Bz, minmod);
-  }
+  PrimState dq{};
+  state_foreach_var( [](real_t& res, real_t dvp, real_t dvm) {
+    if (dvp * dvm <= 0.0)
+      res = 0.0;
+    else
+      res = fabs(dvp) > fabs(dvm) ? dvm : dvp;
+  }, dq, dqp, dqm);
 
   return dq;
 }
