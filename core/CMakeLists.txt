@@ -40,7 +40,6 @@ option (DYABLO_USE_FPE_DEBUG "build with floating point Nan tracing (signal hand
 option (Kokkos_ENABLE_OPENMP "enable Kokkos::OpenMP backend" ON)
 set (Kokkos_ENABLE_CUDA_LAMBDA ${Kokkos_ENABLE_CUDA} CACHE BOOL "Enable use of cuda lambdas" FORCE)
 
-
 #####################################################################
 # BitPit
 #####################################################################
@@ -79,6 +78,18 @@ else( DYABLO_USE_INTERNAL_KOKKOS )
     # kokkos_check is defined in KokkosConfigCommon.cmake
     kokkos_check( DEVICES "Cuda" )
     kokkos_check( OPTIONS CUDA_LAMBDA)
+  endif()
+endif()
+
+# Check compiler version
+message( "Detected kokkos compiler : ${KOKKOS_CXX_COMPILER_ID} ${KOKKOS_CXX_COMPILER_VERSION}" )
+set( NVCC_FIRST_VERSION 11.2 )
+if(   KOKKOS_CXX_COMPILER_ID STREQUAL "NVIDIA" AND KOKKOS_CXX_COMPILER_VERSION LESS NVCC_FIRST_VERSION )
+  set( DYABLO_ENABLE_DEPRECATED_NVCC "Use deprecated NVCC" CACHE STRING "I want right results"  )
+  if( DYABLO_ENABLE_DEPRECATED_NVCC STREQUAL "I want wrong results" )
+    message( WARNING "nvcc version ${KOKKOS_CXX_COMPILER_VERSION} (< ${NVCC_FIRST_VERSION}) is deprecated but you chose to use it anyway. That may cause wrong numerical results." )
+  else()
+    message( FATAL_ERROR "nvcc version ${KOKKOS_CXX_COMPILER_VERSION} (< ${NVCC_FIRST_VERSION}) is deprecated because it may cause wrong numerical results. If you want to use it anyway, set DYABLO_ENABLE_DEPRECATED_NVCC to \"I want wrong results\" " )
   endif()
 endif()
 
