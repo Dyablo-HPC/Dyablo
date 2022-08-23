@@ -5,7 +5,7 @@
 
 #include "foreach_cell/ForeachCell.h"
 
-#include "HydroState.h"
+#include "states/State_forward.h"
 
 namespace dyablo{
 
@@ -112,13 +112,11 @@ public:
             ForeachCell::CellMetaData::pos_t c = cellmetadata.getCellCenter(iCell_U);
             ForeachCell::CellMetaData::pos_t s = cellmetadata.getCellSize(iCell_U);
 
-            HydroState3d val = analytical_formula.value( c[IX], c[IY], c[IZ], s[IX], s[IY], s[IZ] );
-            U.at(iCell_U, ID) = val[ID];
-            U.at(iCell_U, IP) = val[IP];
-            U.at(iCell_U, IU) = val[IU];
-            U.at(iCell_U, IV) = val[IV];
-            if( ndim == 3 )
-                U.at(iCell_U, IW) = val[IW];
+            auto val = analytical_formula.value( c[IX], c[IY], c[IZ], s[IX], s[IY], s[IZ] );
+            if (ndim == 2)
+                setConservativeState<2>(U, iCell_U, val);
+            else
+                setConservativeState<3>(U, iCell_U, val);
         });
     }
   }  

@@ -14,8 +14,7 @@ public:
   RefineCondition_legacy( ConfigMap& configMap,
                 ForeachCell& foreach_cell,
                 Timers& timers )
-    : configMap(configMap),
-      pmesh(foreach_cell.get_amr_mesh()),
+    : pmesh(foreach_cell.get_amr_mesh()),
       timers(timers),
       error_min ( configMap.getValue<real_t>("amr", "error_min", 0.2) ),
       error_max ( configMap.getValue<real_t>("amr", "error_max", 0.8) ),
@@ -125,7 +124,6 @@ public:
   }
 
 private:
-  const ConfigMap& configMap;
   AMRmesh& pmesh;
   Timers& timers;
   real_t error_min, error_max;

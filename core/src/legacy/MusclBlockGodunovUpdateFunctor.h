@@ -7,7 +7,7 @@
 
 #include "kokkos_shared.h"
 #include "FieldManager.h"
-#include "HydroState.h"
+#include "states/State_hydro.h"
 
 #include "amr/LightOctree.h"
 #include "RiemannSolvers.h"
@@ -23,6 +23,162 @@ namespace dyablo
 {
 
 namespace {
+
+KOKKOS_INLINE_FUNCTION
+void riemann_hydro( const HydroState2d& qleft_,
+		                const HydroState2d& qright_,
+		                ConsHydroState& flux,
+		                const RiemannParams& params)
+{
+  PrimHydroState qleft{qleft_[ID], qleft_[IP], qleft_[IU], qleft_[IV], 0.0};
+  PrimHydroState qright{qright_[ID], qright_[IP], qright_[IU], qright_[IV], 0.0};
+  riemann_hllc(qleft,qright,flux,params);
+} // riemann_hydro
+
+KOKKOS_INLINE_FUNCTION
+HydroState2d riemann_hydro( const HydroState2d& qleft,
+                            const HydroState2d& qright,
+                            const RiemannParams &params) {
+  ConsHydroState flux;
+  riemann_hydro(qleft, qright, flux, params);
+  return HydroState2d{flux.rho, flux.e_tot, flux.rho_u, flux.rho_v};
+}
+
+KOKKOS_INLINE_FUNCTION
+void riemann_hydro( const HydroState3d& qleft_,
+		                const HydroState3d& qright_,
+		                ConsHydroState& flux,
+		                const RiemannParams& params)
+{
+  PrimHydroState qleft{qleft_[ID], qleft_[IP], qleft_[IU], qleft_[IV], qleft_[IW]};
+  PrimHydroState qright{qright_[ID], qright_[IP], qright_[IU], qright_[IV], qright_[IW]};
+  riemann_hllc(qleft,qright,flux,params);
+} // riemann_hydro
+
+KOKKOS_INLINE_FUNCTION
+HydroState3d riemann_hydro( const HydroState3d& qleft,
+                            const HydroState3d& qright,
+                            const RiemannParams &params) {
+  ConsHydroState flux;
+  riemann_hydro(qleft, qright, flux, params);
+  return HydroState3d{flux.rho, flux.e_tot, flux.rho_u, flux.rho_v, flux.rho_w};
+}
+
+/*
+KOKKOS_INLINE_FUNCTION
+HydroState2d operator*(const HydroState2d &lhs, real_t rhs) {
+  return HydroState2d{lhs[ID]*rhs, lhs[IP]*rhs, lhs[IU]*rhs, lhs[IV]*rhs};
+}
+
+KOKKOS_INLINE_FUNCTION
+HydroState3d operator*(const HydroState3d &lhs, real_t rhs) {
+  return HydroState3d{lhs[ID]*rhs, lhs[IP]*rhs, lhs[IU]*rhs, lhs[IV]*rhs, lhs[IW]*rhs};
+}
+
+KOKKOS_INLINE_FUNCTION
+HydroState2d& operator+=(HydroState2d &lhs, const HydroState2d &rhs) {
+  lhs[ID] += rhs[ID];
+  lhs[IE] += rhs[IE];
+  lhs[IU] += rhs[IU];
+  lhs[IV] += rhs[IV];
+
+  return lhs;
+}
+
+KOKKOS_INLINE_FUNCTION
+HydroState2d& operator-=(HydroState2d &lhs, const HydroState2d &rhs) {
+  lhs[ID] -= rhs[ID];
+  lhs[IE] -= rhs[IE];
+  lhs[IU] -= rhs[IU];
+  lhs[IV] -= rhs[IV];
+
+  return lhs;
+}
+
+KOKKOS_INLINE_FUNCTION
+HydroState3d& operator+=(HydroState3d &lhs, const HydroState3d &rhs) {
+  lhs[ID] += rhs[ID];
+  lhs[IE] += rhs[IE];
+  lhs[IU] += rhs[IU];
+  lhs[IV] += rhs[IV];
+  lhs[IW] += rhs[IW];
+
+  return lhs;
+}
+
+KOKKOS_INLINE_FUNCTION
+HydroState3d& operator-=(HydroState3d &lhs, const HydroState3d &rhs) {
+  lhs[ID] -= rhs[ID];
+  lhs[IE] -= rhs[IE];
+  lhs[IU] -= rhs[IU];
+  lhs[IV] -= rhs[IV];
+  lhs[IW] -= rhs[IW];
+
+  return lhs;
+}*/
+
+KOKKOS_INLINE_FUNCTION
+void computePrimitives(const HydroState2d &u,
+                       real_t             *c,
+                       HydroState2d       &q,
+                       real_t              gamma0,
+                       real_t              smallr,
+                       real_t              smallp)
+{ 
+  real_t d, p, ux, uy;
+  
+  d = fmax(u[ID], smallr);
+  ux = u[IU] / d;
+  uy = u[IV] / d;
+  
+  // kinetic energy
+  real_t eken = HALF_F * (ux*ux + uy*uy);
+  
+  // internal energy
+  real_t e = u[IE] / d - eken;
+  
+  // compute pressure and speed of sound
+  p = fmax((gamma0 - 1.0) * d * e, d * smallp);
+  *c = sqrt(gamma0 * (p) / d);
+  
+  q[ID] = d;
+  q[IP] = p;
+  q[IU] = ux;
+  q[IV] = uy; 
+}
+
+KOKKOS_INLINE_FUNCTION
+void computePrimitives(const HydroState3d &u,
+                       real_t             *c,
+                       HydroState3d       &q,
+                       real_t              gamma0,
+                       real_t              smallr,
+                       real_t              smallp)
+{ 
+  real_t d, p, ux, uy, uz;
+  
+  d = fmax(u[ID], smallr);
+  ux = u[IU] / d;
+  uy = u[IV] / d;
+  uz = u[IW] / d;
+  
+  // kinetic energy
+  real_t eken = HALF_F * (ux*ux + uy*uy + uz*uz);
+  
+  // internal energy
+  real_t e = u[IE] / d - eken;
+  
+  // compute pressure and speed of sound
+  p = fmax((gamma0 - 1.0) * d * e, d * smallp);
+  *c = sqrt(gamma0 * (p) / d);
+  
+  q[ID] = d;
+  q[IP] = p;
+  q[IU] = ux;
+  q[IV] = uy;
+  q[IW] = uz;  
+}
+
 
 template <class T>
 KOKKOS_INLINE_FUNCTION 
@@ -571,11 +727,11 @@ public:
                       const HydroState &qMinus) const
   {
 
-    const real_t slope_type = params.slope_type;
+    //const real_t slope_type = params.slope_type;
 
     HydroState dq;
 
-    dq[IX] = slope_unsplit_scalar(q[ID], qPlus[ID], qMinus[ID]);
+    dq[ID] = slope_unsplit_scalar(q[ID], qPlus[ID], qMinus[ID]);
     dq[IP] = slope_unsplit_scalar(q[IP], qPlus[IP], qMinus[IP]);
     dq[IU] = slope_unsplit_scalar(q[IU], qPlus[IU], qMinus[IU]);
     dq[IV] = slope_unsplit_scalar(q[IV], qPlus[IV], qMinus[IV]);
@@ -1344,6 +1500,7 @@ public:
           {
             // get current location primitive variables state
             HydroState2d qprim = get_prim_variables<HydroState2d>(ig, iOct_local);
+
             GravityField gc = get_gravity_field(ig, iOct_local);
             GravityField g;
 
@@ -1622,7 +1779,7 @@ public:
     if (params.updateType == UPDATE_CONSERVATIVE_SUM)
     {
       compute_fluxes_and_update_2d_conformal(member);
-      compute_fluxes_and_update_2d_non_conformal(member);
+      //compute_fluxes_and_update_2d_non_conformal(member);
     }
     else
     {

@@ -50,7 +50,7 @@ struct AnalyticalFormula_riemann2d : public AnalyticalFormula_base{
   }
 
   KOKKOS_INLINE_FUNCTION
-  HydroState3d value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
+  ConsHydroState value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
   {
     constexpr real_t pressures[19][4] = {{0.0439,0.1500,0.4000,1.0000},
                                         {1.0000,0.4000,0.4000,1.0000},
@@ -137,20 +137,22 @@ struct AnalyticalFormula_riemann2d : public AnalyticalFormula_base{
     else 
       quadrant = (x < x0 ? 2 : 3);
 
-    HydroState3d res {0.0};
+    ConsHydroState res;
     const real_t rho = densities[test_case][quadrant];
     const real_t u = vx[test_case][quadrant];
     const real_t v = vy[test_case][quadrant];
     const real_t Ek = 0.5 * rho * (u*u + v*v);
-    res[ID] = rho;
-    res[IE] = Ek + pressures[test_case][quadrant] / (gamma0-1.0);
-    res[IU] = rho*u;
-    res[IV] = rho*v;
+    res.rho   = rho;
+    res.e_tot = Ek + pressures[test_case][quadrant] / (gamma0-1.0);
+    res.rho_u = rho*u;
+    res.rho_v = rho*v;
 
     return res;
   }
 };
 } // namespace dyablo
 
-FACTORY_REGISTER(dyablo::InitialConditionsFactory, dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_riemann2d>, "riemann2d");
+FACTORY_REGISTER(dyablo::InitialConditionsFactory, 
+                 dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_riemann2d>, 
+                 "riemann2d");
 

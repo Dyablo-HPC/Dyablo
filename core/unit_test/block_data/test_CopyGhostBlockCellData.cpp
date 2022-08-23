@@ -87,9 +87,9 @@ struct AnalyticalFormula_implode_norefine : public AnalyticalFormula_base
   }
 
   KOKKOS_INLINE_FUNCTION
-    HydroState3d value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
+  ConsHydroState value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
   {
-    HydroState3d res;
+    ConsHydroState res;
 
     // initialize
     bool tmp;
@@ -106,27 +106,27 @@ struct AnalyticalFormula_implode_norefine : public AnalyticalFormula_base
     }
 
     if (tmp) {
-      res[ID] = rho_out;
-      res[IP] = p_out/(gamma0-1.0) +
+      res.rho   = rho_out;
+      res.e_tot = p_out/(gamma0-1.0) +
         0.5 * rho_out * (u_out*u_out + v_out*v_out);
-      res[IU] = u_out;
-      res[IV] = v_out;
+      res.rho_u = u_out;
+      res.rho_v = v_out;
     } else {
-      res[ID] = rho_in;
-      res[IP] = p_in/(gamma0-1.0) +
+      res.rho   = rho_in;
+      res.e_tot = p_in/(gamma0-1.0) +
         0.5 * rho_in * (u_in*u_in + v_in*v_in);
-      res[IU] = u_in;
-      res[IV] = v_in;
+      res.rho_u = u_in;
+      res.rho_v = v_in;
     }
 
     if ( ndim==3 ) {
       if (tmp) {
-        res[IW] = w_out;
-        res[IP] = p_out/(gamma0-1.0) +
+        res.rho_w = w_out;
+        res.e_tot = p_out/(gamma0-1.0) +
           0.5 * rho_out * (u_out*u_out + v_out*v_out + w_out*w_out);
       } else {
-        res[IW] = w_in;
-        res[IP] = p_in/(gamma0-1.0) +
+        res.rho_w = w_in;
+        res.e_tot = p_in/(gamma0-1.0) +
           0.5 * rho_in * (u_in*u_in + v_in*v_in + w_in*w_in);
       }
     }
@@ -136,8 +136,8 @@ struct AnalyticalFormula_implode_norefine : public AnalyticalFormula_base
       real_t delta =  ndim==2  ?
         (x+y)*0.05 :
         (x+y+z)*0.05;
-      res[ID] += delta;
-      res[IP] += 2*delta;    
+      res.rho += delta;
+      res.e_tot += 2*delta;    
     }
 
     return res;
@@ -850,7 +850,7 @@ void run_test()
         real_t x_larger = x0 + ix_larger*cellSize - ghostWidth*cellSize;
         real_t y_larger = y0 + iy_larger*cellSize - ghostWidth*cellSize;
         real_t z_larger = (ndim==2)?0:z0 + iz_larger*cellSize - ghostWidth*cellSize;
-        expected = init_implode_formula.value( x_larger,y_larger,z_larger,0,0,0 )[IP];
+        expected = init_implode_formula.value( x_larger,y_larger,z_larger,0,0,0 ).e_tot;
       }
       else if( neighbor_size == SMALLER )
       {
@@ -862,13 +862,13 @@ void run_test()
               real_t x_smaller = x - cellSize/4 + dx*(cellSize/2);
               real_t y_smaller = y - cellSize/4 + dy*(cellSize/2);
               real_t z_smaller = (ndim==2)?0:z - cellSize/4 + dz*(cellSize/2);
-              expected += init_implode_formula.value( x_smaller ,y_smaller ,z_smaller,0,0,0   )[IP];
+              expected += init_implode_formula.value( x_smaller ,y_smaller ,z_smaller,0,0,0).e_tot;
             }
         expected = expected/(2*2*(ndim-1)); 
       }
       else
       {
-        expected = init_implode_formula.value( x,y,z,0,0,0  )[IP];
+        expected = init_implode_formula.value( x,y,z,0,0,0  ).e_tot;
       }
       
       uint32_t index = ix + bx_g * iy + bx_g * by_g * iz;

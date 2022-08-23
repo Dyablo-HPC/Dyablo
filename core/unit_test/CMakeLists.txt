@@ -119,8 +119,12 @@ dyablo_add_test(utest_GravitySolver_cg ON
   gravity/test_GravitySolver_cg.cpp
   main.cpp)
 
-dyablo_add_test(utest_Conservativity ON
-  hydro/test_Conservativity.cpp
+dyablo_add_test(utest_HydroConservativity ON
+  hydro/test_HydroConservativity.cpp
+  main.cpp)
+
+dyablo_add_test(utest_States ON
+  states/test_States.cpp
   main.cpp)
 
 configure_file(

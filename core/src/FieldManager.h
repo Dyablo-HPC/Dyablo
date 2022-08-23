@@ -99,7 +99,7 @@ public:
     return id2index.nbfields(); 
   }
 
-  static FieldManager setup(int ndim, GravityType gravity_type);
+  static FieldManager setup(int ndim, GravityType gravity_type, std::string godunov_updater_id="");
   
   static std::string var_name(VarIndex ivar);
   std::set< VarIndex > enabled_fields() const;

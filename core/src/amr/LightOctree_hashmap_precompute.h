@@ -20,8 +20,9 @@ static LightOctree_base::offset_t index_to_offset(uint32_t index, uint32_t ndims
 
     return LightOctree_base::offset_t{ (int8_t)(ix-1), (int8_t)(iy-1), (int8_t)((ndims==2)?0:iz-1)};
 }
+} // namespace
 
-void LightOctree_hashmap_precompute_init( const LightOctree_hashmap& lmesh_hashmap, 
+inline void LightOctree_hashmap_precompute_init( const LightOctree_hashmap& lmesh_hashmap, 
     Kokkos::View< uint8_t**, Kokkos::LayoutLeft >& neighbors_count, 
     Kokkos::View< uint32_t**, Kokkos::LayoutLeft >& neighbors_offset,
     Kokkos::View< uint32_t* >& neighbors_iOct, 
@@ -74,7 +75,7 @@ void LightOctree_hashmap_precompute_init( const LightOctree_hashmap& lmesh_hashm
         }
     });
 }
-} // namespace
+
 
 class LightOctree_hashmap_precompute : public LightOctree_hashmap{
 public:

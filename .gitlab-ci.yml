@@ -2,7 +2,7 @@
 # validate this script with:
 # https://gitlab.maisondelasimulation.fr/pkestene/dyablo/-/ci/lint
 #
-image: "arnodurocher/dyablo-ci:cuda-11.0"
+image: "arnodurocher/dyablo-ci:cuda-11.2-visu"
 
 stages:
   - build
@@ -102,7 +102,7 @@ test::cuda:
 # ===============================
 .run_template:
   stage: run
-  image: "arnodurocher/dyablo-ci:cuda-11.0-visu"
+  image: "arnodurocher/dyablo-ci:cuda-11.2-visu"
   when: manual
   artifacts:
     when: always

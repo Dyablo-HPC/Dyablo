@@ -8,70 +8,6 @@
 namespace dyablo {
 
 /**
- * @brief Returns the hydro state at a given cell index in an array
- * 
- * @tparam ndim the number of dimensions
- * @tparam Array_t the type of array where we are looking up
- * @tparam CellIndex the type of cell index used
- * @param U the array in which we are getting the state
- * @param iCell the index of the cell 
- * @return the hydro state at position iCell in U
- */
-template< int ndim, typename Array_t, typename CellIndex >
-KOKKOS_INLINE_FUNCTION
-HydroState3d getHydroState( const Array_t& U, const CellIndex& iCell )
-{
-  HydroState3d res;
-  res[ID] = U.at(iCell, ID);
-  res[IP] = U.at(iCell, IP);
-  res[IU] = U.at(iCell, IU);
-  res[IV] = U.at(iCell, IV);
-  res[IW] = (ndim == 3 ? U.at(iCell, IW) : 0.0);
-  return res;
-}
-
-/**
- * @brief Sets the hydro state at a given cell index in an array
- * 
- * @tparam ndim the number of dimensions
- * @tparam Array_t the type of array where we are looking up
- * @tparam CellIndex the type of cell index used
- * @param U the array in which we are setting the state
- * @param iCell the index of the cell 
- * @param state the state to define at iCell in U
- */
-template< int ndim, typename Array_t, typename CellIndex >
-KOKKOS_INLINE_FUNCTION
-void setHydroState( const Array_t& U, const CellIndex& iCell, const HydroState3d& state )
-{
-  U.at(iCell, ID) = state[ID];
-  U.at(iCell, IP) = state[IP];
-  U.at(iCell, IU) = state[IU];
-  U.at(iCell, IV) = state[IV];
-  if(ndim==3) U.at(iCell, IW) = state[IW];
-}
-
-/**
- * @brief Converts a given conservative variables hydro state to a 
- *        primitive hydro state 
- * 
- * @tparam ndim the number of dimensions
- * @param params hydro parameters for the conversion
- * @param Uloc the hydro state
- * @return KOKKOS_INLINE_FUNCTION 
- */
-template < int ndim >
-KOKKOS_INLINE_FUNCTION
-HydroState3d cons_to_prim(const RiemannParams& params, const HydroState3d &Uloc) {
-  real_t c;
-  HydroState3d q;
-  assert( ndim==3 || Uloc[IW] == 0 );
-  computePrimitives(Uloc, &c, q, params.gamma0, params.smallr, params.smallp);
-  
-  return q;
-}
-
-/**
  * @brief Computes the primitive variables at a given cell index in an array
  *        and stores it in another array
  * 
@@ -85,23 +21,27 @@ HydroState3d cons_to_prim(const RiemannParams& params, const HydroState3d &Uloc)
  * 
  * @note Ugroup and Qgroup should have the same sizes and properties
  */
-template< int ndim, typename Array_t, typename CellIndex >
+template< 
+  int ndim, 
+  typename State,
+  typename Array_t, 
+  typename CellIndex >
 KOKKOS_INLINE_FUNCTION
-void compute_primitives(const RiemannParams& params, const Array_t& Ugroup, 
+void compute_primitives(const RiemannParams& params,   const Array_t& Ugroup, 
                         const CellIndex& iCell_Ugroup, const Array_t& Qgroup)
 {
-  HydroState3d uLoc = getHydroState<ndim>( Ugroup, iCell_Ugroup );
-  real_t c; 
-  // get primitive variables in current cell
-  HydroState3d qLoc;
-  computePrimitives(uLoc, &c, qLoc, params.gamma0, params.smallr, params.smallp);
+  using ConsState = typename State::ConsState;
+  using PrimState = typename State::PrimState;
 
-  setHydroState<ndim>( Qgroup, iCell_Ugroup, qLoc );
+  ConsState uLoc{};
+  getConservativeState<ndim>(Ugroup, iCell_Ugroup, uLoc);
+  PrimState qLoc = consToPrim<ndim>(uLoc, params.gamma0);
+  setPrimitiveState<ndim>(Qgroup, iCell_Ugroup, qLoc);
 }
 
 
 /**
- * @brief Computes the slope for a given hydrostate according to given neighbors
+ * @brief Computes the slope for a given state according to given neighbors
  * 
  * @tparam ndim the number of dimensions
  * @param qMinus_ the "left" neighbor considered
@@ -115,58 +55,46 @@ void compute_primitives(const RiemannParams& params, const Array_t& Ugroup,
  *       hence, if the neighbor has the same size, the distance will be 1.0. If the neighbor
  *       is bigger, it will be 3/2 and if it is smaller it will be 3/4.
  */
-template< int ndim >
+template< int ndim, typename PrimState >
 KOKKOS_INLINE_FUNCTION
-HydroState3d compute_slope( const HydroState3d& qMinus_, 
-                            const HydroState3d& q_, 
-                            const HydroState3d& qPlus_, 
-                            real_t dL, real_t dR)
+PrimState compute_slope( const PrimState& qMinus, 
+                         const PrimState& q, 
+                         const PrimState& qPlus, 
+                         real_t dL, real_t dR)
 {
-  HydroState3d dq_ = {};
-
-  auto slope_mm = [](real_t dvp, real_t dvm) 
-  {
+  auto dqp = (qPlus - q)  / dR;
+  auto dqm = (q - qMinus) / dL;
+  
+  PrimState dq{};
+  state_foreach_var( [](real_t& res, real_t dvp, real_t dvm) {
     if (dvp * dvm <= 0.0)
-      return 0.0;
+      res = 0.0;
     else
-      return fabs(dvp) > fabs(dvm) ? dvm : dvp;
-  };
+      res = fabs(dvp) > fabs(dvm) ? dvm : dvp;
+  }, dq, dqp, dqm);
 
-  auto slope = [&](VarIndex ivar) {
-    const real_t dvp = (qPlus_[ivar] - q_[ivar])  / dR;
-    const real_t dvm = (q_[ivar] - qMinus_[ivar]) / dL;
-
-    dq_[ivar] = slope_mm(dvp, dvm);
-  };
-
-  slope(ID);
-  slope(IP);
-  slope(IU);
-  slope(IV);
-  if (ndim == 3)
-    slope(IW);
-
-  return dq_;
+  return dq;
 }
 
 /**
  * @brief Reconstructs a state from a source value and a slope.
  *
- * @param q      a HydroState3d containing the primitive variables to be reconstructed
+ * @param q      a PrimState containing the primitive variables to be reconstructed
  * @param slope  the slope to apply
  * @param sign   the direction in which we are applying the reconstruction 
  *               (-1 left; +1 right)
  * @param smallr a minimum value for the density in case reconstruction goes negative
  * @param size   the length of the slope to apply.
- * @return a HydroState3d storing the reconstructed value
+ * @return a PrimState storing the reconstructed value
  **/
+template<typename PrimState>
 KOKKOS_INLINE_FUNCTION
-HydroState3d reconstruct_lin_state( const HydroState3d& q, 
-                                    const HydroState3d& slope,
-                                    real_t sign, real_t smallr, real_t size )
+PrimState reconstruct_lin_state(const PrimState& q, 
+                                const PrimState& slope,
+                                real_t sign, real_t smallr, real_t size )
 {
-  HydroState3d res = q + sign * size * slope;
-  res[ID] = FMAX(res[ID], smallr);
+  PrimState res = q + sign * size * slope;
+  res.rho = FMAX(res.rho, smallr);
   return res; 
 }
 
@@ -175,6 +103,7 @@ HydroState3d reconstruct_lin_state( const HydroState3d& q,
  * @brief Computes the flux at the interface between two cells
  * 
  * @tparam ndim the number of dimensions
+ * 
  * @param sourceL the value left of the interface
  * @param sourceR the value right of the interface
  * @param slopeL the slope left of the interface
@@ -185,58 +114,221 @@ HydroState3d reconstruct_lin_state( const HydroState3d& q,
  * @param dR the distance for the reconstruction between the right value and the interface
  * @return the flux calculated at the interface
  */
-template< int ndim >
+template< 
+  int ndim,
+  typename State>
 KOKKOS_INLINE_FUNCTION
-HydroState3d compute_euler_flux( const HydroState3d& sourceL, const HydroState3d& sourceR, 
-                                 const HydroState3d& slopeL, const HydroState3d& slopeR,
-                                 ComponentIndex3D dir, 
-                                 const RiemannParams& params,
-                                 real_t dL, real_t dR)
+typename State::ConsState 
+compute_euler_flux(const typename State::PrimState& sourceL, 
+                   const typename State::PrimState& sourceR, 
+                   const typename State::PrimState& slopeL, 
+                   const typename State::PrimState& slopeR,
+                   ComponentIndex3D                 dir, 
+                   const RiemannParams&             params,
+                   real_t dL, real_t dR)
 {
-  const real_t smallr = params.smallr;
-  HydroState3d qL = reconstruct_lin_state( sourceL, slopeL,  1, smallr, dL );
-  HydroState3d qR = reconstruct_lin_state( sourceR, slopeR, -1, smallr, dR );
+  using PrimState = typename State::PrimState;
+  using ConsState = typename State::ConsState;
 
-  VarIndex swap_component = (dir==IX) ? IU : (dir==IY) ? IV : IW;
+  const real_t smallr = params.smallr;
+  PrimState qL = reconstruct_lin_state(sourceL, slopeL,  1, smallr, dL);
+  PrimState qR = reconstruct_lin_state(sourceR, slopeR, -1, smallr, dR);
 
   // riemann solver along Y or Z direction requires to 
   // swap velocity components
-  swap(qL[IU], qL[swap_component]);
-  swap(qR[IU], qR[swap_component]);
+  PrimState qL_swap = swapComponents(qL, dir);
+  PrimState qR_swap = swapComponents(qR, dir);
 
   // step 4 : compute flux (Riemann solver)
-  HydroState3d flux;
-  if( ndim == 3 )
-    flux = riemann_hydro(qL, qR, params);
-  else
-  {
-    auto copy_state = [](auto& to, const auto& from){
-      to[ID] = from[ID];
-      to[IP] = from[IP];
-      to[IU] = from[IU];
-      to[IV] = from[IV];
-    };
-    HydroState2d qL_2d, qR_2d;
-    copy_state(qL_2d, qL);
-    copy_state(qR_2d, qR);
-    HydroState2d flux_2d = riemann_hydro(qL_2d, qR_2d, params);
-    copy_state(flux, flux_2d);    
-  }
-
-  swap(flux[IU], flux[swap_component]);
-
-  return flux;
+  ConsState flux{};
+  flux = riemann_hydro(qL_swap, qR_swap, params);
+  return swapComponents(flux, dir);
 }
 
 /**
+   * @brief Computes the source term from the muscl-hancock algorithm
+   *        Specialized for Hydro states
+   * 
+   * @tparam ndim The number of dimensions
+   * @param q Centered primitive variable
+   * @param slopeX Slopes along each direction
+   * @param slopeY 
+   * @param slopeZ 
+   * @param dtdx time step over space step along each direction
+   * @param dtdy 
+   * @param dtdz 
+   * @param gamma adiabatic index
+   * @return A primitive state corresponding to the half-step evolved variable in the cell
+   * 
+   * @todo Adapt this to any PrimState possible !
+   */
+  template<int ndim >
+  KOKKOS_INLINE_FUNCTION
+  PrimHydroState compute_source( const PrimHydroState& q,
+                                 const PrimHydroState& slopeX,
+                                 const PrimHydroState& slopeY,
+                                 const PrimHydroState& slopeZ,
+                                 real_t dtdx, real_t dtdy, real_t dtdz,
+                                 real_t gamma )
+  {
+    // retrieve primitive variables in current quadrant
+    const real_t r = q.rho;
+    const real_t p = q.p;
+    const real_t u = q.u;
+    const real_t v = q.v;
+    const real_t w = q.w;
+
+    // retrieve variations = dx * slopes
+    const real_t drx = slopeX.rho * 0.5;
+    const real_t dpx = slopeX.p   * 0.5;
+    const real_t dux = slopeX.u   * 0.5;
+    const real_t dvx = slopeX.v   * 0.5;
+    const real_t dwx = slopeX.w   * 0.5;    
+    const real_t dry = slopeY.rho * 0.5;
+    const real_t dpy = slopeY.p   * 0.5;
+    const real_t duy = slopeY.u   * 0.5;
+    const real_t dvy = slopeY.v   * 0.5;
+    const real_t dwy = slopeY.w   * 0.5;    
+    const real_t drz = slopeZ.rho * 0.5;
+    const real_t dpz = slopeZ.p   * 0.5;
+    const real_t duz = slopeZ.u   * 0.5;
+    const real_t dvz = slopeZ.v   * 0.5;
+    const real_t dwz = slopeZ.w   * 0.5;
+
+    PrimHydroState source{};
+    if( ndim == 3 )
+    {
+      source.rho = r + (-u * drx - dux * r) * dtdx + (-v * dry - dvy * r) * dtdy + (-w * drz - dwz * r) * dtdz;
+      source.u   = u + (-u * dux - dpx / r) * dtdx + (-v * duy) * dtdy + (-w * duz) * dtdz;
+      source.v   = v + (-u * dvx) * dtdx + (-v * dvy - dpy / r) * dtdy + (-w * dvz) * dtdz;
+      source.w   = w + (-u * dwx) * dtdx + (-v * dwy) * dtdy + (-w * dwz - dpz / r) * dtdz;
+      source.p   = p + (-u * dpx - dux * gamma * p) * dtdx + (-v * dpy - dvy * gamma * p) * dtdy + (-w * dpz - dwz * gamma * p) * dtdz;
+    }
+    else
+    {
+      source.rho = r + (-u * drx - dux * r) * dtdx + (-v * dry - dvy * r) * dtdy;
+      source.u   = u + (-u * dux - dpx / r) * dtdx + (-v * duy) * dtdy;
+      source.v   = v + (-u * dvx) * dtdx + (-v * dvy - dpy / r) * dtdy;
+      source.p   = p + (-u * dpx - dux * gamma * p) * dtdx + (-v * dpy - dvy * gamma * p) * dtdy;
+    }
+    return source;
+  }
+
+  /**
+   * @brief Computes the source term from the muscl-hancock algorithm
+   *        Specialized for MHD states
+   * 
+   * @tparam ndim The number of dimensions
+   * @param q Centered primitive variable
+   * @param slopeX Slopes along each direction
+   * @param slopeY 
+   * @param slopeZ 
+   * @param dtdx time step over space step along each direction
+   * @param dtdy 
+   * @param dtdz 
+   * @param gamma adiabatic index
+   * @return A primitive state corresponding to the half-step evolved variable in the cell
+   * 
+   * @todo Adapt this to any PrimState possible !
+   */
+  template<int ndim >
+  KOKKOS_INLINE_FUNCTION
+  PrimMHDState compute_source( const PrimMHDState& q,
+                               const PrimMHDState& slopeX,
+                               const PrimMHDState& slopeY,
+                               const PrimMHDState& slopeZ,
+                               real_t dtdx, real_t dtdy, real_t dtdz,
+                               real_t gamma )
+  {
+    // retrieve primitive variables in current quadrant
+    const real_t r = q.rho;
+    const real_t p = q.p;
+    const real_t u = q.u;
+    const real_t v = q.v;
+    const real_t w = q.w;
+    const real_t Bx = q.Bx;
+    const real_t By = q.By;
+    const real_t Bz = q.Bz;
+
+    // retrieve variations = dx * slopes
+    const real_t drx  = slopeX.rho * 0.5;
+    const real_t dpx  = slopeX.p   * 0.5;
+    const real_t dux  = slopeX.u   * 0.5;
+    const real_t dvx  = slopeX.v   * 0.5;
+    const real_t dwx  = slopeX.w   * 0.5;
+    const real_t dBxx = slopeX.Bx  * 0.5;
+    const real_t dByx = slopeX.By  * 0.5;
+    const real_t dBzx = slopeX.Bz  * 0.5;
+
+    const real_t dry  = slopeY.rho * 0.5;
+    const real_t dpy  = slopeY.p   * 0.5;
+    const real_t duy  = slopeY.u   * 0.5;
+    const real_t dvy  = slopeY.v   * 0.5;
+    const real_t dwy  = slopeY.w   * 0.5;    
+    const real_t dBxy = slopeY.Bx  * 0.5;    
+    const real_t dByy = slopeY.By  * 0.5;    
+    const real_t dBzy = slopeY.Bz  * 0.5;
+    
+    const real_t drz  = slopeZ.rho * 0.5;
+    const real_t dpz  = slopeZ.p   * 0.5;
+    const real_t duz  = slopeZ.u   * 0.5;
+    const real_t dvz  = slopeZ.v   * 0.5;
+    const real_t dwz  = slopeZ.w   * 0.5;    
+    const real_t dBxz = slopeZ.Bx  * 0.5;    
+    const real_t dByz = slopeZ.By  * 0.5;    
+    const real_t dBzz = slopeZ.Bz  * 0.5;
+
+    PrimMHDState source{};
+    if( ndim == 3 )
+    {
+      source.rho = r + (-u * drx - dux * r) * dtdx + (-v * dry - dvy * r) * dtdy + (-w * drz - dwz * r) * dtdz;
+      source.u   = u + dtdx * (-u * dux - (dpx + By*dByx + Bz*dBzx) / r) 
+                     + dtdy * (-v * duy + By*dBxy/r) 
+                     + dtdz * (-w * duz + Bz*dBxz/r);
+      source.v   = v + dtdx * (-u * dvx + Bx*dByx/r) 
+                     + dtdy * (-v * dvy - (dpy + Bx*dBxy + Bz*dBzy) / r)
+                     + dtdz * (-w * dvz + Bz*dByz/r);
+      source.w   = w + dtdx * (-u * dwx + Bx*dBzx/r) 
+                     + dtdy * (-v * dwy + By*dBzy/r)
+                     + dtdz * (-w * dwz - (dpz + Bx*dBxz + By*dByz) / r);
+
+      source.p   = p + (-u * dpx - dux * gamma * p) * dtdx + (-v * dpy - dvy * gamma * p) * dtdy + (-w * dpz - dwz * gamma * p) * dtdz;
+      source.Bx  = Bx + dtdy * (u*dByy + duy*By - v*dBxy - dvy*Bx)
+                      + dtdz * (u*dBzz + duz*Bz - w*dBxz - dwz*Bx);
+      source.By  = By + dtdx * (v*dBxx + dvx*Bx - u*dByx - dux*By)
+                      + dtdz * (v*dBzz + dvz*Bz - w*dByz - dwz*By);
+      source.Bz  = Bz + dtdx * (w*dBxx + dwx*Bx - u*dBzx - dux*Bz)
+                      + dtdy * (w*dByy + dwy*By - v*dBzy - dvy*Bz);
+    }
+    else
+    {
+      source.rho = r + (-u * drx - dux * r) * dtdx + (-v * dry - dvy * r) * dtdy;
+      source.u   = u + dtdx * (-u * dux - (dpx + By*dByx + Bz*dBzx) / r) 
+                     + dtdy * (-v * duy + By*dBxy/r);
+      source.v   = v + dtdx * (-u * dvx + Bx*dByx/r) 
+                     + dtdy * (-v * dvy - (dpy + Bx*dBxy + Bz*dBzy) / r);
+      source.w   = 0.0;
+
+      source.p   = p + (-u * dpx - dux * gamma * p) * dtdx + (-v * dpy - dvy * gamma * p) * dtdy;
+      source.Bx  = Bx + dtdy * (u*dByy + duy*By - v*dBxy - dvy*Bx);
+      source.By  = By + dtdx * (v*dBxx + dvx*Bx - u*dByx - dux*By);
+      source.Bz  = Bz + dtdx * (-u*dBzx -dux*Bz)
+                      + dtdy * (-v*dBzy -dvy*Bz);
+    }
+    return source;
+  }
+
+
+/**
  * @brief Calculates one Euler hydro time-step given an input. where Uout = U+dt*dU/dt
- *        and dU/dt is calculated from using a Godunov method.
+ *        and dU/dt is calculated using a Godunov method.
  * 
  * @tparam ndim the number of dimensions 
  * @tparam CellIndex the type of index on the array U
  * @tparam PatchArray the type of patch array for the run
  * @tparam ArrayIn the type of array provided as input
  * @tparam ArrayOut the type of array provided as output
+ * 
  * @param params the hydro parameters of the run
  * @param dir the direction for the update
  * @param iCell_Uout the index of the cell where the results will be written
@@ -247,32 +339,37 @@ HydroState3d compute_euler_flux( const HydroState3d& sourceL, const HydroState3d
  * @param Uout the output array 
  */
 template<int ndim, 
+         typename State,
          typename CellIndex, 
          typename PatchArray, 
          typename ArrayIn,
          typename ArrayOut>
 KOKKOS_INLINE_FUNCTION
-void euler_update(const RiemannParams &params, 
-                  ComponentIndex3D dir, 
-                  const CellIndex& iCell_Uout,
-                  const ArrayIn& U,
-                  const PatchArray& Qgroup,
-                  const real_t dt,
-                  const real_t ddir,
-                  const ArrayOut& Uout)
+void euler_update(const RiemannParams&    params, 
+                        ComponentIndex3D  dir, 
+                  const CellIndex&        iCell_Uout,
+                  const ArrayIn&          U,
+                  const PatchArray&       Qgroup,
+                  const real_t            dt,
+                  const real_t            ddir,
+                  const ArrayOut&         Uout)
 {
+  using PrimState = typename State::PrimState;
+  using ConsState = typename State::ConsState;
+
   typename CellIndex::offset_t offsetm = {};
   typename CellIndex::offset_t offsetp = {};
   offsetm[dir] = -1;
   offsetp[dir] = 1;
 
   CellIndex ib = Qgroup.convert_index(iCell_Uout);
-  HydroState3d fluxL; 
-  HydroState3d fluxR;
-  HydroState3d qC = getHydroState<ndim>( Qgroup, ib );
-  HydroState3d qL = getHydroState<ndim>( Qgroup, ib + offsetm );
-  HydroState3d qR = getHydroState<ndim>( Qgroup, ib + offsetp );
-  HydroState3d qLL, qRR;
+  ConsState fluxL{}; 
+  ConsState fluxR{};
+  PrimState qC{}, qL{}, qR{};
+  getPrimitiveState<ndim>(Qgroup, ib, qC);
+  getPrimitiveState<ndim>(Qgroup, ib + offsetm, qL);
+  getPrimitiveState<ndim>(Qgroup, ib + offsetp, qR);
+  PrimState qLL{}, qRR{};
   const real_t dtddir = dt / ddir;
 
   // Getting the current cell in U
@@ -358,36 +455,38 @@ void euler_update(const RiemannParams &params,
   // 1- Same size or bigger
   if (ldiff_L >= 0) {
     if (ldiff_L > 0) {
-      const HydroState3d uLL = getHydroState<ndim>( U, iUinL + offsetm );
-      qLL = cons_to_prim<ndim>(params, uLL);
+      ConsState uLL{};
+      getConservativeState<ndim>(U, iUinL + offsetm, uLL);
+      qLL = consToPrim<ndim>(uLL, params.gamma0);
     }
-    else
-      qLL = getHydroState<ndim>( Qgroup, ib + offsetm + offsetm );
-    const HydroState3d slopeL = compute_slope<ndim>(qLL, qL, qC, dslope_LL, dslope_L);
+    else 
+      getPrimitiveState<ndim>(Qgroup, ib + offsetm + offsetm, qLL);
+
+    const PrimState slopeL = compute_slope<ndim>(qLL, qL, qC, dslope_LL, dslope_L);
     
     // Central slope when looking left and right.
     // The idea here is that if you are looking right and that your left neighbor is smaller, the default 
     // SlopeC can induce a loss of conservation. For slope recreation in those cases you just use the averaged
     // value of qR (so with a cell size equal to the current one).
     // SlopeCL considers a right averaged value, SlopeCR considers a left averaged value
-    const HydroState3d slopeCL = compute_slope<ndim>( qL, qC, qR, dslope_L, 1.0);
-    fluxL = compute_euler_flux<ndim>( qL, qC, slopeL, slopeCL, dir, params, dflux_LL, dflux_LR );
+    const PrimState slopeCL = compute_slope<ndim>(qL, qC, qR, dslope_L, 1.0);
+    fluxL = compute_euler_flux<ndim, State>(qL, qC, slopeL, slopeCL, dir, params, dflux_LL, dflux_LR);
   }
   // 2- Smaller
   else {
     constexpr real_t fac = (ndim == 2 ? 0.5 : 0.25);
-    fluxL = HydroState3d{0};
     foreach_smaller_neighbor<ndim>(iUinL, offsetm, U, 
                 [&](const CellIndex& iCell_neighbor)
               {
-                const HydroState3d uL = getHydroState<ndim>( U, iCell_neighbor );
-                const HydroState3d uLL = getHydroState<ndim>( U, iCell_neighbor + offsetm );
+                ConsState uL{}, uLL{};
+                getConservativeState<ndim>(U, iCell_neighbor, uL);
+                getConservativeState<ndim>(U, iCell_neighbor + offsetm, uLL);
 
-                const HydroState3d qL = cons_to_prim<ndim>( params, uL );
-                qLL = cons_to_prim<ndim>( params, uLL );
-                const HydroState3d slopeC = compute_slope<ndim> ( qL, qC, qR, dslope_L, dslope_R );
-                const HydroState3d slopeL = compute_slope<ndim> ( qLL, qL, qC, dslope_LL, dslope_L );
-                fluxL += compute_euler_flux<ndim>( qL, qC, slopeL, slopeC, dir, params, dflux_LL, dflux_LR );
+                const PrimState qL = consToPrim<ndim>(uL, params.gamma0);
+                qLL = consToPrim<ndim>(uLL, params.gamma0);
+                const PrimState slopeC = compute_slope<ndim>(qL, qC, qR, dslope_L, dslope_R);
+                const PrimState slopeL = compute_slope<ndim>(qLL, qL, qC, dslope_LL, dslope_L);
+                fluxL += compute_euler_flux<ndim, State>(qL, qC, slopeL, slopeC, dir, params, dflux_LL, dflux_LR);
               });
     fluxL *= fac; 
   }
@@ -396,40 +495,42 @@ void euler_update(const RiemannParams &params,
   // 1- Same size or bigger
   if (ldiff_R >= 0) {
     if (ldiff_R > 0) {
-      const HydroState3d uRR = getHydroState<ndim>( U, iUinR + offsetp );
-      qRR = cons_to_prim<ndim>( params, uRR ); 
+      ConsState uRR{};
+      getConservativeState<ndim>(U, iUinR + offsetp, uRR);
+      qRR = consToPrim<ndim>(uRR, params.gamma0); 
     }
     else
-      qRR = getHydroState<ndim>( Qgroup, ib + offsetp + offsetp );
-    const HydroState3d slopeR = compute_slope<ndim>(qC, qR, qRR, dslope_R, dslope_RR);
+      getPrimitiveState<ndim>(Qgroup, ib + offsetp + offsetp, qRR);
+
+    const PrimState slopeR = compute_slope<ndim>(qC, qR, qRR, dslope_R, dslope_RR);
     
-    HydroState3d slopeCR = compute_slope<ndim>( qL, qC, qR, 1.0, dslope_R);
-    fluxR = compute_euler_flux<ndim>( qC, qR, slopeCR, slopeR, dir, params, dflux_RL, dflux_RR );
+    PrimState slopeCR = compute_slope<ndim>(qL, qC, qR, 1.0, dslope_R);
+    fluxR = compute_euler_flux<ndim, State>(qC, qR, slopeCR, slopeR, dir, params, dflux_RL, dflux_RR);
   }
   // 2- Smaller :
   else {
     constexpr real_t fac = (ndim == 2 ? 0.5 : 0.25);
-    fluxR = HydroState3d{0};
 
     foreach_smaller_neighbor<ndim>(iUinR, offsetp, U, 
                 [&](const CellIndex& iCell_neighbor)
               {
-                const HydroState3d uR = getHydroState<ndim>( U, iCell_neighbor );
-                const HydroState3d uRR = getHydroState<ndim>( U, iCell_neighbor + offsetp );
+                ConsState uR{}, uRR{};
+                getConservativeState<ndim>(U, iCell_neighbor, uR);
+                getConservativeState<ndim>(U, iCell_neighbor + offsetp, uRR);
 
-                const HydroState3d qR = cons_to_prim<ndim>( params, uR );
-                qRR = cons_to_prim<ndim>( params, uRR );
-                const HydroState3d slopeC = compute_slope<ndim> ( qL, qC, qR, dslope_L, dslope_R );
-                const HydroState3d slopeR = compute_slope<ndim> ( qC, qR, qRR, dslope_R, dslope_RR );
-                fluxR += compute_euler_flux<ndim>( qC, qR, slopeC, slopeR, dir, params, dflux_RL, dflux_RR );
+                const PrimState qR = consToPrim<ndim>(uR, params.gamma0);
+                qRR = consToPrim<ndim>(uRR, params.gamma0);
+                const PrimState slopeC = compute_slope<ndim>(qL, qC, qR,  dslope_L, dslope_R);
+                const PrimState slopeR = compute_slope<ndim>(qC, qR, qRR, dslope_R, dslope_RR);
+                fluxR += compute_euler_flux<ndim, State>(qC, qR, slopeC, slopeR, dir, params, dflux_RL, dflux_RR);
               });
     fluxR *= fac;      
   }
 
-  HydroState3d rhs = (fluxL - fluxR) * dtddir;
-  for (auto ivar : {ID, IP, IU, IV})
-    Uout.at(iCell_Uout, ivar) += rhs[ivar];
-  if(ndim==3) Uout.at(iCell_Uout, IW) += rhs[IW];
+  ConsState u{};
+  getConservativeState<ndim>(Uout, iCell_Uout, u);
+  u += (fluxL - fluxR) * dtddir;
+  setConservativeState<ndim>(Uout, iCell_Uout, u);
 }
 
 }

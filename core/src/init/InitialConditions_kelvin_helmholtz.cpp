@@ -56,13 +56,13 @@ struct AnalyticalFormula_KelvinHelmholtz : public AnalyticalFormula_base{
     real_t smallp = this->smallp;
     real_t error_max = this->error_max;
     return AnalyticalFormula_tools::auto_refine( *this, gamma0, smallr, smallp, error_max,
-                                                  x, y, z, dx, dy, dz );
+                                                 x, y, z, dx, dy, dz );
   }
 
   KOKKOS_INLINE_FUNCTION
-  HydroState3d value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
+  ConsHydroState value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
   {
-    HydroState3d res;
+    ConsHydroState res;
     const real_t q1 = tanh((y-z1)/a);
     const real_t q2 = tanh((y-z2)/a);
     const real_t s2 = sigma*sigma;
@@ -73,15 +73,17 @@ struct AnalyticalFormula_KelvinHelmholtz : public AnalyticalFormula_base{
     const real_t v   = A*sin(2.0*M_PI*x)*(exp(-dz1/s2) + exp(-dz2/s2));
     const real_t Ek  = rho*0.5*(u*u+v*v);
 
-    res[ID] = rho;
-    res[IU] = rho*u;
-    res[IV] = rho*v;
-    res[IE] = Ek + P0 / (gamma0-1.0);
+    res.rho   = rho;
+    res.rho_u = rho*u;
+    res.rho_v = rho*v;
+    res.e_tot = Ek + P0 / (gamma0-1.0);
 
     return res; 
   }
 };
 } // namespace dyablo
 
-FACTORY_REGISTER(dyablo::InitialConditionsFactory, dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_KelvinHelmholtz>, "kelvin_helmholtz");
+FACTORY_REGISTER(dyablo::InitialConditionsFactory, 
+                 dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_KelvinHelmholtz>, 
+                 "kelvin_helmholtz");
 

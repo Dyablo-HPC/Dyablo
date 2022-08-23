@@ -21,6 +21,7 @@
 #include "hydro/HydroUpdate.h"
 #include "utils_hydro.h"
 #include "io/IOManager.h"
+#include "states/State_hydro.h"
 using blockSize_t    = Kokkos::Array<uint32_t, 3>;
 
 using Device = Kokkos::DefaultExecutionSpace;
@@ -34,6 +35,7 @@ real_t expected_conservativity_percent( const std::string& HydroUpdate_id )
   static std::map<std::string, real_t> expected_map =
   {
     {"HydroUpdate_hancock", 1},
+    {"MHDUpdate_hancock", 1},
     {"HydroUpdate_legacy", 1},
     // Add custom conservativity target for non-conservative Solvers
   };
@@ -68,15 +70,15 @@ struct DiagosticsFunctor {
       real_t dz = cell_size[IZ];
       real_t dV = dx*dy*(ndim==3 ? dz : 1.0);
       
-      HydroState3d uLoc;
-      uLoc[ID] = U.at(iCell,ID);
-      uLoc[IE] = U.at(iCell,IE);
-      uLoc[IU] = U.at(iCell,IU);
-      uLoc[IV] = U.at(iCell,IV);
-      uLoc[IW] = (ndim==2)? 0 : U.at(iCell, IW);
+      ConsHydroState uLoc{};
+      uLoc.rho = U.at(iCell,ID);
+      uLoc.e_tot = U.at(iCell,IE);
+      uLoc.rho_u = U.at(iCell,IU);
+      uLoc.rho_v = U.at(iCell,IV);
+      uLoc.rho_w = (ndim==2)? 0 : U.at(iCell, IW);
 
-      mass   += dV * uLoc[ID];
-      energy += dV * uLoc[IE];
+      mass   += dV * uLoc.rho;
+      energy += dV * uLoc.e_tot;
 
     }, Kokkos::Sum<real_t>(mass), Kokkos::Sum<real_t>(energy) );
 
@@ -116,11 +118,13 @@ void run_test(int ndim, std::string HydroUpdate_id ) {
   std::cout << "// Testing " << HydroUpdate_id << "\n";
   std::cout << "// =========================================\n";
 
+  bool has_mhd = HydroUpdate_id.find("MHD") != std::string::npos;
+
   // Content of .ini file used ton configure configmap and HydroParams
   char configmap_cstr[] = 
     "[output]\n"
     "outputPrefix=test_Conservativity\n"
-    "write_variables=rho,level,rank\n"
+    "write_variables=rho,e_tot,Bx,By,Bz,level,rank\n"
     "enable_hdf5=on\n"
     "[amr]\n"
     "use_block_data=yes\n"
@@ -168,10 +172,19 @@ void run_test(int ndim, std::string HydroUpdate_id ) {
   ForeachCell::CellArray_global_ghosted U, U2;
   {
     std::string init_name = configMap.getValue<std::string>("hydro", "problem", "blast");
+    if (has_mhd)
+      init_name = "MHD_" + init_name;
 
-     FieldManager field_manager = (ndim == 2 
-                              ? FieldManager({ID, IP, IU, IV}) 
-                              : FieldManager({ID, IP, IU, IV, IW}));
+    std::set<VarIndex> active_vars{ID, IP, IU, IV};
+    if (ndim == 3)
+      active_vars.insert(IW);
+    if (has_mhd) {
+      active_vars.insert(IBX);
+      active_vars.insert(IBY);
+      active_vars.insert(IBZ);
+    }
+    
+    FieldManager field_manager{active_vars}; 
 
     auto initial_conditions = InitialConditionsFactory::make_instance(
                                 init_name, 
@@ -234,11 +247,11 @@ void run_test(int ndim, std::string HydroUpdate_id ) {
 
 }
 
-class Test_Hydro_Conservativity 
+class Test_Conservativity 
   : public testing::TestWithParam<std::tuple<int, std::string>> 
 {};
 
-TEST_P(Test_Hydro_Conservativity, mass_and_energy_conserved)
+TEST_P(Test_Conservativity, mass_and_energy_conserved)
 {
   int ndim = std::get<0>(GetParam());
   std::string id = std::get<1>(GetParam());
@@ -246,12 +259,12 @@ TEST_P(Test_Hydro_Conservativity, mass_and_energy_conserved)
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    Test_Hydro_Conservativity, Test_Hydro_Conservativity,
+    Test_Conservativity, Test_Conservativity,
     testing::Combine(
         testing::Values(2,3),
         testing::ValuesIn( dyablo::HydroUpdateFactory::get_available_ids() )
     ),
-    [](const testing::TestParamInfo<Test_Hydro_Conservativity::ParamType>& info) {
+    [](const testing::TestParamInfo<Test_Conservativity::ParamType>& info) {
       std::string name = 
           (std::get<0>(info.param) == 2 ? std::string("2D") : std::string("3D"))
           + "_" + std::get<1>(info.param);

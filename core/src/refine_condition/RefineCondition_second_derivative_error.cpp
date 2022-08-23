@@ -24,33 +24,22 @@ namespace dyablo {
 
 namespace{
 
-template< int ndim >
+template< 
+  int ndim,
+  typename PrimState,
+  typename ConsState >
 KOKKOS_INLINE_FUNCTION
 void compute_primitives(const PatchArray& Ugroup, const CellIndex& iCell_Ugroup, const PatchArray& Qgroup,
                         real_t gamma0, real_t smallr, real_t smallp)
 {
-  HydroState3d uLoc = getHydroState<ndim>( Ugroup, iCell_Ugroup );
+  ConsState uLoc{};
+  getConservativeState<ndim>( Ugroup, iCell_Ugroup, uLoc );
       
   // get primitive variables in current cell
-  HydroState3d qLoc;
+  PrimState qLoc{};
   real_t c = 0.0;
-  if(ndim==3)
-    computePrimitives(uLoc, &c, qLoc, gamma0, smallr, smallp);
-  else
-  {
-    auto copy_state = [](auto& to, const auto& from){
-      to[ID] = from[ID];
-      to[IP] = from[IP];
-      to[IU] = from[IU];
-      to[IV] = from[IV];
-    };
-    HydroState2d uLoc_2d, qLoc_2d;
-    copy_state(uLoc_2d, uLoc);
-    computePrimitives(uLoc_2d, &c, qLoc_2d, gamma0, smallr, smallp);
-    copy_state(qLoc, qLoc_2d);
-  }
-
-  setHydroState<ndim>( Qgroup, iCell_Ugroup, qLoc );
+  computePrimitives<PrimState, ConsState>(uLoc, &c, qLoc, gamma0, smallr, smallp);
+  setPrimitiveState<ndim>( Qgroup, iCell_Ugroup, qLoc );
 }
 
 constexpr real_t eps = std::numeric_limits<real_t>::epsilon();
@@ -87,7 +76,7 @@ public:
                 ForeachCell& foreach_cell,
                 Timers& timers )
     : foreach_cell(foreach_cell),
-      timers(timers),
+      //timers(timers),
       error_min ( configMap.getValue<real_t>("amr", "error_min", 0.2) ),
       error_max ( configMap.getValue<real_t>("amr", "error_max", 0.8) ),
       gravity_type( configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE) ),
@@ -113,12 +102,14 @@ public:
   {
     int ndim = foreach_cell.getDim();
     if( ndim == 2 )
-      mark_cells_aux<2>( Uin );
+      mark_cells_aux<2, PrimHydroState, ConsHydroState>( Uin );
     else if( ndim == 3 )
-      mark_cells_aux<3>( Uin );
+      mark_cells_aux<3, PrimHydroState, ConsHydroState>( Uin );
   }
 
-  template< int ndim >
+  template< int ndim,
+            typename PrimState,
+            typename ConsState >
   void mark_cells_aux( const ForeachCell::CellArray_global_ghosted& Uin )
   {
     // TODO : only keep VarIndex relevant for markers computation
@@ -160,7 +151,7 @@ public:
       // Copy non ghosted array Uin into temporary ghosted Ugroup with two ghosts
       patch.foreach_cell(Ugroup, CELL_LAMBDA(const ForeachCell::CellIndex& iCell_Ugroup)
       {
-          copyGhostBlockCellData<ndim>(
+          copyGhostBlockCellData<ndim, HydroState>(
           Uin, iCell_Ugroup, 
           cellmetadata, 
           xmin, ymin, zmin, 
@@ -171,7 +162,7 @@ public:
 
       patch.foreach_cell(Ugroup, CELL_LAMBDA(const CellIndex& iCell_Ugroup)
       { 
-        compute_primitives<ndim>(Ugroup, iCell_Ugroup, Qgroup, gamma0, smallr, smallp);
+        compute_primitives<ndim, PrimState, ConsState>(Ugroup, iCell_Ugroup, Qgroup, gamma0, smallr, smallp);
       });
 
       patch.foreach_cell(Uin, CELL_LAMBDA(const CellIndex& iCell_U)
@@ -250,7 +241,6 @@ public:
 
 private:
   ForeachCell& foreach_cell;
-  Timers& timers;
   real_t error_min, error_max;
 
   GravityType gravity_type;

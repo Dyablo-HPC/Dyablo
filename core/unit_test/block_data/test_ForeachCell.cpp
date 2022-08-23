@@ -8,7 +8,8 @@
 
 #include "foreach_cell/ForeachCell.h"
 #include "foreach_cell/ForeachCell_utils.h"
-#include "HydroState.h"
+
+#include "states/State_Nd.h"
 
 namespace dyablo
 {
@@ -84,9 +85,6 @@ void run_test()
     amr_mesh->updateConnectivity();
     amr_mesh->loadBalance();
   }
-
-  uint32_t nbOcts = amr_mesh->getNumOctants();
-  uint32_t nbGhosts = amr_mesh->getNumGhosts();
 
   // Content of .ini file used ton configure configmap and HydroParams
   char configmap_cstr[] = "";
