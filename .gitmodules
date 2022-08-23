@@ -7,8 +7,7 @@
 	url = https://github.com/bombela/backward-cpp.git
 [submodule "external/bitpit"]
 	path = external/bitpit
-	url = https://github.com/pkestene/bitpit.git
-	branch = PABLO.fix.periodic.neighbours-dyablo
+	url = https://github.com/optimad/bitpit.git
 [submodule "external/gtest"]
 	path = external/gtest
 	url = https://github.com/google/googletest.git
