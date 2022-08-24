@@ -4,6 +4,7 @@
 #include <map>
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <iomanip>
 #include <limits>
 #include <algorithm>
@@ -168,10 +169,15 @@ private:
   ConfigMap( const ConfigMap& ) = default;
 
 public:
-  /// Read configmap from buffer
-  ConfigMap(char* &buffer, int buffer_size)
+  ConfigMap( const std::string& str )
+    : ConfigMap(str.c_str(), str.size())
+  {}
+  
+  /// Read configmap from string (null terminated, i.e str[str_size] == '\0')
+  ConfigMap(const char* str, int str_size)
   {
-    int error = ini_parse_buffer(buffer, buffer_size, valueHandler, this);
+    assert( str[str_size] == '\0' );
+    int error = ini_parse_string(str, valueHandler, this);
     if( error != 0 ) throw std::runtime_error(std::string("Error in .ini file line ") + std::to_string(error));
   
     this->print_config = this->getValue<bool>( "ini", "print_config", false );
@@ -202,9 +208,10 @@ public:
       filein.seekg(0); // rewind
       
       buffer_size = file_size;
-      buffer = new char[buffer_size];
+      buffer = new char[buffer_size+1];
       
       filein.read(buffer, buffer_size);
+      buffer[buffer_size] = '\0';
     }
     
     // broacast buffer size (collective)
@@ -213,11 +220,11 @@ public:
     // all other MPI task need to allocate buffer
     if (myRank>0) {
       //printf("I'm rank %d allocating buffer of size %d\n",myRank,buffer_size);
-      buffer = new char[buffer_size];
+      buffer = new char[buffer_size+1];
     }
 
     // broastcast buffer itself (collective)
-    mpi_comm.MPI_Bcast(&buffer[0], buffer_size, 0);
+    mpi_comm.MPI_Bcast(&buffer[0], buffer_size+1, 0);
     
     // now all MPI rank should have buffer filled, try to build a ConfigMap
     ConfigMap configMap(buffer,buffer_size);
