@@ -289,9 +289,9 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
       ConsState flux = riemann(qr_c, qr_n, dir, sign);
 
       if (sign == 1 && bc_manager.bc_min[dir] == BC_USER)
-        flux = bc_manager.template overrideBoundaryFlux<ndim>(flux, qr_c, dir, sign == 1);
+        flux = bc_manager.template overrideBoundaryFlux<ndim>(flux, qr_c, dir, true);
       else if (sign == -1 && bc_manager.bc_max[dir] == BC_USER)
-        flux = bc_manager.template overrideBoundaryFlux<ndim>(flux, qr_c, dir, sign == -1);
+        flux = bc_manager.template overrideBoundaryFlux<ndim>(flux, qr_c, dir, false);
         
       // +- dS / dV 
       real_t scale = -sign * dt / cell_size[dir];     
