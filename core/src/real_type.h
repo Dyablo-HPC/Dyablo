@@ -22,8 +22,8 @@ using real_t = float;
 
 // math function
 #if defined(DYABLO_USE_DOUBLE)
-#define FMAX(x,y) fmax(x,y)
-#define FMIN(x,y) fmin(x,y)
+#define FMAX(x,y) ( x>y ? x : y )
+#define FMIN(x,y) ( x<y ? x : y )
 #define SQRT(x) sqrt(x)
 #define FABS(x) fabs(x)
 #define COPYSIGN(x,y) copysign(x,y)
@@ -35,8 +35,8 @@ using real_t = float;
 #define ONE_F  (1.0)
 #define TWO_F  (2.0)
 #else
-#define FMAX(x,y) fmaxf(x,y)
-#define FMIN(x,y) fminf(x,y)
+#define FMAX(x,y) ( x>y ? x : y )
+#define FMIN(x,y) ( x<y ? x : y )
 #define SQRT(x) sqrtf(x)
 #define FABS(x) fabsf(x)
 #define COPYSIGN(x,y) copysignf(x,y)

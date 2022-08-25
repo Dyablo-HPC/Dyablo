@@ -8,6 +8,8 @@
 
 #include "HydroUpdate_utils.h"
 
+#include "boundary_conditions/BoundaryConditions.h"
+
 
 namespace dyablo { 
 
@@ -313,17 +315,9 @@ public:
     ForeachCell& foreach_cell,
     Timers& timers )
   : foreach_cell(foreach_cell),
-    xmin(configMap.getValue<real_t>("mesh", "xmin", 0.0)),
-    ymin(configMap.getValue<real_t>("mesh", "ymin", 0.0)),
-    zmin(configMap.getValue<real_t>("mesh", "zmin", 0.0)),
-    xmax(configMap.getValue<real_t>("mesh", "xmax", 1.0)),
-    ymax(configMap.getValue<real_t>("mesh", "ymax", 1.0)),
-    zmax(configMap.getValue<real_t>("mesh", "zmax", 1.0)),
     timers(timers),
     params(configMap),
-    boundary_type_xmin(configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_ABSORBING)),
-    boundary_type_ymin(configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymin", BC_ABSORBING)),
-    boundary_type_zmin(configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmin", BC_ABSORBING)),
+    bc_manager(configMap),
     gravity_type(configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE))
   {
     if (gravity_type & GRAVITY_CONSTANT) {
@@ -365,11 +359,7 @@ public:
     const double smallr = params.smallr;
     const GravityType gravity_type = this->gravity_type;
 
-    real_t xmin = this->xmin, ymin = this->ymin, zmin = this->zmin;
-    real_t xmax = this->xmax, ymax = this->ymax, zmax = this->zmax;
-    BoundaryConditionType xbound = this->boundary_type_xmin;
-    BoundaryConditionType ybound = this->boundary_type_ymin;
-    BoundaryConditionType zbound = this->boundary_type_zmin;
+    auto bc_manager = this->bc_manager;
 
     bool has_gravity = gravity_type!=GRAVITY_NONE;
     bool gravity_use_field = gravity_type&GRAVITY_FIELD;
@@ -418,9 +408,7 @@ public:
           copyGhostBlockCellData<ndim, State>(
           Uin, iCell_Ugroup, 
           cellmetadata, 
-          xmin, ymin, zmin, 
-          xmax, ymax, zmax, 
-          xbound, ybound, zbound,
+          bc_manager,
           Ugroup);
       });
 
@@ -460,16 +448,12 @@ public:
 
 private:
   ForeachCell& foreach_cell;
-  real_t xmin, ymin, zmin;
-  real_t xmax, ymax, zmax;  
   
   Timers& timers;  
 
   RiemannParams params;
+  BoundaryConditions<State> bc_manager;
 
-  real_t slope_type;
-
-  BoundaryConditionType boundary_type_xmin,boundary_type_ymin, boundary_type_zmin;
   GravityType gravity_type;
   real_t gx, gy, gz;
 };

@@ -9,7 +9,8 @@ enum BoundaryConditionType {
   BC_REFLECTING,  /*!< reflecting border condition */
   BC_ABSORBING,   /*!< absorbing border condition */
   BC_PERIODIC,    /*!< periodic border condition */
-  BC_COPY         /*!< only used in MPI parallelized version */
+  BC_COPY,        /*!< only used in MPI parallelized version */
+  BC_USER,
 };
 
 template<>
@@ -17,6 +18,7 @@ inline named_enum<BoundaryConditionType>::init_list named_enum<BoundaryCondition
     {BoundaryConditionType::BC_REFLECTING, "reflecting"},
     {BoundaryConditionType::BC_ABSORBING, "absorbing"},
     {BoundaryConditionType::BC_PERIODIC, "periodic"},
+    {BoundaryConditionType::BC_USER, "userdef"}
 };
 
 //! enum component index

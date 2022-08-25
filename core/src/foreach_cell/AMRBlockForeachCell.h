@@ -36,6 +36,8 @@ public:
   KOKKOS_INLINE_FUNCTION
   pos_t getCellSize( const CellIndex& iCell ) const
   {
+    assert(iCell.is_valid());
+
     const AMRBlockForeachCell_CData& cdata = this->cdata;
     const LightOctree& lmesh = this->lmesh;
     real_t oct_size = lmesh.getSize(iCell.iOct);
@@ -55,6 +57,8 @@ public:
   KOKKOS_INLINE_FUNCTION
   pos_t getCellCenter( const CellIndex& iCell ) const
   {
+    assert(iCell.is_valid());
+
     const AMRBlockForeachCell_CData& cdata = this->cdata;
     int ndim = cdata.ndim;
     const LightOctree& lmesh = this->lmesh;

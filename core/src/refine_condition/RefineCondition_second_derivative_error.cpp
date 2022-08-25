@@ -3,6 +3,7 @@
 #include "kokkos_shared.h"
 #include "foreach_cell/ForeachCell.h"
 #include "utils_hydro.h"
+#include "boundary_conditions/BoundaryConditions.h"
 
 namespace dyablo {
 
@@ -80,18 +81,7 @@ public:
       error_min ( configMap.getValue<real_t>("amr", "error_min", 0.2) ),
       error_max ( configMap.getValue<real_t>("amr", "error_max", 0.8) ),
       gravity_type( configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE) ),
-      xmin( configMap.getValue<real_t>("mesh", "xmin", 0.0) ),
-      ymin( configMap.getValue<real_t>("mesh", "ymin", 0.0) ),
-      zmin( configMap.getValue<real_t>("mesh", "zmin", 0.0) ),
-      xmax( configMap.getValue<real_t>("mesh", "xmax", 1.0) ),
-      ymax( configMap.getValue<real_t>("mesh", "ymax", 1.0) ),
-      zmax( configMap.getValue<real_t>("mesh", "zmax", 1.0) ),
-      bxmin( configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_ABSORBING) ),
-      bxmax( configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmax", BC_ABSORBING) ),
-      bymin( configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymin", BC_ABSORBING) ),
-      bymax( configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymax", BC_ABSORBING) ),
-      bzmin( configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmin", BC_ABSORBING) ),
-      bzmax( configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmax", BC_ABSORBING) ),
+      bc_manager( configMap ),
       gamma0( configMap.getValue<real_t>("hydro","gamma0", 1.4) ),
       smallr( configMap.getValue<real_t>("hydro","smallr", 1e-10) ),
       smallc( configMap.getValue<real_t>("hydro","smallc", 1e-10) ),
@@ -117,15 +107,7 @@ public:
     auto fm = fm_refvar.get_id2index();
     int nbfields = fm_refvar.nbfields();
 
-    BoundaryConditionType xbound = bxmin; assert(bxmin == bxmax);
-    BoundaryConditionType ybound = bymin; assert(bymin == bymax);
-    BoundaryConditionType zbound = bzmin; assert(bzmin == bzmax);
-    real_t xmin = this->xmin;
-    real_t ymin = this->ymin;
-    real_t zmin = this->zmin;
-    real_t xmax = this->xmax;
-    real_t ymax = this->ymax;
-    real_t zmax = this->zmax;
+    auto bc_manager = this->bc_manager;
     real_t gamma0 = this->gamma0;
     real_t smallr = this->smallr;
     real_t smallp = this->smallp;
@@ -154,9 +136,7 @@ public:
           copyGhostBlockCellData<ndim, HydroState>(
           Uin, iCell_Ugroup, 
           cellmetadata, 
-          xmin, ymin, zmin, 
-          xmax, ymax, zmax, 
-          xbound, ybound, zbound,
+          bc_manager,
           Ugroup);
       });
 
@@ -244,14 +224,7 @@ private:
   real_t error_min, error_max;
 
   GravityType gravity_type;
-  real_t xmin, ymin, zmin;
-  real_t xmax, ymax, zmax;
-  BoundaryConditionType bxmin;
-  BoundaryConditionType bxmax;
-  BoundaryConditionType bymin;
-  BoundaryConditionType bymax;
-  BoundaryConditionType bzmin;
-  BoundaryConditionType bzmax;
+  BoundaryConditions<HydroState> bc_manager;
   real_t gamma0, smallr, smallc, smallp;
   
 };
