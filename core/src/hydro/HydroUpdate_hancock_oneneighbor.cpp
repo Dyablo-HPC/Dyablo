@@ -179,7 +179,7 @@ KOKKOS_INLINE_FUNCTION
 void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uout, const GhostedArray& Q, const CellIndex& iCell_Q,
                                 const GhostedArray& Slopes_x, const GhostedArray& Slopes_y, const GhostedArray& Slopes_z,
                                 const ForeachCell::CellMetaData& cellmetadata, real_t dt, const RiemannParams& params,
-                                const BoundaryConditions<State>& bc_manager)
+                                const BoundaryConditions& bc_manager)
 {
   using PrimState = typename State::PrimState;
   using ConsState = typename State::ConsState;
@@ -284,14 +284,14 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
     {
       
       PrimState qr_c = qprim;
-      ConsState ur_n = bc_manager.template getBoundaryValue<ndim>(Uin, iCell_n0, cellmetadata);
+      ConsState ur_n = bc_manager.template getBoundaryValue<ndim, State>(Uin, iCell_n0, cellmetadata);
       PrimState qr_n = consToPrim<ndim>(ur_n, params.gamma0);
       ConsState flux = riemann(qr_c, qr_n, dir, sign);
 
       if (sign == 1 && bc_manager.bc_min[dir] == BC_USER)
-        flux = bc_manager.template overrideBoundaryFlux<ndim>(flux, qr_c, dir, true);
+        flux = bc_manager.template overrideBoundaryFlux<ndim, State>(flux, qr_c, dir, true);
       else if (sign == -1 && bc_manager.bc_max[dir] == BC_USER)
-        flux = bc_manager.template overrideBoundaryFlux<ndim>(flux, qr_c, dir, false);
+        flux = bc_manager.template overrideBoundaryFlux<ndim, State>(flux, qr_c, dir, false);
         
       // +- dS / dV 
       real_t scale = -sign * dt / cell_size[dir];     
@@ -530,7 +530,7 @@ public:
                     real_t dt) {
     using GhostedArray = ForeachCell::CellArray_global_ghosted;
     const RiemannParams& riemann_params = this->riemann_params;
-    const BoundaryConditions<State>& bc_manager = this->bc_manager;
+    const BoundaryConditions& bc_manager = this->bc_manager;
     ForeachCell& foreach_cell = this->foreach_cell;
     GhostCommunicator ghost_comm(std::shared_ptr<AMRmesh>(&foreach_cell.get_amr_mesh(), [](AMRmesh*){}));
     bool gravity_use_field = this->gravity_use_field;
@@ -596,7 +596,7 @@ public:
   private:
     ForeachCell& foreach_cell;
     RiemannParams riemann_params;  
-    BoundaryConditions<State> bc_manager;
+    BoundaryConditions bc_manager;
     real_t gx, gy, gz;
 
     bool gravity_enabled, gravity_use_field;

@@ -346,15 +346,15 @@ template<int ndim,
          typename ArrayIn,
          typename ArrayOut>
 KOKKOS_INLINE_FUNCTION
-void euler_update(const RiemannParams&            params, 
-                        ComponentIndex3D          dir, 
-                  const CellIndex&                iCell_Uout,
-                  const ArrayIn&                  U,
-                  const PatchArray&               Qgroup,
-                  const real_t                    dt,
-                  const real_t                    ddir,
-                  const BoundaryConditions<State> bc_manager,
-                  const ArrayOut&                 Uout)
+void euler_update(const RiemannParams&     params, 
+                        ComponentIndex3D   dir, 
+                  const CellIndex&         iCell_Uout,
+                  const ArrayIn&           U,
+                  const PatchArray&        Qgroup,
+                  const real_t             dt,
+                  const real_t             ddir,
+                  const BoundaryConditions bc_manager,
+                  const ArrayOut&          Uout)
 {
   using PrimState = typename State::PrimState;
   using ConsState = typename State::ConsState;
@@ -475,7 +475,7 @@ void euler_update(const RiemannParams&            params,
     fluxL = compute_euler_flux<ndim, State>(qL, qC, slopeL, slopeCL, dir, params, dflux_LL, dflux_LR);
 
     if (iUinL.is_boundary() && bc_manager.bc_min[dir] == BC_USER)
-      fluxL = bc_manager.template overrideBoundaryFlux<ndim>(fluxL, qC, dir, true);
+      fluxL = bc_manager.template overrideBoundaryFlux<ndim, State>(fluxL, qC, dir, true);
   }
   // 2- Smaller
   else {
@@ -513,7 +513,7 @@ void euler_update(const RiemannParams&            params,
     fluxR = compute_euler_flux<ndim, State>(qC, qR, slopeCR, slopeR, dir, params, dflux_RL, dflux_RR);
 
     if (iUinR.is_boundary() && bc_manager.bc_max[dir] == BC_USER)
-      fluxR = bc_manager.template overrideBoundaryFlux<ndim>(fluxR, qC, dir, false);
+      fluxR = bc_manager.template overrideBoundaryFlux<ndim, State>(fluxR, qC, dir, false);
   }
   // 2- Smaller :
   else {

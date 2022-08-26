@@ -5,11 +5,8 @@
 #include "RiemannSolvers.h"
 
 namespace dyablo {
-template<typename State_> class BoundaryConditions {
+class BoundaryConditions {
 public:
-  using State     = State_;
-  using PrimState = typename State::PrimState;
-  using ConsState = typename State::ConsState;
 
   BoundaryConditions(ConfigMap &configMap) :
       params(configMap),
@@ -37,21 +34,24 @@ public:
    * (e.g. reflecting/absorbing boundary conditions)
    * 
    * \tparam ndim the number of dimensions
-   * 
+   * \tparam State the type of state to be outputted by the method
    * \param Uin input array of conservative variables
    * \param iCell_boundary cell index outside of the domain (iCell_boundary.is_boundary() must be true)
    * \param metadata CellMetaData object allowing for mesh queries on size/position
    * \return The hydrostate defined at the given boundary position 
    */
-  template<int ndim>
+  template<
+    int ndim,
+    typename State>
   KOKKOS_INLINE_FUNCTION
-  ConsState getBoundaryValue(const typename ForeachCell::CellArray_global &Uin,
-                             const typename ForeachCell::CellIndex        &iCell_boundary,
-                             const typename ForeachCell::CellMetaData     &metadata) const 
+  typename State::ConsState getBoundaryValue(const typename ForeachCell::CellArray_global &Uin,
+                                             const typename ForeachCell::CellIndex        &iCell_boundary,
+                                             const typename ForeachCell::CellMetaData     &metadata) const 
   {
     // Retrieve symmetrical cell
     using CellIndex = typename ForeachCell::CellIndex;
-    using offset_t =  typename CellIndex::offset_t;
+    using offset_t  = typename CellIndex::offset_t;
+    using ConsState = typename State::ConsState;
     
     CellIndex iCell_ref;
     offset_t  offset;
@@ -67,13 +67,13 @@ public:
       if (bc_min[IX] == BC_REFLECTING)
         res.rho_u = -ref.rho_u;
       else if (bc_min[IX] == BC_USER)
-        res = getUserdefBoundaryValue<ndim>(Uin, iCell_boundary, metadata, offset, IX);
+        res = getUserdefBoundaryValue<ndim, State>(Uin, iCell_boundary, metadata, offset, IX);
     }
     else if (offset[IX] < 0) {
       if (bc_max[IX] == BC_REFLECTING)
         res.rho_u = -ref.rho_u;
       else if (bc_max[IX] == BC_USER)
-        res = getUserdefBoundaryValue<ndim>(Uin, iCell_boundary, metadata, offset, IX);
+        res = getUserdefBoundaryValue<ndim, State>(Uin, iCell_boundary, metadata, offset, IX);
     }
 
     // Y dir
@@ -81,13 +81,13 @@ public:
       if (bc_min[IY] == BC_REFLECTING)
         res.rho_v = -ref.rho_v;
       else if (bc_min[IY] == BC_USER)
-        res = getUserdefBoundaryValue<ndim>(Uin, iCell_boundary, metadata, offset, IY);
+        res = getUserdefBoundaryValue<ndim, State>(Uin, iCell_boundary, metadata, offset, IY);
     }
     else if (offset[IY] < 0) {
       if (bc_max[IY] == BC_REFLECTING)
         res.rho_v = -ref.rho_v;
       else if (bc_max[IY] == BC_USER)
-        res = getUserdefBoundaryValue<ndim>(Uin, iCell_boundary, metadata, offset, IY);
+        res = getUserdefBoundaryValue<ndim, State>(Uin, iCell_boundary, metadata, offset, IY);
     }
 
     // Z dir
@@ -96,17 +96,16 @@ public:
         if (bc_min[IZ] == BC_REFLECTING)
           res.rho_w = -ref.rho_w;
         else if (bc_min[IZ] == BC_USER)
-          res = getUserdefBoundaryValue<ndim>(Uin, iCell_boundary, metadata, offset, IZ);
+          res = getUserdefBoundaryValue<ndim, State>(Uin, iCell_boundary, metadata, offset, IZ);
       }
       else if (offset[IZ] < 0) {
         if (bc_max[IZ] == BC_REFLECTING)
           res.rho_w = -ref.rho_w;
         else if (bc_max[IZ] == BC_USER)
-          res = getUserdefBoundaryValue<ndim>(Uin, iCell_boundary, metadata, offset, IZ);
+          res = getUserdefBoundaryValue<ndim, State>(Uin, iCell_boundary, metadata, offset, IZ);
       } 
     }
     
-
     return res;    
   }
 
@@ -117,6 +116,8 @@ public:
    * a value at the boundary that is flagged as user-defined. 
    * 
    * This method should return a conservative state.
+   * **Important note** that this method should not be used as is, but instead should be specialized
+   * to return a specific type of state (eg, MHDConservativeState or HydroConservativeState) 
    * 
    * \tparam ndim number of dimensions
    * 
@@ -126,14 +127,17 @@ public:
    * \param offset the offset to apply to iCell_boundary to get to the symmetrical cell inside the domain
    * \param dir the direction along which we're getting out of the domain
    **/
-  template <int ndim>
+  template <
+    int ndim,
+    typename State>
   KOKKOS_INLINE_FUNCTION
-  ConsState getUserdefBoundaryValue(const typename ForeachCell::CellArray_global    &Uin, 
-                                    const typename ForeachCell::CellIndex           &iCell_Boundary, 
-                                    const typename ForeachCell::CellMetaData        &metadata, 
-                                    const typename ForeachCell::CellIndex::offset_t &offset, 
-                                    ComponentIndex3D                                 dir) const 
+  typename State::ConsState getUserdefBoundaryValue(const typename ForeachCell::CellArray_global    &Uin, 
+                                                    const typename ForeachCell::CellIndex           &iCell_Boundary, 
+                                                    const typename ForeachCell::CellMetaData        &metadata, 
+                                                    const typename ForeachCell::CellIndex::offset_t &offset, 
+                                                    ComponentIndex3D                                 dir) const 
   {
+    using ConsState = typename State::ConsState;
     return ConsState {};
   }
 
@@ -150,12 +154,14 @@ public:
    * \param min_bound tells if the current boundary is the minimum boundary along dir or the maximum
    * 
    **/
-  template<int ndim>
+  template<
+    int ndim,
+    typename State>
   KOKKOS_INLINE_FUNCTION
-  ConsState overrideBoundaryFlux(const ConsState flux_in, 
-                                 const PrimState q,
-                                 const ComponentIndex3D dir,
-                                 const bool min_bound) const 
+  typename State::ConsState overrideBoundaryFlux(const typename State::ConsState flux_in, 
+                                                 const typename State::PrimState q,
+                                                 const ComponentIndex3D          dir,
+                                                 const bool                      min_bound) const 
   {
     return flux_in;
   }

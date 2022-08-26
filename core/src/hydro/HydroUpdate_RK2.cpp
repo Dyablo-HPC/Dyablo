@@ -260,7 +260,7 @@ private:
   Timers& timers;  
 
   RiemannParams params;
-  BoundaryConditions<State> bc_manager;
+  BoundaryConditions bc_manager;
   
   GravityType gravity_type;
   real_t gx, gy, gz;

@@ -7,9 +7,10 @@ namespace dyablo {
 
 template< int ndim, typename State >
 KOKKOS_INLINE_FUNCTION
-void copyGhostBlockCellData(const GhostedArray& Uin, const CellIndex& iCell_Ugroup,
+void copyGhostBlockCellData(const GhostedArray& Uin,
+                            const CellIndex& iCell_Ugroup,
                             const ForeachCell::CellMetaData& patch,
-                            const BoundaryConditions<State> bc_manager, 
+                            const BoundaryConditions bc_manager, 
                             const PatchArray& Ugroup)
 {
   using ConsState = typename State::ConsState;
@@ -18,7 +19,7 @@ void copyGhostBlockCellData(const GhostedArray& Uin, const CellIndex& iCell_Ugro
   CellIndex iCell_Uin = Uin.convert_index_ghost(iCell_Ugroup);
   if( iCell_Uin.is_boundary() )
   {
-    ConsState res = bc_manager.template getBoundaryValue<ndim>(Uin, iCell_Uin, patch);
+    ConsState res = bc_manager.template getBoundaryValue<ndim, State>(Uin, iCell_Uin, patch);
     setConservativeState<ndim>(Ugroup, iCell_Ugroup, res);
   }
   else if( iCell_Uin.level_diff() >= 0 ) 

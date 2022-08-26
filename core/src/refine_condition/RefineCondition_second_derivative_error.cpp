@@ -224,7 +224,7 @@ private:
   real_t error_min, error_max;
 
   GravityType gravity_type;
-  BoundaryConditions<HydroState> bc_manager;
+  BoundaryConditions bc_manager;
   real_t gamma0, smallr, smallc, smallp;
   
 };
