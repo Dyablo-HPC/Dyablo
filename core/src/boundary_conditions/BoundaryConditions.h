@@ -2,12 +2,19 @@
 
 #include "kokkos_shared.h"
 
+#include "BoundaryConditions.h"
+
 #include "RiemannSolvers.h"
 
 namespace dyablo {
+namespace {
+  using CellIndex        = typename ForeachCell::CellIndex;
+  using CellArray_global = typename ForeachCell::CellArray_global;
+  using CellMetaData     = typename ForeachCell::CellMetaData;
+}
 class BoundaryConditions {
 public:
-
+  
   BoundaryConditions(ConfigMap &configMap) :
       params(configMap),
       bc_min{configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_ABSORBING),
@@ -44,19 +51,29 @@ public:
     int ndim,
     typename State>
   KOKKOS_INLINE_FUNCTION
-  typename State::ConsState getBoundaryValue(const typename ForeachCell::CellArray_global &Uin,
-                                             const typename ForeachCell::CellIndex        &iCell_boundary,
-                                             const typename ForeachCell::CellMetaData     &metadata) const 
+  typename State::ConsState getBoundaryValue(const CellArray_global &Uin,
+                                             const CellIndex        &iCell_boundary,
+                                             const CellMetaData     &metadata) const 
   {
     // Retrieve symmetrical cell
-    using CellIndex = typename ForeachCell::CellIndex;
     using offset_t  = typename CellIndex::offset_t;
     using ConsState = typename State::ConsState;
     
     CellIndex iCell_ref;
     offset_t  offset;
-    iCell_boundary.getBoundarySymmetrical(iCell_ref, offset);
 
+    iCell_boundary.getBoundaryPosAndOffset(iCell_ref, offset);
+
+    auto sign = [](int x){return (x>0)-(x<0);};
+
+    CellIndex::offset_t symmetric_offset {
+      (int16_t)(-offset[IX] + sign(offset[IX])), 
+      (int16_t)(-offset[IY] + sign(offset[IY])), 
+      (int16_t)(-offset[IZ] + sign(offset[IZ]))
+    }; 
+
+    iCell_ref = iCell_ref.getNeighbor(symmetric_offset);
+  
     // By default, we define the result as the reference state (ie the symmetrical state wrt the boundary)
     ConsState res{}, ref{};
     getConservativeState<ndim>(Uin, iCell_ref, ref);
@@ -131,11 +148,11 @@ public:
     int ndim,
     typename State>
   KOKKOS_INLINE_FUNCTION
-  typename State::ConsState getUserdefBoundaryValue(const typename ForeachCell::CellArray_global    &Uin, 
-                                                    const typename ForeachCell::CellIndex           &iCell_Boundary, 
-                                                    const typename ForeachCell::CellMetaData        &metadata, 
-                                                    const typename ForeachCell::CellIndex::offset_t &offset, 
-                                                    ComponentIndex3D                                 dir) const 
+  typename State::ConsState getUserdefBoundaryValue(const CellArray_global    &Uin, 
+                                                    const CellIndex           &iCell_Boundary, 
+                                                    const CellMetaData        &metadata, 
+                                                    const CellIndex::offset_t &offset, 
+                                                    ComponentIndex3D           dir) const 
   {
     using ConsState = typename State::ConsState;
     return ConsState {};

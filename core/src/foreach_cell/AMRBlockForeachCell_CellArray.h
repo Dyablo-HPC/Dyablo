@@ -116,34 +116,6 @@ struct CellIndex
     offset = {i_offset, j_offset, k_offset};
   }
 
-  /**
-   * Returns the symmetrical cell with respect to the boundary of the domain
-   * as well as an offset to apply to the current cell to get to the current cell.
-   * iCell_inside is computed such that *this == iCell_inside.getNeighbor_ghost(offset, ...)
-   *
-   * @param iCell_inside (out) symmetrical cell with respect to the boundary
-   * @param offset (out) offset to apply to iCell_inside to get to the current cell
-   * 
-   * @note is_boundary() must be true
-   **/
-  KOKKOS_INLINE_FUNCTION
-  void getBoundarySymmetrical(CellIndex &iCell_inside, offset_t &offset) const 
-  {
-    assert(is_boundary());
-
-    getBoundaryPosAndOffset(iCell_inside, offset);
-
-    auto sign = [](int x){return (x>0)-(x<0);};
-
-    offset_t symmetric_offset {
-      (int16_t)(-offset[IX] + sign(offset[IX])), 
-      (int16_t)(-offset[IY] + sign(offset[IY])), 
-      (int16_t)(-offset[IZ] + sign(offset[IZ]))
-    }; 
-
-    iCell_inside = iCell_inside.getNeighbor(symmetric_offset);
-  }
-
 
   /**
    * Compute neighbor index in a ghosted with neighbor-octant search.
@@ -185,6 +157,16 @@ struct CellIndex
   CellIndex operator+( const offset_t& offset ) const
   {
     return getNeighbor(offset);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  bool operator==(const CellIndex &c2) const {
+  return (iOct.iOct == c2.iOct.iOct 
+       && iOct.isGhost == c2.iOct.isGhost
+       && i == c2.i
+       && j == c2.j
+       && k == c2.k
+       && status == c2.status);
   }
 };
 
