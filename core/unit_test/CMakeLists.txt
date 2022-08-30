@@ -131,6 +131,10 @@ dyablo_add_test(utest_Kokkos_dyablo OFF
   test_Kokkos.cpp
   main.cpp)
 
+dyablo_add_test(utest_BoundaryConditions ON
+  boundary_conditions/utest_BoundaryConditions.cpp
+  main.cpp)
+
 configure_file(
   hydro/test_blast_2D_block.ini
   hydro/test_blast_2D_block.ini COPYONLY)
