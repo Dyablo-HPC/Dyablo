@@ -22,7 +22,44 @@ using CellIndex = dyablo::ForeachCell::CellIndex;
 
 namespace dyablo {
 
+using TmpView = Kokkos::View<real_t**>;
+using TmpViewHost = TmpView::HostMirror;
+
 namespace {
+struct FillFunctor {
+  ForeachCell::CellArray_global_ghosted U;
+  TmpView out;
+  ForeachCell::CellMetaData metadata;
+  BoundaryConditions bc_manager;
+  CellIndex cv[4];
+
+  FillFunctor(ConfigMap &configMap,
+              ForeachCell::CellArray_global_ghosted U, 
+              TmpView out, 
+              ForeachCell::CellMetaData metadata,
+              CellIndex cv[],
+              BoundaryConditionType bc_type)
+    : U(U), out(out), metadata(metadata), bc_manager(configMap) {
+      for (int i=0; i < 4; ++i)
+        this->cv[i] = cv[i];
+
+      for (auto dir : {IX, IY, IZ}) {
+        bc_manager.bc_min[dir] = bc_type;
+        bc_manager.bc_max[dir] = bc_type;
+      }
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(const int i) const {
+    auto v = bc_manager.getBoundaryValue<3, HydroState>(U, cv[i], metadata);
+    out(ID, i) = v.rho;
+    out(IE, i) = v.e_tot;
+    out(IU, i) = v.rho_u;
+    out(IV, i) = v.rho_v;
+    out(IW, i) = v.rho_w;
+  }
+};
+
 CellIndex make_boundary_cellindex(int i, int j, int k, int di, int dj, int dk, int bx, int by, int bz) {
   return CellIndex{{0, false}, 
                    (uint32_t)i+bx+di, 
@@ -35,7 +72,7 @@ CellIndex make_boundary_cellindex(int i, int j, int k, int di, int dj, int dk, i
 }
 
 class TestBoundaryConditions : public ::testing::Test {
-protected:
+public:
   std::shared_ptr<ConfigMap>                 configMap;
   int                                        ndim;
   std::shared_ptr<AMRmesh>                   amr_mesh;
@@ -75,7 +112,6 @@ protected:
 
     std::cout << "Initialize User Data..." << std::endl;
     ForeachCell foreach_cell(*amr_mesh, *configMap);
-    auto metadata = foreach_cell.getCellMetaData();
     U = foreach_cell.allocate_ghosted_array("U", fieldMgr);
     int bx = U.bx;
     int by = U.by;
@@ -99,6 +135,8 @@ protected:
       U.exchange_ghosts(GhostCommunicator(amr_mesh));
     }
   }
+
+  ~TestBoundaryConditions() {}
 };
 
 /**
@@ -194,29 +232,14 @@ TEST_F(TestBoundaryConditions, absorbingBoundaries) {
   CellIndex c3 = make_boundary_cellindex(cp[2][IX], cp[2][IY], cp[2][IZ],  0, 0, 1, bx, by, bz);
   CellIndex c4 = make_boundary_cellindex(cp[3][IX], cp[3][IY], cp[3][IZ],  0, 2, 0, bx, by, bz);
 
-  // Setting up boundary conditions
-  BoundaryConditions bc_manager(*configMap);
-  bc_manager.bc_min[IX] = BC_ABSORBING;
-  bc_manager.bc_min[IY] = BC_ABSORBING;
-  bc_manager.bc_min[IZ] = BC_ABSORBING;
-  bc_manager.bc_max[IX] = BC_ABSORBING;
-  bc_manager.bc_max[IY] = BC_ABSORBING;
-  bc_manager.bc_max[IZ] = BC_ABSORBING;
-
-  using TmpView = Kokkos::View<real_t**>;
-  using TmpViewHost = TmpView::HostMirror;
   TmpView out("test_BC", 5, 4);
   CellIndex cv[4] {c1, c2, c3, c4};
   ForeachCell foreach_cell(*amr_mesh, *configMap);
+  auto U = this->U;
   auto metadata = foreach_cell.getCellMetaData();
-  Kokkos::parallel_for(4, KOKKOS_LAMBDA(const int i) {
-    auto v = bc_manager.getBoundaryValue<3, HydroState>(U, cv[i], metadata);
-    out(ID, i) = v.rho;
-    out(IE, i) = v.e_tot;
-    out(IU, i) = v.rho_u;
-    out(IV, i) = v.rho_v;
-    out(IW, i) = v.rho_w;
-  });
+
+  FillFunctor f{*configMap, U, out, metadata, cv, BC_ABSORBING};
+  Kokkos::parallel_for(4, f);
 
   TmpViewHost out_host = Kokkos::create_mirror_view(out);
   Kokkos::deep_copy(out_host, out);
@@ -286,14 +309,8 @@ TEST_F(TestBoundaryConditions, reflectingBoundaries) {
   auto metadata = foreach_cell.getCellMetaData();
   CellIndex cv[4] {c1, c2, c3, c4};
 
-  Kokkos::parallel_for(4, KOKKOS_LAMBDA(const int i) {
-    auto v = bc_manager.getBoundaryValue<3, HydroState>(U, cv[i], metadata);
-    out(ID, i) = v.rho;
-    out(IE, i) = v.e_tot;
-    out(IU, i) = v.rho_u;
-    out(IV, i) = v.rho_v;
-    out(IW, i) = v.rho_w;
-  });
+  FillFunctor f{*configMap, U, out, metadata, cv, BC_REFLECTING};
+  Kokkos::parallel_for(4, f);
 
   TmpViewHost out_host = Kokkos::create_mirror_view(out);
   Kokkos::deep_copy(out_host, out);
