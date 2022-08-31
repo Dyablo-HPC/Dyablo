@@ -26,6 +26,11 @@ using TmpView = Kokkos::View<real_t**>;
 using TmpViewHost = TmpView::HostMirror;
 
 namespace {
+/**
+ * Simple Kokkos functor filling a vector of state
+ * from a data array and a list of positions using 
+ * the boundary conditions manager.
+ */
 struct FillFunctor {
   ForeachCell::CellArray_global_ghosted U;
   TmpView out;
@@ -60,6 +65,19 @@ struct FillFunctor {
   }
 };
 
+/**
+ * @brief Builds a CellIndex object for a boundary cell
+ * 
+ * This method returns a CellIndex object that will be constructed from a position
+ * inside the domain (i, j, k) and an offset (di, dj, dk) and a block size (bx, by, bz). 
+ * The cell is flagged as boundary, however no checks are performed if the resulting 
+ * position is really outside the cell.
+ * 
+ * @note IMPORTANT : The cell is constructed as in AMRBlockForeachCell_CellArray.h
+ *                   hence the final index in each direction tells if we're out of
+ *                   the cell on the left (eg i in [0; bx[), inside the cell ([bx; 2*bx[)
+ *                   or on the right ([2*bx; 3*bx[).
+ */
 CellIndex make_boundary_cellindex(int i, int j, int k, int di, int dj, int dk, int bx, int by, int bz) {
   return CellIndex{{0, false}, 
                    (uint32_t)i+bx+di, 
@@ -71,6 +89,9 @@ CellIndex make_boundary_cellindex(int i, int j, int k, int di, int dj, int dk, i
                    CellIndex::BOUNDARY};
 }
 
+/**
+ * @brief Test class deriving from ::testing::Test to allow test fixtures
+ */
 class TestBoundaryConditions : public ::testing::Test {
 public:
   std::shared_ptr<ConfigMap>                 configMap;
