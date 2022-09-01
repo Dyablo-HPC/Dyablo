@@ -87,10 +87,8 @@ void run_test()
   }
 
   // Content of .ini file used ton configure configmap and HydroParams
-  char configmap_cstr[] = "";
-  int configmap_cstr_len = sizeof(configmap_cstr);
-  char* configmap_charptr = configmap_cstr;
-  ConfigMap configMap(configmap_charptr, configmap_cstr_len);
+  std::string configmap_str = "";
+  ConfigMap configMap(configmap_str);
 
   // Fill default values
   constexpr int ndim = 3;

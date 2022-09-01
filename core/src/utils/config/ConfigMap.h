@@ -170,22 +170,20 @@ private:
 
 public:
   ConfigMap( const std::string& str )
-    : ConfigMap(str.c_str(), str.size())
+    : ConfigMap(str.c_str())
   {}
-  
-  /// Read configmap from string (null terminated, i.e str[str_size] == '\0')
-  ConfigMap(const char* str, int str_size)
+
+  /// Read configmap from string (null terminated)
+  ConfigMap(const char* str)
   {
-    assert( str[str_size] == '\0' );
     int error = ini_parse_string(str, valueHandler, this);
     if( error != 0 ) throw std::runtime_error(std::string("Error in .ini file line ") + std::to_string(error));
   
     this->print_config = this->getValue<bool>( "ini", "print_config", false );
   }
+
   ConfigMap( ConfigMap&& ) = default;
 
-  
-  
   /// Read configmap from file and broadcast : 
   ///   this is an MPI collective that create the same ConfigMap on every process
   static ConfigMap broadcast_parameters(std::string filename)
@@ -227,7 +225,7 @@ public:
     mpi_comm.MPI_Bcast(&buffer[0], buffer_size+1, 0);
     
     // now all MPI rank should have buffer filled, try to build a ConfigMap
-    ConfigMap configMap(buffer,buffer_size);
+    ConfigMap configMap(buffer);
 
     if (buffer)
       delete [] buffer;

@@ -61,7 +61,7 @@ void run_test(int ndim, std::string mapUserData_id)
 
   Timers timers;
 
-  char config_str[] = 
+  std::string config_str = 
     "[output]\n"
     "hdf5_enabled=true\n"
     "write_mesh_info=true\n"
@@ -73,8 +73,7 @@ void run_test(int ndim, std::string mapUserData_id)
     "use_block_data=true\n"
     "bx=8\n"
     "by=8\n";
-  char* config_str_ptr = config_str;
-  ConfigMap configMap(config_str_ptr, strlen(config_str)); //Use default values
+  ConfigMap configMap(config_str); //Use default values
 
   configMap.getValue<int>("mesh", "ndim", ndim);
   configMap.getValue<int>("amr", "bz", ndim==2?1:8);

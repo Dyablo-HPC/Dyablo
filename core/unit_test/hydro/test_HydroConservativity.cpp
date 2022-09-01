@@ -121,7 +121,7 @@ void run_test(int ndim, std::string HydroUpdate_id ) {
   bool has_mhd = HydroUpdate_id.find("MHD") != std::string::npos;
 
   // Content of .ini file used ton configure configmap and HydroParams
-  char configmap_cstr[] = 
+  std::string configmap_str = 
     "[output]\n"
     "outputPrefix=test_Conservativity\n"
     "write_variables=rho,e_tot,Bx,By,Bz,level,rank\n"
@@ -129,9 +129,7 @@ void run_test(int ndim, std::string HydroUpdate_id ) {
     "[amr]\n"
     "use_block_data=yes\n"
     "\n";
-  int configmap_cstr_len = sizeof(configmap_cstr);
-  char* configmap_charptr = configmap_cstr;
-  ConfigMap configMap(configmap_charptr, configmap_cstr_len);
+  ConfigMap configMap(configmap_str);
 
   // Set ndim in configmap
   configMap.getValue<int>("mesh", "ndim", ndim);

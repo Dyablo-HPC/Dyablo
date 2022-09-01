@@ -108,7 +108,7 @@ public:
     ndim = 3;
 
     std::cout << "Create mesh..." << std::endl;
-    char configmap_cstr[] = 
+    std::string configmap_str = 
       "[amr]\n"
       "use_block_data=yes\n"
       "bx=4\n"
@@ -116,9 +116,7 @@ public:
       "bz=6\n"
       "[mesh]\n"
       "ndim=3\n";
-    int configmap_cstr_len = sizeof(configmap_cstr);
-    char* configmap_charptr = configmap_cstr;
-    configMap = std::make_shared<ConfigMap>(configmap_charptr, configmap_cstr_len);
+    configMap = std::make_shared<ConfigMap>(configmap_str);
 
     amr_mesh   = std::make_shared<AMRmesh>(ndim, ndim, std::array<bool,3>{false,false,false}, 3, 5);
     fieldMgr   = FieldManager::setup(ndim, GRAVITY_NONE);

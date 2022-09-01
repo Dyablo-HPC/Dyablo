@@ -132,7 +132,7 @@ void run_test(const Test_data& test_data)
   if constexpr( std::is_same<AMRmesh_t, AMRmesh>::value )
   {
     // Output generated mesh
-    char config_str[] = 
+    std::string configmap_str = 
       "[output]\n"
       "hdf5_enabled=true\n"
       "write_mesh_info=true\n"
@@ -144,8 +144,7 @@ void run_test(const Test_data& test_data)
       "use_block_data=true\n"
       "bx=1\n"
       "by=1\n";
-    char* config_str_ptr = config_str;
-    ConfigMap configMap(config_str_ptr, strlen(config_str)); //Use default values
+    ConfigMap configMap(configmap_str);
     ForeachCell foreach_cell( amr_mesh, configMap );
     ForeachCell::CellArray_global_ghosted U;
     IOManagerFactory::make_instance("IOManager_hdf5",configMap,foreach_cell,timers)->save_snapshot( U, 0, 0 );
