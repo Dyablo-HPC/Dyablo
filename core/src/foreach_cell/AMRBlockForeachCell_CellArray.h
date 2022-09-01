@@ -13,7 +13,6 @@ class AMRBlockForeachCell_Patch;
 namespace AMRBlockForeachCell_CellArray_impl{
 
 #define CELLINDEX_INVALID CellIndex{{0,true},0,0,0,0,0,0,CellIndex::INVALID}
-#define CELLINDEX_BOUNDARY CellIndex{{0,true},0,0,0,0,0,0,CellIndex::BOUNDARY}
 
 template< typename View_t >
 class CellArray_base;
@@ -84,6 +83,39 @@ struct CellIndex
 
   using offset_t = Kokkos::Array< int16_t, 3 >;
 
+/**
+   * Get a position inside the domain and an offset to get to the current boundary cell
+   * compute iCell_inside and offset such that *this == iCell_inside.getNeighbor_ghost(offset, ...)
+   * this->is_boundary() must be true
+   * 
+   * @param iCell_inside (out) closest cell inside domain
+   * @param offset (out) offset to apply to iCell_inside to get to current cell
+   **/
+  KOKKOS_INLINE_FUNCTION
+  void getBoundaryPosAndOffset(CellIndex& iCell_inside, offset_t& offset) const
+  {
+    assert( is_boundary() );
+
+    int32_t i = (int32_t)this->i - (int32_t)this->bx;
+    int32_t j = (int32_t)this->j - (int32_t)this->by;
+    int32_t k = (int32_t)this->k - (int32_t)this->bz;
+
+    uint32_t i_inside = FMIN( FMAX( i, (int32_t)0 ), (int32_t)(bx-1) );
+    int16_t i_offset = i - i_inside;
+    uint32_t j_inside = FMIN( FMAX( j, (int32_t)0 ), (int32_t)(by-1) );
+    int16_t j_offset = j - j_inside;
+    uint32_t k_inside = FMIN( FMAX( k, (int32_t)0 ), (int32_t)(bz-1) );
+    int16_t k_offset = k - k_inside;
+
+    iCell_inside = {
+      this->iOct,
+      i_inside,j_inside,k_inside,
+      this->bx,this->by,this->bz,
+      CellIndex::LOCAL_TO_BLOCK 
+    };
+    offset = {i_offset, j_offset, k_offset};
+  }
+
 
   /**
    * Compute neighbor index in a ghosted with neighbor-octant search.
@@ -125,6 +157,16 @@ struct CellIndex
   CellIndex operator+( const offset_t& offset ) const
   {
     return getNeighbor(offset);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  bool operator==(const CellIndex &c2) const {
+  return (iOct.iOct == c2.iOct.iOct 
+       && iOct.isGhost == c2.iOct.isGhost
+       && i == c2.i
+       && j == c2.j
+       && k == c2.k
+       && status == c2.status);
   }
 };
 
@@ -469,7 +511,7 @@ CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_
     //assert(!iOct.isGhost);
     if( lmesh.isBoundary( iOct, oct_offset ) )
     {
-      return CELLINDEX_BOUNDARY;
+      return CellIndex{iOct,i+bx,j+by,k+bz,bx,by,bz, CellIndex::BOUNDARY};;
     }
     
     LightOctree::NeighborList oct_neighbors = lmesh.findNeighbors(iOct, oct_offset);

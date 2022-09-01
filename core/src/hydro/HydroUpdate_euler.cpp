@@ -2,6 +2,8 @@
 #include "RiemannSolvers.h"
 #include "HydroUpdate_utils.h"
 
+#include "boundary_conditions/BoundaryConditions.h"
+
 namespace dyablo {
 namespace{
 
@@ -93,17 +95,9 @@ public:
           ForeachCell& foreach_cell,
           Timers& timers) 
   : foreach_cell(foreach_cell),
-    xmin(configMap.getValue<real_t>("mesh", "xmin", 0.0)),
-    ymin(configMap.getValue<real_t>("mesh", "ymin", 0.0)),
-    zmin(configMap.getValue<real_t>("mesh", "zmin", 0.0)),
-    xmax(configMap.getValue<real_t>("mesh", "xmax", 1.0)),
-    ymax(configMap.getValue<real_t>("mesh", "ymax", 1.0)),
-    zmax(configMap.getValue<real_t>("mesh", "zmax", 1.0)),
     timers(timers),
     params(configMap),
-    boundary_type_xmin(configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_ABSORBING)),
-    boundary_type_ymin(configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymin", BC_ABSORBING)),
-    boundary_type_zmin(configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmin", BC_ABSORBING)),
+    bc_manager(configMap),
     gravity_type(configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE))
   {
     if (gravity_type & GRAVITY_CONSTANT) {
@@ -147,11 +141,7 @@ public:
     const RiemannParams& params = this->params; 
     const GravityType gravity_type = this->gravity_type;
 
-    real_t xmin = this->xmin, ymin = this->ymin, zmin = this->zmin;
-    real_t xmax = this->xmax, ymax = this->ymax, zmax = this->zmax;
-    BoundaryConditionType xbound = this->boundary_type_xmin;
-    BoundaryConditionType ybound = this->boundary_type_ymin;
-    BoundaryConditionType zbound = this->boundary_type_zmin;
+    auto bc_manager = this->bc_manager;
 
     bool has_gravity = gravity_type!=GRAVITY_NONE;
     bool gravity_use_field = gravity_type&GRAVITY_FIELD;
@@ -189,10 +179,8 @@ public:
       {
         copyGhostBlockCellData<ndim, State>(
           Uin, iCell_Ugroup, 
-          cellmetadata, 
-          xmin, ymin, zmin, 
-          xmax, ymax, zmax, 
-          xbound, ybound, zbound,
+          cellmetadata,
+          bc_manager,
           Ugroup);
       });
 
@@ -207,10 +195,10 @@ public:
         ConsState u0{};
         getConservativeState<ndim>(Uin,  iCell_Uout, u0);
         setConservativeState<ndim>(Uout, iCell_Uout, u0);
-        euler_update<ndim, State>(params, IX, iCell_Uout, Uin, Qgroup, dt, size[IX], Uout);
-        euler_update<ndim, State>(params, IY, iCell_Uout, Uin, Qgroup, dt, size[IY], Uout);
+        euler_update<ndim, State>(params, IX, iCell_Uout, Uin, Qgroup, dt, size[IX], bc_manager, Uout);
+        euler_update<ndim, State>(params, IY, iCell_Uout, Uin, Qgroup, dt, size[IY], bc_manager, Uout);
         if(ndim==3)   
-          euler_update<ndim, State>(params, IZ, iCell_Uout, Uin, Qgroup, dt, size[IZ], Uout);
+          euler_update<ndim, State>(params, IZ, iCell_Uout, Uin, Qgroup, dt, size[IZ], bc_manager, Uout);
       
         // Applying correction step for gravity
         if (has_gravity)
@@ -240,14 +228,12 @@ public:
 
 private:
   ForeachCell& foreach_cell;
-  real_t xmin, ymin, zmin;
-  real_t xmax, ymax, zmax;  
   
   Timers& timers;  
 
   RiemannParams params;
 
-  BoundaryConditionType boundary_type_xmin,boundary_type_ymin, boundary_type_zmin;
+  BoundaryConditions bc_manager;
   GravityType gravity_type;
   real_t gx, gy, gz;
 };

@@ -15,6 +15,8 @@
 
 #include "states/State_forward.h"
 
+#include "boundary_conditions/BoundaryConditions.h"
+
 #ifdef __CUDA_ARCH__
 #include "math_constants.h"
 #endif
@@ -26,10 +28,6 @@ namespace dyablo {
 
 
 namespace{
-struct BoundaryConditions {
-  BoundaryConditionType boundary_type_xmin, boundary_type_ymin, boundary_type_zmin;
-  BoundaryConditionType boundary_type_xmax, boundary_type_ymax, boundary_type_zmax;
-};
 
 using GhostedArray = ForeachCell::CellArray_global_ghosted;
 using CellIndex = ForeachCell::CellIndex;
@@ -181,7 +179,7 @@ KOKKOS_INLINE_FUNCTION
 void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uout, const GhostedArray& Q, const CellIndex& iCell_Q,
                                 const GhostedArray& Slopes_x, const GhostedArray& Slopes_y, const GhostedArray& Slopes_z,
                                 const ForeachCell::CellMetaData& cellmetadata, real_t dt, const RiemannParams& params,
-                                const BoundaryConditions& bc)
+                                const BoundaryConditions& bc_manager)
 {
   using PrimState = typename State::PrimState;
   using ConsState = typename State::ConsState;
@@ -284,22 +282,17 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
 
     if( iCell_n0.is_boundary() )
     {
+      
       PrimState qr_c = qprim;
-      PrimState qr_n = qprim;
-      if( (offset[IX] == -1 && bc.boundary_type_xmin == BC_REFLECTING)
-       || (offset[IX] == +1 && bc.boundary_type_xmax == BC_REFLECTING) )
-        qr_n.u = -qr_n.u;
-
-      if( (offset[IY] == -1 && bc.boundary_type_ymin == BC_REFLECTING)
-       || (offset[IY] == +1 && bc.boundary_type_ymax == BC_REFLECTING) )
-        qr_n.v = -qr_n.v;
-
-      if( ndim == 3 )
-        if( (offset[IZ] == -1 && bc.boundary_type_zmin == BC_REFLECTING)
-         || (offset[IZ] == +1 && bc.boundary_type_zmax == BC_REFLECTING) )
-          qr_n.w = -qr_n.w;
-
+      ConsState ur_n = bc_manager.template getBoundaryValue<ndim, State>(Uin, iCell_n0, cellmetadata);
+      PrimState qr_n = consToPrim<ndim>(ur_n, params.gamma0);
       ConsState flux = riemann(qr_c, qr_n, dir, sign);
+
+      if (sign == 1 && bc_manager.bc_min[dir] == BC_USER)
+        flux = bc_manager.template overrideBoundaryFlux<ndim, State>(flux, qr_c, dir, true);
+      else if (sign == -1 && bc_manager.bc_max[dir] == BC_USER)
+        flux = bc_manager.template overrideBoundaryFlux<ndim, State>(flux, qr_c, dir, false);
+        
       // +- dS / dV 
       real_t scale = -sign * dt / cell_size[dir];     
       qcons += flux*scale;     
@@ -502,20 +495,7 @@ public:
                 Timers& timers )
     : foreach_cell(foreach_cell),
       riemann_params(configMap),
-      xmin( configMap.getValue<real_t>("mesh", "xmin", 0.0) ),
-      ymin( configMap.getValue<real_t>("mesh", "ymin", 0.0) ),
-      zmin( configMap.getValue<real_t>("mesh", "zmin", 0.0) ),
-      xmax( configMap.getValue<real_t>("mesh", "xmax", 1.0) ),
-      ymax( configMap.getValue<real_t>("mesh", "ymax", 1.0) ),
-      zmax( configMap.getValue<real_t>("mesh", "zmax", 1.0) ),
-      boundary_conditions {
-        configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_ABSORBING),
-        configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymin", BC_ABSORBING),
-        configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmin", BC_ABSORBING),
-        configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmax", BC_ABSORBING),
-        configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymax", BC_ABSORBING),
-        configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmax", BC_ABSORBING)
-      },
+      bc_manager(configMap),
       gx( configMap.getValue<real_t>("gravity", "gx",  0.0) ),
       gy( configMap.getValue<real_t>("gravity", "gy",  0.0) ),
       gz( configMap.getValue<real_t>("gravity", "gz",  0.0) ),
@@ -548,9 +528,9 @@ public:
   void update_aux(  const ForeachCell::CellArray_global_ghosted& Uin,
                     const ForeachCell::CellArray_global_ghosted& Uout,
                     real_t dt) {
-  using GhostedArray = ForeachCell::CellArray_global_ghosted;
+    using GhostedArray = ForeachCell::CellArray_global_ghosted;
     const RiemannParams& riemann_params = this->riemann_params;
-    const BoundaryConditions& boundary_conditions = this->boundary_conditions;
+    const BoundaryConditions& bc_manager = this->bc_manager;
     ForeachCell& foreach_cell = this->foreach_cell;
     GhostCommunicator ghost_comm(std::shared_ptr<AMRmesh>(&foreach_cell.get_amr_mesh(), [](AMRmesh*){}));
     bool gravity_use_field = this->gravity_use_field;
@@ -605,7 +585,7 @@ public:
     { 
         compute_fluxes_and_update<ndim, State>(Uin, Uout, Q, iCell_Q, 
                                                Slopes_x, Slopes_y, Slopes_z,
-                                               cellmetadata, dt, riemann_params, boundary_conditions );
+                                               cellmetadata, dt, riemann_params, bc_manager);
         // Applying correction step for gravity
       if (gravity_enabled)
         apply_gravity_correction<ndim>(Uin, iCell_Q, dt, gravity_use_field, gx, gy, gz, Uout);
@@ -616,10 +596,7 @@ public:
   private:
     ForeachCell& foreach_cell;
     RiemannParams riemann_params;  
-    real_t xmin, ymin, zmin;
-    real_t xmax, ymax, zmax; 
-
-    BoundaryConditions boundary_conditions;
+    BoundaryConditions bc_manager;
     real_t gx, gy, gz;
 
     bool gravity_enabled, gravity_use_field;
