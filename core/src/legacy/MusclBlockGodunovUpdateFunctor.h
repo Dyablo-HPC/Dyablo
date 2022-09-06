@@ -7,8 +7,8 @@
 
 #include "kokkos_shared.h"
 #include "FieldManager.h"
+#include "utils/misc/HostDeviceSingleton.h"
 #include "states/State_hydro.h"
-
 #include "amr/LightOctree.h"
 #include "RiemannSolvers.h"
 
@@ -24,98 +24,91 @@ namespace dyablo
 
 namespace {
 
+struct FM_States
+{
+  id2index_t fm_state_3D;
+  id2index_t fm_state_2D;
+};
+
+template<>
+inline void HostDeviceSingleton<FM_States>::set()
+{
+  FM_States init;
+  init.fm_state_2D = FieldManager( {ID,IP,IU,IV} ).get_id2index();
+  init.fm_state_3D = FieldManager( {ID,IP,IU,IV,IW} ).get_id2index();
+  HostDeviceSingleton<FM_States>::set( init );
+}
+
 KOKKOS_INLINE_FUNCTION
-void riemann_hydro( const HydroState2d& qleft_,
+const id2index_t& fm_state_3D()
+{
+  return HostDeviceSingleton<FM_States>::get().fm_state_3D;
+}
+
+KOKKOS_INLINE_FUNCTION
+const id2index_t& fm_state_2D()
+{
+  return HostDeviceSingleton<FM_States>::get().fm_state_2D;
+}
+
+template<typename State>
+KOKKOS_INLINE_FUNCTION
+const id2index_t& fm_state_ND();
+
+
+template<>
+KOKKOS_INLINE_FUNCTION
+const id2index_t& fm_state_ND<HydroState3d>()
+{
+  return fm_state_3D();
+}
+
+template<>
+KOKKOS_INLINE_FUNCTION
+const id2index_t& fm_state_ND<HydroState2d>()
+{
+  return fm_state_2D();
+}
+
+
+KOKKOS_INLINE_FUNCTION
+HydroState3d riemann_hydro( const HydroState3d& qleft_,
+                            const HydroState3d& qright_,
+                            const RiemannParams &params) 
+{
+  const auto& fm_state = fm_state_3D();
+
+  PrimHydroState qleft{qleft_[fm_state[ID]], qleft_[fm_state[IP]], qleft_[fm_state[IU]], qleft_[fm_state[IV]], qleft_[fm_state[IW]]};
+  PrimHydroState qright{qright_[fm_state[ID]], qright_[fm_state[IP]], qright_[fm_state[IU]], qright_[fm_state[IV]], qright_[fm_state[IW]]};
+  ConsHydroState flux;
+  riemann_hllc(qleft,qright,flux,params);
+  HydroState3d flux_;
+  flux_[fm_state[ID]] = flux.rho;
+  flux_[fm_state[IP]] = flux.e_tot;
+  flux_[fm_state[IU]] = flux.rho_u;
+  flux_[fm_state[IV]] = flux.rho_v;
+  flux_[fm_state[IW]] = flux.rho_w;
+  return flux_;
+}
+
+KOKKOS_INLINE_FUNCTION
+HydroState2d riemann_hydro( const HydroState2d& qleft_,
 		                const HydroState2d& qright_,
-		                ConsHydroState& flux,
-		                const RiemannParams& params)
+                            const RiemannParams &params) 
 {
-  PrimHydroState qleft{qleft_[ID], qleft_[IP], qleft_[IU], qleft_[IV], 0.0};
-  PrimHydroState qright{qright_[ID], qright_[IP], qright_[IU], qright_[IV], 0.0};
-  riemann_hllc(qleft,qright,flux,params);
-} // riemann_hydro
+  const auto& fm_state = fm_state_2D();
 
-KOKKOS_INLINE_FUNCTION
-HydroState2d riemann_hydro( const HydroState2d& qleft,
-                            const HydroState2d& qright,
-                            const RiemannParams &params) {
+  PrimHydroState qleft{qleft_[fm_state[ID]], qleft_[fm_state[IP]], qleft_[fm_state[IU]], qleft_[fm_state[IV]], 0.0};
+  PrimHydroState qright{qright_[fm_state[ID]], qright_[fm_state[IP]], qright_[fm_state[IU]], qright_[fm_state[IV]], 0.0};
   ConsHydroState flux;
-  riemann_hydro(qleft, qright, flux, params);
-  return HydroState2d{flux.rho, flux.e_tot, flux.rho_u, flux.rho_v};
-}
-
-KOKKOS_INLINE_FUNCTION
-void riemann_hydro( const HydroState3d& qleft_,
-		                const HydroState3d& qright_,
-		                ConsHydroState& flux,
-		                const RiemannParams& params)
-{
-  PrimHydroState qleft{qleft_[ID], qleft_[IP], qleft_[IU], qleft_[IV], qleft_[IW]};
-  PrimHydroState qright{qright_[ID], qright_[IP], qright_[IU], qright_[IV], qright_[IW]};
   riemann_hllc(qleft,qright,flux,params);
-} // riemann_hydro
-
-KOKKOS_INLINE_FUNCTION
-HydroState3d riemann_hydro( const HydroState3d& qleft,
-                            const HydroState3d& qright,
-                            const RiemannParams &params) {
-  ConsHydroState flux;
-  riemann_hydro(qleft, qright, flux, params);
-  return HydroState3d{flux.rho, flux.e_tot, flux.rho_u, flux.rho_v, flux.rho_w};
+  HydroState2d flux_;
+  flux_[fm_state[ID]] = flux.rho;
+  flux_[fm_state[IP]] = flux.e_tot;
+  flux_[fm_state[IU]] = flux.rho_u;
+  flux_[fm_state[IV]] = flux.rho_v;
+  return flux_;
 }
-
-/*
-KOKKOS_INLINE_FUNCTION
-HydroState2d operator*(const HydroState2d &lhs, real_t rhs) {
-  return HydroState2d{lhs[ID]*rhs, lhs[IP]*rhs, lhs[IU]*rhs, lhs[IV]*rhs};
-}
-
-KOKKOS_INLINE_FUNCTION
-HydroState3d operator*(const HydroState3d &lhs, real_t rhs) {
-  return HydroState3d{lhs[ID]*rhs, lhs[IP]*rhs, lhs[IU]*rhs, lhs[IV]*rhs, lhs[IW]*rhs};
-}
-
-KOKKOS_INLINE_FUNCTION
-HydroState2d& operator+=(HydroState2d &lhs, const HydroState2d &rhs) {
-  lhs[ID] += rhs[ID];
-  lhs[IE] += rhs[IE];
-  lhs[IU] += rhs[IU];
-  lhs[IV] += rhs[IV];
-
-  return lhs;
-}
-
-KOKKOS_INLINE_FUNCTION
-HydroState2d& operator-=(HydroState2d &lhs, const HydroState2d &rhs) {
-  lhs[ID] -= rhs[ID];
-  lhs[IE] -= rhs[IE];
-  lhs[IU] -= rhs[IU];
-  lhs[IV] -= rhs[IV];
-
-  return lhs;
-}
-
-KOKKOS_INLINE_FUNCTION
-HydroState3d& operator+=(HydroState3d &lhs, const HydroState3d &rhs) {
-  lhs[ID] += rhs[ID];
-  lhs[IE] += rhs[IE];
-  lhs[IU] += rhs[IU];
-  lhs[IV] += rhs[IV];
-  lhs[IW] += rhs[IW];
-
-  return lhs;
-}
-
-KOKKOS_INLINE_FUNCTION
-HydroState3d& operator-=(HydroState3d &lhs, const HydroState3d &rhs) {
-  lhs[ID] -= rhs[ID];
-  lhs[IE] -= rhs[IE];
-  lhs[IU] -= rhs[IU];
-  lhs[IV] -= rhs[IV];
-  lhs[IW] -= rhs[IW];
-
-  return lhs;
-}*/
 
 KOKKOS_INLINE_FUNCTION
 void computePrimitives(const HydroState2d &u,
@@ -125,26 +118,28 @@ void computePrimitives(const HydroState2d &u,
                        real_t              smallr,
                        real_t              smallp)
 { 
+  const auto& fm_state = fm_state_2D();
+
   real_t d, p, ux, uy;
   
-  d = fmax(u[ID], smallr);
-  ux = u[IU] / d;
-  uy = u[IV] / d;
+  d = fmax(u[fm_state[ID]], smallr);
+  ux = u[fm_state[IU]] / d;
+  uy = u[fm_state[IV]] / d;
   
   // kinetic energy
   real_t eken = HALF_F * (ux*ux + uy*uy);
   
   // internal energy
-  real_t e = u[IE] / d - eken;
+  real_t e = u[fm_state[IE]] / d - eken;
   
   // compute pressure and speed of sound
   p = fmax((gamma0 - 1.0) * d * e, d * smallp);
   *c = sqrt(gamma0 * (p) / d);
   
-  q[ID] = d;
-  q[IP] = p;
-  q[IU] = ux;
-  q[IV] = uy; 
+  q[fm_state[ID]] = d;
+  q[fm_state[IP]] = p;
+  q[fm_state[IU]] = ux;
+  q[fm_state[IV]] = uy; 
 }
 
 KOKKOS_INLINE_FUNCTION
@@ -155,28 +150,30 @@ void computePrimitives(const HydroState3d &u,
                        real_t              smallr,
                        real_t              smallp)
 { 
+  const auto& fm_state = fm_state_3D();
+
   real_t d, p, ux, uy, uz;
   
-  d = fmax(u[ID], smallr);
-  ux = u[IU] / d;
-  uy = u[IV] / d;
-  uz = u[IW] / d;
+  d = fmax(u[fm_state[ID]], smallr);
+  ux = u[fm_state[IU]] / d;
+  uy = u[fm_state[IV]] / d;
+  uz = u[fm_state[IW]] / d;
   
   // kinetic energy
   real_t eken = HALF_F * (ux*ux + uy*uy + uz*uz);
   
   // internal energy
-  real_t e = u[IE] / d - eken;
+  real_t e = u[fm_state[IE]] / d - eken;
   
   // compute pressure and speed of sound
   p = fmax((gamma0 - 1.0) * d * e, d * smallp);
   *c = sqrt(gamma0 * (p) / d);
   
-  q[ID] = d;
-  q[IP] = p;
-  q[IU] = ux;
-  q[IV] = uy;
-  q[IW] = uz;  
+  q[fm_state[ID]] = d;
+  q[fm_state[IP]] = p;
+  q[fm_state[IU]] = ux;
+  q[fm_state[IV]] = uy;
+  q[fm_state[IW]] = uz;  
 }
 
 
@@ -332,6 +329,9 @@ public:
                                               interface_flags(interface_flags),
                                               dt(dt)
   {
+    // Init fm_state singleton
+    HostDeviceSingleton<FM_States>::set();
+
     ndim = lmesh.getNdim();
 
     bx_g = blockSizes[IX] + 2 * (ghostWidth);
@@ -440,6 +440,8 @@ public:
                                       GravityField &g0,
                                       GravityField &g1) const
   {
+    const auto& fm_state = fm_state_2D();
+
     const uint32_t &bx = blockSizes[IX];
     const uint32_t &by = blockSizes[IY];
 
@@ -491,10 +493,10 @@ public:
       HydroState2d u;
       if (neighbors[iNeigh].isGhost)
       {
-        u[ID] = U_ghost(index_border, fm[ID], neighbors[iNeigh].iOct);
-        u[IP] = U_ghost(index_border, fm[IP], neighbors[iNeigh].iOct);
-        u[IU] = U_ghost(index_border, fm[IU], neighbors[iNeigh].iOct);
-        u[IV] = U_ghost(index_border, fm[IV], neighbors[iNeigh].iOct);
+        u[fm_state[ID]] = U_ghost(index_border, fm[ID], neighbors[iNeigh].iOct);
+        u[fm_state[IP]] = U_ghost(index_border, fm[IP], neighbors[iNeigh].iOct);
+        u[fm_state[IU]] = U_ghost(index_border, fm[IU], neighbors[iNeigh].iOct);
+        u[fm_state[IV]] = U_ghost(index_border, fm[IV], neighbors[iNeigh].iOct);
 
         if (params.gravity_type & GRAVITY_FIELD) {
           g[IX] = U_ghost(index_border, fm[IGX], neighbors[iNeigh].iOct);
@@ -503,10 +505,10 @@ public:
       }
       else
       {
-        u[ID] = U(index_border, fm[ID], neighbors[iNeigh].iOct);
-        u[IP] = U(index_border, fm[IP], neighbors[iNeigh].iOct);
-        u[IU] = U(index_border, fm[IU], neighbors[iNeigh].iOct);
-        u[IV] = U(index_border, fm[IV], neighbors[iNeigh].iOct);
+        u[fm_state[ID]] = U(index_border, fm[ID], neighbors[iNeigh].iOct);
+        u[fm_state[IP]] = U(index_border, fm[IP], neighbors[iNeigh].iOct);
+        u[fm_state[IU]] = U(index_border, fm[IU], neighbors[iNeigh].iOct);
+        u[fm_state[IV]] = U(index_border, fm[IV], neighbors[iNeigh].iOct);
 
         if (params.gravity_type & GRAVITY_FIELD) {
           g[IX] = U(index_border, fm[IGX], neighbors[iNeigh].iOct);
@@ -576,15 +578,16 @@ public:
   get_cons_variables(uint32_t index,
                      uint32_t iOct_local) const
   {
+    const auto& fm_state = fm_state_ND<HydroState>();
 
     HydroState q;
 
-    q[ID] = Ugroup(index, fm[ID], iOct_local);
-    q[IP] = Ugroup(index, fm[IP], iOct_local);
-    q[IU] = Ugroup(index, fm[IU], iOct_local);
-    q[IV] = Ugroup(index, fm[IV], iOct_local);
+    q[fm_state[ID]] = Ugroup(index, fm[ID], iOct_local);
+    q[fm_state[IP]] = Ugroup(index, fm[IP], iOct_local);
+    q[fm_state[IU]] = Ugroup(index, fm[IU], iOct_local);
+    q[fm_state[IV]] = Ugroup(index, fm[IV], iOct_local);
     if (std::is_same<HydroState, HydroState3d>::value)
-      q[IW] = Ugroup(index, fm[IW], iOct_local);
+      q[fm_state[IW]] = Ugroup(index, fm[IW], iOct_local);
 
     return q;
 
@@ -605,15 +608,16 @@ public:
       get_prim_variables(uint32_t index,
                          uint32_t iOct_local) const
   {
+    const auto& fm_state = fm_state_ND<HydroState>();
 
     HydroState q;
 
-    q[ID] = Qgroup(index, fm[ID], iOct_local);
-    q[IP] = Qgroup(index, fm[IP], iOct_local);
-    q[IU] = Qgroup(index, fm[IU], iOct_local);
-    q[IV] = Qgroup(index, fm[IV], iOct_local);
+    q[fm_state[ID]] = Qgroup(index, fm[ID], iOct_local);
+    q[fm_state[IP]] = Qgroup(index, fm[IP], iOct_local);
+    q[fm_state[IU]] = Qgroup(index, fm[IU], iOct_local);
+    q[fm_state[IV]] = Qgroup(index, fm[IV], iOct_local);
     if (std::is_same<HydroState, HydroState3d>::value)
-      q[IW] = Qgroup(index, fm[IW], iOct_local);
+      q[fm_state[IW]] = Qgroup(index, fm[IW], iOct_local);
 
     return q;
 
@@ -731,12 +735,14 @@ public:
 
     HydroState dq;
 
-    dq[ID] = slope_unsplit_scalar(q[ID], qPlus[ID], qMinus[ID]);
-    dq[IP] = slope_unsplit_scalar(q[IP], qPlus[IP], qMinus[IP]);
-    dq[IU] = slope_unsplit_scalar(q[IU], qPlus[IU], qMinus[IU]);
-    dq[IV] = slope_unsplit_scalar(q[IV], qPlus[IV], qMinus[IV]);
+    const auto& fm_state = fm_state_ND<HydroState>();
+
+    dq[fm_state[ID]] = slope_unsplit_scalar(q[fm_state[ID]], qPlus[fm_state[ID]], qMinus[fm_state[ID]]);
+    dq[fm_state[IP]] = slope_unsplit_scalar(q[fm_state[IP]], qPlus[fm_state[IP]], qMinus[fm_state[IP]]);
+    dq[fm_state[IU]] = slope_unsplit_scalar(q[fm_state[IU]], qPlus[fm_state[IU]], qMinus[fm_state[IU]]);
+    dq[fm_state[IV]] = slope_unsplit_scalar(q[fm_state[IV]], qPlus[fm_state[IV]], qMinus[fm_state[IV]]);
     if (std::is_same<HydroState, HydroState3d>::value)
-      dq[IW] = slope_unsplit_scalar(q[IW], qPlus[IW], qMinus[IW]);
+      dq[fm_state[IW]] = slope_unsplit_scalar(q[fm_state[IW]], qPlus[fm_state[IW]], qMinus[fm_state[IW]]);
 
     return dq;
 
@@ -747,11 +753,12 @@ public:
   KOKKOS_INLINE_FUNCTION
   void apply_gravity_prediction(HydroState2d &q, const GravityField &g) const
   {
+    const auto& fm_state = fm_state_2D();
 
-    q[IU] += 0.5 * dt * g[IX];
-    q[IV] += 0.5 * dt * g[IY];
+    q[fm_state[IU]] += 0.5 * dt * g[IX];
+    q[fm_state[IV]] += 0.5 * dt * g[IY];
     //if (ndim == 3)
-    //  q[IW] += 0.5 * dt * g[IZ];
+    //  q[fm_state[IW]] += 0.5 * dt * g[IZ];
 
   } // apply_gravity_prediction
 
@@ -865,21 +872,24 @@ public:
     const double gamma = params.riemann_params.gamma0;
     const double smallr = params.riemann_params.smallr;
 
+
+    const auto& fm_state = fm_state_2D();
+
     // retrieve primitive variables in current quadrant
-    const real_t r = q[ID];
-    const real_t p = q[IP];
-    const real_t u = q[IU];
-    const real_t v = q[IV];
+    const real_t r = q[fm_state[ID]];
+    const real_t p = q[fm_state[IP]];
+    const real_t u = q[fm_state[IU]];
+    const real_t v = q[fm_state[IV]];
 
-    const real_t drx = dqX[ID] * 0.5;
-    const real_t dpx = dqX[IP] * 0.5;
-    const real_t dux = dqX[IU] * 0.5;
-    const real_t dvx = dqX[IV] * 0.5;
+    const real_t drx = dqX[fm_state[ID]] * 0.5;
+    const real_t dpx = dqX[fm_state[IP]] * 0.5;
+    const real_t dux = dqX[fm_state[IU]] * 0.5;
+    const real_t dvx = dqX[fm_state[IV]] * 0.5;
 
-    const real_t dry = dqY[ID] * 0.5;
-    const real_t dpy = dqY[IP] * 0.5;
-    const real_t duy = dqY[IU] * 0.5;
-    const real_t dvy = dqY[IV] * 0.5;
+    const real_t dry = dqY[fm_state[ID]] * 0.5;
+    const real_t dpy = dqY[fm_state[IP]] * 0.5;
+    const real_t duy = dqY[fm_state[IU]] * 0.5;
+    const real_t dvy = dqY[fm_state[IV]] * 0.5;
 
     // source terms (with transverse derivatives)
     const real_t sr0 = (-u * drx - dux * r) * dtdx + (-v * dry - dvy * r) * dtdy;
@@ -890,11 +900,11 @@ public:
     // reconstruct state on interface
     HydroState2d qr;
 
-    qr[ID] = r + sr0 + offsets[IX] * drx + offsets[IY] * dry;
-    qr[IP] = p + sp0 + offsets[IX] * dpx + offsets[IY] * dpy;
-    qr[IU] = u + su0 + offsets[IX] * dux + offsets[IY] * duy;
-    qr[IV] = v + sv0 + offsets[IX] * dvx + offsets[IY] * dvy;
-    qr[ID] = fmax(smallr, qr[ID]);
+    qr[fm_state[ID]] = r + sr0 + offsets[IX] * drx + offsets[IY] * dry;
+    qr[fm_state[IP]] = p + sp0 + offsets[IX] * dpx + offsets[IY] * dpy;
+    qr[fm_state[IU]] = u + su0 + offsets[IX] * dux + offsets[IY] * duy;
+    qr[fm_state[IV]] = v + sv0 + offsets[IX] * dvx + offsets[IY] * dvy;
+    qr[fm_state[ID]] = fmax(smallr, qr[fm_state[ID]]);
 
 
     return qr;
@@ -932,11 +942,13 @@ public:
     const double gamma = params.riemann_params.gamma0;
     const double smallr = params.riemann_params.smallr;
 
+    const auto& fm_state = fm_state_2D();
+
     // retrieve primitive variables in current quadrant
-    const real_t r = q[ID];
-    const real_t p = q[IP];
-    const real_t u = q[IU];
-    const real_t v = q[IV];
+    const real_t r = q[fm_state[ID]];
+    const real_t p = q[fm_state[IP]];
+    const real_t u = q[fm_state[IU]];
+    const real_t v = q[fm_state[IV]];
     //const real_t w = 0.0;
 
     const real_t drx = SlopesX(index, fm[ID], iOct_local) * 0.5;
@@ -960,11 +972,11 @@ public:
     // reconstruct state on interface
     HydroState2d qr;
 
-    qr[ID] = r + sr0 + offsets[IX] * drx + offsets[IY] * dry;
-    qr[IP] = p + sp0 + offsets[IX] * dpx + offsets[IY] * dpy;
-    qr[IU] = u + su0 + offsets[IX] * dux + offsets[IY] * duy;
-    qr[IV] = v + sv0 + offsets[IX] * dvx + offsets[IY] * dvy;
-    qr[ID] = fmax(smallr, qr[ID]);
+    qr[fm_state[ID]] = r + sr0 + offsets[IX] * drx + offsets[IY] * dry;
+    qr[fm_state[IP]] = p + sp0 + offsets[IX] * dpx + offsets[IY] * dpy;
+    qr[fm_state[IU]] = u + su0 + offsets[IX] * dux + offsets[IY] * duy;
+    qr[fm_state[IV]] = v + sv0 + offsets[IX] * dvx + offsets[IY] * dvy;
+    qr[fm_state[ID]] = fmax(smallr, qr[fm_state[ID]]);
 
     return qr;
 
@@ -989,12 +1001,14 @@ public:
     const double gamma = params.riemann_params.gamma0;
     const double smallr = params.riemann_params.smallr;
 
+    const auto& fm_state = fm_state_3D();
+
     // retrieve primitive variables in current quadrant
-    const real_t r = q[ID];
-    const real_t p = q[IP];
-    const real_t u = q[IU];
-    const real_t v = q[IV];
-    const real_t w = q[IW];
+    const real_t r = q[fm_state[ID]];
+    const real_t p = q[fm_state[IP]];
+    const real_t u = q[fm_state[IU]];
+    const real_t v = q[fm_state[IV]];
+    const real_t w = q[fm_state[IW]];
 
     // retrieve variations = dx * slopes
     const real_t drx = SlopesX(index, fm[ID], iOct_local) * 0.5;
@@ -1025,13 +1039,13 @@ public:
     // reconstruct state on interface
     HydroState3d qr;
 
-    qr[ID] = r + sr0 + offsets[IX] * drx + offsets[IY] * dry + offsets[IZ] * drz;
-    qr[IP] = p + sp0 + offsets[IX] * dpx + offsets[IY] * dpy + offsets[IZ] * dpz;
-    qr[IU] = u + su0 + offsets[IX] * dux + offsets[IY] * duy + offsets[IZ] * duz;
-    qr[IV] = v + sv0 + offsets[IX] * dvx + offsets[IY] * dvy + offsets[IZ] * dvz;
-    qr[IW] = w + sw0 + offsets[IX] * dwx + offsets[IY] * dwy + offsets[IZ] * dwz;
+    qr[fm_state[ID]] = r + sr0 + offsets[IX] * drx + offsets[IY] * dry + offsets[IZ] * drz;
+    qr[fm_state[IP]] = p + sp0 + offsets[IX] * dpx + offsets[IY] * dpy + offsets[IZ] * dpz;
+    qr[fm_state[IU]] = u + su0 + offsets[IX] * dux + offsets[IY] * duy + offsets[IZ] * duz;
+    qr[fm_state[IV]] = v + sv0 + offsets[IX] * dvx + offsets[IY] * dvy + offsets[IZ] * dvz;
+    qr[fm_state[IW]] = w + sw0 + offsets[IX] * dwx + offsets[IY] * dwy + offsets[IZ] * dwz;
 
-    qr[ID] = fmax(smallr, qr[ID]);
+    qr[fm_state[ID]] = fmax(smallr, qr[fm_state[ID]]);
 
     return qr;
 
@@ -1106,6 +1120,8 @@ public:
   KOKKOS_INLINE_FUNCTION
   void compute_fluxes_and_update_2d_non_conformal(thread2_t member) const
   {
+    const auto& fm_state = fm_state_2D();
+
     // iOct must span the range [iGroup*nbOctsPerGroup ,
     // (iGroup+1)*nbOctsPerGroup [
     uint32_t iOct = member.league_rank() + iGroup * nbOctsPerGroup;
@@ -1205,10 +1221,10 @@ public:
             // finally, update conservative variable in U2
             uint32_t index_non_ghosted = ii + bx * jj;
 
-            U2(index_non_ghosted, fm[ID], iOct) += qcons[ID];
-            U2(index_non_ghosted, fm[IP], iOct) += qcons[IP];
-            U2(index_non_ghosted, fm[IU], iOct) += qcons[IU];
-            U2(index_non_ghosted, fm[IV], iOct) += qcons[IV];
+            U2(index_non_ghosted, fm[ID], iOct) += qcons[fm_state[ID]];
+            U2(index_non_ghosted, fm[IP], iOct) += qcons[fm_state[IP]];
+            U2(index_non_ghosted, fm[IU], iOct) += qcons[fm_state[IU]];
+            U2(index_non_ghosted, fm[IV], iOct) += qcons[fm_state[IV]];
           });
     }
 
@@ -1275,10 +1291,10 @@ public:
             // finally, update conservative variable in U2
             uint32_t index_non_ghosted = ii + bx * jj;
 
-            U2(index_non_ghosted, fm[ID], iOct) += qcons[ID];
-            U2(index_non_ghosted, fm[IP], iOct) += qcons[IP];
-            U2(index_non_ghosted, fm[IU], iOct) += qcons[IU];
-            U2(index_non_ghosted, fm[IV], iOct) += qcons[IV];
+            U2(index_non_ghosted, fm[ID], iOct) += qcons[fm_state[ID]];
+            U2(index_non_ghosted, fm[IP], iOct) += qcons[fm_state[IP]];
+            U2(index_non_ghosted, fm[IU], iOct) += qcons[fm_state[IU]];
+            U2(index_non_ghosted, fm[IV], iOct) += qcons[fm_state[IV]];
           });
     }
 
@@ -1317,14 +1333,14 @@ public:
                 apply_gravity_prediction(qL, g);
               }
 
-              my_swap(qL[IU], qL[IV]);
-              my_swap(qR[IU], qR[IV]);
+              my_swap(qL[fm_state[IU]], qL[fm_state[IV]]);
+              my_swap(qR[fm_state[IU]], qR[fm_state[IV]]);
 
               // step 2: compute flux (Riemann solver) with centered values
               HydroState2d flux = riemann_hydro(qL, qR, params.riemann_params);
 
               // step 3: swap back and accumulate flux
-              my_swap(flux[IU], flux[IV]);
+              my_swap(flux[fm_state[IU]], flux[fm_state[IV]]);
               qcons += flux * scale_y_c;
             }
             else if (interface_flags.isFaceSmaller(iOct_local, FACE_BOTTOM))
@@ -1341,17 +1357,17 @@ public:
               }
 
               // step 2: u and v in states
-              my_swap(q0[IU], q0[IV]);
-              my_swap(q1[IU], q1[IV]);
-              my_swap(qR[IU], qR[IV]);
+              my_swap(q0[fm_state[IU]], q0[fm_state[IV]]);
+              my_swap(q1[fm_state[IU]], q1[fm_state[IV]]);
+              my_swap(qR[fm_state[IU]], qR[fm_state[IV]]);
 
               // step 3: solver is called directly on average states, no reconstruction is done
               HydroState2d flux_0 = riemann_hydro(q0, qR, params.riemann_params);
               HydroState2d flux_1 = riemann_hydro(q1, qR, params.riemann_params);
 
               // step 4: swap back and accumulate
-              my_swap(flux_0[IU], flux_0[IV]);
-              my_swap(flux_1[IU], flux_1[IV]);
+              my_swap(flux_0[fm_state[IU]], flux_0[fm_state[IV]]);
+              my_swap(flux_1[fm_state[IU]], flux_1[fm_state[IV]]);
 
               qcons += flux_0 * scale_y_nc;
               qcons += flux_1 * scale_y_nc;
@@ -1360,10 +1376,10 @@ public:
             // finally, update conservative variable in U2
             uint32_t index_non_ghosted = ii + bx * jj;
 
-            U2(index_non_ghosted, fm[ID], iOct) += qcons[ID];
-            U2(index_non_ghosted, fm[IP], iOct) += qcons[IP];
-            U2(index_non_ghosted, fm[IU], iOct) += qcons[IU];
-            U2(index_non_ghosted, fm[IV], iOct) += qcons[IV];
+            U2(index_non_ghosted, fm[ID], iOct) += qcons[fm_state[ID]];
+            U2(index_non_ghosted, fm[IP], iOct) += qcons[fm_state[IP]];
+            U2(index_non_ghosted, fm[IU], iOct) += qcons[fm_state[IU]];
+            U2(index_non_ghosted, fm[IV], iOct) += qcons[fm_state[IV]];
           });
     }
 
@@ -1400,14 +1416,14 @@ public:
                 g = get_gravity_field(ig+bx_g, iOct_local);
                 apply_gravity_prediction(qR, g);
               }
-              my_swap(qL[IU], qL[IV]);
-              my_swap(qR[IU], qR[IV]);
+              my_swap(qL[fm_state[IU]], qL[fm_state[IV]]);
+              my_swap(qR[fm_state[IU]], qR[fm_state[IV]]);
 
               // step 2: compute flux (Riemann solver) with centered values
               HydroState2d flux = riemann_hydro(qL, qR, params.riemann_params);
 
               // step 3: swap back and accumulate flux
-              my_swap(flux[IU], flux[IV]);
+              my_swap(flux[fm_state[IU]], flux[fm_state[IV]]);
               qcons -= flux * scale_y_c;
             }
             else if (interface_flags.isFaceSmaller(iOct_local, FACE_TOP))
@@ -1424,17 +1440,17 @@ public:
               }
 
               // step 2: swap u and v in states
-              my_swap(qL[IU], qL[IV]);
-              my_swap(q0[IU], q0[IV]);
-              my_swap(q1[IU], q1[IV]);
+              my_swap(qL[fm_state[IU]], qL[fm_state[IV]]);
+              my_swap(q0[fm_state[IU]], q0[fm_state[IV]]);
+              my_swap(q1[fm_state[IU]], q1[fm_state[IV]]);
 
               // step 3 : solver is called directly on average states, no reconstruction is done
               HydroState2d flux_0 = riemann_hydro(qL, q0, params.riemann_params);
               HydroState2d flux_1 = riemann_hydro(qL, q1, params.riemann_params);
 
               // step 4: swap back and accumulate
-              my_swap(flux_0[IU], flux_0[IV]);
-              my_swap(flux_1[IU], flux_1[IV]);
+              my_swap(flux_0[fm_state[IU]], flux_0[fm_state[IV]]);
+              my_swap(flux_1[fm_state[IU]], flux_1[fm_state[IV]]);
 
               qcons -= flux_0 * scale_y_nc;
               qcons -= flux_1 * scale_y_nc;
@@ -1443,10 +1459,10 @@ public:
             // finally, update conservative variable in U2
             uint32_t index_non_ghosted = ii + bx * jj;
 
-            U2(index_non_ghosted, fm[ID], iOct) += qcons[ID];
-            U2(index_non_ghosted, fm[IP], iOct) += qcons[IP];
-            U2(index_non_ghosted, fm[IU], iOct) += qcons[IU];
-            U2(index_non_ghosted, fm[IV], iOct) += qcons[IV];
+            U2(index_non_ghosted, fm[ID], iOct) += qcons[fm_state[ID]];
+            U2(index_non_ghosted, fm[IP], iOct) += qcons[fm_state[IP]];
+            U2(index_non_ghosted, fm[IU], iOct) += qcons[fm_state[IU]];
+            U2(index_non_ghosted, fm[IV], iOct) += qcons[fm_state[IV]];
           });
     }
 
@@ -1457,6 +1473,8 @@ public:
   KOKKOS_INLINE_FUNCTION
   void compute_fluxes_and_update_2d_conformal(thread2_t member) const
   {
+    const auto& fm_state = fm_state_2D();
+
     // iOct must span the range [iGroup*nbOctsPerGroup ,
     // (iGroup+1)*nbOctsPerGroup [
     uint32_t iOct = member.league_rank() + iGroup * nbOctsPerGroup;
@@ -1540,15 +1558,15 @@ public:
               if( dir == IY )
             {
               // swap IU / IV
-              my_swap(qL[IU], qL[IV]);
-              my_swap(qR[IU], qR[IV]);
+              my_swap(qL[fm_state[IU]], qL[fm_state[IV]]);
+              my_swap(qR[fm_state[IU]], qR[fm_state[IV]]);
               }
 
               // step 4 : compute flux (Riemann solver)
               HydroState2d flux = riemann_hydro(qL, qR, params.riemann_params);
 
               if( dir == IY )
-              my_swap(flux[IU], flux[IV]);
+              my_swap(flux[fm_state[IU]], flux[fm_state[IV]]);
 
               // step 5 : accumulate flux in current cell
               qcons -= flux * ( offsets[IX] * dtdx + offsets[IY] * dtdy ) ;
@@ -1578,10 +1596,10 @@ public:
             // lastly update conservative variable in U2
             uint32_t index_non_ghosted = i + bx * j; //(i-1) + bx * (j-1);
 
-            U2(index_non_ghosted, fm[ID], iOct) = qcons[ID];
-            U2(index_non_ghosted, fm[IP], iOct) = qcons[IP];
-            U2(index_non_ghosted, fm[IU], iOct) = qcons[IU];
-            U2(index_non_ghosted, fm[IV], iOct) = qcons[IV];
+            U2(index_non_ghosted, fm[ID], iOct) = qcons[fm_state[ID]];
+            U2(index_non_ghosted, fm[IP], iOct) = qcons[fm_state[IP]];
+            U2(index_non_ghosted, fm[IU], iOct) = qcons[fm_state[IU]];
+            U2(index_non_ghosted, fm[IV], iOct) = qcons[fm_state[IV]];
 
           } // end if inside inner block
         }); // end TeamVectorRange
@@ -1594,6 +1612,8 @@ public:
   KOKKOS_INLINE_FUNCTION
   void compute_fluxes_and_update_2d_non_conservative(thread2_t member) const
   {
+    const auto& fm_state = fm_state_2D();
+
     // iOct must span the range [iGroup*nbOctsPerGroup ,
     // (iGroup+1)*nbOctsPerGroup [
     uint32_t iOct = member.league_rank() + iGroup * nbOctsPerGroup;
@@ -1713,13 +1733,13 @@ public:
               HydroState2d qR = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
 
               // swap IU / IV
-              my_swap(qL[IU], qL[IV]);
-              my_swap(qR[IU], qR[IV]);
+              my_swap(qL[fm_state[IU]], qL[fm_state[IV]]);
+              my_swap(qR[fm_state[IU]], qR[fm_state[IV]]);
 
               // step 3 : compute flux (Riemann solver)
               HydroState2d flux = riemann_hydro(qL, qR, params.riemann_params);
 
-              my_swap(flux[IU], flux[IV]);
+              my_swap(flux[fm_state[IU]], flux[fm_state[IV]]);
 
               // step 4 : accumulate flux in current cell
               qcons += flux * dtdy;
@@ -1746,13 +1766,13 @@ public:
               HydroState2d qL = reconstruct_state_2d(qprim, ig, iOct_local, offsets, dtdx, dtdy);
 
               // swap IU / IV
-              my_swap(qL[IU], qL[IV]);
-              my_swap(qR[IU], qR[IV]);
+              my_swap(qL[fm_state[IU]], qL[fm_state[IV]]);
+              my_swap(qR[fm_state[IU]], qR[fm_state[IV]]);
 
               // step 3 : compute flux (Riemann solver)
               HydroState2d flux = riemann_hydro(qL, qR, params.riemann_params);
 
-              my_swap(flux[IU], flux[IV]);
+              my_swap(flux[fm_state[IU]], flux[fm_state[IV]]);
 
               // step 4 : accumulate flux in current cell
               qcons -= flux * dtdy;
@@ -1761,10 +1781,10 @@ public:
             // lastly update conservative variable in U2
             uint32_t index_non_ghosted = (i - 1) + bx * (j - 1);
 
-            U2(index_non_ghosted, fm[ID], iOct) = qcons[ID];
-            U2(index_non_ghosted, fm[IP], iOct) = qcons[IP];
-            U2(index_non_ghosted, fm[IU], iOct) = qcons[IU];
-            U2(index_non_ghosted, fm[IV], iOct) = qcons[IV];
+            U2(index_non_ghosted, fm[ID], iOct) = qcons[fm_state[ID]];
+            U2(index_non_ghosted, fm[IP], iOct) = qcons[fm_state[IP]];
+            U2(index_non_ghosted, fm[IU], iOct) = qcons[fm_state[IU]];
+            U2(index_non_ghosted, fm[IV], iOct) = qcons[fm_state[IV]];
 
           } // end if inside inner block
         }); // end TeamVectorRange
@@ -1804,9 +1824,9 @@ public:
   //                               uint32_t index,
   //                               uint32_t iOct_local,  
   //                               real_t dt) const {
-  //   q[IU] += 0.5 * dt * Ugroup(index, fm[IGX], iOct_local);
-  //   q[IV] += 0.5 * dt * Ugroup(index, fm[IGY], iOct_local);
-  //   q[IW] += 0.5 * dt * Ugroup(index, fm[IGZ], iOct_local);
+  //   q[fm_state[IU]] += 0.5 * dt * Ugroup(index, fm[IGX], iOct_local);
+  //   q[fm_state[IV]] += 0.5 * dt * Ugroup(index, fm[IGY], iOct_local);
+  //   q[fm_state[IW]] += 0.5 * dt * Ugroup(index, fm[IGZ], iOct_local);
   // }
 
   /**
@@ -1821,32 +1841,35 @@ public:
                                 uint32_t index, 
                                 uint32_t iOct_local, 
                                 real_t dt) const {
+
+    const auto& fm_state = fm_state_3D();
+
     const real_t gx = Ugroup(index, fm[IGX], iOct_local);
     const real_t gy = Ugroup(index, fm[IGY], iOct_local);
     const real_t gz = Ugroup(index, fm[IGZ], iOct_local);
 
-    real_t rhoOld = qOld[ID];
-    real_t rhoNew = qNew[ID];
+    real_t rhoOld = qOld[fm_state[ID]];
+    real_t rhoNew = qNew[fm_state[ID]];
 
-    real_t rhou = qNew[IU];
-    real_t rhov = qNew[IV];
-    real_t rhow = qNew[IW];
+    real_t rhou = qNew[fm_state[IU]];
+    real_t rhov = qNew[fm_state[IV]];
+    real_t rhow = qNew[fm_state[IW]];
 
     real_t ekin_old = 0.5 * (rhou*rhou + rhov*rhov + rhow*rhow) / rhoNew;
 
     rhou += 0.5 * dt * gx * (rhoOld + rhoNew);
     rhov += 0.5 * dt * gy * (rhoOld + rhoNew);
 
-    qNew[IU] = rhou;
-    qNew[IV] = rhov;
+    qNew[fm_state[IU]] = rhou;
+    qNew[fm_state[IV]] = rhov;
     //if (ndim == 3) {
       rhow += 0.5 * dt * gz * (rhoOld + rhoNew);
-      qNew[IW] = rhow;
+      qNew[fm_state[IW]] = rhow;
     //}
 
     // Energy correction should be included in case of self-gravitation ?
     real_t ekin_new = 0.5 * (rhou*rhou + rhov*rhov + rhow*rhow) / rhoNew;
-    qNew[IE] += (ekin_new - ekin_old);
+    qNew[fm_state[IE]] += (ekin_new - ekin_old);
   }
 
   KOKKOS_INLINE_FUNCTION
@@ -1927,6 +1950,8 @@ public:
   KOKKOS_INLINE_FUNCTION
   void compute_fluxes_and_update_3d_conformal(thread2_t member) const
   {
+    const auto& fm_state = fm_state_3D();
+
     // iOct must span the range [iGroup*nbOctsPerGroup ,
     // (iGroup+1)*nbOctsPerGroup [
     uint32_t iOct = member.league_rank() + iGroup * nbOctsPerGroup;
@@ -2013,13 +2038,13 @@ public:
 
               // riemann solver along Y or Z direction requires to 
               // swap velocity components
-              swap(qL[IU], qL[swap_component]);
-              swap(qR[IU], qR[swap_component]);
+              swap(qL[fm_state[IU]], qL[fm_state[swap_component]]);
+              swap(qR[fm_state[IU]], qR[fm_state[swap_component]]);
 
               // step 4 : compute flux (Riemann solver)
               HydroState3d flux = riemann_hydro(qL, qR, params.riemann_params);
 
-              swap(flux[IU], flux[swap_component]);
+              swap(flux[fm_state[IU]], flux[fm_state[swap_component]]);
 
               // step 5 : accumulate flux in current cell
               qcons -= flux * ( offsets[IX] * dtdx + offsets[IY] * dtdy + offsets[IZ] * dtdz ) ;
@@ -2064,11 +2089,11 @@ public:
             // lastly update conservative variable in U2
             uint32_t index_non_ghosted = i + bx * j + bx*by *k; //(i-1) + bx * (j-1);
 
-            U2(index_non_ghosted, fm[ID], iOct) = qcons[ID];
-            U2(index_non_ghosted, fm[IP], iOct) = qcons[IP];
-            U2(index_non_ghosted, fm[IU], iOct) = qcons[IU];
-            U2(index_non_ghosted, fm[IV], iOct) = qcons[IV];
-            U2(index_non_ghosted, fm[IW], iOct) = qcons[IW];
+            U2(index_non_ghosted, fm[ID], iOct) = qcons[fm_state[ID]];
+            U2(index_non_ghosted, fm[IP], iOct) = qcons[fm_state[IP]];
+            U2(index_non_ghosted, fm[IU], iOct) = qcons[fm_state[IU]];
+            U2(index_non_ghosted, fm[IV], iOct) = qcons[fm_state[IV]];
+            U2(index_non_ghosted, fm[IW], iOct) = qcons[fm_state[IW]];
 
           } // end if inside inner block
         }); // end TeamVectorRange
