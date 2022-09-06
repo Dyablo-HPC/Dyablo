@@ -6,8 +6,6 @@ target_sources(config
   ${CMAKE_CURRENT_SOURCE_DIR}/ConfigMap.h
   ${CMAKE_CURRENT_SOURCE_DIR}/inih/ini.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/inih/ini.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/inih/INIReader.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/inih/INIReader.h
   )
 
 target_include_directories(config

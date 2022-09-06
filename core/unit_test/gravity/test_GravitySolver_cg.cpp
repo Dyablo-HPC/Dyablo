@@ -149,7 +149,7 @@ void test_GravitySolver( std::shared_ptr<AMRmesh> amr_mesh )
   uint32_t nbOcts = amr_mesh->getNumOctants();
   
   // Content of .ini file used ton configure configmap and HydroParams
-  char configmap_cstr[] = 
+  std::string configmap_str = 
     "[run]\n"
     "solver_name=Hydro_Muscl_Block_3D \n"
     "[output]\n"
@@ -172,9 +172,7 @@ void test_GravitySolver( std::shared_ptr<AMRmesh> amr_mesh )
     "gravity_type=3\n"
     "G=1\n"
     "\n";
-  int configmap_cstr_len = sizeof(configmap_cstr);
-  char* configmap_charptr = configmap_cstr;
-  ConfigMap configMap(configmap_charptr, configmap_cstr_len);
+  ConfigMap configMap(configmap_str);
 
   int ndim = configMap.getValue<int>("mesh", "ndim", 3);
   GravityType gravity_type = configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_FIELD);
