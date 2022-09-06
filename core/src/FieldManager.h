@@ -4,29 +4,11 @@
 #include <set>
 
 #include "kokkos_shared.h"
+#include "VarIndex.h"
 #include "utils/config/ConfigMap.h"
 
-namespace dyablo {
 
-enum VarIndex : uint8_t {
-  ID,   /*!< ID Density field index */
-  IP,   /*!< IP Pressure/Energy field index */
-  IE=IP, /*!< IE Pressure/Energy field index */
-  IU,   /*!< X velocity / momentum index */
-  IV,   /*!< Y velocity / momentum index */ 
-  IW,   /*!< Z velocity / momentum index */ 
-  IA,   /*!< X magnetic field index */ 
-  IB,   /*!< Y magnetic field index */ 
-  IC,   /*!< Z magnetic field index */ 
-  IBX,  /*!< X magnetic field index */ 
-  IBY,  /*!< Y magnetic field index */ 
-  IBZ,  /*!< Z magnetic field index */  
-  IGPHI,/*!< gravitational potential */
-  IGX,  /*!< X gravitational field index */
-  IGY,  /*!< Y gravitational field index */
-  IGZ, /*!< Z gravitational field index */
-  VARINDEX_COUNT /*!< invalid index, just counting number of fields */
-};
+namespace dyablo {
 
 //! a convenience alias to map id to variable names
 using int2str_t = std::unordered_map<int,std::string>;

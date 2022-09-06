@@ -2,27 +2,6 @@
 
 namespace dyablo {
 
-namespace{
-const std::vector< std::pair< VarIndex, std::string > >& var_names()
-{
-  static std::vector< std::pair< VarIndex, std::string > > res{
-    {ID, "rho"},
-    {IU, "rho_vx"},
-    {IV, "rho_vy"},
-    {IW, "rho_vz"},
-    {IE, "e_tot"},
-    {IBX, "Bx"},
-    {IBY, "By"},
-    {IBZ, "Bz"},
-    {IGPHI, "igphi"},
-    {IGX, "igx"},
-    {IGY, "igy"},
-    {IGZ, "igz"}
-  };
-  return res;
-}
-} // namespace
-
 std::string FieldManager::var_name(VarIndex ivar)
 {
   static std::unordered_map<VarIndex, std::string> res( var_names().begin(),  var_names().end());
