@@ -177,9 +177,7 @@ void test_GravitySolver( std::shared_ptr<AMRmesh> amr_mesh )
   int ndim = configMap.getValue<int>("mesh", "ndim", 3);
   GravityType gravity_type = configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_FIELD);
 
-  FieldManager fieldMgr = FieldManager::setup(ndim, gravity_type);
-
-  
+  FieldManager fieldMgr = FieldManager({ID,IGPHI,IGX,IGY,IGZ});
 
   ForeachCell foreach_cell( *amr_mesh, configMap );
 

@@ -110,7 +110,31 @@ public:
       timers
     );
 
-    m_field_manager = FieldManager::setup(ndim, gravity_type, godunov_updater_id); // TODO : configure from what is needed by kernels
+    // Setup FieldManager
+    // TODO : Construct FieldManager according to variables used by kernels
+    {
+      // always enable rho, energy and velocity components
+      std::set< VarIndex > enabled_vars( {ID, IP, IE, IU, IV} );
+      
+      bool three_d = ndim == 3 ? 1 : 0;
+
+      if( three_d ) enabled_vars.insert( IW );
+
+      if (gravity_type & GRAVITY_FIELD) {
+        enabled_vars.insert( IGPHI );
+        enabled_vars.insert( IGX );
+        enabled_vars.insert( IGY );
+        if( three_d ) enabled_vars.insert( IGZ );
+      }
+
+      if (godunov_updater_id.find("MHD") != std::string::npos) {
+        enabled_vars.insert( IBX );
+        enabled_vars.insert( IBY );
+        enabled_vars.insert( IBZ );
+      }
+
+      m_field_manager = FieldManager(enabled_vars);
+    }
 
     // Get initial conditions id
     std::string init_id = configMap.getValue<std::string>("hydro", "problem", "unknown");
