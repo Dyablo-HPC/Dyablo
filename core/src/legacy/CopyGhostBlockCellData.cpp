@@ -9,6 +9,7 @@ CopyGhostBlockCellDataFunctor::CopyGhostBlockCellDataFunctor(
     DataArrayBlock U, DataArrayBlock U_ghost, DataArrayBlock Ugroup,
     uint32_t iGroup, InterfaceFlags interface_flags) :
   fm(fm),
+  fm_state(FieldManager( std::set{ID,IP,IU,IV,IW,IGX,IGY,IGZ} ).get_id2index()),
   blockSizes(blockSizes),
   ghostWidth(ghostWidth),
   nbOctsPerGroup(nbOctsPerGroup),
@@ -231,7 +232,7 @@ KOKKOS_INLINE_FUNCTION get_pos_t get_pos( const Functor& f, Functor::index_t ind
     return res;
 }
 
-using CellData = Kokkos::Array<real_t, VARINDEX_COUNT>;
+using CellData = Kokkos::Array<real_t, 8>;
 
 /**
  * Fetch data associated to a cell from a neighbor octant when neighbor and local octant have the same size
@@ -249,28 +250,28 @@ KOKKOS_INLINE_FUNCTION CellData get_cell_data_same_size( const Functor& f, const
     uint32_t iOct_neigh = neigh.iOct;
     if (neigh.isGhost)
     {
-        res[ID] = f.U_ghost(index_in_neighbor, f.fm[ID], iOct_neigh);
-        res[IP] = f.U_ghost(index_in_neighbor, f.fm[IP], iOct_neigh);
-        res[IU] = f.U_ghost(index_in_neighbor, f.fm[IU], iOct_neigh);
-        res[IV] = f.U_ghost(index_in_neighbor, f.fm[IV], iOct_neigh);
-        if( ndim == 3 ) res[IW] = f.U_ghost(index_in_neighbor, f.fm[IW], iOct_neigh);        
+        res[f.fm_state[ID]] = f.U_ghost(index_in_neighbor, f.fm[ID], iOct_neigh);
+        res[f.fm_state[IP]] = f.U_ghost(index_in_neighbor, f.fm[IP], iOct_neigh);
+        res[f.fm_state[IU]] = f.U_ghost(index_in_neighbor, f.fm[IU], iOct_neigh);
+        res[f.fm_state[IV]] = f.U_ghost(index_in_neighbor, f.fm[IV], iOct_neigh);
+        if( ndim == 3 ) res[f.fm_state[IW]] = f.U_ghost(index_in_neighbor, f.fm[IW], iOct_neigh);        
         if (f.copy_gravity) { 
-          res[IGX] = f.U_ghost(index_in_neighbor, f.fm[IGX], iOct_neigh);
-          res[IGY] = f.U_ghost(index_in_neighbor, f.fm[IGY], iOct_neigh);
-          if ( ndim == 3) res[IGZ] = f.U_ghost(index_in_neighbor, f.fm[IGZ], iOct_neigh);
+          res[f.fm_state[IGX]] = f.U_ghost(index_in_neighbor, f.fm[IGX], iOct_neigh);
+          res[f.fm_state[IGY]] = f.U_ghost(index_in_neighbor, f.fm[IGY], iOct_neigh);
+          if ( ndim == 3) res[f.fm_state[IGZ]] = f.U_ghost(index_in_neighbor, f.fm[IGZ], iOct_neigh);
     } 
     } 
     else
     {
-        res[ID] = f.U(index_in_neighbor, f.fm[ID], iOct_neigh);
-        res[IP] = f.U(index_in_neighbor, f.fm[IP], iOct_neigh);
-        res[IU] = f.U(index_in_neighbor, f.fm[IU], iOct_neigh);
-        res[IV] = f.U(index_in_neighbor, f.fm[IV], iOct_neigh);
-        if( ndim == 3 ) res[IW] = f.U(index_in_neighbor, f.fm[IW], iOct_neigh);
+        res[f.fm_state[ID]] = f.U(index_in_neighbor, f.fm[ID], iOct_neigh);
+        res[f.fm_state[IP]] = f.U(index_in_neighbor, f.fm[IP], iOct_neigh);
+        res[f.fm_state[IU]] = f.U(index_in_neighbor, f.fm[IU], iOct_neigh);
+        res[f.fm_state[IV]] = f.U(index_in_neighbor, f.fm[IV], iOct_neigh);
+        if( ndim == 3 ) res[f.fm_state[IW]] = f.U(index_in_neighbor, f.fm[IW], iOct_neigh);
         if (f.copy_gravity) { 
-          res[IGX] = f.U(index_in_neighbor, f.fm[IGX], iOct_neigh);
-          res[IGY] = f.U(index_in_neighbor, f.fm[IGY], iOct_neigh);
-          if ( ndim == 3) res[IGZ] = f.U(index_in_neighbor, f.fm[IGZ], iOct_neigh);
+          res[f.fm_state[IGX]] = f.U(index_in_neighbor, f.fm[IGX], iOct_neigh);
+          res[f.fm_state[IGY]] = f.U(index_in_neighbor, f.fm[IGY], iOct_neigh);
+          if ( ndim == 3) res[f.fm_state[IGZ]] = f.U(index_in_neighbor, f.fm[IGZ], iOct_neigh);
         }
     }
     return res;
@@ -488,18 +489,18 @@ KOKKOS_INLINE_FUNCTION CellData get_cell_data_border( const Functor& f, uint32_t
     // assume inner cells have already been copied 
     uint32_t index = coord_g_to_index<ndim>( coord_in, f.blockSizes, f.ghostWidth );
     CellData res;
-    res[ID] = f.Ugroup(index, f.fm[ID], iOct_local);
-    res[IP] = f.Ugroup(index, f.fm[IP], iOct_local);
-    res[IU] = f.Ugroup(index, f.fm[IU], iOct_local) * sign[IX];
-    res[IV] = f.Ugroup(index, f.fm[IV], iOct_local) * sign[IY];
+    res[f.fm_state[ID]] = f.Ugroup(index, f.fm[ID], iOct_local);
+    res[f.fm_state[IP]] = f.Ugroup(index, f.fm[IP], iOct_local);
+    res[f.fm_state[IU]] = f.Ugroup(index, f.fm[IU], iOct_local) * sign[IX];
+    res[f.fm_state[IV]] = f.Ugroup(index, f.fm[IV], iOct_local) * sign[IY];
     if(ndim == 3)
-        res[IW] = f.Ugroup(index, f.fm[IW], iOct_local) * sign[IZ];
+        res[f.fm_state[IW]] = f.Ugroup(index, f.fm[IW], iOct_local) * sign[IZ];
 
     if (f.copy_gravity) {
-      res[IGX] = f.Ugroup(index, f.fm[IGX], iOct_local) * sign[IX];
-      res[IGY] = f.Ugroup(index, f.fm[IGY], iOct_local) * sign[IY];
+      res[f.fm_state[IGX]] = f.Ugroup(index, f.fm[IGX], iOct_local) * sign[IX];
+      res[f.fm_state[IGY]] = f.Ugroup(index, f.fm[IGY], iOct_local) * sign[IY];
       if (ndim ==3)
-        res[IGZ] = f.Ugroup(index, f.fm[IGZ], iOct_local) * sign[IZ];
+        res[f.fm_state[IGZ]] = f.Ugroup(index, f.fm[IGZ], iOct_local) * sign[IZ];
     } // end if copy
     return res;
 }
@@ -597,18 +598,18 @@ template <int ndim>
 KOKKOS_INLINE_FUNCTION void write_cell_data( const Functor& f, uint32_t iOct_g, coord_g_t pos_in_local, const CellData& data )
 {
     uint32_t index_cur = coord_g_to_index<ndim>( pos_in_local, f.blockSizes, f.ghostWidth );
-    f.Ugroup(index_cur, f.fm[ID], iOct_g) = data[ID];
-    f.Ugroup(index_cur, f.fm[IP], iOct_g) = data[IP];
-    f.Ugroup(index_cur, f.fm[IU], iOct_g) = data[IU];
-    f.Ugroup(index_cur, f.fm[IV], iOct_g) = data[IV];
+    f.Ugroup(index_cur, f.fm[ID], iOct_g) = data[f.fm_state[ID]];
+    f.Ugroup(index_cur, f.fm[IP], iOct_g) = data[f.fm_state[IP]];
+    f.Ugroup(index_cur, f.fm[IU], iOct_g) = data[f.fm_state[IU]];
+    f.Ugroup(index_cur, f.fm[IV], iOct_g) = data[f.fm_state[IV]];
     if(ndim == 3)
     {
-        f.Ugroup(index_cur, f.fm[IW], iOct_g) = data[IW];
+        f.Ugroup(index_cur, f.fm[IW], iOct_g) = data[f.fm_state[IW]];
     }
     if(f.copy_gravity)
     {
-        f.Ugroup(index_cur, f.fm[IGX], iOct_g) = data[IGX];
-        f.Ugroup(index_cur, f.fm[IGY], iOct_g) = data[IGY];
+        f.Ugroup(index_cur, f.fm[IGX], iOct_g) = data[f.fm_state[IGX]];
+        f.Ugroup(index_cur, f.fm[IGY], iOct_g) = data[f.fm_state[IGY]];
     }
 }
 

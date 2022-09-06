@@ -212,7 +212,7 @@ void test_GravitySolver( std::shared_ptr<AMRmesh> amr_mesh )
 
         real_t r2 = x*x + y*y + z*z;
 
-        U_host(c, ID, iOct) = Hernquist::rho(r2);
+        U_host(c, fm[ID], iOct) = Hernquist::rho(r2);
       }
     }
     Kokkos::deep_copy( U.U, U_host );

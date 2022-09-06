@@ -306,7 +306,9 @@ void GravitySolver_cg::update_gravity_field(
       if( boundarycondition[dir] == BC_ABSORBING && iCell_L.is_boundary() ) dphi_L = 0;
       if( boundarycondition[dir] == BC_ABSORBING && iCell_R.is_boundary() ) dphi_R = 0;
 
-      Uout.at(iCell_Uout, (VarIndex)(IGX+dir)) = (dphi_L + dphi_R)/2; 
+      Kokkos::Array< VarIndex, 3 > IG = {IGX, IGY, IGZ};
+
+      Uout.at(iCell_Uout, IG[dir]) = (dphi_L + dphi_R)/2; 
     };
     gradient(IX);
     gradient(IY);
