@@ -1,5 +1,7 @@
 #pragma once
 
+#include <utility>
+
 #include "morton_utils.h"
 #include "kokkos_shared.h"
 #include "amr/AMRmesh.h"
@@ -21,6 +23,18 @@ public:
 
     LightOctree_hashmap() = default;
     LightOctree_hashmap(const LightOctree_hashmap& lmesh) = default;
+
+    LightOctree_hashmap( Storage_t&& storage, 
+                         uint8_t level_min, uint8_t level_max,
+                         Kokkos::Array<bool,3> periodic )
+    : storage( std::move(storage) ),
+      oct_map(storage.getNumOctants()+storage.getNumGhosts()),
+      min_level(level_min), max_level(level_max),
+      is_periodic(periodic)
+    {
+        std::cout << "LightOctree rehash ..." << std::endl;
+        private_init();
+    }
 
     template < typename AMRmesh_t >
     LightOctree_hashmap( const AMRmesh_t* pmesh, uint8_t level_min, uint8_t level_max )
@@ -99,6 +113,11 @@ public:
     KOKKOS_INLINE_FUNCTION
     bool getBound(const OctantIndex& iOct)  const
     {return storage.getBound(iOct);}
+
+    const Storage_t getStorage() const 
+    {
+        return storage;
+    }
 
     
     //! @copydoc LightOctree_base::findNeighbors()
