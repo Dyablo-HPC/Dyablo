@@ -10,35 +10,35 @@
  */
 
 
-#include <boost/test/unit_test.hpp>
+#include "gtest/gtest.h"
 
-#include "muscl_block/MapUserData.h"
+#include "amr/MapUserData.h"
 
-#include "muscl_block/utils_block.h"
-#include "shared/amr/AMRmesh.h"
-#include "shared/amr/LightOctree.h"
+#include "amr/AMRmesh.h"
+#include "amr/LightOctree.h"
+#include "io/IOManager.h"
 
 namespace dyablo
 {
 
-namespace muscl_block
-{
-
 // =======================================================================
 // =======================================================================
-void run_test(int ndim)
+void run_test(int ndim, std::string mapUserData_id)
 {
   std::cout << "// =========================================\n";
   std::cout << "// Testing MapUserData ...\n";
   std::cout << "// =========================================\n";
 
   std::cout << "Create mesh..." << std::endl;
-  HydroParams params;
-  params.level_min = 1;
-  params.level_max = 8;
+  uint32_t bx = 8;
+  uint32_t by = 8;
+  uint32_t bz = (ndim==3)?8:1;
+
+  int level_min = 1;
+  int level_max = 8;
   std::shared_ptr<AMRmesh> amr_mesh; //solver->amr_mesh 
   {
-    amr_mesh = std::make_shared<AMRmesh>(ndim, ndim, std::array<bool,3>{false,false,false}, params.level_min, params.level_max );
+    amr_mesh = std::make_shared<AMRmesh>(ndim, ndim, std::array<bool,3>{false,false,false}, level_min, level_max );
     // amr_mesh->setBalanceCodimension(ndim);
     // uint32_t idx = 0;
     // amr_mesh->setBalance(idx,true);
@@ -59,16 +59,42 @@ void run_test(int ndim)
     amr_mesh->updateConnectivity();
   }
 
-  uint32_t bx = 8;
-  uint32_t by = 8;
-  uint32_t bz = (ndim==3)?8:1;
+  Timers timers;
+
+  std::string config_str = 
+    "[output]\n"
+    "hdf5_enabled=true\n"
+    "write_mesh_info=true\n"
+    "write_variables=rho_vx,rho_vy,rho_vz\n"
+    "write_iOct=false\n"
+    "outputPrefix=output\n"
+    "outputDir=./\n"
+    "[amr]\n"
+    "use_block_data=true\n"
+    "bx=8\n"
+    "by=8\n";
+  ConfigMap configMap(config_str); //Use default values
+
+  configMap.getValue<int>("mesh", "ndim", ndim);
+  configMap.getValue<int>("amr", "bz", ndim==2?1:8);
+  
+  ForeachCell foreach_cell( *amr_mesh, configMap );
+
+  std::unique_ptr<MapUserData> mapUserData = MapUserDataFactory::make_instance( mapUserData_id,
+    configMap,
+    foreach_cell,
+    timers
+  );
+  
   uint32_t nbCellsPerOct = bx*by*bz;
-  uint32_t nbfields = 3;
+  FieldManager field_manager({IU,IV,IW});
+  uint32_t nbfields = field_manager.nbfields();
   uint32_t nbOcts = amr_mesh->getNumOctants();
 
-  DataArrayBlock U("U", nbCellsPerOct, nbfields, nbOcts );
+  ForeachCell::CellArray_global_ghosted U = foreach_cell.allocate_ghosted_array("U", field_manager);
+
   { // Initialize U
-    DataArrayBlock::HostMirror U_host = Kokkos::create_mirror_view(U);
+    DataArrayBlock::HostMirror U_host = Kokkos::create_mirror_view(U.U);
     for( uint32_t iOct=0; iOct<nbOcts; iOct++ )
     {
       bitpit::darray3 oct_pos = amr_mesh->getCoordinates(iOct);
@@ -85,14 +111,13 @@ void run_test(int ndim)
         U_host(c, IZ, iOct) = oct_pos[IZ] + (cz+0.5)*oct_size/bz;
       }
     }
-    Kokkos::deep_copy( U, U_host );
+    Kokkos::deep_copy( U.U, U_host );
   }
 
   // Ughost must be initialized when using MPI because coarsened blocks can use ghost values
   // Instead of MPI communication, Ughost is directly filled with cell positions
-  DataArrayBlock Ughost("Ughost", nbCellsPerOct, nbfields, amr_mesh->getNumGhosts() );
   { // Initialize U
-    DataArrayBlock::HostMirror Ughost_host = Kokkos::create_mirror_view(Ughost);
+    DataArrayBlock::HostMirror Ughost_host = Kokkos::create_mirror_view(U.Ughost);
     for( uint32_t iOct=0; iOct<amr_mesh->getNumGhosts(); iOct++ )
     {
       bitpit::darray3 oct_pos = amr_mesh->getCoordinatesGhost(iOct);
@@ -109,14 +134,22 @@ void run_test(int ndim)
         Ughost_host(c, IZ, iOct) = oct_pos[IZ] + (cz+0.5)*oct_size/bz;
       }
     }
-    Kokkos::deep_copy( Ughost, Ughost_host );
+    Kokkos::deep_copy( U.Ughost, Ughost_host );
   }
 
-  LightOctree lmesh_old = amr_mesh->getLightOctree();
+  std::string iomanager_id = "IOManager_hdf5";
+  std::unique_ptr<IOManager> io_manager = IOManagerFactory::make_instance( iomanager_id,
+    configMap,
+    foreach_cell,
+    timers
+  );
+  io_manager->save_snapshot(U, 0, 1);
+
+  mapUserData->save_old_mesh();
   {
     std::cout << "Coarsen/Refine octants" << std::endl;
 
-     for( uint32_t iOct=1; iOct<nbOcts; iOct++ )
+     for( uint32_t iOct=0; iOct<nbOcts; iOct++ )
      {
        amr_mesh->setMarker(iOct , -1);
        //amr_mesh->setMarker(iOct , 1); // replate previous line with this to check refinement thorougly
@@ -129,31 +162,27 @@ void run_test(int ndim)
     amr_mesh->setMarker(nbOcts/2 , 1);
 
     amr_mesh->adapt(true);
-    amr_mesh->updateConnectivity();
   }
-  const LightOctree& lmesh_new = amr_mesh->getLightOctree();
-
-  char* empty;
-  ConfigMap configMap(empty, 0); //Use default values
-  DataArrayBlock Unew;
+  
+  ForeachCell::CellArray_global_ghosted Unew = foreach_cell.allocate_ghosted_array("Unew", field_manager);
 
   std::cout << "Remap user data..." << std::endl;
 
-  MapUserDataFunctor::apply(lmesh_old, lmesh_new, configMap,
-                            {bx, by, bz}, 
-                            U, Ughost, Unew);
+  mapUserData->remap(U, Unew);
 
   {
+    io_manager->save_snapshot(Unew, 1, 2);
+
     uint32_t nbOcts = amr_mesh->getNumOctants();
 
     std::cout << "Check Unew ( nbOcts=" << nbOcts << ")" << std::endl;
 
-    BOOST_CHECK_EQUAL(Unew.extent(0), nbCellsPerOct);
-    BOOST_CHECK_EQUAL(Unew.extent(1), nbfields);
-    BOOST_CHECK_EQUAL(Unew.extent(2), nbOcts);
+    EXPECT_EQ(Unew.U.extent(0), nbCellsPerOct);
+    EXPECT_EQ(Unew.U.extent(1), nbfields);
+    EXPECT_EQ(Unew.U.extent(2), nbOcts);
 
-    auto Unew_host = Kokkos::create_mirror_view(Unew);
-    Kokkos::deep_copy(Unew_host, Unew);
+    auto Unew_host = Kokkos::create_mirror_view(Unew.U);
+    Kokkos::deep_copy(Unew_host, Unew.U);
 
     real_t oct_size_initial = 1./8; 
 
@@ -183,37 +212,38 @@ void run_test(int ndim)
           expected_z = oct_size_initial/(2*bz);
 
 
-        BOOST_CHECK_CLOSE( Unew_host(c, IX, iOct), expected_x , 0.0001);
-        BOOST_CHECK_CLOSE( Unew_host(c, IY, iOct), expected_y , 0.0001);
-        BOOST_CHECK_CLOSE( Unew_host(c, IZ, iOct), expected_z , 0.0001);
+        EXPECT_NEAR( Unew_host(c, IX, iOct), expected_x , 0.0001);
+        EXPECT_NEAR( Unew_host(c, IY, iOct), expected_y , 0.0001);
+        EXPECT_NEAR( Unew_host(c, IZ, iOct), expected_z , 0.0001);
       }
     }
   }
 
 } // run_test
 
-} // namespace muscl_block
-
 } // namespace dyablo
 
-BOOST_AUTO_TEST_SUITE(dyablo)
+class Test_MapUserData
+  : public testing::TestWithParam<std::tuple<int, std::string>> 
+{};
 
-BOOST_AUTO_TEST_SUITE(muscl_block)
-
-BOOST_AUTO_TEST_CASE(test_MapUserData_2D)
+TEST_P(Test_MapUserData, position_field_conserved)
 {
-
-  run_test(2);
-
+  int ndim = std::get<0>(GetParam());
+  std::string id = std::get<1>(GetParam());
+  dyablo::run_test(ndim, id );
 }
 
-BOOST_AUTO_TEST_CASE(test_MapUserData_3D)
-{
-
-  run_test(3);
-
-}
-
-BOOST_AUTO_TEST_SUITE_END() /* muscl_block */
-
-BOOST_AUTO_TEST_SUITE_END() /* dyablo */
+INSTANTIATE_TEST_SUITE_P(
+    Test_MapUserData, Test_MapUserData,
+    testing::Combine(
+        testing::Values(2,3),
+        testing::ValuesIn( dyablo::MapUserDataFactory::get_available_ids() )
+    ),
+    [](const testing::TestParamInfo<Test_MapUserData::ParamType>& info) {
+      std::string name = 
+          (std::get<0>(info.param) == 2 ? std::string("2D") : std::string("3D"))
+          + "_" + std::get<1>(info.param);
+      return name;
+    }
+);

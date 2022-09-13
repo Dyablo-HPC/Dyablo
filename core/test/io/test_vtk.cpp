@@ -12,10 +12,10 @@
 #include "bitpit_PABLO.hpp"
 
 #include "utils/config/ConfigMap.h"
-#include "shared/HydroParams.h"
-#include "shared/FieldManager.h"
-#include "shared/SimpleVTKIO.h"
-#include "shared/io_utils.h"
+#include "legacy/HydroParams.h"
+#include "FieldManager.h"
+#include "SimpleVTKIO.h"
+#include "io_utils.h"
 
 //using namespace bitpit;
 

@@ -17,10 +17,10 @@
 #include <cstdint>
 #include <vector>
 
-#include "shared/real_type.h"
-#include "shared/kokkos_shared.h"
+#include "real_type.h"
+#include "kokkos_shared.h"
 
-#include "shared/morton_utils.h"
+#include "morton_utils.h"
 #include "amr_key.h"
 
 #include <Kokkos_UnorderedMap.hpp>

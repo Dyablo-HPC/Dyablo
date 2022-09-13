@@ -8,9 +8,9 @@
 #include <array>
 #include <cstdint>
 
-#include "shared/real_type.h"
-#include "shared/kokkos_shared.h"
-#include "shared/enums.h"
+#include "real_type.h"
+#include "kokkos_shared.h"
+#include "enums.h"
 
 #include <Kokkos_UnorderedMap.hpp>
 

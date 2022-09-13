@@ -18,7 +18,7 @@
 #endif
 
 #include "bitpit_PABLO.hpp"
-#include "shared/kokkos_shared.h"
+#include "kokkos_shared.h"
 
 //using namespace bitpit;
 

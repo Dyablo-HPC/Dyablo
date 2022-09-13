@@ -1,7 +1,8 @@
-#include "utils/misc/RegisteringFactory.h"
+#include "../../src/utils/misc/RegisteringFactory.h"
 
 struct Base{
   virtual double test() = 0;
+  virtual ~Base(){}
 };
 
 template <typename T>

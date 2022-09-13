@@ -4,12 +4,12 @@
 #include <fstream>
 #include <vector>
 
-#include "shared/enums.h"
-#include "shared/real_type.h"
+#include "enums.h"
+#include "real_type.h"
 #include "utils/config/ConfigMap.h"
 #include "utils/io/FileHandlerVtk.h"
 
-#include "shared/kokkos_shared.h"
+#include "kokkos_shared.h"
 
 namespace dyablo
 {

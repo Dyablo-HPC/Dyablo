@@ -1,16 +1,14 @@
 #####################################################################
-# Boost (for unit testing)
-# Note : we only check for boost if unit testing is enabled
+# Fetch Google test
 #####################################################################
-find_package(Boost 1.65 REQUIRED COMPONENTS unit_test_framework)
 
-message(" BOOST found : ${Boost_FOUND}")
-if (Boost_FOUND)
-  message(" BOOST version   : ${Boost_VERSION}")
-  message(" BOOST inc dirs  : ${Boost_INCLUDE_DIRS}")
-  message(" BOOST lib dirs  : ${Boost_LIBRARY_DIRS}")
-  message(" BOOST libraries : ${Boost_LIBRARIES}")
-endif(Boost_FOUND)
+include(FetchContent)
+FetchContent_Declare(
+  googletest
+  SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../external/gtest
+)
+FetchContent_MakeAvailable(googletest)
+include(GoogleTest)
 
 #####################################################################
 #
@@ -27,32 +25,14 @@ function(dyablo_add_test UNIT_TEST_NAME TEST_MPI)
   target_sources(${UNIT_TEST_NAME} PRIVATE
     ${ARGN})
 
-  # this is necessary to have BOOST_TEST_ALTERNATIVE_INIT_API
-  # and thus being able to initialize with empty function init_function
-  target_compile_definitions(${UNIT_TEST_NAME} PRIVATE BOOST_TEST_DYN_LINK)
-
   target_link_libraries(${UNIT_TEST_NAME} PUBLIC
+    dyablo_core
     config
     Kokkos::kokkos
     dl
-    )
-  
-  # muscl and muscl libraries only OK when using Kokkos::OpenMP for now
-  if(NOT Kokkos_ENABLE_CUDA)
-    target_link_libraries(${UNIT_TEST_NAME} PUBLIC
-      muscl
-      )
-  endif()
-
-  target_link_libraries(${UNIT_TEST_NAME} PUBLIC
-      muscl_block
-      )
-
-  target_link_libraries(${UNIT_TEST_NAME} PUBLIC
-    shared
     monitoring
     BITPIT::BITPIT
-    Boost::unit_test_framework)
+    gtest)
 
   if (DYABLO_USE_MPI)
     target_compile_definitions(${UNIT_TEST_NAME} PUBLIC BITPIT_ENABLE_MPI)
@@ -60,16 +40,20 @@ function(dyablo_add_test UNIT_TEST_NAME TEST_MPI)
     target_link_libraries(${UNIT_TEST_NAME} PUBLIC mpiUtils)
   endif()
 
-  add_test(
-    NAME ${UNIT_TEST_NAME}
-    COMMAND ./${UNIT_TEST_NAME}
-    WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/unit_test/)
-  
+  gtest_add_tests(${UNIT_TEST_NAME} "--gtest_output=xml:gtest_reports/" AUTO)
+
+  # add_test(
+  #   NAME ${UNIT_TEST_NAME}
+  #   COMMAND ./${UNIT_TEST_NAME} --gtest_output=xml:gtest_reports/${UNIT_TEST_NAME}.xml
+  #   WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/unit_test/)
+
   if(DYABLO_USE_MPI)
     if(TEST_MPI)
       add_test(
         NAME "${UNIT_TEST_NAME}_MPI"
-        COMMAND ${MPIEXEC_EXECUTABLE} -np 3 ./${UNIT_TEST_NAME}
+        COMMAND cmake -E env
+          OMP_NUM_THREADS=4 
+          ${MPIEXEC_EXECUTABLE} -np 1 ./${UNIT_TEST_NAME} --gtest_output=xml:gtest_reports/${UNIT_TEST_NAME}_MPI.xml : -np 2 ./${UNIT_TEST_NAME}
         WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/unit_test/)
     endif()
   endif()
@@ -81,8 +65,8 @@ endfunction(dyablo_add_test)
 # here we create our tests
 #
 #####################################################################
-dyablo_add_test(tst_shared_MortonUtils OFF
-  shared/morton_utils_test.cpp
+dyablo_add_test(utest_morton_utils OFF
+  shared/test_morton_utils.cpp
   main.cpp)
 
   if(NOT Kokkos_ENABLE_CUDA)
@@ -93,22 +77,22 @@ dyablo_add_test(utest_CopyInnerBlockCellData OFF
 
 # Import .ini files
 configure_file(
-  block_data/test_implode_2D_block.ini
-  block_data/test_implode_2D_block.ini COPYONLY)
+  block_data/test_blast_2D_block.ini
+  block_data/test_blast_2D_block.ini COPYONLY)
 configure_file(
-  block_data/test_implode_3D_block.ini
-  block_data/test_implode_3D_block.ini COPYONLY)
+  block_data/test_blast_3D_block.ini
+  block_data/test_blast_3D_block.ini COPYONLY)
+
+dyablo_add_test(utest_AMRmesh ON
+  amr/test_AMRmesh.cpp
+  main.cpp)
 
 dyablo_add_test(utest_LightOctree OFF
   amr/test_LightOctree.cpp
   main.cpp)
 
-dyablo_add_test(utest_CopyGhostBlockCellData_2D ON 
-  block_data/test_CopyGhostBlockCellData_2D.cpp
-  main.cpp)
-
-dyablo_add_test(utest_CopyGhostBlockCellData_3D OFF
-  block_data/test_CopyGhostBlockCellData_3D.cpp
+dyablo_add_test(utest_CopyGhostBlockCellData ON 
+  block_data/test_CopyGhostBlockCellData.cpp
   main.cpp)
 
 dyablo_add_test(utest_MusclBlockGodunovUpdateFunctor OFF
@@ -122,17 +106,50 @@ dyablo_add_test(utest_GhostCommunicator ON
 dyablo_add_test(utest_LoadBalance ON
   block_data/test_LoadBalance.cpp
   main.cpp)
+
+dyablo_add_test(utest_ForeachCell ON
+  block_data/test_ForeachCell.cpp
+  main.cpp)
   
 dyablo_add_test(utest_MapUserData OFF
   block_data/test_MapUserData.cpp
   main.cpp)
 
+dyablo_add_test(utest_GravitySolver_cg ON
+  gravity/test_GravitySolver_cg.cpp
+  main.cpp)
+
+dyablo_add_test(utest_HydroConservativity ON
+  hydro/test_HydroConservativity.cpp
+  main.cpp)
+
+dyablo_add_test(utest_States ON
+  states/test_States.cpp
+  main.cpp)
+
+dyablo_add_test(utest_Kokkos_dyablo OFF
+  test_Kokkos.cpp
+  main.cpp)
+
+dyablo_add_test(utest_BoundaryConditions ON
+  boundary_conditions/utest_BoundaryConditions.cpp
+  main.cpp)
+
+configure_file(
+  hydro/test_blast_2D_block.ini
+  hydro/test_blast_2D_block.ini COPYONLY)
+configure_file(
+  hydro/test_blast_3D_block.ini
+  hydro/test_blast_3D_block.ini COPYONLY)
 
 ## Implementations registered to a factory that are contained in a separate static library have to be thourouhly tested
 add_library( RegisteringFactory_impl_lib STATIC utils/RegisteringFactory_impl_to_register.cpp )
-target_link_libraries( RegisteringFactory_impl_lib PRIVATE shared )
+#target_link_libraries( RegisteringFactory_impl_lib PRIVATE shared )
 dyablo_add_test(utest_RegisteringFactory OFF
   utils/test_RegisteringFactory.cpp
   main.cpp)
 target_link_libraries( utest_RegisteringFactory PUBLIC RegisteringFactory_impl_lib )
 
+dyablo_add_test(utest_MpiComm ON
+  utils/test_MpiComm.cpp
+  main.cpp)

@@ -11,14 +11,12 @@
 #include <impl/Kokkos_Error.hpp>
 
 #include "utils/monitoring/SimpleTimer.h"
-#include "shared/amr/LightOctree.h"
-#include "shared/HydroParams.h"
-
+#include "amr/LightOctree.h"
 #include <iostream>
 
 using Device = Kokkos::DefaultExecutionSpace;
 
-#include <boost/test/unit_test.hpp>
+#include "gtest/gtest.h"
 
 namespace dyablo
 {
@@ -43,11 +41,10 @@ void run_test()
   // codim 1 ==> balance through faces
   // codim 2 ==> balance through faces and corner
   // codim 3 ==> balance through faces, edges and corner (3D only)
-  HydroParams params{};
-  params.level_max = 3;
-  params.level_min = 0;
+  int level_max = 3;
+  int level_min = 0;
   int codim = dim; 
-  dyablo::AMRmesh amr_mesh(dim, codim, {true,true,true}, params.level_min, params.level_max);
+  dyablo::AMRmesh amr_mesh(dim, codim, {true,true,true}, level_min, level_max);
 
   // stage 1
   amr_mesh.adaptGlobalRefine();
@@ -217,7 +214,7 @@ void run_test()
           uint32_t expected_neighbor = first_neighbor[2-y][x];
           uint32_t actual_neighbor = actual_neighbors_host(y,x);
 
-          BOOST_CHECK_EQUAL( actual_neighbor, expected_neighbor);
+          EXPECT_EQ( actual_neighbor, expected_neighbor);
         }
       }
     };
@@ -237,14 +234,14 @@ void run_test()
     auto octant_data_host = Kokkos::create_mirror_view(octant_data);
     Kokkos::deep_copy(octant_data_host, octant_data);
 
-    BOOST_CHECK_CLOSE(octant_data_host(0) , 0.75, 0.0001 );
-    BOOST_CHECK_CLOSE(octant_data_host(1) , 0.25, 0.0001  );
-    BOOST_CHECK_CLOSE(octant_data_host(2) , 0.0, 0.0001  );
-    BOOST_CHECK_CLOSE(octant_data_host(3) , 0.875, 0.0001 );
-    BOOST_CHECK_CLOSE(octant_data_host(4) , 0.375, 0.0001  );
-    BOOST_CHECK_CLOSE(octant_data_host(5) , 0.0, 0.0001  );
-    BOOST_CHECK_CLOSE(octant_data_host(6) , 0.25, 0.0001  );
-    BOOST_CHECK_EQUAL(octant_data_host(7) , 2  );
+    EXPECT_DOUBLE_EQ(octant_data_host(0) , 0.75);
+    EXPECT_DOUBLE_EQ(octant_data_host(1) , 0.25);
+    EXPECT_DOUBLE_EQ(octant_data_host(2) , 0.0);
+    EXPECT_DOUBLE_EQ(octant_data_host(3) , 0.875);
+    EXPECT_DOUBLE_EQ(octant_data_host(4) , 0.375);
+    EXPECT_DOUBLE_EQ(octant_data_host(5) , 0.0);
+    EXPECT_DOUBLE_EQ(octant_data_host(6) , 0.25);
+    EXPECT_DOUBLE_EQ(octant_data_host(7) , 2);
 
     // uint32_t neighbors_8[3][3] = {{11,12,12},
     //                               { 3, 0, 9},
@@ -393,7 +390,7 @@ void run_test()
             uint32_t expected_neighbor = first_neighbor[2-y][2-z][x];
             uint32_t actual_neighbor = actual_neighbors_host(z,y,x);
 
-            BOOST_CHECK_EQUAL( actual_neighbor, expected_neighbor);
+            EXPECT_EQ( actual_neighbor, expected_neighbor);
           }
         }
       }
@@ -414,14 +411,14 @@ void run_test()
     auto octant_data_host = Kokkos::create_mirror_view(octant_data);
     Kokkos::deep_copy(octant_data_host, octant_data);
 
-    BOOST_CHECK_CLOSE(octant_data_host(0) , 0.5, 0.0001 );
-    BOOST_CHECK_CLOSE(octant_data_host(1) , 0.125, 0.0001  );
-    BOOST_CHECK_CLOSE(octant_data_host(2) , 0.375, 0.0001  );
-    BOOST_CHECK_CLOSE(octant_data_host(3) , 0.5625, 0.0001 );
-    BOOST_CHECK_CLOSE(octant_data_host(4) , 0.1875, 0.0001  );
-    BOOST_CHECK_CLOSE(octant_data_host(5) , 0.4375, 0.0001  );
-    BOOST_CHECK_CLOSE(octant_data_host(6) , 0.125, 0.0001  );
-    BOOST_CHECK_EQUAL(octant_data_host(7) , 3  );
+    EXPECT_DOUBLE_EQ( octant_data_host(0) , 0.5);
+    EXPECT_DOUBLE_EQ( octant_data_host(1) , 0.125 );
+    EXPECT_DOUBLE_EQ( octant_data_host(2) , 0.375 );
+    EXPECT_DOUBLE_EQ( octant_data_host(3) , 0.5625);
+    EXPECT_DOUBLE_EQ( octant_data_host(4) , 0.1875 );
+    EXPECT_DOUBLE_EQ( octant_data_host(5) , 0.4375 );
+    EXPECT_DOUBLE_EQ( octant_data_host(6) , 0.125 );
+    EXPECT_DOUBLE_EQ( octant_data_host(7) , 3  );
 
     uint32_t neighbors_5[3][3][3] = {
      {{41   ,42   ,49},
@@ -491,8 +488,6 @@ void test_perf()
   using LightOctree_t = dyablo::LightOctree;
 
   std::cout << "Construct LightOctree..." << std::endl;
-  HydroParams params;
-  params.level_max = level_max;
 
   SimpleTimer time_lmesh_construct;
   const LightOctree_t& lmesh = amr_mesh.getLightOctree();
@@ -534,34 +529,20 @@ void test_perf()
 
 }
 
-BOOST_AUTO_TEST_SUITE(dyablo)
-
-BOOST_AUTO_TEST_CASE(test_LightOctree_2D)
+TEST(dyablo, test_LightOctree_2D)
 {
-
   // always run this test
-  run_test<2>();
-  
+  dyablo::run_test<2>();
 } 
 
-BOOST_AUTO_TEST_CASE(test_LightOctree_3D)
+TEST(dyablo, test_LightOctree_3D)
 {
-
-  // allow this test to be manually disabled
-  // if there is an addition argument, disable
-  if (boost::unit_test::framework::master_test_suite().argc==1)
-    run_test<3>();
-  
+  dyablo::run_test<3>();
 } 
 
 
-BOOST_AUTO_TEST_CASE(test_LightOctree_hashmap_perf) 
-// This test is disabled by default, enable it with 
+TEST(dyablo, test_LightOctree_hashmap_perf) 
 {
   test_perf();  
 }
-
-
-
-BOOST_AUTO_TEST_SUITE_END() /* dyablo */
 

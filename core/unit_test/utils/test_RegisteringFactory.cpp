@@ -1,9 +1,10 @@
-#include <boost/test/unit_test.hpp>
+#include "gtest/gtest.h"
 
 #include "utils/misc/RegisteringFactory.h"
 
 struct Base{
   virtual double test() = 0;
+  virtual ~Base(){}
 };
 
 template <typename T>
@@ -34,18 +35,28 @@ bool BaseFactory::init()
   return true;
 }
 
+TEST( Test_RegisteringFactory, available_ids_count )
+{
+  auto ids = BaseFactory::get_available_ids();
+  EXPECT_EQ( 3, ids.size() );
 
-BOOST_AUTO_TEST_SUITE(dyablo)
+  std::cout << "ids: " << std::endl;
+  for(size_t i=0; i<ids.size(); i++)
+    std::cout << "\'" << ids[i] << "\'" << std::endl;
+}
 
-BOOST_AUTO_TEST_CASE(test_RegisteringFactory)
+TEST( Test_RegisteringFactory, same_compile_unit )
 {
   std::unique_ptr<Base> p_int = BaseFactory::make_instance("int", 5);
   std::unique_ptr<Base> p_double = BaseFactory::make_instance("double", 3.5);
-  std::unique_ptr<Base> p_double2 = BaseFactory::make_instance("double2", 4);
 
-  BOOST_CHECK_CLOSE(5, p_int->test(), 0.001);;
-  BOOST_CHECK_CLOSE(3.5, p_double->test(), 0.001);;
-  BOOST_CHECK_CLOSE(4.5, p_double2->test(), 0.001);;
+  EXPECT_DOUBLE_EQ( 5, p_int->test() );
+  EXPECT_DOUBLE_EQ( 3.5, p_double->test() );
 }
 
-BOOST_AUTO_TEST_SUITE_END() /* dyablo */
+TEST( Test_RegisteringFactory, different_compile_unit )
+{
+  std::unique_ptr<Base> p_double2 = BaseFactory::make_instance("double2", 4);
+
+  EXPECT_DOUBLE_EQ( 4.5, p_double2->test() );
+}

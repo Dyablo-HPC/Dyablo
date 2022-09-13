@@ -13,6 +13,5 @@ target_include_directories(misc
   PUBLIC
   ${CMAKE_SOURCE_DIR}/src/utils/misc
   )
-target_link_libraries( misc PRIVATE HostOnly )
 
 add_library(dyablo::misc ALIAS misc)

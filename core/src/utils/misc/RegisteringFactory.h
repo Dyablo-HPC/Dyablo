@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <map>
+#include <vector>
 #include <string>
 #include <utility>
 #include <stdexcept>
@@ -39,6 +40,18 @@ public:
    * ```
    **/
   static bool init();
+
+  /// List all available IDs for this factory
+  static std::vector<std::string> get_available_ids()
+  {
+    init();
+
+    std::vector<std::string> res;
+    auto& constructs = get_constructs(); 
+    for(auto& p : constructs)
+      res.push_back( p.first );
+    return res;
+  }
 
   /**
    * Construct an instance of BaseType with the actual dynamic type corresponding to the id registered with FACTORY_REGISTER
@@ -89,6 +102,7 @@ private:
   /// Base virtual class to store construct<T> as a uniform type in map 
   struct construct_base{
     virtual std::unique_ptr<BaseType> make_instance(Args... args) = 0;
+    virtual ~construct_base() = default;
   };
   
   /// Wrapper type to construct type T from the parameters given as template parameters in the factory

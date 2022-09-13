@@ -3,20 +3,15 @@
  * \author A. Durocher
  * Tests ghost octants MPI communication
  */
+#include "gtest/gtest.h"
 
+#include "mpi/GhostCommunicator.h"
 
-#include <boost/test/unit_test.hpp>
-
-#include "shared/mpi/GhostCommunicator.h"
-
-#include "muscl_block/utils_block.h"
-#include "shared/amr/AMRmesh.h"
+#include "legacy/utils_block.h"
+#include "amr/AMRmesh.h"
 #include "utils/io/AMRMesh_output_vtk.h"
 
 namespace dyablo
-{
-
-namespace muscl_block
 {
 
 // =======================================================================
@@ -62,7 +57,7 @@ Kokkos::LayoutLeft layout<DataArray>(int bx, int by, int bz, int nbfields, int n
 
 
 template< typename Array_t >
-void run_test(int argc, char *argv[])
+void run_test()
 {
   std::cout << "// =========================================\n";
   std::cout << "// Testing GhostCommunicator ...\n";
@@ -90,19 +85,19 @@ void run_test(int argc, char *argv[])
 
     debug::output_vtk("before_initial", *amr_mesh);
     if( amr_mesh->getRank() == 0 )
-      amr_mesh->setMarker(239 ,1);      
+      amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
     amr_mesh->adapt();
     debug::output_vtk("after_adapt1", *amr_mesh);
     if( amr_mesh->getRank() == 0 )
-      amr_mesh->setMarker(244 ,1);      
+      amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
     amr_mesh->adapt();
     debug::output_vtk("after_adapt2", *amr_mesh);
     if( amr_mesh->getRank() == 0 )
-      amr_mesh->setMarker(256 ,1);      
+      amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
     amr_mesh->adapt();
     debug::output_vtk("after_adapt3", *amr_mesh);
     if( amr_mesh->getRank() == 0 )
-      amr_mesh->setMarker(268 ,1);      
+      amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
     amr_mesh->adapt();
     debug::output_vtk("after_adapt4", *amr_mesh);
 
@@ -140,9 +135,10 @@ void run_test(int argc, char *argv[])
     Kokkos::deep_copy( U, U_host );
   }
 
-  dyablo::muscl_block::GhostCommunicator ghost_communicator( amr_mesh );
+  dyablo::GhostCommunicator ghost_communicator( amr_mesh );
 
-  Array_t Ughost; //solver->Ughost
+  auto Ughostlayout = layout<Array_t>(bx,by,bz,nbfields,ghost_communicator.getNumGhosts());
+  Array_t Ughost("Ughost", Ughostlayout);
   ghost_communicator.exchange_ghosts(U, Ughost);
 
   // Test Ughost
@@ -151,12 +147,12 @@ void run_test(int argc, char *argv[])
 
     std::cout << "Check Ughost ( nGhosts=" << nGhosts << ")" << std::endl;
 
-    BOOST_CHECK_EQUAL(extent( Ughost, 2), nGhosts);
+    EXPECT_EQ(extent( Ughost, 2), nGhosts);
 
     //if(nGhosts!=0)
     {
-      BOOST_CHECK_EQUAL(extent( Ughost, 0), nbCellsPerOct);
-      BOOST_CHECK_EQUAL(extent( Ughost, 1), nbfields);
+      EXPECT_EQ(extent( Ughost, 0), nbCellsPerOct);
+      EXPECT_EQ(extent( Ughost, 1), nbfields);
     }
     
 
@@ -178,39 +174,29 @@ void run_test(int argc, char *argv[])
         real_t expected_y = oct_pos[IY] + cy*oct_size/by;
         real_t expected_z = oct_pos[IZ] + cz*oct_size/bz;
 
-        BOOST_CHECK_CLOSE( at(Ughost_host, c, IX, iGhost), expected_x , 0.01);
-        BOOST_CHECK_CLOSE( at(Ughost_host, c, IY, iGhost), expected_y , 0.01);
-        BOOST_CHECK_CLOSE( at(Ughost_host, c, IZ, iGhost), expected_z , 0.01);
+        EXPECT_NEAR( at(Ughost_host, c, IX, iGhost), expected_x , 0.01);
+        EXPECT_NEAR( at(Ughost_host, c, IY, iGhost), expected_y , 0.01);
+        EXPECT_NEAR( at(Ughost_host, c, IZ, iGhost), expected_z , 0.01);
       }
     }
   }
 
 } // run_test
 
-} // namespace muscl_block
+
 
 } // namespace dyablo
 
-BOOST_AUTO_TEST_SUITE(dyablo)
-
-BOOST_AUTO_TEST_SUITE(muscl_block)
-
-BOOST_AUTO_TEST_CASE(test_GhostCommunicator_block)
+TEST(dyablo, test_GhostCommunicator_block)
 {
 
-  run_test<DataArrayBlock>(boost::unit_test::framework::master_test_suite().argc,
-           boost::unit_test::framework::master_test_suite().argv);
+  dyablo::run_test<dyablo::DataArrayBlock>();
 
 }
 
-BOOST_AUTO_TEST_CASE(test_GhostCommunicator_cell)
+TEST(dyablo, test_GhostCommunicator_cell)
 {
 
-  run_test<DataArray>(boost::unit_test::framework::master_test_suite().argc,
-           boost::unit_test::framework::master_test_suite().argv);
+  dyablo::run_test<dyablo::DataArray>();
 
 }
-
-BOOST_AUTO_TEST_SUITE_END() /* muscl_block */
-
-BOOST_AUTO_TEST_SUITE_END() /* dyablo */

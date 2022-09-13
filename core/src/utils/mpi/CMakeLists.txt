@@ -18,7 +18,6 @@ target_include_directories(mpiUtils
 if( DYABLO_USE_MPI )
   target_link_libraries (mpiUtils PUBLIC MPI::MPI_CXX)
 endif()
-target_link_libraries (mpiUtils PRIVATE HostOnly)
 
 #Add an alias so that library can be used inside the build tree
 add_library(dyablo::utils::mpi ALIAS mpiUtils)

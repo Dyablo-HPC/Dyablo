@@ -14,12 +14,10 @@ target_include_directories(${EXE_NAME}
   )
 
 target_link_libraries(${EXE_NAME}
-  muscl
+  dyablo_core
   config
   Kokkos::kokkos
   dl
-  muscl_block
-  shared
   monitoring
   BITPIT::BITPIT)
 
@@ -30,28 +28,6 @@ if (DYABLO_USE_MPI)
 endif()
 
 add_backward(${EXE_NAME})
-
-
-configure_file(test_four_quadrant_2D.ini test_four_quadrant_2D.ini COPYONLY)
-configure_file(test_four_quadrant_2D_block.ini test_four_quadrant_2D_block.ini COPYONLY)
-configure_file(test_blast_2D.ini test_blast_2D.ini COPYONLY)
-configure_file(test_sod_2D.ini test_sod_2D.ini COPYONLY)
-configure_file(test_sod_2D_block.ini test_sod_2D_block.ini COPYONLY)
-configure_file(test_isentropic_vortex_2D.ini test_isentropic_vortex_2D.ini COPYONLY)
-configure_file(test_isentropic_vortex_2D_block.ini test_isentropic_vortex_2D_block.ini COPYONLY)
-configure_file(test_gresho_vortex_2D.ini test_gresho_vortex_2D.ini COPYONLY)
-configure_file(test_gresho_vortex_2D_low_mach.ini test_gresho_vortex_2D_low_mach.ini COPYONLY)
-configure_file(test_gresho_vortex_2D_block.ini test_gresho_vortex_2D_block.ini COPYONLY)
-configure_file(test_kelvin_helmholtz_2D.ini test_kelvin_helmholtz_2D.ini COPYONLY)
-configure_file(test_kelvin_helmholtz_2D_block.ini test_kelvin_helmholtz_2D.ini COPYONLY)
-configure_file(test_implode_2D.ini test_implode_2D.ini COPYONLY)
-configure_file(test_implode_3D.ini test_implode_3D.ini COPYONLY)
-
-configure_file(test_blast_2D_block.ini test_blast_2D_block.ini COPYONLY)
-configure_file(test_implode_2D_block.ini test_implode_2D_block.ini COPYONLY)
-configure_file(test_double_mach_reflection_2D_block.ini test_double_mach_reflection_2D_block COPYONLY)
-configure_file(test_rayleigh_taylor_2D_block.ini test_rayleigh_taylor_2D_block.ini COPYONLY)
-configure_file(test_rayleigh_taylor_3D_block.ini test_rayleigh_taylor_3D_block.ini COPYONLY)
 
 # Files for gitlab-ci testcases
 # Blast 3D block based 
@@ -66,3 +42,14 @@ configure_file(visu_blast_2D_block.pvsm visu_blast_2D_block.pvsm COPYONLY)
 # Blast 2D cell based 
 configure_file(test_blast_2D.ini test_blast_2D.ini COPYONLY)
 configure_file(visu_blast_2D_cell.pvsm visu_blast_2D_cell.pvsm COPYONLY)
+# Riemann 2D cell based 
+configure_file(test_riemann_2D.ini test_riemann_2D.ini COPYONLY)
+configure_file(visu_riemann_2D_cell.pvsm visu_riemann_2D_cell.pvsm COPYONLY)
+# Riemann 2D block based 
+configure_file(test_riemann_2D_block.ini test_riemann_2D_block.ini COPYONLY)
+configure_file(visu_riemann_2D_block.pvsm visu_riemann_2D_block.pvsm COPYONLY)
+
+
+# Gravity 3D test
+configure_file(test_gravity_spheres_3D.ini test_gravity_spheres_3D.ini COPYONLY)
+configure_file(visu_gravity_spheres_3D.pvsm visu_gravity_spheres_3D.pvsm COPYONLY)

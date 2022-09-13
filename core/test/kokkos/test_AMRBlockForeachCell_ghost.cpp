@@ -1,14 +1,14 @@
 
-#include "shared/DyabloSession.hpp"
-#include "shared/amr/AMRmesh.h"
-#include "shared/amr/LightOctree.h"
-#include "shared/utils_hydro.h"
-#include "muscl_block/foreach_cell/AMRBlockForeachCell_group.h"
-#include "muscl_block/CopyGhostBlockCellData.h"
+#include "DyabloSession.hpp"
+#include "amr/AMRmesh.h"
+#include "amr/LightOctree.h"
+#include "utils_hydro.h"
+#include "foreach_cell/AMRBlockForeachCell_group.h"
+#include "CopyGhostBlockCellData.h"
 #include "utils/monitoring/Timers.h"
 
 namespace dyablo { 
-namespace muscl_block {
+
   using AMRBlockForeachCell = AMRBlockForeachCell_group;
   using ForeachCell = AMRBlockForeachCell;
   using GhostedArray = typename AMRBlockForeachCell::CellArray_global_ghosted;
@@ -16,16 +16,16 @@ namespace muscl_block {
   using PatchArray = typename AMRBlockForeachCell::CellArray_patch;
   using CellIndex = typename AMRBlockForeachCell::CellIndex;
 }// namespace dyablo
-}// namespace muscl_block
 
-#include "muscl_block/update/CopyGhostBlockCellData.h"
+
+#include "hydro/CopyGhostBlockCellData.h"
 
 using namespace dyablo;
 using namespace dyablo::muscl_block;
 
 int main(int argc, char *argv[])
 {
-  shared::DyabloSession mpi_session(argc, argv);
+  DyabloSession mpi_session(argc, argv);
  
   constexpr int ITER = 10;
   constexpr int ndim = 3;
@@ -117,7 +117,7 @@ int main(int argc, char *argv[])
       InterfaceFlags interface_flags(nbOctsPerGroup);
       for(uint32_t iGroup=0; iGroup<nbOcts/nbOctsPerGroup; iGroup++ )
       {
-        dyablo::muscl_block::CopyGhostBlockCellDataFunctor::apply(
+        dyablo::CopyGhostBlockCellDataFunctor::apply(
                                           lmesh,
                                           configMap,
                                           params,

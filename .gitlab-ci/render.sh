@@ -22,5 +22,4 @@ then
 else
     echo "Xvfb not available using DISPLAY=${DISPLAY}"
 fi
-
 pvbatch --force-offscreen-rendering ${root}/.gitlab-ci/render_pvsm.py ${pvsm_filename} ${root}/render.png

@@ -24,8 +24,8 @@
 
 #include "bitpit_PABLO.hpp"
 
-#include "shared/kokkos_shared.h"
-#include "shared/SimpleVTKIO.h"
+#include "kokkos_shared.h"
+#include "SimpleVTKIO.h"
 
 #if BITPIT_ENABLE_MPI==1
 #include "PABLO_userDataComm.hpp"

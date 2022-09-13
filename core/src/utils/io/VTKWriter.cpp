@@ -26,22 +26,22 @@ VTKWriter::VTKWriter(ConfigMap &configMap, int64_t nbCells) :
   m_out_file()
 {
   // output directory
-  std::string outputDir = configMap.getString("output", "outputDir", "./");
+  std::string outputDir = configMap.getValue<std::string>("output", "outputDir", "./");
   m_fileHandler.setDirectory(outputDir);
 
   // file name base
   std::string outputPrefix =
-      configMap.getString("output", "outputPrefix", "output");
+      configMap.getValue<std::string>("output", "outputPrefix", "output");
   m_fileHandler.setName(outputPrefix);
 
   // file suffix (vtk unstructured grid)
   m_fileHandler.setSuffix("vtu");
 
   // set write type
-  bool outputVtkAscii = configMap.getBool("output", "outputVtkAscii", false);
+  bool outputVtkAscii = configMap.getValue<bool>("output", "outputVtkAscii", false);
   bool outputVtkAppended =
-      configMap.getBool("output", "outputVtkAppended", false);
-  bool outputVtkBinary = configMap.getBool("output", "outputVtkBinary", true);
+      configMap.getValue<bool>("output", "outputVtkAppended", false);
+  bool outputVtkBinary = configMap.getValue<bool>("output", "outputVtkBinary", true);
 
   if (outputVtkAscii)
   {
