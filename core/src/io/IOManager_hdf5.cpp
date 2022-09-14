@@ -52,7 +52,7 @@ R"xml(<?xml version="1.0" ?>
 <Xdmf xmlns:xi="http://www.w3.org/2001/XInclude" Version="2.0">
   <Domain Name="MainTimeSeries">
     <Grid Name="MainTimeSeries" GridType="Collection" CollectionType="Temporal">)xml");
-      fprintf(main_xdmf_fd, main_xdmf_footer.c_str());
+      fprintf(main_xdmf_fd, "%s", main_xdmf_footer.c_str());
       fflush(main_xdmf_fd);
     }
   }
@@ -114,7 +114,7 @@ void IOManager_hdf5::save_snapshot( const ForeachCell::CellArray_global_ghosted&
 R"xml(
       <xi:include href="%s" xpointer="xpointer(//Xdmf/Domain/Grid)" />)xml",
       (base_filename + ".xmf").c_str());
-    fprintf(main_xdmf_fd, main_xdmf_footer.c_str());
+    fprintf(main_xdmf_fd, "%s", main_xdmf_footer.c_str());
     fflush(main_xdmf_fd);
 
     // Write xdmf file (only master MPI process)
