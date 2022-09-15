@@ -177,9 +177,7 @@ void test_GravitySolver( std::shared_ptr<AMRmesh> amr_mesh )
   int ndim = configMap.getValue<int>("mesh", "ndim", 3);
   GravityType gravity_type = configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_FIELD);
 
-  FieldManager fieldMgr = FieldManager::setup(ndim, gravity_type);
-
-  
+  FieldManager fieldMgr = FieldManager({ID,IGPHI,IGX,IGY,IGZ});
 
   ForeachCell foreach_cell( *amr_mesh, configMap );
 
@@ -212,7 +210,7 @@ void test_GravitySolver( std::shared_ptr<AMRmesh> amr_mesh )
 
         real_t r2 = x*x + y*y + z*z;
 
-        U_host(c, ID, iOct) = Hernquist::rho(r2);
+        U_host(c, fm[ID], iOct) = Hernquist::rho(r2);
       }
     }
     Kokkos::deep_copy( U.U, U_host );

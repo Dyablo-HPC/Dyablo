@@ -529,8 +529,19 @@ void run_test()
   assert( ndim_ini == ndim );
   GravityType gravity_type = configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE);
 
-  // just retrieve a field manager
-  FieldManager fieldMgr = FieldManager::setup(ndim, gravity_type);
+  // Setup Fieldmanager
+  FieldManager fieldMgr;
+  {
+    // always enable rho, energy and velocity components
+    std::set< VarIndex > enabled_vars( {ID, IP, IE, IU, IV} );
+    
+    bool three_d = ndim == 3 ? 1 : 0;
+
+    if( three_d ) enabled_vars.insert( IW );
+
+    fieldMgr = FieldManager(enabled_vars);
+  }
+  
   auto fm = fieldMgr.get_id2index();
 
   /*

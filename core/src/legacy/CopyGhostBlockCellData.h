@@ -59,7 +59,7 @@ public :
   BoundaryConditionType bc_min[3], bc_max[3];
 
   //! field manager
-  id2index_t fm;
+  id2index_t fm, fm_state ;
 
   //! block sizes without ghosts
   blockSize_t blockSizes;

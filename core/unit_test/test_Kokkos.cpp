@@ -59,3 +59,50 @@ TEST( Test_Kokkos_dyablo, UnorderedMap_morton )
 {
     test_UnorderedMap_morton();
 }
+
+#include "utils/misc/HostDeviceSingleton.h"
+
+namespace dyablo{
+
+using VarIndex = int;
+
+std::map< std::string, VarIndex > varindex_names{
+    {"rho",2},
+    {"e_tot",3},
+    {"rho_u",4}
+};
+
+struct VarIndex_Set{
+    VarIndex ID, IE, IU;
+};
+
+template<>
+void HostDeviceSingleton<VarIndex_Set>::set()
+{
+ HostDeviceSingleton<VarIndex_Set>::set(VarIndex_Set{varindex_names.at("rho"), varindex_names.at("e_tot"), varindex_names.at("rho_u") });
+}
+
+void test_HostDeviceSingleton()
+{
+    HostDeviceSingleton<VarIndex_Set>::set(VarIndex_Set{varindex_names.at("rho"), varindex_names.at("e_tot"), varindex_names.at("rho_u") });
+
+    EXPECT_EQ( 2, HostDeviceSingleton<VarIndex_Set>::get().ID );
+
+    Kokkos::View<int> ID_val_device("ID_val_device");
+    Kokkos::parallel_for( "test_HostDeviceSingleton", 1, 
+        KOKKOS_LAMBDA(int)
+    {
+        ID_val_device() = HostDeviceSingleton<VarIndex_Set>::get().ID;
+    });
+    auto ID_val_host = Kokkos::create_mirror_view(ID_val_device);
+    Kokkos::deep_copy(ID_val_host,ID_val_device);
+
+    EXPECT_EQ( 2, ID_val_host() );
+}
+
+} // namespace dyablo
+
+TEST( Test_Kokkos_dyablo, HostDeviceSingleton )
+{
+    dyablo::test_HostDeviceSingleton();
+}

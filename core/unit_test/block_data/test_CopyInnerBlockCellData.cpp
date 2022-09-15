@@ -97,7 +97,7 @@ void run_test(uint32_t bSize, uint32_t nbBlocks)
   int ndim = 2;
   GravityType gravity_type = GRAVITY_NONE;
 
-  FieldManager fieldMgr = FieldManager::setup(ndim, gravity_type);
+  FieldManager fieldMgr({ID,IP,IU,IV});;
 
   auto fm = fieldMgr.get_id2index();
 

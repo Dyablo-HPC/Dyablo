@@ -10,6 +10,7 @@
 #include "states/State_forward.h"
 #include "states/State_Nd.h"
 #include "io/IOManager.h"
+#include "foreach_cell/ForeachCell.h"
 using blockSize_t    = Kokkos::Array<uint32_t, 3>;
 
 using Device = Kokkos::DefaultExecutionSpace;
@@ -618,4 +619,60 @@ auto test_eq = [&](const ConsMHDState& state,
 
   state1 /= q5;
   test_eq_st(state1, div);
+}
+
+/// Test if get/setConservativeState(ConsHydroState) work correctly
+void test_ConsHydroState_setget()
+{
+  using CellIndex = ForeachCell::CellIndex;
+  using CellArray_global = ForeachCell::CellArray_global;
+
+  uint32_t bx=1, by=1, bz=1;
+  uint32_t nbOcts = 10;
+
+  FieldManager field_manager({ID, IE, IU, IV, IW});
+
+  DataArrayBlock U_("U_", bx*by*bz, field_manager.nbfields(), nbOcts);
+  CellArray_global U{U_, bx, by, bz, nbOcts, field_manager.get_id2index()};
+
+  auto make_iCell = KOKKOS_LAMBDA( uint32_t iOct, uint32_t i, uint32_t j, uint32_t k )
+  {
+    return CellIndex{ {iOct, false}, i, j, k, bx, by, bz, CellIndex::Status::LOCAL_TO_BLOCK };
+  };
+
+  Kokkos::parallel_for("ConsHydroState_set", nbOcts,
+    KOKKOS_LAMBDA(uint32_t i)
+  {
+    ConsHydroState s{i+0.1,i+0.2,i+0.3,i+0.4,i+0.5};
+    setConservativeState<3>( U, make_iCell(i, 0,0,0), s );
+  });
+
+  int errors = 0;
+  Kokkos::parallel_reduce("ConsHydroState_get", nbOcts,
+    KOKKOS_LAMBDA(uint32_t i, int& errors)
+  {
+    ConsHydroState s;
+    getConservativeState<3>( U, make_iCell(i, 0,0,0), s );
+    
+    auto compare = [&]( real_t expected, real_t actual )
+    {
+      if( expected != actual )
+      {
+        errors ++;
+        printf("Error : %f != %f \n", expected, actual);
+      }
+    };
+    compare(i+0.1, s.rho);
+    compare(i+0.2, s.e_tot);
+    compare(i+0.3, s.rho_u);
+    compare(i+0.4, s.rho_v);
+    compare(i+0.5, s.rho_w);
+  }, errors);
+
+  EXPECT_EQ(0, errors);
+}
+
+TEST( Test_MHD_States, ConsHydroState_setget )
+{
+  test_ConsHydroState_setget();
 }
