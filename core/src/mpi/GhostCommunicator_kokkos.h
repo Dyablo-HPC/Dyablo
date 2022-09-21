@@ -13,24 +13,31 @@ class GhostCommunicator_kokkos : public GhostCommunicator_base
 {
 public:
     /**
-     * Create a new GhostCommunicator using a view containing the domain for each ghost cell
+     * Create a new GhostCommunicator using a view containing the target domain for each local octant
+     * This is used for load balancing when blocks are moved from one rank to another
+     * ( since there is only one target domain per block, this cannot be used for ghosts) 
      **/
-    GhostCommunicator_kokkos( const Kokkos::View< int* > domains, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
+    GhostCommunicator_kokkos( const Kokkos::View< int* > target_domains, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
     : mpi_comm(mpi_comm)
     {
-      private_init_domains(domains);
+      private_init_domains(target_domains);
     }
     /**
      * DO NOT CALL THIS YOURSELF
      * this is here because KOKKOS_LAMBDAS cannot be declared in constructors or private methods
      **/
     void private_init_domains( const Kokkos::View< int* > domains );
-    GhostCommunicator_kokkos( std::shared_ptr<AMRmesh> amr_mesh, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
+    
+    /**
+     * Create a new GhostCommunicator using a map containing local octants to send to each remote domain
+     * octants can be communicated to multiple ghosts in different domains
+     **/
+    GhostCommunicator_kokkos( const std::map<int, std::vector<uint32_t>>& ghost_map, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() );   
+
+    GhostCommunicator_kokkos( std::shared_ptr<AMRmesh_hashmap> amr_mesh, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
      : GhostCommunicator_kokkos(amr_mesh->getBordersPerProc(), mpi_comm)
     {}
-    
-    GhostCommunicator_kokkos( const std::map<int, std::vector<uint32_t>>& ghost_map, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() );
-    GhostCommunicator_kokkos( std::shared_ptr<AMRmesh_hashmap> amr_mesh, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
+    GhostCommunicator_kokkos( std::shared_ptr<AMRmesh> amr_mesh, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
      : GhostCommunicator_kokkos(amr_mesh->getBordersPerProc(), mpi_comm)
     {}
     
@@ -57,6 +64,8 @@ public:
     void reduce_ghosts( const DataArray_t& U, const DataArray_t& Ughost) const;
 
 private:
+    void private_init_map( const Kokkos::View< uint32_t* > send_sizes, const Kokkos::View< uint32_t* > send_iOcts );
+
     Kokkos::View<uint32_t*> recv_sizes, send_sizes; //!Number of octants to send/recv for each proc
     Kokkos::View<uint32_t*>::HostMirror recv_sizes_host, send_sizes_host; //!Number of octants to send/recv for each proc
     Kokkos::View<uint32_t*> send_iOcts; //! List of octants to send (first send_sizes[0] iOcts to send to rank[0] and so on...)

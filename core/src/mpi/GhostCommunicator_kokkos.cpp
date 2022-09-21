@@ -58,53 +58,19 @@ void GhostCommunicator_kokkos::private_init_domains(const Kokkos::View< int* > d
   Kokkos::deep_copy( recv_sizes, recv_sizes_host );
 }
 
-GhostCommunicator_kokkos::GhostCommunicator_kokkos( const std::map<int, std::vector<uint32_t>>& ghost_map, const MpiComm& mpi_comm )
-  : mpi_comm(mpi_comm)
+/**
+ * Initialize GhostCommunicator_kokkos with the list of octants to send as ghosts for each rank
+ * @param send_sizes nomber of octants to send to rank i
+ * @param send_iOcts octants to send to rank 0, then to rank 1, etc (of size sum(send_sizes))
+ **/
+void GhostCommunicator_kokkos::private_init_map( const Kokkos::View< uint32_t* > send_sizes, const Kokkos::View< uint32_t* > send_iOcts )
 {
   int nb_proc = mpi_comm.MPI_Comm_size();
 
-  //Compute send sizes
-  {
-    Kokkos::realloc(this->send_sizes, nb_proc);
-    this->send_sizes_host = Kokkos::create_mirror_view(this->send_sizes);  
-    uint32_t nbGhostSend = 0; 
-    for(int rank=0; rank<nb_proc; rank++)
-    {
-      auto it = ghost_map.find(rank);
-      if(it==ghost_map.end())
-      {
-        send_sizes_host(rank) = 0;
-      }
-      else
-      {
-        const std::vector<uint32_t>& iOcts_source = it->second;
-        send_sizes_host(rank) = iOcts_source.size();
-        nbGhostSend += iOcts_source.size();
-      }
-    }
-    // Copy number of octants to recieve to device (host + device are up to date)
-    Kokkos::deep_copy(send_sizes, send_sizes_host);
-
-    // Allocate buffer to contain iOcts to send
-    Kokkos::realloc(this->send_iOcts, nbGhostSend);
-  }
-
-  //Fill list of ghost octants to send
-  {
-    Kokkos::View<uint32_t*>::HostMirror send_iOcts_host = Kokkos::create_mirror_view(this->send_iOcts);
-    uint32_t iOct_offset = 0;
-    for( auto& p : ghost_map )
-    {
-      const std::vector<uint32_t>& iOcts_source = p.second;
-      for( size_t i=0; i<iOcts_source.size(); i++ )
-      {
-        send_iOcts_host(iOct_offset + i) = iOcts_source[i];
-      }
-      iOct_offset += iOcts_source.size();
-    }
-    // Move send_iOcts to device
-    Kokkos::deep_copy(this->send_iOcts, send_iOcts_host);
-  }
+  this->send_sizes = send_sizes;
+  this->send_iOcts = send_iOcts;
+  this->send_sizes_host = Kokkos::create_mirror_view( send_sizes );
+  Kokkos::deep_copy( this->send_sizes_host, send_sizes );
 
   // Fill number of octants to recieve
   {
@@ -118,6 +84,60 @@ GhostCommunicator_kokkos::GhostCommunicator_kokkos( const std::map<int, std::vec
     for(int i=0; i<nb_proc; i++)
       this->nbghosts_recv += recv_sizes_host(i);
   }
+
+}
+
+GhostCommunicator_kokkos::GhostCommunicator_kokkos( const std::map<int, std::vector<uint32_t>>& ghost_map, const MpiComm& mpi_comm )
+  : mpi_comm(mpi_comm)
+{
+  int nb_proc = mpi_comm.MPI_Comm_size();
+
+  // Allocate send_sizes
+  Kokkos::View< uint32_t* > send_sizes("send_sizes", nb_proc);
+  auto send_sizes_host = Kokkos::create_mirror_view(send_sizes);  
+  
+  //Compute send sizes (on Host)
+  uint32_t nbGhostSend = 0; 
+  for(int rank=0; rank<nb_proc; rank++)
+  {
+    auto it = ghost_map.find(rank);
+    if(it==ghost_map.end())
+    {
+      send_sizes_host(rank) = 0;
+    }
+    else
+    {
+      const std::vector<uint32_t>& iOcts_source = it->second;
+      send_sizes_host(rank) = iOcts_source.size();
+      nbGhostSend += iOcts_source.size();
+    }
+  }
+  // Synchronize send sizes to device
+  Kokkos::deep_copy(send_sizes, send_sizes_host);
+
+  // Allocate send_iOcts (on Device)
+  Kokkos::View< uint32_t* > send_iOcts("send_iOcts", nbGhostSend);
+  uint32_t offset = 0;
+  for(int rank=0; rank<nb_proc; rank++)
+  {
+    uint32_t send_size_rank = send_sizes_host(rank);
+    if( send_size_rank > 0 )
+    {
+      // Create an unmanaged view from ghost_map[rank]
+      const std::vector<uint32_t>& iOcts_rank_vector = ghost_map.at(rank);
+      using UnmanagedHostView = Kokkos::View<const uint32_t*, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged> >;
+      UnmanagedHostView iOcts_rank_host( iOcts_rank_vector.data(), iOcts_rank_vector.size() );
+      
+      // Create a subview of send_iOcts for iOcts to send to `rank`
+      auto iOcts_rank_device = Kokkos::subview( send_iOcts, std::pair( offset, offset+send_size_rank ) );
+      
+      // Copy octants from ghost_map[rank] to send_iOcts
+      Kokkos::deep_copy( iOcts_rank_device, iOcts_rank_host );
+    }
+    offset += send_size_rank;
+  }
+
+  private_init_map(send_sizes, send_iOcts);
 }
 
 uint32_t GhostCommunicator_kokkos::getNumGhosts() const
