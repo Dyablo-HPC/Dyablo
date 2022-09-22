@@ -251,10 +251,6 @@ public:
   {
     return *this;
   }
-  
-  //TODO hide implementation details
-  const std::map<int, std::vector<uint32_t>>& getBordersPerProc() const
-  { return Impl::getBordersPerProc(); }
 
   //TODO remove pablo-specific methods
   // template< typename T >

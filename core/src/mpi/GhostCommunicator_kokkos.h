@@ -33,12 +33,23 @@ public:
      * octants can be communicated to multiple ghosts in different domains
      **/
     GhostCommunicator_kokkos( const std::map<int, std::vector<uint32_t>>& ghost_map, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() );   
+    GhostCommunicator_kokkos( const Kokkos::View< uint32_t* > send_sizes, const Kokkos::View< uint32_t* > send_iOcts, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
+    : mpi_comm(mpi_comm)
+    {
+      private_init_map(send_sizes, send_iOcts);
+    }
 
-    GhostCommunicator_kokkos( std::shared_ptr<AMRmesh_hashmap> amr_mesh, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
-     : GhostCommunicator_kokkos(amr_mesh->getBordersPerProc(), mpi_comm)
+    GhostCommunicator_kokkos( const AMRmesh_hashmap_new& amr_mesh, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
+     : GhostCommunicator_kokkos(amr_mesh.getGhostMap().send_sizes, amr_mesh.getGhostMap().send_iOcts, mpi_comm)
     {}
+
+    template< typename AMRmesh_t >
+    GhostCommunicator_kokkos( const AMRmesh_t& amr_mesh, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
+     : GhostCommunicator_kokkos(amr_mesh.getBordersPerProc(), mpi_comm)
+    {}
+    
     GhostCommunicator_kokkos( std::shared_ptr<AMRmesh> amr_mesh, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
-     : GhostCommunicator_kokkos(amr_mesh->getBordersPerProc(), mpi_comm)
+     : GhostCommunicator_kokkos(amr_mesh->getMesh(), mpi_comm)
     {}
     
     /// @copydoc GhostCommunicator_base::getNumGhosts

@@ -13,7 +13,7 @@ struct AMRmesh_hashmap_new::PData{
   markers_t markers;
   int level_min, level_max;
   bool distibuted_mesh = false; // true if load_balance have already been called at least once
-  std::map<int, std::vector<oct_index_t>> local_octants_to_send; // Ghosts to send to each other process
+  GhostMap_t ghostmap;
 };
 
 AMRmesh_hashmap_new::AMRmesh_hashmap_new( int dim, int balance_codim, 
@@ -32,6 +32,11 @@ AMRmesh_hashmap_new::AMRmesh_hashmap_new( int dim, int balance_codim,
 
 AMRmesh_hashmap_new::~AMRmesh_hashmap_new()
 {}
+
+const AMRmesh_hashmap_new::GhostMap_t& AMRmesh_hashmap_new::getGhostMap() const
+{
+  return pdata->ghostmap;
+}
 
 void AMRmesh_hashmap_new::adaptGlobalRefine()
 {
@@ -75,11 +80,6 @@ void AMRmesh_hashmap_new::adaptGlobalRefine()
 void AMRmesh_hashmap_new::setMarker(uint32_t iOct, int marker)
 {
   pdata->markers(iOct) = marker;
-}
-
-const std::map<int, std::vector<uint32_t>>& AMRmesh_hashmap_new::getBordersPerProc() const
-{
-  return pdata->local_octants_to_send;
 }
 
 namespace{
@@ -136,7 +136,7 @@ struct NeighborPair
   int rank_neighbor;
 };
 
-std::map<int, std::vector<oct_index_t>> discover_ghosts(
+AMRmesh_hashmap_new::GhostMap_t discover_ghosts(
   const AMRmesh_hashmap_new::Storage_t& octs_host,
   const std::vector<morton_t>& morton_intervals_,
   level_t level_max, 
@@ -290,7 +290,7 @@ std::map<int, std::vector<oct_index_t>> discover_ghosts(
   }
 
   // Copy content of neighborMap to result variable
-  std::map<int, std::vector<oct_index_t>> to_send;
+  AMRmesh_hashmap_new::GhostMap_t to_send{};
   {
     // Compute number of neighbors to send to each other rank
     Kokkos::View<oct_index_t*> to_send_count_device("discover_ghosts::to_send_count", mpi_size);
@@ -304,6 +304,8 @@ std::map<int, std::vector<oct_index_t>> discover_ghosts(
       }
     });
 
+    to_send.send_sizes = to_send_count_device;
+
     // Compute offsets marking beginning of each process in a single contiguous list of neighbors
     Kokkos::View<oct_index_t*> to_send_offset_device("discover_ghosts::to_send_offset", mpi_size);
     oct_index_t to_send_count_total = 0; // Total number of neighbor octants
@@ -314,12 +316,6 @@ std::map<int, std::vector<oct_index_t>> discover_ghosts(
         to_send_offset_device(rank) = offset_local;
       offset_local += to_send_count_device(rank);
     }, to_send_count_total);
-
-    // Copy sizes and offsets to host to allocate std::vectors
-    auto to_send_count_host = Kokkos::create_mirror_view( to_send_count_device );
-    auto to_send_offset_host = Kokkos::create_mirror( to_send_offset_device ); // Makes a copy
-    Kokkos::deep_copy(to_send_count_host, to_send_count_device);
-    Kokkos::deep_copy(to_send_offset_host, to_send_offset_device);
     
     // Fill to_send_device with neighbors to send to other ranks
     Kokkos::View<oct_index_t*> to_send_device("discover_ghosts::to_send", to_send_count_total);
@@ -334,19 +330,7 @@ std::map<int, std::vector<oct_index_t>> discover_ghosts(
       }
     });
 
-    // Copy from Kokkos::View to std::vector for return
-    for(int rank=0; rank<mpi_size; rank++)
-    {
-      oct_index_t rank_size = to_send_count_host(rank);
-      oct_index_t view_offset = to_send_offset_host(rank);
-
-      auto to_send_subview_device = Kokkos::subview( to_send_device, std::make_pair(view_offset, view_offset+rank_size) );
-      auto to_send_host = Kokkos::create_mirror_view( to_send_subview_device );
-      Kokkos::deep_copy( to_send_host, to_send_subview_device );
-
-      to_send[ rank ] = std::vector<oct_index_t>(to_send_host.data(), to_send_host.data()+rank_size);
-    }
-    
+    to_send.send_iOcts = to_send_device;
   }
 
   return to_send;  
@@ -477,10 +461,10 @@ AMRmesh_hashmap_new::loadBalance(level_t level)
     this->first_local_oct = new_oct_intervals[mpi_rank];
     pdata->distibuted_mesh = true;   
 
-    pdata->local_octants_to_send = discover_ghosts(new_storage_device, new_morton_intervals, level_max, this->periodic, mpi_comm);
+    pdata->ghostmap = discover_ghosts(new_storage_device, new_morton_intervals, level_max, this->periodic, mpi_comm);
 
     // Raw view for ghosts
-    GhostCommunicator_kokkos ghost_comm( pdata->local_octants_to_send  );
+    GhostCommunicator_kokkos ghost_comm( pdata->ghostmap.send_sizes,  pdata->ghostmap.send_iOcts );
     oct_index_t new_nbGhosts = ghost_comm.getNumGhosts();
     LightOctree_storage<> new_storage_device_ghosts( ndim, 0, new_nbGhosts );   
     ghost_comm.exchange_ghosts<0>( new_storage_device.oct_data, new_storage_device_ghosts.oct_data );
@@ -563,7 +547,7 @@ void AMRmesh_hashmap_new::adapt(bool dummy)
   {
     // Copy CPU markers to markers_device
     Kokkos::deep_copy( markers_device_in, pdata->markers );
-    GhostCommunicator_kokkos ghost_comm( getBordersPerProc() );
+    GhostCommunicator_kokkos ghost_comm( *this );
     
     // Check for 2:1 balance and partially coarsened octants and modify marker to enforce these rules
     // return true if marker was modified, false otherwise
@@ -780,12 +764,12 @@ void AMRmesh_hashmap_new::adapt(bool dummy)
     }
   
     // Compute and exchange ghosts
-    pdata->local_octants_to_send = discover_ghosts( new_storage_device, morton_intervals, pdata->level_max, this->periodic, this->mpi_comm );
+    pdata->ghostmap = discover_ghosts( new_storage_device, morton_intervals, pdata->level_max, this->periodic, this->mpi_comm );
     {
       int ndim = new_storage_device.getNdim();
 
       // Raw view for ghosts
-      GhostCommunicator_kokkos ghost_comm( pdata->local_octants_to_send  );
+      GhostCommunicator_kokkos ghost_comm( pdata->ghostmap.send_sizes,  pdata->ghostmap.send_iOcts );
       oct_index_t new_nbGhosts = ghost_comm.getNumGhosts();
       LightOctree_storage<> new_storage_device_ghosts( ndim, 0, new_nbGhosts );
       ghost_comm.exchange_ghosts<0>( new_storage_device.oct_data, new_storage_device_ghosts.oct_data );

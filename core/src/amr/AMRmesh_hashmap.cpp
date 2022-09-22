@@ -513,8 +513,7 @@ std::set< std::pair<int, uint32_t> > discover_ghosts(
 oct_view_t exchange_ghosts_octs(AMRmesh_hashmap& mesh, const oct_view_t& local_octs_coord)
 {
     // TODO : avoid deep_copies
-    std::shared_ptr<AMRmesh_hashmap> this_ptr(&mesh, [](AMRmesh_hashmap*){});
-    GhostCommunicator_kokkos comm_ghosts(this_ptr);
+    GhostCommunicator_kokkos comm_ghosts(mesh);
 
     oct_view_device_t local_octs_coord_device("local_octs_coord_device", octs_coord_id::NUM_OCTS_COORDS, local_octs_coord.extent(1));
     Kokkos::deep_copy(local_octs_coord_device, local_octs_coord);
@@ -531,8 +530,7 @@ oct_view_t exchange_ghosts_octs(AMRmesh_hashmap& mesh, const oct_view_t& local_o
 /// Modifies update distant octants markers in `markers`
 void exchange_markers(AMRmesh_hashmap& mesh, AMRmesh_hashmap::markers_device_t& markers)
 {
-    std::shared_ptr<AMRmesh_hashmap> this_ptr(&mesh, [](AMRmesh_hashmap*){});
-    GhostCommunicator_kokkos comm_ghosts(this_ptr);
+    GhostCommunicator_kokkos comm_ghosts(mesh);
 
     uint32_t nbOcts = mesh.getNumOctants();
     uint32_t nbGhosts = mesh.getNumGhosts();

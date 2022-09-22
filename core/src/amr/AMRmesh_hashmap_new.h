@@ -103,7 +103,12 @@ public:
   
   void adaptGlobalRefine();
 
-  const std::map<int, std::vector<uint32_t>>& getBordersPerProc() const;
+  struct GhostMap_t
+  {
+      Kokkos::View< uint32_t* > send_sizes; // Number of octants to send to each process (of size nb_proc)
+      Kokkos::View< uint32_t* > send_iOcts; // Octants to send (of size sum(send_sizes(i)) )
+  };
+  const GhostMap_t& getGhostMap() const;
 
   bool check21Balance()
   {
