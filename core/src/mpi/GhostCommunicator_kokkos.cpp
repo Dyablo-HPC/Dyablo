@@ -29,25 +29,25 @@ void GhostCommunicator_kokkos::private_init_domains(const Kokkos::View< int* > d
   
   // Fill send_iOcts
   {
-    // Compute offset for the beginning of each domain
-    Kokkos::View<uint32_t*> rank_offset( "rank_offset", mpi_size );
-    Kokkos::parallel_scan( "GhostCommunicator_kokkos::construct_from_domain::rank_offset", 
-      mpi_size,
-      KOKKOS_LAMBDA( int rank, int& offset, bool final )
+    uint32_t offset = 0;
+    for(int rank=0; rank<mpi_size; rank++)
     {
-      if(final) rank_offset(rank) = offset;
-      offset += send_sizes(rank);
-    });
-
-    Kokkos::parallel_for( "GhostCommunicator_kokkos::construct_from_domain::compute_send_iOcts",
-      domains.size(),
-      KOKKOS_LAMBDA( int i )
-    {
-      int domain = domains(i);
-      uint32_t iPack = Kokkos::atomic_fetch_inc( &rank_offset( domain ) );
-      send_iOcts(iPack) = i;
-    });
-    // TODO : maybe sort to avoid random read order
+      if( send_sizes_host(rank) > 0 )
+      {
+        Kokkos::parallel_scan( "GhostCommunicator_kokkos::construct_from_domain::compute_send_iOcts",
+          domains.size(),
+          KOKKOS_LAMBDA( uint32_t iOct, uint32_t& i_write, bool final )
+        {
+          if( domains(iOct) == rank )
+          {
+            if( final )
+              send_iOcts( offset + i_write ) = iOct;
+            i_write++;
+          }
+        });
+        offset += send_sizes_host(rank);
+      }
+    }
   }
 
   // Exchange sizes to send/recieve  
