@@ -338,8 +338,7 @@ AMRmesh_hashmap_new::GhostMap_t discover_ghosts(
 
 } // namespace
 
-std::map<int, std::vector<AMRmesh_hashmap_new::oct_index_t>> 
-AMRmesh_hashmap_new::loadBalance(level_t level)
+AMRmesh_hashmap_new::GhostMap_t AMRmesh_hashmap_new::loadBalance(level_t level)
 {
     int ndim = storage.getNdim();
     int mpi_rank = this->getMpiComm().MPI_Comm_rank();
@@ -420,28 +419,32 @@ AMRmesh_hashmap_new::loadBalance(level_t level)
     assert( new_oct_intervals[mpi_rank] <= new_oct_intervals[mpi_rank+1] );
 
     // List octants to exchange
-    std::map<int, std::vector<oct_index_t>> loadbalance_to_send;
-    for( int rank=0; rank<mpi_size; rank++ )
+    GhostMap_t res;
     {
-      // intersection between local and remote ranks
-      global_oct_index_t global_local_begin = this->getGlobalIdx(0);
-      global_oct_index_t global_local_end = this->getGlobalIdx(this->getNumOctants()) ;
-      global_oct_index_t global_intersect_begin = std::max( new_oct_intervals[rank],   global_local_begin );
-      global_oct_index_t global_intersect_end   = std::min( new_oct_intervals[rank+1], global_local_end  );
+      res.send_sizes = Kokkos::View<uint32_t*>( "Loadbalance::send_sizes", mpi_size );
+      res.send_iOcts = Kokkos::View<uint32_t*>( "Loadbalance::send_iOct", this->getNumOctants() );
 
-      if( global_intersect_begin < global_intersect_end )
+      // Fill send_iOcts with octant index (all ocatnts are sent)
+      Kokkos::parallel_for( "Loadbalance::create_send_iOct", this->getNumOctants(),
+        KOKKOS_LAMBDA( uint32_t iOct )
       {
-        oct_index_t to_send_begin = global_intersect_begin - global_local_begin;
-        oct_index_t to_send_end = global_intersect_end - global_local_begin;
-        assert( to_send_begin < this->getNumOctants() );
-        assert( to_send_end <= this->getNumOctants() );
-        std::vector<oct_index_t> to_send_rank(to_send_end-to_send_begin);
-        for(oct_index_t i=0; i<to_send_end-to_send_begin; i++)
-        {
-            to_send_rank[i] = i+to_send_begin;
-        }
-        loadbalance_to_send[rank] = to_send_rank;
+        res.send_iOcts(iOct) = iOct;
+      });
+
+      // Fill send_sizes with sizes determined according to new morton intervals
+      auto send_sizes_host = Kokkos::create_mirror_view(res.send_sizes);
+      for( int rank=0; rank<mpi_size; rank++ )
+      {
+        // intersection between local and remote ranks
+        global_oct_index_t global_local_begin = this->getGlobalIdx(0);
+        global_oct_index_t global_local_end = this->getGlobalIdx(this->getNumOctants()) ;
+        global_oct_index_t global_intersect_begin = std::max( new_oct_intervals[rank],   global_local_begin );
+        global_oct_index_t global_intersect_end   = std::min( new_oct_intervals[rank+1], global_local_end  );
+        
+        if( global_intersect_end > global_intersect_begin )
+          res.send_sizes( rank ) = global_intersect_end - global_intersect_begin;      
       }
+      Kokkos::deep_copy(res.send_sizes, send_sizes_host);
     }
 
     // Exchange octs that changed domain 
@@ -451,7 +454,7 @@ AMRmesh_hashmap_new::loadBalance(level_t level)
       // Use storage on device to perform remaining operations
       LightOctree_storage<> old_storage_device = storage;
 
-      GhostCommunicator_kokkos loadbalance_communicator( loadbalance_to_send );
+      GhostCommunicator_kokkos loadbalance_communicator( res.send_sizes, res.send_iOcts );
       loadbalance_communicator.exchange_ghosts<0>( old_storage_device.oct_data, new_storage_device.oct_data );
 
       assert( new_storage_device.oct_data.extent(0) == new_nbOcts );
@@ -500,13 +503,13 @@ AMRmesh_hashmap_new::loadBalance(level_t level)
 
     assert(this->getNumOctants() > 0); // Process cannot be empty
 
-    return loadbalance_to_send;
+    return res;
 }
 
 void AMRmesh_hashmap_new::loadBalance_userdata( level_t compact_levels, DataArrayBlock& userData )
 {
-  auto octs_to_exchange = this->loadBalance(compact_levels);
-  GhostCommunicator_kokkos lb_comm(octs_to_exchange);  
+  auto ghostmap = this->loadBalance(compact_levels);
+  GhostCommunicator_kokkos lb_comm(ghostmap.send_sizes, ghostmap.send_iOcts);  
   DataArrayBlock userData_new( userData.label(), userData.extent(0), userData.extent(1), lb_comm.getNumGhosts() );
   lb_comm.exchange_ghosts<2>(userData, userData_new);
   userData = userData_new;
