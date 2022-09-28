@@ -12,8 +12,9 @@ using markers_t = Kokkos::View<int*, AMRmesh_hashmap_new::Storage_t::MemorySpace
 struct AMRmesh_hashmap_new::PData{
   markers_t markers;
   int level_min, level_max;
-  bool distibuted_mesh = false; // true if load_balance have already been called at least once
   GhostMap_t ghostmap;
+  
+  bool distibuted_mesh = false; // true if load_balance have already been called at least once
 };
 
 AMRmesh_hashmap_new::AMRmesh_hashmap_new( int dim, int balance_codim, 
@@ -26,7 +27,11 @@ AMRmesh_hashmap_new::AMRmesh_hashmap_new( int dim, int balance_codim,
   total_num_octs(1), first_local_oct(0),
   pdata(std::make_unique<PData>(PData{
     markers_t( "AMRmesh_hashmap_new::markers", 1 ),
-    level_min, level_max
+    level_min, level_max,
+    GhostMap_t{
+      Kokkos::View<uint32_t*>("AMRmesh_hashmap_new::ghostmap::send_sizes", mpi_comm.MPI_Comm_size()),
+      Kokkos::View<uint32_t*>("AMRmesh_hashmap_new::ghostmap::send_iOcts", 0)
+    }
   }))
 {}
 
