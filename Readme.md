@@ -1,8 +1,14 @@
 # What is dyablo ?
 
 Dyablo is a framework to develop Computational Fluid Dynamics (CFD) simulations using Adaptive Mesh Refinement (AMR) on large scale supercomputers. 
-It's an attempt to modernize de software stack, initially for numerical simulations for astrophysics. Dyablo is written in C++ with performance portability in mind and uses an MPI+Kokkos hybrid approach to parallelism. The MPI Library is used for distributed parallelism and compute kernels using shared-memory parallelism use the Kokkos performance portability library. MPI is used to distribute the AMR mesh accross mutiple compute nodes, 
-while Kokkos allows us to write a single code that can be executed on multithread CPUs, GPUs and other parallel architectures supported by Kokkos. Dyablo is also build with modularity and ease of use in mind to allow physicists to easily add new kernels written with abstract interfaces to access and modify the AMR mesh. 
+
+It's an attempt to modernize de software stack, initially for numerical simulations for astrophysics. Dyablo is written in C++ with performance portability in mind and uses an MPI+Kokkos hybrid approach to parallelism. 
+
+The MPI Library is used for distributed parallelism and compute kernels using shared-memory parallelism use the Kokkos performance portability library. MPI is used to distribute the AMR mesh accross mutiple compute nodes, while Kokkos allows us to write a single code that can be executed on multithread CPUs, GPUs and other parallel architectures supported by Kokkos. 
+
+Dyablo is also build with modularity and ease of use in mind to allow physicists to easily add new kernels written with abstract interfaces to access and modify the AMR mesh. 
+
+Modularity is also key to use state-of-the-art libraries interchangeably, reuse existing work and allow compatibility with external tools for vizualization or post-processing for instance. In Dyablo, the AMR mesh can be managed by the PABLO external library or by the custom implementation in written in Kokkos. This modularity enables us to plug in other external libraries to manage the AMR mesh or to perform IO, vizualization or post-processing operations. For now vizualisation outputs are handled by the HDF5 library but other backends can be integrated to Dyablo through plug-ins.
 
 # How to build ?
 
@@ -42,14 +48,14 @@ Other dependencies include :
 * HDF5 (parallel)
 * libxml2
 
+#### Dependencies for GPU
+
 To compile for GPU, a CUDA installation is needed, preferably newer than CUDA 11.2. Dyablo supports both CUDA-Aware and non CUDA-Aware MPI implementations when compiling for GPU, make sure that cuda-aware support has been correctly detected in the CMake logs.
 
 Kokkos automatically detects and sets the CUDA compiler when Kokkos_ENABLE_CUDA is ON :
 * When the C++ compiler is not compatible with CUDA, Kokkos uses NVCC to compile device code. NVCC version must be >= 11.2
 * When the C++ compiler is compatible with CUDA (e.g clang), Kokkos uses this compiler
 For more details, see the [Kokkos documentation](https://github.com/kokkos/kokkos/wiki/Compiling)
-
-Build commands for some distributions and supercomputers can be found [here](https://gitlab.maisondelasimulation.fr/pkestene/dyablo/-/wikis/Compilation-instructions-for-super-computers) to help you find the right packages or modules as well as the command line to use to compile Dyablo.
 
 ### Superbuild : build bitpit/PABLO, Kokkos and dyablo alltogether
 
@@ -69,6 +75,8 @@ mkdir build_cuda; cd build_cuda
 cmake -DCMAKE_BUILD_TYPE=Release -DKokkos_ENABLE_CUDA=ON  ..
 make
 ```
+
+Build commands for some linux distributions and supercomputers can be found [here](https://gitlab.maisondelasimulation.fr/pkestene/dyablo/-/wikis/Compilation-instructions-for-super-computers) to help you find the right packages or modules as well as the command line to use to compile Dyablo.
 
 Configuration options for Dyablo ( `cmake -D` arguments ) include :
 - `-DCMAKE_BUILD_TYPE=<buildtype>` : `Release` (recommended for performance), `Debug` (enables asserts and debug symbols), `RelWithDebINfo`
@@ -90,6 +98,7 @@ For the best performance, you should follow the global advice for any Kokkos pro
 * Configure OpenMP to bind threads by setting the environment variable OMP_PROC_BIND=true
 * Use the Kokkos command line arguments to correcty bind GPUs : e.g. `--num-devices=4` when there are 4 GPUs/node
 * Of course, learn to use your job manager (slurm) efficiently for hybrid codes (`-c`, `--hint`, etc...).
+
 
 ### Config parameters (.ini file)
 
