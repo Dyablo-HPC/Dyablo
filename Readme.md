@@ -4,7 +4,7 @@ Dyablo is a framework to develop Computational Fluid Dynamics (CFD) simulations 
 
 It's an attempt to modernize de software stack, initially for numerical simulations for astrophysics. Dyablo is written in C++ with performance portability in mind and uses an MPI+Kokkos hybrid approach to parallelism. 
 
-The MPI Library is used for distributed parallelism and compute kernels using shared-memory parallelism use the Kokkos performance portability library. MPI is used to distribute the AMR mesh accross mutiple compute nodes, while Kokkos allows us to write a single code that can be executed on multithread CPUs, GPUs and other parallel architectures supported by Kokkos. 
+The MPI Library is used for distributed parallelism and compute kernels using shared-memory parallelism use the Kokkos performance portability library. MPI is used to distribute the AMR mesh across multiple compute nodes, while Kokkos allows us to write a single code that can be executed on multithreaded CPUs, GPUs and other parallel architectures supported by Kokkos. 
 
 Dyablo is also build with modularity and ease of use in mind to allow physicists to easily add new kernels written with abstract interfaces to access and modify the AMR mesh. 
 
@@ -59,7 +59,7 @@ For more details, see the [Kokkos documentation](https://github.com/kokkos/kokko
 
 ### Superbuild : build bitpit/PABLO, Kokkos and dyablo alltogether
 
-The top-level `CMakeLists.txt` uses the the super-build pattern to build Dyablo and its depencies (here PABLO and Kokkos) using cmake command [ExternalProject_Add](https://cmake.org/cmake/help/latest/module/ExternalProject.html). Using the superbuild is the recommended way to compile Dyablo because it ensures that the Kokkos compilaton configuration (Architecture, enabled backends, etc...) is compatible with how Dyablo is configured.
+The top-level `CMakeLists.txt` uses the the super-build pattern to build Dyablo and its depencies (here PABLO and Kokkos) using cmake command [ExternalProject_Add](https://cmake.org/cmake/help/latest/module/ExternalProject.html). Using the superbuild is the recommended way to compile Dyablo because it ensures that the Kokkos compilation configuration (Architecture, enabled backends, etc...) is compatible with how Dyablo is configured.
 
 To build bitpit, Kokkos and dyablo (for Kokkos/OpenMP backend which is the default)
 
@@ -79,7 +79,7 @@ make
 Build commands for some linux distributions and supercomputers can be found [here](https://gitlab.maisondelasimulation.fr/pkestene/dyablo/-/wikis/Compilation-instructions-for-super-computers) to help you find the right packages or modules as well as the command line to use to compile Dyablo.
 
 Configuration options for Dyablo ( `cmake -D` arguments ) include :
-- `-DCMAKE_BUILD_TYPE=<buildtype>` : `Release` (recommended for performance), `Debug` (enables asserts and debug symbols), `RelWithDebINfo`
+- `-DCMAKE_BUILD_TYPE=<buildtype>` : `Release` (recommended for performance), `Debug` (enables asserts and debug symbols), `RelWithDebInfo`
 - `-DKokkos_ENABLE_CUDA=ON/OFF` : enable CUDA
 - `-DKokkos_ARCH="<arch1>,..."` : target specific architectures (i.e. set architecture-specific optimization flags) listed in the [Kokkos documentation](https://github.com/kokkos/kokkos/wiki/Compiling#table-43-architecture-variables). You may target multiple architectures : for example to compile for a machine with Intel Skylake CPU + V100 GPUs, you might want to set `-DKokkos_ARCH="SKX;VOLTA70"`. CUDA architecture is auto-detected if `Kokkos_ARCH` is not present.
 - `-DDYABLO_ENABLE_UNIT_TESTING=ON/OFF` : enable/disable unit tests. If enabled, run `make dyablo-test` from your build directory to run all tests
@@ -92,7 +92,7 @@ The main executable `test_solver` is in `build/dyablo/test/solver/`. The directo
 
 Beware, when recompiling, the .ini files may be reset to their original state.
 
-run for instance `./test_solver test_blast_3d_block.ini` to run the 3D block-base blast test case. This executable accepts [Kokkos command-line parameters](https://github.com/kokkos/kokkos/wiki/Initialization).
+run for instance `./test_solver test_blast_3D_block.ini` to run the 3D block-base blast test case. This executable accepts [Kokkos command-line parameters](https://github.com/kokkos/kokkos/wiki/Initialization).
 
 For the best performance, you should follow the global advice for any Kokkos program :
 * Configure OpenMP to bind threads by setting the environment variable OMP_PROC_BIND=true
