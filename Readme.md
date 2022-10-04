@@ -76,7 +76,7 @@ cmake -DCMAKE_BUILD_TYPE=Release -DKokkos_ENABLE_CUDA=ON  ..
 make
 ```
 
-Build commands for some linux distributions and supercomputers can be found [here](https://gitlab.maisondelasimulation.fr/pkestene/dyablo/-/wikis/Compilation-instructions-for-super-computers) to help you find the right packages or modules as well as the command line to use to compile Dyablo.
+Build commands for some linux distributions and supercomputers can be found [here](https://gitlab.maisondelasimulation.fr/pkestene/dyablo/-/wikis/Build%20and%20Run/Build%20commands%20on%20specific%20systems) to help you find the right packages or modules as well as the command line to use to compile Dyablo.
 
 Configuration options for Dyablo ( `cmake -D` arguments ) include :
 - `-DCMAKE_BUILD_TYPE=<buildtype>` : `Release` (recommended for performance), `Debug` (enables asserts and debug symbols), `RelWithDebInfo`
