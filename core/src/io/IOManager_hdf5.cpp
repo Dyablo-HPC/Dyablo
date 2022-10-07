@@ -36,7 +36,7 @@ public:
     std::string var_name;
     while(std::getline(sstream, var_name, ','))
     { //use comma as delim for cutting string
-      if( var_name=="ioct" )
+      if( var_name=="ioct" || var_name=="level" || var_name=="rank" )
       {
         write_varnames.insert(var_name);
       }
@@ -85,6 +85,8 @@ std::string xmf_type_attr()
   static_assert(!std::is_same_v<T,T>, "Please define a specialization for xmf_type_attr for this type");
 }
 
+template<> [[maybe_unused]] std::string xmf_type_attr<int32_t>   () { return R"xml(NumberType="Int"   Precision="4")xml"; }
+template<> [[maybe_unused]] std::string xmf_type_attr<int64_t>   () { return R"xml(NumberType="Int"   Precision="8")xml"; }
 template<> [[maybe_unused]] std::string xmf_type_attr<uint32_t>  () { return R"xml(NumberType="UInt"  Precision="4")xml"; }
 template<> [[maybe_unused]] std::string xmf_type_attr<uint64_t>  () { return R"xml(NumberType="UInt"  Precision="8")xml"; }
 template<> [[maybe_unused]] std::string xmf_type_attr<float>     () { return R"xml(NumberType="Float" Precision="4")xml"; }
@@ -186,6 +188,14 @@ R"xml(
       if( var_name == "ioct" )
       {
         output_attr_xml(xmf_type_attr<uint64_t>());       
+      }
+      else if( var_name == "level" )
+      {
+        output_attr_xml(xmf_type_attr<LightOctree::level_t>());       
+      }
+      else if( var_name == "rank" )
+      {
+        output_attr_xml(xmf_type_attr<int>());       
       }
       else if( FieldManager::hasiVar(var_name) )
       {
@@ -299,13 +309,34 @@ R"xml(
           ioct(i) = iOct;
         });
         hdf5_writer.collective_write("ioct", ioct);
-      }    
+      }
+      else if( var_name == "level" )
+      {
+        Kokkos::View< LightOctree::level_t*, Kokkos::LayoutLeft> level("level", local_num_cells);
+        Kokkos::parallel_for( "fill_level", local_num_cells,
+          KOKKOS_LAMBDA( uint32_t i )
+        {
+          uint32_t iOct = i/nbCellsPerOct;
+          level(i) = lmesh.getLevel( {iOct, false} );
+        });
+        hdf5_writer.collective_write("level", level);
+      }
+      else if( var_name == "rank" )
+      {
+        int local_rank = GlobalMpiSession::get_comm_world().MPI_Comm_rank();
+        Kokkos::View< int*, Kokkos::LayoutLeft> rank("rank", local_num_cells);
+        Kokkos::parallel_for( "fill_rank", local_num_cells,
+          KOKKOS_LAMBDA( uint32_t i )
+        {
+          rank(i) = local_rank;
+        });
+        hdf5_writer.collective_write("rank", rank);
+      }
       else
       { 
         VarIndex iVar = FieldManager::getiVar(var_name);
         if( U_.fm.enabled(iVar) )
         { 
-          std::string var_name = FieldManager::var_name(iVar).c_str();
           Kokkos::View< real_t*, Kokkos::LayoutLeft > tmp_view(var_name, local_num_cells);
           foreach_cell.foreach_cell( "compute_node_coordinates", U_,
           CELL_LAMBDA( const ForeachCell::CellIndex& iCell )
