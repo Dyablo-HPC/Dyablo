@@ -8,7 +8,9 @@ std::string FieldManager::var_name(VarIndex ivar)
   return res.at(ivar);
 }
 
-VarIndex FieldManager::getiVar(const std::string& name)
+namespace{
+
+std::unordered_map<std::string, VarIndex>& names2var()
 {
   static std::unordered_map<std::string, VarIndex> res = []()
   {
@@ -19,7 +21,20 @@ VarIndex FieldManager::getiVar(const std::string& name)
     }
     return res;
   }();
-  return res.at(name);
+
+  return res;
+}
+
+} // namespace
+
+bool FieldManager::hasiVar(const std::string& name)
+{
+  return names2var().find(name) != names2var().end();
+}
+
+VarIndex FieldManager::getiVar(const std::string& name)
+{
+  return names2var().at(name);
 }
 
 std::set< VarIndex > FieldManager::enabled_fields() const

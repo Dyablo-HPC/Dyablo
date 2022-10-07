@@ -36,11 +36,16 @@ public:
     std::string var_name;
     while(std::getline(sstream, var_name, ','))
     { //use comma as delim for cutting string
-      try{
-        write_varindexes.insert( FieldManager::getiVar(var_name) );
-      } catch (...) {
-        std::cout << "WARNING : Output variable not found : '" << var_name << "'" << std::endl; 
-      }      
+      if( var_name=="ioct" )
+      {
+        write_varnames.insert(var_name);
+      }
+      else if( FieldManager::hasiVar(var_name) )
+      {
+        write_varnames.insert(var_name);
+      }
+      else
+        std::cout << "WARNING : Output variable not found : '" << var_name << "'" << std::endl;    
     }
     
     { // Write main xdmf file with 0 timesteps
@@ -68,9 +73,24 @@ private:
   ForeachCell& foreach_cell;
   Timers& timers;
   std::string filename;
-  std::set<VarIndex> write_varindexes;
+  std::set<std::string> write_varnames;
   FILE* main_xdmf_fd;
 };
+
+namespace{
+
+template< typename T > 
+std::string xmf_type_attr()
+{
+  static_assert(!std::is_same_v<T,T>, "Please define a specialization for xmf_type_attr for this type");
+}
+
+template<> [[maybe_unused]] std::string xmf_type_attr<uint32_t>  () { return R"xml(NumberType="UInt"  Precision="4")xml"; }
+template<> [[maybe_unused]] std::string xmf_type_attr<uint64_t>  () { return R"xml(NumberType="UInt"  Precision="8")xml"; }
+template<> [[maybe_unused]] std::string xmf_type_attr<float>     () { return R"xml(NumberType="Float" Precision="4")xml"; }
+template<> [[maybe_unused]] std::string xmf_type_attr<double>    () { return R"xml(NumberType="Float" Precision="8")xml"; }
+
+} // namespace
 
 void IOManager_hdf5::save_snapshot( const ForeachCell::CellArray_global_ghosted& U_, uint32_t iter, real_t time )
 {
@@ -106,8 +126,6 @@ void IOManager_hdf5::save_snapshot( const ForeachCell::CellArray_global_ghosted&
 
   if( foreach_cell.get_amr_mesh().getRank() == 0 )
   { 
-
-
     // Append Current timestep to main xmdf file
     fseek( main_xdmf_fd, -main_xdmf_footer.size(), SEEK_END );
     fprintf(main_xdmf_fd,
@@ -148,22 +166,44 @@ R"xml(<?xml version="1.0" ?>
       base_filename.c_str()
     );
 
-    for( const VarIndex& iVar : write_varindexes )
+    for( const std::string& var_name : write_varnames )
     {
-      if( U_.fm.enabled(iVar) )
+      auto output_attr_xml = [&]( const std::string& type_str )
       {
         fprintf(fd, 
 R"xml(
       <Attribute Name="%s" AttributeType="Scalar" Center="Cell">
-        <DataItem Dimensions="%lu 1" NumberType="Float" Precision="%d" Format="HDF">
+        <DataItem Dimensions="%lu 1" %s Format="HDF">
          %s.h5:/%s
         </DataItem>
       </Attribute>)xml",
-          FieldManager::var_name(iVar).c_str(),
-          global_num_cells, (int)sizeof(real_t),
-          base_filename.c_str(), FieldManager::var_name(iVar).c_str()
+          var_name.c_str(),
+          global_num_cells, type_str.c_str(),
+          base_filename.c_str(), var_name.c_str()
         );
+      };
+
+      if( var_name == "ioct" )
+      {
+        output_attr_xml(xmf_type_attr<uint64_t>());       
       }
+      else if( FieldManager::hasiVar(var_name) )
+      {
+        VarIndex iVar = FieldManager::getiVar(var_name);
+
+        if( U_.fm.enabled(iVar) )
+        {
+          output_attr_xml(xmf_type_attr<real_t>());
+        }
+        else
+        {
+          std::cout << "WARNING : Output variable requested but not enabled : '" << var_name << "'" << std::endl; 
+        }
+      }
+      else
+      {
+        assert(false); // var_names should have been filtered before
+      }      
     }
 
     fprintf(fd, 
@@ -246,19 +286,35 @@ R"xml(
     }
 
     // Write selected variables
-    for( const VarIndex& iVar : write_varindexes )
+    for( const std::string& var_name : write_varnames )
     {
-      if( U_.fm.enabled(iVar) )
+      if( var_name == "ioct" )
       {
-        std::string var_name = FieldManager::var_name(iVar).c_str();
-        Kokkos::View< real_t*, Kokkos::LayoutLeft > tmp_view(var_name, local_num_cells);
-        foreach_cell.foreach_cell( "compute_node_coordinates", U_,
-        CELL_LAMBDA( const ForeachCell::CellIndex& iCell )
+        uint64_t first_local_iOct = foreach_cell.get_amr_mesh().getGlobalIdx(0);
+        Kokkos::View< uint64_t*, Kokkos::LayoutLeft> ioct("ioct", local_num_cells);
+        Kokkos::parallel_for( "fill_ioct", local_num_cells,
+          KOKKOS_LAMBDA( uint32_t i )
         {
-          uint32_t iCell_lin = linearize_iCell( iCell );
-          tmp_view(iCell_lin) = U_.at(iCell, iVar);
+          uint64_t iOct = first_local_iOct + i/nbCellsPerOct;
+          ioct(i) = iOct;
         });
-        hdf5_writer.collective_write( var_name, tmp_view );
+        hdf5_writer.collective_write("ioct", ioct);
+      }    
+      else
+      { 
+        VarIndex iVar = FieldManager::getiVar(var_name);
+        if( U_.fm.enabled(iVar) )
+        { 
+          std::string var_name = FieldManager::var_name(iVar).c_str();
+          Kokkos::View< real_t*, Kokkos::LayoutLeft > tmp_view(var_name, local_num_cells);
+          foreach_cell.foreach_cell( "compute_node_coordinates", U_,
+          CELL_LAMBDA( const ForeachCell::CellIndex& iCell )
+          {
+            uint32_t iCell_lin = linearize_iCell( iCell );
+            tmp_view(iCell_lin) = U_.at(iCell, iVar);
+          });
+          hdf5_writer.collective_write( var_name, tmp_view );
+        }
       }
     }   
   }
