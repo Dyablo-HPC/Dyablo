@@ -447,7 +447,7 @@ AMRmesh_hashmap_new::GhostMap_t AMRmesh_hashmap_new::loadBalance(level_t level)
         global_oct_index_t global_intersect_end   = std::min( new_oct_intervals[rank+1], global_local_end  );
         
         if( global_intersect_end > global_intersect_begin )
-          res.send_sizes( rank ) = global_intersect_end - global_intersect_begin;      
+          send_sizes_host( rank ) = global_intersect_end - global_intersect_begin;      
       }
       Kokkos::deep_copy(res.send_sizes, send_sizes_host);
     }
