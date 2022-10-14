@@ -45,4 +45,5 @@ inline named_enum<GravityType>::init_list named_enum<GravityType>::names = {
     {GravityType::GRAVITY_NONE,       "none"},
     {GravityType::GRAVITY_CST_SCALAR, "constant_scalar"},
     {GravityType::GRAVITY_CST_FIELD,  "constant_field"},
+    {GravityType::GRAVITY_FIELD,  "field"},
 };

@@ -49,6 +49,9 @@ GravitySolver_cg::GravitySolver_cg(
   int ndim = configMap.getValue<int>("mesh", "ndim", 3);
   if( ndim != 3 )
     throw std::runtime_error("GravitySolver_cg can only run in 3D");
+  GravityType gtype = configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_FIELD);
+  if(gtype != GRAVITY_FIELD)
+    throw std::runtime_error("GravitySolver_cg must have gravity_type=field");
 }
 
 GravitySolver_cg::~GravitySolver_cg()
