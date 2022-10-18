@@ -104,6 +104,8 @@ public:
   }
   
   static std::string var_name(VarIndex ivar);
+  static VarIndex getiVar(const std::string& name);
+  static bool hasiVar(const std::string& name);
   std::set< VarIndex > enabled_fields() const;
 private:
   id2index_t id2index;

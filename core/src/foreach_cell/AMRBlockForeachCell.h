@@ -146,9 +146,19 @@ public:
     patchmanager(cdata, pmesh)
   {}
 
-  int getDim()
+  int getDim() const 
   {
     return cdata.ndim;
+  }
+
+  uint32_t getNumCells() const 
+  {
+    return get_amr_mesh().getNumOctants() * cdata.bx * cdata.by * cdata.bz;
+  }
+
+  uint64_t getNumCells_global() const 
+  {
+    return get_amr_mesh().getGlobalNumOctants() * cdata.bx * cdata.by * cdata.bz;
   }
 
   AMRmesh& get_amr_mesh()
@@ -156,10 +166,15 @@ public:
     return pmesh;
   }
 
+  const AMRmesh& get_amr_mesh() const
+  {
+    return pmesh;
+  }
+
   /**
    * Get CellMetaData related to current mesh
    **/
-  CellMetaData getCellMetaData()
+  CellMetaData getCellMetaData() const
   {
     return AMRBlockForeachCell_CellMetaData(this->cdata, pmesh);
   }
