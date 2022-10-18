@@ -52,7 +52,10 @@ public:
     m_nlog( configMap.getValue<int>("run", "nlog", 10) ),
     m_enable_output( configMap.getValue<bool>("run", "enable_output", true) ),
     m_output_frequency( configMap.getValue<int>("run", "output_frequency", -1) ),
-    m_output_timeslice( configMap.getValue<real_t>("run", "output_timeslice", -1) ),   
+    m_output_timeslice( configMap.getValue<real_t>("run", "output_timeslice", -1) ),  
+    m_enable_checkpoint( configMap.getValue<bool>("run", "enable_checkpoint", true) ),
+    m_checkpoint_frequency( configMap.getValue<int>("run", "checkpoint_frequency", -1) ),
+    m_checkpoint_timeslice( configMap.getValue<real_t>("run", "checkpoint_timeslice", -1) ), 
     m_amr_cycle_frequency( configMap.getValue<int>("amr", "cycle_frequency", 1) ),
     m_loadbalance_frequency( configMap.getValue<int>("amr", "load_balancing_frequency", 10) ),
     m_iter_start( configMap.getValue<int>("run", "iter_start", 0) ),
@@ -100,6 +103,13 @@ public:
 
     std::string iomanager_id = configMap.getValue<std::string>("output", "backend", "IOManager_hdf5");
     this->io_manager = IOManagerFactory::make_instance( iomanager_id,
+      configMap,
+      m_foreach_cell,
+      timers
+    );
+
+    std::string iomanager_checkpoint_id = configMap.getValue<std::string>("output", "checkpoint", "IOManager_checkpoint");
+    this->io_manager_checkpoint = IOManagerFactory::make_instance( iomanager_checkpoint_id,
       configMap,
       m_foreach_cell,
       timers
@@ -233,7 +243,9 @@ public:
     // Always output after last iteration
     timers.get("outputs").start();
     if( m_enable_output )
-      io_manager->save_snapshot(U, m_iter, m_t); // TODO use CellArray instead of DataArrayBlock
+      io_manager->save_snapshot(U, m_iter, m_t);
+    if( m_enable_checkpoint )
+      io_manager_checkpoint->save_snapshot(U, m_iter, m_t);
     timers.get("outputs").stop();
     timers.get("Total").stop();
 
@@ -282,6 +294,28 @@ public:
         io_manager->save_snapshot(U, m_iter, m_t);
       }
       timers.get("outputs").stop();
+    }
+
+    // Write checkpoint
+    {
+      timers.get("checkpoint").start();
+      // Output at fixed frequency set by 'm_output_frequency'
+      bool frequency_trigger = ( m_checkpoint_frequency > 0 && m_iter % m_checkpoint_frequency == 0 );
+      // Output at fixed physical time interval 'm_output_timeslice'
+      bool timeslice_trigger = ( m_checkpoint_timeslice > 0 && (m_t - m_checkpoint_timeslice*m_checkpoint_timeslice_count) >= m_checkpoint_timeslice );
+      if( timeslice_trigger )
+        m_checkpoint_timeslice_count++;        
+
+      if( m_enable_checkpoint && (frequency_trigger || timeslice_trigger) )
+      {
+        int rank = m_communicator.MPI_Comm_rank();
+        if( rank == 0 )
+        {
+          std::cout << "Checkpoint at time t=" << m_t << " step " << m_iter << std::endl;
+        }
+        io_manager->save_snapshot(U, m_iter, m_t);
+      }
+      timers.get("checkpoint").stop();
     }
 
     // Compute new dt
@@ -413,6 +447,10 @@ private:
   bool m_enable_output; //! Enable vizualization output and output at least at beginning and end of simulation
   int m_output_frequency; //! Maximum number of iterations between outputs (does nothing if m_enable_output==false)
   double m_output_timeslice; //! Physical time interval between outputs (does nothing if m_enable_output==false)
+  bool m_enable_checkpoint; //! Enable checkpoint output and output at least at beginning and end of simulation
+  int m_checkpoint_frequency; //! Maximum number of iterations between checkpoints (does nothing if m_enable_output==false)
+  double m_checkpoint_timeslice; //! Physical time interval between checkpoints (does nothing if m_enable_output==false)
+  
   int m_amr_cycle_frequency; //! Number of iterations between amr cycles (<= 0 is never)
   int m_loadbalance_frequency; //! Number of iterations between load balancing (<= 0 is never)
   GravityType m_gravity_type;
@@ -421,6 +459,7 @@ private:
   int m_iter; //! Current Iteration number
   real_t m_t; //! Current physical time
   int m_output_timeslice_count = 0; //! Number of timeslices already written
+  int m_checkpoint_timeslice_count = 0; //! Number of timeslices already written
 
   MpiComm m_communicator;
   std::shared_ptr<AMRmesh> m_amr_mesh;
@@ -436,7 +475,7 @@ private:
   std::unique_ptr<RefineCondition> refine_condition;
   std::unique_ptr<HydroUpdate> godunov_updater;
   std::unique_ptr<MapUserData> mapUserData;
-  std::unique_ptr<IOManager> io_manager;
+  std::unique_ptr<IOManager> io_manager, io_manager_checkpoint;
   std::unique_ptr<GravitySolver> gravity_solver;
 
   Timers timers;
