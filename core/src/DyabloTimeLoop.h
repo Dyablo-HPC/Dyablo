@@ -55,13 +55,30 @@ public:
     m_output_timeslice( configMap.getValue<real_t>("run", "output_timeslice", -1) ),
     m_amr_cycle_frequency( configMap.getValue<int>("amr", "cycle_frequency", 1) ),
     m_loadbalance_frequency( configMap.getValue<int>("amr", "load_balancing_frequency", 10) ),
-    m_gravity_type( configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE) ),
     m_communicator( GlobalMpiSession::get_comm_world() ),
     m_amr_mesh( init_amr_mesh( configMap ) ),
     m_foreach_cell( *m_amr_mesh, configMap ),
     m_loadbalance_coherent_levels( configMap.getValue<int>("amr", "loadbalance_coherent_levels", 3) )
   {
     int ndim = configMap.getValue<int>("mesh", "ndim", 3);
+    
+
+    std::string gravity_solver_id = configMap.getValue<std::string>("gravity", "solver", "none");
+    if( gravity_solver_id == "none" )
+    {
+      m_gravity_type = GRAVITY_NONE;
+      this->gravity_solver = nullptr;
+    }
+    else
+    {
+      this->gravity_solver = GravitySolverFactory::make_instance( gravity_solver_id,
+        configMap,
+        m_foreach_cell,
+        timers
+      );
+      // [gravity]gravity_type should be set from the instanciaion of gravity_solver
+      m_gravity_type = configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE);
+    }
     GravityType gravity_type = m_gravity_type;
 
     std::string godunov_updater_id = configMap.getValue<std::string>("hydro", "update", "HydroUpdate_hancock");
@@ -85,16 +102,7 @@ public:
       timers
     );
 
-    std::string gravity_solver_id = "none";
-    if( gravity_type & GRAVITY_FIELD )
-    {
-      gravity_solver_id = configMap.getValue<std::string>("gravity", "solver", "GravitySolver_none");
-      this->gravity_solver = GravitySolverFactory::make_instance( gravity_solver_id,
-        configMap,
-        m_foreach_cell,
-        timers
-      );
-    } 
+    
 
     std::string compute_dt_id = configMap.getValue<std::string>("dt", "dt_kernel", "Compute_dt_generic");
     this->compute_dt = Compute_dtFactory::make_instance( compute_dt_id,
