@@ -130,6 +130,7 @@ class InitialConditions_restart : public InitialConditions{
         
         int level_min, level_max;
     } data;
+    std::string filename;
 public:
   InitialConditions_restart(
         ConfigMap& configMap, 
@@ -139,7 +140,8 @@ public:
       foreach_cell,
       foreach_cell.get_amr_mesh().get_level_min(),
       foreach_cell.get_amr_mesh().get_level_max()
-    })
+    }),
+    filename( configMap.getValue<std::string>( "restart", "filename", "restart.h5" ) )
   {}
 
   void init( ForeachCell::CellArray_global_ghosted& U, const FieldManager& fieldMgr )
@@ -151,7 +153,7 @@ public:
     int level_min = data.level_min;
     int level_max = data.level_max;
 
-    restart_file restart_file("restart.h5");
+    restart_file restart_file(filename);
 
     // Initialize AMR tree
     {

@@ -52,9 +52,12 @@ public:
     m_nlog( configMap.getValue<int>("run", "nlog", 10) ),
     m_enable_output( configMap.getValue<bool>("run", "enable_output", true) ),
     m_output_frequency( configMap.getValue<int>("run", "output_frequency", -1) ),
-    m_output_timeslice( configMap.getValue<real_t>("run", "output_timeslice", -1) ),
+    m_output_timeslice( configMap.getValue<real_t>("run", "output_timeslice", -1) ),   
     m_amr_cycle_frequency( configMap.getValue<int>("amr", "cycle_frequency", 1) ),
     m_loadbalance_frequency( configMap.getValue<int>("amr", "load_balancing_frequency", 10) ),
+    m_iter_start( configMap.getValue<int>("run", "iter_start", 0) ),
+    m_iter( m_iter_start ),
+    m_t( configMap.getValue<real_t>("run", "tStart", 0.0) ), 
     m_communicator( GlobalMpiSession::get_comm_world() ),
     m_amr_mesh( init_amr_mesh( configMap ) ),
     m_foreach_cell( *m_amr_mesh, configMap ),
@@ -261,7 +264,7 @@ public:
     {
       timers.get("outputs").start();
       // Always output first iteration
-      bool first_iter = (m_iter == 0);
+      bool first_iter = (m_iter == m_iter_start);
       // Output at fixed frequency set by 'm_output_frequency'
       bool frequency_trigger = ( m_output_frequency > 0 && m_iter % m_output_frequency == 0 );
       // Output at fixed physical time interval 'm_output_timeslice'
@@ -414,8 +417,9 @@ private:
   int m_loadbalance_frequency; //! Number of iterations between load balancing (<= 0 is never)
   GravityType m_gravity_type;
   
-  int m_iter = 0; //! Current Iteration number
-  real_t m_t = 0; //! Current physical time
+  int m_iter_start; //! First iteration (for restart)
+  int m_iter; //! Current Iteration number
+  real_t m_t; //! Current physical time
   int m_output_timeslice_count = 0; //! Number of timeslices already written
 
   MpiComm m_communicator;
