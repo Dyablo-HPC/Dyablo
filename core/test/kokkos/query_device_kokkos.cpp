@@ -44,8 +44,6 @@
 #include <iostream>
 #include <sstream>
 
-#include <Kokkos_Macros.hpp>
-
 #if defined( DYABLO_USE_MPI )
 #include <mpi.h>
 #endif // DYABLO_USE_MPI

@@ -5,7 +5,6 @@
 #include "amr/AMRmesh.h"
 #include "amr/LightOctree_storage.h"
 #include "Kokkos_UnorderedMap.hpp"
-#include "Kokkos_Macros.hpp"
 
 #include "amr/LightOctree_base.h"
 #include "amr/LightOctree_pablo.h"

@@ -33,7 +33,7 @@
 #include "enums.h" // for ComponentIndex3D
 #include "real_type.h"
 
-#include <Kokkos_Macros.hpp> // for KOKKOS_INLINE_FUNCTION
+#include <Kokkos_Core.hpp>
 
 namespace dyablo {
 

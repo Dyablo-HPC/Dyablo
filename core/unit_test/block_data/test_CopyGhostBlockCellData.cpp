@@ -9,13 +9,6 @@
  */
 
 #include <Kokkos_Core.hpp>
-#include <Kokkos_Parallel.hpp>
-#include <Kokkos_View.hpp>
-
-#include <Kokkos_Macros.hpp> // for KOKKOS_ENABLE_XXX
-
-#include <impl/Kokkos_Error.hpp>
-
 
 #include "real_type.h"    // choose between single and double precision
 #include "FieldManager.h"
