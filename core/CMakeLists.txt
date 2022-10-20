@@ -41,6 +41,9 @@ option (DYABLO_USE_FPE_DEBUG "build with floating point Nan tracing (signal hand
 option (Kokkos_ENABLE_OPENMP "enable Kokkos::OpenMP backend" ON)
 set (Kokkos_ENABLE_CUDA_LAMBDA ${Kokkos_ENABLE_CUDA} CACHE BOOL "Enable use of cuda lambdas" FORCE)
 
+# Use CMAKE_DL_LIBS to find the dl library
+set( LIBDL_LIBRARY CACHE STRING "LIBDL library" "${CMAKE_DL_LIBS}" )
+
 #####################################################################
 # BitPit
 #####################################################################
