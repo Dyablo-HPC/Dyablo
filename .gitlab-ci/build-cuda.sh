@@ -10,5 +10,5 @@ fi
 mkdir build
 cd build
 
-cmake -DDYABLO_ENABLE_UNIT_TESTING=ON -DKokkos_ENABLE_CUDA=ON -DKokkos_ARCH=${Kokkos_ARCH} ..
+cmake -DDYABLO_ENABLE_UNIT_TESTING=ON -DDYABLO_HIDE_BITPIT_COMPILATION=OFF -DKokkos_ENABLE_CUDA=ON -DKokkos_ARCH=${Kokkos_ARCH} ..
 make -j `nproc`
