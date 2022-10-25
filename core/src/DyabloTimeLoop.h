@@ -320,19 +320,19 @@ public:
     // TODO : list written fields in gravity_solver
     if( this->m_gravity_type & GRAVITY_FIELD )
     {
-      auto copy_field = [&](const VarIndex& var)
+      int ndim = m_foreach_cell.getDim();
+      auto& U2 = this->U2;
+      auto& U = this->U;
+      assert( U.U.layout() == U2.U.layout() );
+      m_foreach_cell.foreach_cell("DyabloTimeLoop::copy_gravity_fields", U,
+        KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell)
       {
-        auto U_phi = Kokkos::subview(U.U, Kokkos::ALL(), U.fm[var], Kokkos::ALL());
-        auto U2_phi = Kokkos::subview(U2.U, Kokkos::ALL(), U2.fm[var], Kokkos::ALL());
-        Kokkos::deep_copy(U2_phi, U_phi);
-      };
-
-      // Copy gravity potential to U2 to use it for next step
-      copy_field(IGPHI);
-      // Copy gravity force field for visualization
-      copy_field(IGX);
-      copy_field(IGY);
-      if(m_foreach_cell.getDim() == 3) copy_field(IGZ);
+        U2.at(iCell, IGPHI) = U.at(iCell, IGPHI);
+        U2.at(iCell, IGX) = U.at(iCell, IGX);
+        U2.at(iCell, IGY) = U.at(iCell, IGY);
+        if( ndim == 3 )
+          U2.at(iCell, IGZ) = U.at(iCell, IGZ);
+      });
     }
 
     m_t += dt;
