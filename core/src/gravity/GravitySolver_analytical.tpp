@@ -24,7 +24,7 @@ public:
 };
 
 /**
- * Helper to write analytical fore fields
+ * Helper to write analytical force fields
  * @tparam AnalyticalFormula_t implementation of AnalyticalFormula_gravity to be applied to each cell
  **/
 template< typename AnalyticalFormula_t >
