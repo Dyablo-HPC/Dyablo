@@ -188,11 +188,10 @@ public:
   
   // "Join" intermediate results from different threads.
   // This should normally implement the same reduction
-  // operation as operator() above. Note that both input
-  // arguments MUST be declared volatile.
+  // operation as operator() above. 
   KOKKOS_INLINE_FUNCTION
-  void join (volatile real_t& dst,
-	     const volatile real_t& src) const
+  void join (real_t& dst,
+	     const real_t& src) const
   {
     // max reduce
     if (dst < src) {

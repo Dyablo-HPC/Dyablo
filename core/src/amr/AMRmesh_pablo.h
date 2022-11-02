@@ -142,7 +142,8 @@ private:
         UserDataLB_t data_lb(U_host, Ughost_host);
         ParaTree::loadBalance<UserDataLB_t>(data_lb, compact_levels);
 
-        Kokkos::realloc(U, U_host.layout());
+        U = DataArray_t();
+        U = DataArray_t("U", U_host.layout());
         Kokkos::deep_copy(U, U_host);
 #endif // DYABLO_USE_MPI
     }

@@ -29,7 +29,6 @@ function(dyablo_add_test UNIT_TEST_NAME TEST_MPI)
     dyablo_core
     config
     Kokkos::kokkos
-    dl
     monitoring
     BITPIT::BITPIT
     gtest)
