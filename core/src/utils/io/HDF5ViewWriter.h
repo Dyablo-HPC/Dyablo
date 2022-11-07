@@ -9,19 +9,19 @@
 namespace dyablo{
 
 template< typename T >
-hid_t hdf5_type_id() 
+inline hid_t hdf5_type_id() 
 {
   static_assert( !std::is_same_v<T,T>, "Unknown type" );
   return 0;
 }
-template<> hid_t hdf5_type_id<float>   (){ return H5T_NATIVE_FLOAT; } 
-template<> hid_t hdf5_type_id<double>  (){ return H5T_NATIVE_DOUBLE; } 
-template<> hid_t hdf5_type_id<uint16_t>(){ return H5T_NATIVE_UINT16; } 
-template<> hid_t hdf5_type_id<uint32_t>(){ return H5T_NATIVE_UINT32; } 
-template<> hid_t hdf5_type_id<uint64_t>(){ return H5T_NATIVE_UINT64; }
-template<> hid_t hdf5_type_id<int16_t> (){ return H5T_NATIVE_INT16; } 
-template<> hid_t hdf5_type_id<int32_t> (){ return H5T_NATIVE_INT32; } 
-template<> hid_t hdf5_type_id<int64_t> (){ return H5T_NATIVE_INT64; } 
+template<> inline hid_t hdf5_type_id<float>   (){ return H5T_NATIVE_FLOAT; } 
+template<> inline hid_t hdf5_type_id<double>  (){ return H5T_NATIVE_DOUBLE; } 
+template<> inline hid_t hdf5_type_id<uint16_t>(){ return H5T_NATIVE_UINT16; } 
+template<> inline hid_t hdf5_type_id<uint32_t>(){ return H5T_NATIVE_UINT32; } 
+template<> inline hid_t hdf5_type_id<uint64_t>(){ return H5T_NATIVE_UINT64; }
+template<> inline hid_t hdf5_type_id<int16_t> (){ return H5T_NATIVE_INT16; } 
+template<> inline hid_t hdf5_type_id<int32_t> (){ return H5T_NATIVE_INT32; } 
+template<> inline hid_t hdf5_type_id<int64_t> (){ return H5T_NATIVE_INT64; } 
 
 class HDF5ViewWriter{
 
