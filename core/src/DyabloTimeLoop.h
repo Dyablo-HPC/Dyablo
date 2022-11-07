@@ -313,7 +313,7 @@ public:
         {
           std::cout << "Checkpoint at time t=" << m_t << " step " << m_iter << std::endl;
         }
-        io_manager->save_snapshot(U, m_iter, m_t);
+        io_manager_checkpoint->save_snapshot(U, m_iter, m_t);
       }
       timers.get("checkpoint").stop();
     }
