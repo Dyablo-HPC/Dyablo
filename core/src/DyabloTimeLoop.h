@@ -61,6 +61,8 @@ public:
     m_iter_start( configMap.getValue<int>("run", "iter_start", 0) ),
     m_iter( m_iter_start ),
     m_t( configMap.getValue<real_t>("run", "tStart", 0.0) ), 
+    m_output_timeslice_count( m_t / m_output_timeslice ),
+    m_checkpoint_timeslice_count( m_t / m_checkpoint_timeslice ),
     m_communicator( GlobalMpiSession::get_comm_world() ),
     m_amr_mesh( init_amr_mesh( configMap ) ),
     m_foreach_cell( *m_amr_mesh, configMap ),
@@ -458,8 +460,8 @@ private:
   int m_iter_start; //! First iteration (for restart)
   int m_iter; //! Current Iteration number
   real_t m_t; //! Current physical time
-  int m_output_timeslice_count = 0; //! Number of timeslices already written
-  int m_checkpoint_timeslice_count = 0; //! Number of timeslices already written
+  int m_output_timeslice_count; //! Number of timeslices already written
+  int m_checkpoint_timeslice_count; //! Number of timeslices already written
 
   MpiComm m_communicator;
   std::shared_ptr<AMRmesh> m_amr_mesh;
