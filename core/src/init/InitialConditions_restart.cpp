@@ -53,16 +53,22 @@ public:
     for(int i=0; i<rank; i++)
         layout_file.dimension[rank-1-i] = dims[i];
     T view_file(name, layout_file);
-
-    hid_t read_properties = H5Pcreate(H5P_DATASET_XFER);
-    H5Dread( dataset, hdf5_type, filespace, filespace, read_properties, view_file.data() );
-
+    {
+      hid_t read_properties = H5Pcreate(H5P_DATASET_XFER);
+      #ifdef HDF5_IS_CUDA_AWARE      
+        H5Dread( dataset, hdf5_type, filespace, filespace, read_properties, view_file.data() );      
+      #else
+        auto view_file_host = Kokkos::create_mirror_view( view_file );
+        H5Dread( dataset, hdf5_type, filespace, filespace, read_properties, view_file_host.data() );
+        Kokkos::deep_copy( view_file, view_file_host );
+      #endif
+      H5Pclose(read_properties);
+    }
     userdata_utils::transpose_from_right_iOct<iOct_pos>(view_file, view);
 
     H5Dclose(dataset);
     H5Sclose(filespace);
     H5Pclose(dataset_properties);
-    H5Pclose(read_properties);
   }
 
   // iOct should be outermost index
@@ -95,21 +101,30 @@ public:
     hid_t  memspace = H5Screate_simple( rank,  local_dims, nullptr );
 
     // set some properties
-    hid_t dataset_properties = H5Pcreate(H5P_DATASET_ACCESS);
-    hid_t read_properties   = H5Pcreate(H5P_DATASET_XFER);
-    #ifdef DYABLO_USE_MPI
-      H5Pset_dxpl_mpio(read_properties, H5FD_MPIO_COLLECTIVE);
-    #endif
+    hid_t dataset_properties = H5Pcreate(H5P_DATASET_ACCESS);    
 
     hid_t dataset = H5Dopen2( m_hdf5_file, name.c_str(), dataset_properties );
     H5Sselect_hyperslab( filespace, H5S_SELECT_SET, local_start, nullptr, local_dims, nullptr );
-    H5Dread( dataset, hdf5_type, memspace, filespace, read_properties, view.data() );
+    
+    {
+      hid_t read_properties = H5Pcreate(H5P_DATASET_XFER);
+      #ifdef DYABLO_USE_MPI
+        H5Pset_dxpl_mpio(read_properties, H5FD_MPIO_COLLECTIVE);
+      #endif
+      #ifdef HDF5_IS_CUDA_AWARE      
+        H5Dread( dataset, hdf5_type, filespace, filespace, read_properties, view.data() );      
+      #else
+        auto view_host = Kokkos::create_mirror_view( view );
+        H5Dread( dataset, hdf5_type, memspace, filespace, read_properties, view_host.data() );
+        Kokkos::deep_copy( view, view_host );
+      #endif
+      H5Pclose(read_properties);
+    }
 
     H5Dclose(dataset);
     H5Sclose(filespace);
     H5Sclose(memspace);
     H5Pclose(dataset_properties);
-    H5Pclose(read_properties);
   }
 
   ~restart_file()
