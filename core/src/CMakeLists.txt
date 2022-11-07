@@ -17,6 +17,7 @@ set( core_src
 )
 
 set( ic_src
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_restart.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_blast.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_implode.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_riemann2d.cpp
@@ -45,6 +46,7 @@ set( mpi_src
 
 set( hdf5_src
     ${CMAKE_CURRENT_SOURCE_DIR}/io/IOManager_hdf5.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/io/IOManager_checkpoint.cpp
 )
 
 add_library( dyablo_core ${core_src} ${ic_src} ${legacy_src} )

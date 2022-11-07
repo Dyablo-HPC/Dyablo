@@ -62,4 +62,99 @@ namespace userdata_utils{
         elts_per_octs *= U.extent(i);
     return elts_per_octs;
   }
+
+
+  /**
+   * Transfert values from U_right_iOct to U
+   * When iOct is not rightmost index in U
+   **/
+  template <int iOct_pos, typename DataArray_t>
+  std::enable_if_t< iOct_pos < DataArray_t::rank-1 , 
+  void > transpose_from_right_iOct( const DataArray_t& U_right_iOct, DataArray_t& U )
+  {
+    // When iOct is not the rightmost index, a temportary MPI buffer 
+    // with iOct rightmost index is used and has to be transposed
+
+    // Realloc U with the correct number of octants
+    auto layout_U = U.layout();
+    for(int i=0; i<DataArray_t::rank; i++)
+    {
+      if( i < iOct_pos )
+        layout_U.dimension[i] = U_right_iOct.extent(i);
+      else if( i == iOct_pos )
+        layout_U.dimension[i] = U_right_iOct.extent(DataArray_t::rank-1);
+      else // (i > iOct_pos)
+        layout_U.dimension[i] = U_right_iOct.extent(i-1);
+    }
+    Kokkos::realloc(U, layout_U);
+
+    uint32_t elts_per_octs = octant_size<DataArray_t, iOct_pos>(U);
+
+    // Transpose value from U_right_iOct to U
+    Kokkos::parallel_for( "transpose_from_right_iOct", U_right_iOct.size(),
+                          KOKKOS_LAMBDA(uint32_t index)
+    {
+      uint32_t iOct = index/elts_per_octs;
+      uint32_t i = index%elts_per_octs;
+      
+      get_U<iOct_pos>(U, iOct, i) = get_U<DataArray_t::rank-1>(U_right_iOct, iOct, i);
+    });
+  }
+
+  /**
+   * Transfert values from U_right_iOct to U
+   * When iOct is rightmost index un U there is nothing to transpose 
+   **/
+  template <int iOct_pos, typename DataArray_t>
+  std::enable_if_t< iOct_pos == DataArray_t::rank-1 , 
+  void > transpose_from_right_iOct( const DataArray_t& U_right_iOct, DataArray_t& U )
+  {
+    U = U_right_iOct;
+  }
+
+  /**
+   * Transfert values from U to U_right_iOct
+   * When iOct is not rightmost index in U
+   **/
+  template <int iOct_pos, typename DataArray_t>
+  std::enable_if_t< iOct_pos < DataArray_t::rank-1 , 
+  void > transpose_to_right_iOct( const DataArray_t& U, DataArray_t& U_right_iOct )
+  {
+    // When iOct is not the rightmost index, a temportary MPI buffer 
+    // with iOct rightmost index is used and has to be transposed
+
+    // Realloc U_right_iOct with the correct number of octants
+    auto layout_right_iOct = U.layout();
+    for(int i=0; i<DataArray_t::rank-1; i++)
+    {
+      if( i < iOct_pos )
+        layout_right_iOct.dimension[i] = U.extent(i);
+      else // (i >= iOct_pos)
+        layout_right_iOct.dimension[i] = U.extent(i+1);
+    }
+    layout_right_iOct.dimension[DataArray_t::rank-1] = U.extent(iOct_pos);
+
+    Kokkos::realloc(U_right_iOct, layout_right_iOct);
+
+    uint32_t elts_per_octs = octant_size<DataArray_t, iOct_pos>(U);
+
+    // Transpose value from U_right_iOct to U
+    Kokkos::parallel_for( "transpose_to_right_iOct", U.size(),
+                          KOKKOS_LAMBDA(uint32_t index)
+    {
+      uint32_t iOct = index/elts_per_octs;
+      uint32_t i = index%elts_per_octs;
+      
+      get_U<DataArray_t::rank-1>(U_right_iOct, iOct, i) = get_U<iOct_pos>(U, iOct, i);
+    });
+  }
+
+  template <int iOct_pos, typename DataArray_t>
+  std::enable_if_t< iOct_pos == DataArray_t::rank-1 , 
+  void > transpose_to_right_iOct( const DataArray_t& U, DataArray_t& U_right_iOct )
+  {
+    U_right_iOct = U;
+  }
+
+
 }

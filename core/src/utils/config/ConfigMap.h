@@ -128,6 +128,10 @@ type to_string( const T& t )
 {
   std::ostringstream sst;
   sst << std::boolalpha; // write true/false for bool
+  if constexpr( std::is_floating_point_v<T> )
+  {
+    sst << std::setprecision(std::numeric_limits<T>::max_digits10);
+  }
   sst << t;
   return sst.str();
 }
@@ -164,7 +168,7 @@ type to_string( const T& t )
 
 class ConfigMap
 {
-private:
+protected:
   /// ConfigMap cannot be copied to ensure default values are registered in original ConfigMap
   ConfigMap( const ConfigMap& ) = default;
 
@@ -336,7 +340,7 @@ public:
     }
     o.flags(initial_format);
   }
-private:
+protected:
   struct value_container{
     std::string value;
     bool from_file = false;

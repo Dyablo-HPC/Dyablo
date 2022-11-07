@@ -8,6 +8,9 @@ namespace dyablo{
 template< typename AnalyticalFormula >
 class InitialConditions_analytical;
 
+// Restart
+class InitialConditions_restart;
+
 // Hydrodynamics
 class AnalyticalFormula_blast;
 class AnalyticalFormula_implode;
@@ -26,6 +29,8 @@ class AnalyticalFormula_MHD_rotor;
 template<>
 bool dyablo::InitialConditionsFactory::init()
 {
+  DECLARE_REGISTERED( dyablo::InitialConditions_restart );
+  
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_blast> );
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_implode> );
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_riemann2d> );
