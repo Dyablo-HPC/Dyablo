@@ -29,7 +29,13 @@ public:
     Timers& timers )
   : foreach_cell(foreach_cell),
     timers( timers ),
-    filename( configMap.getValue<std::string>("output", "outputDir", "./") + "/" + configMap.getValue<std::string>("output", "outputPrefix", "output") )
+    filename( configMap.getValue<std::string>("output", "outputDir", "./") + "/" + configMap.getValue<std::string>("output", "outputPrefix", "output") ),
+    xmin(configMap.getValue<real_t>("mesh", "xmin", 0.0)),
+    xmax(configMap.getValue<real_t>("mesh", "xmax", 1.0)),
+    ymin(configMap.getValue<real_t>("mesh", "ymin", 0.0)),
+    ymax(configMap.getValue<real_t>("mesh", "ymax", 1.0)),
+    zmin(configMap.getValue<real_t>("mesh", "zmin", 0.0)),
+    zmax(configMap.getValue<real_t>("mesh", "zmax", 1.0))
   {
     std::string write_variables = configMap.getValue<std::string>("output", "write_variables", "rho" );
     std::stringstream sstream(write_variables);
@@ -75,6 +81,10 @@ private:
   std::string filename;
   std::set<std::string> write_varnames;
   FILE* main_xdmf_fd;
+
+  const real_t xmin, xmax;
+  const real_t ymin, ymax;
+  const real_t zmin, zmax;
 };
 
 namespace{
@@ -226,7 +236,8 @@ R"xml(
     fclose(fd);
   }
 
-  { // Write hdf5 file 
+  { 
+    // Write hdf5 file 
     auto linearize_iCell = KOKKOS_LAMBDA(const ForeachCell::CellIndex& iCell)
     {
       return iCell.i + iCell.bx * (iCell.j + iCell.by * ( iCell.k + iCell.bz * iCell.iOct.iOct )); 
@@ -240,6 +251,13 @@ R"xml(
 
       ForeachCell::CellMetaData cells = foreach_cell.getCellMetaData();
 
+      const real_t xmin = this->xmin;
+      const real_t ymin = this->ymin;
+      const real_t zmin = this->zmin;
+      const real_t Lx = xmax-xmin;
+      const real_t Ly = ymax-ymin;
+      const real_t Lz = zmax-zmin;
+
       // Create (bx+1)*(by+1)*(bz+1) nodes per octant
       Kokkos::parallel_for( "compute_coordinates", nbOcts_local*nbNodesPerOct,
         KOKKOS_LAMBDA( uint64_t index )
@@ -252,9 +270,9 @@ R"xml(
 
         auto pos = lmesh.getCorner( {iOct, false} );
         real_t oct_size = lmesh.getSize( {iOct, false} );
-        coordinates(IX, index) = pos[IX] + (i * oct_size)/bx;
-        coordinates(IY, index) = pos[IY] + (j * oct_size)/by;
-        coordinates(IZ, index) = pos[IZ] + (k * oct_size)/bz;
+        coordinates(IX, index) = xmin + (pos[IX] + (i * oct_size)/bx) * Lx;
+        coordinates(IY, index) = ymin + (pos[IY] + (j * oct_size)/by) * Ly;
+        coordinates(IZ, index) = zmin + (pos[IZ] + (k * oct_size)/bz) * Lz;
       });
 
       hdf5_writer.collective_write( "coordinates", coordinates );
