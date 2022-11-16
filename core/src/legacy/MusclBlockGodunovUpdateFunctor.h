@@ -7,7 +7,6 @@
 
 #include "kokkos_shared.h"
 #include "FieldManager.h"
-#include "utils/misc/HostDeviceSingleton.h"
 #include "states/State_hydro.h"
 #include "amr/LightOctree.h"
 #include "RiemannSolvers.h"
@@ -24,31 +23,18 @@ namespace dyablo
 
 namespace {
 
-struct FM_States
-{
-  id2index_t fm_state_3D;
-  id2index_t fm_state_2D;
-};
-
-template<>
-inline void HostDeviceSingleton<FM_States>::set()
-{
-  FM_States init;
-  init.fm_state_2D = FieldManager( {ID,IP,IU,IV} ).get_id2index();
-  init.fm_state_3D = FieldManager( {ID,IP,IU,IV,IW} ).get_id2index();
-  HostDeviceSingleton<FM_States>::set( init );
-}
-
 KOKKOS_INLINE_FUNCTION
 const id2index_t& fm_state_3D()
 {
-  return HostDeviceSingleton<FM_States>::get().fm_state_3D;
+  constexpr static id2index_t fm_state_3D_ = FieldManager( {ID,IP,IU,IV,IW} ).get_id2index();
+  return fm_state_3D_;
 }
 
 KOKKOS_INLINE_FUNCTION
 const id2index_t& fm_state_2D()
 {
-  return HostDeviceSingleton<FM_States>::get().fm_state_2D;
+  constexpr static id2index_t fm_state_2D_ = FieldManager( {ID,IP,IU,IV} ).get_id2index();
+  return fm_state_2D_;
 }
 
 template<typename State>
@@ -329,9 +315,6 @@ public:
                                               interface_flags(interface_flags),
                                               dt(dt)
   {
-    // Init fm_state singleton
-    HostDeviceSingleton<FM_States>::set();
-
     ndim = lmesh.getNdim();
 
     bx_g = blockSizes[IX] + 2 * (ghostWidth);
