@@ -403,17 +403,6 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
     process_dir(IZ, -1);
   }
 
-  auto q = consToPrim<ndim>(qcons, params.gamma0);
-  if (q.rho < 0.0) {
-    printf("WARNING ! Negative density detected !!!\n");
-    q.rho = params.smallr;
-  }
-  if (q.p < 0.0) {
-    printf("WARNING ! Negative pressure detected !!!\n");
-    q.p   = params.smallp;
-  }
-  qcons = primToCons<ndim>(q, params.gamma0);
-
   setConservativeState<ndim>(Uout, iCell_Q, qcons);
 }
 
@@ -590,6 +579,8 @@ public:
       if (gravity_enabled)
         apply_gravity_correction<ndim>(Uin, iCell_Q, dt, gravity_use_field, gx, gy, gz, Uout);
     });
+
+    clean_negative_primitive_values<ndim, State>(foreach_cell, Uout, riemann_params.gamma0, riemann_params.smallr, riemann_params.smallp);
 
     timers.get("HydroUpdate_hancock_oneneighbor").stop();
   }
