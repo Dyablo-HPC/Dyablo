@@ -12,12 +12,24 @@ namespace dyablo {
 class GhostCommunicator_kokkos : public GhostCommunicator_base
 {
 public:
-    GhostCommunicator_kokkos( const Kokkos::View< int* > domains, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() );
-    GhostCommunicator_kokkos( const std::map<int, std::vector<uint32_t>>& ghost_map, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() );
+    /**
+     * Create a new GhostCommunicator using a view containing the domain for each ghost cell
+     **/
+    GhostCommunicator_kokkos( const Kokkos::View< int* > domains, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
+    : mpi_comm(mpi_comm)
+    {
+      private_init_domains(domains);
+    }
+    /**
+     * DO NOT CALL THIS YOURSELF
+     * this is here because KOKKOS_LAMBDAS cannot be declared in constructors or private methods
+     **/
+    void private_init_domains( const Kokkos::View< int* > domains );
     GhostCommunicator_kokkos( std::shared_ptr<AMRmesh> amr_mesh, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
      : GhostCommunicator_kokkos(amr_mesh->getBordersPerProc(), mpi_comm)
     {}
-
+    
+    GhostCommunicator_kokkos( const std::map<int, std::vector<uint32_t>>& ghost_map, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() );
     GhostCommunicator_kokkos( std::shared_ptr<AMRmesh_hashmap> amr_mesh, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
      : GhostCommunicator_kokkos(amr_mesh->getBordersPerProc(), mpi_comm)
     {}
@@ -36,6 +48,13 @@ public:
      **/
     template< int iOct_pos, typename DataArray_t >
     void exchange_ghosts( const DataArray_t& U, const DataArray_t& Ughost) const;
+
+    /**
+     * Generic function to reduce ghost values to source cell
+     * Ghost values from every process are sent to owning process and then added to the non-ghost cell
+     **/
+    template< int iOct_pos, typename DataArray_t >
+    void reduce_ghosts( const DataArray_t& U, const DataArray_t& Ughost) const;
 
 private:
     Kokkos::View<uint32_t*> recv_sizes, send_sizes; //!Number of octants to send/recv for each proc
@@ -125,17 +144,11 @@ namespace GhostCommunicator_kokkos_impl{
     return res;
   }
 
-
-  /**
-   * Copy Octants `send_iOcts` from U to the MPI buffers
-   * @tparam iOct_pos position of coorinate iOct in U
-   * @returns the list of buffers ready to be sent to every rank, buffers are transposed from U to have iOct as leftmost subscript
-   **/
-  template <typename MPIBuffer_t, int iOct_pos, typename DataArray_t>
-  std::vector<MPIBuffer_t> pack( const DataArray_t& U, const Kokkos::View<uint32_t*>& send_iOcts, const Kokkos::View<uint32_t*>::HostMirror& send_sizes_host )
+  template <int iOct_pos, typename DataArray_t>
+  DataArray_t allocate_packed( const DataArray_t& U, const Kokkos::View<uint32_t*>& send_iOcts, const Kokkos::View<uint32_t*>::HostMirror& send_sizes_host )
   {
     // When iOct is the rightmost subscript in U, a unique view of size (:,...,sum(send_sizes_host)) is 
-    // allocated and then sliced in subviews for each rank,
+    // allocated,
     // When iOct is not the rightmost subscript in U, a temporary transposed array is created
 
     static_assert( std::is_same<typename DataArray_t::array_layout, Kokkos::LayoutLeft>::value, 
@@ -150,6 +163,27 @@ namespace GhostCommunicator_kokkos_impl{
       extents_send.dimension[i] = extents_send.dimension[i+1];
     extents_send.dimension[dim-1] = send_iOcts.size(); 
     DataArray_t send_buffers("Send buffers", extents_send); 
+
+    return send_buffers;
+  }
+
+  /**
+   * Copy Octants `send_iOcts` from U to the MPI buffers
+   * @tparam iOct_pos position of coorinate iOct in U
+   * @returns the list of buffers ready to be sent to every rank, buffers are transposed from U to have iOct as leftmost subscript
+   **/
+  template <typename MPIBuffer_t, int iOct_pos, typename DataArray_t>
+  std::vector<MPIBuffer_t> pack( const DataArray_t& U, const Kokkos::View<uint32_t*>& send_iOcts, const Kokkos::View<uint32_t*>::HostMirror& send_sizes_host )
+  {
+    // When iOct is the rightmost subscript in U, a unique view of size (:,...,sum(send_sizes_host)) is 
+    // allocated and then sliced in subviews for each rank,
+    // When iOct is not the rightmost subscript in U, a temporary transposed array is created
+
+    constexpr int dim = DataArray_t::rank;
+    
+    // Allocate send_buffers with same dimension for each octant but with sum(send_sizes_host) octants
+    // iOct is also displaced to the rightmost coordinate (if it's not already the case)
+    DataArray_t send_buffers = allocate_packed<iOct_pos>(U, send_iOcts, send_sizes_host);
 
     uint32_t elts_per_octs = 1;
     for(int i=0; i<dim; i++)
@@ -305,6 +339,76 @@ void GhostCommunicator_kokkos::exchange_ghosts( const DataArray_t& U, const Data
   unpack(recv_buffers, Ughost_tmp, this->recv_sizes_host);
 
   transpose<iOct_pos>( Ughost_tmp, Ughost );
+}
+
+template< int iOct_pos, typename DataArray_t >
+void GhostCommunicator_kokkos::reduce_ghosts( const DataArray_t& U, const DataArray_t& Ughost) const
+{
+  using namespace GhostCommunicator_kokkos_impl;
+  using MPI_Request_t = MpiComm::MPI_Request_t;
+  #ifdef MPI_IS_CUDA_AWARE    
+    using MPIBuffer = DataArray_t;
+  #else
+    using MPIBuffer = typename DataArray_t::HostMirror;
+  #endif
+
+  int nb_proc = mpi_comm.MPI_Comm_size();
+
+  // Send and recv buffers are reversed in this method compared to exchange_ghosts()
+  // Send buffers are Ughost sliced into subviews of sizes *recv*_sizes_host[i]
+  std::vector<MPIBuffer> send_buffers = get_subviews<MPIBuffer>(Ughost, recv_sizes_host);
+  // Recv buffers are allocated and sliced into subviews of size *send*_sizes_host[i]
+  DataArray_t recv_buffers_device = allocate_packed<iOct_pos>( U, send_iOcts, send_sizes_host );
+  std::vector<MPIBuffer> recv_buffers = get_subviews<MPIBuffer>(recv_buffers_device, send_sizes_host);
+  {
+    std::vector<MPI_Request_t> mpi_requests;
+    // Post MPI_Isends
+    for(int rank=0; rank<nb_proc; rank++)
+    {
+      if( send_buffers[rank].size() > 0 )
+      {
+        MPI_Request_t r = mpi_comm.MPI_Isend( send_buffers[rank], rank, 0 );
+        mpi_requests.push_back(r);
+      }
+    }
+    // Post MPI_Irecv   
+    for(int rank=0; rank<nb_proc; rank++)
+    {
+      if( recv_buffers[rank].size() > 0 )
+      {
+        MPI_Request_t r = mpi_comm.MPI_Irecv( recv_buffers[rank], rank, 0 );
+        mpi_requests.push_back(r);
+      }
+    }
+    mpi_comm.MPI_Waitall(mpi_requests.size(), mpi_requests.data());
+  }
+
+  // Unpack recv buffers to recv_buffers_device 
+  unpack(recv_buffers, recv_buffers_device, this->send_sizes_host);
+
+  {
+    constexpr int dim = DataArray_t::rank;
+    uint32_t elts_per_octs = 1;
+    for(int i=0; i<dim-1; i++)
+        elts_per_octs *= recv_buffers_device.extent(i);
+
+    auto& send_iOcts = this->send_iOcts;
+
+    // Accumulate ghost cells gathered from all process in local cells
+    Kokkos::parallel_for( "GhostCommunicator_kokkos::reduce_ghosts::unpack_reduce", recv_buffers_device.size(),
+      KOKKOS_LAMBDA (uint32_t index)
+    {
+      uint32_t iOct_ghost = index/elts_per_octs;
+      uint32_t i = index%elts_per_octs;
+
+      uint32_t iOct_local = send_iOcts(iOct_ghost);
+      
+      real_t& local_cell_value = get_U<iOct_pos>(U, iOct_local, i);
+      real_t  ghost_cell_value = get_U<DataArray_t::rank-1>(recv_buffers_device, iOct_ghost, i);
+      Kokkos::atomic_add( &local_cell_value, ghost_cell_value );
+    });
+  }
+
 }
 
 } // namespace dyablo

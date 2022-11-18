@@ -4,9 +4,7 @@
 
 namespace dyablo{
 
-
-GhostCommunicator_kokkos::GhostCommunicator_kokkos( const Kokkos::View< int* > domains, const MpiComm& mpi_comm )
-  : mpi_comm(mpi_comm)
+void GhostCommunicator_kokkos::private_init_domains(const Kokkos::View< int* > domains)
 {
   int mpi_size = mpi_comm.MPI_Comm_size();
 
