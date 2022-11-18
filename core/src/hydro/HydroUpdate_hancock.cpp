@@ -221,16 +221,6 @@ namespace {
     getConservativeState<ndim>(Uout, iCell_Uout, umod);
     umod += (fluxL - fluxR) * dtddir;
 
-    auto q = consToPrim<ndim>(umod, params.gamma0);
-    if (q.rho < 0.0) {
-      printf("WARNING ! Negative density detected !!!\n");
-      q.rho = params.smallr;
-    }
-    if (q.p < 0.0) {
-      printf("WARNING ! Negative pressure detected !!!\n");
-      q.p   = params.smallp;
-    }
-    umod = primToCons<ndim>(q, params.gamma0);
     setConservativeState<ndim>(Uout, iCell_Uout, umod);
   }
 
@@ -441,6 +431,8 @@ public:
           apply_gravity_correction<ndim>(Uin, iCell_Uout, dt, gravity_use_field, gx, gy, gz, Uout);
       });
     });
+
+    clean_negative_primitive_values<ndim, State>(foreach_cell, Uout, params.gamma0, params.smallr, params.smallp);
 
     timers.get("HydroUpdate_hancock").stop();
 

@@ -659,7 +659,7 @@ void test_ConsHydroState_setget()
       if( expected != actual )
       {
         errors ++;
-        printf("Error : %f != %f \n", expected, actual);
+        //printf("Error : %f != %f \n", expected, actual);
       }
     };
     compare(i+0.1, s.rho);
@@ -676,3 +676,4 @@ TEST( Test_MHD_States, ConsHydroState_setget )
 {
   test_ConsHydroState_setget();
 }
+
