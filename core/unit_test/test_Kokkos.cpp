@@ -60,49 +60,43 @@ TEST( Test_Kokkos_dyablo, UnorderedMap_morton )
     test_UnorderedMap_morton();
 }
 
-#include "utils/misc/HostDeviceSingleton.h"
-
 namespace dyablo{
 
-using VarIndex = int;
-
-std::map< std::string, VarIndex > varindex_names{
-    {"rho",2},
-    {"e_tot",3},
-    {"rho_u",4}
-};
-
-struct VarIndex_Set{
-    VarIndex ID, IE, IU;
-};
-
-template<>
-void HostDeviceSingleton<VarIndex_Set>::set()
+KOKKOS_INLINE_FUNCTION
+const Kokkos::Array<double,3>& constexpr_var()
 {
- HostDeviceSingleton<VarIndex_Set>::set(VarIndex_Set{varindex_names.at("rho"), varindex_names.at("e_tot"), varindex_names.at("rho_u") });
+    static constexpr Kokkos::Array<double,3> var_ = {1.5, 2.5, 3.5};
+    return var_;
+} 
+
+KOKKOS_INLINE_FUNCTION
+void set_value( const Kokkos::View<double[3]>& v )
+{
+    v(0) = constexpr_var()[0];
+    v(1) = constexpr_var()[1];
+    v(2) = constexpr_var()[2];
 }
 
-void test_HostDeviceSingleton()
+
+void test_constexpr_device()
 {
-    HostDeviceSingleton<VarIndex_Set>::set(VarIndex_Set{varindex_names.at("rho"), varindex_names.at("e_tot"), varindex_names.at("rho_u") });
-
-    EXPECT_EQ( 2, HostDeviceSingleton<VarIndex_Set>::get().ID );
-
-    Kokkos::View<int> ID_val_device("ID_val_device");
-    Kokkos::parallel_for( "test_HostDeviceSingleton", 1, 
+    Kokkos::View<double[3]> var_view_device("var_view");
+    Kokkos::parallel_for( "test_constexpr_device", 1, 
         KOKKOS_LAMBDA(int)
     {
-        ID_val_device() = HostDeviceSingleton<VarIndex_Set>::get().ID;
+        set_value( var_view_device );
     });
-    auto ID_val_host = Kokkos::create_mirror_view(ID_val_device);
-    Kokkos::deep_copy(ID_val_host,ID_val_device);
+    auto var_view_host = Kokkos::create_mirror_view(var_view_device);
+    Kokkos::deep_copy(var_view_host,var_view_device);
 
-    EXPECT_EQ( 2, ID_val_host() );
+    EXPECT_EQ( 1.5, var_view_host(0) );
+    EXPECT_EQ( 2.5, var_view_host(1) );
+    EXPECT_EQ( 3.5, var_view_host(2) );
 }
 
 } // namespace dyablo
 
-TEST( Test_Kokkos_dyablo, HostDeviceSingleton )
+TEST( Test_Kokkos_dyablo, test_constexpr_device )
 {
-    dyablo::test_HostDeviceSingleton();
+    dyablo::test_constexpr_device();
 }

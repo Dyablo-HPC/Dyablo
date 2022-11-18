@@ -24,7 +24,7 @@ private:
   Kokkos::Array < bool,VarIndex::VARINDEX_COUNT > field_enabled {};
   int _nbfields = 0;
 public:
-  void activate( VarIndex id )
+  constexpr void activate( VarIndex id )
   {
     id2index[(int)id] = _nbfields;
     assert(!field_enabled[(int)id]);
@@ -71,7 +71,15 @@ public:
    * Create a new FieldManager with specific fields
    * All VarIndex must be created befor this constructor with getiVar()
    **/
-  FieldManager( const std::set<VarIndex>& active_fields = {} ) 
+  FieldManager( const std::set<VarIndex>& active_fields ) 
+  {
+    for( VarIndex id : active_fields )
+    {
+      id2index.activate(id);
+    }
+  }
+
+  constexpr FieldManager( const std::initializer_list<VarIndex>& active_fields = {} ) 
   {
     for( VarIndex id : active_fields )
     {
@@ -93,7 +101,7 @@ public:
     }
   }
 
-  id2index_t get_id2index() const
+  constexpr id2index_t get_id2index() const
   { 
     return id2index; 
   }
