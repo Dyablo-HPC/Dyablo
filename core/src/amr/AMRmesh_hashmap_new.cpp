@@ -372,12 +372,24 @@ AMRmesh_hashmap_new::GhostMap_t AMRmesh_hashmap_new::loadBalance(level_t level)
       mpi_comm.MPI_Allgatherv_inplace( new_morton_intervals.data(), nb_mortons );
       new_morton_intervals[0] = 0;
       new_morton_intervals[mpi_size] = std::numeric_limits<morton_t>::max();
-      for(int rank=0; rank<mpi_size; rank++)
       {
-          // Truncate suboctants to keep `level` levels of suboctants compact
-          new_morton_intervals[rank] = (new_morton_intervals[rank] >> (3*level)) << (3*level);
+        for(int rank=1; rank<mpi_size; rank++)
+        {
+            morton_t new_morton_begin_rank;
+            int adjusted_level = level+1;
+            do // Adapt `level` to avoid getting empty processes
+            {
+              adjusted_level --;
+              // Truncate suboctants to keep `adjusted_level` levels of suboctants compact
+              new_morton_begin_rank = (new_morton_intervals[rank] >> (3*adjusted_level)) << (3*adjusted_level);
+              // Ensure that no process is empty by adjusting `levels` so new_morton_intervals is strictly increasing
+            } while( adjusted_level>0 && new_morton_begin_rank <= new_morton_intervals[rank-1] );
+            if( adjusted_level != level )
+              std::cout << "WARNING : Could not ensure " << level << " levels coherency for rank " << rank << " (would be empty) used " << adjusted_level << " levels instead" << std::endl;
+            new_morton_intervals[rank] = new_morton_begin_rank;
+        }
       }
-      assert(new_morton_intervals[mpi_rank] <= new_morton_intervals[mpi_rank+1] );
+      assert(new_morton_intervals[mpi_rank] < new_morton_intervals[mpi_rank+1] ); // Process would be empty
     }
 
     std::cout << "Rank " << mpi_rank << ": new morton interval [" << new_morton_intervals[mpi_rank] << ", " << new_morton_intervals[mpi_rank+1] << "[" << std::endl;
