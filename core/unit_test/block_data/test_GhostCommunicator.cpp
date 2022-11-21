@@ -202,7 +202,7 @@ TEST(dyablo, test_GhostCommunicator_cell)
 
 }
 
-TEST(dyablo, test_GhostCommunicator_domains)
+void test_GhostCommunicator_domains()
 {
   auto comm_world = dyablo::GlobalMpiSession::get_comm_world();
   uint32_t mpi_size = comm_world.MPI_Comm_size();
@@ -243,4 +243,9 @@ TEST(dyablo, test_GhostCommunicator_domains)
   }, errors);
 
   EXPECT_EQ(0, errors);
+}
+
+TEST(dyablo, test_GhostCommunicator_domains)
+{
+  test_GhostCommunicator_domains();
 }
