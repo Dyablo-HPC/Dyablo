@@ -7,7 +7,7 @@
 /**
  * Class to associate enum values to names
  * 
- * Names are configured by specializing named_enum::names
+ * Names are configured by specializing named_enum::names()
  **/
 template< typename T >
 class named_enum
@@ -41,7 +41,7 @@ protected:
      * A specialization have to be declared by the user for every enum 
      * used with named_enum (declare inline just below the enum declaration)
      **/
-    static init_list names;
+    static init_list names();
     static named_enum& singleton()
     {
         // Initialize static variable once with lambda
@@ -49,7 +49,7 @@ protected:
         {
             named_enum res;
             // Add names listed in `names` to internal maps
-            for( const auto& p : names )
+            for( const auto& p : names() )
             {
                 const T& t = p.first; 
                 const std::string& name = p.second; 

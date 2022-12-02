@@ -14,12 +14,15 @@ enum BoundaryConditionType {
 };
 
 template<>
-inline named_enum<BoundaryConditionType>::init_list named_enum<BoundaryConditionType>::names = {
+inline named_enum<BoundaryConditionType>::init_list named_enum<BoundaryConditionType>::names()
+{
+  return{
     {BoundaryConditionType::BC_REFLECTING, "reflecting"},
     {BoundaryConditionType::BC_ABSORBING, "absorbing"},
     {BoundaryConditionType::BC_PERIODIC, "periodic"},
     {BoundaryConditionType::BC_USER, "userdef"}
-};
+  };
+}
 
 //! enum component index
 enum ComponentIndex3D {
@@ -41,9 +44,12 @@ enum GravityType {
 };
 
 template<>
-inline named_enum<GravityType>::init_list named_enum<GravityType>::names = {
+inline named_enum<GravityType>::init_list named_enum<GravityType>::names()
+{
+  return{
     {GravityType::GRAVITY_NONE,       "none"},
     {GravityType::GRAVITY_CST_SCALAR, "constant_scalar"},
     {GravityType::GRAVITY_CST_FIELD,  "constant_field"},
     {GravityType::GRAVITY_FIELD,  "field"},
-};
+  };
+}
