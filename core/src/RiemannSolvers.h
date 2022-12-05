@@ -24,13 +24,16 @@ enum RiemannSolverType {
 } // namespace dyablo
 
 template<>
-inline named_enum<dyablo::RiemannSolverType>::init_list named_enum<dyablo::RiemannSolverType>::names = {
+inline named_enum<dyablo::RiemannSolverType>::init_list named_enum<dyablo::RiemannSolverType>::names()
+{
+  return{
     {dyablo::RiemannSolverType::RIEMANN_APPROX, "approx"},
     {dyablo::RiemannSolverType::RIEMANN_LLF, "llf"},
     {dyablo::RiemannSolverType::RIEMANN_HLL, "hll"},
     {dyablo::RiemannSolverType::RIEMANN_HLLC, "hllc"},
     {dyablo::RiemannSolverType::RIEMANN_MHD,  "five_waves"}
-};
+  };
+}
 
 namespace dyablo {
 
