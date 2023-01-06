@@ -93,6 +93,7 @@ template< typename T >
 std::string xmf_type_attr()
 {
   static_assert(!std::is_same_v<T,T>, "Please define a specialization for xmf_type_attr for this type");
+  return "";
 }
 
 template<> [[maybe_unused]] std::string xmf_type_attr<int32_t>   () { return R"xml(NumberType="Int"   Precision="4")xml"; }

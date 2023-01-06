@@ -543,7 +543,6 @@ void euler_update(const RiemannParams&     params,
 
 
 template< int ndim, typename State, typename Array_t >
-KOKKOS_INLINE_FUNCTION
 void clean_negative_primitive_values(const ForeachCell& foreach_cell, const Array_t& U, double gamma0, double smallr, double smallp)
 {
   using PrimState = typename State::PrimState;
