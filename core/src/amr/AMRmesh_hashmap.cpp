@@ -465,9 +465,9 @@ std::set< std::pair<int, uint32_t> > discover_ghosts(
         for( int dy=-1; dy<=1; dy++ )
         for( int dx=-1; dx<=1; dx++ )
         if(   (dx!=0 || dy!=0 || dz!=0)
-           && (periodic[IX] || ( 0<=ix+dx && ix+dx<max_i ))
-           && (periodic[IY] || ( 0<=iy+dy && iy+dy<max_i ))
-           && (periodic[IZ] || ( 0<=iz+dz && iz+dz<max_i )) )
+           && (periodic[IX] || ( /*0<=ix+dx &&*/ ix+dx<max_i ))
+           && (periodic[IY] || ( /*0<=iy+dy &&*/ iy+dy<max_i ))
+           && (periodic[IZ] || ( /*0<=iz+dz &&*/ iz+dz<max_i )) )
         {
             morton_t m_neighbor = get_morton_smaller((ix+dx+max_i)%max_i,(iy+dy+max_i)%max_i,(iz+dz+max_i)%max_i,level,level_max);
             // Find the first rank where morton_intervals[rank] >= m_neighbor

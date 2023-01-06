@@ -169,13 +169,10 @@ void test_GravitySolver( std::shared_ptr<AMRmesh> amr_mesh )
     "boundary_type_zmin=periodic\n"
     "boundary_type_zmax=periodic\n"
     "[gravity]\n"
-    "gravity_type=3\n"
+    "gravity_type=field\n"
     "G=1\n"
     "\n";
   ConfigMap configMap(configmap_str);
-
-  int ndim = configMap.getValue<int>("mesh", "ndim", 3);
-  GravityType gravity_type = configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_FIELD);
 
   FieldManager fieldMgr = FieldManager({ID,IGPHI,IGX,IGY,IGZ});
 

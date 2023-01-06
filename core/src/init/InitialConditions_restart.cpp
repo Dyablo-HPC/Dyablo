@@ -15,10 +15,11 @@ template<typename T>
 hid_t get_hdf5_type()
 {
   static_assert( !std::is_same_v<T,T>, "get_hdf5_type not defined for this type" );
+  return 0;
 }
-template<> hid_t get_hdf5_type<double>()    { return H5T_NATIVE_DOUBLE; }
-template<> hid_t get_hdf5_type<uint32_t>()  { return H5T_NATIVE_UINT32; }
-template<> hid_t get_hdf5_type<int32_t>()   { return H5T_NATIVE_INT32; }
+template<> [[maybe_unused]] hid_t get_hdf5_type<double>()    { return H5T_NATIVE_DOUBLE; }
+template<> [[maybe_unused]] hid_t get_hdf5_type<uint32_t>()  { return H5T_NATIVE_UINT32; }
+template<> [[maybe_unused]] hid_t get_hdf5_type<int32_t>()   { return H5T_NATIVE_INT32; }
 
 
 class restart_file{
