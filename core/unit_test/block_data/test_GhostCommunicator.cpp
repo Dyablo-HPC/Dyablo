@@ -139,7 +139,8 @@ void run_test()
 
   auto Ughostlayout = layout<Array_t>(bx,by,bz,nbfields,ghost_communicator.getNumGhosts());
   Array_t Ughost("Ughost", Ughostlayout);
-  ghost_communicator.exchange_ghosts(U, Ughost);
+  constexpr int iOct = std::is_same_v<Array_t, DataArrayBlock> ? 2 : 0;
+  ghost_communicator.exchange_ghosts<iOct>(U, Ughost);
 
   // Test Ughost
   {
@@ -199,4 +200,52 @@ TEST(dyablo, test_GhostCommunicator_cell)
 
   dyablo::run_test<dyablo::DataArray>();
 
+}
+
+void test_GhostCommunicator_domains()
+{
+  auto comm_world = dyablo::GlobalMpiSession::get_comm_world();
+  uint32_t mpi_size = comm_world.MPI_Comm_size();
+  uint32_t mpi_rank = comm_world.MPI_Comm_rank();
+
+  int N_old = 1000;
+  Kokkos::View< double**, Kokkos::LayoutLeft > particles("particles", N_old, 2);
+  Kokkos::View< int* > domains("domains", N_old);
+
+  Kokkos::parallel_for( "fill_domain", N_old,
+    KOKKOS_LAMBDA(int i)
+  {
+    int domain = (i/3)%mpi_size;
+    domains(i) = domain;
+    particles(i,0) = mpi_rank;
+    particles(i,1) = domain;
+  });
+
+  dyablo::GhostCommunicator_kokkos ghost_comm(domains, comm_world);
+  int N_new = ghost_comm.getNumGhosts();
+
+  int N_new_tot;
+  comm_world.MPI_Allreduce( &N_new, &N_new_tot, 1, dyablo::MpiComm::MPI_Op_t::SUM );
+  ASSERT_EQ( N_old*mpi_size, N_new_tot );
+
+  Kokkos::View< double**, Kokkos::LayoutLeft > particles_new("particles_new", N_new, 2);
+  ghost_comm.exchange_ghosts<0>(particles, particles_new);
+
+  int errors = 0;
+  Kokkos::parallel_reduce( "check_domain", N_new,
+    KOKKOS_LAMBDA(int i, int& errors)
+  {
+    if( particles_new(i,1) != mpi_rank )
+    {
+      //printf( "Error : Rank %d, Particle %d, Domain %d\n", mpi_rank, i, (int)particles_new(i,1) );
+      errors++;
+    }
+  }, errors);
+
+  EXPECT_EQ(0, errors);
+}
+
+TEST(dyablo, test_GhostCommunicator_domains)
+{
+  test_GhostCommunicator_domains();
 }

@@ -36,6 +36,12 @@ public:
     //void exchange_ghosts(const View_t<View_DataType>& A, View_t<View_DataType>& A_ghost) const;
 };
 
+} // namespace dyablo
+
+#include "GhostCommunicator_kokkos.h"
+
+namespace dyablo {
+
 /**
  * Ghost communicator that directly uses the mpi communication in PABLO
  **/
@@ -58,59 +64,6 @@ public:
     void exchange_ghosts(const DataArray& U, const DataArray& Ughost) const;
 private:
     AMRmesh_pablo& amr_mesh;  
-};
-
-/**
- * Ghost communicator that extracts communication metadata from PABLO 
- * then serialize/deserialize in Kokkos kernels and use CUDA-aware MPI 
- **/
-class GhostCommunicator_kokkos : public GhostCommunicator_base
-{
-public:
-    GhostCommunicator_kokkos( const std::map<int, std::vector<uint32_t>>& ghost_map, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() );
-    GhostCommunicator_kokkos( std::shared_ptr<AMRmesh> amr_mesh, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
-     : GhostCommunicator_kokkos(amr_mesh->getBordersPerProc(), mpi_comm)
-    {}
-
-    GhostCommunicator_kokkos( std::shared_ptr<AMRmesh_hashmap> amr_mesh, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
-     : GhostCommunicator_kokkos(amr_mesh->getBordersPerProc(), mpi_comm)
-    {}
-    
-    /// @copydoc GhostCommunicator_base::getNumGhosts
-    uint32_t getNumGhosts() const;
-
-    /**
-     * @copydoc GhostCommunicator_base::exchange_ghosts
-     * 
-     * Copy data back to host and call Paratree::communicate()
-     **/
-    void exchange_ghosts(const DataArrayBlock& U, const DataArrayBlock& Ughost) const;
-    void exchange_ghosts(const Kokkos::View<uint16_t**, Kokkos::LayoutLeft>& U, const Kokkos::View<uint16_t**, Kokkos::LayoutLeft>& Ughost) const;
-    void exchange_ghosts(const LightOctree_storage<>::oct_data_t& U, const LightOctree_storage<>::oct_data_t& Ughost) const;
-    void exchange_ghosts(const Kokkos::View<uint32_t**, Kokkos::LayoutLeft>& U, const Kokkos::View<uint32_t**, Kokkos::LayoutLeft>& Ughost) const;
-    void exchange_ghosts(const Kokkos::View<int*, Kokkos::LayoutLeft>& U, const Kokkos::View<int*, Kokkos::LayoutLeft>& Ughost) const;
-
-    /// note : iOct_pos is 0 for DataArray. (See exchange_ghosts_aux)
-    void exchange_ghosts(const DataArray& U, const DataArray& Ughost) const;
-private:
-    Kokkos::View<uint32_t*> recv_sizes, send_sizes; //!Number of octants to send/recv for each proc
-    Kokkos::View<uint32_t*>::HostMirror recv_sizes_host, send_sizes_host; //!Number of octants to send/recv for each proc
-    Kokkos::View<uint32_t*> send_iOcts; //! List of octants to send (first send_sizes[0] iOcts to send to rank[0] and so on...)
-    uint32_t nbghosts_recv;
-    MpiComm mpi_comm;
-
-public:
-    /**
-     * Generic function to exchange octant data stored un a Kokkos View
-     * @tparam is the Kokkos::View type. It must be Kokkos::LayoutLeft
-     * @tparam iOct_pos position of iOct coordinate in U. When iOct is not leftmost 
-     *         coordinate (iOct_pos = DataArray_t::rank-1), packing/unpacking is less efficient 
-     *         because data needs to be transposed.
-     * @param U is local octant data with iOct_pos-nth subscript the octant index
-     * @param Ughost is the ghost octant data to fill, it will be resized to match the number of ghost octants
-     **/
-    template< typename DataArray_t, int iOct_pos = DataArray_t::rank-1 >
-    void exchange_ghosts_aux( const DataArray_t& U, const DataArray_t& Ughost) const;
 };
 
 /**

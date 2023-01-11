@@ -283,7 +283,7 @@ public :
 
   void exchange_ghosts(const GhostCommunicator& ghost_comm)
   {
-    ghost_comm.exchange_ghosts(U, Ughost);
+    ghost_comm.exchange_ghosts<2>(U, Ughost);
   }
 };
 

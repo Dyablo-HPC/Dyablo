@@ -94,8 +94,14 @@ public:
   level_t getLevelGhost( uint32_t idx ) const
   { return storage.getLevel( {idx, true} ); }
 
+  struct GhostMap_t
+  {
+      Kokkos::View< uint32_t* > send_sizes; // Number of octants to send to each process (of size nb_proc)
+      Kokkos::View< uint32_t* > send_iOcts; // Octants to send (of size sum(send_sizes(i)) )
+  };
+
   // Output is not used in AMRmesh_impl
-  std::map<int, std::vector<uint32_t>> loadBalance( level_t compact_levels );
+  GhostMap_t loadBalance( level_t compact_levels );
   void loadBalance_userdata( level_t compact_levels, DataArrayBlock& userData );
 
   void setMarker(uint32_t iOct, int marker);
@@ -103,7 +109,7 @@ public:
   
   void adaptGlobalRefine();
 
-  const std::map<int, std::vector<uint32_t>>& getBordersPerProc() const;
+  const GhostMap_t& getGhostMap() const;
 
   bool check21Balance()
   {
