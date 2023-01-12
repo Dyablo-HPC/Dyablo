@@ -24,6 +24,13 @@ AMRmesh_hashmap::AMRmesh_hashmap( int dim, int balance_codim, const std::array<b
     int nb_octs = ( this->getRank() == 0 ) ? 1 : 0;
     this->local_octs_coord = oct_view_t("local_octs_coord", NUM_OCTS_COORDS, nb_octs);
     this->ghost_octs_coord = oct_view_t("ghost_octs_coord", NUM_OCTS_COORDS, 0);
+
+    // Refine to level_min
+    for (uint8_t level=0; level<level_min; ++level)
+    {
+        this->adaptGlobalRefine(); 
+    } 
+    this->loadBalance();
 }
 
 void AMRmesh_hashmap::adaptGlobalRefine()

@@ -146,15 +146,10 @@ template<>
 std::shared_ptr<AMRmesh> create_mesh<2>()
 {
   int ndim = 2;
-  int level_min = 0; // Needed for initialization with pre-existing mesh
+  int level_min = 4; // Needed for initialization with pre-existing mesh
   int level_max = 5;
   std::shared_ptr<AMRmesh> amr_mesh = std::make_shared<AMRmesh>(ndim,ndim,std::array<bool,3>{false,false,false},level_min,level_max);
 
-  amr_mesh->adaptGlobalRefine();
-  amr_mesh->adaptGlobalRefine();
-  amr_mesh->adaptGlobalRefine();
-  amr_mesh->adaptGlobalRefine();
-  amr_mesh->loadBalance();
   EXPECT_GT( amr_mesh->getNumOctants(), 28 ) << "Internal test error : too few local octants";
   amr_mesh->setMarker(15,1);
   amr_mesh->setMarker(16,1);
@@ -177,14 +172,10 @@ template<>
 std::shared_ptr<AMRmesh> create_mesh<3>()
 {
   int ndim = 3;
-  int level_min = 0;
+  int level_min = 3;
   int level_max = 4;
   std::shared_ptr<AMRmesh> amr_mesh = std::make_shared<AMRmesh>(ndim, ndim, std::array<bool,3>{false,false,false}, level_min, level_max);
 
-  amr_mesh->adaptGlobalRefine();
-  amr_mesh->adaptGlobalRefine();
-  amr_mesh->adaptGlobalRefine();
-  amr_mesh->loadBalance();
   EXPECT_GT( amr_mesh->getNumOctants(), 121 ) << "Internal test error : too few local octants";
   // Refine initial 47 (final smaller 47..54)
   amr_mesh->setMarker(47,1);

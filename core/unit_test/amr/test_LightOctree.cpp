@@ -454,9 +454,6 @@ void test_perf()
   int CODIM_CORNER = 3;
   dyablo::AMRmesh amr_mesh(ndim, CODIM_CORNER, {true,true,true}, level_min, level_max);
   {
-    // Global refine until level_min
-    for(int i=0; i<level_min; i++)
-      amr_mesh.adaptGlobalRefine();
     // Refine over a circle until level_max
     for(int level=level_min; level<level_max; level++)
     {

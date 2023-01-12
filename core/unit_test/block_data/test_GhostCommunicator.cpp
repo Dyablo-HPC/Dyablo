@@ -78,11 +78,6 @@ void run_test()
     //amr_mesh->setPeriodic(4);
     //amr_mesh->setPeriodic(5);
 
-    amr_mesh->adaptGlobalRefine();
-    amr_mesh->adaptGlobalRefine();
-    amr_mesh->adaptGlobalRefine();
-    amr_mesh->loadBalance();
-
     debug::output_vtk("before_initial", *amr_mesh);
     if( amr_mesh->getRank() == 0 )
       amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      

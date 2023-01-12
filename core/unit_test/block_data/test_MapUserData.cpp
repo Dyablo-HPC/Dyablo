@@ -34,7 +34,7 @@ void run_test(int ndim, std::string mapUserData_id)
   uint32_t by = 8;
   uint32_t bz = (ndim==3)?8:1;
 
-  int level_min = 1;
+  int level_min = 3;
   int level_max = 8;
   std::shared_ptr<AMRmesh> amr_mesh; //solver->amr_mesh 
   {
@@ -48,15 +48,6 @@ void run_test(int ndim, std::string mapUserData_id)
     // amr_mesh->setPeriodic(3);
     // amr_mesh->setPeriodic(4);
     // amr_mesh->setPeriodic(5);
-
-    amr_mesh->adaptGlobalRefine();
-    amr_mesh->adaptGlobalRefine();
-    amr_mesh->adaptGlobalRefine();
-
-    amr_mesh->adapt();
-    amr_mesh->updateConnectivity();
-    amr_mesh->loadBalance();
-    amr_mesh->updateConnectivity();
   }
 
   Timers timers;

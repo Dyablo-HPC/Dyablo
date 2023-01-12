@@ -46,21 +46,6 @@ void run_test(const Test_data& test_data)
     GTEST_SKIP();
   }
 
-  for( int i=0; i<level_min; i++ )
-  {
-    std::cout << "Global refine level " << i << std::endl;
-    timers.get("adaptGlobalRefine").start();
-    amr_mesh.adaptGlobalRefine();
-    timers.get("adaptGlobalRefine").stop();
-    // AMRmesh_hashmap cannot call adaptGlobalRefine after first loadBalance
-    // timers.get("loadBalance").start();
-    // amr_mesh.loadBalance();
-    // timers.get("loadBalance").stop();
-  }
-
-  timers.get("loadBalance").start();
-  amr_mesh.loadBalance();
-  timers.get("loadBalance").stop();
   
 
   for( int level=level_min; level<level_max; level++ )

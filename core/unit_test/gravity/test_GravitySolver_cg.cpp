@@ -95,14 +95,6 @@ std::shared_ptr<AMRmesh> mesh_amrgrid_semiperiodic_sphere()
 
     amr_mesh = std::make_shared<AMRmesh>(ndim, ndim, std::array<bool,3>{false,false,true}, level_min, level_max);
 
-    //Make uniform grid at level min
-    for(int i=0; i<level_min; i++)
-    {
-      amr_mesh->adaptGlobalRefine();
-    }
-
-    amr_mesh->loadBalance(1);
-
     for(int level=level_min+1; level<level_max; level++)
     {
       for( uint32_t iOct=0; iOct<amr_mesh->getNumOctants(); iOct++ )

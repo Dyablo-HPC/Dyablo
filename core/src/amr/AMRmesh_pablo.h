@@ -42,6 +42,13 @@ public:
             this->setPeriodic(4);
             this->setPeriodic(5);
         }
+
+        // Refine to level_min
+        for (uint8_t level=0; level<level_min; ++level)
+        {
+            this->adaptGlobalRefine(); 
+        } 
+        this->loadBalance(0);
     }
 
     explicit AMRmesh_pablo( int dim )

@@ -33,7 +33,14 @@ AMRmesh_hashmap_new::AMRmesh_hashmap_new( int dim, int balance_codim,
       Kokkos::View<uint32_t*>("AMRmesh_hashmap_new::ghostmap::send_iOcts", 0)
     }
   }))
-{}
+{
+  // Refine to level_min
+  for (uint8_t level=0; level<level_min; ++level)
+  {
+      this->adaptGlobalRefine(); 
+  } 
+  this->loadBalance(0);
+}
 
 AMRmesh_hashmap_new::~AMRmesh_hashmap_new()
 {}

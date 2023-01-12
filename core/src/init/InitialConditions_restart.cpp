@@ -187,13 +187,6 @@ public:
         LightOctree_hashmap input_lmesh( std::move(lmesh_storage), level_min, level_max, periodic );
 
         std::cout << "Restart mesh : " << input_lmesh.getNumOctants() << " octs." << std::endl;
-        
-        // Refine to level_min
-        for (uint8_t level=0; level<level_min; ++level)
-        {
-            pmesh.adaptGlobalRefine(); 
-        } 
-        pmesh.loadBalance();
 
         // Refine until level_max using analytical markers
         for (uint8_t level=level_min; level<level_max; ++level)
