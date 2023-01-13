@@ -204,14 +204,15 @@ uint64_t compute_morton_key(const uint32_t ix, const uint32_t iy, const uint32_t
  * In 2D, all bits can be significant.
  * In 3D, only the last 21 bits are significant, i.e. the returned value 
  * must be lower than 2^21=2097152.
+ * \param dim should be 2 or 3
  *
  * Template parameter allows to extract either x,y or z coordinate.
- * \tparam dim should be 2 or 3
+
  * \tparam coord should be IX, IY or IZ (from enums)
  */
-template<int coord, int dim = 3 >
+template<int coord>
 KOKKOS_INLINE_FUNCTION
-uint32_t morton_extract_coord(uint64_t key)
+uint32_t morton_extract_coord(int dim, uint64_t key)
 {
   // shift bit by dimension and thus select which coordinate to extract
   key = key >> coord;

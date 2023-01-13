@@ -7,24 +7,34 @@
 
 namespace dyablo {
 
+using morton_t = uint64_t;
 using markers_t = Kokkos::View<int*, AMRmesh_hashmap_new::Storage_t::MemorySpace>;
+using level_t = AMRmesh_hashmap_new::level_t;
+using oct_index_t = AMRmesh_hashmap_new::oct_index_t;
+using logical_coord_t = AMRmesh_hashmap_new::logical_coord_t;
+
+namespace{
+AMRmesh_hashmap_new::GhostMap_t discover_ghosts(
+  const LightOctree_storage<>& storage_device,
+  const std::vector<morton_t>& morton_intervals_,
+  level_t level_max, 
+  const Kokkos::Array<bool,3>& periodic,
+  const MpiComm& mpi_comm);
+}
 
 struct AMRmesh_hashmap_new::PData{
   markers_t markers;
   int level_min, level_max;
   GhostMap_t ghostmap;
-  
-  bool distibuted_mesh = false; // true if load_balance have already been called at least once
 };
 
 AMRmesh_hashmap_new::AMRmesh_hashmap_new( int dim, int balance_codim, 
                       const std::array<bool,3>& periodic, 
                       uint8_t level_min, uint8_t level_max,
                       const MpiComm& mpi_comm)
-: storage( dim, (mpi_comm.MPI_Comm_rank()==0)?std::pow( 1 << level_min, dim ):0, 0 ),
-  periodic({periodic[IX], periodic[IY], periodic[IZ]}),
+: periodic({periodic[IX], periodic[IY], periodic[IZ]}),
   mpi_comm(mpi_comm),
-  total_num_octs(std::pow( 1 << level_min, dim )), first_local_oct(0),
+  total_num_octs(std::pow( 1 << level_min, dim )),
   pdata(std::make_unique<PData>(PData{
     markers_t(),
     level_min, level_max,
@@ -34,22 +44,61 @@ AMRmesh_hashmap_new::AMRmesh_hashmap_new( int dim, int balance_codim,
     }
   }))
 {
-  Storage_t& storage = this->storage;
-  Kokkos::parallel_for( "AMRmesh_hashmap_new::init", 
-    Kokkos::RangePolicy<Kokkos::OpenMP>(0, storage.getNumOctants()),
+  int mpi_rank = mpi_comm.MPI_Comm_rank();
+  int mpi_size = mpi_comm.MPI_Comm_size();
+
+  // Compute local octant count and first global octant index
+  uint64_t first_local_oct = ((morton_t)mpi_rank * this->total_num_octs ) / (morton_t)mpi_size;
+  uint64_t end_local_oct = ((morton_t)(mpi_rank+1) * this->total_num_octs ) / (morton_t)mpi_size;
+  uint32_t nbOcts_local = end_local_oct - first_local_oct ;
+  this->first_local_oct = first_local_oct;
+
+  // Compute morton intervals
+  std::vector<morton_t> morton_intervals( mpi_size+1 );
+  {
+    morton_t morton_max;
+    if( dim == 3 )
+      morton_max = this->total_num_octs;
+    else
+    { // Morton intervals in 2D are not contiguous
+      uint64_t oct_count = 1 << level_min;
+      morton_max = compute_morton_key( oct_count-1, oct_count-1, 0 )+1;
+    }
+    for(int i=0; i<=mpi_size; i++)
+      morton_intervals[i] = ((morton_t)i * morton_max ) / (morton_t)mpi_size;
+  }  
+
+  LightOctree_storage<> storage_device(dim, nbOcts_local, 0);
+  Kokkos::parallel_for( "AMRmesh_hashmap_new::init", storage_device.getNumOctants(),
     KOKKOS_LAMBDA( oct_index_t iOct )
   {
-    uint64_t morton = iOct;
-    logical_coord_t ix = morton_extract_coord<IX>(morton);
-    logical_coord_t iy = morton_extract_coord<IY>(morton);
-    logical_coord_t iz = morton_extract_coord<IZ>(morton);
+    uint64_t morton = iOct + first_local_oct;
+    logical_coord_t ix = morton_extract_coord<IX>(dim, morton);
+    logical_coord_t iy = morton_extract_coord<IY>(dim, morton);
+    logical_coord_t iz;
+    if (dim==3)
+      iz = morton_extract_coord<IZ>(dim,morton);
+    else 
+      iz = 0;
 
-    storage.set( {iOct, false}, ix, iy, iz, level_min );
+    storage_device.set( {iOct, false}, ix, iy, iz, level_min );
   });
 
-  assert( storage.getNumGhosts() == 0 );
-  this->loadBalance(0);
-  //pdata->markers = markers_t( "AMRmesh_hashmap_new::markers", storage.getNumOctants() );
+  pdata->ghostmap = discover_ghosts( storage_device, morton_intervals, this->pdata->level_min, this->periodic, this->mpi_comm );
+  GhostCommunicator_kokkos ghost_comm( pdata->ghostmap.send_sizes, pdata->ghostmap.send_iOcts, mpi_comm  );
+  oct_index_t nbGhosts = ghost_comm.getNumGhosts();
+  LightOctree_storage<> storage_device_ghosts(dim, 0, nbGhosts );
+  ghost_comm.exchange_ghosts<0>( storage_device.oct_data, storage_device_ghosts.oct_data );
+
+  LightOctree_storage<> storage_device2( dim, nbOcts_local, nbGhosts );
+  Kokkos::deep_copy( storage_device2.getLocalSubview(), storage_device.getLocalSubview() );
+  Kokkos::deep_copy( storage_device2.getGhostSubview(), storage_device_ghosts.getGhostSubview() );
+
+  this->storage = storage_device2;
+
+  pdata->markers = markers_t( "markers", storage.getNumOctants() );
+
+  std::cout << "AMRmesh initialized : " << this->getNumOctants() << " ( "  << this->getNumGhosts() << " ) " << std::endl;
 }
 
 AMRmesh_hashmap_new::~AMRmesh_hashmap_new()
@@ -62,8 +111,6 @@ const AMRmesh_hashmap_new::GhostMap_t& AMRmesh_hashmap_new::getGhostMap() const
 
 void AMRmesh_hashmap_new::adaptGlobalRefine()
 {
-  assert(!pdata->distibuted_mesh); // No GlobalRefine after first load balancing
-
   int ndim = getDim();
   int nbSubocts = 4*(ndim-1);
   oct_index_t old_nbOcts = getNumOctants();
@@ -105,11 +152,6 @@ void AMRmesh_hashmap_new::setMarker(uint32_t iOct, int marker)
 }
 
 namespace{
-
-using morton_t = uint64_t;
-using level_t = AMRmesh_hashmap_new::level_t;
-using oct_index_t = AMRmesh_hashmap_new::oct_index_t;
-using logical_coord_t = AMRmesh_hashmap_new::logical_coord_t;
 
 KOKKOS_INLINE_FUNCTION
 morton_t shift_level( const morton_t& m, int level_diff )
@@ -159,7 +201,7 @@ struct NeighborPair
 };
 
 AMRmesh_hashmap_new::GhostMap_t discover_ghosts(
-  const AMRmesh_hashmap_new::Storage_t& octs_host,
+  const LightOctree_storage<>& storage_device,
   const std::vector<morton_t>& morton_intervals_,
   level_t level_max, 
   const Kokkos::Array<bool,3>& periodic,
@@ -167,9 +209,7 @@ AMRmesh_hashmap_new::GhostMap_t discover_ghosts(
 {
   int mpi_rank = mpi_comm.MPI_Comm_rank();
   int mpi_size = mpi_comm.MPI_Comm_size();
-  int ndim = octs_host.getNdim();
-
-  LightOctree_storage<> storage_device = octs_host;
+  int ndim = storage_device.getNdim();
 
   // Copy morton_intervals to device
   Kokkos::View<morton_t*> morton_intervals_device("discover_ghosts::morton_intervals", morton_intervals_.size());
@@ -496,7 +536,6 @@ AMRmesh_hashmap_new::GhostMap_t AMRmesh_hashmap_new::loadBalance(level_t level)
 
     // update misc metadata
     this->first_local_oct = new_oct_intervals[mpi_rank];
-    pdata->distibuted_mesh = true;   
 
     pdata->ghostmap = discover_ghosts(new_storage_device, new_morton_intervals, level_max, this->periodic, mpi_comm);
 
