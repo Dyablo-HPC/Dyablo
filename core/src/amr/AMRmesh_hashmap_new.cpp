@@ -21,12 +21,12 @@ AMRmesh_hashmap_new::AMRmesh_hashmap_new( int dim, int balance_codim,
                       const std::array<bool,3>& periodic, 
                       uint8_t level_min, uint8_t level_max,
                       const MpiComm& mpi_comm)
-: storage( dim, (mpi_comm.MPI_Comm_rank()==0)?1:0, 0 ),
+: storage( dim, (mpi_comm.MPI_Comm_rank()==0)?std::pow( 1 << level_min, dim ):0, 0 ),
   periodic({periodic[IX], periodic[IY], periodic[IZ]}),
   mpi_comm(mpi_comm),
-  total_num_octs(1), first_local_oct(0),
+  total_num_octs(std::pow( 1 << level_min, dim )), first_local_oct(0),
   pdata(std::make_unique<PData>(PData{
-    markers_t( "AMRmesh_hashmap_new::markers", 1 ),
+    markers_t(),
     level_min, level_max,
     GhostMap_t{
       Kokkos::View<uint32_t*>("AMRmesh_hashmap_new::ghostmap::send_sizes", mpi_comm.MPI_Comm_size()),
@@ -34,12 +34,22 @@ AMRmesh_hashmap_new::AMRmesh_hashmap_new( int dim, int balance_codim,
     }
   }))
 {
-  // Refine to level_min
-  for (uint8_t level=0; level<level_min; ++level)
+  Storage_t& storage = this->storage;
+  Kokkos::parallel_for( "AMRmesh_hashmap_new::init", 
+    Kokkos::RangePolicy<Kokkos::OpenMP>(0, storage.getNumOctants()),
+    KOKKOS_LAMBDA( oct_index_t iOct )
   {
-      this->adaptGlobalRefine(); 
-  } 
+    uint64_t morton = iOct;
+    logical_coord_t ix = morton_extract_coord<IX>(morton);
+    logical_coord_t iy = morton_extract_coord<IY>(morton);
+    logical_coord_t iz = morton_extract_coord<IZ>(morton);
+
+    storage.set( {iOct, false}, ix, iy, iz, level_min );
+  });
+
+  assert( storage.getNumGhosts() == 0 );
   this->loadBalance(0);
+  //pdata->markers = markers_t( "AMRmesh_hashmap_new::markers", storage.getNumOctants() );
 }
 
 AMRmesh_hashmap_new::~AMRmesh_hashmap_new()

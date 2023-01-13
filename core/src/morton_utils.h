@@ -197,6 +197,53 @@ uint64_t compute_morton_key(const uint32_t ix, const uint32_t iy, const uint32_t
   
 } // compute_morton_key - 3d
 
+/**
+ * Helper method for Magicbits Morton key decoding.
+ *
+ * Returned value is encoded on 32 bits.
+ * In 2D, all bits can be significant.
+ * In 3D, only the last 21 bits are significant, i.e. the returned value 
+ * must be lower than 2^21=2097152.
+ *
+ * Template parameter allows to extract either x,y or z coordinate.
+ * \tparam dim should be 2 or 3
+ * \tparam coord should be IX, IY or IZ (from enums)
+ */
+template<int coord, int dim = 3 >
+KOKKOS_INLINE_FUNCTION
+uint32_t morton_extract_coord(uint64_t key)
+{
+  // shift bit by dimension and thus select which coordinate to extract
+  key = key >> coord;
+  
+  if (dim==2) {
+    // 5 is "0101" in binary
+    // just mask bits to zero out bits at odd positions
+    // so that one can extract one out of 2 bits
+    key &= 0x5555555555555555;
+    
+    key = (key ^ (key >> 1))  & 0x3333333333333333;
+    key = (key ^ (key >> 2))  & 0x0f0f0f0f0f0f0f0f;
+    key = (key ^ (key >> 4))  & 0x00ff00ff00ff00ff;
+    key = (key ^ (key >> 8))  & 0x0000ffff0000ffff;
+    key = (key ^ (key >> 16)) & 0x00000000ffffffff;
+
+  } else if (dim==3) {
+    // 249 pattern is |0010|0100|1001| in binary notation
+    // so that on can extract one out of 3 bits
+    key &= 0x1249249249249249;
+    key = (key ^ (key >> 2))  & 0x30c30c30c30c30c3;
+    key = (key ^ (key >> 4))  & 0xf00f00f00f00f00f;
+    key = (key ^ (key >> 8))  & 0x00ff0000ff0000ff;
+    key = (key ^ (key >> 16)) & 0x00ff00000000ffff;
+    key = (key ^ (key >> 32)) & 0x1fffff;
+  }
+  
+  return static_cast<uint32_t>(key);
+
+} // morton_extract_bits
+
+
 } // namespace dyablo
 
 #endif // SHARED_MORTON_UTILS_H
