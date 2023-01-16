@@ -24,6 +24,8 @@ public:
 
   ~AMRmesh_hashmap_new();
 
+  void private_init(int dim);
+
   const Storage_t& getStorage() const
   {
     return storage;

@@ -44,8 +44,15 @@ AMRmesh_hashmap_new::AMRmesh_hashmap_new( int dim, int balance_codim,
     }
   }))
 {
-  int mpi_rank = mpi_comm.MPI_Comm_rank();
-  int mpi_size = mpi_comm.MPI_Comm_size();
+  private_init(dim);
+}
+
+void AMRmesh_hashmap_new::private_init(int dim)
+{
+  level_t level_min = this->pdata->level_min;
+
+  int mpi_rank = this->mpi_comm.MPI_Comm_rank();
+  int mpi_size = this->mpi_comm.MPI_Comm_size();
 
   // Compute local octant count and first global octant index
   uint64_t first_local_oct = ((morton_t)mpi_rank * this->total_num_octs ) / (morton_t)mpi_size;
