@@ -138,9 +138,10 @@ public:
     real_t vx, vy, vz;
 
     // retrieve cell size from mesh
-    real_t dx = lmesh.getSize({iOct,false}) * Lx / blockSizes[IX];
-    real_t dy = lmesh.getSize({iOct,false}) * Ly / blockSizes[IY];
-    real_t dz = lmesh.getSize({iOct,false}) * Lz / blockSizes[IZ];
+    auto oct_size = lmesh.getSize({iOct,false});
+    real_t dx = oct_size[IX] * Lx / blockSizes[IX];
+    real_t dy = oct_size[IY] * Ly / blockSizes[IY];
+    real_t dz = oct_size[IZ] * Lz / blockSizes[IZ];
 
     uint32_t iCell = member.team_rank();
     while (iCell < nbCells) {

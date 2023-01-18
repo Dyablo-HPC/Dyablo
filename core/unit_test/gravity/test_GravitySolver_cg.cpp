@@ -100,7 +100,7 @@ std::shared_ptr<AMRmesh> mesh_amrgrid_semiperiodic_sphere()
       for( uint32_t iOct=0; iOct<amr_mesh->getNumOctants(); iOct++ )
       {
         bitpit::darray3 oct_pos = amr_mesh->getCoordinates(iOct);
-        real_t oct_size = amr_mesh->getSize(iOct);
+        real_t oct_size = amr_mesh->getSize(iOct)[0];
         
         for( uint32_t c=0; c<bx*by*bz; c++ )
         {
@@ -185,7 +185,7 @@ void test_GravitySolver( std::shared_ptr<AMRmesh> amr_mesh )
     for( uint32_t iOct=0; iOct<nbOcts; iOct++ )
     {
       bitpit::darray3 oct_pos = amr_mesh->getCoordinates(iOct);
-      real_t oct_size = amr_mesh->getSize(iOct);
+      real_t oct_size = amr_mesh->getSize(iOct)[0];
       
       for( uint32_t c=0; c<nbCellsPerOct; c++ )
       {
@@ -241,7 +241,7 @@ void test_GravitySolver( std::shared_ptr<AMRmesh> amr_mesh )
     for( uint32_t iOct=0; iOct<nbOcts; iOct++ )
     {
       bitpit::darray3 oct_pos = amr_mesh->getCoordinates(iOct);
-      real_t oct_size = amr_mesh->getSize(iOct);
+      real_t oct_size = amr_mesh->getSize(iOct)[0];
       real_t Vcell = (oct_size/bx)*(oct_size/by)*(oct_size/bz);
       
       for( uint32_t c=0; c<nbCellsPerOct; c++ )
@@ -270,7 +270,7 @@ void test_GravitySolver( std::shared_ptr<AMRmesh> amr_mesh )
     for( uint32_t iOct=0; iOct<nbOcts; iOct++ )
     {
       bitpit::darray3 oct_pos = amr_mesh->getCoordinates(iOct);
-      real_t oct_size = amr_mesh->getSize(iOct);
+      real_t oct_size = amr_mesh->getSize(iOct)[0];
       
       for( uint32_t c=0; c<nbCellsPerOct; c++ )
       {

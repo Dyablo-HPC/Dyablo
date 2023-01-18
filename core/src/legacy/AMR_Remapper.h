@@ -106,7 +106,7 @@ public:
       }
       else //if( l_new < l_old ) // New coarsened cell
       {
-        real_t suboctant_size = lmesh_old.getSize(iOct_old);
+        auto suboctant_size = lmesh_old.getSize(iOct_old);
         for( int i=0; i<nsuboctants; i++ )
         {
           uint8_t pz = i/4;
@@ -114,9 +114,9 @@ public:
           uint8_t px = i - pz*4 - py*2;
           // Physical position of suboctant at relative position {px, py, pz}
           LightOctree_hashmap::pos_t c_suboctant = {
-            c_new[IX] + px * suboctant_size - suboctant_size/2,
-            c_new[IY] + py * suboctant_size - suboctant_size/2,
-            (c_new[IZ] + pz * suboctant_size - suboctant_size/2) * (ndim-2)
+            c_new[IX] + px * suboctant_size[IX] - suboctant_size[IX]/2,
+            c_new[IY] + py * suboctant_size[IY] - suboctant_size[IY]/2,
+            (c_new[IZ] + pz * suboctant_size[IZ] - suboctant_size[IZ]/2) * (ndim-2)
           };
 
           LightOctree_hashmap::OctantIndex iOct_old = lmesh_old.getiOctFromPos(c_suboctant);
@@ -201,11 +201,11 @@ public:
         // iOct_src will appear 2^ndim times as a source value for all its children
         // Find relative position according to parity of the discrete position of the octant
         auto pos = amr_mesh->getCenter(iOct);
-        real_t oct_size = amr_mesh->getSize(iOct);
+        auto oct_size = amr_mesh->getSize(iOct);
 
-        uint8_t px = static_cast<int>(pos[IX] / oct_size) % 2;
-        uint8_t py = static_cast<int>(pos[IY] / oct_size) % 2;
-        uint8_t pz = static_cast<int>(pos[IZ] / oct_size) % 2;
+        uint8_t px = static_cast<int>(pos[IX] / oct_size[IX]) % 2;
+        uint8_t py = static_cast<int>(pos[IY] / oct_size[IY]) % 2;
+        uint8_t pz = static_cast<int>(pos[IZ] / oct_size[IZ]) % 2;
 
         data_host(offset(iOct)) = {
             iOct, iOct_src,

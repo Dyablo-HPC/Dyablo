@@ -754,11 +754,11 @@ HDF5_Writer::io_hdf5_write_coordinates()
     for (uint32_t i = 0; i < m_local_num_quads; ++i) {
 
       // retrieve cell size and rescale
-      real_t cellSize = m_amr_mesh->getSize(i);
+      auto cellSize = m_amr_mesh->getSize(i);
 
-      real_t dx = cellSize/(m_bx)*Lx;
-      real_t dy = cellSize/(m_by)*Ly;
-      real_t dz = m_bz==0 ? 0 : cellSize/(m_bz)*Lz;
+      real_t dx = cellSize[IX]/(m_bx)*Lx;
+      real_t dy = cellSize[IY]/(m_by)*Ly;
+      real_t dz = m_bz==0 ? 0 : cellSize[IZ]/(m_bz)*Lz;
 
       // coordinates of the lower left corner
       real_t orig_x = m_amr_mesh->getCoordinates(i)[0] * Lx + m_xmin;
@@ -819,11 +819,11 @@ HDF5_Writer::io_hdf5_write_coordinates()
     int ndim = m_amr_mesh->getDim();
     for (uint32_t i = 0; i < m_local_num_quads; ++i) {
       // retrieve cell size and rescale
-      real_t cellSize = m_amr_mesh->getSize(i);
+      auto cellSize = m_amr_mesh->getSize(i);
 
-      real_t dx = cellSize/Lx;
-      real_t dy = cellSize/Ly;
-      real_t dz = ndim==2 ? 0 : cellSize/Lz;
+      real_t dx = cellSize[IX]/Lx;
+      real_t dy = cellSize[IY]/Ly;
+      real_t dz = ndim==2 ? 0 : cellSize[IZ]/Lz;
 
       real_t orig_x = m_amr_mesh->getCoordinates(i)[0] * Lx + m_xmin;
       real_t orig_y = m_amr_mesh->getCoordinates(i)[1] * Ly + m_ymin;

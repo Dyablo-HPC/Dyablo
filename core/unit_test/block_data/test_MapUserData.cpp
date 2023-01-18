@@ -89,7 +89,7 @@ void run_test(int ndim, std::string mapUserData_id)
     for( uint32_t iOct=0; iOct<nbOcts; iOct++ )
     {
       bitpit::darray3 oct_pos = amr_mesh->getCoordinates(iOct);
-      real_t oct_size = amr_mesh->getSize(iOct);
+      real_t oct_size = amr_mesh->getSize(iOct)[0];
       
       for( uint32_t c=0; c<nbCellsPerOct; c++ )
       {
@@ -112,7 +112,7 @@ void run_test(int ndim, std::string mapUserData_id)
     for( uint32_t iOct=0; iOct<amr_mesh->getNumGhosts(); iOct++ )
     {
       bitpit::darray3 oct_pos = amr_mesh->getCoordinatesGhost(iOct);
-      real_t oct_size = amr_mesh->getSizeGhost(iOct);
+      real_t oct_size = amr_mesh->getSizeGhost(iOct)[0];
       
       for( uint32_t c=0; c<nbCellsPerOct; c++ )
       {
@@ -180,7 +180,7 @@ void run_test(int ndim, std::string mapUserData_id)
     for( uint32_t iOct=0; iOct<nbOcts; iOct++ )
     {
       bitpit::darray3 oct_pos = amr_mesh->getCoordinates(iOct);
-      real_t oct_size = amr_mesh->getSize(iOct);
+      real_t oct_size = amr_mesh->getSize(iOct)[0];
       
       for( uint32_t c=0; c<nbCellsPerOct; c++ )
       {

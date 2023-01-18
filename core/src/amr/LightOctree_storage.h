@@ -159,11 +159,11 @@ public:
   pos_t getCenter(const OctantIndex& iOct)  const
   {
       pos_t pos = getCorner(iOct);
-      real_t oct_size = getSize(iOct);
+      auto oct_size = getSize(iOct);
       return {
-          pos[IX] + oct_size/2,
-          pos[IY] + oct_size/2,
-          pos[IZ] + (ndim-2)*(oct_size/2)
+          pos[IX] + oct_size[IX]/2,
+          pos[IY] + oct_size[IY]/2,
+          pos[IZ] + (ndim-2)*(oct_size[IZ]/2)
       };
   }
   //! @copydoc LightOctree_base::getCorner()
@@ -171,11 +171,11 @@ public:
   pos_t getCorner(const OctantIndex& iOct)  const
   {
       auto lp = get_logical_coords(iOct);
-      real_t size = getSize(iOct);
+      auto size = getSize(iOct);
       return {
-        lp[IX] * size,
-        lp[IY] * size,
-        lp[IZ] * size
+        lp[IX] * size[IX],
+        lp[IY] * size[IY],
+        lp[IZ] * size[IZ]
       };
   }
    //! @copydoc LightOctree_base::getBound()
@@ -192,9 +192,12 @@ public:
         || lp[IX] == last_oct_x || lp[IY] == last_oct_y || lp[IZ] == last_oct_z;
   }
   //! @copydoc LightOctree_base::getSize()
-  KOKKOS_INLINE_FUNCTION real_t getSize(const OctantIndex& iOct)  const
+  KOKKOS_INLINE_FUNCTION 
+  pos_t getSize(const OctantIndex& iOct)  const
   {
-      return 1.0/( 1U << getLevel(iOct) );
+      return { 1.0/cell_count( IX, getLevel(iOct) ),
+               1.0/cell_count( IY, getLevel(iOct) ),
+               1.0/cell_count( IZ, getLevel(iOct) ) };
   }
   //! @copydoc LightOctree_base::getLevel()
   KOKKOS_INLINE_FUNCTION level_t getLevel(const OctantIndex& iOct)  const

@@ -826,7 +826,7 @@ void run_test()
     auto check_cell = [&](uint32_t iOct_local, uint32_t ix, uint32_t iy, uint32_t iz, NEIGH_SIZE neighbor_size = NEIGH_SIZE::NEIGH_IS_SAME_SIZE )
     { 
       uint32_t iOct_global = iOct_local + iGroup * nbOctsPerGroup;
-      const real_t octSize = amr_mesh->getSize(iOct_global);
+      const real_t octSize = amr_mesh->getSize(iOct_global)[0];
       const real_t cellSize = octSize/bx;
       const real_t x0 = amr_mesh->getCoordinates(iOct_global)[IX];
       const real_t y0 = amr_mesh->getCoordinates(iOct_global)[IY];

@@ -134,7 +134,7 @@ public:
    * Get the width of the cell
    * Note : all cells are square
    **/ 
-  real_t getSize( uint32_t idx ) const
+  array_t<real_t, 3> getSize( uint32_t idx ) const
   { return Impl::getSize(idx); }
 
   /// Get the AMR level of the local cell
@@ -158,7 +158,7 @@ public:
    * Get the width of the ghost cell
    * Note : all cells are square
    **/ 
-  real_t getSizeGhost( uint32_t idx ) const
+  array_t<real_t, 3> getSizeGhost(uint32_t idx ) const
   { return Impl::getSizeGhost(idx); }
 
   /// Get the AMR level of the ghost cell

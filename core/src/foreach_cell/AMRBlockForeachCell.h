@@ -40,16 +40,16 @@ public:
 
     const AMRBlockForeachCell_CData& cdata = this->cdata;
     const LightOctree& lmesh = this->lmesh;
-    real_t oct_size = lmesh.getSize(iCell.iOct);
+    auto oct_size = lmesh.getSize(iCell.iOct);
 
     real_t dx_scale = (cdata.xmax-cdata.xmin)/cdata.bx;
     real_t dy_scale = (cdata.ymax-cdata.ymin)/cdata.by;
     real_t dz_scale = (cdata.zmax-cdata.zmin)/cdata.bz;
 
     return pos_t{
-      oct_size * dx_scale,
-      oct_size * dy_scale,
-      oct_size * dz_scale
+      oct_size[IX] * dx_scale,
+      oct_size[IY] * dy_scale,
+      oct_size[IZ] * dz_scale
     };
   }
   

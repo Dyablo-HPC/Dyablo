@@ -57,7 +57,7 @@ void run_test(const Test_data& test_data)
     for(uint32_t iOct=0; iOct<nbOcts; iOct++)
     {
       auto c = amr_mesh.getCenter( iOct );
-      real_t s = amr_mesh.getSize( iOct );
+      real_t s = amr_mesh.getSize( iOct )[0];
       bool refine = false;
       for( size_t i=0; i<spots.size(); i++ )
       {
@@ -98,7 +98,7 @@ void run_test(const Test_data& test_data)
       uint64_t count_level = 0;
       for(uint32_t iOct=0; iOct<nbOcts; iOct++)
       {
-        real_t s = amr_mesh.getSize( iOct );
+        real_t s = amr_mesh.getSize( iOct )[0];
         int level = amr_mesh.getLevel( iOct );
         if( level==i )
         {

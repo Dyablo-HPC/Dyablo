@@ -201,11 +201,11 @@ public:
               KOKKOS_LAMBDA( uint32_t iOct_new )
             {
                 LightOctree::pos_t pos = lmesh.getCenter({iOct_new, false});
-                real_t oct_size = lmesh.getSize({iOct_new, false});
-                pos[IX] += oct_size*0.01; // Add epsilon to avoid hitting boundary
-                pos[IY] += oct_size*0.01;
+                auto oct_size = lmesh.getSize({iOct_new, false});
+                pos[IX] += oct_size[IX]*0.01; // Add epsilon to avoid hitting boundary
+                pos[IY] += oct_size[IY]*0.01;
                 if(ndim==3)
-                  pos[IZ] += oct_size*0.01;
+                  pos[IZ] += oct_size[IZ]*0.01;
 
                 LightOctree::OctantIndex iOct_input = input_lmesh.getiOctFromPos( pos );
                 int level_input = input_lmesh.getLevel(iOct_input);

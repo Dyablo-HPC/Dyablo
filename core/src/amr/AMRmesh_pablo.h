@@ -99,9 +99,16 @@ public:
         return getZ(getGhostOctant(iOct));
     }
 
-    double getSizeGhost( uint32_t iOct ) const
+    bitpit::darray3 getSize( uint32_t iOct ) const
     {
-        return getSize(getGhostOctant(iOct));
+        real_t size = ParaTree::getSize(iOct);
+        return {size,size,size};
+    }
+
+    bitpit::darray3 getSizeGhost( uint32_t iOct ) const
+    {
+        real_t size = ParaTree::getSize(getGhostOctant(iOct));
+        return {size,size,size};
     }
 
     bitpit::darray3 getCenterGhost( uint32_t iOct ) const 

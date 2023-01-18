@@ -35,14 +35,17 @@ inline void output_vtk( const std::string& name, const AMRmesh& mesh )
   {
     cells_iOct[i] = i;
 
-    real_t px, py, pz, size;
+    real_t px, py, pz;
+    real_t size_x, size_y, size_z;
 
     if( i<mesh.getNumOctants() )
     {
       px = mesh.getCoordinates(i)[0];
       py = mesh.getCoordinates(i)[1];
       pz = mesh.getCoordinates(i)[2];
-      size = mesh.getSize(i);
+      size_x = mesh.getSize(i)[0];
+      size_y = mesh.getSize(i)[1];
+      size_z = mesh.getSize(i)[2];
     }
     else
     {
@@ -50,7 +53,9 @@ inline void output_vtk( const std::string& name, const AMRmesh& mesh )
       px = mesh.getCoordinatesGhost(iOct)[0];
       py = mesh.getCoordinatesGhost(iOct)[1];
       pz = mesh.getCoordinatesGhost(iOct)[2];
-      size = mesh.getSizeGhost(iOct);
+      size_x = mesh.getSizeGhost(i)[0];
+      size_y = mesh.getSizeGhost(i)[1];
+      size_z = mesh.getSizeGhost(i)[2];
       cells_is_ghost[i] = 1;
     }
 
@@ -59,9 +64,9 @@ inline void output_vtk( const std::string& name, const AMRmesh& mesh )
     for( int16_t dx=0; dx<2; dx++ )
     {
       int di = dx + 2*dy + 4*dz;
-      nodes_Coordinates[3*(8*i+di) + 0] = px + size * dx;
-      nodes_Coordinates[3*(8*i+di) + 1] = py + size * dy;
-      nodes_Coordinates[3*(8*i+di) + 2] = pz + size * dz;
+      nodes_Coordinates[3*(8*i+di) + 0] = px + size_x * dx;
+      nodes_Coordinates[3*(8*i+di) + 1] = py + size_y * dy;
+      nodes_Coordinates[3*(8*i+di) + 2] = pz + size_z * dz;
       cells_Connectivity[8*i+di] = 8*i+di;
     }
 

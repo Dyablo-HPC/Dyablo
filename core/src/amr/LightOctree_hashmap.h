@@ -103,7 +103,7 @@ public:
     {return storage.getCorner(iOct);}
 
     KOKKOS_INLINE_FUNCTION
-    real_t getSize(const OctantIndex& iOct)  const
+    pos_t getSize(const OctantIndex& iOct)  const
     {return storage.getSize(iOct);}
     
     KOKKOS_INLINE_FUNCTION
@@ -203,12 +203,12 @@ public:
     KOKKOS_INLINE_FUNCTION
     bool isBoundary(const OctantIndex& iOct, const offset_t& offset) const {
       //assert( !iOct.isGhost );
-      real_t dh = this->getSize(iOct);
+      auto dh = this->getSize(iOct);
       pos_t center = this->getCenter(iOct);    
       pos_t pos {
-          center[IX] + offset[IX]*dh,
-          center[IY] + offset[IY]*dh,
-          center[IZ] + offset[IZ]*dh
+          center[IX] + offset[IX]*dh[IX],
+          center[IY] + offset[IY]*dh[IY],
+          center[IZ] + offset[IZ]*dh[IZ]
       };
   
       //       Not periodic   and     not inside domain
@@ -259,11 +259,13 @@ public:
 
         key_t logical_coords;
         {
-            real_t octant_size = 1.0/(1U << max_level);
+            real_t octant_size_x = 1.0/( storage.cell_count(IX, max_level) );
+            real_t octant_size_y = 1.0/( storage.cell_count(IY, max_level) );
+            real_t octant_size_z = 1.0/( storage.cell_count(IZ, max_level) );
             logical_coords.level = max_level;
-            logical_coords.i = std::floor(pos[IX]/octant_size);
-            logical_coords.j = std::floor(pos[IY]/octant_size);
-            logical_coords.k = (ndim-2)*std::floor(pos[IZ]/octant_size);
+            logical_coords.i = std::floor(pos[IX]/octant_size_x);
+            logical_coords.j = std::floor(pos[IY]/octant_size_y);
+            logical_coords.k = (ndim-2)*std::floor(pos[IZ]/octant_size_z);
         }
 
         for(level_t level=max_level; level>=min_level; level--)

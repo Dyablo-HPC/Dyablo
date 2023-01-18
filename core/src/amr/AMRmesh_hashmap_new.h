@@ -93,11 +93,17 @@ public:
     return {p[IX], p[IY], p[IZ]};
   }
 
-  real_t getSize( uint32_t idx ) const
-  { return storage.getSize( {idx, false} ); }
+  array_t<real_t, 3> getSize( uint32_t idx ) const
+   { 
+    auto p = storage.getSize( {idx, false} );
+    return {p[IX], p[IY], p[IZ]};
+  }
 
-  real_t getSizeGhost( uint32_t idx ) const
-  { return storage.getSize( {idx, true} ); }
+  array_t<real_t, 3> getSizeGhost( uint32_t idx ) const
+   { 
+    auto p = storage.getSize( {idx, true} );
+    return {p[IX], p[IY], p[IZ]};
+  }
 
   level_t getLevel( uint32_t idx ) const
   { return storage.getLevel( {idx, false} ); }
