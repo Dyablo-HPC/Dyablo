@@ -15,7 +15,7 @@ AMRmesh_impl<Impl_t>::AMRmesh_impl( int dim, int balance_codim, const std::array
 {
   if( ( coarse_grid_size[IX] != (1U << level_min) ) 
    || ( coarse_grid_size[IY] != (1U << level_min) ) 
-   || ( coarse_grid_size[IY] != (dim==3)?(1U << level_min):1 ) )
+   || ( coarse_grid_size[IZ] != ((dim==3)?(1U << level_min):1 )) )
   {
     throw std::runtime_error( "This AMRmesh_implementation doesn't support non-square coarse domain" );
   }

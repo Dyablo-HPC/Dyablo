@@ -56,6 +56,10 @@ AMRmesh_hashmap_new::AMRmesh_hashmap_new( int dim, int balance_codim,
     }
   }))
 {
+  assert( coarse_grid_size[IX] <= (1U << level_min) );
+  assert( coarse_grid_size[IY] <= (1U << level_min) );
+  assert( coarse_grid_size[IZ] <= (dim==3)?(1U << level_min):1 );
+
   private_init(dim, coarse_grid_size);
 }
 
