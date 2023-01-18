@@ -1,6 +1,7 @@
 #include "amr/AMRmesh_hashmap_new.h"
 
 #include <Kokkos_UnorderedMap.hpp>
+#include <Kokkos_Sort.hpp>
 #include "morton_utils.h"
 #include "mpi/GhostCommunicator.h"
 #include "amr/LightOctree_hashmap.h"
@@ -26,85 +27,121 @@ struct AMRmesh_hashmap_new::PData{
   markers_t markers;
   int level_min, level_max;
   GhostMap_t ghostmap;
+  Kokkos::Array<logical_coord_t,3> coarse_grid_size;
 };
 
 AMRmesh_hashmap_new::AMRmesh_hashmap_new( int dim, int balance_codim, 
                       const std::array<bool,3>& periodic, 
                       uint8_t level_min, uint8_t level_max,
                       const MpiComm& mpi_comm)
+  : AMRmesh_hashmap_new( dim, balance_codim, periodic, level_min, level_max,  
+                          {1U << level_min, 1U << level_min, (dim==3)?(1U << level_min):1},
+                          mpi_comm)
+{}
+
+AMRmesh_hashmap_new::AMRmesh_hashmap_new( int dim, int balance_codim, 
+                      const std::array<bool,3>& periodic, 
+                      uint8_t level_min, uint8_t level_max,
+                      const Kokkos::Array<logical_coord_t,3>& coarse_grid_size,
+                      const MpiComm& mpi_comm )
 : periodic({periodic[IX], periodic[IY], periodic[IZ]}),
   mpi_comm(mpi_comm),
-  total_num_octs(std::pow( 1 << level_min, dim )),
+  total_num_octs(coarse_grid_size[IX]*coarse_grid_size[IY]*coarse_grid_size[IZ]),
+  first_local_oct(0),
   pdata(std::make_unique<PData>(PData{
     markers_t(),
     level_min, level_max,
     GhostMap_t{
       Kokkos::View<uint32_t*>("AMRmesh_hashmap_new::ghostmap::send_sizes", mpi_comm.MPI_Comm_size()),
       Kokkos::View<uint32_t*>("AMRmesh_hashmap_new::ghostmap::send_iOcts", 0)
-    }
+    },
+    coarse_grid_size
   }))
 {
   private_init(dim);
 }
 
+namespace{
+
+template <class KeyViewType>
+struct BinOpMorton {
+  enum oct_data_field_t{
+      ICORNERX, 
+      ICORNERY, 
+      ICORNERZ, 
+      ILEVEL,
+      OCT_DATA_COUNT
+  };
+
+  BinOpMorton() = default;
+
+  int dim;
+  int level;
+  BinOpMorton(int dim, int level)
+   : dim(dim), level(level)
+  {}
+
+  template <class ViewType>
+  KOKKOS_INLINE_FUNCTION int bin(ViewType& keys, const int& i) const {
+    logical_coord_t ix = keys( i, ICORNERX );
+    logical_coord_t iy = keys( i, ICORNERY );
+    logical_coord_t iz = keys( i, ICORNERZ );
+    
+    return compute_morton_key(ix, iy, iz);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  int max_bins() const { return std::pow( 1 << level, dim ); }
+
+  template <class ViewType, typename iType1, typename iType2>
+  KOKKOS_INLINE_FUNCTION bool operator()(ViewType& keys, iType1& i1,
+                                         iType2& i2) const {
+    
+    logical_coord_t ix1 = keys( i1, ICORNERX );
+    logical_coord_t iy1 = keys( i1, ICORNERY );
+    logical_coord_t iz1 = keys( i1, ICORNERZ );    
+    morton_t m1 = compute_morton_key(ix1, iy1, iz1);
+
+    logical_coord_t ix2 = keys( i2, ICORNERX );
+    logical_coord_t iy2 = keys( i2, ICORNERY );
+    logical_coord_t iz2 = keys( i2, ICORNERZ );    
+    morton_t m2 = compute_morton_key(ix2, iy2, iz2);
+
+    return m1 > m2;
+  }
+};
+
+}
+
 void AMRmesh_hashmap_new::private_init(int dim)
 {
   level_t level_min = this->pdata->level_min;
+  Kokkos::Array<logical_coord_t,3> coarse_grid_size = this->pdata->coarse_grid_size;
 
   int mpi_rank = this->mpi_comm.MPI_Comm_rank();
-  int mpi_size = this->mpi_comm.MPI_Comm_size();
-
-  // Compute local octant count and first global octant index
-  uint64_t first_local_oct = ((morton_t)mpi_rank * this->total_num_octs ) / (morton_t)mpi_size;
-  uint64_t end_local_oct = ((morton_t)(mpi_rank+1) * this->total_num_octs ) / (morton_t)mpi_size;
-  uint32_t nbOcts_local = end_local_oct - first_local_oct ;
-  this->first_local_oct = first_local_oct;
-
-  // Compute morton intervals
-  std::vector<morton_t> morton_intervals( mpi_size+1 );
-  {
-    morton_t morton_max;
-    if( dim == 3 )
-      morton_max = this->total_num_octs;
-    else
-    { // Morton intervals in 2D are not contiguous
-      uint64_t oct_count = 1 << level_min;
-      morton_max = compute_morton_key( oct_count-1, oct_count-1, 0 )+1;
-    }
-    for(int i=0; i<=mpi_size; i++)
-      morton_intervals[i] = ((morton_t)i * morton_max ) / (morton_t)mpi_size;
-  }  
+  uint32_t nbOcts_local = (mpi_rank == 0)?this->total_num_octs:0;
 
   LightOctree_storage<> storage_device(dim, nbOcts_local, 0);
   Kokkos::parallel_for( "AMRmesh_hashmap_new::init", storage_device.getNumOctants(),
     KOKKOS_LAMBDA( oct_index_t iOct )
   {
-    uint64_t morton = iOct + first_local_oct;
-    logical_coord_t ix = morton_extract_coord<IX>(dim, morton);
-    logical_coord_t iy = morton_extract_coord<IY>(dim, morton);
-    logical_coord_t iz;
-    if (dim==3)
-      iz = morton_extract_coord<IZ>(dim,morton);
-    else 
-      iz = 0;
+    logical_coord_t ix = iOct % coarse_grid_size[IX];
+    logical_coord_t iy = (iOct / coarse_grid_size[IX]) % coarse_grid_size[IY];
+    logical_coord_t iz = (iOct / coarse_grid_size[IX]) / coarse_grid_size[IY];
 
     storage_device.set( {iOct, false}, ix, iy, iz, level_min );
   });
 
-  pdata->ghostmap = discover_ghosts( storage_device, morton_intervals, this->pdata->level_min, this->periodic, this->mpi_comm );
-  GhostCommunicator_kokkos ghost_comm( pdata->ghostmap.send_sizes, pdata->ghostmap.send_iOcts, mpi_comm  );
-  oct_index_t nbGhosts = ghost_comm.getNumGhosts();
-  LightOctree_storage<> storage_device_ghosts(dim, 0, nbGhosts );
-  ghost_comm.exchange_ghosts<0>( storage_device.oct_data, storage_device_ghosts.oct_data );
+  // Sort storage_device according to morton index
+  using KeyViewType = LightOctree_storage<>::oct_data_t;
+  BinOpMorton<KeyViewType> bin_op(dim, level_min);
+  Kokkos::BinSort<KeyViewType, BinOpMorton<KeyViewType>> Sorter(storage_device.oct_data, bin_op, false);
+  Sorter.create_permute_vector();
+  Sorter.sort(storage_device.oct_data);
 
-  LightOctree_storage<> storage_device2( dim, nbOcts_local, nbGhosts );
-  Kokkos::deep_copy( storage_device2.getLocalSubview(), storage_device.getLocalSubview() );
-  Kokkos::deep_copy( storage_device2.getGhostSubview(), storage_device_ghosts.getGhostSubview() );
+  this->storage = storage_device;
 
-  this->storage = storage_device2;
-
-  pdata->markers = markers_t( "markers", storage.getNumOctants() );
-
+  this->loadBalance(0);
   std::cout << "AMRmesh initialized : " << this->getNumOctants() << " ( "  << this->getNumGhosts() << " ) " << std::endl;
 }
 

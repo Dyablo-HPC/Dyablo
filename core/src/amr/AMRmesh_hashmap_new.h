@@ -22,6 +22,12 @@ public:
                       uint8_t level_min, uint8_t level_max,
                       const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world());
 
+  AMRmesh_hashmap_new( int dim, int balance_codim, 
+                      const std::array<bool,3>& periodic, 
+                      uint8_t level_min, uint8_t level_max,
+                      const Kokkos::Array<logical_coord_t,3>& coarse_grid_size ,
+                      const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world());
+
   ~AMRmesh_hashmap_new();
 
   void private_init(int dim);
