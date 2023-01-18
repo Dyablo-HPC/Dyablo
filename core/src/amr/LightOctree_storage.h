@@ -17,6 +17,7 @@ public:
   using level_t = logical_coord_t;
   using oct_data_t = Kokkos::View< logical_coord_t**, Kokkos::LayoutLeft, MemorySpace >;
   using pos_t = Kokkos::Array<real_t,3>;
+  using coarse_grid_size_t = Kokkos::Array<logical_coord_t,3>;
 protected:
   using OctantIndex = LightOctree_base::OctantIndex;
   //! Index to access different fields in `oct_data`
@@ -37,7 +38,7 @@ public:
 
   template< typename MemorySpace_t >
   LightOctree_storage(const LightOctree_storage<MemorySpace_t>& storage)
-   : LightOctree_storage( storage.getNdim(), storage.getNumOctants(), storage.getNumGhosts() )
+   : LightOctree_storage( storage.getNdim(), storage.getNumOctants(), storage.getNumGhosts(), storage.level_min, storage.coarse_grid_size )
   {
     Kokkos::deep_copy( this->oct_data, storage.oct_data );
   }
@@ -78,7 +79,7 @@ public:
    **/
   template< typename AMRmesh_t, typename std::enable_if< !HasStorage<AMRmesh_t>::value, int >::type = 0 >
   LightOctree_storage(const AMRmesh_t& pmesh)
-  : LightOctree_storage( pmesh.getDim(), pmesh.getNumOctants(), pmesh.getNumGhosts() )
+  : LightOctree_storage( pmesh.getDim(), pmesh.getNumOctants(), pmesh.getNumGhosts(), pmesh.get_level_min() )
   {
     private_init(pmesh);   
   }
@@ -105,7 +106,7 @@ public:
                 pmesh.getLevelGhost(oct.iOct):
                 pmesh.getLevel(oct.iOct);
 
-        logical_coord_t octant_count = cell_count( level );
+        logical_coord_t octant_count =( 1U << level );
         real_t octant_size = 1.0/octant_count;
         oct_data_host(ioct_local, ICORNERX) = std::floor(c[IX]/octant_size);
         oct_data_host(ioct_local, ICORNERY) = std::floor(c[IY]/octant_size);
@@ -119,8 +120,16 @@ public:
 
 
   // Create an empty LightOctree_storage
-  LightOctree_storage( int ndim, uint32_t numOctants, uint32_t numGhosts )
-  : ndim(ndim), numOctants(numOctants), numGhosts(numGhosts),
+  LightOctree_storage( int ndim, uint32_t numOctants, uint32_t numGhosts, level_t level_min, const coarse_grid_size_t& coarse_grid_size )
+  : ndim(ndim), numOctants(numOctants), numGhosts(numGhosts), level_min(level_min),
+    coarse_grid_size(coarse_grid_size),
+    oct_data("LightOctree_storage", numOctants+numGhosts, oct_data_field_t::OCT_DATA_COUNT)
+  {}
+
+  // Create an empty LightOctree_storage (full coarse grid version)
+  LightOctree_storage( int ndim, uint32_t numOctants, uint32_t numGhosts, level_t level_min)
+  : ndim(ndim), numOctants(numOctants), numGhosts(numGhosts), level_min(level_min),
+    coarse_grid_size( { (1U << level_min), (1U << level_min), (ndim==3)?(1U << level_min):1 }  ),
     oct_data("LightOctree_storage", numOctants+numGhosts, oct_data_field_t::OCT_DATA_COUNT)
   {}
 
@@ -175,15 +184,17 @@ public:
   {
     auto lp = get_logical_coords(iOct);
     level_t level = getLevel(iOct);
-    logical_coord_t last_oct = cell_count(level)-1;
+    logical_coord_t last_oct_x = cell_count(IX, level)-1;
+    logical_coord_t last_oct_y = cell_count(IY, level)-1;
+    logical_coord_t last_oct_z = cell_count(IZ, level)-1;
 
     return lp[IX] == 0 || lp[IY] == 0 || lp[IZ] == 0 
-        || lp[IX] == last_oct || lp[IY] == last_oct || lp[IZ] == last_oct;
+        || lp[IX] == last_oct_x || lp[IY] == last_oct_y || lp[IZ] == last_oct_z;
   }
   //! @copydoc LightOctree_base::getSize()
   KOKKOS_INLINE_FUNCTION real_t getSize(const OctantIndex& iOct)  const
   {
-      return 1.0/cell_count( getLevel(iOct) );
+      return 1.0/( 1U << getLevel(iOct) );
   }
   //! @copydoc LightOctree_base::getLevel()
   KOKKOS_INLINE_FUNCTION level_t getLevel(const OctantIndex& iOct)  const
@@ -232,12 +243,14 @@ public:
 
   int ndim;
   uint32_t numOctants, numGhosts; //! Number of local octants (no ghosts), Number of ghosts.
+  level_t level_min;
+  coarse_grid_size_t coarse_grid_size;
 
   KOKKOS_INLINE_FUNCTION
-  static logical_coord_t cell_count( level_t n )
+  logical_coord_t cell_count( ComponentIndex3D idim, level_t n ) const
   {
       assert( n < sizeof(logical_coord_t)*8 ); // 
-      return (logical_coord_t)1 << n;
+      return coarse_grid_size[idim] << (n-level_min);
   }
 
   //! Kokkos::view containing octants position and level 

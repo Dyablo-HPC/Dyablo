@@ -178,7 +178,7 @@ public:
 
         uint32_t nbCells_local = lmesh_data.extent(0);
         uint32_t nbCells_ghost = 0;
-        LightOctree_storage<> lmesh_storage( ndim, nbCells_local, nbCells_ghost );
+        LightOctree_storage<> lmesh_storage( ndim, nbCells_local, nbCells_ghost, level_min ); // TODO : support non square domains
 
         Kokkos::deep_copy( lmesh_storage.getLocalSubview(), lmesh_data );
 

@@ -14,9 +14,10 @@ class AMRmesh_pablo : public bitpit::PabloUniform
 {
 private:
     MpiComm mpi_comm;
+    int level_min;
 public:
     AMRmesh_pablo( int dim, int balance_codim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max )
-        : PabloUniform(dim), mpi_comm( PabloUniform::getComm() )
+        : PabloUniform(dim), mpi_comm( PabloUniform::getComm() ), level_min(level_min)
     {
         assert(dim == 2 || dim == 3);
         assert(balance_codim <= dim);
@@ -68,6 +69,11 @@ public:
             return {p[0], p[1], p[2], p[3], p[4], p[5]};
     }  
     using PabloUniform::getPeriodic;
+
+    int get_level_min() const
+    {
+        return level_min;
+    }
 
     int get_max_supported_level()
     {

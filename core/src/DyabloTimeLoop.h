@@ -40,7 +40,14 @@ private:
     };
     int amr_level_min = configMap.getValue<int>("amr","level_min", 5);
     int amr_level_max = configMap.getValue<int>("amr","level_max", 10);
-    return std::make_shared<AMRmesh>( ndim, codim, periodic, amr_level_min, amr_level_max );
+    uint32_t amr_coarse_resolution_x = configMap.getValue<uint32_t>("amr","coarse_resolution_x", (1U << amr_level_min) );
+    uint32_t amr_coarse_resolution_y = configMap.getValue<uint32_t>("amr","coarse_resolution_y", (1U << amr_level_min) );
+    uint32_t amr_coarse_resolution_z = configMap.getValue<uint32_t>("amr","coarse_resolution_z", (ndim==3)?(1U << amr_level_min):1 );
+
+    // TODO : check compatibility between resolutions and levels
+
+    return std::make_shared<AMRmesh>( ndim, codim, periodic, amr_level_min, amr_level_max, 
+                                      Kokkos::Array<uint32_t,3>{amr_coarse_resolution_x, amr_coarse_resolution_y, amr_coarse_resolution_z} );
   }
 public:
   /**

@@ -30,7 +30,7 @@ public:
 
   ~AMRmesh_hashmap_new();
 
-  void private_init(int dim);
+  void private_init(int dim, Kokkos::Array<logical_coord_t,3> coarse_grid_size);
 
   const Storage_t& getStorage() const
   {
@@ -49,6 +49,9 @@ public:
   { 
     return periodic[i/2]; 
   }
+
+  int get_level_min() const;
+  
   int get_max_supported_level()
   {
     return 20; // Maybe more? (But never tested)

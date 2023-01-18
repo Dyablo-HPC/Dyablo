@@ -101,7 +101,7 @@ public:
     KOKKOS_INLINE_FUNCTION
     pos_t getCorner(const OctantIndex& iOct)  const
     {return storage.getCorner(iOct);}
-    
+
     KOKKOS_INLINE_FUNCTION
     real_t getSize(const OctantIndex& iOct)  const
     {return storage.getSize(iOct);}
@@ -134,12 +134,14 @@ public:
         
         level_t level = getLevel(iOct);
         auto lc = storage.get_logical_coords(iOct);
-        logical_coord_t octant_count = storage.cell_count( level );
+        logical_coord_t octant_count_x = storage.cell_count(IX, level );
+        logical_coord_t octant_count_y = storage.cell_count(IY, level );
+        logical_coord_t octant_count_z = storage.cell_count(IZ, level );
         key_t logical_coords;
         logical_coords.level = getLevel(iOct);
-        logical_coords.i = (lc[IX] + octant_count + offset[IX]) % octant_count; // Periodic coord only works if offset > -octant_count
-        logical_coords.j = (lc[IY] + octant_count + offset[IY]) % octant_count;
-        logical_coords.k = (lc[IZ] + octant_count + offset[IZ]) % octant_count;   
+        logical_coords.i = (lc[IX] + octant_count_x + offset[IX]) % octant_count_x; // Periodic coord only works if offset > -octant_count
+        logical_coords.j = (lc[IY] + octant_count_y + offset[IY]) % octant_count_y;
+        logical_coords.k = (lc[IZ] + octant_count_z + offset[IZ]) % octant_count_z;   
 
         NeighborList res = {0};
         // Search octant at same level
@@ -227,10 +229,10 @@ public:
     {
         int ndim = getNdim();
 
-        assert( ix < storage.cell_count( level )  );
-        assert( iy < storage.cell_count( level )  );
+        assert( ix < storage.cell_count(IX, level )  );
+        assert( iy < storage.cell_count(IY, level )  );
         if(ndim == 3)
-            assert( iz < storage.cell_count( level )  );
+            assert( iz < storage.cell_count(IZ, level )  );
         else 
             assert( iz == 0  );
 
@@ -257,8 +259,7 @@ public:
 
         key_t logical_coords;
         {
-            uint32_t octant_count = storage.cell_count( max_level );
-            real_t octant_size = 1.0/octant_count;
+            real_t octant_size = 1.0/(1U << max_level);
             logical_coords.level = max_level;
             logical_coords.i = std::floor(pos[IX]/octant_size);
             logical_coords.j = std::floor(pos[IY]/octant_size);

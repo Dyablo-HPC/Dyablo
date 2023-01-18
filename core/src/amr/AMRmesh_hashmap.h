@@ -57,6 +57,11 @@ public:
         return {periodic[0],periodic[0],periodic[1],periodic[1],periodic[2],periodic[2]};
     }
 
+    int get_level_min() const
+    {
+        return level_min;
+    }
+
     int get_max_supported_level()
     {
         return sizeof(oct_view_device_t::value_type)*8-1;

@@ -24,7 +24,7 @@ public:
   using array_t = std::array<T,N>;
 
   /**
-   * Construct a new empty AMR mesh
+   * Construct a new empty AMR mesh initialized with a fixed grid at level_min
    * @param dim number of dimensions 2D/3D
    * @param balance_codim 2:1 balance behavior : 
    *               1 ==> balance through faces, 
@@ -34,9 +34,9 @@ public:
    * @param level_min minimum refinement level 
    * @param level_max maximum refinement level
    * (TODO : clarify level_min/level_max) 
-   * Note : Right after construction Mesh has 1 octant
    **/
   AMRmesh_impl( int dim, int balance_codim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max);
+  AMRmesh_impl( int dim, int balance_codim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max, const Kokkos::Array<uint32_t,3>& coarse_grid_size);
 
   ~AMRmesh_impl();
 
@@ -60,10 +60,13 @@ public:
     return Impl::get_max_supported_level();
   }
 
-  int get_level_min()
-  {return level_min;}
+  int get_level_min() const
+  {
+    assert( level_min == Impl::get_level_min() );
+    return level_min;
+  }
 
-  int get_level_max()
+  int get_level_max() const
   {return level_max;}
 
   /**

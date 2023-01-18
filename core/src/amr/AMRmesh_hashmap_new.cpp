@@ -27,7 +27,6 @@ struct AMRmesh_hashmap_new::PData{
   markers_t markers;
   int level_min, level_max;
   GhostMap_t ghostmap;
-  Kokkos::Array<logical_coord_t,3> coarse_grid_size;
 };
 
 AMRmesh_hashmap_new::AMRmesh_hashmap_new( int dim, int balance_codim, 
@@ -54,11 +53,10 @@ AMRmesh_hashmap_new::AMRmesh_hashmap_new( int dim, int balance_codim,
     GhostMap_t{
       Kokkos::View<uint32_t*>("AMRmesh_hashmap_new::ghostmap::send_sizes", mpi_comm.MPI_Comm_size()),
       Kokkos::View<uint32_t*>("AMRmesh_hashmap_new::ghostmap::send_iOcts", 0)
-    },
-    coarse_grid_size
+    }
   }))
 {
-  private_init(dim);
+  private_init(dim, coarse_grid_size);
 }
 
 namespace{
@@ -113,15 +111,14 @@ struct BinOpMorton {
 
 }
 
-void AMRmesh_hashmap_new::private_init(int dim)
+void AMRmesh_hashmap_new::private_init(int dim, Kokkos::Array<logical_coord_t,3> coarse_grid_size)
 {
   level_t level_min = this->pdata->level_min;
-  Kokkos::Array<logical_coord_t,3> coarse_grid_size = this->pdata->coarse_grid_size;
 
   int mpi_rank = this->mpi_comm.MPI_Comm_rank();
   uint32_t nbOcts_local = (mpi_rank == 0)?this->total_num_octs:0;
 
-  LightOctree_storage<> storage_device(dim, nbOcts_local, 0);
+  LightOctree_storage<> storage_device(dim, nbOcts_local, 0, level_min, coarse_grid_size);
   Kokkos::parallel_for( "AMRmesh_hashmap_new::init", storage_device.getNumOctants(),
     KOKKOS_LAMBDA( oct_index_t iOct )
   {
@@ -153,6 +150,11 @@ const AMRmesh_hashmap_new::GhostMap_t& AMRmesh_hashmap_new::getGhostMap() const
   return pdata->ghostmap;
 }
 
+int AMRmesh_hashmap_new::get_level_min() const
+{
+    return pdata->level_min;
+}
+
 void AMRmesh_hashmap_new::adaptGlobalRefine()
 {
   int ndim = getDim();
@@ -162,7 +164,7 @@ void AMRmesh_hashmap_new::adaptGlobalRefine()
 
   Storage_t& old_storage = this->storage;
   LightOctree_storage<> old_storage_device( old_storage );
-  LightOctree_storage<> new_storage_device( ndim, new_nbOcts, 0 );
+  LightOctree_storage<> new_storage_device( ndim, new_nbOcts, 0, old_storage.level_min, old_storage.coarse_grid_size );
 
   Kokkos::parallel_for( "AMRmesh_hashmap_new::adaptGlobalRefine", 
     old_nbOcts,
@@ -327,20 +329,22 @@ AMRmesh_hashmap_new::GhostMap_t discover_ghosts(
 
       assert(find_rank(compute_morton(pos, level)) == mpi_rank);
 
-      logical_coord_t max_i = storage_device.cell_count(level);
+      logical_coord_t max_ix = storage_device.cell_count(IX, level);
+      logical_coord_t max_iy = storage_device.cell_count(IY, level);
+      logical_coord_t max_iz = storage_device.cell_count(IZ, level);
       int dz_max = (ndim == 2)? 0:1;
       for( int dz=-dz_max; dz<=dz_max; dz++ )
       for( int dy=-1; dy<=1; dy++ )
       for( int dx=-1; dx<=1; dx++ )
       if(   (dx!=0 || dy!=0 || dz!=0)
-          && (periodic[IX] || ( 0<=pos[IX]+dx && pos[IX]+dx<max_i ))
-          && (periodic[IY] || ( 0<=pos[IY]+dy && pos[IY]+dy<max_i ))
-          && (periodic[IZ] || ( 0<=pos[IZ]+dz && pos[IZ]+dz<max_i )) )
+          && (periodic[IX] || ( 0<=pos[IX]+dx && pos[IX]+dx<max_ix ))
+          && (periodic[IY] || ( 0<=pos[IY]+dy && pos[IY]+dy<max_iy ))
+          && (periodic[IZ] || ( 0<=pos[IZ]+dz && pos[IZ]+dz<max_iz )) )
       {
         Kokkos::Array<logical_coord_t, 3> pos_n{
-          (pos[IX]+dx+max_i)%max_i, 
-          (pos[IY]+dy+max_i)%max_i, 
-          (pos[IZ]+dz+max_i)%max_i
+          (pos[IX]+dx+max_ix)%max_ix, 
+          (pos[IY]+dy+max_iy)%max_iy, 
+          (pos[IZ]+dz+max_iz)%max_iz
         };
         morton_t morton_n = compute_morton( pos_n, level );
         int neighbor_rank = find_rank( morton_n );
@@ -567,7 +571,7 @@ AMRmesh_hashmap_new::GhostMap_t AMRmesh_hashmap_new::loadBalance(level_t level)
 
     // Exchange octs that changed domain 
     oct_index_t new_nbOcts = new_oct_intervals[mpi_rank+1]-new_oct_intervals[mpi_rank];
-    LightOctree_storage<> new_storage_device(this->getDim(), new_nbOcts, 0);
+    LightOctree_storage<> new_storage_device(this->getDim(), new_nbOcts, 0, storage.level_min, storage.coarse_grid_size );
     {
       // Use storage on device to perform remaining operations
       LightOctree_storage<> old_storage_device = storage;
@@ -586,14 +590,14 @@ AMRmesh_hashmap_new::GhostMap_t AMRmesh_hashmap_new::loadBalance(level_t level)
     // Raw view for ghosts
     GhostCommunicator_kokkos ghost_comm( pdata->ghostmap.send_sizes,  pdata->ghostmap.send_iOcts );
     oct_index_t new_nbGhosts = ghost_comm.getNumGhosts();
-    LightOctree_storage<> new_storage_device_ghosts( ndim, 0, new_nbGhosts );   
+    LightOctree_storage<> new_storage_device_ghosts( ndim, 0, new_nbGhosts, storage.level_min, storage.coarse_grid_size );   
     ghost_comm.exchange_ghosts<0>( new_storage_device.oct_data, new_storage_device_ghosts.oct_data );
     {
       int ndim = new_storage_device.getNdim();
 
       // We need to go through a temporary device storage because
       // subviews are non-contiguous and deep_copy is only supported in same memory space
-      LightOctree_storage<> storage_device(ndim, new_nbOcts, new_nbGhosts );
+      LightOctree_storage<> storage_device(ndim, new_nbOcts, new_nbGhosts, storage.level_min, storage.coarse_grid_size );
       Kokkos::deep_copy( storage_device.getLocalSubview(), new_storage_device.getLocalSubview() );
       Kokkos::deep_copy( storage_device.getGhostSubview(), new_storage_device_ghosts.getGhostSubview() );
 
@@ -802,7 +806,7 @@ void AMRmesh_hashmap_new::adapt(bool dummy)
     }, new_nbOcts);
 
     // Allocate new storage on device
-    LightOctree_storage<> new_storage_device( ndim, new_nbOcts, 0 );
+    LightOctree_storage<> new_storage_device( ndim, new_nbOcts, 0, storage.level_min, storage.coarse_grid_size  );
 
     // Write new octant data
     Kokkos::parallel_for( "adapt::apply", old_nbOcts,
@@ -891,12 +895,12 @@ void AMRmesh_hashmap_new::adapt(bool dummy)
       // Raw view for ghosts
       GhostCommunicator_kokkos ghost_comm( pdata->ghostmap.send_sizes,  pdata->ghostmap.send_iOcts );
       oct_index_t new_nbGhosts = ghost_comm.getNumGhosts();
-      LightOctree_storage<> new_storage_device_ghosts( ndim, 0, new_nbGhosts );
+      LightOctree_storage<> new_storage_device_ghosts( ndim, 0, new_nbGhosts, storage.level_min, storage.coarse_grid_size  );
       ghost_comm.exchange_ghosts<0>( new_storage_device.oct_data, new_storage_device_ghosts.oct_data );
 
       // We need to go through a temporary device storage because
       // subviews are non-contiguous and deep_copy is only supported in same memory space
-      LightOctree_storage<> newnew_storage_device(ndim, new_nbOcts, new_nbGhosts );
+      LightOctree_storage<> newnew_storage_device(ndim, new_nbOcts, new_nbGhosts, storage.level_min, storage.coarse_grid_size  );
       Kokkos::deep_copy( newnew_storage_device.getLocalSubview(), new_storage_device.getLocalSubview() );
       Kokkos::deep_copy( newnew_storage_device.getGhostSubview(), new_storage_device_ghosts.getGhostSubview() );
 
