@@ -1,7 +1,7 @@
 #include "amr/AMRmesh_hashmap_new.h"
 
 #include <Kokkos_UnorderedMap.hpp>
-#include <Kokkos_Sort.hpp>
+#include <Kokkos_StdAlgorithms.hpp>
 #include "morton_utils.h"
 #include "mpi/GhostCommunicator.h"
 #include "amr/LightOctree_hashmap.h"
@@ -70,8 +70,9 @@ void AMRmesh_hashmap_new::private_init(int dim, Kokkos::Array<logical_coord_t,3>
   int mpi_rank = this->mpi_comm.MPI_Comm_rank();
   uint32_t nbOcts_local = (mpi_rank == 0)?this->total_num_octs:0;
 
-  morton_t morton_end = std::pow( (1UL << level_min), dim );
+  morton_t morton_end = (mpi_rank == 0)?std::pow( (1UL << level_min), dim ):0;
 
+  uint32_t nbOcts_added = 0;
   LightOctree_storage<> storage_device(dim, nbOcts_local, 0, level_min, coarse_grid_size);
   Kokkos::parallel_scan( "AMRmesh_hashmap_new::init", morton_end,
     KOKKOS_LAMBDA( uint64_t morton, uint32_t& iOct, bool final )
@@ -91,7 +92,9 @@ void AMRmesh_hashmap_new::private_init(int dim, Kokkos::Array<logical_coord_t,3>
 
       iOct ++;
     }
-  });
+  }, nbOcts_added);
+
+  assert( nbOcts_local == nbOcts_added );
 
   this->storage = storage_device;
 
@@ -114,39 +117,8 @@ int AMRmesh_hashmap_new::get_level_min() const
 
 void AMRmesh_hashmap_new::adaptGlobalRefine()
 {
-  int ndim = getDim();
-  int nbSubocts = 4*(ndim-1);
-  oct_index_t old_nbOcts = getNumOctants();
-  oct_index_t new_nbOcts = old_nbOcts*nbSubocts;
-
-  Storage_t& old_storage = this->storage;
-  LightOctree_storage<> old_storage_device( old_storage );
-  LightOctree_storage<> new_storage_device( ndim, new_nbOcts, 0, old_storage.level_min, old_storage.coarse_grid_size );
-
-  Kokkos::parallel_for( "AMRmesh_hashmap_new::adaptGlobalRefine", 
-    old_nbOcts,
-    KOKKOS_LAMBDA( oct_index_t iOct_old )
-  {
-    auto logical_coord = old_storage_device.get_logical_coords( {iOct_old, false} );
-    level_t level_old = old_storage_device.getLevel( {iOct_old, false} );
-
-    for(int dz=0; dz<(ndim-1); dz++)
-      for(int dy=0; dy<2; dy++)
-        for(int dx=0; dx<2; dx++)
-        {
-          // Compute iOct_new for suboctant using morton order
-          oct_index_t iOct_new = iOct_old*nbSubocts + dx + 2*dy + 4*dz;
-          logical_coord_t ix = 2*logical_coord[IX] + dx;
-          logical_coord_t iy = 2*logical_coord[IY] + dy;
-          logical_coord_t iz = 2*logical_coord[IZ] + dz;
-          level_t level = level_old + 1;
-          new_storage_device.set( {iOct_new, false}, ix, iy, iz, level );
-        }
-  });
-
-  total_num_octs = total_num_octs*nbSubocts;
-  old_storage = new_storage_device;
-  pdata->markers = markers_t("AMRmesh_hashmap_new::markers", new_nbOcts);
+  Kokkos::Experimental::fill( Kokkos::DefaultExecutionSpace(), pdata->markers, 1 );
+  this->adapt(0);
 }
 
 void AMRmesh_hashmap_new::setMarker(uint32_t iOct, int marker)

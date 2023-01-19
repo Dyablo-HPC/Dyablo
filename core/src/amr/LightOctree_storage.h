@@ -252,6 +252,7 @@ public:
   KOKKOS_INLINE_FUNCTION
   logical_coord_t cell_count( ComponentIndex3D idim, level_t n ) const
   {
+      assert( n>=level_min );
       assert( n < sizeof(logical_coord_t)*8 ); // 
       return coarse_grid_size[idim] << (n-level_min);
   }
