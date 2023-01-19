@@ -34,11 +34,12 @@ void run_test(int ndim, std::string mapUserData_id)
   uint32_t by = 8;
   uint32_t bz = (ndim==3)?8:1;
 
-  int level_min = 3;
+  int level_min = 2;
   int level_max = 8;
   std::shared_ptr<AMRmesh> amr_mesh; //solver->amr_mesh 
   {
     amr_mesh = std::make_shared<AMRmesh>(ndim, ndim, std::array<bool,3>{false,false,false}, level_min, level_max );
+    amr_mesh->adaptGlobalRefine();
     // amr_mesh->setBalanceCodimension(ndim);
     // uint32_t idx = 0;
     // amr_mesh->setBalance(idx,true);
