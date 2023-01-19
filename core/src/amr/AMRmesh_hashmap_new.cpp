@@ -63,58 +63,6 @@ AMRmesh_hashmap_new::AMRmesh_hashmap_new( int dim, int balance_codim,
   private_init(dim, coarse_grid_size);
 }
 
-namespace{
-
-template <class KeyViewType>
-struct BinOpMorton {
-  enum oct_data_field_t{
-      ICORNERX, 
-      ICORNERY, 
-      ICORNERZ, 
-      ILEVEL,
-      OCT_DATA_COUNT
-  };
-
-  BinOpMorton() = default;
-
-  int dim;
-  int level;
-  BinOpMorton(int dim, int level)
-   : dim(dim), level(level)
-  {}
-
-  template <class ViewType>
-  KOKKOS_INLINE_FUNCTION int bin(ViewType& keys, const int& i) const {
-    logical_coord_t ix = keys( i, ICORNERX );
-    logical_coord_t iy = keys( i, ICORNERY );
-    logical_coord_t iz = keys( i, ICORNERZ );
-    
-    return compute_morton_key(ix, iy, iz);
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  int max_bins() const { return std::pow( 1 << level, dim ); }
-
-  template <class ViewType, typename iType1, typename iType2>
-  KOKKOS_INLINE_FUNCTION bool operator()(ViewType& keys, iType1& i1,
-                                         iType2& i2) const {
-    
-    logical_coord_t ix1 = keys( i1, ICORNERX );
-    logical_coord_t iy1 = keys( i1, ICORNERY );
-    logical_coord_t iz1 = keys( i1, ICORNERZ );    
-    morton_t m1 = compute_morton_key(ix1, iy1, iz1);
-
-    logical_coord_t ix2 = keys( i2, ICORNERX );
-    logical_coord_t iy2 = keys( i2, ICORNERY );
-    logical_coord_t iz2 = keys( i2, ICORNERZ );    
-    morton_t m2 = compute_morton_key(ix2, iy2, iz2);
-
-    return m1 > m2;
-  }
-};
-
-}
-
 void AMRmesh_hashmap_new::private_init(int dim, Kokkos::Array<logical_coord_t,3> coarse_grid_size)
 {
   level_t level_min = this->pdata->level_min;
@@ -122,23 +70,28 @@ void AMRmesh_hashmap_new::private_init(int dim, Kokkos::Array<logical_coord_t,3>
   int mpi_rank = this->mpi_comm.MPI_Comm_rank();
   uint32_t nbOcts_local = (mpi_rank == 0)?this->total_num_octs:0;
 
+  morton_t morton_end = std::pow( (1UL << level_min), dim );
+
   LightOctree_storage<> storage_device(dim, nbOcts_local, 0, level_min, coarse_grid_size);
-  Kokkos::parallel_for( "AMRmesh_hashmap_new::init", storage_device.getNumOctants(),
-    KOKKOS_LAMBDA( oct_index_t iOct )
+  Kokkos::parallel_scan( "AMRmesh_hashmap_new::init", morton_end,
+    KOKKOS_LAMBDA( uint64_t morton, uint32_t& iOct, bool final )
   {
-    logical_coord_t ix = iOct % coarse_grid_size[IX];
-    logical_coord_t iy = (iOct / coarse_grid_size[IX]) % coarse_grid_size[IY];
-    logical_coord_t iz = (iOct / coarse_grid_size[IX]) / coarse_grid_size[IY];
+    logical_coord_t ix = morton_extract_coord<IX>(dim, morton);
+    logical_coord_t iy = morton_extract_coord<IY>(dim, morton);
+    logical_coord_t iz;
+    if (dim==3)
+      iz = morton_extract_coord<IZ>(dim,morton);
+    else 
+      iz = 0;
 
-    storage_device.set( {iOct, false}, ix, iy, iz, level_min );
+    if( ix < coarse_grid_size[IX] && iy < coarse_grid_size[IY] && iz < coarse_grid_size[IZ] )
+    {
+      if(final)
+        storage_device.set( {iOct, false}, ix, iy, iz, level_min );
+
+      iOct ++;
+    }
   });
-
-  // Sort storage_device according to morton index
-  using KeyViewType = LightOctree_storage<>::oct_data_t;
-  BinOpMorton<KeyViewType> bin_op(dim, level_min);
-  Kokkos::BinSort<KeyViewType, BinOpMorton<KeyViewType>> Sorter(storage_device.oct_data, bin_op, false);
-  Sorter.create_permute_vector();
-  Sorter.sort(storage_device.oct_data);
 
   this->storage = storage_device;
 
