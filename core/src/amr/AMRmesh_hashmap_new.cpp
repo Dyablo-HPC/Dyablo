@@ -117,7 +117,7 @@ int AMRmesh_hashmap_new::get_level_min() const
 
 void AMRmesh_hashmap_new::adaptGlobalRefine()
 {
-  Kokkos::Experimental::fill( Kokkos::DefaultExecutionSpace(), pdata->markers, 1 );
+  Kokkos::Experimental::fill( Kokkos::OpenMP(), pdata->markers, 1 );
   this->adapt(0);
 }
 
