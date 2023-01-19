@@ -53,9 +53,9 @@ inline void output_vtk( const std::string& name, const AMRmesh& mesh )
       px = mesh.getCoordinatesGhost(iOct)[0];
       py = mesh.getCoordinatesGhost(iOct)[1];
       pz = mesh.getCoordinatesGhost(iOct)[2];
-      size_x = mesh.getSizeGhost(i)[0];
-      size_y = mesh.getSizeGhost(i)[1];
-      size_z = mesh.getSizeGhost(i)[2];
+      size_x = mesh.getSizeGhost(iOct)[0];
+      size_y = mesh.getSizeGhost(iOct)[1];
+      size_z = mesh.getSizeGhost(iOct)[2];
       cells_is_ghost[i] = 1;
     }
 
