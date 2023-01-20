@@ -56,10 +56,19 @@ AMRmesh_hashmap_new::AMRmesh_hashmap_new( int dim, int balance_codim,
     }
   }))
 {
+  assert( level_min <= level_max );
   assert( coarse_grid_size[IX] <= (1U << level_min) );
   assert( coarse_grid_size[IY] <= (1U << level_min) );
   assert( coarse_grid_size[IZ] <= (dim==3)?(1U << level_min):1 );
 
+  if(  coarse_grid_size[IX] <= (1U << (level_min-1)) 
+    && coarse_grid_size[IY] <= (1U << (level_min-1)) 
+    && coarse_grid_size[IZ] <= ((dim==3)?(1U << (level_min-1)):0) )
+  {
+    std::cout << "WARNING : AMRmesh_hashmap_new coarse grid size = {" << coarse_grid_size[IX] << ", " << coarse_grid_size[IY] << ", " << coarse_grid_size[IZ] << "} is too small for level_min = " << (int)level_min << "." << std::endl;
+    std::cout << "WARNING : level_min could be decreased to " << std::ceil(std::log2( std::max({coarse_grid_size[IX], coarse_grid_size[IY], coarse_grid_size[IZ]}) )) << std::endl;
+    throw std::runtime_error("level_min too big for coarse grid size");
+  }
   private_init(dim, coarse_grid_size);
 }
 

@@ -25,29 +25,9 @@ class DyabloTimeLoop{
 private:
   std::shared_ptr<AMRmesh> init_amr_mesh( ConfigMap& configMap )
   {
-    int ndim = configMap.getValue<int>("mesh", "ndim", 3);
-    int codim = ndim;
-    BoundaryConditionType bxmin  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_ABSORBING);
-    BoundaryConditionType bxmax  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmax", BC_ABSORBING);
-    BoundaryConditionType bymin  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymin", BC_ABSORBING);
-    BoundaryConditionType bymax  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymax", BC_ABSORBING);
-    BoundaryConditionType bzmin  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmin", BC_ABSORBING);
-    BoundaryConditionType bzmax  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmax", BC_ABSORBING);
-    std::array<bool,3> periodic = {
-      bxmin == BC_PERIODIC || bxmax == BC_PERIODIC,
-      bymin == BC_PERIODIC || bymax == BC_PERIODIC,
-      bzmin == BC_PERIODIC || bzmax == BC_PERIODIC
-    };
-    int amr_level_min = configMap.getValue<int>("amr","level_min", 5);
-    int amr_level_max = configMap.getValue<int>("amr","level_max", 10);
-    uint32_t amr_coarse_resolution_x = configMap.getValue<uint32_t>("amr","coarse_resolution_x", (1U << amr_level_min) );
-    uint32_t amr_coarse_resolution_y = configMap.getValue<uint32_t>("amr","coarse_resolution_y", (1U << amr_level_min) );
-    uint32_t amr_coarse_resolution_z = configMap.getValue<uint32_t>("amr","coarse_resolution_z", (ndim==3)?(1U << amr_level_min):1 );
-
-    // TODO : check compatibility between resolutions and levels
-
-    return std::make_shared<AMRmesh>( ndim, codim, periodic, amr_level_min, amr_level_max, 
-                                      Kokkos::Array<uint32_t,3>{amr_coarse_resolution_x, amr_coarse_resolution_y, amr_coarse_resolution_z} );
+    AMRmesh::Parameters p = AMRmesh::parse_parameters(configMap);
+    return std::make_shared<AMRmesh>( p.dim, p.dim, p.periodic, p.level_min, p.level_max, 
+                                      p.coarse_grid_size );
   }
 public:
   /**

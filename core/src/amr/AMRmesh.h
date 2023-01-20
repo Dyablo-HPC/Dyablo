@@ -9,6 +9,8 @@
 
 #define DYABLO_USE_GPU_MESH
 
+class ConfigMap;
+
 namespace dyablo{
 
 template < typename Impl >
@@ -38,7 +40,19 @@ public:
   AMRmesh_impl( int dim, int balance_codim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max);
   AMRmesh_impl( int dim, int balance_codim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max, const Kokkos::Array<uint32_t,3>& coarse_grid_size);
 
+  struct Parameters
+  {
+    int dim;
+    std::array<bool,3> periodic;
+    uint8_t level_min, level_max;
+    Kokkos::Array<uint32_t,3> coarse_grid_size;
+  };
+  static Parameters parse_parameters(ConfigMap& configmap);
+
+
   ~AMRmesh_impl();
+
+  
 
   //----- Mesh parameters -----
   /// Get number of dimensions
