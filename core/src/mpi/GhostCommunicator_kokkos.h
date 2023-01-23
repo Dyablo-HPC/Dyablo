@@ -2,6 +2,7 @@
 
 #include "Kokkos_Core.hpp"
 #include "GhostCommunicator.h"
+#include "userdata_utils.h"
 
 namespace dyablo {
 

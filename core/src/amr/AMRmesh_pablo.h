@@ -1,3 +1,5 @@
+#ifdef DYABLO_USE_PABLO
+
 #pragma once
 
 #include "bitpit_PABLO.hpp"
@@ -171,3 +173,4 @@ private:
 
 } // namespace dyablo
 
+#endif // DYABLO_USE_PABLO

@@ -208,6 +208,8 @@ void apply_aux( const AMR_Remapper& remap,
              blockSizes, Usrc, Usrc_ghost, Udest );
 }
 
+#ifdef DYABLO_USE_PABLO
+
 [[maybe_unused]] void MapUserDataFunctor_apply( const LightOctree_pablo& lmesh_old,
                                 const LightOctree_pablo& lmesh_new,
                                 blockSize_t blockSizes,
@@ -218,6 +220,8 @@ void apply_aux( const AMR_Remapper& remap,
   apply_aux( AMR_Remapper(lmesh_new.getMesh()), lmesh_new.getNdim(),
              blockSizes, Usrc, Usrc_ghost, Udest );
 }
+
+#endif // DYABLO_USE_PABLO
 
 } //namespace
 

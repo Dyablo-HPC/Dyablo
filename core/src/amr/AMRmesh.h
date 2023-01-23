@@ -7,8 +7,6 @@
 
 #include "amr/LightOctree_forward.h"
 
-#define DYABLO_USE_GPU_MESH
-
 class ConfigMap;
 
 namespace dyablo{
@@ -322,10 +320,10 @@ public:
 
 namespace dyablo {
 
-#ifdef DYABLO_USE_GPU_MESH
-using AMRmesh = AMRmesh_impl<AMRmesh_hashmap_new>;
-#else
+#ifdef DYABLO_USE_PABLO
 using AMRmesh = AMRmesh_impl<AMRmesh_pablo>;
+#else
+using AMRmesh = AMRmesh_impl<AMRmesh_hashmap_new>;
 #endif
 
 }// namespace dyablo

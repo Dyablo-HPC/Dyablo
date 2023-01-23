@@ -28,6 +28,7 @@ option (DYABLO_USE_MPI_CUDA_AWARE_ENFORCED "Some MPI cuda-aware implementation a
 option (DYABLO_USE_INTERNAL_KOKKOS "Use internal Kokkos from external/kokkos" ON)
 option (Kokkos_ENABLE_CUDA   "enable Kokkos::Cuda backend" OFF)
 option (Kokkos_ENABLE_SYCL   "enable Kokkos::SyCL backend" OFF)
+option (DYABLO_USE_PABLO "use AMRmesh_pablo for AMR" OFF)
 set    (BITPIT_DIR "BITPIT package directory" CACHE PATH ""  )
 set    (Kokkos_DIR "Kokkos installation directory or internal source" CACHE PATH ""  )
 
@@ -48,25 +49,28 @@ set( LIBDL_LIBRARY CACHE STRING "LIBDL library" "${CMAKE_DL_LIBS}" )
 #####################################################################
 # BitPit
 #####################################################################
-find_package(BITPIT REQUIRED)
-# create imported target for bitpit library
-if(NOT TARGET BITPIT::BITPIT)
-  get_filename_component(LIB_EXT "${BITPIT_LIBRARY}" EXT)
-  if(LIB_EXT STREQUAL ".a" OR LIB_EXT STREQUAL ".lib")
-    set(LIB_TYPE STATIC)
-  else()
-    set(LIB_TYPE SHARED)
+if( DYABLO_USE_PABLO )
+  find_package(BITPIT REQUIRED)
+  # create imported target for bitpit library
+  if(NOT TARGET BITPIT::BITPIT)
+    get_filename_component(LIB_EXT "${BITPIT_LIBRARY}" EXT)
+    if(LIB_EXT STREQUAL ".a" OR LIB_EXT STREQUAL ".lib")
+      set(LIB_TYPE STATIC)
+    else()
+      set(LIB_TYPE SHARED)
+    endif()
+    add_library(BITPIT::BITPIT ${LIB_TYPE} IMPORTED GLOBAL)
+    set(_tmp_dep_libs "${BITPIT_LIBRARIES}")
+    list(REMOVE_DUPLICATES _tmp_dep_libs)
+    set_target_properties(BITPIT::BITPIT
+      PROPERTIES
+      IMPORTED_LOCATION "${BITPIT_LIBRARY}"
+      INTERFACE_INCLUDE_DIRECTORIES "${BITPIT_INCLUDE_DIRS}"
+      INTERFACE_LINK_LIBRARIES "${_tmp_dep_libs}")
   endif()
-  add_library(BITPIT::BITPIT ${LIB_TYPE} IMPORTED GLOBAL)
-  set(_tmp_dep_libs "${BITPIT_LIBRARIES}")
-  list(REMOVE_DUPLICATES _tmp_dep_libs)
-  set_target_properties(BITPIT::BITPIT
-    PROPERTIES
-    IMPORTED_LOCATION "${BITPIT_LIBRARY}"
-    INTERFACE_INCLUDE_DIRECTORIES "${BITPIT_INCLUDE_DIRS}"
-    INTERFACE_LINK_LIBRARIES "${_tmp_dep_libs}")
+else()
+  add_library( BITPIT::BITPIT INTERFACE IMPORTED GLOBAL )
 endif()
-
 #####################################################################
 # Kokkos
 #####################################################################
@@ -192,6 +196,9 @@ if (DYABLO_USE_MPI)
 endif()
 if (DYABLO_USE_FPE_DEBUG)
   add_compile_options(-DDYABLO_USE_FPE_DEBUG)
+endif()
+if (DYABLO_USE_PABLO)
+  add_compile_options(-DDYABLO_USE_PABLO)
 endif()
 
 ##

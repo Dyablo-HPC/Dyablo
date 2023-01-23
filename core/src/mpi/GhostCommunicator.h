@@ -42,6 +42,8 @@ public:
 
 namespace dyablo {
 
+#ifdef DYABLO_USE_PABLO
+
 /**
  * Ghost communicator that directly uses the mpi communication in PABLO
  **/
@@ -65,6 +67,8 @@ public:
 private:
     AMRmesh_pablo& amr_mesh;  
 };
+
+#endif
 
 /**
  * Ghost communicator that does nothing.

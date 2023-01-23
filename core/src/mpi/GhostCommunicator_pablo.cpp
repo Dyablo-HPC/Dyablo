@@ -1,3 +1,5 @@
+#ifdef DYABLO_USE_PABLO
+
 #include "GhostCommunicator.h"
 
 namespace dyablo{
@@ -172,3 +174,5 @@ void GhostCommunicator_pablo::exchange_ghosts(const DataArray& U, const DataArra
 
 
 }//namespace dyablo
+
+#endif // DYABLO_USE_PABLO
