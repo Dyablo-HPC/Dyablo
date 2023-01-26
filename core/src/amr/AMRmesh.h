@@ -13,6 +13,14 @@ class ConfigMap;
 
 namespace dyablo{
 
+template< typename Impl_t_ >
+struct has_coarse_grid_size_ : public std::false_type
+{};
+
+template<>
+struct has_coarse_grid_size_<AMRmesh_hashmap_new> : public std::true_type
+{};
+
 template < typename Impl >
 class AMRmesh_impl : protected Impl{
 public:
@@ -24,6 +32,8 @@ private:
 public:
   template< typename T, int N >
   using array_t = std::array<T,N>;
+
+  static constexpr bool has_coarse_grid_size = has_coarse_grid_size_<Impl_t>::value;
 
   /**
    * Construct a new empty AMR mesh initialized with a fixed grid at level_min
@@ -38,7 +48,23 @@ public:
    * (TODO : clarify level_min/level_max) 
    **/
   AMRmesh_impl( int dim, int balance_codim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max);
-  AMRmesh_impl( int dim, int balance_codim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max, const Kokkos::Array<uint32_t,3>& coarse_grid_size);
+ 
+  template<typename Impl_t_ = Impl_t, typename std::enable_if<!has_coarse_grid_size_<Impl_t_>::value, int>::type = 0>
+  AMRmesh_impl( int dim, int balance_codim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max, const Kokkos::Array<uint32_t,3>& coarse_grid_size)
+    : Impl_t(dim, balance_codim, periodic, level_min, level_max), level_min(level_min), level_max(level_max)
+  {
+    if( ( coarse_grid_size[IX] != (1U << level_min) ) 
+    || ( coarse_grid_size[IY] != (1U << level_min) ) 
+    || ( coarse_grid_size[IZ] != ((dim==3)?(1U << level_min):1 )) )
+    {
+      throw std::runtime_error( "This AMRmesh_implementation doesn't support non-square coarse domain" );
+    }
+  }
+
+  template<typename Impl_t_ = Impl_t, typename std::enable_if<has_coarse_grid_size_<Impl_t_>::value, int>::type = 0>
+  AMRmesh_impl( int dim, int balance_codim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max, const Kokkos::Array<uint32_t,3>& coarse_grid_size)
+    : Impl_t(dim, balance_codim, periodic, level_min, level_max, coarse_grid_size ), level_min(level_min), level_max(level_max)
+  {}
 
   struct Parameters
   {

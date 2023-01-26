@@ -19,12 +19,17 @@ struct Test_data{
   int level_min;
   int level_max;
   real_t width;
+  int ndim = 3;
+  // WARNING : volume check need to be modified if testing something else tha powers of 2
+  int coarse_size_x = -1;
+  int coarse_size_y = -1;
+  int coarse_size_z = -1;
 };
 
 template< typename AMRmesh_t >
 void run_test(const Test_data& test_data)
 {
-  int dim = 3;
+  int dim = test_data.ndim;
   bool perodic_x = true;
   bool perodic_y = true;
   bool perodic_z = true;
@@ -35,11 +40,26 @@ void run_test(const Test_data& test_data)
   Timers timers;
 
   std::vector<Spot> spots = {
-    {0.5,0.5,0.5,2,10},
-    {0.25,0.25,0.25,width,level_max}
+    {0.5,0.5,(dim==3)?0.5:0,2,10},
+    {0.25,0.25,(dim==3)?0.25:0,width,level_max}
   };
 
-  AMRmesh_t amr_mesh(dim, dim, {perodic_x,perodic_y,perodic_z}, level_min, level_max);
+  if( ( test_data.coarse_size_x != -1 || test_data.coarse_size_y != -1 || test_data.coarse_size_z != -1 )
+      && !AMRmesh_t::has_coarse_grid_size )
+  {
+    std::cerr << "Test skipped : AMRmesh implementation doesn't support non-square domains" << std::endl;
+    GTEST_SKIP();
+  }
+
+  uint32_t max_coarse_size = (1U << level_min);
+
+  Kokkos::Array<uint32_t,3> coarse_grid_size = {
+    (test_data.coarse_size_x == -1) ? (max_coarse_size) : test_data.coarse_size_x,
+    (test_data.coarse_size_y == -1) ? (max_coarse_size) : test_data.coarse_size_y,
+    (test_data.coarse_size_z == -1) ? ((dim==3)?max_coarse_size:1) : test_data.coarse_size_z
+  };
+
+  AMRmesh_t amr_mesh(dim, dim, {perodic_x,perodic_y,perodic_z}, level_min, level_max, coarse_grid_size);
   if( test_data.level_max > amr_mesh.get_max_supported_level() )
   {
     std::cerr << "Test skipped : h=" << test_data.level_max << " unsupported by this AMRmesh implementation" << std::endl;
@@ -98,11 +118,11 @@ void run_test(const Test_data& test_data)
       uint64_t count_level = 0;
       for(uint32_t iOct=0; iOct<nbOcts; iOct++)
       {
-        real_t s = amr_mesh.getSize( iOct )[0];
+        auto s = amr_mesh.getSize( iOct );
         int level = amr_mesh.getLevel( iOct );
         if( level==i )
         {
-          V += s*s*s;
+          V += s[IX]*s[IY]*( (dim==3)?s[IZ]:1 );
           count_level ++;
         }
       }
@@ -143,7 +163,8 @@ void run_test(const Test_data& test_data)
     Kokkos::parallel_reduce( "Check 2:1", nbOcts,
       KOKKOS_LAMBDA( uint32_t iOct, int& error_count_local )
       {
-        for( int8_t nz=-1; nz<=1; nz++ )
+        int z_off_max = (dim==3)? 1 : 0;
+        for( int8_t nz=-z_off_max; nz<=z_off_max; nz++ )
           for( int8_t ny=-1; ny<=1; ny++ )
               for( int8_t nx=-1; nx<=1; nx++ )
                 if( nx!=0 || ny!=0 || nz!=0 )
@@ -187,12 +208,46 @@ public:
 using AMRmesh_types = ::testing::Types<AMRmesh_pablo, AMRmesh_hashmap, AMRmesh_hashmap_new>;
 TYPED_TEST_SUITE( Test_AMRmesh, AMRmesh_types );
 
-TYPED_TEST(Test_AMRmesh, narrow_h6)
+TYPED_TEST(Test_AMRmesh, narrow_h6_3D)
 {
   Test_data td{};
   td.level_min = 4;
   td.level_max = 6;
   td.width = 5;
+  run_test<dyablo::AMRmesh_impl<typename TestFixture::AMRmesh_t>>(td);
+}
+
+TYPED_TEST(Test_AMRmesh, narrow_h6_2D)
+{
+  Test_data td{};
+  td.level_min = 4;
+  td.level_max = 6;
+  td.width = 5;
+  td.ndim = 2;
+  run_test<dyablo::AMRmesh_impl<typename TestFixture::AMRmesh_t>>(td);
+}
+
+TYPED_TEST(Test_AMRmesh, narrow_h6_3D_nonsquare)
+{
+  Test_data td{};
+  td.level_min = 4;
+  td.level_max = 6;
+  td.width = 5;
+  td.coarse_size_x = 16;
+  td.coarse_size_y = 8;
+  td.coarse_size_z = 4;
+  run_test<dyablo::AMRmesh_impl<typename TestFixture::AMRmesh_t>>(td);
+}
+
+TYPED_TEST(Test_AMRmesh, narrow_h6_2D_nonsquare)
+{
+  Test_data td{};
+  td.level_min = 4;
+  td.level_max = 6;
+  td.width = 5;
+  td.ndim = 2;
+  td.coarse_size_x = 8;
+  td.coarse_size_y = 16;
   run_test<dyablo::AMRmesh_impl<typename TestFixture::AMRmesh_t>>(td);
 }
 
@@ -220,5 +275,15 @@ TYPED_TEST(Test_AMRmesh, wide_h10)
   td.level_min = 4;
   td.level_max = 10;
   td.width = 15;
+  run_test<dyablo::AMRmesh_impl<typename TestFixture::AMRmesh_t>>(td);
+}
+
+TYPED_TEST(Test_AMRmesh, wide_h10_2D)
+{
+  Test_data td{};
+  td.level_min = 4;
+  td.level_max = 10;
+  td.width = 15;
+  td.ndim = 2;
   run_test<dyablo::AMRmesh_impl<typename TestFixture::AMRmesh_t>>(td);
 }
