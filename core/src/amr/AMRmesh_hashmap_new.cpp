@@ -75,16 +75,72 @@ AMRmesh_hashmap_new::AMRmesh_hashmap_new( int dim, int balance_codim,
 
 void AMRmesh_hashmap_new::private_init(int dim, Kokkos::Array<logical_coord_t,3> coarse_grid_size)
 {
+  assert(dim == 3 || coarse_grid_size[IZ] == 1);
+
   level_t level_min = this->pdata->level_min;
 
   int mpi_rank = this->mpi_comm.MPI_Comm_rank();
-  uint32_t nbOcts_local = (mpi_rank == 0)?this->total_num_octs:0;
+  int mpi_size = this->mpi_comm.MPI_Comm_size();
 
-  morton_t morton_end = (mpi_rank == 0)?std::pow( (1UL << level_min), dim ):0;
+  uint32_t full_cube_width = (1U << level_min);
+  
+  // Compute local octant count and first global octant index
+  uint64_t first_local_oct = ((morton_t)mpi_rank * this->total_num_octs ) / (morton_t)mpi_size;
+  this->first_local_oct = first_local_oct;
+  uint64_t end_local_oct = ((morton_t)(mpi_rank+1) * this->total_num_octs ) / (morton_t)mpi_size;
+  uint32_t nbOcts_local = end_local_oct - first_local_oct ;
 
+  // Compute morton intervals
+  std::vector<morton_t> morton_intervals( mpi_size+1 ); // 2D or 3D morton depending on `dim`
+  if( coarse_grid_size[IX] == full_cube_width
+  &&  coarse_grid_size[IX] == full_cube_width
+  &&  ( coarse_grid_size[IZ] == full_cube_width || dim == 2 ) )
+  { // If full cube We have an analytical formula for morton_intervals
+    morton_t morton_max = this->total_num_octs;
+
+    for(int i=0; i<=mpi_size; i++)
+      morton_intervals[i] = ((morton_t)i * morton_max ) / (morton_t)mpi_size;    
+  }
+  else
+  { // If not full cube we have to perform expensive scan to find load balancing
+    morton_t morton_max = (dim == 3)? 
+      compute_morton_key(coarse_grid_size[IX]-1, coarse_grid_size[IY]-1, coarse_grid_size[IZ]-1)+1:
+      compute_morton_key(coarse_grid_size[IX]-1, coarse_grid_size[IY]-1)+1;      
+    Kokkos::View<morton_t> first_morton_index_device("first_morton_index");
+    Kokkos::parallel_scan( "AMRmesh_hashmap_new::init::morton_intervals", morton_max,
+      KOKKOS_LAMBDA( uint64_t morton, uint64_t& iOct_global, bool final )
+    {
+      logical_coord_t ix = morton_extract_coord<IX>(dim, morton);
+      logical_coord_t iy = morton_extract_coord<IY>(dim, morton);
+      logical_coord_t iz;
+      if (dim==3)
+        iz = morton_extract_coord<IZ>(dim,morton);
+      else 
+        iz = 0;
+
+      if( ix < coarse_grid_size[IX] && iy < coarse_grid_size[IY] && iz < coarse_grid_size[IZ] )
+      {
+        if(final && iOct_global == first_local_oct)
+          first_morton_index_device() = morton;
+
+        iOct_global ++;
+      }
+    });
+    auto first_morton_index_host = Kokkos::create_mirror_view( first_morton_index_device );
+    Kokkos::deep_copy(first_morton_index_host, first_morton_index_device);
+
+    mpi_comm.MPI_Allgather( &first_morton_index_host(), morton_intervals.data(), 1 );
+    morton_intervals[mpi_size] = morton_max;
+  }
+
+  uint64_t morton_begin = morton_intervals[mpi_rank];
+  uint64_t morton_end = morton_intervals[mpi_rank+1];
+
+  // Fill local octs
   uint32_t nbOcts_added = 0;
   LightOctree_storage<> storage_device(dim, nbOcts_local, 0, level_min, coarse_grid_size);
-  Kokkos::parallel_scan( "AMRmesh_hashmap_new::init", morton_end,
+  Kokkos::parallel_scan( "AMRmesh_hashmap_new::init", 
+    Kokkos::RangePolicy<>(morton_begin, morton_end),
     KOKKOS_LAMBDA( uint64_t morton, uint32_t& iOct, bool final )
   {
     logical_coord_t ix = morton_extract_coord<IX>(dim, morton);
@@ -103,12 +159,36 @@ void AMRmesh_hashmap_new::private_init(int dim, Kokkos::Array<logical_coord_t,3>
       iOct ++;
     }
   }, nbOcts_added);
-
   assert( nbOcts_local == nbOcts_added );
 
-  this->storage = storage_device;
+  // Exchange Ghosts
 
-  this->loadBalance(0);
+  std::vector<morton_t> morton_intervals_3D( mpi_size+1 );
+  if( dim == 3 )
+    morton_intervals_3D = morton_intervals;
+  else
+  {
+    for(int i=0; i<=mpi_size; i++)
+    {
+      logical_coord_t ix = morton_extract_coord<IX>(2, morton_intervals[i]);
+      logical_coord_t iy = morton_extract_coord<IY>(2, morton_intervals[i]);
+      morton_intervals_3D[i] = compute_morton_key( ix, iy, 0 );
+    }
+  }
+  pdata->ghostmap = discover_ghosts( storage_device, morton_intervals_3D, this->pdata->level_min, this->periodic, this->mpi_comm );
+  GhostCommunicator_kokkos ghost_comm( pdata->ghostmap.send_sizes, pdata->ghostmap.send_iOcts, mpi_comm  );
+  oct_index_t nbGhosts = ghost_comm.getNumGhosts();
+  LightOctree_storage<> storage_device_ghosts(dim, 0, nbGhosts, level_min, coarse_grid_size );
+  ghost_comm.exchange_ghosts<0>( storage_device.oct_data, storage_device_ghosts.oct_data );
+
+  LightOctree_storage<> storage_device2( dim, nbOcts_local, nbGhosts, level_min, coarse_grid_size );
+  Kokkos::deep_copy( storage_device2.getLocalSubview(), storage_device.getLocalSubview() );
+  Kokkos::deep_copy( storage_device2.getGhostSubview(), storage_device_ghosts.getGhostSubview() );
+
+  this->storage = storage_device2;
+
+  pdata->markers = markers_t( "markers", storage.getNumOctants() );
+
   std::cout << "AMRmesh initialized : " << this->getNumOctants() << " ( "  << this->getNumGhosts() << " ) " << std::endl;
 }
 
