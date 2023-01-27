@@ -6,6 +6,29 @@
 #include "amr/LightOctree_base.h"
 #include "enums.h"
 
+namespace LightOctree_storage_impl{
+
+/// When T is AMRmesh_impl<AMRmesh_*> where  AMRmesh_* has a getStorage() method, use this
+template< typename T >
+static decltype(std::declval<T>().getMesh().getStorage()) getStorage( const T& t ) 
+{ return t.getMesh().getStorage(); }
+/// When T is T has a getStorage() method, use it
+template< typename T >
+static decltype(std::declval<T>().getStorage()) getStorage( const T& t ) 
+{ return t.getStorage(); }
+
+template< class... >
+using void_t = void;
+/// Type-trait to detect if T is compatible with getStorage()
+template <typename T, typename = void> 
+struct HasStorage : public std::false_type
+{};
+template <typename T>
+struct HasStorage<T, void_t<decltype(getStorage(std::declval<T>()))>> : public std::true_type
+{};
+
+} // namespace LightOctree_storage_impl
+
 namespace dyablo { 
 
 template< typename MemorySpace_ = Kokkos::View<int*>::memory_space >
@@ -43,41 +66,21 @@ public:
     Kokkos::deep_copy( this->oct_data, storage.oct_data );
   }
 
-private:
-  /// When T is AMRmesh_impl<AMRmesh_*> where  AMRmesh_* has a getStorage() method, use this
-  template< typename T >
-  static decltype(std::declval<T>().getMesh().getStorage()) getStorage( const T& t ) 
-  { return t.getMesh().getStorage(); }
-  /// When T is T has a getStorage() method, use it
-  template< typename T >
-  static decltype(std::declval<T>().getStorage()) getStorage( const T& t ) 
-  { return t.getStorage(); }
-
-  template< class... >
-  using void_t = void;
-  /// Type-trait to detect if T is compatible with getStorage()
-  template <typename T, typename = void> 
-  struct HasStorage : public std::false_type
-  {};
-  template <typename T>
-  struct HasStorage<T, void_t<decltype(getStorage(std::declval<T>()))>> : public std::true_type
-  {};
-
 public:
   /**
    * Create LightOctree_storage from AMRmesh, when AMRmesh_t uses LightOctree_storage
    * LightOctree_storage<...> AMRmesh_t::getStorage() is detected and used to copy-construct new storage
    **/
-  template< typename AMRmesh_t, typename std::enable_if< HasStorage<AMRmesh_t>::value, int >::type = 0>
+  template< typename AMRmesh_t, typename std::enable_if< LightOctree_storage_impl::HasStorage<AMRmesh_t>::value, int >::type = 0>
   LightOctree_storage(const AMRmesh_t& pmesh)
-  : LightOctree_storage( getStorage(pmesh) )
+  : LightOctree_storage( LightOctree_storage_impl::getStorage(pmesh) )
   {}
 
   /**
    * Create LightOctree_storage from AMRmesh, when AMRmesh is not built around LightOctree_storage
    * Uses AMRmesh public interface to extract mesh
    **/
-  template< typename AMRmesh_t, typename std::enable_if< !HasStorage<AMRmesh_t>::value, int >::type = 0 >
+  template< typename AMRmesh_t, typename std::enable_if< !LightOctree_storage_impl::HasStorage<AMRmesh_t>::value, int >::type = 0 >
   LightOctree_storage(const AMRmesh_t& pmesh)
   : LightOctree_storage( pmesh.getDim(), pmesh.getNumOctants(), pmesh.getNumGhosts(), pmesh.get_level_min() )
   {
