@@ -93,7 +93,7 @@ void AMRmesh_hashmap_new::private_init(int dim, Kokkos::Array<logical_coord_t,3>
   // Compute morton intervals
   std::vector<morton_t> morton_intervals( mpi_size+1 ); // 2D or 3D morton depending on `dim`
   if( coarse_grid_size[IX] == full_cube_width
-  &&  coarse_grid_size[IX] == full_cube_width
+  &&  coarse_grid_size[IY] == full_cube_width
   &&  ( coarse_grid_size[IZ] == full_cube_width || dim == 2 ) )
   { // If full cube We have an analytical formula for morton_intervals
     morton_t morton_max = this->total_num_octs;
