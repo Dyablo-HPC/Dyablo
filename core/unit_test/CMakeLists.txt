@@ -152,3 +152,7 @@ target_link_libraries( utest_RegisteringFactory PUBLIC RegisteringFactory_impl_l
 dyablo_add_test(utest_MpiComm ON
   utils/test_MpiComm.cpp
   main.cpp)
+
+dyablo_add_test(utest_Restart ON
+  test_restart.cpp
+  main.cpp)
