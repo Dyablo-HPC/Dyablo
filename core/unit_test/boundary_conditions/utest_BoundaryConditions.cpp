@@ -122,12 +122,6 @@ public:
     amr_mesh   = std::make_shared<AMRmesh>(ndim, ndim, std::array<bool,3>{false,false,false}, 3, 5);
     fieldMgr   = FieldManager({ID,IP,IU,IV,IW});
 
-    amr_mesh->adaptGlobalRefine();
-    amr_mesh->adaptGlobalRefine();
-    amr_mesh->adaptGlobalRefine();
-    amr_mesh->updateConnectivity();
-    amr_mesh->loadBalance();
-
     uint32_t nbOcts = amr_mesh->getNumOctants();
 
     std::cout << "Initialize User Data..." << std::endl;

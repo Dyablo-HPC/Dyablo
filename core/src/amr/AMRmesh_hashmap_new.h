@@ -22,7 +22,15 @@ public:
                       uint8_t level_min, uint8_t level_max,
                       const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world());
 
+  AMRmesh_hashmap_new( int dim, int balance_codim, 
+                      const std::array<bool,3>& periodic, 
+                      uint8_t level_min, uint8_t level_max,
+                      const Kokkos::Array<logical_coord_t,3>& coarse_grid_size ,
+                      const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world());
+
   ~AMRmesh_hashmap_new();
+
+  void private_init(int dim, Kokkos::Array<logical_coord_t,3> coarse_grid_size);
 
   const Storage_t& getStorage() const
   {
@@ -41,6 +49,9 @@ public:
   { 
     return periodic[i/2]; 
   }
+
+  int get_level_min() const;
+  
   int get_max_supported_level()
   {
     return 20; // Maybe more? (But never tested)
@@ -82,11 +93,17 @@ public:
     return {p[IX], p[IY], p[IZ]};
   }
 
-  real_t getSize( uint32_t idx ) const
-  { return storage.getSize( {idx, false} ); }
+  array_t<real_t, 3> getSize( uint32_t idx ) const
+   { 
+    auto p = storage.getSize( {idx, false} );
+    return {p[IX], p[IY], p[IZ]};
+  }
 
-  real_t getSizeGhost( uint32_t idx ) const
-  { return storage.getSize( {idx, true} ); }
+  array_t<real_t, 3> getSizeGhost( uint32_t idx ) const
+   { 
+    auto p = storage.getSize( {idx, true} );
+    return {p[IX], p[IY], p[IZ]};
+  }
 
   level_t getLevel( uint32_t idx ) const
   { return storage.getLevel( {idx, false} ); }

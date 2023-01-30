@@ -32,11 +32,11 @@ public:
     assert( !iCell_new.iOct.isGhost );
 
     LightOctree::pos_t oct_pos_new = lmesh_new.getCenter(iCell_new.iOct);
-    real_t oct_size_new = lmesh_new.getSize(iCell_new.iOct);
+    auto oct_size_new = lmesh_new.getSize(iCell_new.iOct);
     LightOctree::pos_t first_old_pos = {
-      oct_pos_new[IX] - 0.25*oct_size_new,
-      oct_pos_new[IY] - 0.25*oct_size_new,
-      (ndim==2) ? 0 : oct_pos_new[IZ] - 0.25*oct_size_new
+      oct_pos_new[IX] - 0.25*oct_size_new[IX],
+      oct_pos_new[IY] - 0.25*oct_size_new[IY],
+      (ndim==2) ? 0 : oct_pos_new[IZ] - 0.25*oct_size_new[IZ]
     };
     OctantIndex iOct_old = lmesh_old.getiOctFromPos( first_old_pos );
 

@@ -51,12 +51,6 @@ public:
     int level_min = data.level_min;
     int level_max = data.level_max;
 
-    // Refine to level_min
-    for (uint8_t level=0; level<level_min; ++level)
-        pmesh.adaptGlobalRefine();
-    // Distribute uniform mesh at level_min
-    pmesh.loadBalance();
-
     AnalyticalFormula& analytical_formula = this->analytical_formula;
 
     // Refine until level_max using analytical markers

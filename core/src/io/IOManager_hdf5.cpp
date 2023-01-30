@@ -270,10 +270,10 @@ R"xml(
         int i = iNode%Bx;
 
         auto pos = lmesh.getCorner( {iOct, false} );
-        real_t oct_size = lmesh.getSize( {iOct, false} );
-        coordinates(IX, index) = xmin + (pos[IX] + (i * oct_size)/bx) * Lx;
-        coordinates(IY, index) = ymin + (pos[IY] + (j * oct_size)/by) * Ly;
-        coordinates(IZ, index) = zmin + (pos[IZ] + (k * oct_size)/bz) * Lz;
+        auto oct_size = lmesh.getSize( {iOct, false} );
+        coordinates(IX, index) = xmin + (pos[IX] + (i * oct_size[IX])/bx) * Lx;
+        coordinates(IY, index) = ymin + (pos[IY] + (j * oct_size[IY])/by) * Ly;
+        coordinates(IZ, index) = zmin + (pos[IZ] + (k * oct_size[IZ])/bz) * Lz;
       });
 
       hdf5_writer.collective_write( "coordinates", coordinates );

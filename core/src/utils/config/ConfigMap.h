@@ -264,16 +264,35 @@ public:
   template< typename T >
   T getValue( std::string section, std::string name, const T& default_value )
   {
-    section = tolower(section);
-    name = tolower(name);
-    bool is_present = (_values.count(section) != 0) && (_values.at(section).count(name) != 0);
-    value_container& val = _values[section][name];
-    
-    if(!is_present)
+    bool is_present = hasValue(section, name);
+    if( !is_present )
     {
-      val.value = Impl::to_string( default_value );
+      section = tolower(section);
+      name = tolower(name);
+      _values[section][name].value = Impl::to_string( default_value );
     }
 
+    T res = getValue<T>( section, name );
+    assert( is_present || default_value == res );
+
+    return res;
+  }
+  
+  /**
+   * Same as getValue(section, name, default) but value must exist
+   **/
+  template< typename T >
+  T getValue( std::string section, std::string name)
+  {
+    bool is_present = hasValue(section, name);
+    if( !is_present )
+    {
+      throw std::runtime_error( std::string("Error while parsing .ini ") + section + "/" + name + " -- Value not found and no default was provided." );
+    }
+    
+    section = tolower(section);
+    name = tolower(name);
+    value_container& val = _values[section][name];
     val.used = true;
     T res;
     try {        
@@ -299,8 +318,14 @@ public:
       std::cout << std::endl;
     }
 
-    assert( is_present || default_value == res );
     return res;
+  }
+
+  bool hasValue( std::string section, std::string name )
+  {
+    section = tolower(section);
+    name = tolower(name);
+    return (_values.count(section) != 0) && (_values.at(section).count(name) != 0);
   }
 
   /**

@@ -34,11 +34,12 @@ void run_test(int ndim, std::string mapUserData_id)
   uint32_t by = 8;
   uint32_t bz = (ndim==3)?8:1;
 
-  int level_min = 1;
+  int level_min = 2;
   int level_max = 8;
   std::shared_ptr<AMRmesh> amr_mesh; //solver->amr_mesh 
   {
     amr_mesh = std::make_shared<AMRmesh>(ndim, ndim, std::array<bool,3>{false,false,false}, level_min, level_max );
+    amr_mesh->adaptGlobalRefine();
     // amr_mesh->setBalanceCodimension(ndim);
     // uint32_t idx = 0;
     // amr_mesh->setBalance(idx,true);
@@ -48,15 +49,6 @@ void run_test(int ndim, std::string mapUserData_id)
     // amr_mesh->setPeriodic(3);
     // amr_mesh->setPeriodic(4);
     // amr_mesh->setPeriodic(5);
-
-    amr_mesh->adaptGlobalRefine();
-    amr_mesh->adaptGlobalRefine();
-    amr_mesh->adaptGlobalRefine();
-
-    amr_mesh->adapt();
-    amr_mesh->updateConnectivity();
-    amr_mesh->loadBalance();
-    amr_mesh->updateConnectivity();
   }
 
   Timers timers;
@@ -98,7 +90,7 @@ void run_test(int ndim, std::string mapUserData_id)
     for( uint32_t iOct=0; iOct<nbOcts; iOct++ )
     {
       bitpit::darray3 oct_pos = amr_mesh->getCoordinates(iOct);
-      real_t oct_size = amr_mesh->getSize(iOct);
+      real_t oct_size = amr_mesh->getSize(iOct)[0];
       
       for( uint32_t c=0; c<nbCellsPerOct; c++ )
       {
@@ -121,7 +113,7 @@ void run_test(int ndim, std::string mapUserData_id)
     for( uint32_t iOct=0; iOct<amr_mesh->getNumGhosts(); iOct++ )
     {
       bitpit::darray3 oct_pos = amr_mesh->getCoordinatesGhost(iOct);
-      real_t oct_size = amr_mesh->getSizeGhost(iOct);
+      real_t oct_size = amr_mesh->getSizeGhost(iOct)[0];
       
       for( uint32_t c=0; c<nbCellsPerOct; c++ )
       {
@@ -189,7 +181,7 @@ void run_test(int ndim, std::string mapUserData_id)
     for( uint32_t iOct=0; iOct<nbOcts; iOct++ )
     {
       bitpit::darray3 oct_pos = amr_mesh->getCoordinates(iOct);
-      real_t oct_size = amr_mesh->getSize(iOct);
+      real_t oct_size = amr_mesh->getSize(iOct)[0];
       
       for( uint32_t c=0; c<nbCellsPerOct; c++ )
       {

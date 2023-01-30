@@ -89,9 +89,9 @@ public:
         return {pmin[IX], pmin[1], pmin[2]};
     }
     //! @copydoc LightOctree_base::getSize()
-    real_t getSize(const OctantIndex& iOct)  const
+    bitpit::darray3 getSize(const OctantIndex& iOct)  const
     {
-        real_t oct_size = iOct.isGhost ? 
+        bitpit::darray3 oct_size = iOct.isGhost ? 
                 pmesh->getSizeGhost(iOct.iOct) : 
                 pmesh->getSize(iOct.iOct);
         return oct_size;
@@ -174,12 +174,12 @@ public:
     /// @copydoc LightOctree_base::isBoundary()
     bool isBoundary(const OctantIndex& iOct, const offset_t& offset) const {
       assert( !iOct.isGhost );
-      real_t dh = this->getSize(iOct);
+      auto dh = this->getSize(iOct);
       pos_t center = this->getCenter(iOct);    
       pos_t pos {
-          center[IX] + offset[IX]*dh,
-          center[IY] + offset[IY]*dh,
-          center[IZ] + offset[IZ]*dh
+          center[IX] + offset[IX]*dh[IX],
+          center[IY] + offset[IY]*dh[IY],
+          center[IZ] + offset[IZ]*dh[IZ]
       };
   
       //       Not periodic   and     not inside domain
@@ -223,12 +223,12 @@ private:
             if( neighbors.size() == 1 ) // Looking only for bigger neighbors
             {
                 pos_t neigh_min = getCorner(neighbors[0]);
-                real_t oct_size = getSize(neighbors[0]);
+                auto oct_size = getSize(neighbors[0]);
 
                 pos_t neigh_max = {
-                        neigh_min[IX] + oct_size,
-                        neigh_min[IY] + oct_size,
-                        neigh_min[IZ] + oct_size
+                        neigh_min[IX] + oct_size[IX],
+                        neigh_min[IY] + oct_size[IY],
+                        neigh_min[IZ] + oct_size[IZ]
                 };
 
                 if( neigh_min[IX] < cellPos[IX] && cellPos[IX] < neigh_max[IX] 

@@ -369,13 +369,13 @@ KOKKOS_INLINE_FUNCTION CellData get_cell_data_smaller( const Functor& f, const L
         real_t npx = np[IX];
         real_t npy = np[IY];
         real_t npz = np[IZ];
-        real_t neighbor_size = f.lmesh.getSize( neighs[i] );
+        auto neighbor_size = f.lmesh.getSize( neighs[i] );
 
         LightOctree::pos_t neighbor_min = {npx,npy,npz};
 
-        if(   ( neighbor_min[IX] < cell_physical_pos[IX] &&  cell_physical_pos[IX] < neighbor_min[IX] + neighbor_size )
-          and ( neighbor_min[IY] < cell_physical_pos[IY] &&  cell_physical_pos[IY] < neighbor_min[IY] + neighbor_size )
-          and ( (ndim==2) || (neighbor_min[IZ] < cell_physical_pos[IZ] &&  cell_physical_pos[IZ] < neighbor_min[IZ] + neighbor_size )) )
+        if(   ( neighbor_min[IX] < cell_physical_pos[IX] &&  cell_physical_pos[IX] < neighbor_min[IX] + neighbor_size[IX] )
+          and ( neighbor_min[IY] < cell_physical_pos[IY] &&  cell_physical_pos[IY] < neighbor_min[IY] + neighbor_size[IY] )
+          and ( (ndim==2) || (neighbor_min[IZ] < cell_physical_pos[IZ] &&  cell_physical_pos[IZ] < neighbor_min[IZ] + neighbor_size[IZ] )) )
         {
             suboctant = i;
             break;
@@ -530,11 +530,11 @@ KOKKOS_INLINE_FUNCTION CellData get_cell_data( const Functor& f, uint32_t iOct_l
 
     LightOctree::offset_t neighbor = {(int8_t)neighbor_[IX],(int8_t)neighbor_[IY],(int8_t)neighbor_[IZ]};
     LightOctree::pos_t oct_origin = f.lmesh.getCorner({iOct_global, false});
-    real_t oct_size = f.lmesh.getSize({iOct_global, false});
+    auto oct_size = f.lmesh.getSize({iOct_global, false});
     real_t cell_size[3] = {
-        oct_size/f.blockSizes[IX],
-        oct_size/f.blockSizes[IY],
-        oct_size/f.blockSizes[IZ]
+        oct_size[IX]/f.blockSizes[IX],
+        oct_size[IY]/f.blockSizes[IY],
+        oct_size[IZ]/f.blockSizes[IZ]
     };
     real_t cellPos[3] = {
         oct_origin[IX] + pos_in_local[IX] * cell_size[IX] + cell_size[IX]/2,
@@ -658,11 +658,11 @@ KOKKOS_INLINE_FUNCTION void fill_boundary_faces( const Functor& f, uint32_t iOct
         uint32_t iOct_global = iOct_local + f.iGroup * f.nbOctsPerGroup;
 
         LightOctree::pos_t oct_origin = f.lmesh.getCorner({iOct_global, false});
-        real_t oct_size = f.lmesh.getSize({iOct_global, false});
+        auto oct_size = f.lmesh.getSize({iOct_global, false});
         real_t cell_size[3] = {
-            oct_size/f.blockSizes[IX],
-            oct_size/f.blockSizes[IY],
-            oct_size/f.blockSizes[IZ]
+            oct_size[IX]/f.blockSizes[IX],
+            oct_size[IY]/f.blockSizes[IY],
+            oct_size[IZ]/f.blockSizes[IZ]
         };
         real_t cellPos[3] = {
             oct_origin[IX] + p.pos_in_local[IX] * cell_size[IX] + cell_size[IX]/2,

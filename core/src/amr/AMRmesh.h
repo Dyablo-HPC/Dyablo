@@ -9,7 +9,17 @@
 
 #define DYABLO_USE_GPU_MESH
 
+class ConfigMap;
+
 namespace dyablo{
+
+template< typename Impl_t_ >
+struct has_coarse_grid_size_ : public std::false_type
+{};
+
+template<>
+struct has_coarse_grid_size_<AMRmesh_hashmap_new> : public std::true_type
+{};
 
 template < typename Impl >
 class AMRmesh_impl : protected Impl{
@@ -23,8 +33,10 @@ public:
   template< typename T, int N >
   using array_t = std::array<T,N>;
 
+  static constexpr bool has_coarse_grid_size = has_coarse_grid_size_<Impl_t>::value;
+
   /**
-   * Construct a new empty AMR mesh
+   * Construct a new empty AMR mesh initialized with a fixed grid at level_min
    * @param dim number of dimensions 2D/3D
    * @param balance_codim 2:1 balance behavior : 
    *               1 ==> balance through faces, 
@@ -34,11 +46,39 @@ public:
    * @param level_min minimum refinement level 
    * @param level_max maximum refinement level
    * (TODO : clarify level_min/level_max) 
-   * Note : Right after construction Mesh has 1 octant
    **/
   AMRmesh_impl( int dim, int balance_codim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max);
+ 
+  template<typename Impl_t_ = Impl_t, typename std::enable_if<!has_coarse_grid_size_<Impl_t_>::value, int>::type = 0>
+  AMRmesh_impl( int dim, int balance_codim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max, const Kokkos::Array<uint32_t,3>& coarse_grid_size)
+    : Impl_t(dim, balance_codim, periodic, level_min, level_max), level_min(level_min), level_max(level_max)
+  {
+    if( ( coarse_grid_size[IX] != (1U << level_min) ) 
+    || ( coarse_grid_size[IY] != (1U << level_min) ) 
+    || ( coarse_grid_size[IZ] != ((dim==3)?(1U << level_min):1 )) )
+    {
+      throw std::runtime_error( "This AMRmesh_implementation doesn't support non-square coarse domain" );
+    }
+  }
+
+  template<typename Impl_t_ = Impl_t, typename std::enable_if<has_coarse_grid_size_<Impl_t_>::value, int>::type = 0>
+  AMRmesh_impl( int dim, int balance_codim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max, const Kokkos::Array<uint32_t,3>& coarse_grid_size)
+    : Impl_t(dim, balance_codim, periodic, level_min, level_max, coarse_grid_size ), level_min(level_min), level_max(level_max)
+  {}
+
+  struct Parameters
+  {
+    int dim;
+    std::array<bool,3> periodic;
+    uint8_t level_min, level_max;
+    Kokkos::Array<uint32_t,3> coarse_grid_size;
+  };
+  static Parameters parse_parameters(ConfigMap& configmap);
+
 
   ~AMRmesh_impl();
+
+  
 
   //----- Mesh parameters -----
   /// Get number of dimensions
@@ -60,10 +100,13 @@ public:
     return Impl::get_max_supported_level();
   }
 
-  int get_level_min()
-  {return level_min;}
+  int get_level_min() const
+  {
+    assert( level_min == Impl::get_level_min() );
+    return level_min;
+  }
 
-  int get_level_max()
+  int get_level_max() const
   {return level_max;}
 
   /**
@@ -131,7 +174,7 @@ public:
    * Get the width of the cell
    * Note : all cells are square
    **/ 
-  real_t getSize( uint32_t idx ) const
+  array_t<real_t, 3> getSize( uint32_t idx ) const
   { return Impl::getSize(idx); }
 
   /// Get the AMR level of the local cell
@@ -155,7 +198,7 @@ public:
    * Get the width of the ghost cell
    * Note : all cells are square
    **/ 
-  real_t getSizeGhost( uint32_t idx ) const
+  array_t<real_t, 3> getSizeGhost(uint32_t idx ) const
   { return Impl::getSizeGhost(idx); }
 
   /// Get the AMR level of the ghost cell

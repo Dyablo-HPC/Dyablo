@@ -541,11 +541,11 @@ CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_
 
       // Compute suboctant where target cell is located in larger neighbor
       LightOctree::pos_t current_center = lmesh.getCenter(iOct);
-      real_t current_size = lmesh.getSize(iOct);
+      auto current_size = lmesh.getSize(iOct);
 
-      int current_logical_x = std::floor( current_center[IX]/current_size );
-      int current_logical_y = std::floor( current_center[IY]/current_size );
-      int current_logical_z = std::floor( current_center[IZ]/current_size );
+      int current_logical_x = std::floor( current_center[IX]/current_size[IX] );
+      int current_logical_y = std::floor( current_center[IY]/current_size[IY] );
+      int current_logical_z = std::floor( current_center[IZ]/current_size[IZ] );
 
       auto is_odd = [](int x) {
         return (int)(x%2 != 0);
@@ -602,11 +602,11 @@ CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_
 
       // Find suboctant containing first neighbor
       LightOctree::pos_t current_oct_center = lmesh.getCenter(iOct);
-      real_t current_oct_size = lmesh.getSize(iOct);
+      auto current_oct_size = lmesh.getSize(iOct);
       LightOctree::pos_t neighbor_superoct_center{
-        current_oct_center[IX] + oct_offset[IX] * current_oct_size, 
-        current_oct_center[IY] + oct_offset[IY] * current_oct_size, 
-        current_oct_center[IZ] + oct_offset[IZ] * current_oct_size 
+        current_oct_center[IX] + oct_offset[IX] * current_oct_size[IX], 
+        current_oct_center[IY] + oct_offset[IY] * current_oct_size[IY], 
+        current_oct_center[IZ] + oct_offset[IZ] * current_oct_size[IZ] 
       };
       int suboctant = -1;
       for( size_t i=0; i<oct_neighbors.size(); i++ )

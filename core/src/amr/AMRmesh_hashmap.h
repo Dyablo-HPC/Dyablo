@@ -57,6 +57,11 @@ public:
         return {periodic[0],periodic[0],periodic[1],periodic[1],periodic[2],periodic[2]};
     }
 
+    int get_level_min() const
+    {
+        return level_min;
+    }
+
     int get_max_supported_level()
     {
         return sizeof(oct_view_device_t::value_type)*8-1;
@@ -138,8 +143,8 @@ public:
     std::array<real_t, 3> getCenter( uint32_t idx ) const
     {
         std::array<real_t, 3> corner = getCoordinates(idx);
-        real_t size = getSize(idx);
-        return { corner[IX]+size/2, corner[IY]+size/2, corner[IZ]+size/2 };
+        auto size = getSize(idx);
+        return { corner[IX]+size[IX]/2, corner[IY]+size[IY]/2, corner[IZ]+size[IZ]/2 };
     }
 
 
@@ -149,16 +154,17 @@ public:
         coord_t iy = local_octs_coord(IY, idx);
         coord_t iz = local_octs_coord(IZ, idx);
 
-        real_t size = getSize(idx);
+        auto size = getSize(idx);
 
-        return {ix*size, iy*size, iz*size};
+        return {ix*size[IX], iy*size[IY], iz*size[IZ]};
     }
 
-    real_t getSize( uint32_t idx ) const
+    std::array<real_t, 3> getSize( uint32_t idx ) const
     {
         level_t level = getLevel(idx);
 
-        return 1.0/std::pow(2,level);
+        real_t size = 1.0/std::pow(2,level);
+        return {size,size,size};
     }
 
     level_t getLevel( uint32_t idx ) const
@@ -169,8 +175,8 @@ public:
     std::array<real_t, 3> getCenterGhost( uint32_t idx ) const
     {
         std::array<real_t, 3> corner = getCoordinatesGhost(idx);
-        real_t size = getSizeGhost(idx);
-        return { corner[IX]+size/2, corner[IY]+size/2, corner[IZ]+size/2 };
+        auto size = getSizeGhost(idx);
+        return { corner[IX]+size[IX]/2, corner[IY]+size[IY]/2, corner[IZ]+size[IZ]/2 };
     }  
 
     std::array<real_t, 3> getCoordinatesGhost( uint32_t idx ) const
@@ -179,16 +185,18 @@ public:
         coord_t iy = ghost_octs_coord(IY, idx);
         coord_t iz = ghost_octs_coord(IZ, idx);
 
-        real_t size = getSizeGhost(idx);
+        auto size = getSizeGhost(idx);
 
-        return {ix*size, iy*size, iz*size};
+        return {ix*size[IX], iy*size[IY], iz*size[IZ]};
     }
 
-    real_t getSizeGhost( uint32_t idx ) const
+
+    std::array<real_t, 3> getSizeGhost( uint32_t idx ) const
     {
         level_t level = getLevelGhost(idx);
 
-        return 1.0/std::pow(2,level);
+        real_t size = 1.0/std::pow(2,level);
+        return {size,size,size};
     }
 
     level_t getLevelGhost( uint32_t idx ) const

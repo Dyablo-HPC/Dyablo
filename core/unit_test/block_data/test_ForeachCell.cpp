@@ -36,14 +36,6 @@ void run_test()
     //amr_mesh->setPeriodic(4);
     //amr_mesh->setPeriodic(5);
 
-    amr_mesh->adaptGlobalRefine();
-    amr_mesh->adaptGlobalRefine();
-    amr_mesh->adaptGlobalRefine();
-
-    uint8_t levels = 4;
-    amr_mesh->adapt();
-    amr_mesh->loadBalance(levels);
-    amr_mesh->updateConnectivity();
 
     if( amr_mesh->getRank() == 0 )
     {

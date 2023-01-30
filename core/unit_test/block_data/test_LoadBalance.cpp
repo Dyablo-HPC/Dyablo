@@ -35,15 +35,6 @@ void run_test()
     //amr_mesh->setPeriodic(4);
     //amr_mesh->setPeriodic(5);
 
-    amr_mesh->adaptGlobalRefine();
-    amr_mesh->adaptGlobalRefine();
-    amr_mesh->adaptGlobalRefine();
-
-    uint8_t levels = 4;
-    amr_mesh->adapt();
-    amr_mesh->loadBalance(levels);
-    amr_mesh->updateConnectivity();
-
     if( amr_mesh->getRank() == 0 )
     {
       // Refine initial 47 (final smaller 47..54)
@@ -97,7 +88,7 @@ void run_test()
     for( uint32_t iOct=0; iOct<nbOcts; iOct++ )
     {
       bitpit::darray3 oct_pos = amr_mesh->getCoordinates(iOct);
-      real_t oct_size = amr_mesh->getSize(iOct);
+      real_t oct_size = amr_mesh->getSize(iOct)[0];
       
       for( uint32_t c=0; c<nbCellsPerOct; c++ )
       {
@@ -118,7 +109,7 @@ void run_test()
     for( uint32_t iOct=0; iOct<nbGhosts; iOct++ )
     {
       bitpit::darray3 oct_pos = amr_mesh->getCoordinatesGhost(iOct);
-      real_t oct_size = amr_mesh->getSizeGhost(iOct);
+      real_t oct_size = amr_mesh->getSizeGhost(iOct)[0];
       
       for( uint32_t c=0; c<nbCellsPerOct; c++ )
       {
@@ -157,7 +148,7 @@ void run_test()
     for( uint32_t iOct=0; iOct<nbOcts; iOct++ )
     {
       bitpit::darray3 oct_pos = amr_mesh->getCoordinates(iOct);
-      real_t oct_size = amr_mesh->getSize(iOct);
+      real_t oct_size = amr_mesh->getSize(iOct)[0];
       
       for( uint32_t c=0; c<nbCellsPerOct; c++ )
       {

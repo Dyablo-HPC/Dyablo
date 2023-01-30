@@ -1118,8 +1118,9 @@ public:
     const real_t Ly = params.ymax - params.ymin;
 
     // compute dx / dy
-    const real_t dx = lmesh.getSize({iOct,false}) * Lx / bx;
-    const real_t dy = lmesh.getSize({iOct,false}) * Ly / by;
+    auto oct_size = lmesh.getSize({iOct,false});
+    const real_t dx = oct_size[IX] * Lx / bx;
+    const real_t dy = oct_size[IY] * Ly / by;
 
     // TODO : Factor the update of U2 in an inline function instea of repeating the same block
     // of code again and again
@@ -1472,8 +1473,9 @@ public:
 
 
     // compute dx / dy
-    const real_t dx = lmesh.getSize({iOct,false}) * Lx / bx;
-    const real_t dy = lmesh.getSize({iOct,false}) * Ly / by;
+    auto oct_size = lmesh.getSize({iOct,false});
+    const real_t dx = oct_size[IX] * Lx / bx;
+    const real_t dy = oct_size[IY] * Ly / by;
 
     const real_t dtdx = dt / dx;
     const real_t dtdy = dt / dy;
@@ -1608,8 +1610,9 @@ public:
     const uint32_t &by = blockSizes[IY];
 
     // compute dx / dy
-    const real_t dx = (iOct < nbOcts) ? lmesh.getSize({iOct,false}) / bx : 1.0;
-    const real_t dy = (iOct < nbOcts) ? lmesh.getSize({iOct,false}) / by : 1.0;
+    auto oct_size = lmesh.getSize({iOct,false});
+    const real_t dx = (iOct < nbOcts) ? oct_size[IX] / bx : 1.0;
+    const real_t dy = (iOct < nbOcts) ? oct_size[IY] / by : 1.0;
 
     const real_t dtdx = dt / dx;
     const real_t dtdy = dt / dy;
@@ -1950,9 +1953,10 @@ public:
     const real_t Lz = params.zmax - params.zmin;
 
     // compute dx / dy
-    const real_t dx = lmesh.getSize({iOct,false}) * Lx / bx;
-    const real_t dy = lmesh.getSize({iOct,false}) * Ly / by;
-    const real_t dz = lmesh.getSize({iOct,false}) * Lz / bz;
+    auto oct_size = lmesh.getSize({iOct,false});
+    const real_t dx = oct_size[IX] * Lx / bx;
+    const real_t dy = oct_size[IY] * Ly / by;
+    const real_t dz = oct_size[IZ] * Lz / bz;
 
     const real_t dtdx = dt / dx;
     const real_t dtdy = dt / dy;

@@ -224,7 +224,7 @@ void run_test()
       octant_data(3) = mesh.getCenter({10,false})[IX];
       octant_data(4) = mesh.getCenter({10,false})[IY];
       octant_data(5) = mesh.getCenter({10,false})[IZ];
-      octant_data(6) = mesh.getSize({10,false});
+      octant_data(6) = mesh.getSize({10,false})[0];
       octant_data(7) = mesh.getLevel({10,false});
     });
     auto octant_data_host = Kokkos::create_mirror_view(octant_data);
@@ -401,7 +401,7 @@ void run_test()
       octant_data(3) = mesh.getCenter({18,false})[IX];
       octant_data(4) = mesh.getCenter({18,false})[IY];
       octant_data(5) = mesh.getCenter({18,false})[IZ];
-      octant_data(6) = mesh.getSize({18,false});
+      octant_data(6) = mesh.getSize({18,false})[0];
       octant_data(7) = mesh.getLevel({18,false});
     });
     auto octant_data_host = Kokkos::create_mirror_view(octant_data);
@@ -454,9 +454,6 @@ void test_perf()
   int CODIM_CORNER = 3;
   dyablo::AMRmesh amr_mesh(ndim, CODIM_CORNER, {true,true,true}, level_min, level_max);
   {
-    // Global refine until level_min
-    for(int i=0; i<level_min; i++)
-      amr_mesh.adaptGlobalRefine();
     // Refine over a circle until level_max
     for(int level=level_min; level<level_max; level++)
     {

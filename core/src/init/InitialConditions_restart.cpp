@@ -178,7 +178,9 @@ public:
 
         uint32_t nbCells_local = lmesh_data.extent(0);
         uint32_t nbCells_ghost = 0;
-        LightOctree_storage<> lmesh_storage( ndim, nbCells_local, nbCells_ghost );
+
+        // TODO : find a better way to retrieve coarse_grid_size
+        LightOctree_storage<> lmesh_storage( ndim, nbCells_local, nbCells_ghost, level_min, pmesh.getMesh().getStorage().coarse_grid_size ); 
 
         Kokkos::deep_copy( lmesh_storage.getLocalSubview(), lmesh_data );
 
@@ -187,13 +189,6 @@ public:
         LightOctree_hashmap input_lmesh( std::move(lmesh_storage), level_min, level_max, periodic );
 
         std::cout << "Restart mesh : " << input_lmesh.getNumOctants() << " octs." << std::endl;
-        
-        // Refine to level_min
-        for (uint8_t level=0; level<level_min; ++level)
-        {
-            pmesh.adaptGlobalRefine(); 
-        } 
-        pmesh.loadBalance();
 
         // Refine until level_max using analytical markers
         for (uint8_t level=level_min; level<level_max; ++level)
@@ -208,11 +203,11 @@ public:
               KOKKOS_LAMBDA( uint32_t iOct_new )
             {
                 LightOctree::pos_t pos = lmesh.getCenter({iOct_new, false});
-                real_t oct_size = lmesh.getSize({iOct_new, false});
-                pos[IX] += oct_size*0.01; // Add epsilon to avoid hitting boundary
-                pos[IY] += oct_size*0.01;
+                auto oct_size = lmesh.getSize({iOct_new, false});
+                pos[IX] += oct_size[IX]*0.01; // Add epsilon to avoid hitting boundary
+                pos[IY] += oct_size[IY]*0.01;
                 if(ndim==3)
-                  pos[IZ] += oct_size*0.01;
+                  pos[IZ] += oct_size[IZ]*0.01;
 
                 LightOctree::OctantIndex iOct_input = input_lmesh.getiOctFromPos( pos );
                 int level_input = input_lmesh.getLevel(iOct_input);
