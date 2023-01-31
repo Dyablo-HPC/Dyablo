@@ -180,7 +180,7 @@ public:
         uint32_t nbCells_ghost = 0;
 
         // TODO : find a better way to retrieve coarse_grid_size
-        LightOctree_storage<> lmesh_storage( ndim, nbCells_local, nbCells_ghost, level_min, pmesh.getMesh().getStorage().coarse_grid_size ); 
+        LightOctree_storage<> lmesh_storage( ndim, nbCells_local, nbCells_ghost, level_min, pmesh.get_coarse_grid_size() ); 
 
         Kokkos::deep_copy( lmesh_storage.getLocalSubview(), lmesh_data );
 

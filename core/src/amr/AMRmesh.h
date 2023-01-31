@@ -93,6 +93,17 @@ public:
   bool getPeriodic(uint8_t i) const
   { return Impl::getPeriodic(i); }
 
+  Kokkos::Array<uint32_t,3> get_coarse_grid_size()
+  {
+    int ndim = getDim();
+    int level_min = get_level_min();
+
+    if constexpr( has_coarse_grid_size )
+      return this->getMesh().getStorage().coarse_grid_size;
+    else
+      return { 1U << level_min, 1U << level_min, (ndim==3)?( 1U << level_min ):1U};
+  }
+
   int get_max_supported_level()
   {
     return Impl::get_max_supported_level();
