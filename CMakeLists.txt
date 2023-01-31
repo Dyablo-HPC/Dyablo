@@ -33,7 +33,8 @@ option (DYABLO_ENABLE_UNIT_TESTING "Enable unit testing" OFF)
 option (DYABLO_USE_MPI "Activate / want MPI build" ON)
 option (DYABLO_USE_HDF5 "build HDF5 input/output support" ON)
 option (DYABLO_USE_MPI_CUDA_AWARE_ENFORCED "Some MPI cuda-aware implementation are not well detected; use this to enforce" OFF)
-option (DYABLO_USE_PABLO "Use AMRmesh_pablo of AMR" OFF )
+option (DYABLO_USE_PABLO "Use AMRmesh_pablo for AMR" OFF )
+option (DYABLO_COMPILE_PABLO "Compile Bitpit and PABLO backends" ${DYABLO_USE_PABLO} )
 option (DYABLO_USE_INTERNAL_BITPIT "Compile bitpit from source in external/bitpit" ON)
 set( DYABLO_CXX_COMPILER  ${CMAKE_CXX_COMPILER} CACHE STRING "compiler used to build dyablo")
 set( BITPIT_COMPILER  ${CMAKE_CXX_COMPILER} CACHE STRING "compiler used to build bitpit when DYABLO_USE_INTERNAL_BITPIT=ON")
@@ -48,7 +49,7 @@ include (ExternalProject)
 set (DYABLO_EXTERNALPROJECT_DEPENDENCIES)
 set (DYABLO_CMAKE_ARGS_ ${DYABLO_CMAKE_ARGS})
 
-if( DYABLO_USE_PABLO )
+if( DYABLO_COMPILE_PABLO )
   if( DYABLO_USE_INTERNAL_BITPIT )
   message( STATUS "== Setup Bitpit ExternalProject ==" )
 
@@ -153,6 +154,7 @@ list (APPEND DYABLO_CMAKE_ARGS_
   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
   -DDYABLO_ENABLE_UNIT_TESTING=${DYABLO_ENABLE_UNIT_TESTING}
   -DDYABLO_USE_PABLO=${DYABLO_USE_PABLO}
+  -DDYABLO_COMPILE_PABLO=${DYABLO_COMPILE_PABLO}
   -DDYABLO_USE_MPI=${DYABLO_USE_MPI}
   -DDYABLO_USE_HDF5=${DYABLO_USE_HDF5}
   -DDYABLO_USE_MPI_CUDA_AWARE_ENFORCED=${DYABLO_USE_MPI_CUDA_AWARE_ENFORCED}

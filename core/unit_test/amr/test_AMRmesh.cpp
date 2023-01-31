@@ -205,7 +205,7 @@ public:
   using AMRmesh_t = AMRmesh_t_;
 };
 
-#ifndef DYABLO_USE_PABLO
+#ifndef DYABLO_COMPILE_PABLO
 namespace dyablo{
   class AMRmesh_pablo{};
 
@@ -216,7 +216,7 @@ namespace dyablo{
     GTEST_SKIP();
   }
 } //namespace dyablo
-#endif // DYABLO_USE_PABLO
+#endif // DYABLO_COMPILE_PABLO
 
 using AMRmesh_types = ::testing::Types<AMRmesh_pablo, AMRmesh_hashmap, AMRmesh_hashmap_new>;
 TYPED_TEST_SUITE( Test_AMRmesh, AMRmesh_types );

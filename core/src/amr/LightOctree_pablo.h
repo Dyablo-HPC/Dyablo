@@ -1,4 +1,4 @@
-#ifdef DYABLO_USE_PABLO
+#ifdef DYABLO_COMPILE_PABLO
 
 #pragma once
 
@@ -289,4 +289,4 @@ private:
 
 } //namespace dyablo
 
-#endif // DYABLO_USE_PABLO
+#endif // DYABLO_COMPILE_PABLO

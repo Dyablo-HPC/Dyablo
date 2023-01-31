@@ -79,7 +79,7 @@ void AMRmesh_impl<Impl_t>::updateLightOctree()
   }
 }
 
-#ifdef DYABLO_USE_PABLO
+#ifdef DYABLO_COMPILE_PABLO
   template class AMRmesh_impl<AMRmesh_pablo>;
 #endif
 template class AMRmesh_impl<AMRmesh_hashmap>;

@@ -1,4 +1,4 @@
-#ifdef DYABLO_USE_PABLO
+#ifdef DYABLO_COMPILE_PABLO
 
 #include "GhostCommunicator.h"
 
@@ -175,4 +175,4 @@ void GhostCommunicator_pablo::exchange_ghosts(const DataArray& U, const DataArra
 
 }//namespace dyablo
 
-#endif // DYABLO_USE_PABLO
+#endif // DYABLO_COMPILE_PABLO

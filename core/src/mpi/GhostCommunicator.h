@@ -42,7 +42,7 @@ public:
 
 namespace dyablo {
 
-#ifdef DYABLO_USE_PABLO
+#ifdef DYABLO_COMPILE_PABLO
 
 /**
  * Ghost communicator that directly uses the mpi communication in PABLO
