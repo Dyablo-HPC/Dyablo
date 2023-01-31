@@ -7,8 +7,6 @@
 
 #include "amr/LightOctree_forward.h"
 
-#define DYABLO_USE_GPU_MESH
-
 class ConfigMap;
 
 namespace dyablo{
@@ -94,6 +92,17 @@ public:
   /// Get periodicity of face i (equivalent to getPeriodic()[i])
   bool getPeriodic(uint8_t i) const
   { return Impl::getPeriodic(i); }
+
+  Kokkos::Array<uint32_t,3> get_coarse_grid_size()
+  {
+    int ndim = getDim();
+    int level_min = get_level_min();
+
+    if constexpr( has_coarse_grid_size )
+      return this->getMesh().getStorage().coarse_grid_size;
+    else
+      return { 1U << level_min, 1U << level_min, (ndim==3)?( 1U << level_min ):1U};
+  }
 
   int get_max_supported_level()
   {
@@ -322,10 +331,10 @@ public:
 
 namespace dyablo {
 
-#ifdef DYABLO_USE_GPU_MESH
-using AMRmesh = AMRmesh_impl<AMRmesh_hashmap_new>;
-#else
+#ifdef DYABLO_USE_PABLO
 using AMRmesh = AMRmesh_impl<AMRmesh_pablo>;
+#else
+using AMRmesh = AMRmesh_impl<AMRmesh_hashmap_new>;
 #endif
 
 }// namespace dyablo

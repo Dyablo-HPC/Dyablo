@@ -9,7 +9,6 @@
 #include "Kokkos_UnorderedMap.hpp"
 
 #include "amr/LightOctree_base.h"
-#include "amr/LightOctree_pablo.h"
 
 namespace dyablo { 
 

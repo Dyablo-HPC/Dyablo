@@ -131,6 +131,7 @@ public:
     });
   }
 
+#ifdef DYABLO_COMPILE_PABLO
   AMR_Remapper(const AMRmesh_pablo* amr_mesh)
   {
     /**
@@ -228,7 +229,7 @@ public:
 
     Kokkos::deep_copy(data, data_host);
   }
-
+#endif // DYABLO_COMPILE_PABLO
   /// Get Number of mappings (octant pairs)
   KOKKOS_INLINE_FUNCTION
   uint32_t size() const

@@ -1,6 +1,7 @@
 #include "AMRmesh_hashmap.h"
 
 #include <numeric>
+#include <set>
 
 #include "mpi.h"
 

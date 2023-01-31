@@ -1,3 +1,5 @@
+#ifdef DYABLO_COMPILE_PABLO
+
 #pragma once
 
 #include <memory>
@@ -286,3 +288,5 @@ private:
 };
 
 } //namespace dyablo
+
+#endif // DYABLO_COMPILE_PABLO

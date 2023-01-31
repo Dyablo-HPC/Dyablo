@@ -113,7 +113,7 @@ void run_test()
     typename Array_t::HostMirror U_host = Kokkos::create_mirror_view(U);
     for( uint32_t iOct=0; iOct<nbOcts; iOct++ )
     {
-      bitpit::darray3 oct_pos = amr_mesh->getCoordinates(iOct);
+      auto oct_pos = amr_mesh->getCoordinates(iOct);
       real_t oct_size = amr_mesh->getSize(iOct)[0];
       
       for( uint32_t c=0; c<nbCellsPerOct; c++ )
@@ -157,7 +157,7 @@ void run_test()
 
     for( uint32_t iGhost=0; iGhost<nGhosts; iGhost++ )
     {
-      bitpit::darray3 oct_pos = amr_mesh->getCoordinatesGhost(iGhost);
+      auto oct_pos = amr_mesh->getCoordinatesGhost(iGhost);
       real_t oct_size = amr_mesh->getSizeGhost(iGhost)[0];
       
       for( uint32_t c=0; c<nbCellsPerOct; c++ )
