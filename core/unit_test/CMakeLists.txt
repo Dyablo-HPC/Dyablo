@@ -39,7 +39,10 @@ function(dyablo_add_test UNIT_TEST_NAME TEST_MPI)
     target_link_libraries(${UNIT_TEST_NAME} PUBLIC mpiUtils)
   endif()
 
-  gtest_add_tests(${UNIT_TEST_NAME} "--gtest_output=xml:gtest_reports/" AUTO)
+  gtest_add_tests(TARGET ${UNIT_TEST_NAME} 
+                  EXTRA_ARGS "--gtest_output=xml:gtest_reports/" 
+                  TEST_LIST ${UNIT_TEST_NAME}_TEST_LIST )
+  set(${UNIT_TEST_NAME}_TEST_LIST ${${UNIT_TEST_NAME}_TEST_LIST} PARENT_SCOPE)
 
   # add_test(
   #   NAME ${UNIT_TEST_NAME}
@@ -117,6 +120,11 @@ dyablo_add_test(utest_MapUserData OFF
 dyablo_add_test(utest_GravitySolver_cg ON
   gravity/test_GravitySolver_cg.cpp
   main.cpp)
+
+foreach( test "${utest_GravitySolver_cg_TEST_LIST}" )
+  set_tests_properties(${test} PROPERTIES TIMEOUT 100) 
+endforeach()
+set_tests_properties(utest_GravitySolver_cg_MPI PROPERTIES TIMEOUT 100) 
 
 dyablo_add_test(utest_HydroConservativity ON
   hydro/test_HydroConservativity.cpp

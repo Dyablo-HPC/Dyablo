@@ -307,19 +307,9 @@ void test_GravitySolver( std::shared_ptr<AMRmesh> amr_mesh )
 
 } // namespace dyablo
 
-#include <future>
-
 TEST(Test_GravitySolver_cg, mesh_amrgrid_semiperiodic_sphere)
 {
-  // Launch with std::async to avoid infinite loop since conjuguate gradient is an iterative process that may not converge
-  int timeout_seconds = 100;
-  auto test_run_future = std::async(std::launch::async, 
-    []() 
-  {
-    dyablo::test_GravitySolver(dyablo::mesh_amrgrid_semiperiodic_sphere());
-  });
-
-  EXPECT_TRUE(test_run_future.wait_for(std::chrono::seconds(timeout_seconds)) != std::future_status::timeout) << "Timeout " << timeout_seconds << " s";
+  dyablo::test_GravitySolver(dyablo::mesh_amrgrid_semiperiodic_sphere());
 }
 
 
