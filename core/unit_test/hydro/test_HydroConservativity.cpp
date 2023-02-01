@@ -62,7 +62,7 @@ struct DiagosticsFunctor {
 
     real_t mass = 0.0, energy = 0.0;
     foreach_cell.reduce_cell( "compute_diagnostics", U,
-    CELL_LAMBDA( const ForeachCell::CellIndex& iCell, real_t& mass, real_t &energy)
+    KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell, real_t& mass, real_t &energy)
     {
       auto cell_size = cells.getCellSize(iCell);
       real_t dx = cell_size[IX];

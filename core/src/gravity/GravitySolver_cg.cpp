@@ -59,7 +59,6 @@ GravitySolver_cg::~GravitySolver_cg()
 
 namespace{
 
-using ForeachCell = AMRBlockForeachCell_group;
 using GlobalArray = typename ForeachCell::CellArray_global;
 using GhostedArray = typename ForeachCell::CellArray_global_ghosted;
 using CellIndex = typename ForeachCell::CellIndex;
@@ -178,7 +177,7 @@ void GravitySolver_cg::update_gravity_field(
 
   real_t rho_mean = 0;
   foreach_cell.reduce_cell( "Gravity_cg::rho_mean", CGdata, 
-    CELL_LAMBDA(const CellIndex& iCell_CGdata, real_t& update_rhomean)
+    KOKKOS_LAMBDA(const CellIndex& iCell_CGdata, real_t& update_rhomean)
   {
     ForeachCell::CellMetaData::pos_t size = cells.getCellSize(iCell_CGdata);
     real_t rhoi = Uin.at(iCell_CGdata, ID);
@@ -190,7 +189,7 @@ void GravitySolver_cg::update_gravity_field(
   // Compute initial residual
   real_t R=0, B=0, r_dot_z=0;
   foreach_cell.reduce_cell( "Gravity_cg::init_gc", CGdata, 
-    CELL_LAMBDA(const CellIndex& iCell_CGdata, real_t& update_r, real_t& update_b, real_t& update_r_dot_z )
+    KOKKOS_LAMBDA(const CellIndex& iCell_CGdata, real_t& update_r, real_t& update_b, real_t& update_r_dot_z )
   {
     // Get gravity potential from last iteration as approximate solution
     CGdata.at(iCell_CGdata, CG_PHI) = Uin.at(iCell_CGdata, IGPHI);
@@ -223,7 +222,7 @@ void GravitySolver_cg::update_gravity_field(
     // Compute p'Ap for alpha    
     real_t pAp = 0;    
     foreach_cell.reduce_cell( "Gravity_cg::pAp", CGdata, 
-      CELL_LAMBDA(const CellIndex& iCell_CGdata, real_t& pAp)
+      KOKKOS_LAMBDA(const CellIndex& iCell_CGdata, real_t& pAp)
     {
       auto cell_size = cells.getCellSize(iCell_CGdata);
 
@@ -241,7 +240,7 @@ void GravitySolver_cg::update_gravity_field(
     // Rnext <- ||r||
     real_t Rnext = 0, r_dot_z_next = 0;
     foreach_cell.reduce_cell( "Gravity_cg::alpha", CGdata, 
-      CELL_LAMBDA(const CellIndex& iCell_CGdata, real_t& update_Rnext, real_t& update_r_dot_z_next)
+      KOKKOS_LAMBDA(const CellIndex& iCell_CGdata, real_t& update_Rnext, real_t& update_r_dot_z_next)
     {
       auto cell_size = cells.getCellSize(iCell_CGdata);
       real_t alpha = r_dot_z/pAp;
@@ -258,7 +257,7 @@ void GravitySolver_cg::update_gravity_field(
 
     // Update p <- z + r_dot_z_next/r_dot_z * p
     foreach_cell.foreach_cell( "Gravity_cg::beta", CGdata, 
-      CELL_LAMBDA(const CellIndex& iCell_CGdata)
+      KOKKOS_LAMBDA(const CellIndex& iCell_CGdata)
     {
       auto cell_size = cells.getCellSize(iCell_CGdata);
       real_t beta = r_dot_z_next/r_dot_z;
@@ -279,7 +278,7 @@ void GravitySolver_cg::update_gravity_field(
 
   // Update force field in U from potential
   foreach_cell.foreach_cell( "Gravity_cg::construct_force_field", Uout, 
-    CELL_LAMBDA(const CellIndex& iCell_Uout)
+    KOKKOS_LAMBDA(const CellIndex& iCell_Uout)
   { 
     auto size = cells.getCellSize(iCell_Uout);
     CellIndex iCell_CGdata = CGdata.convert_index(iCell_Uout);

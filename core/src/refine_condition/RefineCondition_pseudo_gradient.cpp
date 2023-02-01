@@ -41,7 +41,7 @@ public:
     uint32_t nbOcts = foreach_cell.get_amr_mesh().getNumOctants();
     Kokkos::View<real_t*> oct_err_max("Oct_err_max", nbOcts);
     foreach_cell.foreach_cell( "RefineCondition_generic::mark_cells", Uin,
-      CELL_LAMBDA( const CellIndex& iCell )
+      KOKKOS_LAMBDA( const CellIndex& iCell )
     {
 
       /**

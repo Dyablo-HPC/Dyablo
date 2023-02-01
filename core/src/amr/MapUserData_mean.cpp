@@ -33,7 +33,7 @@ public:
     CellIndexRemapper remapper( this->lmesh_old, this->foreach_cell );
 
     foreach_cell.foreach_cell( "MapUserData_mean::remap", Uout,
-      CELL_LAMBDA( const CellIndex& iCell_Uout )
+      KOKKOS_LAMBDA( const CellIndex& iCell_Uout )
     {
       CellIndex iCell_Uin = remapper.get_old_cell( iCell_Uout );
 

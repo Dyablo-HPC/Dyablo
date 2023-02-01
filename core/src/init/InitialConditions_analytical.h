@@ -66,7 +66,7 @@ public:
         // Apply refine condition given by AnalyticalFormula::need_refine for each cell
         // An octant needs to be refined if at least one cell verifies the condition
         foreach_cell.foreach_cell( "InitialConditions_analytical::mark_octants", U,
-                    CELL_LAMBDA( const ForeachCell::CellIndex& iCell_U )
+                    KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell_U )
         {
             ForeachCell::CellMetaData::pos_t c = cellmetadata.getCellCenter(iCell_U);
             ForeachCell::CellMetaData::pos_t s = cellmetadata.getCellSize(iCell_U);
@@ -101,7 +101,7 @@ public:
         ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
 
         foreach_cell.foreach_cell( "InitialConditions_analytical::fill_U", U,
-                    CELL_LAMBDA( const ForeachCell::CellIndex& iCell_U )
+                    KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell_U )
         {
             ForeachCell::CellMetaData::pos_t c = cellmetadata.getCellCenter(iCell_U);
             ForeachCell::CellMetaData::pos_t s = cellmetadata.getCellSize(iCell_U);

@@ -31,7 +31,7 @@ public:
 
     real_t inv_dt;
     foreach_cell.reduce_cell( "compute_dt", U,
-    CELL_LAMBDA( const ForeachCell::CellIndex& iCell, real_t& inv_dt_update )
+    KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell, real_t& inv_dt_update )
     {
       auto cell_size = cells.getCellSize(iCell);
       real_t dx = cell_size[IX];
