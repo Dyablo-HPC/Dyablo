@@ -126,6 +126,9 @@ public:
 
         int ndim = getNdim();
 
+        if( offset[IX] == 0 && offset[IY] == 0 && offset[IZ] == 0 )
+            return NeighborList{1,{iOct}};
+
         if( this->isBoundary(iOct, offset) )
             return NeighborList{0,{}};
 
