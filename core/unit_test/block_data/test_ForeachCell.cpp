@@ -106,7 +106,7 @@ void run_test()
   std::cout << "Fill U..." << std::endl;
   {
     foreach_cell.foreach_cell( "Fill_U", U, 
-      CELL_LAMBDA( const ForeachCell::CellIndex& iCell )
+      KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell )
     {
       auto pos = cells.getCellCenter(iCell);
       U.at( iCell, IU ) = pos[IX];
@@ -118,7 +118,7 @@ void run_test()
   std::cout << "Apply stencil..." << std::endl;
   ForeachCell::CellArray_global_ghosted U2 = foreach_cell.allocate_ghosted_array("U2", field_manager);
   foreach_cell.foreach_cell( "Stencil_U2", U, 
-    CELL_LAMBDA( const ForeachCell::CellIndex& iCell )
+    KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell )
   {
     auto append_offset = [&]( ForeachCell::CellIndex::offset_t offset )
     {

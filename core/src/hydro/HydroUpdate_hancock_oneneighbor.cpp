@@ -468,9 +468,6 @@ void apply_gravity_correction( const GhostedArray& Uin,
 
 }
 
-using AMRBlockForeachCell = AMRBlockForeachCell_group;
-//using AMRBlockForeachCell = AMRBlockForeachCell_scratch;
-
 template <typename State_>
 class HydroUpdate_hancock_oneneighbor : public HydroUpdate{
 public: 
@@ -542,7 +539,7 @@ public:
     GhostedArray Q = foreach_cell.allocate_ghosted_array( "Q", field_manager );
 
     // Fill Q with primitive variables
-    foreach_cell.foreach_cell("HydroUpdate_hancock_oneneighbor::convertToPrimitives", Q, CELL_LAMBDA(const CellIndex& iCell_Q)
+    foreach_cell.foreach_cell("HydroUpdate_hancock_oneneighbor::convertToPrimitives", Q, KOKKOS_LAMBDA(const CellIndex& iCell_Q)
     { 
         computePrimitives<ndim, State>(riemann_params, Uin, iCell_Q, Q);
     });
@@ -559,7 +556,7 @@ public:
     ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
 
     // Fill slope arrays
-    foreach_cell.foreach_cell("HydroUpdate_hancock_oneneighbor::reconstruct_gradients", Q, CELL_LAMBDA(const CellIndex& iCell_Q)
+    foreach_cell.foreach_cell("HydroUpdate_hancock_oneneighbor::reconstruct_gradients", Q, KOKKOS_LAMBDA(const CellIndex& iCell_Q)
     { 
         compute_limited_slopes<ndim, State>(Q, iCell_Q, cellmetadata.getCellCenter(iCell_Q), cellmetadata.getCellSize(iCell_Q), Slopes_x, Slopes_y, Slopes_z);
     });
@@ -570,7 +567,7 @@ public:
       Slopes_z.exchange_ghosts(ghost_comm);
 
     // Compute flux and update Uout
-    foreach_cell.foreach_cell("HydroUpdate_hancock_oneneighbor::flux_and_update", Q, CELL_LAMBDA(const CellIndex& iCell_Q)
+    foreach_cell.foreach_cell("HydroUpdate_hancock_oneneighbor::flux_and_update", Q, KOKKOS_LAMBDA(const CellIndex& iCell_Q)
     { 
         compute_fluxes_and_update<ndim, State>(Uin, Uout, Q, iCell_Q, 
                                                Slopes_x, Slopes_y, Slopes_z,

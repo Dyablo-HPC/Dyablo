@@ -108,7 +108,7 @@ by=4
     ForeachCell::CellArray_global_ghosted U = foreach_cell.allocate_ghosted_array("U", field_manager);
     ForeachCell::CellMetaData cells = foreach_cell.getCellMetaData();
     foreach_cell.foreach_cell("Fill U", U, 
-        CELL_LAMBDA(const ForeachCell::CellIndex& iCell)
+        KOKKOS_LAMBDA(const ForeachCell::CellIndex& iCell)
     {
         auto pos = cells.getCellCenter(iCell);
         U.at(iCell, IU) = pos[IX];
@@ -173,7 +173,7 @@ void test_restart()
     int error_count = 0;
     ForeachCell::CellMetaData cells = foreach_cell.getCellMetaData();
     foreach_cell.reduce_cell("Test U", U, 
-        CELL_LAMBDA(const ForeachCell::CellIndex& iCell, int& err)
+        KOKKOS_LAMBDA(const ForeachCell::CellIndex& iCell, int& err)
     {
         auto pos = cells.getCellCenter(iCell);
         if( U.at(iCell, IU) != pos[IX] )

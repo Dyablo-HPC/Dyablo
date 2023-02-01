@@ -358,7 +358,7 @@ R"xml(
         { 
           Kokkos::View< real_t*, Kokkos::LayoutLeft > tmp_view(var_name, local_num_cells);
           foreach_cell.foreach_cell( "compute_node_coordinates", U_,
-          CELL_LAMBDA( const ForeachCell::CellIndex& iCell )
+          KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell )
           {
             uint32_t iCell_lin = linearize_iCell( iCell );
             tmp_view(iCell_lin) = U_.at(iCell, iVar);
