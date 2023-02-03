@@ -11,6 +11,21 @@
 #include "foreach_cell/ForeachCell.h"
 
 #include "utils/monitoring/Timers.h"
+#include "utils/config/named_enum.h"
+
+enum OutputRealType {
+  OT_FLOAT, 
+  OT_DOUBLE
+};
+
+template<>
+inline named_enum<OutputRealType>::init_list named_enum<OutputRealType>::names()
+{
+  return{
+    {OutputRealType::OT_FLOAT, "float"},
+    {OutputRealType::OT_DOUBLE, "double"}
+  };
+}
 
 namespace dyablo { 
 
@@ -35,7 +50,8 @@ public:
     ymin(configMap.getValue<real_t>("mesh", "ymin", 0.0)),
     ymax(configMap.getValue<real_t>("mesh", "ymax", 1.0)),
     zmin(configMap.getValue<real_t>("mesh", "zmin", 0.0)),
-    zmax(configMap.getValue<real_t>("mesh", "zmax", 1.0))
+    zmax(configMap.getValue<real_t>("mesh", "zmax", 1.0)),
+    output_real_t(configMap.getValue<OutputRealType>("output", "output_real_type", OT_FLOAT))
   {
     std::string write_variables = configMap.getValue<std::string>("output", "write_variables", "rho" );
     std::stringstream sstream(write_variables);
@@ -73,6 +89,8 @@ R"xml(<?xml version="1.0" ?>
   }
 
   void save_snapshot( const ForeachCell::CellArray_global_ghosted& U, uint32_t iter, real_t time );
+  template <typename output_real_t>
+  void save_snapshot_aux( const ForeachCell::CellArray_global_ghosted& U, uint32_t iter, real_t time );
 
   struct Data;
 private:
@@ -85,6 +103,8 @@ private:
   const real_t xmin, xmax;
   const real_t ymin, ymax;
   const real_t zmin, zmax;
+
+  OutputRealType output_real_t;
 };
 
 namespace{
@@ -106,6 +126,15 @@ template<> [[maybe_unused]] std::string xmf_type_attr<double>    () { return R"x
 } // namespace
 
 void IOManager_hdf5::save_snapshot( const ForeachCell::CellArray_global_ghosted& U_, uint32_t iter, real_t time )
+{
+  switch (output_real_t) {
+    case OutputRealType::OT_FLOAT:  save_snapshot_aux<float>(U_, iter, time); break;
+    case OutputRealType::OT_DOUBLE: save_snapshot_aux<double>(U_, iter, time); break;
+  }
+}
+
+template <typename output_real_t>
+void IOManager_hdf5::save_snapshot_aux( const ForeachCell::CellArray_global_ghosted& U_, uint32_t iter, real_t time )
 {
   static_assert( std::is_same_v<decltype(U_.U), DataArrayBlock>, "Only compatible with DataArrayBlock" );
 
@@ -175,7 +204,7 @@ R"xml(<?xml version="1.0" ?>
       ndim==2?"Quadrilateral":"Hexahedron", global_num_cells,
       global_num_cells, nbNodesPerCell,
       base_filename.c_str(),
-      nbOcts_global*nbNodesPerOct, (int)sizeof(real_t),
+      nbOcts_global*nbNodesPerOct, (int)sizeof(output_real_t),
       base_filename.c_str()
     );
 
@@ -214,7 +243,7 @@ R"xml(
 
         if( U_.fm.enabled(iVar) )
         {
-          output_attr_xml(xmf_type_attr<real_t>());
+          output_attr_xml(xmf_type_attr<output_real_t>());
         }
         else
         {
@@ -248,7 +277,7 @@ R"xml(
 
     // Compute and write node coordinates
     {
-      Kokkos::View< real_t**, Kokkos::LayoutLeft > coordinates("coordinates", 3, nbOcts_local*nbNodesPerOct);
+      Kokkos::View< output_real_t**, Kokkos::LayoutLeft > coordinates("coordinates", 3, nbOcts_local*nbNodesPerOct);
 
       ForeachCell::CellMetaData cells = foreach_cell.getCellMetaData();
 
@@ -271,9 +300,9 @@ R"xml(
 
         auto pos = lmesh.getCorner( {iOct, false} );
         auto oct_size = lmesh.getSize( {iOct, false} );
-        coordinates(IX, index) = xmin + (pos[IX] + (i * oct_size[IX])/bx) * Lx;
-        coordinates(IY, index) = ymin + (pos[IY] + (j * oct_size[IY])/by) * Ly;
-        coordinates(IZ, index) = zmin + (pos[IZ] + (k * oct_size[IZ])/bz) * Lz;
+        coordinates(IX, index) = static_cast<output_real_t>(xmin + (pos[IX] + (i * oct_size[IX])/bx) * Lx);
+        coordinates(IY, index) = static_cast<output_real_t>(ymin + (pos[IY] + (j * oct_size[IY])/by) * Ly);
+        coordinates(IZ, index) = static_cast<output_real_t>(zmin + (pos[IZ] + (k * oct_size[IZ])/bz) * Lz);
       });
 
       hdf5_writer.collective_write( "coordinates", coordinates );
@@ -325,7 +354,7 @@ R"xml(
           KOKKOS_LAMBDA( uint32_t i )
         {
           uint64_t iOct = first_local_iOct + i/nbCellsPerOct;
-          ioct(i) = iOct;
+          ioct(i) = iOct; 
         });
         hdf5_writer.collective_write("ioct", ioct);
       }
@@ -356,12 +385,12 @@ R"xml(
         VarIndex iVar = FieldManager::getiVar(var_name);
         if( U_.fm.enabled(iVar) )
         { 
-          Kokkos::View< real_t*, Kokkos::LayoutLeft > tmp_view(var_name, local_num_cells);
+          Kokkos::View< output_real_t*, Kokkos::LayoutLeft > tmp_view(var_name, local_num_cells);
           foreach_cell.foreach_cell( "compute_node_coordinates", U_,
           KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell )
           {
             uint32_t iCell_lin = linearize_iCell( iCell );
-            tmp_view(iCell_lin) = U_.at(iCell, iVar);
+            tmp_view(iCell_lin) = static_cast<output_real_t>(U_.at(iCell, iVar));
           });
           hdf5_writer.collective_write( var_name, tmp_view );
         }
