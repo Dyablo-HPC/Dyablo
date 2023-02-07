@@ -15,9 +15,9 @@ class RefineCondition_pseudo_gradient;
 template<>
 inline bool dyablo::RefineConditionFactory::init()
 {
-  DECLARE_REGISTERED(dyablo::RefineCondition_legacy);
+  //DECLARE_REGISTERED(dyablo::RefineCondition_legacy);
   DECLARE_REGISTERED(dyablo::RefineCondition_second_derivative_error);
-  DECLARE_REGISTERED(dyablo::RefineCondition_pseudo_gradient);
+  //DECLARE_REGISTERED(dyablo::RefineCondition_pseudo_gradient);
 
   return true;
 }
