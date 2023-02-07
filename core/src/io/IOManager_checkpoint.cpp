@@ -44,7 +44,7 @@ public:
         configMap.getValue<std::string>("output", "outputPrefix", "output")
       })
   {}
-  void save_snapshot( const ForeachCell::CellArray_global_ghosted& U, uint32_t iter, real_t time )
+  void save_snapshot( const UserData& U, uint32_t iter, real_t time )
   {
     std::stringstream filename;
     filename << pdata->outputDir << "/restart_" << pdata->outputPrefix << "_" << iter;
@@ -52,7 +52,7 @@ public:
     // Write HDF5 file
     {
       HDF5ViewWriter hdf5_file(filename.str()+".h5");
-      hdf5_file.collective_write("U", U.U);
+      //hdf5_file.collective_write("U", U.U);
       // Select subview containing local octants
       LightOctree::Storage_t::oct_data_t oct_data = pdata->pmesh.getLightOctree().getStorage().getLocalSubview();
       LightOctree::Storage_t::oct_data_t oct_data_transpose;

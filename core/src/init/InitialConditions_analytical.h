@@ -42,7 +42,7 @@ public:
     })
   {}
 
-  void init( ForeachCell::CellArray_global_ghosted& U, const FieldManager& fieldMgr )
+  void init( UserData& U )
   {
     ForeachCell& foreach_cell = data.foreach_cell;
     AMRmesh& pmesh     = foreach_cell.get_amr_mesh();
@@ -60,12 +60,11 @@ public:
         uint32_t nbOcts = lmesh.getNumOctants();
 
         ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
-        U  = foreach_cell.allocate_ghosted_array( "U" , fieldMgr );
-
+        auto Ushape = foreach_cell.allocate_ghosted_array("dummy", FieldManager(1));
         Kokkos::View<int*> markers( "InitialConditions_analytical::markers", nbOcts );
         // Apply refine condition given by AnalyticalFormula::need_refine for each cell
         // An octant needs to be refined if at least one cell verifies the condition
-        foreach_cell.foreach_cell( "InitialConditions_analytical::mark_octants", U,
+        foreach_cell.foreach_cell( "InitialConditions_analytical::mark_octants", Ushape,
                     KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell_U )
         {
             ForeachCell::CellMetaData::pos_t c = cellmetadata.getCellCenter(iCell_U);
@@ -95,12 +94,19 @@ public:
 
     // Reallocate and fill U
     {
-        // TODO wrap reallocation in U.reallocate(pmesh)?
-        U  = foreach_cell.allocate_ghosted_array( "U" , fieldMgr );
+        U.new_fields( AnalyticalFormula::initialized_fields() );
 
         ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
 
-        foreach_cell.foreach_cell( "InitialConditions_analytical::fill_U", U,
+        const UserData::FieldAccessor Uout = U.getAccessor( // TODO get list from AnalyticalFormula
+        { {"rho", ID, 0}, 
+          {"e_tot", IE, 0},
+          {"rho_vx", IU, 0},
+          {"rho_vy", IV, 0},
+          {"rho_vz", IW, 0} }
+        );
+
+        foreach_cell.foreach_cell( "InitialConditions_analytical::fill_U", U.getShape(),
                     KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell_U )
         {
             ForeachCell::CellMetaData::pos_t c = cellmetadata.getCellCenter(iCell_U);
@@ -108,9 +114,9 @@ public:
 
             auto val = analytical_formula.value( c[IX], c[IY], c[IZ], s[IX], s[IY], s[IZ] );
             if (ndim == 2)
-                setConservativeState<2>(U, iCell_U, val);
+                setConservativeState<2>(Uout, iCell_U, val);
             else
-                setConservativeState<3>(U, iCell_U, val);
+                setConservativeState<3>(Uout, iCell_U, val);
         });
     }
   }  

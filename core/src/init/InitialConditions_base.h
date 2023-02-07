@@ -6,6 +6,7 @@
 #include "utils/misc/RegisteringFactory.h"
 #include "utils/monitoring/Timers.h"
 #include "foreach_cell/ForeachCell.h"
+#include "UserData.h"
 
 namespace dyablo{
 
@@ -16,7 +17,7 @@ public:
   //     ConfigMap& configMap,
   //     ForeachCell& foreach_cell,  
   //     Timers& timers);
-  virtual void init( ForeachCell::CellArray_global_ghosted& U, const FieldManager& field_manager ) = 0;
+  virtual void init( UserData& U ) = 0;
   virtual ~InitialConditions(){}
 };
 

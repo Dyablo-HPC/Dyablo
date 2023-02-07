@@ -6,6 +6,7 @@
 #include "utils/misc/RegisteringFactory.h"
 #include "utils/monitoring/Timers.h"
 #include "foreach_cell/ForeachCell.h"
+#include "UserData.h"
 
 namespace dyablo {
 
@@ -17,8 +18,7 @@ public:
   //               ForeachCell& foreach_cell,
   //               Timers& timers );
   virtual ~GravitySolver(){}
-  virtual void update_gravity_field( const ForeachCell::CellArray_global_ghosted& Uin,
-                                     const ForeachCell::CellArray_global_ghosted& Uout) = 0;
+  virtual void update_gravity_field( UserData& U ) = 0;
 };
 
 using GravitySolverFactory = RegisteringFactory< GravitySolver, 

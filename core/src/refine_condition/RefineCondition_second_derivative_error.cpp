@@ -88,7 +88,7 @@ public:
       smallp( smallc*smallc/gamma0 )
   {}
 
-  void mark_cells( const ForeachCell::CellArray_global_ghosted& Uin )
+  void mark_cells( const UserData& Uin )
   {
     int ndim = foreach_cell.getDim();
     if( ndim == 2 )
@@ -100,7 +100,7 @@ public:
   template< int ndim,
             typename PrimState,
             typename ConsState >
-  void mark_cells_aux( const ForeachCell::CellArray_global_ghosted& Uin )
+  void mark_cells_aux( const UserData& Uin_ )
   {
     // TODO : only keep VarIndex relevant for markers computation
     FieldManager fm_refvar({ID, IP, IU, IV, IW});
@@ -122,6 +122,14 @@ public:
 
     uint32_t nbOcts = foreach_cell.get_amr_mesh().getNumOctants();
     Kokkos::View<real_t*> oct_err_max("Oct_err_max", nbOcts);
+
+    const UserData::FieldAccessor Uin = Uin_.getAccessor( // TODO get list from state
+      { {"rho", ID, 0}, 
+        {"e_tot", IE, 0},
+        {"rho_vx", IU, 0},
+        {"rho_vy", IV, 0},
+        {"rho_vz", IW, 0} }
+    );
 
     // Iterate over patches
     foreach_cell.foreach_patch( "RefineCondition_generic::mark_cells",
@@ -145,7 +153,7 @@ public:
         compute_primitives<ndim, PrimState, ConsState>(Ugroup, iCell_Ugroup, Qgroup, gamma0, smallr, smallp);
       });
 
-      patch.foreach_cell(Uin, CELL_LAMBDA(const CellIndex& iCell_U)
+      patch.foreach_cell(Uin.getShape(), CELL_LAMBDA(const CellIndex& iCell_U)
       { 
         CellIndex iCell_Qgroup = Qgroup.convert_index(iCell_U);
 

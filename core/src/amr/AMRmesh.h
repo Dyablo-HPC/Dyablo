@@ -1,7 +1,7 @@
 #pragma once
 
-#include "AMRmesh_pablo.h"
-#include "AMRmesh_hashmap.h"
+//#include "AMRmesh_pablo.h"
+//#include "AMRmesh_hashmap.h"
 #include "AMRmesh_hashmap_new.h"
 
 
@@ -10,6 +10,8 @@
 class ConfigMap;
 
 namespace dyablo{
+
+class UserData;
 
 template< typename Impl_t_ >
 struct has_coarse_grid_size_ : public std::false_type
@@ -241,8 +243,7 @@ public:
    *        for each octant iOct that needs to be moved, values from userData(..., iOct) 
    *        are transfered to the new owning mpi rank
    **/
-  template<typename DataArray_t>
-  void loadBalance_userdata( int compact_levels, DataArray_t& userData )
+  void loadBalance_userdata( int compact_levels, UserData& userData )
   { 
     uint32_t nbOcts_old = this->getNumOctants();
     uint32_t nbGhosts_old = this->getNumGhosts();

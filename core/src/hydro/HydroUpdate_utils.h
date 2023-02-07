@@ -551,7 +551,7 @@ void clean_negative_primitive_values(const ForeachCell& foreach_cell, const Arra
   int negative_p_count=0;
   int negative_rho_count=0;
 
-  foreach_cell.reduce_cell( "clean_negative_values", U,
+  foreach_cell.reduce_cell( "clean_negative_values", U.getShape(),
     KOKKOS_LAMBDA(  const ForeachCell::CellIndex& iCell, 
                     int& negative_p_count, 
                     int& negative_rho_count )

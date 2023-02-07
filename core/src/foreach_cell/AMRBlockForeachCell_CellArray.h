@@ -231,6 +231,11 @@ public :
     : CellArray_global(a), Ughost(Ughost), lmesh(lmesh)
   {}
 
+  bool is_allocated() const 
+  {
+    return U.is_allocated();
+  }
+
   void update_lightOctree(  const LightOctree& lmesh ) // TODO remove this once Kokkos arrays are not resized manually anymore.
   {
     this->lmesh = lmesh;
@@ -281,7 +286,7 @@ public :
   KOKKOS_INLINE_FUNCTION
   real_t& at_ivar( const CellIndex& iCell, int ivar ) const;
 
-  void exchange_ghosts(const GhostCommunicator& ghost_comm)
+  void exchange_ghosts(const GhostCommunicator& ghost_comm) const
   {
     ghost_comm.exchange_ghosts<2>(U, Ughost);
   }

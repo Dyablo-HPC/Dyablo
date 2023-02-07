@@ -6,6 +6,8 @@
 
 namespace dyablo {
 
+class UserData;
+
 class AMRmesh_hashmap_new
 {
 public:
@@ -119,7 +121,7 @@ public:
 
   // Output is not used in AMRmesh_impl
   GhostMap_t loadBalance( level_t compact_levels );
-  void loadBalance_userdata( level_t compact_levels, DataArrayBlock& userData );
+  void loadBalance_userdata( level_t compact_levels, UserData& userData );
 
   void setMarker(uint32_t iOct, int marker);
   void adapt(bool dummy);

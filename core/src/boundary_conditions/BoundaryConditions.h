@@ -49,9 +49,10 @@ public:
    */
   template<
     int ndim,
-    typename State>
+    typename State,
+    typename Uin_t>
   KOKKOS_INLINE_FUNCTION
-  typename State::ConsState getBoundaryValue(const CellArray_global &Uin,
+  typename State::ConsState getBoundaryValue(const Uin_t         &Uin,
                                              const CellIndex        &iCell_boundary,
                                              const CellMetaData     &metadata) const 
   {
@@ -146,9 +147,10 @@ public:
    **/
   template <
     int ndim,
-    typename State>
+    typename State,
+    typename Uin_t>
   KOKKOS_INLINE_FUNCTION
-  typename State::ConsState getUserdefBoundaryValue(const CellArray_global    &Uin, 
+  typename State::ConsState getUserdefBoundaryValue(const Uin_t            &Uin, 
                                                     const CellIndex           &iCell_Boundary, 
                                                     const CellMetaData        &metadata, 
                                                     const CellIndex::offset_t &offset, 

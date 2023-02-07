@@ -18,6 +18,8 @@ namespace {
   using GlobalArray = ForeachCell::CellArray_global;
   using PatchArray = ForeachCell::CellArray_patch;
   using CellIndex = ForeachCell::CellIndex;
+  using Uin_t = UserData::FieldAccessor;
+  using Uout_t = UserData::FieldAccessor;
 
   /**
    * @brief Computes slopes and sources along each directions on a cell 
@@ -185,7 +187,7 @@ namespace {
                       const RiemannParams& params,
                       real_t smallr,
                       real_t dtddir,
-                      const GlobalArray& Uout
+                      const Uout_t& Uout
                       )
   {
     using PrimState = typename State::PrimState;
@@ -239,12 +241,12 @@ namespace {
    **/
   template<int ndim>
   KOKKOS_INLINE_FUNCTION
-  void apply_gravity_correction( const GlobalArray& Uin,
+  void apply_gravity_correction( const Uin_t& Uin,
                                  const CellIndex& iCell_Uin,
                                  real_t dt,
                                  bool use_field,
                                  real_t gx, real_t gy, real_t gz,
-                                 const GlobalArray& Uout ){
+                                 const Uout_t& Uout ){
     if(use_field)
     {
       gx = Uin.at(iCell_Uin, IGX);
@@ -327,27 +329,40 @@ public:
    * @param dt the timestep
    */
   void update(
-    const ForeachCell::CellArray_global_ghosted& Uin,
-    const ForeachCell::CellArray_global_ghosted& Uout,
+    UserData& U,
     real_t dt)
   {
     uint32_t ndim = foreach_cell.getDim();
     if(ndim == 2)
-      update_aux<2>(Uin, Uout, dt);
+      update_aux<2>(U, dt);
     else
-      update_aux<3>(Uin, Uout, dt);
+      update_aux<3>(U, dt);
   }
 
   template<int ndim>
   void update_aux(
-      const ForeachCell::CellArray_global_ghosted& Uin,
-      const ForeachCell::CellArray_global_ghosted& Uout,
+      UserData& U,
       real_t dt)
   {
     const RiemannParams& params = this->params;  
     const real_t gamma = params.gamma0;
     const double smallr = params.smallr;
     const GravityType gravity_type = this->gravity_type;
+    
+    const Uin_t Uin = U.getAccessor( // TODO get list from state
+      { {"rho", ID, 0}, 
+        {"e_tot", IE, 0},
+        {"rho_vx", IU, 0},
+        {"rho_vy", IV, 0},
+        {"rho_vz", IW, 0} }
+    );
+    Uout_t Uout = U.getAccessor(
+      { {"rho_next", ID, 0}, 
+        {"e_tot_next", IE, 0},
+        {"rho_vx_next", IU, 0},
+        {"rho_vy_next", IV, 0},
+        {"rho_vz_next", IW, 0} }
+    );
 
     auto bc_manager = this->bc_manager;
 
@@ -365,7 +380,8 @@ public:
 
     ForeachCell& foreach_cell = this->foreach_cell;
 
-    auto fm = Uin.fm;
+    FieldManager field_manager( {ID,IE,IU,IV,IW} ); // TODO Get fm from State
+    auto fm = field_manager.get_id2index();
     
     // Create abstract temporary ghosted arrays for patches 
     PatchArray::Ref Ugroup_ = foreach_cell.reserve_patch_tmp("Ugroup", 2, 2, (ndim == 3)?2:0, fm, State::N);
@@ -380,6 +396,7 @@ public:
     timers.get("HydroUpdate_hancock").start();
 
     ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
+    const GhostedArray& U_shape = U.getShape();
 
     // Iterate over patches
     foreach_cell.foreach_patch( "HydroUpdate_hancock::update",
@@ -416,7 +433,7 @@ public:
         );
       });
       
-      patch.foreach_cell( Uout, CELL_LAMBDA(const CellIndex& iCell_Uout)
+      patch.foreach_cell( U_shape, CELL_LAMBDA(const CellIndex& iCell_Uout)
       {
         auto size = cellmetadata.getCellSize(iCell_Uout);
         ConsState u0{};

@@ -5,9 +5,9 @@
 
 namespace dyablo { 
 
-template< int ndim, typename State >
+template< int ndim, typename State, typename Uin_t >
 KOKKOS_INLINE_FUNCTION
-void copyGhostBlockCellData(const GhostedArray& Uin,
+void copyGhostBlockCellData(const Uin_t& Uin,
                             const CellIndex& iCell_Ugroup,
                             const ForeachCell::CellMetaData& patch,
                             const BoundaryConditions bc_manager, 
@@ -16,7 +16,9 @@ void copyGhostBlockCellData(const GhostedArray& Uin,
   using ConsState = typename State::ConsState;
   using CellIndex = ForeachCell::CellIndex;
 
-  CellIndex iCell_Uin = Uin.convert_index_ghost(iCell_Ugroup);
+  const GhostedArray& Uin_shape = Uin.getShape();
+
+  CellIndex iCell_Uin = Uin_shape.convert_index_ghost(iCell_Ugroup);
   if( iCell_Uin.is_boundary() )
   {
     ConsState res = bc_manager.template getBoundaryValue<ndim, State>(Uin, iCell_Uin, patch);
@@ -35,7 +37,7 @@ void copyGhostBlockCellData(const GhostedArray& Uin,
     assert( iCell_Uin.is_valid() );
     ConsState u{}, u_subcell{};
     int nbCells =
-    foreach_sibling<ndim>( iCell_Uin, Uin, 
+    foreach_sibling<ndim>( iCell_Uin, Uin_shape, 
       [&](const CellIndex& iCell_subcell)
     {
       getConservativeState<ndim>(Uin, iCell_subcell, u_subcell);

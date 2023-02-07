@@ -151,6 +151,15 @@ public:
     return cdata.ndim;
   }
 
+  static constexpr bool has_blocks()
+  {return true;}
+
+  // Only available when has_blocks() == true
+  Kokkos::Array<uint32_t, 3> blockSize() const
+  {
+    return {cdata.bx, cdata.by, cdata.bz };
+  }
+
   uint32_t getNumCells() const 
   {
     return get_amr_mesh().getNumOctants() * cdata.bx * cdata.by * cdata.bz;

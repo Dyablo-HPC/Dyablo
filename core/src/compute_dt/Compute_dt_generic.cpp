@@ -21,7 +21,7 @@ public:
     has_mhd( configMap.getValue<std::string>("hydro", "update", "HydroUpdate_hancock").find("MHD") != std::string::npos )
   {}
 
-  double compute_dt( const ForeachCell::CellArray_global_ghosted& U )
+  double compute_dt( const UserData& U )
   {
     int ndim = foreach_cell.getDim();
     real_t gamma0 = this->gamma0;
@@ -29,8 +29,16 @@ public:
 
     ForeachCell::CellMetaData cells = foreach_cell.getCellMetaData();
 
+    UserData::FieldAccessor Uin = U.getAccessor( // TODO Get list from State
+      { {"rho", ID, 0}, 
+        {"e_tot", IE, 0},
+        {"rho_vx", IU, 0},
+        {"rho_vy", IV, 0},
+        {"rho_vz", IW, 0} }
+    );
+
     real_t inv_dt;
-    foreach_cell.reduce_cell( "compute_dt", U,
+    foreach_cell.reduce_cell( "compute_dt", U.getShape(),
     KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell, real_t& inv_dt_update )
     {
       auto cell_size = cells.getCellSize(iCell);
@@ -40,9 +48,9 @@ public:
       
       ConsHydroState uLoc;
       if (ndim == 2)
-        getConservativeState<2>(U, iCell, uLoc);
+        getConservativeState<2>(Uin, iCell, uLoc);
       else
-        getConservativeState<3>(U, iCell, uLoc);
+        getConservativeState<3>(Uin, iCell, uLoc);
       
       PrimHydroState qLoc = consToPrim<3>(uLoc, gamma0);
       const real_t cs = sqrt(qLoc.p * gamma0 / qLoc.rho);
@@ -57,9 +65,9 @@ public:
       // In fine, compute_dt should be templated by the type of State
       // and calculations of inv_dt should be held in a separate State function
       if (has_mhd) {
-        const real_t Bx = U.at(iCell,IBX);
-        const real_t By = U.at(iCell,IBY);
-        const real_t Bz = U.at(iCell,IBZ);
+        const real_t Bx = Uin.at(iCell,IBX);
+        const real_t By = Uin.at(iCell,IBY);
+        const real_t Bz = Uin.at(iCell,IBZ);
         const real_t gr = cs*cs*qLoc.rho;
         const real_t Bt2 [] = {By*By+Bz*Bz,
                                Bx*Bx+Bz*Bz,

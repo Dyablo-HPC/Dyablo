@@ -3,6 +3,7 @@
 #include "utils/misc/RegisteringFactory.h"
 #include "utils/monitoring/Timers.h"
 #include "foreach_cell/ForeachCell.h"
+#include "UserData.h"
 
 namespace dyablo {
 
@@ -14,7 +15,7 @@ public:
   //               ForeachCell& foreach_cell,
   //               Timers& timers );
   virtual ~RefineCondition(){}
-  virtual void mark_cells( const ForeachCell::CellArray_global_ghosted& U ) = 0;
+  virtual void mark_cells( const UserData& U ) = 0;
 };
 
 using RefineConditionFactory = RegisteringFactory< RefineCondition, 

@@ -88,9 +88,9 @@ R"xml(<?xml version="1.0" ?>
     fclose(main_xdmf_fd);
   }
 
-  void save_snapshot( const ForeachCell::CellArray_global_ghosted& U, uint32_t iter, real_t time );
+  void save_snapshot( const UserData& U, uint32_t iter, real_t time );
   template <typename output_real_t>
-  void save_snapshot_aux( const ForeachCell::CellArray_global_ghosted& U, uint32_t iter, real_t time );
+  void save_snapshot_aux( const UserData& U, uint32_t iter, real_t time );
 
   struct Data;
 private:
@@ -125,7 +125,7 @@ template<> [[maybe_unused]] std::string xmf_type_attr<double>    () { return R"x
 
 } // namespace
 
-void IOManager_hdf5::save_snapshot( const ForeachCell::CellArray_global_ghosted& U_, uint32_t iter, real_t time )
+void IOManager_hdf5::save_snapshot( const UserData& U_, uint32_t iter, real_t time )
 {
   switch (output_real_t) {
     case OutputRealType::OT_FLOAT:  save_snapshot_aux<float>(U_, iter, time); break;
@@ -134,18 +134,20 @@ void IOManager_hdf5::save_snapshot( const ForeachCell::CellArray_global_ghosted&
 }
 
 template <typename output_real_t>
-void IOManager_hdf5::save_snapshot_aux( const ForeachCell::CellArray_global_ghosted& U_, uint32_t iter, real_t time )
+void IOManager_hdf5::save_snapshot_aux( const UserData& U_, uint32_t iter, real_t time )
 {
-  static_assert( std::is_same_v<decltype(U_.U), DataArrayBlock>, "Only compatible with DataArrayBlock" );
+  //static_assert( std::is_same_v<decltype(U_.U), DataArrayBlock>, "Only compatible with DataArrayBlock" );
 
   int ndim = foreach_cell.getDim();
   int nbNodesPerCell = (ndim-1)*4;
 
   uint32_t nbOcts_local = foreach_cell.get_amr_mesh().getNumOctants();
   uint64_t nbOcts_global = foreach_cell.get_amr_mesh().getGlobalNumOctants();
-  uint32_t bx = U_.bx;
-  uint32_t by = U_.by;
-  uint32_t bz = U_.bz;
+  
+  static_assert( ForeachCell::has_blocks() );
+  uint32_t bx = foreach_cell.blockSize()[IX];
+  uint32_t by = foreach_cell.blockSize()[IY];
+  uint32_t bz = foreach_cell.blockSize()[IZ];
   uint32_t nbCellsPerOct = bx*by*bz;
   uint32_t Bx = bx+1;
   uint32_t By = by+1;
@@ -239,9 +241,7 @@ R"xml(
       }
       else if( FieldManager::hasiVar(var_name) )
       {
-        VarIndex iVar = FieldManager::getiVar(var_name);
-
-        if( U_.fm.enabled(iVar) )
+        if( U_.has_field(var_name) )
         {
           output_attr_xml(xmf_type_attr<output_real_t>());
         }
@@ -382,15 +382,16 @@ R"xml(
       }
       else
       { 
-        VarIndex iVar = FieldManager::getiVar(var_name);
-        if( U_.fm.enabled(iVar) )
+        if( U_.has_field(var_name) )
         { 
           Kokkos::View< output_real_t*, Kokkos::LayoutLeft > tmp_view(var_name, local_num_cells);
-          foreach_cell.foreach_cell( "compute_node_coordinates", U_,
+          
+          auto field_view = U_.getField( var_name );
+          foreach_cell.foreach_cell( "compute_node_coordinates", field_view,
           KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell )
           {
             uint32_t iCell_lin = linearize_iCell( iCell );
-            tmp_view(iCell_lin) = static_cast<output_real_t>(U_.at(iCell, iVar));
+            tmp_view(iCell_lin) = static_cast<output_real_t>(field_view.at_ivar(iCell, 0));
           });
           hdf5_writer.collective_write( var_name, tmp_view );
         }
