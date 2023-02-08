@@ -94,17 +94,18 @@ public:
 
     // Reallocate and fill U
     {
-        U.new_fields( AnalyticalFormula::initialized_fields() );
+        using State_t = decltype( std::declval<AnalyticalFormula>().value( 0,0,0, 0,0,0 ) );
+
+        std::set<std::string> fields;
+        {
+            for( const auto& field_info : State_t::getFieldsInfo() )
+                fields.insert( field_info.name );
+        }
+        U.new_fields( fields );
 
         ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
 
-        const UserData::FieldAccessor Uout = U.getAccessor( // TODO get list from AnalyticalFormula
-        { {"rho", ID, 0}, 
-          {"e_tot", IE, 0},
-          {"rho_vx", IU, 0},
-          {"rho_vy", IV, 0},
-          {"rho_vz", IW, 0} }
-        );
+        const UserData::FieldAccessor Uout = U.getAccessor( State_t::getFieldsInfo() );
 
         foreach_cell.foreach_cell( "InitialConditions_analytical::fill_U", U.getShape(),
                     KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell_U )

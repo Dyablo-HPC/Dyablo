@@ -58,16 +58,7 @@ public:
     std::string var_name;
     while(std::getline(sstream, var_name, ','))
     { //use comma as delim for cutting string
-      if( var_name=="ioct" || var_name=="level" || var_name=="rank" )
-      {
-        write_varnames.insert(var_name);
-      }
-      else if( FieldManager::hasiVar(var_name) )
-      {
-        write_varnames.insert(var_name);
-      }
-      else
-        std::cout << "WARNING : Output variable not found : '" << var_name << "'" << std::endl;    
+      write_varnames.insert(var_name);
     }
     
     { // Write main xdmf file with 0 timesteps
@@ -239,21 +230,14 @@ R"xml(
       {
         output_attr_xml(xmf_type_attr<int>());       
       }
-      else if( FieldManager::hasiVar(var_name) )
+      else if( U_.has_field(var_name) )
       {
-        if( U_.has_field(var_name) )
-        {
-          output_attr_xml(xmf_type_attr<output_real_t>());
-        }
-        else
-        {
-          std::cout << "WARNING : Output variable requested but not enabled : '" << var_name << "'" << std::endl; 
-        }
+        output_attr_xml(xmf_type_attr<output_real_t>());
       }
       else
       {
-        assert(false); // var_names should have been filtered before
-      }      
+        std::cout << "WARNING : Output variable requested but not enabled : '" << var_name << "'" << std::endl; 
+      } 
     }
 
     fprintf(fd, 

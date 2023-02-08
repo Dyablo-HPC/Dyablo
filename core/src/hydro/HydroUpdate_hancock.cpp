@@ -349,20 +349,13 @@ public:
     const double smallr = params.smallr;
     const GravityType gravity_type = this->gravity_type;
     
-    const Uin_t Uin = U.getAccessor( // TODO get list from state
-      { {"rho", ID, 0}, 
-        {"e_tot", IE, 0},
-        {"rho_vx", IU, 0},
-        {"rho_vy", IV, 0},
-        {"rho_vz", IW, 0} }
-    );
-    Uout_t Uout = U.getAccessor(
-      { {"rho_next", ID, 0}, 
-        {"e_tot_next", IE, 0},
-        {"rho_vx_next", IU, 0},
-        {"rho_vy_next", IV, 0},
-        {"rho_vz_next", IW, 0} }
-    );
+    auto fields_info = ConsState::getFieldsInfo();
+
+    const Uin_t Uin = U.getAccessor( fields_info );
+    auto fields_info_next = fields_info;
+    for( auto& p : fields_info_next )
+      p.name += "_next";
+    Uout_t Uout = U.getAccessor( fields_info_next );
 
     auto bc_manager = this->bc_manager;
 
@@ -380,18 +373,18 @@ public:
 
     ForeachCell& foreach_cell = this->foreach_cell;
 
-    FieldManager field_manager( {ID,IE,IU,IV,IW} ); // TODO Get fm from State
-    auto fm = field_manager.get_id2index();
+    auto fm_cons = ConsState::getFieldManager().get_id2index();
+    auto fm_prim = PrimState::getFieldManager().get_id2index();
     
     // Create abstract temporary ghosted arrays for patches 
-    PatchArray::Ref Ugroup_ = foreach_cell.reserve_patch_tmp("Ugroup", 2, 2, (ndim == 3)?2:0, fm, State::N);
-    PatchArray::Ref Qgroup_ = foreach_cell.reserve_patch_tmp("Qgroup", 2, 2, (ndim == 3)?2:0, fm, State::N);
-    PatchArray::Ref SlopesX_ = foreach_cell.reserve_patch_tmp("SlopesX", 1, 0, 0, fm, State::N);
-    PatchArray::Ref SlopesY_ = foreach_cell.reserve_patch_tmp("SlopesY", 0, 1, 0, fm, State::N);
+    PatchArray::Ref Ugroup_ = foreach_cell.reserve_patch_tmp("Ugroup", 2, 2, (ndim == 3)?2:0, fm_cons, State::N);
+    PatchArray::Ref Qgroup_ = foreach_cell.reserve_patch_tmp("Qgroup", 2, 2, (ndim == 3)?2:0, fm_prim, State::N);
+    PatchArray::Ref SlopesX_ = foreach_cell.reserve_patch_tmp("SlopesX", 1, 0, 0, fm_prim, State::N);
+    PatchArray::Ref SlopesY_ = foreach_cell.reserve_patch_tmp("SlopesY", 0, 1, 0, fm_prim, State::N);
     PatchArray::Ref SlopesZ_;
     if( ndim == 3 )
-      SlopesZ_ = foreach_cell.reserve_patch_tmp("SlopesZ", 0, 0, 1, fm, State::N);
-    PatchArray::Ref Sources_ = foreach_cell.reserve_patch_tmp("Sources", 1, 1, (ndim == 3)?1:0, fm, State::N);
+      SlopesZ_ = foreach_cell.reserve_patch_tmp("SlopesZ", 0, 0, 1, fm_prim, State::N);
+    PatchArray::Ref Sources_ = foreach_cell.reserve_patch_tmp("Sources", 1, 1, (ndim == 3)?1:0, fm_prim, State::N);
 
     timers.get("HydroUpdate_hancock").start();
 

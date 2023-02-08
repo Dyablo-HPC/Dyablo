@@ -79,6 +79,7 @@ public:
     GravityType gravity_type = m_gravity_type;
 
     std::string godunov_updater_id = configMap.getValue<std::string>("hydro", "update", "HydroUpdate_hancock");
+    this->has_mhd = godunov_updater_id.find("MHD") != std::string::npos;
     this->godunov_updater = HydroUpdateFactory::make_instance( godunov_updater_id,
       configMap,
       this->m_foreach_cell,
@@ -308,6 +309,10 @@ public:
 
     U.new_fields({"rho_next", "e_tot_next", "rho_vx_next", "rho_vy_next", "rho_vz_next"});
     
+    // TODO automatic new fields according to kernel
+    if( this->has_mhd )
+      U.new_fields({"Bx_next", "By_next", "Bz_next"});
+
     // Update gravity
     if( gravity_solver )
       gravity_solver->update_gravity_field(U);
@@ -322,6 +327,13 @@ public:
     U.move_field( "rho_vx", "rho_vx_next" ); 
     U.move_field( "rho_vy", "rho_vy_next" ); 
     U.move_field( "rho_vz", "rho_vz_next" );
+    if( this->has_mhd )
+    {
+      U.move_field( "Bx", "Bx_next" ); 
+      U.move_field( "By", "By_next" ); 
+      U.move_field( "Bz", "Bz_next" );
+    }
+    
 
     // AMR cycle
     {
@@ -409,6 +421,7 @@ private:
   std::unique_ptr<Compute_dt> compute_dt;
   std::unique_ptr<RefineCondition> refine_condition;
   std::unique_ptr<HydroUpdate> godunov_updater;
+  bool has_mhd; // TODO : remove this
   std::unique_ptr<MapUserData> mapUserData;
   std::unique_ptr<IOManager> io_manager, io_manager_checkpoint;
   std::unique_ptr<GravitySolver> gravity_solver;

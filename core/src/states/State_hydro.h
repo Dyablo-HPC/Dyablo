@@ -12,6 +12,29 @@ namespace dyablo {
  * @brief Structure holding conservative hydrodynamics variables
  **/ 
 struct ConsHydroState {
+  enum VarIndex : dyablo::VarIndex
+  {
+    Irho,
+    Ie_tot,
+    Irho_vx,
+    Irho_vy,
+    Irho_vz
+  };  
+  
+  static std::vector<UserData::FieldAccessor::FieldInfo> getFieldsInfo()
+  {
+    return  { {"rho",     VarIndex::Irho,     0}, 
+              {"e_tot",   VarIndex::Ie_tot,   0},
+              {"rho_vx",  VarIndex::Irho_vx,  0},
+              {"rho_vy",  VarIndex::Irho_vy,  0},
+              {"rho_vz",  VarIndex::Irho_vz,  0} };
+  }
+
+  static FieldManager getFieldManager()
+  {
+    return FieldManager( {VarIndex::Irho, VarIndex::Ie_tot, VarIndex::Irho_vx, VarIndex::Irho_vy, VarIndex::Irho_vz } );
+  }
+
   real_t rho = 0;
   real_t e_tot = 0;
   real_t rho_u = 0;
@@ -30,6 +53,29 @@ DECLARE_STATE_GET( ConsHydroState, 4, rho_w );
  * @brief Structure holding primitive hydrodynamics variables
  */
 struct PrimHydroState {
+  enum VarIndex : dyablo::VarIndex
+  {
+    Irho,
+    Ip,
+    Iu,
+    Iv,
+    Iw
+  };  
+  
+  static std::vector<UserData::FieldAccessor::FieldInfo> getFieldsInfo()
+  {
+    return  { {"rho",     VarIndex::Irho,     0}, 
+              {"e_tot",   VarIndex::Ip,   0},
+              {"rho_vx",  VarIndex::Iu,  0},
+              {"rho_vy",  VarIndex::Iv,  0},
+              {"rho_vz",  VarIndex::Iw,  0} };
+  }
+
+  static FieldManager getFieldManager()
+  {
+    return FieldManager( {VarIndex::Irho, VarIndex::Ip, VarIndex::Iu, VarIndex::Iv, VarIndex::Iw } );
+  }
+
   real_t rho = 0;
   real_t p = 0;
   real_t u = 0;
@@ -71,11 +117,11 @@ template< int ndim,
 KOKKOS_INLINE_FUNCTION
 void getConservativeState(const Array_t& U, const CellIndex& iCell, ConsHydroState &res)
 {
-  res.rho   = U.at(iCell, ID);
-  res.e_tot = U.at(iCell, IE);
-  res.rho_u = U.at(iCell, IU);
-  res.rho_v = U.at(iCell, IV);
-  res.rho_w = (ndim == 3 ? U.at(iCell, IW) : 0.0);
+  res.rho   = U.at(iCell, ConsHydroState::VarIndex::Irho );
+  res.e_tot = U.at(iCell, ConsHydroState::VarIndex::Ie_tot );
+  res.rho_u = U.at(iCell, ConsHydroState::VarIndex::Irho_vx );
+  res.rho_v = U.at(iCell, ConsHydroState::VarIndex::Irho_vy );
+  res.rho_w = (ndim == 3 ? U.at(iCell, ConsHydroState::VarIndex::Irho_vz ) : 0.0);
 }
 
 /**
@@ -95,11 +141,11 @@ template< int ndim,
 KOKKOS_INLINE_FUNCTION
 void getPrimitiveState(const Array_t& U, const CellIndex& iCell, PrimHydroState &res)
 {
-  res.rho = U.at(iCell, ID);
-  res.p   = U.at(iCell, IP);
-  res.u   = U.at(iCell, IU);
-  res.v   = U.at(iCell, IV);
-  res.w   = (ndim == 3 ? U.at(iCell, IW) : 0.0);
+  res.rho = U.at(iCell, PrimHydroState::VarIndex::Irho );
+  res.p   = U.at(iCell, PrimHydroState::VarIndex::Ip );
+  res.u   = U.at(iCell, PrimHydroState::VarIndex::Iu );
+  res.v   = U.at(iCell, PrimHydroState::VarIndex::Iv );
+  res.w   = (ndim == 3 ? U.at(iCell, PrimHydroState::VarIndex::Iw ) : 0.0);
 }
 
 /**
@@ -116,12 +162,12 @@ void getPrimitiveState(const Array_t& U, const CellIndex& iCell, PrimHydroState 
 template <int ndim, typename Array_t, typename CellIndex >
 KOKKOS_INLINE_FUNCTION
 void setPrimitiveState( const Array_t& U, const CellIndex& iCell, PrimHydroState u) {
-  U.at(iCell, ID) = u.rho;
-  U.at(iCell, IP) = u.p;
-  U.at(iCell, IU) = u.u;
-  U.at(iCell, IV) = u.v;
+  U.at(iCell, PrimHydroState::VarIndex::Irho) = u.rho;
+  U.at(iCell, PrimHydroState::VarIndex::Ip) = u.p;
+  U.at(iCell, PrimHydroState::VarIndex::Iu) = u.u;
+  U.at(iCell, PrimHydroState::VarIndex::Iv) = u.v;
   if (ndim == 3)
-    U.at(iCell, IW) = u.w;
+    U.at(iCell, PrimHydroState::VarIndex::Iw) = u.w;
 }
 
 /**
@@ -138,12 +184,12 @@ void setPrimitiveState( const Array_t& U, const CellIndex& iCell, PrimHydroState
 template <int ndim, typename Array_t, typename CellIndex >
 KOKKOS_INLINE_FUNCTION
 void setConservativeState( const Array_t& U, const CellIndex& iCell, ConsHydroState u) {
-  U.at(iCell, ID) = u.rho;
-  U.at(iCell, IE) = u.e_tot;
-  U.at(iCell, IU) = u.rho_u;
-  U.at(iCell, IV) = u.rho_v;
+  U.at(iCell, ConsHydroState::VarIndex::Irho) = u.rho;
+  U.at(iCell, ConsHydroState::VarIndex::Ie_tot) = u.e_tot;
+  U.at(iCell, ConsHydroState::VarIndex::Irho_vx) = u.rho_u;
+  U.at(iCell, ConsHydroState::VarIndex::Irho_vy) = u.rho_v;
   if (ndim == 3)
-    U.at(iCell, IW) = u.rho_w;
+    U.at(iCell, ConsHydroState::VarIndex::Irho_vz) = u.rho_w;
 }
 
 /**

@@ -5,11 +5,6 @@
 namespace dyablo{
 
 struct AnalyticalFormula_blast : public AnalyticalFormula_base{
-    static std::set<std::string> initialized_fields()
-    {
-        return {"rho", "e_tot", "rho_vx", "rho_vy", "rho_vz"}; // TODO get form ConsHydroState
-    }
-    
      // blast problem parameters
     const int ndim;
     const real_t blast_radius;

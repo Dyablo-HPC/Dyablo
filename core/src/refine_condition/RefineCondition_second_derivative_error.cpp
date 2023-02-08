@@ -102,11 +102,6 @@ public:
             typename ConsState >
   void mark_cells_aux( const UserData& Uin_ )
   {
-    // TODO : only keep VarIndex relevant for markers computation
-    FieldManager fm_refvar({ID, IP, IU, IV, IW});
-    auto fm = fm_refvar.get_id2index();
-    int nbfields = fm_refvar.nbfields();
-
     auto bc_manager = this->bc_manager;
     real_t gamma0 = this->gamma0;
     real_t smallr = this->smallr;
@@ -117,19 +112,13 @@ public:
     ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
 
     // Create abstract temporary ghosted arrays for patches 
-    ForeachCell::CellArray_patch::Ref Ugroup_ = foreach_cell.reserve_patch_tmp("Ugroup", 2, 2, (ndim == 3)?2:0, fm, nbfields);
-    ForeachCell::CellArray_patch::Ref Qgroup_ = foreach_cell.reserve_patch_tmp("Qgroup", 2, 2, (ndim == 3)?2:0, fm, nbfields);
+    ForeachCell::CellArray_patch::Ref Ugroup_ = foreach_cell.reserve_patch_tmp("Ugroup", 2, 2, (ndim == 3)?2:0, ConsState::getFieldManager().get_id2index(), ConsState::getFieldManager().nbfields());
+    ForeachCell::CellArray_patch::Ref Qgroup_ = foreach_cell.reserve_patch_tmp("Qgroup", 2, 2, (ndim == 3)?2:0, PrimState::getFieldManager().get_id2index(), ConsState::getFieldManager().nbfields());
 
     uint32_t nbOcts = foreach_cell.get_amr_mesh().getNumOctants();
     Kokkos::View<real_t*> oct_err_max("Oct_err_max", nbOcts);
 
-    const UserData::FieldAccessor Uin = Uin_.getAccessor( // TODO get list from state
-      { {"rho", ID, 0}, 
-        {"e_tot", IE, 0},
-        {"rho_vx", IU, 0},
-        {"rho_vy", IV, 0},
-        {"rho_vz", IW, 0} }
-    );
+    const UserData::FieldAccessor Uin = Uin_.getAccessor( ConsState::getFieldsInfo() );
 
     // Iterate over patches
     foreach_cell.foreach_patch( "RefineCondition_generic::mark_cells",
@@ -159,7 +148,7 @@ public:
 
         real_t f_max = 0;
 
-        for(VarIndex ivar : {ID,IP})
+        for(VarIndex ivar : {PrimState::VarIndex::Irho,PrimState::VarIndex::Ip})
         {
           real_t fx = second_derivative_error(Qgroup, iCell_Qgroup, ivar, IX);
           real_t fy = second_derivative_error(Qgroup, iCell_Qgroup, ivar, IY);
