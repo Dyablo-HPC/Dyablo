@@ -239,55 +239,55 @@ namespace {
    * @param gz
    * @param Uout Updated array after hydro without gravity
    **/
-  template<int ndim>
-  KOKKOS_INLINE_FUNCTION
-  void apply_gravity_correction( const Uin_t& Uin,
-                                 const CellIndex& iCell_Uin,
-                                 real_t dt,
-                                 bool use_field,
-                                 real_t gx, real_t gy, real_t gz,
-                                 const Uout_t& Uout ){
-    if(use_field)
-    {
-      gx = Uin.at(iCell_Uin, IGX);
-      gy = Uin.at(iCell_Uin, IGY);
-      if (ndim == 3)
-        gz = Uin.at(iCell_Uin, IGZ);
-    }
+  // template<int ndim>
+  // KOKKOS_INLINE_FUNCTION
+  // void apply_gravity_correction( const Uin_t& Uin,
+  //                                const CellIndex& iCell_Uin,
+  //                                real_t dt,
+  //                                bool use_field,
+  //                                real_t gx, real_t gy, real_t gz,
+  //                                const Uout_t& Uout ){
+  //   if(use_field)
+  //   {
+  //     gx = Uin.at(iCell_Uin, IGX);
+  //     gy = Uin.at(iCell_Uin, IGY);
+  //     if (ndim == 3)
+  //       gz = Uin.at(iCell_Uin, IGZ);
+  //   }
 
-    real_t rhoOld = Uin.at(iCell_Uin, ID);
+  //   real_t rhoOld = Uin.at(iCell_Uin, ID);
     
-    real_t rhoNew = Uout.at(iCell_Uin, ID);
-    real_t rhou = Uout.at(iCell_Uin, IU);
-    real_t rhov = Uout.at(iCell_Uin, IV);
-    real_t ekin_old = rhou*rhou + rhov*rhov;
-    real_t rhow;
+  //   real_t rhoNew = Uout.at(iCell_Uin, ID);
+  //   real_t rhou = Uout.at(iCell_Uin, IU);
+  //   real_t rhov = Uout.at(iCell_Uin, IV);
+  //   real_t ekin_old = rhou*rhou + rhov*rhov;
+  //   real_t rhow;
     
-    if (ndim == 3) {
-      rhow = Uout.at(iCell_Uin, IW);
-      ekin_old += rhow*rhow;
-    }
+  //   if (ndim == 3) {
+  //     rhow = Uout.at(iCell_Uin, IW);
+  //     ekin_old += rhow*rhow;
+  //   }
     
-    ekin_old = 0.5 * ekin_old / rhoNew;
+  //   ekin_old = 0.5 * ekin_old / rhoNew;
 
-    rhou += 0.5 * dt * gx * (rhoOld + rhoNew);
-    rhov += 0.5 * dt * gy * (rhoOld + rhoNew);
+  //   rhou += 0.5 * dt * gx * (rhoOld + rhoNew);
+  //   rhov += 0.5 * dt * gy * (rhoOld + rhoNew);
 
-    Uout.at(iCell_Uin, IU) = rhou;
-    Uout.at(iCell_Uin, IV) = rhov;
-    if (ndim == 3) {
-      rhow += 0.5 * dt * gz * (rhoOld + rhoNew);
-      Uout.at(iCell_Uin, IW) = rhow;
-    }
+  //   Uout.at(iCell_Uin, IU) = rhou;
+  //   Uout.at(iCell_Uin, IV) = rhov;
+  //   if (ndim == 3) {
+  //     rhow += 0.5 * dt * gz * (rhoOld + rhoNew);
+  //     Uout.at(iCell_Uin, IW) = rhow;
+  //   }
 
-    // Energy correction should be included in case of self-gravitation ?
-    real_t ekin_new = rhou*rhou + rhov*rhov;
-    if (ndim == 3)
-      ekin_new += rhow*rhow;
+  //   // Energy correction should be included in case of self-gravitation ?
+  //   real_t ekin_new = rhou*rhou + rhov*rhov;
+  //   if (ndim == 3)
+  //     ekin_new += rhow*rhow;
     
-    ekin_new = 0.5 * ekin_new / rhoNew;
-    Uout.at(iCell_Uin, IE) += (ekin_new - ekin_old);
-  }    
+  //   ekin_new = 0.5 * ekin_new / rhoNew;
+  //   Uout.at(iCell_Uin, IE) += (ekin_new - ekin_old);
+  // }    
 } // namespace
 } // namespace dyablo
 
@@ -444,8 +444,8 @@ public:
         if( ndim==3 ) compute_fluxes<ndim, State>(IZ, iCell_Uout, SlopesZ, Sources, params, smallr, dt/size[IZ], Uout);
       
         // Applying correction step for gravity
-        if (has_gravity)
-          apply_gravity_correction<ndim>(Uin, iCell_Uout, dt, gravity_use_field, gx, gy, gz, Uout);
+        //if (has_gravity)
+        //  apply_gravity_correction<ndim>(Uin, iCell_Uout, dt, gravity_use_field, gx, gy, gz, Uout);
       });
     });
 
