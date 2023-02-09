@@ -145,6 +145,13 @@ public:
     static constexpr int MAX_FIELD_COUNT = 32;
     using FieldInfo = FieldAccessor_FieldInfo;
 
+    FieldAccessor() = default;
+    FieldAccessor(const FieldAccessor& ) = default;
+    FieldAccessor(FieldAccessor& ) = default;
+    FieldAccessor& operator=(const FieldAccessor& ) = default;
+    FieldAccessor& operator=(FieldAccessor& ) = default;
+
+
     int nbFields() const
     {
         return m_nbFields;

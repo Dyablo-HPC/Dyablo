@@ -63,13 +63,25 @@ using GlobalArray = typename ForeachCell::CellArray_global;
 using GhostedArray = typename ForeachCell::CellArray_global_ghosted;
 using CellIndex = typename ForeachCell::CellIndex;
 
-constexpr VarIndex CG_IP = (VarIndex)0;
-constexpr VarIndex CG_IR = (VarIndex)1;
-constexpr VarIndex CG_PHI = (VarIndex)2;
-//constexpr VarIndex CG_IZ = (VarIndex)3;
+enum VarIndex_CG
+{
+  ID, IGX, IGY, IGZ,
+  CG_IP, CG_IR, CG_PHI, IGPHI
+};
 
+const GhostedArray& shape( const UserData::FieldAccessor& array )
+{
+  return array.getShape();
+}
+
+const GhostedArray& shape( const GhostedArray& array )
+{
+  return array;
+}
+
+template< typename Array_t >
 KOKKOS_INLINE_FUNCTION
-real_t get_value(const GhostedArray& U, const CellIndex& iCell_U, VarIndex var, const CellIndex::offset_t& offset)
+real_t get_value(const Array_t& U, const CellIndex& iCell_U, VarIndex var, const CellIndex::offset_t& offset)
 {
   constexpr int ndim = 3;
   if( iCell_U.is_boundary() )
@@ -87,7 +99,7 @@ real_t get_value(const GhostedArray& U, const CellIndex& iCell_U, VarIndex var, 
     real_t sum = 0;
     int nbCells =
     foreach_smaller_neighbor<ndim, true>( // TODO : select enable_different_block=false when block-based
-      iCell_U, offset, U, 
+      iCell_U, offset, shape(U), 
       [&](const ForeachCell::CellIndex& iCell_ghost)
     {
       sum += U.at(iCell_ghost, var);
@@ -96,8 +108,9 @@ real_t get_value(const GhostedArray& U, const CellIndex& iCell_U, VarIndex var, 
   } 
 }
 
+template< typename Array_t >
 KOKKOS_INLINE_FUNCTION
-real_t matprod(const GhostedArray& GCdata, const CellIndex& iCell_CGdata, VarIndex var, real_t dx, real_t dy, real_t dz, const Kokkos::Array<BoundaryConditionType, 3>& boundarycondition)
+real_t matprod(const Array_t& GCdata, const CellIndex& iCell_CGdata, VarIndex var, real_t dx, real_t dy, real_t dz, const Kokkos::Array<BoundaryConditionType, 3>& boundarycondition)
 {
   //constexpr int ndim = 3;
 
@@ -108,8 +121,8 @@ real_t matprod(const GhostedArray& GCdata, const CellIndex& iCell_CGdata, VarInd
   {
     CellIndex::offset_t off_L{}; off_L[dir] = -1;
     CellIndex::offset_t off_R{}; off_R[dir] = +1;
-    CellIndex iCell_L = iCell_CGdata.getNeighbor_ghost(off_L, GCdata);
-    CellIndex iCell_R = iCell_CGdata.getNeighbor_ghost(off_R, GCdata);
+    CellIndex iCell_L = iCell_CGdata.getNeighbor_ghost(off_L, shape(GCdata));
+    CellIndex iCell_R = iCell_CGdata.getNeighbor_ghost(off_R, shape(GCdata));
     real_t S = (dx*dy*dz)/ddir[dir];
 
     real_t hl = ddir[dir];
@@ -131,14 +144,14 @@ real_t matprod(const GhostedArray& GCdata, const CellIndex& iCell_CGdata, VarInd
 }
 
 KOKKOS_INLINE_FUNCTION
-real_t Aii(const GhostedArray& GCdata, const CellIndex& iCell_CGdata, real_t dx, real_t dy, real_t dz, const Kokkos::Array<BoundaryConditionType, 3>& boundarycondition)
+real_t Aii(const UserData::FieldAccessor& GCdata, const CellIndex& iCell_CGdata, real_t dx, real_t dy, real_t dz, const Kokkos::Array<BoundaryConditionType, 3>& boundarycondition)
 {
   return (dx*dy*dz)*(2/(dx*dx)+2/(dy*dy)+2/(dz*dz));
 }
 
 /// Right-hand term for linear solver : 4 Pi G rho
 KOKKOS_INLINE_FUNCTION
-real_t b(const GhostedArray& Uin, const CellIndex& iCell_Uin, real_t rho_mean, real_t gravity_constant, ForeachCell::CellMetaData::pos_t size)
+real_t b(const UserData::FieldAccessor& Uin, const CellIndex& iCell_Uin, real_t rho_mean, real_t gravity_constant, ForeachCell::CellMetaData::pos_t size)
 {
   return -gravity_constant*(Uin.at(iCell_Uin, ID)-rho_mean)*size[IX]*size[IY]*size[IZ];
 }
@@ -152,9 +165,7 @@ real_t MPI_Allreduce_scalar( real_t local_v )
 
 } // namespace
 
-void GravitySolver_cg::update_gravity_field(
-  const ForeachCell::CellArray_global_ghosted& Uin,
-  const ForeachCell::CellArray_global_ghosted& Uout )
+void GravitySolver_cg::update_gravity_field( UserData& U )
 {
   uint8_t ndim = pdata->foreach_cell.getDim();
   ForeachCell& foreach_cell = pdata->foreach_cell;
@@ -165,6 +176,8 @@ void GravitySolver_cg::update_gravity_field(
 
   real_t gravity_constant = pdata->gravity_constant;
   real_t eps = pdata->CG_eps;
+
+  UserData::FieldAccessor Uin = U.getAccessor( {{"rho", ID, 0}, {"phi", IGPHI, 0}} );
 
   ForeachCell::CellMetaData cells = foreach_cell.getCellMetaData();
 
@@ -276,8 +289,15 @@ void GravitySolver_cg::update_gravity_field(
   // TODO : exchange only CG_PHI 
   CGdata.exchange_ghosts(ghost_comm);
 
+  UserData::FieldAccessor Uout = U.getAccessor({ 
+    {"gx", IGX},
+    {"gy", IGY},
+    {"gz", IGZ},
+    {"phi", IGPHI}
+  });
+
   // Update force field in U from potential
-  foreach_cell.foreach_cell( "Gravity_cg::construct_force_field", Uout, 
+  foreach_cell.foreach_cell( "Gravity_cg::construct_force_field", Uout.getShape(), 
     KOKKOS_LAMBDA(const CellIndex& iCell_Uout)
   { 
     auto size = cells.getCellSize(iCell_Uout);

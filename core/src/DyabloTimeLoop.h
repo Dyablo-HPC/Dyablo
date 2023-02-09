@@ -312,6 +312,12 @@ public:
     // TODO automatic new fields according to kernel
     if( this->has_mhd )
       U.new_fields({"Bx_next", "By_next", "Bz_next"});
+    
+    if (m_gravity_type & GRAVITY_FIELD) {
+      U.new_fields({"gx", "gy", "gz"});
+      if( !U.has_field("phi") )
+        U.new_fields({"phi"});
+    }
 
     // Update gravity
     if( gravity_solver )
@@ -334,6 +340,12 @@ public:
       U.move_field( "Bz", "Bz_next" );
     }
     
+    if (m_gravity_type & GRAVITY_FIELD)
+    {
+      U.delete_field("gx");
+      U.delete_field("gy");
+      U.delete_field("gz");
+    }    
 
     // AMR cycle
     {

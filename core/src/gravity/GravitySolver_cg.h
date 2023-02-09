@@ -20,8 +20,7 @@ public:
                 ForeachCell& foreach_cell,
                 Timers& timers );
   ~GravitySolver_cg();
-  void update_gravity_field( const ForeachCell::CellArray_global_ghosted& Uin,
-                             const ForeachCell::CellArray_global_ghosted& Uout);
+  void update_gravity_field( UserData& U);
 
    struct Data;
 private:
