@@ -177,7 +177,6 @@ public:
     }
 
 private:
-    using FieldView_t = typename UserData::FieldView_t;
     using field_views_t = Kokkos::Array<FieldView_t, MAX_FIELD_COUNT>;
 
     id2index_t fm;
