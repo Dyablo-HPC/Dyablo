@@ -42,7 +42,7 @@ inline void LightOctree_hashmap_precompute_init( const LightOctree_hashmap& lmes
         uint32_t iOct = index%nbOcts;
         uint32_t offset_index = index/nbOcts;
         LightOctree_base::offset_t offset = index_to_offset(offset_index, ndims);
-        if(offset[IX]!=0 || offset[IY]!=0 || offset[IZ]!=0 )
+        //if(offset[IX]!=0 || offset[IY]!=0 || offset[IZ]!=0 )
         {
             NeighborList ns = lmesh_hashmap.findNeighbors({iOct,false}, offset);
             neighbors_count(iOct, offset_index) = ns.size();
@@ -59,8 +59,8 @@ inline void LightOctree_hashmap_precompute_init( const LightOctree_hashmap& lmes
         uint32_t offset_index = index%nneighbors;
         LightOctree_base::offset_t offset = index_to_offset(offset_index, ndims);
 
-        if(offset[IX]!=0 || offset[IY]!=0 || offset[IZ]!=0 )
-        {
+        //if(offset[IX]!=0 || offset[IY]!=0 || offset[IZ]!=0 )
+        { 
             uint8_t nneighbors = neighbors_count(iOct, offset_index);          
             if(final)
             {
@@ -92,18 +92,31 @@ public:
     //! @copydoc LightOctree_base::findNeighbors()
     KOKKOS_INLINE_FUNCTION NeighborList findNeighbors( const OctantIndex& iOct, const offset_t& offset )  const
     {
-        assert( !iOct.isGhost );
-
-        int ndim = getNdim();
-
-        uint8_t nneighbors = neighbors_count(iOct.iOct, offset_to_index(offset, ndim));
-        uint32_t n_offset = neighbors_offset(iOct.iOct, offset_to_index(offset, ndim));
-        Kokkos::Array<OctantIndex,4> neighbors;        
-        for( int i=0; i<nneighbors; i++ )
+        if( iOct.isGhost )
         {
-            neighbors[i] = LightOctree_base::OctantIndex::iOctLocal_to_OctantIndex( neighbors_iOct( n_offset + i ), getNumOctants() );
+            return LightOctree_hashmap::findNeighbors(iOct, offset);
         }
-        return NeighborList{ nneighbors, neighbors };
+        else
+        {
+            int ndim = getNdim();
+
+            uint8_t nneighbors = neighbors_count(iOct.iOct, offset_to_index(offset, ndim));
+            uint32_t n_offset = neighbors_offset(iOct.iOct, offset_to_index(offset, ndim));
+            Kokkos::Array<OctantIndex,4> neighbors;
+            for( int i=0; i<nneighbors; i++ )
+            {
+                neighbors[i] = LightOctree_base::OctantIndex::iOctLocal_to_OctantIndex( neighbors_iOct( n_offset + i ), getNumOctants() );
+            }
+
+            auto nocache_neighbors = LightOctree_hashmap::findNeighbors(iOct, offset);
+            assert( nneighbors == nocache_neighbors.size() );
+            for( int i=0; i<nneighbors; i++ )
+            {
+                assert( neighbors[i].iOct == nocache_neighbors[i].iOct );
+            }
+
+            return NeighborList{ nneighbors, neighbors };
+        }
     }
 
 private:
