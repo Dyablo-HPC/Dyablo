@@ -151,7 +151,7 @@ public:
     FieldAccessor& operator=(const FieldAccessor& ) = default;
     FieldAccessor& operator=(FieldAccessor& ) = default;
 
-
+    KOKKOS_INLINE_FUNCTION
     int nbFields() const
     {
         return m_nbFields;

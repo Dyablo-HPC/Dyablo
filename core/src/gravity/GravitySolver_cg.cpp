@@ -69,11 +69,13 @@ enum VarIndex_CG
   CG_IP, CG_IR, CG_PHI, IGPHI
 };
 
+KOKKOS_INLINE_FUNCTION
 const GhostedArray& shape( const UserData::FieldAccessor& array )
 {
   return array.getShape();
 }
 
+KOKKOS_INLINE_FUNCTION
 const GhostedArray& shape( const GhostedArray& array )
 {
   return array;
