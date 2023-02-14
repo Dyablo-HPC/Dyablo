@@ -79,14 +79,17 @@ void run_test(int ndim, std::string mapUserData_id)
   );
   
   uint32_t nbCellsPerOct = bx*by*bz;
-  FieldManager field_manager({IU,IV,IW});
-  uint32_t nbfields = field_manager.nbfields();
   uint32_t nbOcts = amr_mesh->getNumOctants();
 
-  ForeachCell::CellArray_global_ghosted U = foreach_cell.allocate_ghosted_array("U", field_manager);
+  UserData U( configMap, foreach_cell );
+  U.new_fields({"px", "py", "pz"});
+  uint32_t nbfields = U.nbFields();
 
+  std::cout << "Initialize User Data..." << std::endl;
   { // Initialize U
-    DataArrayBlock::HostMirror U_host = Kokkos::create_mirror_view(U.U);
+    DataArrayBlock::HostMirror U_host_px = Kokkos::create_mirror_view(U.getField("px").U);
+    DataArrayBlock::HostMirror U_host_py = Kokkos::create_mirror_view(U.getField("py").U);
+    DataArrayBlock::HostMirror U_host_pz = Kokkos::create_mirror_view(U.getField("pz").U);
     for( uint32_t iOct=0; iOct<nbOcts; iOct++ )
     {
       auto oct_pos = amr_mesh->getCoordinates(iOct);
@@ -98,18 +101,22 @@ void run_test(int ndim, std::string mapUserData_id)
         uint32_t cy = (c - cz*bx*by)/bx;
         uint32_t cx = c - cz*bx*by - cy*bx;
 
-        U_host(c, IX, iOct) = oct_pos[IX] + (cx+0.5)*oct_size/bx;
-        U_host(c, IY, iOct) = oct_pos[IY] + (cy+0.5)*oct_size/by;
-        U_host(c, IZ, iOct) = oct_pos[IZ] + (cz+0.5)*oct_size/bz;
+        U_host_px(c, 0, iOct) = oct_pos[IX] + (cx+0.5)*oct_size/bx;
+        U_host_py(c, 0, iOct) = oct_pos[IY] + (cy+0.5)*oct_size/by;
+        U_host_pz(c, 0, iOct) = oct_pos[IZ] + (cz+0.5)*oct_size/bz;
       }
     }
-    Kokkos::deep_copy( U.U, U_host );
+    Kokkos::deep_copy( U.getField("px").U, U_host_px );
+    Kokkos::deep_copy( U.getField("py").U, U_host_py );
+    Kokkos::deep_copy( U.getField("pz").U, U_host_pz );
   }
 
   // Ughost must be initialized when using MPI because coarsened blocks can use ghost values
   // Instead of MPI communication, Ughost is directly filled with cell positions
   { // Initialize U
-    DataArrayBlock::HostMirror Ughost_host = Kokkos::create_mirror_view(U.Ughost);
+    DataArrayBlock::HostMirror U_ghost_host_px = Kokkos::create_mirror_view(U.getField("px").Ughost);
+    DataArrayBlock::HostMirror U_ghost_host_py = Kokkos::create_mirror_view(U.getField("py").Ughost);
+    DataArrayBlock::HostMirror U_ghost_host_pz = Kokkos::create_mirror_view(U.getField("pz").Ughost);
     for( uint32_t iOct=0; iOct<amr_mesh->getNumGhosts(); iOct++ )
     {
       auto oct_pos = amr_mesh->getCoordinatesGhost(iOct);
@@ -121,12 +128,14 @@ void run_test(int ndim, std::string mapUserData_id)
         uint32_t cy = (c - cz*bx*by)/bx;
         uint32_t cx = c - cz*bx*by - cy*bx;
 
-        Ughost_host(c, IX, iOct) = oct_pos[IX] + (cx+0.5)*oct_size/bx;
-        Ughost_host(c, IY, iOct) = oct_pos[IY] + (cy+0.5)*oct_size/by;
-        Ughost_host(c, IZ, iOct) = oct_pos[IZ] + (cz+0.5)*oct_size/bz;
+        U_ghost_host_px(c, 0, iOct) = oct_pos[IX] + (cx+0.5)*oct_size/bx;
+        U_ghost_host_py(c, 0, iOct) = oct_pos[IY] + (cy+0.5)*oct_size/by;
+        U_ghost_host_pz(c, 0, iOct) = oct_pos[IZ] + (cz+0.5)*oct_size/bz;
       }
     }
-    Kokkos::deep_copy( U.Ughost, Ughost_host );
+    Kokkos::deep_copy( U.getField("px").Ughost, U_ghost_host_px );
+    Kokkos::deep_copy( U.getField("py").Ughost, U_ghost_host_py );
+    Kokkos::deep_copy( U.getField("pz").Ughost, U_ghost_host_pz );
   }
 
   std::string iomanager_id = "IOManager_hdf5";
@@ -156,25 +165,34 @@ void run_test(int ndim, std::string mapUserData_id)
     amr_mesh->adapt(true);
   }
   
-  ForeachCell::CellArray_global_ghosted Unew = foreach_cell.allocate_ghosted_array("Unew", field_manager);
-
   std::cout << "Remap user data..." << std::endl;
 
-  mapUserData->remap(U, Unew);
+  mapUserData->remap(U);
 
   {
-    io_manager->save_snapshot(Unew, 1, 2);
+    io_manager->save_snapshot(U, 1, 2);
 
     uint32_t nbOcts = amr_mesh->getNumOctants();
 
-    std::cout << "Check Unew ( nbOcts=" << nbOcts << ")" << std::endl;
+    std::cout << "Check remapped U ( nbOcts=" << nbOcts << ")" << std::endl;
 
-    EXPECT_EQ(Unew.U.extent(0), nbCellsPerOct);
-    EXPECT_EQ(Unew.U.extent(1), nbfields);
-    EXPECT_EQ(Unew.U.extent(2), nbOcts);
+    EXPECT_EQ( U.nbFields(), nbfields );
 
-    auto Unew_host = Kokkos::create_mirror_view(Unew.U);
-    Kokkos::deep_copy(Unew_host, Unew.U);
+    EXPECT_EQ( U.getField("px").nbOcts, nbOcts );
+    EXPECT_EQ( U.getField("py").nbOcts, nbOcts );
+    EXPECT_EQ( U.getField("pz").nbOcts, nbOcts );
+
+    uint32_t expected_size = nbOcts*bx*by*bz;
+    EXPECT_EQ( U.getField("px").U.size(), expected_size );
+    EXPECT_EQ( U.getField("py").U.size(), expected_size );
+    EXPECT_EQ( U.getField("pz").U.size(), expected_size );
+
+    auto Uhost_px = Kokkos::create_mirror_view(U.getField("px").U);
+    auto Uhost_py = Kokkos::create_mirror_view(U.getField("py").U);
+    auto Uhost_pz = Kokkos::create_mirror_view(U.getField("pz").U);
+    Kokkos::deep_copy(Uhost_px, U.getField("px").U);
+    Kokkos::deep_copy(Uhost_py, U.getField("py").U);
+    Kokkos::deep_copy(Uhost_pz, U.getField("pz").U);
 
     real_t oct_size_initial = 1./8; 
 
@@ -204,9 +222,9 @@ void run_test(int ndim, std::string mapUserData_id)
           expected_z = oct_size_initial/(2*bz);
 
 
-        EXPECT_NEAR( Unew_host(c, IX, iOct), expected_x , 0.0001);
-        EXPECT_NEAR( Unew_host(c, IY, iOct), expected_y , 0.0001);
-        EXPECT_NEAR( Unew_host(c, IZ, iOct), expected_z , 0.0001);
+        EXPECT_NEAR( Uhost_px(c, 0, iOct), expected_x , 0.0001);
+        EXPECT_NEAR( Uhost_py(c, 0, iOct), expected_y , 0.0001);
+        EXPECT_NEAR( Uhost_pz(c, 0, iOct), expected_z , 0.0001);
       }
     }
   }

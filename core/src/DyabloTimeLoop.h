@@ -315,8 +315,8 @@ public:
     
     if (m_gravity_type & GRAVITY_FIELD) {
       U.new_fields({"gx", "gy", "gz"});
-      if( !U.has_field("phi") )
-        U.new_fields({"phi"});
+      if( !U.has_field("gphi") )
+        U.new_fields({"gphi"});
     }
 
     // Update gravity

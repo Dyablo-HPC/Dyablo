@@ -9,6 +9,8 @@
 
 namespace dyablo {
 
+class UserData;
+
 /**
  * AMR mesh without PABLO 
  * This uses the PabloUniform interface + some methods to access ghost octants
@@ -108,8 +110,7 @@ public:
             assert(false); // loadBalance( UserCommLB ) cannot be used without PABLO : User data are not exchanged
     }
 
-    void loadBalance_userdata( int compact_levels, DataArrayBlock& userData );
-    void loadBalance_userdata( int compact_levels, DataArray& userData );
+    void loadBalance_userdata( int compact_levels, UserData& U );
 
     const std::map<int, std::vector<uint32_t>>& getBordersPerProc() const;
 

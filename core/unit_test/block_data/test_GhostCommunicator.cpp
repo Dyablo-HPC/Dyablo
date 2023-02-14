@@ -302,6 +302,7 @@ void run_test_reduce()
   /*uint32_t bz = */configMap.getValue<uint32_t>("amr", "bz", (ndim==2)?1:8);
 
   ForeachCell foreach_cell( *amr_mesh, configMap );
+  enum VarIndex_test{ IU,IV,IW };
   FieldManager fieldManager({IU,IV,IW});
   typename ForeachCell::CellArray_global_ghosted U = foreach_cell.allocate_ghosted_array("U", fieldManager);
 

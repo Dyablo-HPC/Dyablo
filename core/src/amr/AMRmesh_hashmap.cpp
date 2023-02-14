@@ -11,6 +11,8 @@
 
 #include "mpi/GhostCommunicator.h"
 
+#include "UserData.h"
+
 namespace dyablo{
 
 AMRmesh_hashmap::AMRmesh_hashmap( int dim, int balance_codim, const std::array<bool,3>& periodic, level_t level_min, level_t level_max, const MpiComm& mpi_comm )
@@ -845,26 +847,11 @@ std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(level_t level)
     return loadbalance_to_send;
 }
 
-namespace{
-template < int iOct, typename View_t >
-void AMRmesh_hashmap_loadBalance( AMRmesh_hashmap& mesh, int compact_levels, View_t& userData )
+void AMRmesh_hashmap::loadBalance_userdata( int compact_levels, UserData& U )
 {
-    auto octs_to_exchange = mesh.loadBalance(compact_levels);
+    auto octs_to_exchange = loadBalance(compact_levels);
     GhostCommunicator_kokkos lb_comm(octs_to_exchange);
-    View_t userData_new( userData.label(), userData.extent(0), userData.extent(1), lb_comm.getNumGhosts() );
-    lb_comm.exchange_ghosts<iOct>(userData, userData_new);
-    userData = userData_new;
-}
-} // namespace
-
-void AMRmesh_hashmap::loadBalance_userdata( int compact_levels, DataArrayBlock& userData )
-{
-    AMRmesh_hashmap_loadBalance<2>(*this, compact_levels, userData);
-}
-
-void AMRmesh_hashmap::loadBalance_userdata( int compact_levels, DataArray& userData )
-{
-    AMRmesh_hashmap_loadBalance<0>(*this, compact_levels, userData);
+    U.exchange_loadbalance(lb_comm);
 }
 
 const std::map<int, std::vector<uint32_t>>& AMRmesh_hashmap::getBordersPerProc() const
