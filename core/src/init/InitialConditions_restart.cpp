@@ -3,6 +3,7 @@
 
 #include "foreach_cell/ForeachCell.h"
 #include "userdata_utils.h"
+#include "UserData.h"
 
 #include <hdf5.h>
 #include <hdf5_hl.h>
@@ -35,6 +36,25 @@ public:
 #endif
     m_hdf5_file = H5Fopen(filename.c_str(), H5F_ACC_RDONLY, plist);
     H5Pclose(plist);
+  }
+
+  std::vector<std::string> list_fields( std::string hdf5_path )
+  {
+    std::vector<std::string> res;
+    auto op_func = [](hid_t loc_id, const char *name, const H5L_info_t *info, void *operator_data)
+    {
+      std::vector<std::string>* res = static_cast<std::vector<std::string>*> (operator_data);
+      res->push_back(name);
+      return 0;
+    };
+
+    hid_t group_id = m_hdf5_file;
+    if( hdf5_path!="" )
+        group_id = H5Gopen(m_hdf5_file, hdf5_path.c_str(), H5P_DEFAULT);
+    H5Literate(group_id, H5_INDEX_NAME, H5_ITER_NATIVE, NULL, op_func, &res);
+    if(group_id != m_hdf5_file)
+      H5Gclose( group_id );
+    return res;
   }
 
   template< typename T, int iOct_pos=T::rank-1  >
@@ -160,7 +180,7 @@ public:
     filename( configMap.getValue<std::string>( "restart", "filename", "restart.h5" ) )
   {}
 
-  void init( ForeachCell::CellArray_global_ghosted& U, const FieldManager& fieldMgr )
+  void init( UserData& U )
   {
     ForeachCell& foreach_cell = data.foreach_cell;
     AMRmesh& pmesh     = foreach_cell.get_amr_mesh();
@@ -237,10 +257,13 @@ public:
 
     // Reallocate and fill U
     {
-        // TODO wrap reallocation in U.reallocate(pmesh)?
-        U  = foreach_cell.allocate_ghosted_array( "U" , fieldMgr );
-
-        restart_file.read_view( "U", U.U );        
+      auto fields = restart_file.list_fields("fields/");
+      
+      for( std::string field : fields )
+      {
+        U.new_fields({field});
+        restart_file.read_view( std::string("fields/") + field, U.getField(field).U);
+      }      
     }
   }  
 };

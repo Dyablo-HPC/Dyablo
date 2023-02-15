@@ -65,7 +65,7 @@ public:
         return field_views.end() != field_views.find(name);
     }
 
-    std::set<std::string> getEnabledFields()
+    std::set<std::string> getEnabledFields() const
     {
         std::set<std::string> res;
         for( const auto& p : field_views )

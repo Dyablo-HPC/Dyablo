@@ -630,7 +630,7 @@ void test_ConsHydroState_setget()
   uint32_t bx=1, by=1, bz=1;
   uint32_t nbOcts = 10;
 
-  FieldManager field_manager({ID, IE, IU, IV, IW});
+  FieldManager field_manager({ConsHydroState::Irho, ConsHydroState::Ie_tot, ConsHydroState::Irho_vx, ConsHydroState::Irho_vy, ConsHydroState::Irho_vz});
 
   DataArrayBlock U_("U_", bx*by*bz, field_manager.nbfields(), nbOcts);
   CellArray_global U{U_, bx, by, bz, nbOcts, field_manager.get_id2index()};

@@ -29,7 +29,7 @@ class AnalyticalFormula_MHD_rotor;
 template<>
 bool dyablo::InitialConditionsFactory::init()
 {
-  // DECLARE_REGISTERED( dyablo::InitialConditions_restart );
+  DECLARE_REGISTERED( dyablo::InitialConditions_restart );
   
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_blast> );
   // DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_implode> );

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <filesystem>
 #include "utils/mpi/GlobalMpiSession.h"
 
 #include <hdf5.h>
@@ -73,14 +74,14 @@ public:
   /**
    * Write collectively the content of the view `data` into the dataset names after `name`
    * @tparam a Kokkos::View with LayoutLeft
-   * @param varname the name in the dataset inside the HDF5 file
+   * @param varpath the name in the dataset inside the HDF5 file
    * @param data a Kokkos::View containing the data to write every extent should be identical on 
    *             every MPI process, except the last one. Data will be written contiguously for each MPI process.
    * @param global_extent cumulated values for each process for the last extent
    * @param first_global_index start value for the last extent of current process 
    **/
   template< typename View_t >
-  void collective_write_hint( const std::string& varname, const View_t& data, 
+  void collective_write_hint( const std::string& varpath, const View_t& data, 
                          uint64_t global_extent, uint64_t first_global_index )
   {
     static_assert( std::is_same_v< typename View_t::array_layout, Kokkos::LayoutLeft >, "View is not LayoutLeft" );
@@ -110,10 +111,35 @@ public:
       H5Sselect_hyperslab(filespace, H5S_SELECT_SET, first_global_indexes, nullptr, local_extents, nullptr);
     }
     
+    hid_t group_id;
+    std::string varname;
+    {
+      std::filesystem::path p ( varpath );
+
+      varname = p.filename();
+      std::string group_path = p.remove_filename();
+
+      std::stringstream ss (group_path);
+      group_id = m_hdf5_file;
+      std::string group_name;
+      while( getline (ss, group_name, '/' ) )
+      {
+        hid_t group_id_old = group_id;
+        htri_t group_exists = H5Lexists(group_id, group_name.c_str(), H5P_DEFAULT);
+        if( group_exists <= 0 ) // Does not exist : create
+          group_id = H5Gcreate(group_id, group_name.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+        else // Group exists
+          group_id = H5Gopen(group_id, group_name.c_str(), H5P_DEFAULT);
+        
+        if( group_id_old != m_hdf5_file )
+          H5Gclose(group_id_old);
+      }
+    }
+
     hid_t dataset;
     {
       hid_t dataset_properties = H5Pcreate(H5P_DATASET_CREATE);
-      dataset = H5Dcreate2(m_hdf5_file, varname.c_str(), type_id, filespace, H5P_DEFAULT, dataset_properties, H5P_DEFAULT);
+      dataset = H5Dcreate2(group_id, varname.c_str(), type_id, filespace, H5P_DEFAULT, dataset_properties, H5P_DEFAULT);
       H5Pclose(dataset_properties);
     }
 
@@ -138,6 +164,8 @@ public:
     }
 
     H5Dclose(dataset);
+    if( group_id != m_hdf5_file )
+      H5Gclose(group_id);
     H5Sclose(filespace);
     H5Sclose(memspace);
   }

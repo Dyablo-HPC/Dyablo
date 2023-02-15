@@ -130,9 +130,9 @@ set_tests_properties(utest_GravitySolver_cg_MPI PROPERTIES TIMEOUT 100)
 #   hydro/test_HydroConservativity.cpp
 #   main.cpp)
 
-# dyablo_add_test(utest_States ON
-#   states/test_States.cpp
-#   main.cpp)
+dyablo_add_test(utest_States ON
+  states/test_States.cpp
+  main.cpp)
 
 dyablo_add_test(utest_Kokkos_dyablo OFF
   test_Kokkos.cpp
@@ -161,9 +161,9 @@ dyablo_add_test(utest_MpiComm ON
   utils/test_MpiComm.cpp
   main.cpp)
 
-# dyablo_add_test(utest_Restart ON
-#   test_restart.cpp
-#   main.cpp)
+dyablo_add_test(utest_Restart ON
+  test_restart.cpp
+  main.cpp)
 
 dyablo_add_test(utest_UserData ON
   block_data/test_UserData.cpp

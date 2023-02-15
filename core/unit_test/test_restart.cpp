@@ -104,16 +104,19 @@ by=4
 
     // Fill U with positions
     ForeachCell foreach_cell( *amr_mesh, configMap );
-    FieldManager field_manager({IU,IV,IW});
-    ForeachCell::CellArray_global_ghosted U = foreach_cell.allocate_ghosted_array("U", field_manager);
+    UserData U_ ( configMap, foreach_cell );
+    U_.new_fields({"px","py","pz"});
+    enum VarIndex_checkpoint {Ipx, Ipy, Ipz};
+    UserData::FieldAccessor U (U_, {{"px",Ipx},{"py",Ipy},{"pz",Ipz}});
+
     ForeachCell::CellMetaData cells = foreach_cell.getCellMetaData();
-    foreach_cell.foreach_cell("Fill U", U, 
+    foreach_cell.foreach_cell("Fill U", U.getShape(), 
         KOKKOS_LAMBDA(const ForeachCell::CellIndex& iCell)
     {
         auto pos = cells.getCellCenter(iCell);
-        U.at(iCell, IU) = pos[IX];
-        U.at(iCell, IV) = pos[IY];
-        U.at(iCell, IW) = pos[IZ];
+        U.at(iCell, Ipx) = pos[IX];
+        U.at(iCell, Ipy) = pos[IY];
+        U.at(iCell, Ipz) = pos[IZ];
     });
 
     int mpi_size = GlobalMpiSession::get_comm_world().MPI_Comm_size();
@@ -123,7 +126,7 @@ by=4
     std::unique_ptr<IOManager> io_checkpoint = IOManagerFactory::make_instance( "IOManager_checkpoint", configMap, foreach_cell, timers );
     
     std::cout << "Checkpoint...";
-    io_checkpoint->save_snapshot(U, 0, 0.0);
+    io_checkpoint->save_snapshot(U_, 0, 0.0);
     std::cout << "Done" << std::endl;
 }
 
@@ -155,6 +158,7 @@ void test_restart()
     AMRmesh amr_mesh( ndim, codim, periodic, amr_level_min, amr_level_max );
 
     ForeachCell foreach_cell( amr_mesh, configMap );
+    UserData U_ ( configMap, foreach_cell );
 
     Timers timers;
 
@@ -164,23 +168,24 @@ void test_restart()
         configMap,
         foreach_cell,
         timers);
-    FieldManager field_manager({IU,IV,IW});
-    ForeachCell::CellArray_global_ghosted U = foreach_cell.allocate_ghosted_array("U", field_manager);
-    initial_conditions->init( U, field_manager );
+    initial_conditions->init( U_);
 
     EXPECT_EQ( expected_oct_count , amr_mesh.getGlobalNumOctants() );
 
+    enum VarIndex_restart {Ipx, Ipy, Ipz};
+    UserData::FieldAccessor U (U_, {{"px",Ipx},{"py",Ipy},{"pz",Ipz}});
+
     int error_count = 0;
     ForeachCell::CellMetaData cells = foreach_cell.getCellMetaData();
-    foreach_cell.reduce_cell("Test U", U, 
+    foreach_cell.reduce_cell("Test U", U.getShape(), 
         KOKKOS_LAMBDA(const ForeachCell::CellIndex& iCell, int& err)
     {
         auto pos = cells.getCellCenter(iCell);
-        if( U.at(iCell, IU) != pos[IX] )
+        if( U.at(iCell, Ipx) != pos[IX] )
             err ++;
-        if( U.at(iCell, IV) != pos[IY] )
+        if( U.at(iCell, Ipy) != pos[IY] )
             err ++;
-        if( U.at(iCell, IW) != pos[IZ] )
+        if( U.at(iCell, Ipz) != pos[IZ] )
             err ++;
     }, error_count);
 
