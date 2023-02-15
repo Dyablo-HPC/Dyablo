@@ -216,12 +216,11 @@ void setPrimitiveState( const Array_t& U, const CellIndex& iCell, PrimMHDState u
   U.at(iCell, PrimMHDState::VarIndex::Ip) = u.p;
   U.at(iCell, PrimMHDState::VarIndex::Iu) = u.u;
   U.at(iCell, PrimMHDState::VarIndex::Iv) = u.v;
-  U.at(iCell, PrimMHDState::VarIndex::Iw) = u.Bx;
+  if (ndim == 3)
+    U.at(iCell, PrimMHDState::VarIndex::Iw) = u.w;
   U.at(iCell, PrimMHDState::VarIndex::IBx) = u.By;
   U.at(iCell, PrimMHDState::VarIndex::IBy) = u.Bz;
-  if (ndim == 3) {
-    U.at(iCell, PrimMHDState::VarIndex::IBz) = u.w;
-  }
+  U.at(iCell, PrimMHDState::VarIndex::IBz) = u.Bz;
 }
 
 /**
@@ -242,12 +241,11 @@ void setConservativeState( const Array_t& U, const CellIndex& iCell, ConsMHDStat
   U.at(iCell, ConsMHDState::VarIndex::Ie_tot) = u.e_tot;
   U.at(iCell, ConsMHDState::VarIndex::Irho_vx) = u.rho_u;
   U.at(iCell, ConsMHDState::VarIndex::Irho_vy) = u.rho_v;
-  U.at(iCell, ConsMHDState::VarIndex::Irho_vz) = u.Bx;
+  if (ndim == 3)
+    U.at(iCell, ConsMHDState::VarIndex::Irho_vz) = u.rho_w;
   U.at(iCell, ConsMHDState::VarIndex::IBx) = u.By;
-  U.at(iCell, ConsMHDState::VarIndex::IBy) = u.Bz;
-  if (ndim == 3) {
-    U.at(iCell, ConsMHDState::VarIndex::IBz) = u.rho_w;
-  }
+  U.at(iCell, ConsMHDState::VarIndex::IBy) = u.By;
+  U.at(iCell, ConsMHDState::VarIndex::IBz) = u.Bz;
 }
 
 /**
