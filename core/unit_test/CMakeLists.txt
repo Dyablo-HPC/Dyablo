@@ -126,9 +126,9 @@ foreach( test "${utest_GravitySolver_cg_TEST_LIST}" )
 endforeach()
 set_tests_properties(utest_GravitySolver_cg_MPI PROPERTIES TIMEOUT 100) 
 
-# dyablo_add_test(utest_HydroConservativity ON
-#   hydro/test_HydroConservativity.cpp
-#   main.cpp)
+dyablo_add_test(utest_HydroConservativity ON
+  hydro/test_HydroConservativity.cpp
+  main.cpp)
 
 dyablo_add_test(utest_States ON
   states/test_States.cpp
@@ -138,9 +138,9 @@ dyablo_add_test(utest_Kokkos_dyablo OFF
   test_Kokkos.cpp
   main.cpp)
 
-# dyablo_add_test(utest_BoundaryConditions ON
-#   boundary_conditions/utest_BoundaryConditions.cpp
-#   main.cpp)
+dyablo_add_test(utest_BoundaryConditions ON
+  boundary_conditions/utest_BoundaryConditions.cpp
+  main.cpp)
 
 configure_file(
   hydro/test_blast_2D_block.ini
