@@ -5,27 +5,27 @@ set( core_src
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/MapUserData_mean.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/hydro/HydroUpdate_hancock.cpp
-    # ${CMAKE_CURRENT_SOURCE_DIR}/hydro/HydroUpdate_hancock_oneneighbor.cpp
-    # ${CMAKE_CURRENT_SOURCE_DIR}/hydro/HydroUpdate_euler.cpp
-    # ${CMAKE_CURRENT_SOURCE_DIR}/hydro/HydroUpdate_RK2.cpp
-    # ${CMAKE_CURRENT_SOURCE_DIR}/gravity/GravitySolver_point_mass.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/hydro/HydroUpdate_hancock_oneneighbor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/hydro/HydroUpdate_euler.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/hydro/HydroUpdate_RK2.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/gravity/GravitySolver_point_mass.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gravity/GravitySolver_constant.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gravity/GravitySolver_cg.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/compute_dt/Compute_dt_generic.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/refine_condition/RefineCondition_second_derivative_error.cpp
-    # ${CMAKE_CURRENT_SOURCE_DIR}/refine_condition/RefineCondition_pseudo_gradient.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/refine_condition/RefineCondition_pseudo_gradient.cpp
 )
 
 set( ic_src
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_restart.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_blast.cpp
-    # ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_implode.cpp
-    # ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_riemann2d.cpp
-    # ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_kelvin_helmholtz.cpp
-    # ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_rayleigh_taylor.cpp
-    # ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_orszag_tang.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_implode.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_riemann2d.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_kelvin_helmholtz.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_rayleigh_taylor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_orszag_tang.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_MHD_blast.cpp
-    # ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_MHD_rotor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_MHD_rotor.cpp
 )
      
 set( legacy_src
