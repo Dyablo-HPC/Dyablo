@@ -16,7 +16,7 @@ void copyGhostBlockCellData(const Uin_t& Uin,
   using ConsState = typename State::ConsState;
   using CellIndex = ForeachCell::CellIndex;
 
-  const GhostedArray& Uin_shape = Uin.getShape();
+  const GhostedArray& Uin_shape = shape(Uin);
 
   CellIndex iCell_Uin = Uin_shape.convert_index_ghost(iCell_Ugroup);
   if( iCell_Uin.is_boundary() )

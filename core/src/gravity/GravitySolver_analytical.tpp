@@ -49,8 +49,7 @@ public:
 
   ~GravitySolver_analytical(){}
 
-  void update_gravity_field( const ForeachCell::CellArray_global_ghosted& Uin,
-                             const ForeachCell::CellArray_global_ghosted& Uout)
+  void update_gravity_field( UserData& U )
   {
     AnalyticalFormula_t& analytical_formula = this->analytical_formula;
     ForeachCell& foreach_cell = this->foreach_cell;
@@ -58,9 +57,12 @@ public:
 
     timers.get("GravitySolver_analytical").start();
 
+    enum VarIndex_gravity {IGX, IGY, IGZ};
+
+    UserData::FieldAccessor Uout (U, {{"gx", IGX}, {"gy", IGY}, {"gz", IGZ}});
     ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
 
-    foreach_cell.foreach_cell( "GravitySolver_analytical::update_gravity_field", Uout, 
+    foreach_cell.foreach_cell( "GravitySolver_analytical::update_gravity_field", Uout.getShape(), 
       KOKKOS_LAMBDA(const ForeachCell::CellIndex& iCell_Uout)
     {
       auto c = cellmetadata.getCellCenter(iCell_Uout);

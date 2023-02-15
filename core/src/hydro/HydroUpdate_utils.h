@@ -41,6 +41,18 @@ void compute_primitives(const RiemannParams& params,   const Array_t& Ugroup,
 }
 
 
+KOKKOS_INLINE_FUNCTION
+const ForeachCell::CellArray_global_ghosted& shape( const UserData::FieldAccessor& array )
+{
+  return array.getShape();
+}
+
+KOKKOS_INLINE_FUNCTION
+const ForeachCell::CellArray_global_ghosted& shape( const ForeachCell::CellArray_global_ghosted& array )
+{
+  return array;
+}
+
 /**
  * @brief Computes the slope for a given state according to given neighbors
  * 
@@ -376,11 +388,11 @@ void euler_update(const RiemannParams&     params,
 
   // Getting the current cell in U
   // U and Uout don't necessarily have the same size so we have to do this
-  CellIndex iin = U.convert_index(iCell_Uout);
+  CellIndex iin = shape(U).convert_index(iCell_Uout);
 
   // Left and right cells and level diffs
-  CellIndex iUinL = iin.getNeighbor_ghost(offsetm, U);
-  CellIndex iUinR = iin.getNeighbor_ghost(offsetp, U);
+  CellIndex iUinL = iin.getNeighbor_ghost(offsetm, shape(U));
+  CellIndex iUinR = iin.getNeighbor_ghost(offsetp, shape(U));
   int ldiff_L = iUinL.level_diff();
   int ldiff_R = iUinR.level_diff();
 
@@ -480,7 +492,7 @@ void euler_update(const RiemannParams&     params,
   // 2- Smaller
   else {
     constexpr real_t fac = (ndim == 2 ? 0.5 : 0.25);
-    foreach_smaller_neighbor<ndim>(iUinL, offsetm, U, 
+    foreach_smaller_neighbor<ndim>(iUinL, offsetm, shape(U), 
                 [&](const CellIndex& iCell_neighbor)
               {
                 ConsState uL{}, uLL{};
@@ -519,7 +531,7 @@ void euler_update(const RiemannParams&     params,
   else {
     constexpr real_t fac = (ndim == 2 ? 0.5 : 0.25);
 
-    foreach_smaller_neighbor<ndim>(iUinR, offsetp, U, 
+    foreach_smaller_neighbor<ndim>(iUinR, offsetp, shape(U), 
                 [&](const CellIndex& iCell_neighbor)
               {
                 ConsState uR{}, uRR{};
@@ -551,7 +563,7 @@ void clean_negative_primitive_values(const ForeachCell& foreach_cell, const Arra
   int negative_p_count=0;
   int negative_rho_count=0;
 
-  foreach_cell.reduce_cell( "clean_negative_values", U.getShape(),
+  foreach_cell.reduce_cell( "clean_negative_values", shape(U),
     KOKKOS_LAMBDA(  const ForeachCell::CellIndex& iCell, 
                     int& negative_p_count, 
                     int& negative_rho_count )

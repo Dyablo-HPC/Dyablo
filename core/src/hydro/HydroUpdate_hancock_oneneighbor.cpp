@@ -31,13 +31,14 @@ namespace{
 
 using GhostedArray = ForeachCell::CellArray_global_ghosted;
 using CellIndex = ForeachCell::CellIndex;
+using FieldArray = UserData::FieldAccessor;
 
 //Copied from HydroUpdate_generic
 template < 
   int ndim,
-  typename State >
+  typename State>
 KOKKOS_INLINE_FUNCTION
-void computePrimitives(const RiemannParams& params, const GhostedArray& Ugroup, 
+void computePrimitives(const RiemannParams& params, const FieldArray& Ugroup, 
                        const CellIndex& iCell_Ugroup, const GhostedArray& Qgroup)
 {
   using PrimState = typename State::PrimState;
@@ -176,7 +177,7 @@ template<
   int ndim,
   typename State >
 KOKKOS_INLINE_FUNCTION
-void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uout, const GhostedArray& Q, const CellIndex& iCell_Q,
+void compute_fluxes_and_update( const FieldArray& Uin, const FieldArray& Uout, const GhostedArray& Q, const CellIndex& iCell_Q,
                                 const GhostedArray& Slopes_x, const GhostedArray& Slopes_y, const GhostedArray& Slopes_z,
                                 const ForeachCell::CellMetaData& cellmetadata, real_t dt, const RiemannParams& params,
                                 const BoundaryConditions& bc_manager)
@@ -406,6 +407,8 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
   setConservativeState<ndim>(Uout, iCell_Q, qcons);
 }
 
+enum VarIndex_gravity {IGX, IGY, IGZ};
+
 /**
  * Applies corrector step for gravity
  * @param Uin Initial values before update
@@ -415,33 +418,34 @@ void compute_fluxes_and_update( const GhostedArray& Uin, const GhostedArray& Uou
  * @param gx, gy, gz, scalar values when use_field == false
  * @param Uout Updated array after hydro without gravity
  **/
-template<int ndim>
+template<int ndim, typename State>
 KOKKOS_INLINE_FUNCTION
-void apply_gravity_correction( const GhostedArray& Uin,
+void apply_gravity_correction( const FieldArray& Uin,
+                               const FieldArray& Uin_g,
                                const CellIndex& iCell_Uin,
                                real_t dt,
                                bool use_field,
                                real_t gx, real_t gy, real_t gz,
-                               const GhostedArray& Uout ){
+                               const FieldArray& Uout ){
   
   if(use_field)
   {
-    gx = Uin.at(iCell_Uin, IGX);
-    gy = Uin.at(iCell_Uin, IGY);
+    gx = Uin_g.at(iCell_Uin, IGX);
+    gy = Uin_g.at(iCell_Uin, IGY);
     if (ndim == 3)
-      gz = Uin.at(iCell_Uin, IGZ);
+      gz = Uin_g.at(iCell_Uin, IGZ);
   }
 
-  real_t rhoOld = Uin.at(iCell_Uin, ID);
+  real_t rhoOld = Uin.at(iCell_Uin, State::Irho);
   
-  real_t rhoNew = Uout.at(iCell_Uin, ID);
-  real_t rhou = Uout.at(iCell_Uin, IU);
-  real_t rhov = Uout.at(iCell_Uin, IV);
+  real_t rhoNew = Uout.at(iCell_Uin, State::Irho);
+  real_t rhou = Uout.at(iCell_Uin, State::Irho_vx);
+  real_t rhov = Uout.at(iCell_Uin, State::Irho_vy);
   real_t ekin_old = rhou*rhou + rhov*rhov;
   real_t rhow;
   
   if (ndim == 3) {
-    rhow = Uout.at(iCell_Uin, IW);
+    rhow = Uout.at(iCell_Uin, State::Irho_vz);
     ekin_old += rhow*rhow;
   }
   
@@ -450,11 +454,11 @@ void apply_gravity_correction( const GhostedArray& Uin,
   rhou += 0.5 * dt * gx * (rhoOld + rhoNew);
   rhov += 0.5 * dt * gy * (rhoOld + rhoNew);
 
-  Uout.at(iCell_Uin, IU) = rhou;
-  Uout.at(iCell_Uin, IV) = rhov;
+  Uout.at(iCell_Uin, State::Irho_vx) = rhou;
+  Uout.at(iCell_Uin, State::Irho_vy) = rhov;
   if (ndim == 3) {
     rhow += 0.5 * dt * gz * (rhoOld + rhoNew);
-    Uout.at(iCell_Uin, IW) = rhow;
+    Uout.at(iCell_Uin, State::Irho_vz) = rhow;
   }
 
   // Energy correction should be included in case of self-gravitation ?
@@ -463,7 +467,7 @@ void apply_gravity_correction( const GhostedArray& Uin,
     ekin_new += rhow*rhow;
   
   ekin_new = 0.5 * ekin_new / rhoNew;
-  Uout.at(iCell_Uin, IE) += (ekin_new - ekin_old);
+  Uout.at(iCell_Uin, State::Ie_tot) += (ekin_new - ekin_old);
 }
 
 }
@@ -498,21 +502,19 @@ public:
 
   }
 
-  void update(  const ForeachCell::CellArray_global_ghosted& Uin,
-                const ForeachCell::CellArray_global_ghosted& Uout,
+  void update(  UserData& U,
                 real_t dt)
   {
     int ndim = foreach_cell.getDim();
     if(ndim==2)
-      update_aux<2>(Uin,Uout, dt);
+      update_aux<2>(U, dt);
     else if(ndim==3)
-      update_aux<3>(Uin,Uout, dt);
+      update_aux<3>(U, dt);
     else assert(false);
   }
 
   template< int ndim>
-  void update_aux(  const ForeachCell::CellArray_global_ghosted& Uin,
-                    const ForeachCell::CellArray_global_ghosted& Uout,
+  void update_aux(  UserData& U,
                     real_t dt) {
     using GhostedArray = ForeachCell::CellArray_global_ghosted;
     const RiemannParams& riemann_params = this->riemann_params;
@@ -527,16 +529,20 @@ public:
 
     timers.get("HydroUpdate_hancock_oneneighbor").start();
 
-    std::set<VarIndex> enabled_fields = {ID,IP,IU,IV};
-    if( ndim == 3) enabled_fields.insert(IW);
-    if constexpr (std::is_same<State, MHDState>::value) {
-      enabled_fields.insert(IBX);
-      enabled_fields.insert(IBY);
-      enabled_fields.insert(IBZ);
-    }
-    FieldManager field_manager( enabled_fields );
+    auto fields_info = ConsState::getFieldsInfo();
+    UserData::FieldAccessor Uin = U.getAccessor( fields_info );
+    UserData::FieldAccessor Uin_g;
+    if( gravity_use_field )
+      Uin_g = U.getAccessor( {{"gx",IGX}, {"gy",IGY}, {"gz",IGZ}} );    
     
-    GhostedArray Q = foreach_cell.allocate_ghosted_array( "Q", field_manager );
+    auto fields_info_next = fields_info;
+    for( auto& p : fields_info_next )
+      p.name += "_next";
+    UserData::FieldAccessor Uout = U.getAccessor( fields_info_next );
+
+    FieldManager fm_prim = PrimState::getFieldManager();
+    
+    GhostedArray Q = foreach_cell.allocate_ghosted_array( "Q", fm_prim );
 
     // Fill Q with primitive variables
     foreach_cell.foreach_cell("HydroUpdate_hancock_oneneighbor::convertToPrimitives", Q, KOKKOS_LAMBDA(const CellIndex& iCell_Q)
@@ -547,11 +553,11 @@ public:
     Q.exchange_ghosts(ghost_comm);
 
     // Create arrays to store slopes
-    GhostedArray Slopes_x = foreach_cell.allocate_ghosted_array( "Slopes_x", field_manager );
-    GhostedArray Slopes_y = foreach_cell.allocate_ghosted_array( "Slopes_Y", field_manager );
+    GhostedArray Slopes_x = foreach_cell.allocate_ghosted_array( "Slopes_x", fm_prim );
+    GhostedArray Slopes_y = foreach_cell.allocate_ghosted_array( "Slopes_Y", fm_prim );
     GhostedArray Slopes_z;
     if(ndim == 3)
-      Slopes_z = foreach_cell.allocate_ghosted_array( "Slopes_z", field_manager );
+      Slopes_z = foreach_cell.allocate_ghosted_array( "Slopes_z", fm_prim );
 
     ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
 
@@ -574,7 +580,7 @@ public:
                                                cellmetadata, dt, riemann_params, bc_manager);
         // Applying correction step for gravity
       if (gravity_enabled)
-        apply_gravity_correction<ndim>(Uin, iCell_Q, dt, gravity_use_field, gx, gy, gz, Uout);
+        apply_gravity_correction<ndim, ConsState>(Uin, Uin_g, iCell_Q, dt, gravity_use_field, gx, gy, gz, Uout);
     });
 
     clean_negative_primitive_values<ndim, State>(foreach_cell, Uout, riemann_params.gamma0, riemann_params.smallr, riemann_params.smallp);

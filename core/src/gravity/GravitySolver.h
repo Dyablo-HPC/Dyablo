@@ -19,7 +19,7 @@ inline bool dyablo::GravitySolverFactory::init()
 {
   DECLARE_REGISTERED(dyablo::GravitySolver_constant);
   DECLARE_REGISTERED(dyablo::GravitySolver_cg);
-  //DECLARE_REGISTERED(dyablo::GravitySolver_analytical<dyablo::AnalyticalFormula_gravity_point_mass>);
+  DECLARE_REGISTERED(dyablo::GravitySolver_analytical<dyablo::AnalyticalFormula_gravity_point_mass>);
 
   return true;
 }
