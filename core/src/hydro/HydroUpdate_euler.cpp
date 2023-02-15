@@ -72,7 +72,7 @@ void apply_gravity_correction( const FieldArray& Uin,
     ekin_new += rhow*rhow;
   
   ekin_new = 0.5 * ekin_new / rhoNew;
-  Uout.at(iCell_Uin, State::Irho) += (ekin_new - ekin_old);
+  Uout.at(iCell_Uin, State::Ie_tot) += (ekin_new - ekin_old);
 }
 
 }// namespace

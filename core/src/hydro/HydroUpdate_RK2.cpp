@@ -72,7 +72,7 @@ void apply_gravity_correction( const Array_in_t& Uin,
     ekin_new += rhow*rhow;
   
   ekin_new = 0.5 * ekin_new / rhoNew;
-  Uout.at(iCell_Uin, State::Irho) += (ekin_new - ekin_old);
+  Uout.at(iCell_Uin, State::Ie_tot) += (ekin_new - ekin_old);
 }
 
 }// namespace
@@ -188,8 +188,8 @@ public:
     auto fm_cons = ConsState::getFieldManager().get_id2index();
     
     // Create abstract temporary ghosted arrays for patches 
-    PatchArray::Ref Ugroup_ = foreach_cell.reserve_patch_tmp("Ugroup", 2, 2, (ndim == 3)?2:0, fm_prim, State::N);
-    PatchArray::Ref Qgroup_ = foreach_cell.reserve_patch_tmp("Qgroup", 2, 2, (ndim == 3)?2:0, fm_cons, State::N);
+    PatchArray::Ref Ugroup_ = foreach_cell.reserve_patch_tmp("Ugroup", 2, 2, (ndim == 3)?2:0, fm_cons, State::N);
+    PatchArray::Ref Qgroup_ = foreach_cell.reserve_patch_tmp("Qgroup", 2, 2, (ndim == 3)?2:0, fm_prim, State::N);
     
     ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
 
