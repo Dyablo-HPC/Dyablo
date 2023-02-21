@@ -168,6 +168,7 @@ public:
             assert( index < MAX_FIELD_COUNT );
             field_views[index] = user_data.getField( info.name );
         }
+        assert( fields_info.size() == (size_t)fm.nbfields() ); // fields_info contains duplicate
     }
 
     KOKKOS_INLINE_FUNCTION
