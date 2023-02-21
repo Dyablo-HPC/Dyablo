@@ -7,6 +7,7 @@
 #include "amr/AMRmesh.h"
 #include "legacy/utils_block.h"
 #include "amr/LightOctree.h"
+#include "legacy/LegacyDataArray.h"
 
 namespace dyablo
 {
@@ -29,8 +30,8 @@ public:
   CopyGhostBlockCellDataFunctor(LightOctree lmesh,
                                 Params params, id2index_t fm,
                                 blockSize_t blockSizes, uint32_t ghostWidth,
-                                uint32_t nbOctsPerGroup, DataArrayBlock U,
-                                DataArrayBlock U_ghost, DataArrayBlock Ugroup,
+                                uint32_t nbOctsPerGroup, LegacyDataArray U,
+                                DataArrayBlock Ugroup,
                                 uint32_t iGroup,
                                 InterfaceFlags interface_flags);
   /**
@@ -44,7 +45,7 @@ public:
   static void apply(LightOctree lmesh,
                     Params params, id2index_t fm, blockSize_t blockSizes,
                     uint32_t ghostWidth, uint32_t nbOctsPerGroup,
-                    DataArrayBlock U, DataArrayBlock U_ghost,
+                    LegacyDataArray U,
                     DataArrayBlock Ugroup, uint32_t iGroup,
                     InterfaceFlags interface_flags);
 
@@ -79,12 +80,7 @@ public :
   //! number of octants per group
   uint32_t nbOctsPerGroup;
 
-  //! heavy data - input - global array of block data in octants own by current
-  //! MPI process
-  DataArrayBlock U;
-
-  //! heavy data - input - global array of block data in MPI ghost octant
-  DataArrayBlock U_ghost;
+  LegacyDataArray U;
 
   //! heavy data - output - local group array of block data (with ghosts)
   DataArrayBlock Ugroup;

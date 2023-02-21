@@ -14,7 +14,7 @@ class Compute_dt_generic;
 template<>
 inline bool dyablo::Compute_dtFactory::init()
 {
-  //DECLARE_REGISTERED(dyablo::Compute_dt_legacy);
+  DECLARE_REGISTERED(dyablo::Compute_dt_legacy);
   DECLARE_REGISTERED(dyablo::Compute_dt_generic);
 
   return true;

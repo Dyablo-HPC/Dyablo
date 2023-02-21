@@ -13,6 +13,7 @@
 
 // utils block
 #include "legacy/utils_block.h"
+#include "LegacyDataArray.h"
 
 namespace dyablo { 
 
@@ -61,7 +62,7 @@ public:
                                 uint32_t       ghostWidth,
                                 uint32_t       nbOcts,
                                 uint32_t       nbOctsPerGroup,
-                                DataArrayBlock U,
+                                LegacyDataArray U,
                                 DataArrayBlock Ugroup,
                                 uint32_t       iGroup) :
     params(params),
@@ -86,7 +87,7 @@ public:
                     uint32_t       ghostWidth,
                     uint32_t       nbOcts,
                     uint32_t       nbOctsPerGroup,
-		                DataArrayBlock U,
+		                LegacyDataArray U,
                     DataArrayBlock Ugroup,
                     uint32_t       iGroup)
   {
@@ -151,7 +152,8 @@ public:
           coord_to_index_g<3>(cell_coord, blockSizes, ghostWidth) ;
 
         // get local conservative variable
-        Ugroup(index_g, fm[ID], iOct_g) = U(index, fm[ID], iOct);
+        real_t d = U(index, fm[ID], iOct);
+        Ugroup(index_g, fm[ID], iOct_g) = d;
         Ugroup(index_g, fm[IP], iOct_g) = U(index, fm[IP], iOct);
         Ugroup(index_g, fm[IU], iOct_g) = U(index, fm[IU], iOct);
         Ugroup(index_g, fm[IV], iOct_g) = U(index, fm[IV], iOct);
@@ -193,7 +195,7 @@ public:
   uint32_t nbOctsPerGroup;
 
   //! heavy data - input - global array of block data (no ghosts)
-  DataArrayBlock    U;
+  LegacyDataArray    U;
 
   //! heavy data - output - local group array of block data (with ghosts)
   DataArrayBlock    Ugroup;

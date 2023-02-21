@@ -190,7 +190,7 @@ public:
         return field_views[0];
     }
 
-private:
+protected:
     using field_views_t = Kokkos::Array<FieldView_t, MAX_FIELD_COUNT>;
 
     id2index_t fm;

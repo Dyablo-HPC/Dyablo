@@ -18,6 +18,7 @@
 #include "utils_hydro.h"
 
 #include "utils_block.h"
+#include "legacy/LegacyDataArray.h"
 
 #ifdef __CUDA_ARCH__
 #include "math_constants.h"
@@ -69,7 +70,7 @@ public:
 			Params    params,
 			id2index_t     fm,
                         blockSize_t    blockSizes,
-			DataArrayBlock Udata) :
+			LegacyDataArray& Udata) :
     lmesh(lmesh), 
     params(params),
     fm(fm), blockSizes(blockSizes),
@@ -81,7 +82,7 @@ public:
                     Params    params,
 		    id2index_t     fm,
                     blockSize_t    blockSizes,
-                    DataArrayBlock Udata,
+                    LegacyDataArray& Udata,
 		    double        &invDt)
   {
     
@@ -213,7 +214,7 @@ public:
   blockSize_t blockSizes;
 
   //! heavy data - conservative variables
-  DataArrayBlock Udata;
+  LegacyDataArray Udata;
   
 }; // ComputeDtHydroFunctor
 

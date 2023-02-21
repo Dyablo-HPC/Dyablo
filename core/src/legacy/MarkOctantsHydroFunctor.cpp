@@ -1,6 +1,7 @@
 #include "MarkOctantsHydroFunctor.h"
 
 #include "Kokkos_Atomic.hpp"
+#include "legacy/LegacyDataArray.h"
 
 namespace dyablo { 
 

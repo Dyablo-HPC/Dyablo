@@ -294,9 +294,8 @@ public:
                                  uint32_t nbOctsPerGroup,
                                  uint32_t iGroup,
                                  DataArrayBlock Ugroup,
-                                 DataArrayBlock U,
-                                 DataArrayBlock U_ghost,
-                                 DataArrayBlock U2,
+                                 LegacyDataArray U,
+                                 LegacyDataArray U2,
                                  DataArrayBlock Qgroup,
                                  InterfaceFlags interface_flags,
                                  real_t dt) : lmesh(lmesh),
@@ -309,7 +308,6 @@ public:
                                               iGroup(iGroup),
                                               Ugroup(Ugroup),
                                               U(U),
-                                              U_ghost(U_ghost),
                                               U2(U2),
                                               Qgroup(Qgroup),
                                               interface_flags(interface_flags),
@@ -363,9 +361,8 @@ public:
                     uint32_t nbOctsPerGroup,
                     uint32_t iGroup,
                     DataArrayBlock Ugroup,
-                    DataArrayBlock U,
-                    DataArrayBlock U_ghost,
-                    DataArrayBlock U2,
+                    LegacyDataArray U,
+                    LegacyDataArray U2,
                     DataArrayBlock Qgroup,
                     InterfaceFlags interface_flags,
                     real_t dt)
@@ -375,7 +372,7 @@ public:
     MusclBlockGodunovUpdateFunctor functor(lmesh, params, fm,
                                            blockSizes, ghostWidth,
                                            nbOcts, nbOctsPerGroup, iGroup,
-                                           Ugroup, U, U_ghost, U2,
+                                           Ugroup, U, U2,
                                            Qgroup,
                                            interface_flags,
                                            dt);
@@ -476,14 +473,14 @@ public:
       HydroState2d u;
       if (neighbors[iNeigh].isGhost)
       {
-        u[fm_state[ID]] = U_ghost(index_border, fm[ID], neighbors[iNeigh].iOct);
-        u[fm_state[IP]] = U_ghost(index_border, fm[IP], neighbors[iNeigh].iOct);
-        u[fm_state[IU]] = U_ghost(index_border, fm[IU], neighbors[iNeigh].iOct);
-        u[fm_state[IV]] = U_ghost(index_border, fm[IV], neighbors[iNeigh].iOct);
+        u[fm_state[ID]] = U.ghost_val(index_border, fm[ID], neighbors[iNeigh].iOct);
+        u[fm_state[IP]] = U.ghost_val(index_border, fm[IP], neighbors[iNeigh].iOct);
+        u[fm_state[IU]] = U.ghost_val(index_border, fm[IU], neighbors[iNeigh].iOct);
+        u[fm_state[IV]] = U.ghost_val(index_border, fm[IV], neighbors[iNeigh].iOct);
 
         if (params.gravity_type & GRAVITY_FIELD) {
-          g[IX] = U_ghost(index_border, fm[IGX], neighbors[iNeigh].iOct);
-          g[IY] = U_ghost(index_border, fm[IGY], neighbors[iNeigh].iOct);
+          g[IX] = U.ghost_val(index_border, fm[IGX], neighbors[iNeigh].iOct);
+          g[IY] = U.ghost_val(index_border, fm[IGY], neighbors[iNeigh].iOct);
         }
       }
       else
@@ -2177,13 +2174,10 @@ public:
   DataArrayBlock Ugroup;
 
   //! user data for the entire mesh
-  DataArrayBlock U;
-
-  //! user data for the neighbours
-  DataArrayBlock U_ghost;
+  LegacyDataArray U;
 
   //! user data for the entire mesh at the end of time step
-  DataArrayBlock U2;
+  LegacyDataArray U2;
 
   //! user data (primitive variables) for the ith group of octants
   DataArrayBlock Qgroup;

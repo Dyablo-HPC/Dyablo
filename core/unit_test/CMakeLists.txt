@@ -71,12 +71,6 @@ dyablo_add_test(utest_morton_utils OFF
   shared/test_morton_utils.cpp
   main.cpp)
 
-#   if(NOT Kokkos_ENABLE_CUDA)
-# dyablo_add_test(utest_CopyInnerBlockCellData OFF
-#   block_data/test_CopyInnerBlockCellData.cpp
-#   main.cpp)
-#   endif()
-
 # Import .ini files
 configure_file(
   block_data/test_blast_2D_block.ini
@@ -93,13 +87,13 @@ dyablo_add_test(utest_LightOctree OFF
   amr/test_LightOctree.cpp
   main.cpp)
 
-# dyablo_add_test(utest_CopyGhostBlockCellData ON 
-#   block_data/test_CopyGhostBlockCellData.cpp
-#   main.cpp)
+dyablo_add_test(utest_CopyGhostBlockCellData ON 
+  block_data/test_CopyGhostBlockCellData.cpp
+  main.cpp)
 
-# dyablo_add_test(utest_MusclBlockGodunovUpdateFunctor OFF
-#   block_data/test_MusclBlockGodunovUpdateFunctor.cpp
-#   main.cpp)
+dyablo_add_test(utest_MusclBlockGodunovUpdateFunctor OFF
+  block_data/test_MusclBlockGodunovUpdateFunctor.cpp
+  main.cpp)
 
 dyablo_add_test(utest_GhostCommunicator ON
   block_data/test_GhostCommunicator.cpp

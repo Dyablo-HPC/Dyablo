@@ -12,16 +12,20 @@ public:
                 Timers& timers )
   : cfl( configMap.getValue<real_t>("hydro", "cfl", 0.5) ),
     params(configMap),
-    pmesh(foreach_cell.get_amr_mesh())
+    pmesh(foreach_cell.get_amr_mesh()),
+    foreach_cell(foreach_cell)
   {}
 
-  double compute_dt( const ForeachCell::CellArray_global_ghosted& U)
+  double compute_dt( const UserData& U_)
   {
     real_t inv_dt = 0;
 
+    LegacyDataArray U(U_);
+    static_assert( ForeachCell::has_blocks(), "Legacy solvers are only compatible with block based." );
+
     ComputeDtHydroFunctor::apply( pmesh.getLightOctree(), 
-                                  params, U.fm,
-                                  {U.bx,U.by,U.bz}, U.U, inv_dt);
+                                  params, U.get_id2index(),
+                                  foreach_cell.blockSize(), U, inv_dt);
 
     real_t dt = cfl / inv_dt;
 
@@ -34,6 +38,7 @@ private:
   real_t cfl;
   const ComputeDtHydroFunctor::Params params;
   AMRmesh& pmesh;
+  ForeachCell& foreach_cell;
 };
 
 

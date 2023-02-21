@@ -611,18 +611,17 @@ void run_test()
   int nbfields = fieldMgr.nbfields();
   int nbOcts = amr_mesh->getNumOctants();
 
-  // Allocate U2
-  CellArray Ughosted;
+  
   Timers timers;
   ForeachCell foreach_cell(*amr_mesh, configMap);
+  UserData U_(configMap, foreach_cell);
 
   Init_implode init_implode(configMap, foreach_cell, timers);
-  init_implode.init( Ughosted, fieldMgr ); 
+  init_implode.init( U_ ); 
   AnalyticalFormula_implode_norefine init_implode_formula( configMap );
-  Ughosted.exchange_ghosts( GhostCommunicator_kokkos( amr_mesh ) );
-  
-  DataArrayBlock U = Ughosted.U;
-  DataArrayBlock Ughost = Ughosted.Ughost;
+  U_.exchange_ghosts( GhostCommunicator_kokkos( amr_mesh ) );
+
+  LegacyDataArray U( U_ );
 
   // by now, init condition must have been called
 
@@ -781,8 +780,7 @@ void run_test()
                                         blockSizes,
                                         ghostWidth,
                                         nbOctsPerGroup,
-                                        U, 
-                                        Ughost, 
+                                        U,  
                                         Ugroup, 
                                         iGroup,
                                         interface_flags);
