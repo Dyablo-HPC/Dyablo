@@ -110,6 +110,7 @@ class AMRBlockForeachCell_impl{
 public:
   using CellIndex = AMRBlockForeachCell_CellArray_impl::CellIndex;
   using CellArray_global = AMRBlockForeachCell_CellArray_impl::CellArray_global;
+  using CellArray_shape = AMRBlockForeachCell_CellArray_impl::CellArray_shape;
   using CellArray_global_ghosted = AMRBlockForeachCell_CellArray_impl::CellArray_global_ghosted;
   using CellMetaData = AMRBlockForeachCell_CellMetaData;
   friend CellMetaData;
@@ -258,8 +259,8 @@ public:
    * Same as a single foreach_cell inside foreach_patch with no temporaries
    * Patch policy is ignored here
    **/
-  template <typename View_t, typename Function>
-  void foreach_cell(const std::string& kernel_name, const CellArray_base<View_t>& iter_space, const Function& f) const
+  template <typename Function>
+  void foreach_cell(const std::string& kernel_name, const CellArray_shape& iter_space, const Function& f) const
   {
     uint32_t bx = iter_space.bx;
     uint32_t by = iter_space.by;
@@ -292,8 +293,8 @@ public:
    * @param reducer is a Kokkos reducer (eg: Kokkos::Sum<double>) this is the last parameter used in Kokkos::parallel_reduce
    *                (it cannot be just a scalar to perform the default sum operation)
    **/
-  template <typename Function, typename View_t, typename... Reducer_t>
-  void reduce_cell(const std::string& kernel_name, const CellArray_base<View_t>& iter_space, const Function& f, const Reducer_t&... reducer) const
+  template <typename Function, typename... Reducer_t>
+  void reduce_cell(const std::string& kernel_name, const CellArray_shape& iter_space, const Function& f, const Reducer_t&... reducer) const
   {
     uint32_t bx = iter_space.bx;
     uint32_t by = iter_space.by;
@@ -318,8 +319,8 @@ public:
   }
 
   /// Use Kokkos::Sum as default reducer for reduce_cell
-  template <typename Function, typename View_t, typename... Value_t>
-  void reduce_cell(const std::string& kernel_name, const CellArray_base<View_t>& iter_space, const Function& f, Value_t&... reducer) const
+  template <typename Function, typename... Value_t>
+  void reduce_cell(const std::string& kernel_name, const CellArray_shape& iter_space, const Function& f, Value_t&... reducer) const
   {
     reduce_cell(kernel_name, iter_space, f, Kokkos::Sum<Value_t>(reducer)...);
   }

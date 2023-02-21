@@ -171,6 +171,12 @@ struct CellIndex
 };
 
 
+struct CellArray_shape{
+  uint32_t bx, by, bz;
+};
+
+
+
 template< typename View_t_ >
 class CellArray_base{
 public:
@@ -180,6 +186,16 @@ public:
   uint32_t bx,by,bz;
   uint32_t nbOcts;
   id2index_t fm;
+
+  CellArray_shape getShape() const
+  {
+    return {bx,by,bz};
+  }
+
+  operator CellArray_shape() const
+  {
+    return getShape();
+  }
 
   KOKKOS_INLINE_FUNCTION
   int nbfields() const
@@ -230,6 +246,11 @@ public :
   CellArray_global_ghosted( const CellArray_global& a, const View_t& Ughost, const LightOctree& lmesh )
     : CellArray_global(a), Ughost(Ughost), lmesh(lmesh)
   {}
+
+  operator CellArray_shape() const
+  {
+    return getShape();
+  }
 
   bool is_allocated() const 
   {
