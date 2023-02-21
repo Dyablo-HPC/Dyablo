@@ -20,6 +20,10 @@ class CellArray_base;
 using CellArray_global = CellArray_base<DataArrayBlock>;
 class CellArray_global_ghosted;
 
+struct CellArray_shape;
+struct CellArray_shape_local;
+struct CellArray_shape_ghosted;
+
 struct CellIndex
 {
   LightOctree::OctantIndex iOct;
@@ -134,7 +138,8 @@ struct CellIndex
    * NOTE : If block size is pair and >= 2*offset, smaller siblings are guaranteed to be in the same block, then getNeighbor() can be used
    **/
   KOKKOS_INLINE_FUNCTION
-  CellIndex getNeighbor_ghost( const offset_t& offset, const CellArray_global_ghosted& array ) const;
+  CellIndex getNeighbor_ghost( const offset_t& offset, const CellArray_shape_ghosted& array ) const;
+
 
   /**
    * Compute neighbor index with neighbor-octant search.
@@ -142,9 +147,18 @@ struct CellIndex
    * @param array an array compatible with the current CellIndex (same block size)   * 
    * Offseting outside the block returns an invalid (is_valid()==false) CellIndex.
    **/
-  template< typename View_t >
   KOKKOS_INLINE_FUNCTION
-  CellIndex getNeighbor_ghost( const offset_t& offset, const CellArray_base<View_t>& array ) const;
+  CellIndex getNeighbor_ghost( const offset_t& offset, const CellArray_shape_local& array ) const;
+
+  /**
+   * Get shape of array and compute neighbor for the right type of shape
+   **/
+  template< typename Array_t >
+  KOKKOS_INLINE_FUNCTION
+  CellIndex getNeighbor_ghost( const offset_t& offset, const Array_t& array ) const
+  {
+    return getNeighbor_ghost(offset, array.getShape());
+  }
 
   /**
    * Compute neighbor index inside local block
@@ -170,12 +184,68 @@ struct CellIndex
   }
 };
 
-
-struct CellArray_shape{
+struct CellArray_shape
+{
   uint32_t bx, by, bz;
 };
 
 
+struct CellArray_shape_local : public CellArray_shape
+{
+  template< typename View_t >
+  KOKKOS_INLINE_FUNCTION
+  explicit CellArray_shape_local( const CellArray_base<View_t>& o )
+    : CellArray_shape({o.bx, o.by, o.bz})
+  {}
+
+   /**
+     * Convert cell index used for another array into an 
+     * index compatible with current array. 
+     * This method is assuming that the resulting index is valid and in the same block.
+     * Neighbor search is never performed, and a resulting index outside of block results in undefined behavior
+     **/
+    KOKKOS_INLINE_FUNCTION
+    CellIndex convert_index(const CellIndex& iCell) const;
+
+    /**
+     * Same as convert_index, but returns an index with is_valid() == false when resulting index is outside current block
+     **/
+    KOKKOS_INLINE_FUNCTION
+    CellIndex convert_index_ghost(const CellIndex& iCell) const;
+};
+
+struct CellArray_shape_ghosted : public CellArray_shape
+{
+  KOKKOS_INLINE_FUNCTION
+  explicit CellArray_shape_ghosted( const CellArray_global_ghosted& o );
+
+  LightOctree lmesh;
+
+  /**
+   * Convert cell index used for another array into an index compatible with current array. 
+   * This may of may not perform a neighbor search for indexes outside of 
+   * block depending on how the array was created (see get_global_array, get_global_ghosted_array and allocate_patch_tmp)
+   * If a neighbor search is performed the created index has the non-local status (is_local()==false)
+   * Converted indexes keep their non-local status after conversion, but not their level difference.
+   * Neighbor search is never performed on non-local indexes, is_valid()==false when resulting index is outside of block.
+   * All subcells of the ghost cell must be of the same size. (i.e. block size >= 2*offset).
+   * NOTE : If it is not the case (i.e. cell-based), use convert_index_getNeighbor() instead;
+   * NOTE : use getNeighbor({0/1,0/1,0/1}) to iterate over subcells. 
+   *        If block size is odd, you may need to use getNeighbor_ghost();
+   **/
+  KOKKOS_INLINE_FUNCTION
+  CellIndex convert_index_ghost(const CellIndex& iCell) const;
+
+  /**
+   * Same as convert_index_ghost, but returns the subcell closest to the original cell when level_diff < 0
+   * This has the same behaviour as calling getNeighbor_ghost() from a cell at the edge of the block 
+   * with the offset corresponding to the ghost position
+   * NOTE : read carefully the doc for getNeighbor_ghost(). The behavior when level_diff < 0 (smaller neighbor) might not be what is expected.
+   *        This exists for compatibility with cell-based AMR, if your block size is wide enough, use convert_index_ghost() instead
+   **/
+  KOKKOS_INLINE_FUNCTION
+  CellIndex convert_index_getNeighbor(const CellIndex& iCell) const; 
+};
 
 template< typename View_t_ >
 class CellArray_base{
@@ -187,20 +257,22 @@ public:
   uint32_t nbOcts;
   id2index_t fm;
 
-  CellArray_shape getShape() const
+  KOKKOS_INLINE_FUNCTION
+  int nbfields() const
   {
-    return {bx,by,bz};
+    return fm.nbfields();
+  }
+
+  using Shape_t = CellArray_shape_local;
+
+  Shape_t getShape() const
+  {
+    return Shape_t(*this);
   }
 
   operator CellArray_shape() const
   {
     return getShape();
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  int nbfields() const
-  {
-    return fm.nbfields();
   }
 
   /**
@@ -210,13 +282,19 @@ public:
    * Neighbor search is never performed, and a resulting index outside of block results in undefined behavior
    **/
   KOKKOS_INLINE_FUNCTION
-  CellIndex convert_index(const CellIndex& iCell) const;
+  CellIndex convert_index(const CellIndex& iCell) const
+  {
+    return this->getShape().convert_index(iCell);
+  }
 
   /**
    * Same as convert_index, but returns an index with is_valid() == false when resulting index is outside current block
    **/
   KOKKOS_INLINE_FUNCTION
-  CellIndex convert_index_ghost(const CellIndex& iCell) const;
+  CellIndex convert_index_ghost(const CellIndex& iCell) const
+  {
+    return this->getShape().convert_index_ghost(iCell);
+  }
 
   /**
    * Get value of field for cell iCell
@@ -247,11 +325,12 @@ public :
     : CellArray_global(a), Ughost(Ughost), lmesh(lmesh)
   {}
 
-  operator CellArray_shape() const
-  {
-    return getShape();
-  }
+  using Shape_t = CellArray_shape_ghosted;
 
+  Shape_t getShape() const
+  {
+    return Shape_t(*this);
+  }
   bool is_allocated() const 
   {
     return U.is_allocated();
@@ -277,7 +356,10 @@ public :
    *        If block size is odd, you may need to use getNeighbor_ghost();
    **/
   KOKKOS_INLINE_FUNCTION
-  CellIndex convert_index_ghost(const CellIndex& iCell) const;
+  CellIndex convert_index_ghost(const CellIndex& iCell) const
+  {
+    return this->getShape().convert_index_ghost(iCell);
+  }
 
   /**
    * Same as convert_index_ghost, but returns the subcell closest to the original cell when level_diff < 0
@@ -287,7 +369,10 @@ public :
    *        This exists for compatibility with cell-based AMR, if your block size is wide enough, use convert_index_ghost() instead
    **/
   KOKKOS_INLINE_FUNCTION
-  CellIndex convert_index_getNeighbor(const CellIndex& iCell) const;
+  CellIndex convert_index_getNeighbor(const CellIndex& iCell) const
+  {
+    return this->getShape().convert_index_getNeighbor(iCell);
+  }
 
 
   /**
@@ -313,9 +398,15 @@ public :
   }
 };
 
-template< typename View_t >
 KOKKOS_INLINE_FUNCTION
-CellIndex CellArray_base<View_t>::convert_index(const CellIndex& in) const
+CellArray_shape_ghosted::CellArray_shape_ghosted( const CellArray_global_ghosted& o )
+ : CellArray_shape({o.bx, o.by, o.bz}),
+   lmesh(o.lmesh)
+{}
+
+
+KOKKOS_INLINE_FUNCTION
+CellIndex CellArray_shape_local::convert_index(const CellIndex& in) const
 {
   assert( in.is_valid() ); // Index needs to be valid for conversion
   assert( in.is_local() ); // cannot access ghosts in CellArray
@@ -337,9 +428,8 @@ CellIndex CellArray_base<View_t>::convert_index(const CellIndex& in) const
   return CellIndex{in.iOct, (uint32_t)i, (uint32_t)j, (uint32_t)k, bx, by, bz, CellIndex::LOCAL_TO_BLOCK};
 }
 
-template< typename View_t >
 KOKKOS_INLINE_FUNCTION
-CellIndex CellArray_base<View_t>::convert_index_ghost(const CellIndex& in) const
+CellIndex CellArray_shape_local::convert_index_ghost(const CellIndex& in) const
 {
   assert( in.is_valid() ); // Index needs to be valid for conversion
   assert( in.is_local() ); // cannot access ghosts in CellArray
@@ -361,7 +451,7 @@ CellIndex CellArray_base<View_t>::convert_index_ghost(const CellIndex& in) const
 }
 
 KOKKOS_INLINE_FUNCTION
-CellIndex convert_index_ghost_aux(const CellArray_global_ghosted& array, const CellIndex& in, CellIndex::offset_t& offset)
+CellIndex convert_index_ghost_aux(const CellArray_shape_ghosted& array, const CellIndex& in, CellIndex::offset_t& offset)
 {
   assert( in.is_valid() ); // Index needs to be valid for conversion
 
@@ -412,14 +502,14 @@ CellIndex convert_index_ghost_aux(const CellArray_global_ghosted& array, const C
 }
 
 KOKKOS_INLINE_FUNCTION
-CellIndex CellArray_global_ghosted::convert_index_getNeighbor(const CellIndex& in) const
+CellIndex CellArray_shape_ghosted::convert_index_getNeighbor(const CellIndex& in) const
 {
   CellIndex::offset_t offset{};
   return convert_index_ghost_aux(*this, in, offset);
 }
 
 KOKKOS_INLINE_FUNCTION
-CellIndex CellArray_global_ghosted::convert_index_ghost(const CellIndex& in) const
+CellIndex CellArray_shape_ghosted::convert_index_ghost(const CellIndex& in) const
 {
   CellIndex::offset_t offset{};
   CellIndex iCell_n = convert_index_ghost_aux(*this, in, offset);
@@ -502,7 +592,7 @@ CellIndex CellIndex::getNeighbor( const offset_t& offset ) const
 }
 
 KOKKOS_INLINE_FUNCTION
-CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_global_ghosted& array ) const
+CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_shape_ghosted& array ) const
 {
   const LightOctree& lmesh = array.lmesh;
 
@@ -669,9 +759,8 @@ CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_
   return CELLINDEX_INVALID;
 }
 
-template< typename View_t >
 KOKKOS_INLINE_FUNCTION
-CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_base<View_t>& array ) const
+CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_shape_local& array ) const
 {
   assert(this->is_valid());
   assert(this->bx == array.bx );
