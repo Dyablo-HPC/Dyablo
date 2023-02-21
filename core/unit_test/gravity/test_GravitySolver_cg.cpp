@@ -40,18 +40,21 @@ struct Hernquist{
   
   constexpr static real_t M = 2*dyablo::constants::Pi*r0*r0*r0*rho0;
 
+  KOKKOS_INLINE_FUNCTION
   static real_t rho(real_t r2)
   {
     real_t r = std::sqrt(r2)*L;
     return rho0/( r/r0 * std::pow(1 + r/r0, 3) );
   }
 
+  KOKKOS_INLINE_FUNCTION
   static real_t phi(real_t r2)
   {
     real_t r = std::sqrt(r2)*L;
     return -G*M / (r+r0);
   }
 
+  KOKKOS_INLINE_FUNCTION
   static real_t phi_periodic( real_t x, real_t y, real_t z )
   {
     constexpr int dmax = 2;

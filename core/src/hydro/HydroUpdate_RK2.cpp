@@ -127,18 +127,6 @@ public:
       assert(false);
   }
 
-  KOKKOS_INLINE_FUNCTION
-  const GhostedArray& shape( const UserData::FieldAccessor& array )
-  {
-    return array.getShape();
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  const GhostedArray& shape( const GhostedArray& array )
-  {
-    return array;
-  }
-
   template<int ndim>
   void update_aux(UserData& U, real_t dt)
   {
@@ -227,7 +215,7 @@ public:
         compute_primitives<ndim, State>(params, Ugroup, iCell_Ugroup, Qgroup);
       });
       
-      patch.foreach_cell( shape(Uout), CELL_LAMBDA(const CellIndex& iCell_Uout)
+      patch.foreach_cell( Uout.getShape(), CELL_LAMBDA(const CellIndex& iCell_Uout)
       {
         auto size = cellmetadata.getCellSize(iCell_Uout);
         typename State::ConsState u0{};

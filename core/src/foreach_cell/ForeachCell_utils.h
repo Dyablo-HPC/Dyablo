@@ -11,18 +11,18 @@ using CellArray_global_ghosted = ForeachCell::CellArray_global_ghosted;
 
 template< bool enable_different_block >
 KOKKOS_INLINE_FUNCTION
-CellIndex get_sibling_cell(const CellIndex& iCell, const CellIndex::offset_t& offset, const CellArray_global_ghosted& array);
+CellIndex get_sibling_cell(const CellIndex& iCell, const CellIndex::offset_t& offset, const CellArray_global_ghosted::Shape_t& array);
 
 template<>
 KOKKOS_INLINE_FUNCTION
-CellIndex get_sibling_cell<false>(const CellIndex& iCell, const CellIndex::offset_t& offset, const CellArray_global_ghosted& /*array*/)
+CellIndex get_sibling_cell<false>(const CellIndex& iCell, const CellIndex::offset_t& offset, const CellArray_global_ghosted::Shape_t& /*array*/)
 {
   return iCell.getNeighbor(offset);
 }
 
 template<>
 KOKKOS_INLINE_FUNCTION
-CellIndex get_sibling_cell<true>(const CellIndex& iCell, const CellIndex::offset_t& offset, const CellArray_global_ghosted& array)
+CellIndex get_sibling_cell<true>(const CellIndex& iCell, const CellIndex::offset_t& offset, const CellArray_global_ghosted::Shape_t& array)
 {
   return iCell.getNeighbor_ghost(offset, array);
 }
@@ -45,7 +45,7 @@ CellIndex get_sibling_cell<true>(const CellIndex& iCell, const CellIndex::offset
  **/
 template< int ndim, bool enable_different_block=true, typename Func >
 KOKKOS_INLINE_FUNCTION
-int foreach_smaller_neighbor( const CellIndex& iCell, const CellIndex::offset_t& offset, const CellArray_global_ghosted& array, const Func& apply_neighbor )
+int foreach_smaller_neighbor( const CellIndex& iCell, const CellIndex::offset_t& offset, const CellArray_global_ghosted::Shape_t& array, const Func& apply_neighbor )
 {
   assert( iCell.level_diff() == -1 );
   // enable_different_block must be activated for cell-based or odd block size
@@ -64,6 +64,13 @@ int foreach_smaller_neighbor( const CellIndex& iCell, const CellIndex::offset_t&
   return di_count*dj_count*dk_count;
 }
 
+template< int ndim, bool enable_different_block=true, typename Func >
+KOKKOS_INLINE_FUNCTION
+int foreach_smaller_neighbor( const CellIndex& iCell, const CellIndex::offset_t& offset, const CellArray_global_ghosted& array, const Func& apply_neighbor )
+{
+  return foreach_smaller_neighbor<ndim>( iCell, offset, array.getShape(), apply_neighbor );
+}
+
 /**
  * Iterate over sibling cells
  * @param apply_neighbor is a (const CellIndex&) -> void functor that performs an operation with 
@@ -76,7 +83,7 @@ int foreach_smaller_neighbor( const CellIndex& iCell, const CellIndex::offset_t&
  **/
 template< int ndim, bool enable_different_block=true, typename Func >
 KOKKOS_INLINE_FUNCTION
-int foreach_sibling( const CellIndex& iCell, const CellArray_global_ghosted& array, const Func& apply_sibling )
+int foreach_sibling( const CellIndex& iCell, const CellArray_global_ghosted::Shape_t& array, const Func& apply_sibling )
 {
   // enable_different_block must be activated for cell-based or odd block size
   assert( enable_different_block || ( iCell.bx%2 == 0 && iCell.by%2 == 0 && iCell.bz%2 == 0 ) );

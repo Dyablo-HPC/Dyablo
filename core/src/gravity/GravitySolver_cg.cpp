@@ -69,18 +69,6 @@ enum VarIndex_CG
   CG_IP, CG_IR, CG_PHI, IGPHI
 };
 
-KOKKOS_INLINE_FUNCTION
-const GhostedArray& shape( const UserData::FieldAccessor& array )
-{
-  return array.getShape();
-}
-
-KOKKOS_INLINE_FUNCTION
-const GhostedArray& shape( const GhostedArray& array )
-{
-  return array;
-}
-
 template< typename Array_t >
 KOKKOS_INLINE_FUNCTION
 real_t get_value(const Array_t& U, const CellIndex& iCell_U, VarIndex var, const CellIndex::offset_t& offset)
@@ -101,7 +89,7 @@ real_t get_value(const Array_t& U, const CellIndex& iCell_U, VarIndex var, const
     real_t sum = 0;
     int nbCells =
     foreach_smaller_neighbor<ndim, true>( // TODO : select enable_different_block=false when block-based
-      iCell_U, offset, shape(U), 
+      iCell_U, offset, U.getShape(), 
       [&](const ForeachCell::CellIndex& iCell_ghost)
     {
       sum += U.at(iCell_ghost, var);
@@ -123,8 +111,8 @@ real_t matprod(const Array_t& GCdata, const CellIndex& iCell_CGdata, VarIndex va
   {
     CellIndex::offset_t off_L{}; off_L[dir] = -1;
     CellIndex::offset_t off_R{}; off_R[dir] = +1;
-    CellIndex iCell_L = iCell_CGdata.getNeighbor_ghost(off_L, shape(GCdata));
-    CellIndex iCell_R = iCell_CGdata.getNeighbor_ghost(off_R, shape(GCdata));
+    CellIndex iCell_L = iCell_CGdata.getNeighbor_ghost(off_L, GCdata.getShape());
+    CellIndex iCell_R = iCell_CGdata.getNeighbor_ghost(off_R, GCdata.getShape());
     real_t S = (dx*dy*dz)/ddir[dir];
 
     real_t hl = ddir[dir];

@@ -214,7 +214,7 @@ struct CellArray_shape_local : public CellArray_shape
     CellIndex convert_index_ghost(const CellIndex& iCell) const;
 };
 
-struct CellArray_shape_ghosted : public CellArray_shape
+struct CellArray_shape_ghosted : public CellArray_shape_local
 {
   KOKKOS_INLINE_FUNCTION
   explicit CellArray_shape_ghosted( const CellArray_global_ghosted& o );
@@ -265,11 +265,13 @@ public:
 
   using Shape_t = CellArray_shape_local;
 
+  KOKKOS_INLINE_FUNCTION
   Shape_t getShape() const
   {
     return Shape_t(*this);
   }
 
+  KOKKOS_INLINE_FUNCTION
   operator CellArray_shape() const
   {
     return getShape();
@@ -327,10 +329,13 @@ public :
 
   using Shape_t = CellArray_shape_ghosted;
 
+  KOKKOS_INLINE_FUNCTION
   Shape_t getShape() const
   {
     return Shape_t(*this);
   }
+
+  KOKKOS_INLINE_FUNCTION
   bool is_allocated() const 
   {
     return U.is_allocated();
@@ -400,7 +405,7 @@ public :
 
 KOKKOS_INLINE_FUNCTION
 CellArray_shape_ghosted::CellArray_shape_ghosted( const CellArray_global_ghosted& o )
- : CellArray_shape({o.bx, o.by, o.bz}),
+ : CellArray_shape_local(o),
    lmesh(o.lmesh)
 {}
 

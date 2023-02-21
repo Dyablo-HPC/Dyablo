@@ -185,10 +185,10 @@ public:
     }
 
     KOKKOS_INLINE_FUNCTION
-    const FieldView_t& getShape() const
+    FieldView_t::Shape_t getShape() const
     {
         assert(nbFields() > 0);
-        return field_views[0];
+        return field_views[0].getShape();
     }
 
 protected:
