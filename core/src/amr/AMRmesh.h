@@ -141,6 +141,8 @@ public:
   void updateLightOctree();
 
   //----- MPI info -----
+  MpiComm getMpiComm() const
+  { return Impl::getMpiComm(); }
   /// MPI rank
   int getRank() const
   { return Impl::getMpiComm().MPI_Comm_rank(); }

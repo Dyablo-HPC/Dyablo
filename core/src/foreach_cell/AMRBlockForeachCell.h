@@ -80,6 +80,54 @@ public:
     return res;
   }
 
+  KOKKOS_INLINE_FUNCTION
+  CellIndex getCellFromPos( const pos_t& pos ) const
+  {
+    real_t xmin = cdata.xmin;
+    real_t xmax = cdata.xmax;
+    real_t ymin = cdata.ymin;
+    real_t ymax = cdata.ymax;
+    real_t zmin = cdata.zmin;
+    real_t zmax = cdata.zmax;
+    auto bx = cdata.bx; 
+    auto by = cdata.by; 
+    auto bz = cdata.bz; 
+
+    // TODO refactor : copied from  ForeachParticle::distribute()
+    real_t x = pos[IX];
+    real_t y = pos[IY];
+    real_t z = pos[IZ];
+    real_t x01 = (x-xmin)/(xmax-xmin);
+    real_t y01 = (y-ymin)/(ymax-ymin);
+    real_t z01 = (z-zmin)/(zmax-zmin);
+    assert( x01 > 0 && x01 < 1.0 );
+    assert( y01 > 0 && y01 < 1.0 );
+    assert( z01 >= 0 && x01 < 1.0 );
+
+    LightOctree::OctantIndex iOct = lmesh.getiOctFromPos( {x01,y01,z01} );
+    auto oct_size = lmesh.getSize( iOct );
+    LightOctree::pos_t oct_corner = lmesh.getCorner( iOct );
+    oct_corner[IX] = xmin + oct_corner[IX] * (xmax-xmin);
+    oct_corner[IY] = ymin + oct_corner[IY] * (ymax-ymin);
+    oct_corner[IZ] = zmin + oct_corner[IZ] * (zmax-zmin);      
+    LightOctree::pos_t cell_size; 
+    cell_size[IX] = oct_size[IX] * (xmax-xmin)/bx;
+    cell_size[IY] = oct_size[IY] * (ymax-ymin)/by;
+    cell_size[IZ] = oct_size[IZ] * (zmax-zmin)/bz;
+
+    uint32_t ix = (x-oct_corner[IX])/cell_size[IX];
+    uint32_t iy = (y-oct_corner[IY])/cell_size[IY];
+    uint32_t iz = (z-oct_corner[IZ])/cell_size[IZ];      
+
+    assert(!iOct.isGhost);
+
+    return CellIndex{
+      iOct, 
+      ix, iy, iz, 
+      bx, by, bz, 
+      CellIndex::Status::LOCAL_TO_BLOCK 
+    };  
+  }
 private:
   const AMRBlockForeachCell_CData cdata;
   LightOctree lmesh;

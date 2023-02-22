@@ -136,6 +136,10 @@ dyablo_add_test(utest_BoundaryConditions ON
   boundary_conditions/utest_BoundaryConditions.cpp
   main.cpp)
 
+dyablo_add_test(utest_Particles ON
+  particles/test_Particles.cpp
+  main.cpp)
+
 configure_file(
   hydro/test_blast_2D_block.ini
   hydro/test_blast_2D_block.ini COPYONLY)
