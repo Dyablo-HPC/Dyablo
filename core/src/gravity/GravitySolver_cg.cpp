@@ -167,7 +167,7 @@ void GravitySolver_cg::update_gravity_field( UserData& U )
   real_t gravity_constant = pdata->gravity_constant;
   real_t eps = pdata->CG_eps;
 
-  UserData::FieldAccessor Uin = U.getAccessor( {{"rho", ID, 0}, {"gphi", IGPHI, 0}} );
+  UserData::FieldAccessor Uin = U.getAccessor( {{"rho", ID}, {"gphi", IGPHI}} );
 
   ForeachCell::CellMetaData cells = foreach_cell.getCellMetaData();
 

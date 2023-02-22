@@ -24,14 +24,14 @@ struct ConsMHDState {
   
   static std::vector<UserData::FieldAccessor::FieldInfo> getFieldsInfo()
   {
-    return  { {"rho",     VarIndex::Irho,     0}, 
-              {"e_tot",   VarIndex::Ie_tot,   0},
-              {"rho_vx",  VarIndex::Irho_vx,  0},
-              {"rho_vy",  VarIndex::Irho_vy,  0},
-              {"rho_vz",  VarIndex::Irho_vz,  0},
-              {"Bx",      VarIndex::IBx,  0},
-              {"By",      VarIndex::IBy,  0},
-              {"Bz",      VarIndex::IBz,  0} 
+    return  { {"rho",     VarIndex::Irho}, 
+              {"e_tot",   VarIndex::Ie_tot},
+              {"rho_vx",  VarIndex::Irho_vx},
+              {"rho_vy",  VarIndex::Irho_vy},
+              {"rho_vz",  VarIndex::Irho_vz},
+              {"Bx",      VarIndex::IBx},
+              {"By",      VarIndex::IBy},
+              {"Bz",      VarIndex::IBz} 
     };
   }
 
@@ -87,14 +87,14 @@ struct PrimMHDState {
 
   static std::vector<UserData::FieldAccessor::FieldInfo> getFieldsInfo()
   {
-    return  { {"rho",VarIndex::Irho,     0}, 
-              {"p",  VarIndex::Ip,   0},
-              {"u",  VarIndex::Iu,  0},
-              {"v",  VarIndex::Iv,  0},
-              {"w",  VarIndex::Iw,  0},
-              {"Bx", VarIndex::IBx,  0},
-              {"By", VarIndex::IBy,  0},
-              {"Bz", VarIndex::IBz,  0} 
+    return  { {"rho",VarIndex::Irho}, 
+              {"p",  VarIndex::Ip},
+              {"u",  VarIndex::Iu},
+              {"v",  VarIndex::Iv},
+              {"w",  VarIndex::Iw},
+              {"Bx", VarIndex::IBx},
+              {"By", VarIndex::IBy},
+              {"Bz", VarIndex::IBz} 
     };
   }
 

@@ -400,9 +400,9 @@ public:
     Uin_t Uin_gravity;
     if (gravity_use_field) {
       Uin_gravity = U.getAccessor( {
-          {"gx", Gravity_VarIndex::IGX, 0}, 
-          {"gy", Gravity_VarIndex::IGY, 0},
-          {"gz", Gravity_VarIndex::IGZ, 0} 
+          {"gx", Gravity_VarIndex::IGX}, 
+          {"gy", Gravity_VarIndex::IGY},
+          {"gz", Gravity_VarIndex::IGZ} 
       });
     }
 

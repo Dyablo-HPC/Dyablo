@@ -136,7 +136,6 @@ struct UserData::FieldAccessor_FieldInfo
 {
     std::string name; /// Name as in VarIndex.h
     VarIndex id; /// id to use to access with at()
-    int time_diff=0; /// current, or next timestep
 };
 
 class UserData::FieldAccessor
@@ -162,7 +161,6 @@ public:
     {
         for( const FieldInfo& info : fields_info )
         {
-            assert( info.time_diff == 0 ); // next step not implemnetd yet
             fm.activate( info.id );
             int index = fm[info.id];
             assert( index < MAX_FIELD_COUNT );

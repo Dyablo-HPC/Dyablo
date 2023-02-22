@@ -23,11 +23,11 @@ struct ConsHydroState {
   
   static std::vector<UserData::FieldAccessor::FieldInfo> getFieldsInfo()
   {
-    return  { {"rho",     VarIndex::Irho,     0}, 
-              {"e_tot",   VarIndex::Ie_tot,   0},
-              {"rho_vx",  VarIndex::Irho_vx,  0},
-              {"rho_vy",  VarIndex::Irho_vy,  0},
-              {"rho_vz",  VarIndex::Irho_vz,  0} };
+    return  { {"rho",     VarIndex::Irho}, 
+              {"e_tot",   VarIndex::Ie_tot},
+              {"rho_vx",  VarIndex::Irho_vx},
+              {"rho_vy",  VarIndex::Irho_vy},
+              {"rho_vz",  VarIndex::Irho_vz} };
   }
 
   static FieldManager getFieldManager()
@@ -64,11 +64,11 @@ struct PrimHydroState {
   
   static std::vector<UserData::FieldAccessor::FieldInfo> getFieldsInfo()
   {
-    return  { {"rho",     VarIndex::Irho,     0}, 
-              {"e_tot",   VarIndex::Ip,   0},
-              {"rho_vx",  VarIndex::Iu,  0},
-              {"rho_vy",  VarIndex::Iv,  0},
-              {"rho_vz",  VarIndex::Iw,  0} };
+    return  { {"rho",     VarIndex::Irho}, 
+              {"e_tot",   VarIndex::Ip},
+              {"rho_vx",  VarIndex::Iu},
+              {"rho_vy",  VarIndex::Iv},
+              {"rho_vz",  VarIndex::Iw} };
   }
 
   static FieldManager getFieldManager()

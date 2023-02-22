@@ -47,7 +47,7 @@ void run_test()
   {
     VarIndex PX = (VarIndex)2, PY = (VarIndex)7, PZ = (VarIndex)3;
 
-    auto Uinit = U.getAccessor( { {"px",PX,0}, {"py",PY,0}, {"pz",PZ,0} } );
+    auto Uinit = U.getAccessor( { {"px",PX}, {"py",PY}, {"pz",PZ} } );
 
     auto cells = foreach_cell.getCellMetaData();
 
@@ -67,8 +67,8 @@ void run_test()
   {
     VarIndex PX = (VarIndex)1, PY = (VarIndex)3, PZ = (VarIndex)5;
 
-    auto U1 = U.getAccessor( { {"px",PX,0}, {"py",PY,0}, {"pz",PZ,0} } );
-    auto U2 = U.getAccessor( { {"p2x",PX,0}, {"p2y",PY,0}, {"p2z",PZ,0} } );
+    auto U1 = U.getAccessor( { {"px",PX}, {"py",PY}, {"pz",PZ} } );
+    auto U2 = U.getAccessor( { {"p2x",PX}, {"p2y",PY}, {"p2z",PZ} } );
 
     foreach_cell.foreach_cell( "Copy p2", U.getShape(),
       KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell )
@@ -83,7 +83,7 @@ void run_test()
   {
     VarIndex PX = (VarIndex)1, PY = (VarIndex)3, PZ = (VarIndex)5;
 
-    auto U2 = U.getAccessor( { {"p2x",PX,0}, {"p2y",PY,0}, {"p2z",PZ,0} } );
+    auto U2 = U.getAccessor( { {"p2x",PX}, {"p2y",PY}, {"p2z",PZ} } );
 
     auto cells = foreach_cell.getCellMetaData();
 
