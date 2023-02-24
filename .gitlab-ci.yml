@@ -130,6 +130,11 @@ test::cuda:
     when: always
     paths:
       - "*.png"
+      - "run_*.txt"
+      - "report.xml"
+    reports:
+      junit: 
+        - "report.xml"
     expire_in: 1 week
 
 # Run multiple testcases
