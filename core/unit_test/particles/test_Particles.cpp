@@ -96,11 +96,11 @@ void run_test(int ndim)
   int rank = GlobalMpiSession::get_comm_world().MPI_Comm_rank();
   uint32_t nParticles = (rank == 0) ? nParticles_tot : 0;
 
-  ParticleArray particles( "Particles", nParticles, field_manager );
+  ParticleData particles( "Particles", nParticles, field_manager );
 
   // Set particle positions to form a grid inside the domain
   foreach_particle.foreach_particle( "set_particle_pos", particles,
-    PARTICLE_LAMBDA( ParticleArray::ParticleIndex iPart )
+    PARTICLE_LAMBDA( ParticleData::ParticleIndex iPart )
   {
       uint32_t ix =  iPart%px;
       uint32_t iy = (iPart/px)%py;
@@ -125,7 +125,7 @@ void run_test(int ndim)
   // Interact with AMR grid :
   // Copy CX, CY, CZ, S from grid to particle (filled with cell center and size)
   foreach_particle.foreach_particle( "copy_cell_center", particles,
-    PARTICLE_LAMBDA( ParticleArray::ParticleIndex iPart )
+    PARTICLE_LAMBDA( ParticleData::ParticleIndex iPart )
   {
     // TODO abstract interface to convert particle index directly to cell index (without needing position)
     //ForeachCell::CellIndex iCell = pci.getCell( particles, iPart );
@@ -144,7 +144,7 @@ void run_test(int ndim)
 
   int nerrors = 0;
   foreach_particle.reduce_particle( "check_particle_cell", particles,
-    PARTICLE_LAMBDA( ParticleArray::ParticleIndex iPart, int& nerrors )
+    PARTICLE_LAMBDA( ParticleData::ParticleIndex iPart, int& nerrors )
   {
     real_t px = particles.pos( iPart, IX );
     real_t py = particles.pos( iPart, IY );

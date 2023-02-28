@@ -54,7 +54,7 @@ public:
     reduce_particle(kernel_name, iter_space, f, Kokkos::Sum<Value_t>(reducer)...);
   }
 
-  void distribute( ParticleArray& particles_in )
+  GhostCommunicator_kokkos get_distribute_communicator(const ParticleArray& particles_in)
   {
     const LightOctree& lmesh = pmesh.getLightOctree();
     uint32_t nbParticles = particles_in.getNumParticles();
@@ -87,10 +87,15 @@ public:
       particle_domain(iPart) = domain;
     });
 
-    GhostCommunicator_kokkos part_comm( particle_domain, pmesh.getMpiComm() );
+    return GhostCommunicator_kokkos( particle_domain, pmesh.getMpiComm() );
+  }
+
+  void distribute( ParticleData& particles_in )
+  {
+    GhostCommunicator_kokkos part_comm = get_distribute_communicator(particles_in);
     uint32_t nbParticles_new = part_comm.getNumGhosts();
     // TODO fetch old name
-    ParticleArray particles_out( "xxx", nbParticles_new, particles_in.field_manager() );
+    ParticleData particles_out( ParticleArray("xxx", nbParticles_new), particles_in.field_manager() );
     part_comm.exchange_ghosts<0>( particles_in.particle_position, particles_out.particle_position );
     part_comm.exchange_ghosts<0>( particles_in.particle_data, particles_out.particle_data );
 
