@@ -246,6 +246,7 @@ public:
         return attributes.end() != attributes.find(attribute_name);
     }
 
+    /// Get identifiers for all enabled particle arrays
     std::set<std::string> getEnabledParticleArrays() const
     {
         std::set<std::string> res;
@@ -256,6 +257,7 @@ public:
         return res;
     } 
 
+    /// Get identifiers for all enabled attribudes of particle array `array_name`
     std::set<std::string> getEnabledParticleAttributes( const std::string& array_name ) const
     {
         if( !this->has_ParticleArray(array_name) )
@@ -288,6 +290,11 @@ public:
         return particle_views.at(array_name).attributes.at(attribute_name);
     }
 
+    /***
+     * @brief Change name of particle attribute from `array_name`/`attr_src` to `array_name`/`attr_dest`
+     * NOTE : order of parameters is dest, src like in Kokkos deep_copy
+     * WARNING : Invalidates all accessors containing source attribute 
+     ***/
     void move_ParticleAttribute( const std::string& array_name, const std::string& attr_dest, const std::string& attr_src )
     {
         if( !this->has_ParticleAttribute(array_name, attr_src) )
@@ -295,9 +302,13 @@ public:
 
         auto & attrs = particle_views.at(array_name).attributes;
         attrs[ attr_dest ] = attrs.at(attr_src);
-        attrs.erase(attr_src);        
+        attrs.erase(attr_src);    
     }
 
+    /***
+     * @brief Delete attribte `array_name`/`attribute_name` from user data
+     * WARNING : Invalidates all accessors containing this attribute
+     ***/
     void delete_ParticleAttribute(const std::string& array_name, const std::string& attribute_name)
     {
         if( !this->has_ParticleAttribute(array_name, attribute_name) )
@@ -306,9 +317,17 @@ public:
         particle_views.at(array_name).attributes.erase(attribute_name);
     }
 
+    /***
+     * @brief create a ParticleAccessor to access attributes listed in `attribute_info` from particle array `array_name`
+     * NOTE : Accessors may be invalidated by some methods from UserData (e.g. deleting or moving an attribute or an array)
+     * Do not keep invalidated accessors since live accessors may prevent Kokkos::View deallocation in when deleting or moving user data
+     ***/
     ParticleAccessor getParticleAccessor( const std::string& array_name, const std::vector<ParticleAccessor_AttributeInfo>& attribute_info ) const;
     
-    // TODO distribute only some attributes
+    /***
+     * @brief Distribute position array and attributes for particle array `array_name`
+     * WARNING : Invalidates all accessors containing this particle array
+     ***/
     void distributeParticles( const std::string& array_name )
     {
         if( !this->has_ParticleArray(array_name) )
@@ -333,7 +352,7 @@ public:
 
         particle_array = particle_array_new;
         
-        for( int i=0; i<attr_names.size(); i++ )
+        for( size_t i=0; i<attr_names.size(); i++ )
         {
             this->new_ParticleAttribute(array_name, attr_names[i]);
             part_comm.exchange_ghosts<0>( pdata[i], getParticleAttribute(array_name, attr_names[i]).particle_data );

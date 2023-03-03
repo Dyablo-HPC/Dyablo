@@ -152,12 +152,12 @@ void test_particles()
   /*uint32_t bz = */configMap.getValue<uint32_t>("amr", "bz", (ndim==2)?1:4);
   uint32_t level_min = configMap.getValue<uint32_t>("amr", "level_min", 3);
   uint32_t level_max = configMap.getValue<uint32_t>("amr", "level_max", 5);
-  configMap.getValue<real_t>("mesh", "xmin", -2);
-  configMap.getValue<real_t>("mesh", "ymin", 0);
-  configMap.getValue<real_t>("mesh", "zmin", 1);
-  configMap.getValue<real_t>("mesh", "xmax", 2);
-  configMap.getValue<real_t>("mesh", "ymax", 2);
-  configMap.getValue<real_t>("mesh", "zmax", 4);
+  real_t xmin = configMap.getValue<real_t>("mesh", "xmin", -2);
+  real_t ymin = configMap.getValue<real_t>("mesh", "ymin", 0);
+  real_t zmin = configMap.getValue<real_t>("mesh", "zmin", 1);
+  real_t xmax = configMap.getValue<real_t>("mesh", "xmax", 2);
+  real_t ymax = configMap.getValue<real_t>("mesh", "ymax", 2);
+  real_t zmax = configMap.getValue<real_t>("mesh", "zmax", 4);
 
   AMRmesh pmesh( ndim, ndim, std::array<bool,3>{false,false,false}, level_min, level_max);
   ForeachCell foreach_cell( pmesh, configMap );
@@ -183,49 +183,58 @@ void test_particles()
 
   enum VarIndex_p1{ IAX, IAY, IAZ };
 
-  auto P_pos = U.getParticleArray("p1");
-
-  foreach_particle.foreach_particle( "set_particle_pos", P_pos,
-    PARTICLE_LAMBDA( ParticleData::ParticleIndex iPart )
   {
-      uint32_t ix =  iPart%px;
-      uint32_t iy = (iPart/px)%py;
-      uint32_t iz =  iPart/(px*py);
+    auto P_pos = U.getParticleArray("p1");
 
-      P_pos.pos( iPart, IX ) = (ix+0.5)/px;
-      P_pos.pos( iPart, IY ) = (iy+0.5)/py;
-      P_pos.pos( iPart, IZ ) = (ndim-2)*((iz+0.5)/pz);
-  });
+    foreach_particle.foreach_particle( "set_particle_pos", P_pos,
+      PARTICLE_LAMBDA( ParticleData::ParticleIndex iPart )
+    {
+        uint32_t ix =  iPart%px;
+        uint32_t iy = (iPart/px)%py;
+        uint32_t iz =  iPart/(px*py);
+
+        P_pos.pos( iPart, IX ) = ((ix+0.5)/px)*(xmax-xmin)+xmin;
+        P_pos.pos( iPart, IY ) = ((iy+0.5)/py)*(ymax-ymin)+ymin;
+        P_pos.pos( iPart, IZ ) = (ndim-2)*((iz+0.5)/pz);
+        P_pos.pos( iPart, IZ ) = P_pos.pos( iPart, IZ )*(zmax-zmin)+zmin;
+    });
+  }
 
   U.distributeParticles( "p1" );
 
-  auto P_in = U.getParticleAccessor( "p1", {{"ax", IAX}, {"ay", IAY}, {"az", IAZ}} );
-  foreach_particle.foreach_particle( "copy_particle_pos", P_in.getShape(),
-    PARTICLE_LAMBDA( ParticleData::ParticleIndex iPart )
+  auto P_pos = U.getParticleArray("p1");
+
   {
-      P_in.at(iPart, IAX) = P_pos.pos( iPart, IX );
-      P_in.at(iPart, IAY) = P_pos.pos( iPart, IY );
-      P_in.at(iPart, IAZ) = P_pos.pos( iPart, IZ );
-  });
+    auto P_in = U.getParticleAccessor( "p1", {{"ax", IAX}, {"ay", IAY}, {"az", IAZ}} );
+    foreach_particle.foreach_particle( "copy_particle_pos", P_in.getShape(),
+      PARTICLE_LAMBDA( ParticleData::ParticleIndex iPart )
+    {
+        P_in.at(iPart, IAX) = P_pos.pos( iPart, IX );
+        P_in.at(iPart, IAY) = P_pos.pos( iPart, IY );
+        P_in.at(iPart, IAZ) = P_pos.pos( iPart, IZ );
+    });
+  }
 
   U.move_ParticleAttribute( "p1", "bx", "ax" );
   U.move_ParticleAttribute( "p1", "by", "ay" );
   U.move_ParticleAttribute( "p1", "bz", "az" );
 
-  auto P_out = U.getParticleAccessor( "p1", {{"bx", IAX}, {"by", IAY}, {"bz", IAZ}} );
-  int errs=0;
-  foreach_particle.reduce_particle( "copy_particle_pos", P_in.getShape(),
-    PARTICLE_LAMBDA( ParticleData::ParticleIndex iPart, int& errs )
   {
-      if( P_in.at(iPart, IAX) != P_pos.pos( iPart, IX ) )
-        errs++;
-      if( P_in.at(iPart, IAY) != P_pos.pos( iPart, IY ) )
-        errs++;
-      if( P_in.at(iPart, IAZ) != P_pos.pos( iPart, IZ ) )
-        errs++;
-  }, errs);
+    auto P_out = U.getParticleAccessor( "p1", {{"bx", IAX}, {"by", IAY}, {"bz", IAZ}} );
+    int errs=0;
+    foreach_particle.reduce_particle( "copy_particle_pos", P_out.getShape(),
+      PARTICLE_LAMBDA( ParticleData::ParticleIndex iPart, int& errs )
+    {
+        if( P_out.at(iPart, IAX) != P_pos.pos( iPart, IX ) )
+          errs++;
+        if( P_out.at(iPart, IAY) != P_pos.pos( iPart, IY ) )
+          errs++;
+        if( P_out.at(iPart, IAZ) != P_pos.pos( iPart, IZ ) )
+          errs++;
+    }, errs);
 
-  EXPECT_EQ(errs, 0);
+    EXPECT_EQ(errs, 0);
+  }
 
 }
 
