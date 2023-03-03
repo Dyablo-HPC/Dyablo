@@ -21,6 +21,26 @@ before_script:
 after_script:
   - date
 
+# Templates for when to create jobs
+.rules_mr_manual_branch_manual: # Create manual job for merge request and branch pipelines
+    rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      when: manual
+    - if: $CI_COMMIT_BRANCH
+      when: manual
+
+.rules_mr_always_branch_manual: # Create active job for merge request pipeline and manual job for branch pipeline
+    rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_COMMIT_BRANCH
+      when: manual
+
+.rules_mr_always_branch_always: # Create active job for merge and branch pipeline
+    rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event' # Auto run pipeline when merge request
+    - if: $CI_COMMIT_BRANCH
+
+
 # Build Dyablo
 .build_template:
   stage: build
@@ -29,6 +49,7 @@ after_script:
       - build/dyablo/test/solver
       - build/dyablo/unit_test
     expire_in: 1 week
+  extends: .rules_mr_always_branch_manual
 
 build::openmp:
   extends: .build_template
@@ -62,6 +83,8 @@ build::cuda-9.2:
 
 # Run unit tests
 .test_template:
+  extends: .rules_mr_always_branch_always
+  when: always
   stage: test
   script: .gitlab-ci/run_unit_tests.sh
   artifacts:
@@ -103,17 +126,22 @@ test::cuda:
 .run_template:
   stage: run
   image: "arnodurocher/dyablo-ci:cuda-11.2-visu"
-  when: manual
   artifacts:
     when: always
     paths:
       - "*.png"
+      - "run_*.txt"
+      - "report.xml"
+    reports:
+      junit: 
+        - "report.xml"
     expire_in: 1 week
 
 # Run multiple testcases
 # -------------------------
 run_all::openmp_4mpi:
   extends:  
+    - .rules_mr_manual_branch_manual
     - .run_template
     - .openmp_template
   stage: run_all
@@ -121,7 +149,8 @@ run_all::openmp_4mpi:
     - .gitlab-ci/run_and_render_all.sh
 
 run_all::cuda_4mpi:
-  extends:  
+  extends: 
+    - .rules_mr_manual_branch_manual 
     - .run_template
     - .cuda_template
   stage: run_all
@@ -130,158 +159,35 @@ run_all::cuda_4mpi:
 
 # Run separate testcases
 # -------------------------
-run::gravity_spheres_3D::openmp_4mpi:
-  extends:  
-    - .run_template
-    - .openmp_template
-  script: 
-    - .gitlab-ci/run_testcase_mpi.sh test_gravity_spheres_3D.ini 4
-    - .gitlab-ci/render.sh visu_gravity_spheres_3D.pvsm
 
-run::gravity_spheres_3D::cuda_4mpi:
+.custom_run:
   extends:  
     - .run_template
+    - .rules_mr_manual_branch_manual
+  script: 
+    - .gitlab-ci/run_testcase_mpi.sh $INI_FILE $MPI_COUNT
+    - .gitlab-ci/render.sh $PVSM_FILE
+  variables:
+    INI_FILE:
+      value: "test_gravity_spheres_3D.ini"
+      #description: ".ini file for test_solver"
+    PVSM_FILE: 
+      value: "visu_gravity_spheres_3D.pvsm"
+      #description: "pvsm file to generate image"
+    MPI_COUNT: 
+      value: 4
+      #description: "Number of MPI process"
+
+
+run::custom::openmp:
+  extends:  
+    - .custom_run
+    - .openmp_template
+
+run::custom::cuda:
+  extends:  
+    - .custom_run
     - .cuda_template
-  script: 
-    - .gitlab-ci/run_testcase_mpi.sh test_gravity_spheres_3D.ini 4
-    - .gitlab-ci/render.sh visu_gravity_spheres_3D.pvsm
-
-# Blast 3D block based testcase
-run::blast_3D_block::openmp:
-  extends:  
-    - .run_template
-    - .openmp_template
-  script: 
-    - .gitlab-ci/run_testcase.sh test_blast_3D_block.ini
-    - .gitlab-ci/render.sh visu_blast_3D_block.pvsm
-
-run::blast_3D_block::openmp_4mpi:
-  extends:  
-    - .run_template
-    - .openmp_template
-  script: 
-    - .gitlab-ci/run_testcase_mpi.sh test_blast_3D_block.ini 4
-    - .gitlab-ci/render.sh visu_blast_3D_block.pvsm
-
-run::blast_3D_block::cuda:
-  extends:  
-    - .run_template
-    - .cuda_template
-  script: 
-    - .gitlab-ci/run_testcase.sh test_blast_3D_block.ini
-    - .gitlab-ci/render.sh visu_blast_3D_block.pvsm
-
-run::blast_3D_block::cuda_4mpi:
-  extends:  
-    - .run_template
-    - .cuda_template
-  script: 
-    - .gitlab-ci/run_testcase_mpi.sh test_blast_3D_block.ini 4
-    - .gitlab-ci/render.sh visu_blast_3D_block.pvsm
-
-# Blast 3D cell based testcase
-run::blast_3D_cell::openmp:
-  extends:  
-    - .run_template
-    - .openmp_template
-  script: 
-    - .gitlab-ci/run_testcase.sh test_blast_3D.ini
-    - .gitlab-ci/render.sh visu_blast_3D_cell.pvsm
-
-run::blast_3D_cell::openmp_4mpi:
-  extends:  
-    - .run_template
-    - .openmp_template
-  script: 
-    - .gitlab-ci/run_testcase_mpi.sh test_blast_3D.ini 4
-    - .gitlab-ci/render.sh visu_blast_3D_cell.pvsm
-
-# Blast 2D block based testcase
-run::blast_2D_block::openmp:
-  extends:  
-    - .run_template
-    - .openmp_template
-  script: 
-    - .gitlab-ci/run_testcase.sh test_blast_2D_block.ini
-    - .gitlab-ci/render.sh visu_blast_2D_block.pvsm
-
-run::blast_2D_block::openmp_4mpi:
-  extends:  
-    - .run_template
-    - .openmp_template
-  script: 
-    - .gitlab-ci/run_testcase_mpi.sh test_blast_2D_block.ini 4
-    - .gitlab-ci/render.sh visu_blast_2D_block.pvsm
-
-run::blast_2D_block::cuda:
-  extends:  
-    - .run_template
-    - .cuda_template
-  script: 
-    - .gitlab-ci/run_testcase.sh test_blast_2D_block.ini
-    - .gitlab-ci/render.sh visu_blast_2D_block.pvsm
-
-run::blast_2D_block::cuda_4mpi:
-  extends:  
-    - .run_template
-    - .cuda_template
-  script: 
-    - .gitlab-ci/run_testcase_mpi.sh test_blast_2D_block.ini 4
-    - .gitlab-ci/render.sh visu_blast_2D_block.pvsm
-
-# Blast 2D cell based testcase
-run::blast_2D_cell::openmp:
-  extends:  
-    - .run_template
-    - .openmp_template
-  script: 
-    - .gitlab-ci/run_testcase.sh test_blast_2D.ini
-    - .gitlab-ci/render.sh visu_blast_2D_cell.pvsm
-
-run::blast_2D_cell::openmp_4mpi:
-  extends:  
-    - .run_template
-    - .openmp_template
-  script: 
-    - .gitlab-ci/run_testcase_mpi.sh test_blast_2D.ini 4
-    - .gitlab-ci/render.sh visu_blast_2D_cell.pvsm
-
-# Riemann 2D
-run::riemann2d::openmp:
-  extends:
-    - .run_template
-    - .openmp_template
-  script: 
-    - .gitlab-ci/run_testcase.sh test_riemann_2D.ini
-    - .gitlab-ci/render.sh visu_riemann_2D_cell.pvsm
-
-run::riemann2d::cuda:
-  extends:
-    - .run_template
-    - .cuda_template
-  script: 
-    - .gitlab-ci/run_testcase.sh test_riemann_2D.ini
-    - .gitlab-ci/render.sh visu_riemann_2D_cell.pvsm
-
-run::riemann2d_block::openmp:
-  extends:
-    - .run_template
-    - .openmp_template
-  script: 
-    - .gitlab-ci/run_testcase.sh test_riemann_2D_block.ini
-    - .gitlab-ci/render.sh visu_riemann_2D_block.pvsm
-
-run::riemann2d_block::cuda:
-  extends:
-    - .run_template
-    - .cuda_template
-  script: 
-    - .gitlab-ci/run_testcase.sh test_riemann_2D_block.ini
-    - .gitlab-ci/render.sh visu_riemann_2D_block.pvsm
-
-
-# Read ci/Readme.md for instructions on how to add new testcases
-
 
 
 
