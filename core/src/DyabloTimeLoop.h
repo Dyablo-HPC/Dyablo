@@ -234,9 +234,11 @@ public:
     if( m_enable_output )
       io_manager->save_snapshot(U, m_iter, m_t);
     timers.get("outputs").stop();
-    timers.get("Total").start();
+    timers.get("checkpoint").start();
     if( m_enable_checkpoint )
       io_manager_checkpoint->save_snapshot(U, m_iter, m_t);
+    timers.get("checkpoint").stop();
+
     timers.get("Total").stop();
 
     int rank = m_communicator.MPI_Comm_rank();
