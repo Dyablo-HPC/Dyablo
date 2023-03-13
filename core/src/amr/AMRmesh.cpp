@@ -79,6 +79,16 @@ void AMRmesh_impl<Impl_t>::updateLightOctree()
   }
 }
 
+template<typename Impl_t>
+const LightOctree& AMRmesh_impl<Impl_t>::getLightOctree()
+{ 
+  // Update LightOctree if needed
+  updateLightOctree();
+  assert( lmesh->getNumOctants() == this->getNumOctants() );
+  assert( lmesh->getNumGhosts() == this->getNumGhosts() );
+  return *lmesh; 
+}
+
 // #ifdef DYABLO_COMPILE_PABLO
 //   template class AMRmesh_impl<AMRmesh_pablo>;
 // #endif

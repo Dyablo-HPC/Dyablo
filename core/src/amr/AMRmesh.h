@@ -124,12 +124,7 @@ public:
    * Get the LightOctree associated to the current AMR mesh
    * May reallocate LightOctree if mesh has been modified
    **/
-  const LightOctree& getLightOctree()
-  { 
-    // Update LightOctree if needed
-    updateLightOctree();
-    return *lmesh; 
-  }
+  const LightOctree& getLightOctree();
   
   /// Update LightOctree to make sure next call to getLightOctree() will not reallocate
   void updateLightOctree();
