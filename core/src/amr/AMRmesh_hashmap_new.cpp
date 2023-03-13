@@ -604,6 +604,7 @@ AMRmesh_hashmap_new::GhostMap_t AMRmesh_hashmap_new::loadBalance(level_t level)
 
     // update misc metadata
     this->first_local_oct = new_oct_intervals[mpi_rank];
+    pmesh_epoch++;
 
     pdata->ghostmap = discover_ghosts(new_storage_device, new_morton_intervals, level_max, this->periodic, mpi_comm);
 
@@ -936,6 +937,8 @@ void AMRmesh_hashmap_new::adapt(bool dummy)
       }
     }     
   }
+
+  pmesh_epoch++;
 }
 
 

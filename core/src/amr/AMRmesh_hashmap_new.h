@@ -152,6 +152,8 @@ private :
   // Pimpl idiom
   struct PData;
   std::unique_ptr<PData> pdata;  
+protected:
+  int pmesh_epoch = 1;
 };
 
 }// namespace dyablo

@@ -28,7 +28,13 @@ public:
 private: 
   std::unique_ptr<LightOctree> lmesh;
   uint8_t level_min, level_max;
-  bool lmesh_uptodate = false;
+  
+  /// Impl must define pmesh_epoch that in increamented each time the geometry of the mesh is modified
+  int lmesh_epoch = 0;
+  bool lmesh_uptodate()
+  {
+    return Impl::pmesh_epoch == lmesh_epoch;
+  }
 public:
   template< typename T, int N >
   using array_t = std::array<T,N>;
@@ -223,7 +229,6 @@ public:
     uint32_t nbGhosts_old = this->getNumGhosts();
 
     Impl::loadBalance(compact_levels);
-    lmesh_uptodate = false;
 
     uint32_t nbOcts_new = this->getNumOctants();
     uint32_t nbGhosts_new = this->getNumGhosts();
@@ -244,7 +249,6 @@ public:
     uint32_t nbGhosts_old = this->getNumGhosts();
 
     Impl::loadBalance_userdata(compact_levels, userData); 
-    lmesh_uptodate = false; 
 
     uint32_t nbOcts_new = this->getNumOctants();
     uint32_t nbGhosts_new = this->getNumGhosts();
@@ -270,7 +274,6 @@ public:
     uint32_t nbGhosts_old = this->getNumGhosts();
 
     Impl::adapt(dummy); 
-    lmesh_uptodate = false;
 
     uint32_t nbOcts_new = this->getNumOctants();
     uint32_t nbGhosts_new = this->getNumGhosts();
@@ -281,7 +284,6 @@ public:
   void adaptGlobalRefine()
   { 
     Impl::adaptGlobalRefine();
-    lmesh_uptodate = false; 
   }
   
 
