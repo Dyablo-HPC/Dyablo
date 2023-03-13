@@ -261,6 +261,8 @@ public:
     {
         assert(false); // findneighbours() cannot be used without PABLO
     }
+protected:
+    int pmesh_epoch = 1;
 };
 
 } // namespace dyablo

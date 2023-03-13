@@ -67,6 +67,7 @@ void AMRmesh_hashmap::adaptGlobalRefine()
 
     uint64_t nb_octs = this->getNumOctants();
     mpi_comm.MPI_Allreduce( &nb_octs, &total_octs_count, 1, MpiComm::MPI_Op_t::SUM );
+    pmesh_epoch++;
 }
 
 void AMRmesh_hashmap::setMarkersCapacity(uint32_t capa)
@@ -693,6 +694,8 @@ void AMRmesh_hashmap::adapt(bool dummy)
         this->global_id_begin = std::accumulate(&sizes[0], &sizes[mpi_rank], 0);
     }
 
+    pmesh_epoch++;
+
     // {
     //     static int iter;        
     //     debug::output_vtk(std::string("after_adapt_iter")+std::to_string(iter), *this);
@@ -843,6 +846,8 @@ std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(level_t level)
     // }
 
     assert(this->getNumOctants() > 0); // Process cannot be empty
+
+    pmesh_epoch++;
 
     return loadbalance_to_send;
 }
