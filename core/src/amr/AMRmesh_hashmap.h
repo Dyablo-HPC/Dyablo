@@ -88,12 +88,6 @@ public:
     {
         return mpi_comm.MPI_Comm_size();
     }
-
-    template< typename T >
-    void communicate(T&)
-    {
-        assert(false); // communicate() cannot be used without PABLO
-    }
     
     /**
      * \brief Change octants distribution to redistribute the load

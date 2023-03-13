@@ -17,7 +17,6 @@ class LightOctree_pablo;
  **/
 class AMRmesh_pablo : private bitpit::PabloUniform
 {
-    friend LightOctree_pablo;
 private:
     MpiComm mpi_comm;
     int level_min;
@@ -36,6 +35,15 @@ public:
     using bitpit::PabloUniform::check21Balance;
     using bitpit::PabloUniform::checkToAdapt;
 
+    const bitpit::PabloUniform& getPabloUniform() const
+    {
+        return *this;
+    }
+
+    bitpit::PabloUniform& getPabloUniform()
+    {
+        return *this;
+    }
 
     AMRmesh_pablo( int dim, int balance_codim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max )
         : PabloUniform(dim), mpi_comm( PabloUniform::getComm() ), level_min(level_min)
