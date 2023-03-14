@@ -86,7 +86,7 @@ real_t get_value(const GhostedArray& U, const CellIndex& iCell_U, VarIndex var, 
   {
     real_t sum = 0;
     int nbCells =
-    foreach_smaller_neighbor<ndim, false>( 
+    foreach_smaller_neighbor<ndim, true>( // TODO : select enable_different_block=false when block-based
       iCell_U, offset, U, 
       [&](const ForeachCell::CellIndex& iCell_ghost)
     {
