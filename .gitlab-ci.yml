@@ -26,6 +26,7 @@ after_script:
     rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
       when: manual
+      allow_failure: true
     - if: $CI_COMMIT_BRANCH
       when: manual
 
@@ -141,7 +142,7 @@ test::cuda:
 # -------------------------
 run_all::openmp_4mpi:
   extends:  
-    - .rules_mr_manual_branch_manual
+    - .rules_mr_always_branch_always
     - .run_template
     - .openmp_template
   stage: run_all
@@ -150,7 +151,7 @@ run_all::openmp_4mpi:
 
 run_all::cuda_4mpi:
   extends: 
-    - .rules_mr_manual_branch_manual 
+    - .rules_mr_always_branch_always
     - .run_template
     - .cuda_template
   stage: run_all
