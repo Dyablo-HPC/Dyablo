@@ -25,6 +25,7 @@ set( ic_src
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_orszag_tang.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_MHD_blast.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_MHD_rotor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_simple_particles.cpp
 )
      
 set( legacy_src
