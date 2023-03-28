@@ -17,6 +17,8 @@ set( core_src
     ${CMAKE_CURRENT_SOURCE_DIR}/particles/ParticleUpdate_tracers_move.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/particles/ParticleUpdate_NGP_move.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/particles/ParticleUpdate_NGP_density.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/particles/ParticleUpdate_CIC_move.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/particles/ParticleUpdate_CIC_density.cpp
 )
 
 set( ic_src
