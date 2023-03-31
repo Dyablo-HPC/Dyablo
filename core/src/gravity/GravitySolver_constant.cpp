@@ -21,8 +21,7 @@ public:
       throw std::runtime_error("GravitySolver_constant must have gravity_type=constant_scalar");
   }
   ~GravitySolver_constant(){}
-  void update_gravity_field( const ForeachCell::CellArray_global_ghosted& Uin,
-                             const ForeachCell::CellArray_global_ghosted& Uout)
+  void update_gravity_field( UserData& U )
   {
     /* Does nothing : constant values are used when applying gravity */
   }

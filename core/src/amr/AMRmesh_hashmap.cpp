@@ -11,6 +11,8 @@
 
 #include "mpi/GhostCommunicator.h"
 
+#include "UserData.h"
+
 namespace dyablo{
 
 AMRmesh_hashmap::AMRmesh_hashmap( int dim, int balance_codim, const std::array<bool,3>& periodic, level_t level_min, level_t level_max, const MpiComm& mpi_comm )
@@ -65,6 +67,7 @@ void AMRmesh_hashmap::adaptGlobalRefine()
 
     uint64_t nb_octs = this->getNumOctants();
     mpi_comm.MPI_Allreduce( &nb_octs, &total_octs_count, 1, MpiComm::MPI_Op_t::SUM );
+    pmesh_epoch++;
 }
 
 void AMRmesh_hashmap::setMarkersCapacity(uint32_t capa)
@@ -691,6 +694,8 @@ void AMRmesh_hashmap::adapt(bool dummy)
         this->global_id_begin = std::accumulate(&sizes[0], &sizes[mpi_rank], 0);
     }
 
+    pmesh_epoch++;
+
     // {
     //     static int iter;        
     //     debug::output_vtk(std::string("after_adapt_iter")+std::to_string(iter), *this);
@@ -842,29 +847,16 @@ std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(level_t level)
 
     assert(this->getNumOctants() > 0); // Process cannot be empty
 
+    pmesh_epoch++;
+
     return loadbalance_to_send;
 }
 
-namespace{
-template < int iOct, typename View_t >
-void AMRmesh_hashmap_loadBalance( AMRmesh_hashmap& mesh, int compact_levels, View_t& userData )
+void AMRmesh_hashmap::loadBalance_userdata( int compact_levels, UserData& U )
 {
-    auto octs_to_exchange = mesh.loadBalance(compact_levels);
+    auto octs_to_exchange = loadBalance(compact_levels);
     GhostCommunicator_kokkos lb_comm(octs_to_exchange);
-    View_t userData_new( userData.label(), userData.extent(0), userData.extent(1), lb_comm.getNumGhosts() );
-    lb_comm.exchange_ghosts<iOct>(userData, userData_new);
-    userData = userData_new;
-}
-} // namespace
-
-void AMRmesh_hashmap::loadBalance_userdata( int compact_levels, DataArrayBlock& userData )
-{
-    AMRmesh_hashmap_loadBalance<2>(*this, compact_levels, userData);
-}
-
-void AMRmesh_hashmap::loadBalance_userdata( int compact_levels, DataArray& userData )
-{
-    AMRmesh_hashmap_loadBalance<0>(*this, compact_levels, userData);
+    U.exchange_loadbalance(lb_comm);
 }
 
 const std::map<int, std::vector<uint32_t>>& AMRmesh_hashmap::getBordersPerProc() const

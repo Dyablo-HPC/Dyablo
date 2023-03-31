@@ -4,6 +4,7 @@
 #include "legacy/CopyInnerBlockCellData.h"
 #include "legacy/CopyGhostBlockCellData.h"
 #include "legacy/ConvertToPrimitivesHydroFunctor.h"
+#include "legacy/LegacyDataArray.h"
 
 #include "utils/monitoring/Timers.h"
 
@@ -46,24 +47,21 @@ HydroUpdate_legacy::HydroUpdate_legacy(
 HydroUpdate_legacy::~HydroUpdate_legacy()
 {}
 
-void HydroUpdate_legacy::update(const ForeachCell::CellArray_global_ghosted& Uin,
-                                     const ForeachCell::CellArray_global_ghosted& Uout_, 
-                                     real_t dt)
-{
-  static_assert( std::is_same<decltype(Uin.U), DataArrayBlock>::value, 
-                 "HydroUpdate_legacy can only be compiled for block-based ForeachCell" );
-  
+void HydroUpdate_legacy::update( UserData& U_, real_t dt )
+{ 
   ForeachCell& foreach_cell = pdata->foreach_cell;
   const LightOctree& lmesh = foreach_cell.get_amr_mesh().getLightOctree();
-  const id2index_t& fm = Uin.fm;
 
   uint32_t nbOctsPerGroup = std::min( 
       lmesh.getNumOctants(), 
       pdata->nbOctsPerGroup
     );
-  uint32_t bx = Uin.bx, by = Uin.by, bz = Uin.bz;  
+  uint32_t bx = foreach_cell.blockSize()[IX]; 
+  uint32_t by = foreach_cell.blockSize()[IY]; 
+  uint32_t bz = foreach_cell.blockSize()[IZ];
   Timers& timers = pdata->timers; 
   GravityType gravity_type = pdata->params.gravity_type;
+  bool has_gravity_field = (gravity_type & GRAVITY_FIELD);
   real_t gamma0 = pdata->params.riemann_params.gamma0;
   real_t smallr = pdata->params.riemann_params.smallr;
   real_t smallp = pdata->params.riemann_params.smallp;
@@ -73,18 +71,46 @@ void HydroUpdate_legacy::update(const ForeachCell::CellArray_global_ghosted& Uin
   uint32_t nbOcts = lmesh.getNumOctants();
   uint32_t nbGroup = (nbOcts + nbOctsPerGroup - 1) / nbOctsPerGroup;
   
-  uint32_t nbFields = fm.nbfields();
+  LegacyDataArray Uin(  has_gravity_field
+                        ? 
+                        U_.getAccessor({
+                            {"rho", ID},
+                            {"e_tot", IE},
+                            {"rho_vx", IU},
+                            {"rho_vy", IV},
+                            {"rho_vz", IW},
+                            {"gx", IGX},
+                            {"gy", IGY},
+                            {"gz", IGZ}
+                        })
+                        :
+                        U_.getAccessor({
+                            {"rho", ID},
+                            {"e_tot", IE},
+                            {"rho_vx", IU},
+                            {"rho_vy", IV},
+                            {"rho_vz", IW},
+                        })
+  );
+  LegacyDataArray Uout( U_.getAccessor({
+      {"rho_next", ID},
+      {"e_tot_next", IE},
+      {"rho_vx_next", IU},
+      {"rho_vy_next", IV},
+      {"rho_vz_next", IW}
+  }));
+
+  uint32_t nbFields = Uin.get_id2index().nbfields();
   uint32_t bx_g = bx + 2*ghostWidth;
   uint32_t by_g = by + 2*ghostWidth;
   uint32_t bz_g = bz + 2*ghostWidth;
 
-  const DataArrayBlock& U = Uin.U;
-  const DataArrayBlock& Ughost = Uin.Ughost;
-  const DataArrayBlock& Uout = Uout_.U;
   DataArrayBlock Ugroup("Ugroup", bx_g*by_g*bz_g, nbFields, nbOctsPerGroup);
   DataArrayBlock Qgroup("Qgroup", bx_g*by_g*bz_g, nbFields, nbOctsPerGroup);
 
   InterfaceFlags interface_flags(nbOctsPerGroup);
+
+  id2index_t fm = Uin.get_id2index();
 
   for (uint32_t iGroup = 0; iGroup < nbGroup; ++iGroup) 
   {
@@ -97,7 +123,7 @@ void HydroUpdate_legacy::update(const ForeachCell::CellArray_global_ghosted& Uin
                                        ghostWidth,
                                        nbOcts,
                                        nbOctsPerGroup,
-                                       U, Ugroup, 
+                                       Uin, Ugroup, 
                                        iGroup);
     CopyGhostBlockCellDataFunctor::apply(lmesh,
                                         {
@@ -110,8 +136,7 @@ void HydroUpdate_legacy::update(const ForeachCell::CellArray_global_ghosted& Uin
                                         {bx,by,bz},
                                         ghostWidth,
                                         nbOctsPerGroup,
-                                        U,
-                                        Ughost,
+                                        Uin,
                                         Ugroup, 
                                         iGroup,
                                         interface_flags);
@@ -146,8 +171,7 @@ void HydroUpdate_legacy::update(const ForeachCell::CellArray_global_ghosted& Uin
                                           nbOctsPerGroup,
                                           iGroup,
                                           Ugroup,
-                                          U,
-                                          Ughost,
+                                          Uin,
                                           Uout,
                                           Qgroup,
                                           interface_flags,

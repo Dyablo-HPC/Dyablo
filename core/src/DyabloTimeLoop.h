@@ -14,6 +14,7 @@
 #include "gravity/GravitySolver.h"
 #include "hydro/HydroUpdate.h"
 #include "amr/MapUserData.h"
+#include "UserData.h"
 
 namespace dyablo {
 
@@ -53,6 +54,7 @@ public:
     m_communicator( GlobalMpiSession::get_comm_world() ),
     m_amr_mesh( init_amr_mesh( configMap ) ),
     m_foreach_cell( *m_amr_mesh, configMap ),
+    U(configMap, m_foreach_cell),
     m_loadbalance_coherent_levels( configMap.getValue<int>("amr", "loadbalance_coherent_levels", 3) )
   {
     int ndim = configMap.getValue<int>("mesh", "ndim", 3);
@@ -77,6 +79,7 @@ public:
     GravityType gravity_type = m_gravity_type;
 
     std::string godunov_updater_id = configMap.getValue<std::string>("hydro", "update", "HydroUpdate_hancock");
+    this->has_mhd = godunov_updater_id.find("MHD") != std::string::npos;
     this->godunov_updater = HydroUpdateFactory::make_instance( godunov_updater_id,
       configMap,
       this->m_foreach_cell,
@@ -120,32 +123,6 @@ public:
       timers
     );
 
-    // Setup FieldManager
-    // TODO : Construct FieldManager according to variables used by kernels
-    {
-      // always enable rho, energy and velocity components
-      std::set< VarIndex > enabled_vars( {ID, IP, IE, IU, IV} );
-      
-      bool three_d = ndim == 3 ? 1 : 0;
-
-      if( three_d ) enabled_vars.insert( IW );
-
-      if (gravity_type & GRAVITY_FIELD) {
-        enabled_vars.insert( IGPHI );
-        enabled_vars.insert( IGX );
-        enabled_vars.insert( IGY );
-        if( three_d ) enabled_vars.insert( IGZ );
-      }
-
-      if (godunov_updater_id.find("MHD") != std::string::npos) {
-        enabled_vars.insert( IBX );
-        enabled_vars.insert( IBY );
-        enabled_vars.insert( IBZ );
-      }
-
-      m_field_manager = FieldManager(enabled_vars);
-    }
-
     // Get initial conditions id
     std::string init_id = configMap.getValue<std::string>("hydro", "problem", "unknown");
 
@@ -159,12 +136,6 @@ public:
       std::cout << "Refine condition   : " << refine_condition_id << std::endl;
       std::cout << "Compute dt         : " << compute_dt_id << std::endl;
       std::cout << "##########################" << std::endl;
-      
-      float Udata_mem_size = DataArrayBlock::required_allocation_size( U.U.extent(0), U.U.extent(1), U.U.extent(2) ) * (2 / 1e6) ;
-
-      std::cout << "##########################" << "\n";
-      std::cout << "Memory requested (U + U2) : " << Udata_mem_size << " MBytes\n"; 
-      std::cout << "##########################" << "\n";
     }
 
     // Initialize cells
@@ -179,11 +150,8 @@ public:
           m_foreach_cell,
           timers);
 
-      initial_conditions->init( U, m_field_manager );
+      initial_conditions->init( U );
     }
-
-    // Allocate U2
-    U2 = m_foreach_cell.allocate_ghosted_array( "U2", m_field_manager );
  
 
     std::ofstream out_ini("last.ini" );
@@ -338,33 +306,46 @@ public:
     timers.get("MPI ghosts").start();
     U.exchange_ghosts( ghost_comm );
     timers.get("MPI ghosts").stop();
+
+    U.new_fields({"rho_next", "e_tot_next", "rho_vx_next", "rho_vy_next", "rho_vz_next"});
     
-    // Update gravity
-    if( gravity_solver )
-      gravity_solver->update_gravity_field(U, U);
-
-    // Update hydro
-    godunov_updater->update( U, U2, dt ); //TODO : make U2 a temporary array?
-
-    // TODO : list written fields in gravity_solver
-    if( this->m_gravity_type & GRAVITY_FIELD )
-    {
-      int ndim = m_foreach_cell.getDim();
-      auto& U2 = this->U2;
-      auto& U = this->U;
-      assert( U.U.layout() == U2.U.layout() );
-      m_foreach_cell.foreach_cell("DyabloTimeLoop::copy_gravity_fields", U,
-        KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell)
-      {
-        U2.at(iCell, IGPHI) = U.at(iCell, IGPHI);
-        U2.at(iCell, IGX) = U.at(iCell, IGX);
-        U2.at(iCell, IGY) = U.at(iCell, IGY);
-        if( ndim == 3 )
-          U2.at(iCell, IGZ) = U.at(iCell, IGZ);
-      });
+    // TODO automatic new fields according to kernel
+    if( this->has_mhd )
+      U.new_fields({"Bx_next", "By_next", "Bz_next"});
+    
+    if (m_gravity_type & GRAVITY_FIELD) {
+      U.new_fields({"gx", "gy", "gz"});
+      if( !U.has_field("gphi") )
+        U.new_fields({"gphi"});
     }
 
+    // Update gravity
+    if( gravity_solver )
+      gravity_solver->update_gravity_field(U);
+
+    // Update hydro
+    godunov_updater->update( U, dt );
+
     m_t += dt;
+
+    U.move_field( "rho", "rho_next" ); 
+    U.move_field( "e_tot", "e_tot_next" ); 
+    U.move_field( "rho_vx", "rho_vx_next" ); 
+    U.move_field( "rho_vy", "rho_vy_next" ); 
+    U.move_field( "rho_vz", "rho_vz_next" );
+    if( this->has_mhd )
+    {
+      U.move_field( "Bx", "Bx_next" ); 
+      U.move_field( "By", "By_next" ); 
+      U.move_field( "Bz", "Bz_next" );
+    }
+    
+    if (m_gravity_type & GRAVITY_FIELD)
+    {
+      U.delete_field("gx");
+      U.delete_field("gy");
+      U.delete_field("gz");
+    }    
 
     // AMR cycle
     {
@@ -373,11 +354,11 @@ public:
         timers.get("AMR").start();
 
         timers.get("MPI ghosts").start();
-        U2.exchange_ghosts( ghost_comm );
+        U.exchange_ghosts( ghost_comm );
         timers.get("MPI ghosts").stop();
 
         timers.get("AMR: Mark cells").start();
-        refine_condition->mark_cells( U2 );
+        refine_condition->mark_cells( U );
         timers.get("AMR: Mark cells").stop();
 
         // Backup old mesh
@@ -393,23 +374,16 @@ public:
 
         // Resize and fill U with copied/interpolated/extrapolated data
         timers.get("AMR: remap userdata").start();
-        std::cout << "Reallocate U + U2 after remap : " << DataArrayBlock::required_allocation_size(U2.U.extent(0), U2.U.extent(1), U2.U.extent(2)) * (2/1e6) 
-            << " -> " << DataArrayBlock::required_allocation_size(U2.U.extent(0), U2.U.extent(1), m_amr_mesh->getNumOctants()) * (2/1e6) << " MBytes" << std::endl;
-        U = m_foreach_cell.allocate_ghosted_array("U", m_field_manager);
+        
+        //TODO
+        //std::cout << "Resize U after remap : " << DataArrayBlock::required_allocation_size(U2.U.extent(0), U2.U.extent(1), U2.U.extent(2)) * (2/1e6) 
+        //    << " -> " << DataArrayBlock::required_allocation_size(U2.U.extent(0), U2.U.extent(1), m_amr_mesh->getNumOctants()) * (2/1e6) << " MBytes" << std::endl;
 
-        mapUserData->remap( U2, U );
+        mapUserData->remap( U );
 
-        // now U contains the most up to date data after mesh adaptation
-        // we can resize U2 for the next time-step
-        U2 = m_foreach_cell.allocate_ghosted_array("U2", m_field_manager);
         timers.get("AMR: remap userdata").stop();
 
         timers.get("AMR").stop();
-      }
-      else
-      {
-        //TODO write U.deep_copy() or something
-        Kokkos::deep_copy(U.U, U2.U);
       }
     }
 
@@ -419,12 +393,7 @@ public:
       {
         timers.get("AMR: load-balance").start();
 
-        m_amr_mesh->loadBalance_userdata(m_loadbalance_coherent_levels, U.U);
-        Kokkos::realloc(U.Ughost, U.Ughost.extent(0), U.Ughost.extent(1), m_amr_mesh->getNumGhosts());
-        U.update_lightOctree(m_amr_mesh->getLightOctree());
-
-        
-        U2 = m_foreach_cell.allocate_ghosted_array("U2", m_field_manager);
+        m_amr_mesh->loadBalance_userdata(m_loadbalance_coherent_levels, U);
 
         timers.get("AMR: load-balance").stop();
       }
@@ -456,16 +425,15 @@ private:
   MpiComm m_communicator;
   std::shared_ptr<AMRmesh> m_amr_mesh;
   ForeachCell m_foreach_cell;
+  UserData U;
   int m_loadbalance_coherent_levels;
 
   using CellArray = ForeachCell::CellArray_global_ghosted;
 
-  FieldManager m_field_manager;
-  CellArray U, U2;
-
   std::unique_ptr<Compute_dt> compute_dt;
   std::unique_ptr<RefineCondition> refine_condition;
   std::unique_ptr<HydroUpdate> godunov_updater;
+  bool has_mhd; // TODO : remove this
   std::unique_ptr<MapUserData> mapUserData;
   std::unique_ptr<IOManager> io_manager, io_manager_checkpoint;
   std::unique_ptr<GravitySolver> gravity_solver;

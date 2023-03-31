@@ -10,6 +10,45 @@ namespace dyablo {
  * @brief Structure holding conservative magneto-hydrodynamics variables
  **/ 
 struct ConsMHDState {
+  enum VarIndex : dyablo::VarIndex
+  {
+    Irho,
+    Ie_tot,
+    Irho_vx,
+    Irho_vy,
+    Irho_vz,
+    IBx, 
+    IBy,
+    IBz
+  };  
+  
+  static std::vector<UserData::FieldAccessor::FieldInfo> getFieldsInfo()
+  {
+    return  { {"rho",     VarIndex::Irho}, 
+              {"e_tot",   VarIndex::Ie_tot},
+              {"rho_vx",  VarIndex::Irho_vx},
+              {"rho_vy",  VarIndex::Irho_vy},
+              {"rho_vz",  VarIndex::Irho_vz},
+              {"Bx",      VarIndex::IBx},
+              {"By",      VarIndex::IBy},
+              {"Bz",      VarIndex::IBz} 
+    };
+  }
+
+  static FieldManager getFieldManager()
+  {
+    return FieldManager( {
+      VarIndex::Irho, 
+      VarIndex::Ie_tot, 
+      VarIndex::Irho_vx, 
+      VarIndex::Irho_vy, 
+      VarIndex::Irho_vz, 
+      VarIndex::IBx, 
+      VarIndex::IBy, 
+      VarIndex::IBz, 
+    } );
+  }
+
   real_t rho = 0;
   real_t e_tot = 0;
   real_t rho_u = 0;
@@ -34,6 +73,45 @@ DECLARE_STATE_GET( ConsMHDState, 7, Bz );
  * @brief Structure holding primitive magneto-hydrodynamics variables
  */
 struct PrimMHDState {
+  enum VarIndex : dyablo::VarIndex
+  {
+    Irho,
+    Ip,
+    Iu,
+    Iv,
+    Iw,
+    IBx, 
+    IBy,
+    IBz
+  }; 
+
+  static std::vector<UserData::FieldAccessor::FieldInfo> getFieldsInfo()
+  {
+    return  { {"rho",VarIndex::Irho}, 
+              {"p",  VarIndex::Ip},
+              {"u",  VarIndex::Iu},
+              {"v",  VarIndex::Iv},
+              {"w",  VarIndex::Iw},
+              {"Bx", VarIndex::IBx},
+              {"By", VarIndex::IBy},
+              {"Bz", VarIndex::IBz} 
+    };
+  }
+
+  static FieldManager getFieldManager()
+  {
+    return FieldManager( {
+      VarIndex::Irho, 
+      VarIndex::Ip, 
+      VarIndex::Iu, 
+      VarIndex::Iv, 
+      VarIndex::Iw, 
+      VarIndex::IBx, 
+      VarIndex::IBy, 
+      VarIndex::IBz, 
+    } );
+  }
+
   real_t rho = 0;
   real_t p = 0;
   real_t u = 0;
@@ -83,14 +161,14 @@ template< int ndim,
 KOKKOS_INLINE_FUNCTION
 void getConservativeState( const Array_t& U, const CellIndex& iCell, ConsMHDState &res )
 {
-  res.rho   = U.at(iCell, ID);
-  res.e_tot = U.at(iCell, IE);
-  res.rho_u = U.at(iCell, IU);
-  res.rho_v = U.at(iCell, IV);
-  res.rho_w = (ndim == 3 ? U.at(iCell, IW) : 0.0);
-  res.Bx = U.at(iCell, IBX);
-  res.By = U.at(iCell, IBY);
-  res.Bz = U.at(iCell, IBZ);
+  res.rho   = U.at(iCell, ConsMHDState::VarIndex::Irho);
+  res.e_tot = U.at(iCell, ConsMHDState::VarIndex::Ie_tot);
+  res.rho_u = U.at(iCell, ConsMHDState::VarIndex::Irho_vx);
+  res.rho_v = U.at(iCell, ConsMHDState::VarIndex::Irho_vy);
+  res.rho_w = (ndim == 3 ? U.at(iCell, ConsMHDState::VarIndex::Irho_vz) : 0.0);
+  res.Bx = U.at(iCell, ConsMHDState::VarIndex::IBx);
+  res.By = U.at(iCell, ConsMHDState::VarIndex::IBy);
+  res.Bz = U.at(iCell, ConsMHDState::VarIndex::IBz);
 }
 
 /**
@@ -110,14 +188,14 @@ template< int ndim,
 KOKKOS_INLINE_FUNCTION
 void getPrimitiveState( const Array_t& U, const CellIndex& iCell, PrimMHDState &res )
 {
-  res.rho = U.at(iCell, ID);
-  res.p   = U.at(iCell, IP);
-  res.u   = U.at(iCell, IU);
-  res.v   = U.at(iCell, IV);
-  res.w   = (ndim == 3 ? U.at(iCell, IW) : 0.0);
-  res.Bx  = U.at(iCell, IBX);
-  res.By  = U.at(iCell, IBY);
-  res.Bz  = U.at(iCell, IBZ);
+  res.rho = U.at(iCell, PrimMHDState::VarIndex::Irho);
+  res.p   = U.at(iCell, PrimMHDState::VarIndex::Ip);
+  res.u   = U.at(iCell, PrimMHDState::VarIndex::Iu);
+  res.v   = U.at(iCell, PrimMHDState::VarIndex::Iv);
+  res.w   = (ndim == 3 ? U.at(iCell, PrimMHDState::VarIndex::Iw) : 0.0);
+  res.Bx  = U.at(iCell, PrimMHDState::VarIndex::IBx);
+  res.By  = U.at(iCell, PrimMHDState::VarIndex::IBy);
+  res.Bz  = U.at(iCell, PrimMHDState::VarIndex::IBz);
 }
 
 /**
@@ -134,16 +212,15 @@ void getPrimitiveState( const Array_t& U, const CellIndex& iCell, PrimMHDState &
 template <int ndim, typename Array_t, typename CellIndex >
 KOKKOS_INLINE_FUNCTION
 void setPrimitiveState( const Array_t& U, const CellIndex& iCell, PrimMHDState u) {
-  U.at(iCell, ID) = u.rho;
-  U.at(iCell, IP) = u.p;
-  U.at(iCell, IU) = u.u;
-  U.at(iCell, IV) = u.v;
-  U.at(iCell, IBX) = u.Bx;
-  U.at(iCell, IBY) = u.By;
-  U.at(iCell, IBZ) = u.Bz;
-  if (ndim == 3) {
-    U.at(iCell, IW) = u.w;
-  }
+  U.at(iCell, PrimMHDState::VarIndex::Irho) = u.rho;
+  U.at(iCell, PrimMHDState::VarIndex::Ip) = u.p;
+  U.at(iCell, PrimMHDState::VarIndex::Iu) = u.u;
+  U.at(iCell, PrimMHDState::VarIndex::Iv) = u.v;
+  if (ndim == 3)
+    U.at(iCell, PrimMHDState::VarIndex::Iw) = u.w;
+  U.at(iCell, PrimMHDState::VarIndex::IBx) = u.Bx;
+  U.at(iCell, PrimMHDState::VarIndex::IBy) = u.By;
+  U.at(iCell, PrimMHDState::VarIndex::IBz) = u.Bz;
 }
 
 /**
@@ -160,16 +237,15 @@ void setPrimitiveState( const Array_t& U, const CellIndex& iCell, PrimMHDState u
 template <int ndim, typename Array_t, typename CellIndex >
 KOKKOS_INLINE_FUNCTION
 void setConservativeState( const Array_t& U, const CellIndex& iCell, ConsMHDState u) {
-  U.at(iCell, ID) = u.rho;
-  U.at(iCell, IE) = u.e_tot;
-  U.at(iCell, IU) = u.rho_u;
-  U.at(iCell, IV) = u.rho_v;
-  U.at(iCell, IBX) = u.Bx;
-  U.at(iCell, IBY) = u.By;
-  U.at(iCell, IBZ) = u.Bz;
-  if (ndim == 3) {
-    U.at(iCell, IW) = u.rho_w;
-  }
+  U.at(iCell, ConsMHDState::VarIndex::Irho) = u.rho;
+  U.at(iCell, ConsMHDState::VarIndex::Ie_tot) = u.e_tot;
+  U.at(iCell, ConsMHDState::VarIndex::Irho_vx) = u.rho_u;
+  U.at(iCell, ConsMHDState::VarIndex::Irho_vy) = u.rho_v;
+  if (ndim == 3)
+    U.at(iCell, ConsMHDState::VarIndex::Irho_vz) = u.rho_w;
+  U.at(iCell, ConsMHDState::VarIndex::IBx) = u.Bx;
+  U.at(iCell, ConsMHDState::VarIndex::IBy) = u.By;
+  U.at(iCell, ConsMHDState::VarIndex::IBz) = u.Bz;
 }
 
 /**

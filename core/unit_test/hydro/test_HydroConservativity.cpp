@@ -55,13 +55,23 @@ struct DiagosticsFunctor {
     : foreach_cell(foreach_cell) 
     {}
 
-  DiagArray compute(const ForeachCell::CellArray_global_ghosted &U) {
+  DiagArray compute(const UserData &U_) {
     int ndim = foreach_cell.getDim();
 
     ForeachCell::CellMetaData cells = foreach_cell.getCellMetaData();
 
+    enum VarIndex_diag{ ID, IE, IU, IV, IW };
+
+    UserData::FieldAccessor U ( U_, {
+      {"rho", ID},
+      {"e_tot", IE},
+      {"rho_vx", IU},
+      {"rho_vy", IV},
+      {"rho_vz", IW}
+    } );
+
     real_t mass = 0.0, energy = 0.0;
-    foreach_cell.reduce_cell( "compute_diagnostics", U,
+    foreach_cell.reduce_cell( "compute_diagnostics", U.getShape(),
     KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell, real_t& mass, real_t &energy)
     {
       auto cell_size = cells.getCellSize(iCell);
@@ -167,22 +177,11 @@ void run_test(int ndim, std::string HydroUpdate_id ) {
 
   // Initializing data (U + amr_mesh)
   std::cout << " . Initializing data" << std::endl;
-  ForeachCell::CellArray_global_ghosted U, U2;
+  UserData U( configMap, foreach_cell );
   {
     std::string init_name = configMap.getValue<std::string>("hydro", "problem", "blast");
     if (has_mhd)
       init_name = "MHD_" + init_name;
-
-    std::set<VarIndex> active_vars{ID, IP, IU, IV};
-    if (ndim == 3)
-      active_vars.insert(IW);
-    if (has_mhd) {
-      active_vars.insert(IBX);
-      active_vars.insert(IBY);
-      active_vars.insert(IBZ);
-    }
-    
-    FieldManager field_manager{active_vars}; 
 
     auto initial_conditions = InitialConditionsFactory::make_instance(
                                 init_name, 
@@ -190,8 +189,7 @@ void run_test(int ndim, std::string HydroUpdate_id ) {
                                 foreach_cell,
                                 timers);
 
-    initial_conditions->init(U, field_manager);
-    U2 = foreach_cell.allocate_ghosted_array("U2", field_manager); 
+    initial_conditions->init(U);
   }  
 
   GhostCommunicator ghost_comm(amr_mesh);
@@ -213,8 +211,25 @@ void run_test(int ndim, std::string HydroUpdate_id ) {
       real_t dt;
       GlobalMpiSession::get_comm_world().MPI_Allreduce(&dt_local, &dt, 1, MpiComm::MPI_Op_t::MIN);
       U.exchange_ghosts( ghost_comm );
-      updater->update(U, U2, dt);
-      Kokkos::deep_copy(U.U, U2.U);           
+
+      // TODO automatic new fields according to kernel
+      U.new_fields({"rho_next", "e_tot_next", "rho_vx_next", "rho_vy_next", "rho_vz_next"});
+      if( has_mhd )
+        U.new_fields({"Bx_next", "By_next", "Bz_next"});
+
+      updater->update(U, dt); 
+
+      U.move_field( "rho", "rho_next" ); 
+      U.move_field( "e_tot", "e_tot_next" ); 
+      U.move_field( "rho_vx", "rho_vx_next" ); 
+      U.move_field( "rho_vy", "rho_vy_next" ); 
+      U.move_field( "rho_vz", "rho_vz_next" );
+      if( has_mhd )
+      {
+        U.move_field( "Bx", "Bx_next" ); 
+        U.move_field( "By", "By_next" ); 
+        U.move_field( "Bz", "Bz_next" );
+      }         
       
       time += dt;
       iomanager->save_snapshot(U, i+1, time);

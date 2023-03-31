@@ -11,6 +11,8 @@ class ConfigMap;
 
 namespace dyablo{
 
+class UserData;
+
 template< typename Impl_t_ >
 struct has_coarse_grid_size_ : public std::false_type
 {};
@@ -26,7 +28,13 @@ public:
 private: 
   std::unique_ptr<LightOctree> lmesh;
   uint8_t level_min, level_max;
-  bool lmesh_uptodate = false;
+  
+  /// Impl must define pmesh_epoch that in increamented each time the geometry of the mesh is modified
+  int lmesh_epoch = 0;
+  bool lmesh_uptodate()
+  {
+    return Impl::pmesh_epoch == lmesh_epoch;
+  }
 public:
   template< typename T, int N >
   using array_t = std::array<T,N>;
@@ -122,12 +130,7 @@ public:
    * Get the LightOctree associated to the current AMR mesh
    * May reallocate LightOctree if mesh has been modified
    **/
-  const LightOctree& getLightOctree()
-  { 
-    // Update LightOctree if needed
-    updateLightOctree();
-    return *lmesh; 
-  }
+  const LightOctree& getLightOctree();
   
   /// Update LightOctree to make sure next call to getLightOctree() will not reallocate
   void updateLightOctree();
@@ -226,7 +229,6 @@ public:
     uint32_t nbGhosts_old = this->getNumGhosts();
 
     Impl::loadBalance(compact_levels);
-    lmesh_uptodate = false;
 
     uint32_t nbOcts_new = this->getNumOctants();
     uint32_t nbGhosts_new = this->getNumGhosts();
@@ -241,14 +243,12 @@ public:
    *        for each octant iOct that needs to be moved, values from userData(..., iOct) 
    *        are transfered to the new owning mpi rank
    **/
-  template<typename DataArray_t>
-  void loadBalance_userdata( int compact_levels, DataArray_t& userData )
+  void loadBalance_userdata( int compact_levels, UserData& userData )
   { 
     uint32_t nbOcts_old = this->getNumOctants();
     uint32_t nbGhosts_old = this->getNumGhosts();
 
     Impl::loadBalance_userdata(compact_levels, userData); 
-    lmesh_uptodate = false; 
 
     uint32_t nbOcts_new = this->getNumOctants();
     uint32_t nbGhosts_new = this->getNumGhosts();
@@ -274,7 +274,6 @@ public:
     uint32_t nbGhosts_old = this->getNumGhosts();
 
     Impl::adapt(dummy); 
-    lmesh_uptodate = false;
 
     uint32_t nbOcts_new = this->getNumOctants();
     uint32_t nbGhosts_new = this->getNumGhosts();
@@ -285,7 +284,6 @@ public:
   void adaptGlobalRefine()
   { 
     Impl::adaptGlobalRefine();
-    lmesh_uptodate = false; 
   }
   
 

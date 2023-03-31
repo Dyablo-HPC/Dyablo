@@ -49,7 +49,7 @@ void run_test(std::string name, std::string filename) {
 
   ForeachCell foreach_cell(amr_mesh, configMap);
 
-  ForeachCell::CellArray_global_ghosted U;
+  UserData U_(configMap, foreach_cell);
   // Initialize cells
   {    
     std::unique_ptr<InitialConditions> initial_conditions =
@@ -58,11 +58,8 @@ void run_test(std::string name, std::string filename) {
         foreach_cell,
         timers);
 
-    initial_conditions->init(U, field_manager);
+    initial_conditions->init(U_);
   }
-  ForeachCell::CellArray_global_ghosted U2 = foreach_cell.allocate_ghosted_array("U2", field_manager); 
-  
-  auto Uhost = Kokkos::create_mirror_view(U.U);
 
   // by now, init condition must have been called
 
@@ -113,7 +110,7 @@ void run_test(std::string name, std::string filename) {
   std::cout << "Using nbCellsPerOct_g (number of cells per octant with ghots) = " << nbCellsPerOct_g << "\n";
   std::cout << "Using nbOctsPerGroup (number of octant per group) = " << nbOctsPerGroup << "\n";
   
-  uint32_t iGroup = 1;
+  // uint32_t iGroup = 1;
 
  // // chose an octant which should have a "same size" neighbor in all direction
   // //uint32_t iOct_local = 2;
@@ -124,34 +121,35 @@ void run_test(std::string name, std::string filename) {
 
   // // chose an octant which should have at least
   // // an interface with "smaller size" neighbor in one direction
-  uint32_t iOct_local = 26;
+  // uint32_t iOct_local = 26;
 
-  uint32_t iOct_global = iOct_local + iGroup * nbOctsPerGroup;
+  //uint32_t iOct_global = iOct_local + iGroup * nbOctsPerGroup;
 
   // std::cout << "Looking at octant id = " << iOct_global << "\n";
 
   // // save solution, just for cross-checking
   // save_solution();
 
-  std::cout << "Printing U data from iOct = " << iOct_global << "\n";
-  for (uint32_t iz=0; iz<bz; ++iz) {
-    for (uint32_t iy=0; iy<by; ++iy) {
-      for (uint32_t ix=0; ix<bx; ++ix) {
-        uint32_t index = ix + bx*(iy+by*iz);
-        printf("%5f ", Uhost(index,fm[ID],iOct_global));
-      }
-      std::cout << "\n";
-    }
-    std::cout << "\n";
-  }
+  // std::cout << "Printing U data from iOct = " << iOct_global << "\n";
+  // for (uint32_t iz=0; iz<bz; ++iz) {
+  //   for (uint32_t iy=0; iy<by; ++iy) {
+  //     for (uint32_t ix=0; ix<bx; ++ix) {
+  //       uint32_t index = ix + bx*(iy+by*iz);
+  //       printf("%5f ", Uhost(index,fm[ID],iOct_global));
+  //     }
+  //     std::cout << "\n";
+  //   }
+  //   std::cout << "\n";
+  // }
 
   // compute CFL constraint
   real_t invDt;
+  LegacyDataArray Uin(U_);
   ComputeDtHydroFunctor::apply(amr_mesh.getLightOctree(),
                                ComputeDtHydroFunctor::Params(configMap),
                                fm,
                                blockSizes,
-                               U.U,
+                               Uin,
                                invDt);  
   real_t cfl = configMap.getValue<real_t>("hydro", "cfl", 0.5);
   real_t dt = cfl / invDt;
@@ -165,30 +163,31 @@ void run_test(std::string name, std::string filename) {
       foreach_cell,
       timers
     );
-    godunov_updater->update(U, U2, dt);
+    U_.new_fields({"rho_next","e_tot_next","rho_vx_next","rho_vy_next","rho_vz_next"});
+    godunov_updater->update(U_, dt);
 
-    Kokkos::deep_copy( Uhost, U.U);
-    std::cout << "Printing U data (after update) from iOct = " << iOct_global << "\n";
-    for (uint32_t iy = 0; iy < by; ++iy) {
-      for (uint32_t ix = 0; ix < bx; ++ix) {
-        uint32_t index = ix + bx * iy;
-        printf("%5f ", Uhost(index, fm[ID], iOct_global));
-      }
-      std::cout << "\n";
-    }
-    std::cout << "\n";
+    // Kokkos::deep_copy( Uhost, U.U);
+    // std::cout << "Printing U data (after update) from iOct = " << iOct_global << "\n";
+    // for (uint32_t iy = 0; iy < by; ++iy) {
+    //   for (uint32_t ix = 0; ix < bx; ++ix) {
+    //     uint32_t index = ix + bx * iy;
+    //     printf("%5f ", Uhost(index, fm[ID], iOct_global));
+    //   }
+    //   std::cout << "\n";
+    // }
+    // std::cout << "\n";
     
-    DataArrayBlockHost U2_host = Kokkos::create_mirror_view(U2.U);
-    std::cout << "Printing U2 data (after update) from iOct = " << iOct_global << "\n";
-    Kokkos::deep_copy( U2_host, U2.U);
-    for (uint32_t iy = 0; iy < by; ++iy) {
-      for (uint32_t ix = 0; ix < bx; ++ix) {
-        uint32_t index = ix + bx * iy;
-        printf("%5f ", U2_host(index, fm[ID], iOct_global));
-      }
-      std::cout << "\n";
-    }
-    std::cout << "\n";
+    // DataArrayBlockHost U2_host = Kokkos::create_mirror_view(U2.U);
+    // std::cout << "Printing U2 data (after update) from iOct = " << iOct_global << "\n";
+    // Kokkos::deep_copy( U2_host, U2.U);
+    // for (uint32_t iy = 0; iy < by; ++iy) {
+    //   for (uint32_t ix = 0; ix < bx; ++ix) {
+    //     uint32_t index = ix + bx * iy;
+    //     printf("%5f ", U2_host(index, fm[ID], iOct_global));
+    //   }
+    //   std::cout << "\n";
+    // }
+    // std::cout << "\n";
   }
 
 } // run_test

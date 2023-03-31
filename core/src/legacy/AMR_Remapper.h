@@ -148,12 +148,14 @@ public:
     uint32_t nbOcts = amr_mesh->getNumOctants();
     this->nbOcts = nbOcts;
 
+    const bitpit::PabloUniform& pablo_mesh = amr_mesh->getPabloUniform();
+
     // Scan the mappings to get total number of pairs and offset for each pair
     Kokkos::View<uint32_t*>::HostMirror offset("offset", nbOcts+1);
     Kokkos::parallel_scan(Kokkos::RangePolicy<Kokkos::OpenMP>( 0, nbOcts),
                           [=](const int iOct, int& update, const bool final)
     {
-      int local_count = amr_mesh->getIsNewC(iOct) ? nsuboctants : 1;
+      int local_count = pablo_mesh.getIsNewC(iOct) ? nsuboctants : 1;
       
       update += local_count;
       if(final)
@@ -172,9 +174,9 @@ public:
     {
       std::vector<uint32_t> mapper;
       std::vector<bool> isghost;
-      amr_mesh->getMapping(iOct, mapper, isghost);
+      pablo_mesh.getMapping(iOct, mapper, isghost);
 
-      if ( amr_mesh->getIsNewC(iOct) ) // Coarsened octant
+      if ( pablo_mesh.getIsNewC(iOct) ) // Coarsened octant
       {
         assert( mapper.size() == nsuboctants);
 
@@ -192,7 +194,7 @@ public:
           };
         }
       }
-      else if ( amr_mesh->getIsNewR(iOct) ) // Refined octant
+      else if ( pablo_mesh.getIsNewR(iOct) ) // Refined octant
       {
         assert( mapper.size() == 1);
 

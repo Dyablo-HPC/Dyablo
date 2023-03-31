@@ -40,18 +40,21 @@ struct Hernquist{
   
   constexpr static real_t M = 2*dyablo::constants::Pi*r0*r0*r0*rho0;
 
+  KOKKOS_INLINE_FUNCTION
   static real_t rho(real_t r2)
   {
     real_t r = std::sqrt(r2)*L;
     return rho0/( r/r0 * std::pow(1 + r/r0, 3) );
   }
 
+  KOKKOS_INLINE_FUNCTION
   static real_t phi(real_t r2)
   {
     real_t r = std::sqrt(r2)*L;
     return -G*M / (r+r0);
   }
 
+  KOKKOS_INLINE_FUNCTION
   static real_t phi_periodic( real_t x, real_t y, real_t z )
   {
     constexpr int dmax = 2;
@@ -138,15 +141,13 @@ std::shared_ptr<AMRmesh> mesh_amrgrid_semiperiodic_sphere()
 /// Tests convergence with 
 void test_GravitySolver( std::shared_ptr<AMRmesh> amr_mesh )
 { 
-  uint32_t nbOcts = amr_mesh->getNumOctants();
-  
   // Content of .ini file used ton configure configmap and HydroParams
   std::string configmap_str = 
     "[run]\n"
     "solver_name=Hydro_Muscl_Block_3D \n"
     "[output]\n"
     "outputPrefix=test_GravitySolver\n"
-    "write_variables=rho,igphi,igx,igy,igz\n"
+    "write_variables=rho,gphi,gx,gy,gz\n"
     "[amr]\n"
     "use_block_data=yes\n"
     "bx=4\n"
@@ -165,45 +166,46 @@ void test_GravitySolver( std::shared_ptr<AMRmesh> amr_mesh )
     "G=1\n"
     "\n";
   ConfigMap configMap(configmap_str);
-
-  FieldManager fieldMgr = FieldManager({ID,IGPHI,IGX,IGY,IGZ});
-
   ForeachCell foreach_cell( *amr_mesh, configMap );
 
   std::cout << "Initialize User Data..." << std::endl;
-  ForeachCell::CellArray_global_ghosted U = foreach_cell.allocate_ghosted_array("U", fieldMgr);
+  
+  enum VarIndex_gravity{
+    Irho,
+    Igx,
+    Igy,
+    Igz,
+    Iphi
+  };
 
-  // TODO use ForeachCell and avoix extracting bx, by, bz
-  int bx = U.bx;
-  int by = U.by;
-  int bz = U.bz;
-  id2index_t fm = U.fm;
-  uint32_t nbCellsPerOct = bx*by*bz;
+  UserData U_( configMap, foreach_cell );
+  U_.new_fields({"rho", "gx", "gy", "gz", "gphi"});
+
+  UserData::FieldAccessor U = U_.getAccessor({
+    {"rho", Irho},
+    {"gx", Igx},
+    {"gy", Igy},
+    {"gz", Igz},
+    {"gphi", Iphi}
+  });
+
   { 
     // Initialize U
-    DataArrayBlock::HostMirror U_host = Kokkos::create_mirror_view(U.U);
-    for( uint32_t iOct=0; iOct<nbOcts; iOct++ )
+    auto cells = foreach_cell.getCellMetaData();
+    foreach_cell.foreach_cell( "Init", U.getShape(),
+      KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell )
     {
-      auto oct_pos = amr_mesh->getCoordinates(iOct);
-      real_t oct_size = amr_mesh->getSize(iOct)[0];
-      
-      for( uint32_t c=0; c<nbCellsPerOct; c++ )
-      {
-        uint32_t cz = c/(bx*by);
-        uint32_t cy = (c - cz*bx*by)/bx;
-        uint32_t cx = c - cz*bx*by - cy*bx;
+      auto pos = cells.getCellCenter(iCell);
+      real_t x = pos[IX]-0.5;
+      real_t y = pos[IY]-0.5;
+      real_t z = pos[IZ]-0.5;
 
-        real_t x = oct_pos[IX] + (cx+0.5)*oct_size/bx - 0.5;
-        real_t y = oct_pos[IY] + (cy+0.5)*oct_size/by - 0.5;
-        real_t z = oct_pos[IZ] + (cz+0.5)*oct_size/bz - 0.5;
+      real_t r2 = x*x + y*y + z*z;
 
-        real_t r2 = x*x + y*y + z*z;
+      U.at( iCell, Irho ) = Hernquist::rho(r2);
+    });
 
-        U_host(c, fm[ID], iOct) = Hernquist::rho(r2);
-      }
-    }
-    Kokkos::deep_copy( U.U, U_host );
-    U.exchange_ghosts(GhostCommunicator(amr_mesh));
+    U_.exchange_ghosts(GhostCommunicator(amr_mesh));
   }
 
   Timers timers;
@@ -221,88 +223,69 @@ void test_GravitySolver( std::shared_ptr<AMRmesh> amr_mesh )
     timers
   );
 
-  ForeachCell::CellArray_global_ghosted Uout = foreach_cell.allocate_ghosted_array("Uout", fieldMgr);
-  Kokkos::deep_copy(Uout.U, U.U);
-
-  gravitysolver.update_gravity_field( U, Uout );
+  gravitysolver.update_gravity_field( U_ );
 
   int iter = 0;
   int time = 0;
-  iomanager->save_snapshot(Uout, iter++, time++);
-
+  iomanager->save_snapshot(U_, iter++, time++);
   
   real_t rcore = 2*Hernquist::r0;
   {
-    DataArrayBlock::HostMirror U_host = Kokkos::create_mirror_view(Uout.U);
-    Kokkos::deep_copy(U_host, Uout.U);
     real_t Phi_ana_mean = 0;
     real_t Phi_num_mean = 0;
     real_t Vcore = 0;
-    for( uint32_t iOct=0; iOct<nbOcts; iOct++ )
+    auto cells = foreach_cell.getCellMetaData();
+    foreach_cell.reduce_cell( "Init", U.getShape(),
+      KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell, real_t& Phi_ana_mean, real_t& Phi_num_mean, real_t& Vcore )
     {
-      auto oct_pos = amr_mesh->getCoordinates(iOct);
-      real_t oct_size = amr_mesh->getSize(iOct)[0];
-      real_t Vcell = (oct_size/bx)*(oct_size/by)*(oct_size/bz);
-      
-      for( uint32_t c=0; c<nbCellsPerOct; c++ )
+      auto pos = cells.getCellCenter(iCell);
+      auto size = cells.getCellSize(iCell);
+
+      real_t x = pos[IX]-0.5;
+      real_t y = pos[IY]-0.5;
+      real_t z = pos[IZ]-0.5;
+
+      real_t r2 = x*x + y*y + z*z;
+      real_t Vcell = size[IX]*size[IY]*size[IZ];
+      if( r2 < rcore*rcore )
       {
-        uint32_t cz = c/(bx*by);
-        uint32_t cy = (c - cz*bx*by)/bx;
-        uint32_t cx = c - cz*bx*by - cy*bx;
-
-        real_t x = oct_pos[IX] + (cx+0.5)*oct_size/bx - 0.5;
-        real_t y = oct_pos[IY] + (cy+0.5)*oct_size/by - 0.5;
-        real_t z = oct_pos[IZ] + (cz+0.5)*oct_size/bz - 0.5;
-
-        real_t r2 = x*x + y*y + z*z;
-        if( r2 < rcore*rcore )
-        {
-          Phi_ana_mean += Hernquist::phi_periodic(x,y,z)*Vcell;
-          Phi_num_mean += U_host(c, fm[IGPHI], iOct)*Vcell;
-          Vcore += Vcell;
-        }        
-      }
-    }
+        Phi_ana_mean += Hernquist::phi_periodic(x,y,z)*Vcell;
+        Phi_num_mean += U.at(iCell, Iphi)*Vcell;
+        Vcore += Vcell;
+      } 
+    }, Phi_ana_mean, Phi_num_mean, Vcore);
 
     Phi_ana_mean /= Vcore;
     Phi_num_mean /= Vcore;
 
-    for( uint32_t iOct=0; iOct<nbOcts; iOct++ )
+    int err_count=0;
+    foreach_cell.reduce_cell( "Init", U.getShape(),
+      KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell, int err_count )
     {
-      auto oct_pos = amr_mesh->getCoordinates(iOct);
-      real_t oct_size = amr_mesh->getSize(iOct)[0];
+      auto pos = cells.getCellCenter(iCell);
+      real_t x = pos[IX]-0.5;
+      real_t y = pos[IY]-0.5;
+      real_t z = pos[IZ]-0.5;
+
+      real_t r2 = x*x + y*y + z*z;
+
+      real_t Phi_ana = Hernquist::phi_periodic(x,y,z);
+      real_t Phi_num = U.at( iCell, Iphi ) + (Phi_ana_mean-Phi_num_mean);
+      real_t Phi_err = std::abs(Phi_ana-Phi_num)/std::abs(Phi_ana);
+
+      if( r2 < rcore*rcore )
+        if( abs(Phi_ana - Phi_num) > 1E-2 )
+          err_count ++;
       
-      for( uint32_t c=0; c<nbCellsPerOct; c++ )
-      {
-        uint32_t cz = c/(bx*by);
-        uint32_t cy = (c - cz*bx*by)/bx;
-        uint32_t cx = c - cz*bx*by - cy*bx;
+      U.at(iCell, Igx) = Phi_ana;
+      U.at(iCell, Igy) = Phi_num;
+      U.at(iCell, Igz) = Phi_err;
+    }, err_count);
 
-        real_t x = oct_pos[IX] + (cx+0.5)*oct_size/bx - 0.5;
-        real_t y = oct_pos[IY] + (cy+0.5)*oct_size/by - 0.5;
-        real_t z = oct_pos[IZ] + (cz+0.5)*oct_size/bz - 0.5;
-
-        real_t r2 = x*x + y*y + z*z;
-
-        real_t Phi_ana = Hernquist::phi_periodic(x,y,z);
-        real_t Phi_num = U_host(c, fm[IGPHI], iOct)+(Phi_ana_mean-Phi_num_mean);
-        real_t Phi_err = std::abs(Phi_ana-Phi_num)/std::abs(Phi_ana);
-
-        if( r2 < rcore*rcore )
-          EXPECT_NEAR( Phi_ana, Phi_num, 1E-2 );
-        U_host(c, fm[IGPHI], iOct) = U_host(c, fm[IGPHI], iOct);
-        U_host(c, fm[IGX], iOct) = Phi_ana;
-        U_host(c, fm[IGY], iOct) = Phi_num;
-        U_host(c, fm[IGZ], iOct) = Phi_err;
-
-
-      }
-    }
-    Kokkos::deep_copy( Uout.U, U_host );
+    EXPECT_EQ(err_count, 0);
   }
 
-  iomanager->save_snapshot(Uout, iter++, time++);
-  
+  iomanager->save_snapshot(U_, iter++, time++);  
 }
 
 } // namespace dyablo

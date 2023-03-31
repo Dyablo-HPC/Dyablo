@@ -20,9 +20,7 @@ public:
                 ForeachCell& foreach_cell,
                 Timers& timers  );
   ~HydroUpdate_legacy();
-  void update(  const ForeachCell::CellArray_global_ghosted& Uin,
-                const ForeachCell::CellArray_global_ghosted& Uout,
-                real_t dt);
+  void update( UserData& U, real_t dt) override;
 
    struct Data;
 private:

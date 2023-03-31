@@ -6,6 +6,7 @@
 #include "utils/misc/RegisteringFactory.h"
 #include "utils/monitoring/Timers.h"
 #include "foreach_cell/ForeachCell.h"
+#include "UserData.h"
 
 namespace dyablo {
 
@@ -32,8 +33,7 @@ public:
    * @param Uin A cell array on the old amr mesh (mesh at last save_old_mesh() call) to copy data from
    * @param Uout An array to store new cells for the new mesh to write new mesh data to
    **/
-  virtual void remap(   const ForeachCell::CellArray_global_ghosted& Uin,
-                        const ForeachCell::CellArray_global_ghosted& Uout ) = 0;
+  virtual void remap( UserData& Uin ) = 0;
 };
 
 using MapUserDataFactory = RegisteringFactory< MapUserData, 

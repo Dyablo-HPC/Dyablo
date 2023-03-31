@@ -2,6 +2,7 @@
 
 #include "legacy/AMR_Remapper.h"
 #include "legacy/utils_block.h"
+#include "legacy/LegacyDataArray.h"
 
 namespace dyablo {
 
@@ -24,8 +25,7 @@ public:
     this->lmesh_old = this->foreach_cell.get_amr_mesh().getLightOctree();
   }
 
-  void remap(   const ForeachCell::CellArray_global_ghosted& Uin,
-                const ForeachCell::CellArray_global_ghosted& Uout ) override;
+  void remap( UserData& U ) override;
 
 private:
   uint32_t bx, by, bz;
@@ -38,9 +38,8 @@ namespace{
 /// Data to be accessed inside the Kokkos kernel
 struct FunctorData{
   uint32_t nbFields;
-  DataArrayBlock Usrc;
-  DataArrayBlock Usrc_ghost;
-  DataArrayBlock Udest;
+  LegacyDataArray Usrc;
+  LegacyDataArray Udest;
   uint32_t bx, by, bz;
   uint8_t ndim;
 };
@@ -140,7 +139,7 @@ void fill_cell_newCoarse( const FunctorData& d,
     // (This can't happen otherwise)
     real_t vsrc;
     if( m.isGhost )
-      vsrc = d.Usrc_ghost(iCell_src, iField, m.iOct_src )/suboctant_count; 
+      vsrc = d.Usrc.ghost_val(iCell_src, iField, m.iOct_src )/suboctant_count; 
     else
       vsrc = d.Usrc(iCell_src, iField, m.iOct_src )/suboctant_count;
     // Atomic is needed here because multiple cubcells accumulate their contribution 
@@ -151,18 +150,31 @@ void fill_cell_newCoarse( const FunctorData& d,
 void apply_aux( const AMR_Remapper& remap,
                 uint8_t ndim,
                 blockSize_t blockSizes,
-                DataArrayBlock Usrc,
-                DataArrayBlock Usrc_ghost,
-                const DataArrayBlock& Udest  )
+                UserData& U  )
 {
-  uint32_t nbFields = Usrc.extent(1);
-  uint32_t nbCellsPerOct = Usrc.extent(0);
+  auto original_fields = U.getEnabledFields();
+  std::vector< UserData::FieldAccessor_FieldInfo > old_fields, new_fields;
+  for( const std::string& name : original_fields )
+  {
+    std::string name_new = name + "_remapped";
+    U.new_fields({name_new});
+    
+    VarIndex last_index = (VarIndex)old_fields.size();
+    old_fields.push_back( {name, last_index} );
+    new_fields.push_back( {name+"_remapped", last_index} );
+  }
+
+  LegacyDataArray Uin = U.getAccessor( old_fields );
+  LegacyDataArray Uout = U.getAccessor( new_fields );
+
+
+  uint32_t nbFields = Uin.nbFields();
+  uint32_t nbCellsPerOct = blockSizes[IX]*blockSizes[IY]*blockSizes[IZ];
 
   const FunctorData d{
     nbFields,
-    Usrc,
-    Usrc_ghost,
-    Udest,
+    Uin,
+    Uout,
     blockSizes[IX], blockSizes[IY], blockSizes[IZ],
     ndim
   };
@@ -195,17 +207,20 @@ void apply_aux( const AMR_Remapper& remap,
     });
   });
 
+  for( const std::string& name : original_fields )
+  {
+    U.move_field( name, name+"_remapped" );
+  }
+
 }
 
 [[maybe_unused]] void MapUserDataFunctor_apply( const LightOctree_hashmap& lmesh_old,
                                 const LightOctree_hashmap& lmesh_new,
                                 blockSize_t blockSizes,
-                                DataArrayBlock Usrc,
-                                DataArrayBlock Usrc_ghost,
-                                const DataArrayBlock& Udest  )
+                                UserData& U  )
 {
   apply_aux( AMR_Remapper(lmesh_old, lmesh_new), lmesh_new.getNdim(),
-             blockSizes, Usrc, Usrc_ghost, Udest );
+             blockSizes, U );
 }
 
 #ifdef DYABLO_COMPILE_PABLO
@@ -213,24 +228,22 @@ void apply_aux( const AMR_Remapper& remap,
 [[maybe_unused]] void MapUserDataFunctor_apply( const LightOctree_pablo& lmesh_old,
                                 const LightOctree_pablo& lmesh_new,
                                 blockSize_t blockSizes,
-                                DataArrayBlock Usrc,
-                                DataArrayBlock Usrc_ghost,
-                                const DataArrayBlock& Udest  )
+                                UserData& U )
 {
   apply_aux( AMR_Remapper(lmesh_new.getMesh()), lmesh_new.getNdim(),
-             blockSizes, Usrc, Usrc_ghost, Udest );
+             blockSizes, U );
 }
 
 #endif // DYABLO_COMPILE_PABLO
 
 } //namespace
 
-void MapUserData_legacy::remap(   const ForeachCell::CellArray_global_ghosted& Uin,
-                                  const ForeachCell::CellArray_global_ghosted& Uout )
+void MapUserData_legacy::remap( UserData& U )
 {
   const LightOctree& lmesh_new = foreach_cell.get_amr_mesh().getLightOctree();
+  
 
-  MapUserDataFunctor_apply( this->lmesh_old, lmesh_new, blockSize_t{bx,by,bz}, Uin.U, Uin.Ughost, Uout.U );
+  MapUserDataFunctor_apply( this->lmesh_old, lmesh_new, blockSize_t{bx,by,bz}, U );
 }
 
 } //namespace dyablo 

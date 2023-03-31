@@ -10,6 +10,9 @@
 #include "amr/AMRmesh.h"
 #include "mpi/GhostCommunicator.h"
 
+#include "foreach_cell/ForeachCell.h"
+#include "UserData.h"
+
 namespace dyablo
 {
 
@@ -73,6 +76,17 @@ void run_test()
     amr_mesh->updateConnectivity();
   }
 
+  ConfigMap configMap(R"ini(
+[mesh]
+ndim=3
+[amr]
+bx=8
+by=8
+bz=8
+level_min=3
+level_max=5
+)ini");
+
   uint32_t bx = 8;
   uint32_t by = 8;
   uint32_t bz = 8;
@@ -81,10 +95,15 @@ void run_test()
   uint32_t nbOcts = amr_mesh->getNumOctants();
   uint32_t nbGhosts = amr_mesh->getNumGhosts();
 
+  ForeachCell foreach_cell( *amr_mesh, configMap );
+  UserData U( configMap, foreach_cell );
+  U.new_fields({"px", "py", "pz"});
+
   std::cout << "Initialize User Data..." << std::endl;
-  DataArrayBlock U("U", nbCellsPerOct, nbfields, nbOcts );
   { // Initialize U
-    DataArrayBlock::HostMirror U_host = Kokkos::create_mirror_view(U);
+    DataArrayBlock::HostMirror U_host_px = Kokkos::create_mirror_view(U.getField("px").U);
+    DataArrayBlock::HostMirror U_host_py = Kokkos::create_mirror_view(U.getField("py").U);
+    DataArrayBlock::HostMirror U_host_pz = Kokkos::create_mirror_view(U.getField("pz").U);
     for( uint32_t iOct=0; iOct<nbOcts; iOct++ )
     {
       auto oct_pos = amr_mesh->getCoordinates(iOct);
@@ -96,16 +115,20 @@ void run_test()
         uint32_t cy = (c - cz*bx*by)/bx;
         uint32_t cx = c - cz*bx*by - cy*bx;
 
-        U_host(c, IX, iOct) = oct_pos[IX] + cx*oct_size/bx;
-        U_host(c, IY, iOct) = oct_pos[IY] + cy*oct_size/by;
-        U_host(c, IZ, iOct) = oct_pos[IZ] + cz*oct_size/bz;
+        U_host_px(c, 0, iOct) = oct_pos[IX] + cx*oct_size/bx;
+        U_host_py(c, 0, iOct) = oct_pos[IY] + cy*oct_size/by;
+        U_host_pz(c, 0, iOct) = oct_pos[IZ] + cz*oct_size/bz;
       }
     }
-    Kokkos::deep_copy( U, U_host );
+    Kokkos::deep_copy( U.getField("px").U, U_host_px );
+    Kokkos::deep_copy( U.getField("py").U, U_host_py );
+    Kokkos::deep_copy( U.getField("pz").U, U_host_pz );
   }
-  DataArrayBlock Ughost("Ughost", nbCellsPerOct, nbfields, nbGhosts );
+
   { // Initialize Ughost
-    DataArrayBlock::HostMirror Ughost_host = Kokkos::create_mirror_view(Ughost);
+    DataArrayBlock::HostMirror U_ghost_host_px = Kokkos::create_mirror_view(U.getField("px").Ughost);
+    DataArrayBlock::HostMirror U_ghost_host_py = Kokkos::create_mirror_view(U.getField("py").Ughost);
+    DataArrayBlock::HostMirror U_ghost_host_pz = Kokkos::create_mirror_view(U.getField("pz").Ughost);
     for( uint32_t iOct=0; iOct<nbGhosts; iOct++ )
     {
       auto oct_pos = amr_mesh->getCoordinatesGhost(iOct);
@@ -117,12 +140,14 @@ void run_test()
         uint32_t cy = (c - cz*bx*by)/bx;
         uint32_t cx = c - cz*bx*by - cy*bx;
 
-        Ughost_host(c, IX, iOct) = oct_pos[IX] + cx*oct_size/bx;
-        Ughost_host(c, IY, iOct) = oct_pos[IY] + cy*oct_size/by;
-        Ughost_host(c, IZ, iOct) = oct_pos[IZ] + cz*oct_size/bz;
+        U_ghost_host_px(c, 0, iOct) = oct_pos[IX] + cx*oct_size/bx;
+        U_ghost_host_py(c, 0, iOct) = oct_pos[IY] + cy*oct_size/by;
+        U_ghost_host_pz(c, 0, iOct) = oct_pos[IZ] + cz*oct_size/bz;
       }
     }
-    Kokkos::deep_copy( Ughost, Ughost_host );
+    Kokkos::deep_copy( U.getField("px").Ughost, U_ghost_host_px );
+    Kokkos::deep_copy( U.getField("py").Ughost, U_ghost_host_py );
+    Kokkos::deep_copy( U.getField("pz").Ughost, U_ghost_host_pz );
   }
 
   std::cout << "Perform load balancing..." << std::endl;
@@ -138,12 +163,23 @@ void run_test()
 
     std::cout << "Check U ( nbOcts=" << nbOcts << ")" << std::endl;
 
-    EXPECT_EQ(U.extent(0), nbCellsPerOct);
-    EXPECT_EQ(U.extent(1), nbfields);
-    EXPECT_EQ(U.extent(2), nbOcts);
+    EXPECT_EQ( U.nbFields(), nbfields );
 
-    auto Uhost = Kokkos::create_mirror_view(U);
-    Kokkos::deep_copy(Uhost, U);
+    EXPECT_EQ( U.getField("px").nbOcts, nbOcts );
+    EXPECT_EQ( U.getField("py").nbOcts, nbOcts );
+    EXPECT_EQ( U.getField("pz").nbOcts, nbOcts );
+
+    uint32_t expected_size = nbOcts*bx*by*bz;
+    EXPECT_EQ( U.getField("px").U.size(), expected_size );
+    EXPECT_EQ( U.getField("py").U.size(), expected_size );
+    EXPECT_EQ( U.getField("pz").U.size(), expected_size );
+
+    auto Uhost_px = Kokkos::create_mirror_view(U.getField("px").U);
+    auto Uhost_py = Kokkos::create_mirror_view(U.getField("py").U);
+    auto Uhost_pz = Kokkos::create_mirror_view(U.getField("pz").U);
+    Kokkos::deep_copy(Uhost_px, U.getField("px").U);
+    Kokkos::deep_copy(Uhost_py, U.getField("py").U);
+    Kokkos::deep_copy(Uhost_pz, U.getField("pz").U);
 
     for( uint32_t iOct=0; iOct<nbOcts; iOct++ )
     {
@@ -160,9 +196,9 @@ void run_test()
         real_t expected_y = oct_pos[IY] + cy*oct_size/by;
         real_t expected_z = oct_pos[IZ] + cz*oct_size/bz;
 
-        EXPECT_NEAR( Uhost(c, IX, iOct), expected_x , 0.01);
-        EXPECT_NEAR( Uhost(c, IY, iOct), expected_y , 0.01);
-        EXPECT_NEAR( Uhost(c, IZ, iOct), expected_z , 0.01);
+        EXPECT_NEAR( Uhost_px(c, 0, iOct), expected_x , 0.01);
+        EXPECT_NEAR( Uhost_py(c, 0, iOct), expected_y , 0.01);
+        EXPECT_NEAR( Uhost_pz(c, 0, iOct), expected_z , 0.01);
       }
     }
   }

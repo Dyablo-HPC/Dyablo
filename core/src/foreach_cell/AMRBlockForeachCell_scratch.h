@@ -58,9 +58,9 @@ public:
    * @param f : a const CellIndex& iCell -> void function 
    *            This is usually a lambda that class CellArray_patch;reads and modify CellArrays at position iCell
    **/
-  template <typename View_t, typename Function>
+  template <typename Function>
   KOKKOS_INLINE_FUNCTION
-  void foreach_cell(const CellArray_base<View_t>& iter_space, const Function& f) const
+  void foreach_cell(const CellArray_shape& iter_space, const Function& f) const
   {
     uint32_t bx = iter_space.bx;
     uint32_t by = iter_space.by;

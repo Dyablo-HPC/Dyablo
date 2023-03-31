@@ -20,12 +20,15 @@ using str2int_t = std::unordered_map<std::string,int>;
  **/
 class id2index_t{
 private:
-  Kokkos::Array < int, VarIndex::VARINDEX_COUNT > id2index {};
-  Kokkos::Array < bool,VarIndex::VARINDEX_COUNT > field_enabled {};
+  static constexpr int MAX_INDEX_COUNT = 64; 
+
+  Kokkos::Array < int, MAX_INDEX_COUNT > id2index {};
+  Kokkos::Array < bool,MAX_INDEX_COUNT > field_enabled {};
   int _nbfields = 0;
 public:
   constexpr void activate( VarIndex id )
   {
+    assert( (int)id < MAX_INDEX_COUNT );
     id2index[(int)id] = _nbfields;
     assert(!field_enabled[(int)id]);
     field_enabled[(int)id] = true;
@@ -34,7 +37,7 @@ public:
   std::set<VarIndex> enabled_fields() const
   {
     std::set<VarIndex> res;
-    for( int i=0; i<(int)VarIndex::VARINDEX_COUNT; i++ )
+    for( int i=0; i<MAX_INDEX_COUNT; i++ )
       if( field_enabled[i] ) res.insert( (VarIndex)i );
     return res;
   }
@@ -110,11 +113,11 @@ public:
   { 
     return id2index.nbfields(); 
   }
-  
-  static std::string var_name(VarIndex ivar);
-  static VarIndex getiVar(const std::string& name);
-  static bool hasiVar(const std::string& name);
-  std::set< VarIndex > enabled_fields() const;
+
+  std::set< VarIndex > enabled_fields() const
+  {
+    return id2index.enabled_fields();
+  }
 private:
   id2index_t id2index;
 };

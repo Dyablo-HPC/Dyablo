@@ -2,7 +2,7 @@
 
 #include "utils_hydro.h"
 
-#include "states/State_hydro.h"
+#include "states/State_forward.h"
 
 namespace dyablo {
 
@@ -21,16 +21,31 @@ public:
     has_mhd( configMap.getValue<std::string>("hydro", "update", "HydroUpdate_hancock").find("MHD") != std::string::npos )
   {}
 
-  double compute_dt( const ForeachCell::CellArray_global_ghosted& U )
+  double compute_dt( const UserData& U )
   {
+    if( has_mhd )
+      return compute_dt_aux<MHDState>(U);
+    else
+      return compute_dt_aux<HydroState>(U);
+  }
+
+  template< typename State >
+  double compute_dt_aux( const UserData& U )
+  {
+    using PrimState = typename State::PrimState;
+    using ConsState = typename State::ConsState;
+
     int ndim = foreach_cell.getDim();
     real_t gamma0 = this->gamma0;
-    bool has_mhd = this->has_mhd;
 
     ForeachCell::CellMetaData cells = foreach_cell.getCellMetaData();
 
+    std::vector< UserData::FieldAccessor::FieldInfo> fields_info = ConsState::getFieldsInfo();
+
+    UserData::FieldAccessor Uin = U.getAccessor( ConsState::getFieldsInfo() );
+
     real_t inv_dt;
-    foreach_cell.reduce_cell( "compute_dt", U,
+    foreach_cell.reduce_cell( "compute_dt", U.getShape(),
     KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell, real_t& inv_dt_update )
     {
       auto cell_size = cells.getCellSize(iCell);
@@ -38,13 +53,13 @@ public:
       real_t dy = cell_size[IY];
       real_t dz = cell_size[IZ];
       
-      ConsHydroState uLoc;
+      ConsState uLoc;
       if (ndim == 2)
-        getConservativeState<2>(U, iCell, uLoc);
+        getConservativeState<2>(Uin, iCell, uLoc);
       else
-        getConservativeState<3>(U, iCell, uLoc);
+        getConservativeState<3>(Uin, iCell, uLoc);
       
-      PrimHydroState qLoc = consToPrim<3>(uLoc, gamma0);
+      PrimState qLoc = consToPrim<3>(uLoc, gamma0);
       const real_t cs = sqrt(qLoc.p * gamma0 / qLoc.rho);
 
       real_t vx = cs + qLoc.u;
@@ -56,10 +71,10 @@ public:
       // TODO : Find a BETTER way to do this !
       // In fine, compute_dt should be templated by the type of State
       // and calculations of inv_dt should be held in a separate State function
-      if (has_mhd) {
-        const real_t Bx = U.at(iCell,IBX);
-        const real_t By = U.at(iCell,IBY);
-        const real_t Bz = U.at(iCell,IBZ);
+      if constexpr (std::is_same_v<State, MHDState>) {
+        const real_t Bx = qLoc.Bx;
+        const real_t By = qLoc.By;
+        const real_t Bz = qLoc.Bz;
         const real_t gr = cs*cs*qLoc.rho;
         const real_t Bt2 [] = {By*By+Bz*Bz,
                                Bx*Bx+Bz*Bz,

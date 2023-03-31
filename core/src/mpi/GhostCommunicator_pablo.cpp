@@ -154,7 +154,7 @@ void exchange_ghosts_aux( AMRmesh_pablo& amr_mesh,
   Kokkos::deep_copy(U_host, U);
 
   UserDataComm<DataArray_host_t, iOct_pos> data_comm(U_host, Ughost_host);
-  amr_mesh.communicate(data_comm);
+  amr_mesh.getPabloUniform().communicate(data_comm);
 
   // Copy back ghosts to Device
   Kokkos::deep_copy(Ughost, Ughost_host);

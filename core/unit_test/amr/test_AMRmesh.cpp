@@ -9,6 +9,10 @@
 
 namespace dyablo {
 
+enum VarIndex_test{
+  ID,IE,IP,IU,IV,IW,IGX,IGY,IGZ
+};
+
 struct Spot{
   real_t x, y, z; // At position {x,y,z}
   real_t r0;      // Refine at distance ( r0*cell_size ) for each level
@@ -151,7 +155,7 @@ void run_test(const Test_data& test_data)
       "by=1\n";
     ConfigMap configMap(configmap_str);
     ForeachCell foreach_cell( amr_mesh, configMap );
-    ForeachCell::CellArray_global_ghosted U = foreach_cell.allocate_ghosted_array("dummy", FieldManager({ID}));
+    UserData U(configMap, foreach_cell);
     IOManagerFactory::make_instance("IOManager_hdf5",configMap,foreach_cell,timers)->save_snapshot( U, 0, 0 );
   }
 

@@ -71,12 +71,6 @@ dyablo_add_test(utest_morton_utils OFF
   shared/test_morton_utils.cpp
   main.cpp)
 
-  if(NOT Kokkos_ENABLE_CUDA)
-dyablo_add_test(utest_CopyInnerBlockCellData OFF
-  block_data/test_CopyInnerBlockCellData.cpp
-  main.cpp)
-  endif()
-
 # Import .ini files
 configure_file(
   block_data/test_blast_2D_block.ini
@@ -163,4 +157,8 @@ dyablo_add_test(utest_MpiComm ON
 
 dyablo_add_test(utest_Restart ON
   test_restart.cpp
+  main.cpp)
+
+dyablo_add_test(utest_UserData ON
+  block_data/test_UserData.cpp
   main.cpp)

@@ -8,16 +8,43 @@
 
 namespace dyablo {
 
+class UserData;
+class LightOctree_pablo;
+
 /**
  * AMR mesh using PABLO as backend
  * This uses the PabloUniform interface + some methods to access ghost octants
  **/
-class AMRmesh_pablo : public bitpit::PabloUniform
+class AMRmesh_pablo : private bitpit::PabloUniform
 {
 private:
     MpiComm mpi_comm;
     int level_min;
 public:
+    using bitpit::PabloUniform::getBordersPerProc;
+    using bitpit::PabloUniform::getDim;
+    using bitpit::PabloUniform::getNumOctants;
+    using bitpit::PabloUniform::getNumGhosts;
+    using bitpit::PabloUniform::getBound;
+    using bitpit::PabloUniform::getCenter;
+    using bitpit::PabloUniform::getCoordinates;
+    using bitpit::PabloUniform::getLevel;
+    using bitpit::PabloUniform::getGlobalNumOctants;
+    using bitpit::PabloUniform::getGlobalIdx;
+    using bitpit::PabloUniform::setMarker;
+    using bitpit::PabloUniform::check21Balance;
+    using bitpit::PabloUniform::checkToAdapt;
+
+    const bitpit::PabloUniform& getPabloUniform() const
+    {
+        return *this;
+    }
+
+    bitpit::PabloUniform& getPabloUniform()
+    {
+        return *this;
+    }
+
     AMRmesh_pablo( int dim, int balance_codim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max )
         : PabloUniform(dim), mpi_comm( PabloUniform::getComm() ), level_min(level_min)
     {
@@ -130,45 +157,29 @@ public:
 
     void setMarkersCapacity(uint32_t capa){}
 
+    void adapt(int dummy)
+    {
+        bitpit::PabloUniform::adapt();
+        pmesh_epoch++;
+    }
+
+    void adaptGlobalRefine()
+    {
+        bitpit::PabloUniform::adaptGlobalRefine();
+        pmesh_epoch++;
+    }
+
     void loadBalance( uint8_t compact_levels )
     {
 #ifdef DYABLO_USE_MPI
         ParaTree::loadBalance(compact_levels);
+        pmesh_epoch++;
 #endif // DYABLO_USE_MPI
     }
 
-    void loadBalance_userdata( uint8_t compact_levels, DataArrayBlock& U )
-    {
-        loadBalance_userdata_aux<DataArrayBlock, 2>(compact_levels, U);
-    }
-
-    void loadBalance_userdata( uint8_t compact_levels, DataArray& U )
-    {
-        loadBalance_userdata_aux<DataArray, 0>(compact_levels, U);
-    }
-
-private:
-    template< typename DataArray_t, int iOct_pos >
-    void loadBalance_userdata_aux( uint8_t compact_levels, DataArray_t& U )
-    {
-#ifdef DYABLO_USE_MPI
-        using DataArrayHost_t = typename DataArray_t::HostMirror;
-        // Copy Data to host for MPI communication 
-        DataArrayHost_t U_host = Kokkos::create_mirror_view(U);
-        Kokkos::deep_copy(U_host, U);
-        
-        DataArrayHost_t Ughost_host; // Dummy ghost array
-        
-        using UserDataLB_t = UserDataLB<DataArrayHost_t, iOct_pos> ;
-
-        UserDataLB_t data_lb(U_host, Ughost_host);
-        ParaTree::loadBalance<UserDataLB_t>(data_lb, compact_levels);
-
-        U = DataArray_t();
-        U = DataArray_t("U", U_host.layout());
-        Kokkos::deep_copy(U, U_host);
-#endif // DYABLO_USE_MPI
-    }
+    void loadBalance_userdata( uint8_t compact_levels, UserData& U );
+protected:
+    int pmesh_epoch=1;
 };
 
 } // namespace dyablo

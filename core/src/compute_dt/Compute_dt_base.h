@@ -3,6 +3,7 @@
 #include "utils/misc/RegisteringFactory.h"
 #include "utils/monitoring/Timers.h"
 #include "foreach_cell/ForeachCell.h"
+#include "UserData.h"
 
 namespace dyablo {
 
@@ -14,7 +15,7 @@ public:
   //               ForeachCell& foreach_cell,
   //               Timers& timers );
   virtual ~Compute_dt(){}
-  virtual double compute_dt( const ForeachCell::CellArray_global_ghosted& Uin) = 0;
+  virtual double compute_dt( const UserData& Uin) = 0;
 };
 
 using Compute_dtFactory = RegisteringFactory< Compute_dt, 

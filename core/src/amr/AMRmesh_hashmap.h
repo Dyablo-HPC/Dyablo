@@ -9,6 +9,8 @@
 
 namespace dyablo {
 
+class UserData;
+
 /**
  * AMR mesh without PABLO 
  * This uses the PabloUniform interface + some methods to access ghost octants
@@ -86,12 +88,6 @@ public:
     {
         return mpi_comm.MPI_Comm_size();
     }
-
-    template< typename T >
-    void communicate(T&)
-    {
-        assert(false); // communicate() cannot be used without PABLO
-    }
     
     /**
      * \brief Change octants distribution to redistribute the load
@@ -108,8 +104,7 @@ public:
             assert(false); // loadBalance( UserCommLB ) cannot be used without PABLO : User data are not exchanged
     }
 
-    void loadBalance_userdata( int compact_levels, DataArrayBlock& userData );
-    void loadBalance_userdata( int compact_levels, DataArray& userData );
+    void loadBalance_userdata( int compact_levels, UserData& U );
 
     const std::map<int, std::vector<uint32_t>>& getBordersPerProc() const;
 
@@ -260,6 +255,8 @@ public:
     {
         assert(false); // findneighbours() cannot be used without PABLO
     }
+protected:
+    int pmesh_epoch = 1;
 };
 
 } // namespace dyablo

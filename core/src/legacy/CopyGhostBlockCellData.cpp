@@ -1,4 +1,5 @@
 #include "legacy/CopyGhostBlockCellData.h"
+#include "legacy/LegacyDataArray.h"
 
 namespace dyablo
 {
@@ -6,15 +7,14 @@ namespace dyablo
 CopyGhostBlockCellDataFunctor::CopyGhostBlockCellDataFunctor(
     LightOctree lmesh, Params params, id2index_t fm,
     blockSize_t blockSizes, uint32_t ghostWidth, uint32_t nbOctsPerGroup,
-    DataArrayBlock U, DataArrayBlock U_ghost, DataArrayBlock Ugroup,
+    LegacyDataArray U, DataArrayBlock Ugroup,
     uint32_t iGroup, InterfaceFlags interface_flags) :
   fm(fm),
-  fm_state(FieldManager( std::set{ID,IP,IU,IV,IW,IGX,IGY,IGZ} ).get_id2index()),
+  fm_state(FieldManager( {ID,IP,IU,IV,IW,IGX,IGY,IGZ} ).get_id2index()),
   blockSizes(blockSizes),
   ghostWidth(ghostWidth),
   nbOctsPerGroup(nbOctsPerGroup),
   U(U),
-  U_ghost(U_ghost),
   Ugroup(Ugroup),
   iGroup(iGroup),
   interface_flags(interface_flags),
@@ -250,15 +250,15 @@ KOKKOS_INLINE_FUNCTION CellData get_cell_data_same_size( const Functor& f, const
     uint32_t iOct_neigh = neigh.iOct;
     if (neigh.isGhost)
     {
-        res[f.fm_state[ID]] = f.U_ghost(index_in_neighbor, f.fm[ID], iOct_neigh);
-        res[f.fm_state[IP]] = f.U_ghost(index_in_neighbor, f.fm[IP], iOct_neigh);
-        res[f.fm_state[IU]] = f.U_ghost(index_in_neighbor, f.fm[IU], iOct_neigh);
-        res[f.fm_state[IV]] = f.U_ghost(index_in_neighbor, f.fm[IV], iOct_neigh);
-        if( ndim == 3 ) res[f.fm_state[IW]] = f.U_ghost(index_in_neighbor, f.fm[IW], iOct_neigh);        
+        res[f.fm_state[ID]] = f.U.ghost_val(index_in_neighbor, f.fm[ID], iOct_neigh);
+        res[f.fm_state[IP]] = f.U.ghost_val(index_in_neighbor, f.fm[IP], iOct_neigh);
+        res[f.fm_state[IU]] = f.U.ghost_val(index_in_neighbor, f.fm[IU], iOct_neigh);
+        res[f.fm_state[IV]] = f.U.ghost_val(index_in_neighbor, f.fm[IV], iOct_neigh);
+        if( ndim == 3 ) res[f.fm_state[IW]] = f.U.ghost_val(index_in_neighbor, f.fm[IW], iOct_neigh);        
         if (f.copy_gravity) { 
-          res[f.fm_state[IGX]] = f.U_ghost(index_in_neighbor, f.fm[IGX], iOct_neigh);
-          res[f.fm_state[IGY]] = f.U_ghost(index_in_neighbor, f.fm[IGY], iOct_neigh);
-          if ( ndim == 3) res[f.fm_state[IGZ]] = f.U_ghost(index_in_neighbor, f.fm[IGZ], iOct_neigh);
+          res[f.fm_state[IGX]] = f.U.ghost_val(index_in_neighbor, f.fm[IGX], iOct_neigh);
+          res[f.fm_state[IGY]] = f.U.ghost_val(index_in_neighbor, f.fm[IGY], iOct_neigh);
+          if ( ndim == 3) res[f.fm_state[IGZ]] = f.U.ghost_val(index_in_neighbor, f.fm[IGZ], iOct_neigh);
     } 
     } 
     else
@@ -780,7 +780,7 @@ KOKKOS_INLINE_FUNCTION void CopyGhostBlockCellDataFunctor::operator()(team_polic
 void CopyGhostBlockCellDataFunctor::apply(
     LightOctree lmesh, Params params,
     id2index_t fm, blockSize_t blockSizes, uint32_t ghostWidth,
-    uint32_t nbOctsPerGroup, DataArrayBlock U, DataArrayBlock U_ghost,
+    uint32_t nbOctsPerGroup,  LegacyDataArray U,
     DataArrayBlock Ugroup, uint32_t iGroup, InterfaceFlags interface_flags)
 {
   CopyGhostBlockCellDataFunctor functor(lmesh,
@@ -790,7 +790,6 @@ void CopyGhostBlockCellDataFunctor::apply(
                                         ghostWidth,
                                         nbOctsPerGroup,
                                         U,
-                                        U_ghost,
                                         Ugroup,
                                         iGroup,
                                         interface_flags);

@@ -5,6 +5,7 @@
 #include "morton_utils.h"
 #include "mpi/GhostCommunicator.h"
 #include "amr/LightOctree_hashmap.h"
+#include "UserData.h"
 
 namespace dyablo {
 
@@ -603,6 +604,7 @@ AMRmesh_hashmap_new::GhostMap_t AMRmesh_hashmap_new::loadBalance(level_t level)
 
     // update misc metadata
     this->first_local_oct = new_oct_intervals[mpi_rank];
+    pmesh_epoch++;
 
     pdata->ghostmap = discover_ghosts(new_storage_device, new_morton_intervals, level_max, this->periodic, mpi_comm);
 
@@ -646,13 +648,11 @@ AMRmesh_hashmap_new::GhostMap_t AMRmesh_hashmap_new::loadBalance(level_t level)
     return res;
 }
 
-void AMRmesh_hashmap_new::loadBalance_userdata( level_t compact_levels, DataArrayBlock& userData )
+void AMRmesh_hashmap_new::loadBalance_userdata( level_t compact_levels, UserData& userData )
 {
   auto ghostmap = this->loadBalance(compact_levels);
   GhostCommunicator_kokkos lb_comm(ghostmap.send_sizes, ghostmap.send_iOcts);  
-  DataArrayBlock userData_new( userData.label(), userData.extent(0), userData.extent(1), lb_comm.getNumGhosts() );
-  lb_comm.exchange_ghosts<2>(userData, userData_new);
-  userData = userData_new;
+  userData.exchange_loadbalance( lb_comm );
 }
 
 void AMRmesh_hashmap_new::adapt(bool dummy)
@@ -937,6 +937,8 @@ void AMRmesh_hashmap_new::adapt(bool dummy)
       }
     }     
   }
+
+  pmesh_epoch++;
 }
 
 

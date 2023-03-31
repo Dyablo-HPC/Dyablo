@@ -18,6 +18,8 @@ namespace {
   using GlobalArray = ForeachCell::CellArray_global;
   using PatchArray = ForeachCell::CellArray_patch;
   using CellIndex = ForeachCell::CellIndex;
+  using Uin_t = UserData::FieldAccessor;
+  using Uout_t = UserData::FieldAccessor;
 
   /**
    * @brief Computes slopes and sources along each directions on a cell 
@@ -185,7 +187,7 @@ namespace {
                       const RiemannParams& params,
                       real_t smallr,
                       real_t dtddir,
-                      const GlobalArray& Uout
+                      const Uout_t& Uout
                       )
   {
     using PrimState = typename State::PrimState;
@@ -224,6 +226,11 @@ namespace {
     setConservativeState<ndim>(Uout, iCell_Uout, umod);
   }
 
+  enum Gravity_VarIndex : VarIndex
+  {
+    IGX, IGY, IGZ
+  };
+
   /**
    * @brief Applies corrector step for gravity
    * 
@@ -237,32 +244,33 @@ namespace {
    * @param gz
    * @param Uout Updated array after hydro without gravity
    **/
-  template<int ndim>
+  template<int ndim, typename State_t>
   KOKKOS_INLINE_FUNCTION
-  void apply_gravity_correction( const GlobalArray& Uin,
+  void apply_gravity_correction( const Uin_t& Uin,
+                                 const Uin_t& Uin_gravity,
                                  const CellIndex& iCell_Uin,
                                  real_t dt,
                                  bool use_field,
                                  real_t gx, real_t gy, real_t gz,
-                                 const GlobalArray& Uout ){
+                                 const Uout_t& Uout ){
     if(use_field)
     {
-      gx = Uin.at(iCell_Uin, IGX);
-      gy = Uin.at(iCell_Uin, IGY);
+      gx = Uin_gravity.at(iCell_Uin, Gravity_VarIndex::IGX);
+      gy = Uin_gravity.at(iCell_Uin, Gravity_VarIndex::IGY);
       if (ndim == 3)
-        gz = Uin.at(iCell_Uin, IGZ);
+        gz = Uin_gravity.at(iCell_Uin, Gravity_VarIndex::IGZ);
     }
 
-    real_t rhoOld = Uin.at(iCell_Uin, ID);
+    real_t rhoOld = Uin.at(iCell_Uin, State_t::VarIndex::Irho);
     
-    real_t rhoNew = Uout.at(iCell_Uin, ID);
-    real_t rhou = Uout.at(iCell_Uin, IU);
-    real_t rhov = Uout.at(iCell_Uin, IV);
+    real_t rhoNew = Uout.at(iCell_Uin, State_t::VarIndex::Irho);
+    real_t rhou = Uout.at(iCell_Uin, State_t::VarIndex::Irho_vx);
+    real_t rhov = Uout.at(iCell_Uin, State_t::VarIndex::Irho_vy);
     real_t ekin_old = rhou*rhou + rhov*rhov;
     real_t rhow;
     
     if (ndim == 3) {
-      rhow = Uout.at(iCell_Uin, IW);
+      rhow = Uout.at(iCell_Uin, State_t::VarIndex::Irho_vz);
       ekin_old += rhow*rhow;
     }
     
@@ -271,11 +279,11 @@ namespace {
     rhou += 0.5 * dt * gx * (rhoOld + rhoNew);
     rhov += 0.5 * dt * gy * (rhoOld + rhoNew);
 
-    Uout.at(iCell_Uin, IU) = rhou;
-    Uout.at(iCell_Uin, IV) = rhov;
+    Uout.at(iCell_Uin, State_t::VarIndex::Irho_vx) = rhou;
+    Uout.at(iCell_Uin, State_t::VarIndex::Irho_vy) = rhov;
     if (ndim == 3) {
       rhow += 0.5 * dt * gz * (rhoOld + rhoNew);
-      Uout.at(iCell_Uin, IW) = rhow;
+      Uout.at(iCell_Uin, State_t::VarIndex::Irho_vz) = rhow;
     }
 
     // Energy correction should be included in case of self-gravitation ?
@@ -284,7 +292,7 @@ namespace {
       ekin_new += rhow*rhow;
     
     ekin_new = 0.5 * ekin_new / rhoNew;
-    Uout.at(iCell_Uin, IE) += (ekin_new - ekin_old);
+    Uout.at(iCell_Uin, State_t::VarIndex::Ie_tot) += (ekin_new - ekin_old);
   }    
 } // namespace
 } // namespace dyablo
@@ -327,27 +335,33 @@ public:
    * @param dt the timestep
    */
   void update(
-    const ForeachCell::CellArray_global_ghosted& Uin,
-    const ForeachCell::CellArray_global_ghosted& Uout,
+    UserData& U,
     real_t dt)
   {
     uint32_t ndim = foreach_cell.getDim();
     if(ndim == 2)
-      update_aux<2>(Uin, Uout, dt);
+      update_aux<2>(U, dt);
     else
-      update_aux<3>(Uin, Uout, dt);
+      update_aux<3>(U, dt);
   }
 
   template<int ndim>
   void update_aux(
-      const ForeachCell::CellArray_global_ghosted& Uin,
-      const ForeachCell::CellArray_global_ghosted& Uout,
+      UserData& U,
       real_t dt)
   {
     const RiemannParams& params = this->params;  
     const real_t gamma = params.gamma0;
     const double smallr = params.smallr;
     const GravityType gravity_type = this->gravity_type;
+    
+    auto fields_info = ConsState::getFieldsInfo();
+
+    const Uin_t Uin = U.getAccessor( fields_info );
+    auto fields_info_next = fields_info;
+    for( auto& p : fields_info_next )
+      p.name += "_next";
+    Uout_t Uout = U.getAccessor( fields_info_next );
 
     auto bc_manager = this->bc_manager;
 
@@ -365,21 +379,32 @@ public:
 
     ForeachCell& foreach_cell = this->foreach_cell;
 
-    auto fm = Uin.fm;
+    auto fm_cons = ConsState::getFieldManager().get_id2index();
+    auto fm_prim = PrimState::getFieldManager().get_id2index();
     
     // Create abstract temporary ghosted arrays for patches 
-    PatchArray::Ref Ugroup_ = foreach_cell.reserve_patch_tmp("Ugroup", 2, 2, (ndim == 3)?2:0, fm, State::N);
-    PatchArray::Ref Qgroup_ = foreach_cell.reserve_patch_tmp("Qgroup", 2, 2, (ndim == 3)?2:0, fm, State::N);
-    PatchArray::Ref SlopesX_ = foreach_cell.reserve_patch_tmp("SlopesX", 1, 0, 0, fm, State::N);
-    PatchArray::Ref SlopesY_ = foreach_cell.reserve_patch_tmp("SlopesY", 0, 1, 0, fm, State::N);
+    PatchArray::Ref Ugroup_ = foreach_cell.reserve_patch_tmp("Ugroup", 2, 2, (ndim == 3)?2:0, fm_cons, State::N);
+    PatchArray::Ref Qgroup_ = foreach_cell.reserve_patch_tmp("Qgroup", 2, 2, (ndim == 3)?2:0, fm_prim, State::N);
+    PatchArray::Ref SlopesX_ = foreach_cell.reserve_patch_tmp("SlopesX", 1, 0, 0, fm_prim, State::N);
+    PatchArray::Ref SlopesY_ = foreach_cell.reserve_patch_tmp("SlopesY", 0, 1, 0, fm_prim, State::N);
     PatchArray::Ref SlopesZ_;
     if( ndim == 3 )
-      SlopesZ_ = foreach_cell.reserve_patch_tmp("SlopesZ", 0, 0, 1, fm, State::N);
-    PatchArray::Ref Sources_ = foreach_cell.reserve_patch_tmp("Sources", 1, 1, (ndim == 3)?1:0, fm, State::N);
+      SlopesZ_ = foreach_cell.reserve_patch_tmp("SlopesZ", 0, 0, 1, fm_prim, State::N);
+    PatchArray::Ref Sources_ = foreach_cell.reserve_patch_tmp("Sources", 1, 1, (ndim == 3)?1:0, fm_prim, State::N);
 
     timers.get("HydroUpdate_hancock").start();
 
     ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
+    const GhostedArray& U_shape = U.getShape();
+
+    Uin_t Uin_gravity;
+    if (gravity_use_field) {
+      Uin_gravity = U.getAccessor( {
+          {"gx", Gravity_VarIndex::IGX}, 
+          {"gy", Gravity_VarIndex::IGY},
+          {"gz", Gravity_VarIndex::IGZ} 
+      });
+    }
 
     // Iterate over patches
     foreach_cell.foreach_patch( "HydroUpdate_hancock::update",
@@ -416,7 +441,7 @@ public:
         );
       });
       
-      patch.foreach_cell( Uout, CELL_LAMBDA(const CellIndex& iCell_Uout)
+      patch.foreach_cell( U_shape, CELL_LAMBDA(const CellIndex& iCell_Uout)
       {
         auto size = cellmetadata.getCellSize(iCell_Uout);
         ConsState u0{};
@@ -428,7 +453,7 @@ public:
       
         // Applying correction step for gravity
         if (has_gravity)
-          apply_gravity_correction<ndim>(Uin, iCell_Uout, dt, gravity_use_field, gx, gy, gz, Uout);
+         apply_gravity_correction<ndim, ConsState>(Uin, Uin_gravity, iCell_Uout, dt, gravity_use_field, gx, gy, gz, Uout);
       });
     });
 

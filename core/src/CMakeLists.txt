@@ -1,4 +1,5 @@
 set( core_src
+    ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh_pablo.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh_hashmap.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh_hashmap_new.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh.cpp
@@ -13,7 +14,6 @@ set( core_src
     ${CMAKE_CURRENT_SOURCE_DIR}/compute_dt/Compute_dt_generic.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/refine_condition/RefineCondition_second_derivative_error.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/refine_condition/RefineCondition_pseudo_gradient.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/FieldManager.cpp
 )
 
 set( ic_src
@@ -31,12 +31,11 @@ set( ic_src
 set( legacy_src
     ${CMAKE_CURRENT_SOURCE_DIR}/legacy/CopyGhostBlockCellData.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/legacy/MarkOctantsHydroFunctor.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/legacy/io_utils.cpp
+    # ${CMAKE_CURRENT_SOURCE_DIR}/legacy/io_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/hydro/HydroUpdate_legacy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/compute_dt/Compute_dt_legacy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/refine_condition/RefineCondition_legacy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/legacy/MapUserData_legacy.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/io/IOManager_hdf5.cpp
 )
 
 set( mpi_src

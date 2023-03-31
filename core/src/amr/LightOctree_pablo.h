@@ -130,7 +130,7 @@ public:
         //Find neighbors with PABLO
         std::vector<uint32_t> iOct_neighbors;
         std::vector<bool> isghost_neighbors;
-        pmesh->findNeighbours(iOct.iOct, pablo_iface, pablo_codim, iOct_neighbors, isghost_neighbors);
+        pmesh->getPabloUniform().findNeighbours(iOct.iOct, pablo_iface, pablo_codim, iOct_neighbors, isghost_neighbors);
 
         // Fill NeighborList from PABLO's result
         NeighborList neighbors={0,{OctantIndex{99,true}}};

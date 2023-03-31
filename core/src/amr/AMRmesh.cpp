@@ -71,12 +71,22 @@ template<typename Impl_t>
 void AMRmesh_impl<Impl_t>::updateLightOctree()
 { 
   // Update LightOctree if needed
-  if( !lmesh_uptodate )
+  if( !lmesh_uptodate() )
   {
     lmesh = nullptr;
     lmesh = std::make_unique<LightOctree>( &this->getMesh(), level_min, level_max );
-    lmesh_uptodate = true;
+    this->lmesh_epoch = Impl_t::pmesh_epoch;
   }
+}
+
+template<typename Impl_t>
+const LightOctree& AMRmesh_impl<Impl_t>::getLightOctree()
+{ 
+  // Update LightOctree if needed
+  updateLightOctree();
+  assert( lmesh->getNumOctants() == this->getNumOctants() );
+  assert( lmesh->getNumGhosts() == this->getNumGhosts() );
+  return *lmesh; 
 }
 
 #ifdef DYABLO_COMPILE_PABLO

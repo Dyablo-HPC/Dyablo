@@ -26,6 +26,11 @@ using TmpView = Kokkos::View<real_t**>;
 using TmpViewHost = TmpView::HostMirror;
 
 namespace {
+
+enum VarIndex_test{
+  ID,IE,IP,IU,IV,IW,IGX,IGY,IGZ
+};
+
 /**
  * Simple Kokkos functor filling a vector of state
  * from a data array and a list of positions using 

@@ -23,16 +23,31 @@ public:
     this->lmesh_old = this->foreach_cell.get_amr_mesh().getLightOctree();
   }
 
-  void remap(   const ForeachCell::CellArray_global_ghosted& Uin,
-                const ForeachCell::CellArray_global_ghosted& Uout ) override
+  void remap( UserData& U ) override
   {
     using CellIndex = ForeachCell::CellIndex;
     int ndim = foreach_cell.getDim();
-    int nbfields = Uin.nbfields();
+    int nbfields = U.nbFields();
+
+    auto original_fields = U.getEnabledFields();
+
+    std::vector< UserData::FieldAccessor_FieldInfo > old_fields, new_fields;
+    for( const std::string& name : original_fields )
+    {
+      std::string name_new = name + "_remapped";
+      U.new_fields({name_new});
+      
+      VarIndex last_index = (VarIndex)old_fields.size();
+      old_fields.push_back( {name, last_index} );
+      new_fields.push_back( {name+"_remapped", last_index} );
+    }
+
+    const UserData::FieldAccessor Uin = U.getAccessor( old_fields );
+    UserData::FieldAccessor Uout = U.getAccessor( new_fields );
 
     CellIndexRemapper remapper( this->lmesh_old, this->foreach_cell );
 
-    foreach_cell.foreach_cell( "MapUserData_mean::remap", Uout,
+    foreach_cell.foreach_cell( "MapUserData_mean::remap", Uout.getShape(),
       KOKKOS_LAMBDA( const CellIndex& iCell_Uout )
     {
       CellIndex iCell_Uin = remapper.get_old_cell( iCell_Uout );
@@ -52,13 +67,17 @@ public:
           for(int8_t dy=0; dy<2; dy++)
             for(int8_t dx=0; dx<2; dx++)
             {
-              CellIndex iCell_Uin_n = iCell_Uin.getNeighbor_ghost({dx,dy,dz}, Uin);
+              CellIndex iCell_Uin_n = iCell_Uin.getNeighbor_ghost({dx,dy,dz}, Uin.getShape());
               for(int ivar=0; ivar<nbfields; ivar++)
                 Uout.at_ivar( iCell_Uout, ivar ) += Uin.at_ivar( iCell_Uin_n, ivar ) / nsubcells;
             }
       }
     });
 
+    for( const std::string& name : original_fields )
+    {
+      U.move_field( name, name+"_remapped" );
+    }
   }
 
 private:

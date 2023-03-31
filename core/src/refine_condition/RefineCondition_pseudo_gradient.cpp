@@ -3,6 +3,7 @@
 #include "kokkos_shared.h"
 #include "foreach_cell/ForeachCell.h"
 #include "utils_hydro.h"
+#include "UserData.h"
 
 namespace dyablo {
 
@@ -19,28 +20,31 @@ public:
       error_max ( configMap.getValue<real_t>("amr", "epsilon_refine", 0.001) )
   {}
 
-  void mark_cells( const ForeachCell::CellArray_global_ghosted& Uin )
+  void mark_cells( const UserData& U )
   {
     int ndim = foreach_cell.getDim();
     if( ndim == 2 )
-      mark_cells_aux<2>( Uin );
+      mark_cells_aux<2>( U );
     else if( ndim == 3 )
-      mark_cells_aux<3>( Uin );
+      mark_cells_aux<3>( U );
   }
 
   template< int ndim >
-  void mark_cells_aux( const ForeachCell::CellArray_global_ghosted& Uin )
+  void mark_cells_aux( const UserData& U )
   {
     using CellIndex = ForeachCell::CellIndex;
 
     real_t error_min = this->error_min;
     real_t error_max = this->error_max;
 
+    enum VarIndex_rho{ID};
+
+    UserData::FieldAccessor Uin( U, {{"rho", ID}} );
     ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
 
     uint32_t nbOcts = foreach_cell.get_amr_mesh().getNumOctants();
     Kokkos::View<real_t*> oct_err_max("Oct_err_max", nbOcts);
-    foreach_cell.foreach_cell( "RefineCondition_generic::mark_cells", Uin,
+    foreach_cell.foreach_cell( "RefineCondition_generic::mark_cells", Uin.getShape(),
       KOKKOS_LAMBDA( const CellIndex& iCell )
     {
 
@@ -66,7 +70,7 @@ public:
       {
         CellIndex::offset_t offset{};
         offset[dir] = sign;
-        CellIndex iCell_n = iCell.getNeighbor_ghost( offset, Uin );
+        CellIndex iCell_n = iCell.getNeighbor_ghost( offset, Uin.getShape() );
 
         real_t diff_max = 0;
 
@@ -87,7 +91,7 @@ public:
             for( int8_t dj=0; dj<dj_count; dj++ )
             for( int8_t di=0; di<di_count; di++ )
             {
-                CellIndex iCell_n_smaller = iCell_n.getNeighbor_ghost({di,dj,dk}, Uin); // This assumes that siblings are in same block
+                CellIndex iCell_n_smaller = iCell_n.getNeighbor_ghost({di,dj,dk}, Uin.getShape()); // This assumes that siblings are in same block
                 real_t diff = indicator_scalar_gradient( Uin.at(iCell, ID), Uin.at(iCell_n_smaller, ID)); 
                 diff_max = FMAX( diff_max, diff );
             }
