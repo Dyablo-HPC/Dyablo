@@ -17,6 +17,7 @@ variables:
 before_script:
   - date
   - lscpu
+  - git config --global --add safe.directory /builds/pkestene/dyablo/external/kokkos
 
 after_script:
   - date
@@ -64,6 +65,7 @@ build::openmp:
   before_script:
     - date
     - nvcc --version
+    - git config --global --add safe.directory /builds/pkestene/dyablo/external/kokkos
   tags:
     - docker-cuda
   script:
