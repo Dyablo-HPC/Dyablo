@@ -46,6 +46,7 @@ option ( DYABLO_HIDE_BITPIT_COMPILATION "Don't show bitpit compilation log in co
 option (DYABLO_USE_INTERNAL_KOKKOS "Use internal Kokkos from external/kokkos" ON)
 option (Kokkos_ENABLE_CUDA "Enable Kokkos::CUDA backend" OFF)
 option (Kokkos_ENABLE_SYCL "Enable Kokkos::SYCL backend" OFF)
+option (Kokkos_ENABLE_HIP "Enable Kokkos::HIP backend" OFF)
 set( Kokkos_ARCH  "" CACHE STRING "List of architectures to set for Kokkos : -DKokkos_ARCH_<arch>=ON")
 set( DYABLO_CMAKE_ARGS "" CACHE STRING "Additional cmake command line arguments to forward to Dyablo subproject"  )
 
@@ -165,6 +166,7 @@ list (APPEND DYABLO_CMAKE_ARGS_
   -DDYABLO_USE_INTERNAL_KOKKOS=${DYABLO_USE_INTERNAL_KOKKOS}
   -DKokkos_ENABLE_CUDA=${Kokkos_ENABLE_CUDA}
   -DKokkos_ENABLE_SYCL=${Kokkos_ENABLE_SYCL}
+  -DKokkos_ENABLE_HIP=${Kokkos_ENABLE_HIP}
   -DBITPIT_DIR=${DYABLO_BITPIT_DIR}
   -DKokkos_DIR=${DYABLO_KOKKOS_DIR}
 )
