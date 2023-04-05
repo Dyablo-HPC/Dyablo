@@ -55,15 +55,19 @@ void MpiComm::MPI_Barrier()
 template<typename T>
 void MpiComm::MPI_Allreduce( const T* sendbuf, T* recvbuf, int count, MPI_Op_t op ) const
 {
+  const void* sendbuf_fixed = (sendbuf == recvbuf)?MPI_IN_PLACE:sendbuf;
+
   using namespace MpiComm_impl;
-  ::MPI_Allreduce( sendbuf, recvbuf, count, mpi_type<T>(), mpi_op[op], mpi_comm_id);
+  ::MPI_Allreduce( sendbuf_fixed, recvbuf, count, mpi_type<T>(), mpi_op[op], mpi_comm_id);
 }
 
 template<typename T>
 void MpiComm::MPI_Scan( const T* sendbuf, T* recvbuf, int count, MPI_Op_t op ) const
 {
+  const void* sendbuf_fixed = (sendbuf == recvbuf)?MPI_IN_PLACE:sendbuf;
+
   using namespace MpiComm_impl;
-  ::MPI_Scan( sendbuf, recvbuf, count, mpi_type<T>(), mpi_op[op], mpi_comm_id);
+  ::MPI_Scan( sendbuf_fixed, recvbuf, count, mpi_type<T>(), mpi_op[op], mpi_comm_id);
 }
 
 template<typename T>
