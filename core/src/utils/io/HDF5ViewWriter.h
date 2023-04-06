@@ -1,7 +1,6 @@
 #pragma once
 
 #include <string>
-#include <filesystem>
 #include "utils/mpi/GlobalMpiSession.h"
 
 #include <hdf5.h>
@@ -114,10 +113,19 @@ public:
     hid_t group_id;
     std::string varname;
     {
-      std::filesystem::path p ( varpath );
-
-      varname = p.filename();
-      std::string group_path = p.remove_filename();
+      auto slash_pos = varpath.find_last_of('/');
+      
+      std::string group_path;
+      if( slash_pos != std::string::npos )
+      {
+        group_path = varpath.substr( 0, slash_pos );
+        varname = varpath.substr( slash_pos+1 );
+      }
+      else
+      {
+        group_path = "";
+        varname = varpath;
+      }
 
       std::stringstream ss (group_path);
       group_id = m_hdf5_file;

@@ -1,7 +1,7 @@
 #include "AMRmesh.h"
 
 #include "LightOctree.h"
-#include "config/ConfigMap.h"
+#include "utils/config/ConfigMap.h"
 
 namespace dyablo{
 
