@@ -202,7 +202,7 @@ void adapt_clean(   const LightOctree_hashmap& lmesh,
         // Remove partial octants coarsening        
         if(marker==1 ||  ( marker==-1 && is_full_coarsening(lmesh, local_octs_coord, ghost_octs_coord, markers, iOct)))
         { 
-            auto res = markers_out.insert(iOct_local, marker);
+            [[maybe_unused]] auto res = markers_out.insert(iOct_local, marker);
             assert(res.success());
         }
     });
@@ -440,15 +440,14 @@ std::set< std::pair<int, uint32_t> > discover_ghosts(
         const MpiComm& mpi_comm)
 {
     uint32_t mpi_rank = mpi_comm.MPI_Comm_rank();
-    uint32_t mpi_size = mpi_comm.MPI_Comm_size();
 
-    auto find_rank = [mpi_size, &morton_intervals](morton_t morton)
+    auto find_rank = [&](morton_t morton)
     {
         // upper_bound : first verifying value > morton
         auto it = std::upper_bound( morton_intervals.begin(), morton_intervals.end(), morton );
         // neighbor_rank: last interval value <= morton
         uint32_t neighbor_rank = it - morton_intervals.begin() - 1;
-        assert( neighbor_rank<mpi_size );
+        assert( neighbor_rank<mpi_comm.MPI_Comm_size() );
         assert( morton_intervals[neighbor_rank] <= morton);
         assert( morton_intervals[neighbor_rank+1] > morton);
         return neighbor_rank;

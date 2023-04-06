@@ -107,13 +107,14 @@ public:
             {
                 neighbors[i] = LightOctree_base::OctantIndex::iOctLocal_to_OctantIndex( neighbors_iOct( n_offset + i ), getNumOctants() );
             }
-
+#ifndef NDEBUG
             auto nocache_neighbors = LightOctree_hashmap::findNeighbors(iOct, offset);
             assert( nneighbors == nocache_neighbors.size() );
             for( int i=0; i<nneighbors; i++ )
             {
                 assert( neighbors[i].iOct == nocache_neighbors[i].iOct );
             }
+#endif
 
             return NeighborList{ nneighbors, neighbors };
         }
