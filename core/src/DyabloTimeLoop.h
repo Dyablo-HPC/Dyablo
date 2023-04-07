@@ -57,7 +57,7 @@ public:
     U(configMap, m_foreach_cell),
     m_loadbalance_coherent_levels( configMap.getValue<int>("amr", "loadbalance_coherent_levels", 3) )
   {
-    int ndim = configMap.getValue<int>("mesh", "ndim", 3);
+    configMap.getValue<int>("mesh", "ndim", 3);
     
 
     std::string gravity_solver_id = configMap.getValue<std::string>("gravity", "solver", "none");
@@ -76,7 +76,6 @@ public:
       // [gravity]gravity_type should be set from the instanciaion of gravity_solver
       m_gravity_type = configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE);
     }
-    GravityType gravity_type = m_gravity_type;
 
     std::string godunov_updater_id = configMap.getValue<std::string>("hydro", "update", "HydroUpdate_hancock");
     this->has_mhd = godunov_updater_id.find("MHD") != std::string::npos;

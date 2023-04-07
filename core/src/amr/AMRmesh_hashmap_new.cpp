@@ -357,9 +357,9 @@ AMRmesh_hashmap_new::GhostMap_t discover_ghosts(
       for( int dy=-1; dy<=1; dy++ )
       for( int dx=-1; dx<=1; dx++ )
       if(   (dx!=0 || dy!=0 || dz!=0)
-          && (periodic[IX] || ( 0<=pos[IX]+dx && pos[IX]+dx<max_ix ))
-          && (periodic[IY] || ( 0<=pos[IY]+dy && pos[IY]+dy<max_iy ))
-          && (periodic[IZ] || ( 0<=pos[IZ]+dz && pos[IZ]+dz<max_iz )) )
+          && (periodic[IX] || ( /* 0<=pos[IX]+dx && */ pos[IX]+dx<max_ix ))
+          && (periodic[IY] || ( /* 0<=pos[IY]+dy && */ pos[IY]+dy<max_iy ))
+          && (periodic[IZ] || ( /* 0<=pos[IZ]+dz && */ pos[IZ]+dz<max_iz )) )
       {
         Kokkos::Array<logical_coord_t, 3> pos_n{
           (pos[IX]+dx+max_ix)%max_ix, 
@@ -501,7 +501,7 @@ AMRmesh_hashmap_new::GhostMap_t AMRmesh_hashmap_new::loadBalance(level_t level)
         for(int rank=1; rank<mpi_size; rank++)
         {
             morton_t new_morton_begin_rank;
-            int adjusted_level = level+1;
+            level_t adjusted_level = level+1;
             do // Adapt `level` to avoid getting empty processes
             {
               adjusted_level --;

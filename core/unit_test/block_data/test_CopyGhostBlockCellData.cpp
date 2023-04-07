@@ -509,7 +509,7 @@ void run_test()
                                         :"./block_data/test_blast_3D_block.ini";
   ConfigMap configMap = ConfigMap::broadcast_parameters(input_file);
 
-  int ndim_ini = configMap.getValue<int>("mesh", "ndim", ndim);
+  [[maybe_unused]] int ndim_ini = configMap.getValue<int>("mesh", "ndim", ndim);
   assert( ndim_ini == ndim );
   GravityType gravity_type = configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE);
 
