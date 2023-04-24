@@ -175,14 +175,14 @@ public:
     KOKKOS_INLINE_FUNCTION
     real_t& at_ivar( const ForeachCell::CellIndex& iCell, int ivar ) const
     {
-        assert( ivar < nbFields() );
+        DYABLO_ASSERT_KOKKOS_DEBUG( ivar < nbFields(), "ivar out of bounds" );
         return field_views[ ivar ].at_ivar( iCell, 0);
     }
 
     KOKKOS_INLINE_FUNCTION
     FieldView_t::Shape_t getShape() const
     {
-        assert(nbFields() > 0);
+        DYABLO_ASSERT_KOKKOS_DEBUG(nbFields() > 0, "Cannot getShape() of an empty FieldAccessor");
         return field_views[0].getShape();
     }
 

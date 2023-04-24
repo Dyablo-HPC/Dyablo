@@ -324,7 +324,7 @@ PrimMHDState swapComponents(const PrimMHDState &q, ComponentIndex3D comp) {
     case IZ:
       return PrimMHDState{q.rho, q.p, q.w, q.v, q.u, q.Bz, q.By, q.Bx};
     default:
-      assert(false);
+      DYABLO_ASSERT_KOKKOS_DEBUG(false, "invalid component");
       return PrimMHDState{};
   }
 }
@@ -349,7 +349,7 @@ ConsMHDState swapComponents(const ConsMHDState &u, ComponentIndex3D comp) {
     case IZ:
       return ConsMHDState{u.rho, u.e_tot, u.rho_w, u.rho_v, u.rho_u, u.Bz, u.By, u.Bx};
     default:
-      assert(false);
+      DYABLO_ASSERT_KOKKOS_DEBUG(false, "invalid component");
       return ConsMHDState{};
   }
 }

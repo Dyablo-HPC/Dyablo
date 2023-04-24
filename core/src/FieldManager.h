@@ -57,7 +57,7 @@ public:
   KOKKOS_INLINE_FUNCTION
   int operator[](VarIndex id) const
   {
-    assert( enabled(id) ); // This variable is not active
+    DYABLO_ASSERT_KOKKOS_DEBUG( enabled(id), "This variable is not active");
     return id2index[(int)id];
   }
 };

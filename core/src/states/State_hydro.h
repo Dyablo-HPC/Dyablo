@@ -254,7 +254,7 @@ PrimHydroState swapComponents(const PrimHydroState &q, ComponentIndex3D comp) {
     case IZ:
       return PrimHydroState{q.rho, q.p, q.w, q.v, q.u};
     default:
-      assert(false);
+      DYABLO_ASSERT_KOKKOS_DEBUG(false, "invalid component");
       return PrimHydroState{};
   }
 }
@@ -279,7 +279,7 @@ ConsHydroState swapComponents(const ConsHydroState &u, ComponentIndex3D comp) {
     case IZ:
       return ConsHydroState{u.rho, u.e_tot, u.rho_w, u.rho_v, u.rho_u};
     default:
-      assert(false);
+      DYABLO_ASSERT_KOKKOS_DEBUG(false, "invalid component");
       return ConsHydroState{};
   }
 }
