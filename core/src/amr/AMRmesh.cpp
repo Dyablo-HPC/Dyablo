@@ -42,12 +42,13 @@ typename AMRmesh_impl<Impl_t>::Parameters AMRmesh_impl<Impl_t>::parse_parameters
         configMap.getValue<uint32_t>("amr","coarse_oct_resolution_z", (ndim==3)?max_width:1 ) 
     };
 
-    if( res.coarse_grid_size[IX] > max_width ) 
-      throw std::runtime_error( std::string( "amr/coarse_oct_resolution_x (" ) + std::to_string(res.coarse_grid_size[IX]) + ") is too big for level_min (" + std::to_string(res.level_min) + "), max allowed is " + std::to_string(max_width) );
-    if( res.coarse_grid_size[IY] > max_width ) 
-      throw std::runtime_error( std::string( "amr/coarse_oct_resolution_y (" ) + std::to_string(res.coarse_grid_size[IY]) + ") is too big for level_min (" + std::to_string(res.level_min) + "), max allowed is " + std::to_string(max_width));
-    if( res.coarse_grid_size[IZ] > ((ndim==3)?max_width:1) ) 
-      throw std::runtime_error( std::string( "amr/coarse_oct_resolution_z (" ) + std::to_string(res.coarse_grid_size[IZ]) + ") is too big for level_min (" + std::to_string(res.level_min) + "), max allowed is " + std::to_string((ndim==3)?max_width:1));
+    DYABLO_ASSERT_HOST_RELEASE( res.coarse_grid_size[IX] <= max_width, 
+      "amr/coarse_oct_resolution_x (" << res.coarse_grid_size[IX] << ") is too big for level_min (" << res.level_min << "), max allowed is " << max_width );
+    DYABLO_ASSERT_HOST_RELEASE( res.coarse_grid_size[IY] <= max_width, 
+      "amr/coarse_oct_resolution_y (" << res.coarse_grid_size[IY] << ") is too big for level_min (" << res.level_min << "), max allowed is " << max_width );
+    DYABLO_ASSERT_HOST_RELEASE( res.coarse_grid_size[IZ] <= ((ndim==3)?max_width:1), 
+      "amr/coarse_oct_resolution_z (" << res.coarse_grid_size[IZ] << ") is too big for level_min (" << res.level_min << "), max allowed is " << ((ndim==3)?max_width:1) );
+  
   }
   else if( configMap.hasValue("amr","coarse_oct_resolution_x") 
         && configMap.hasValue("amr","coarse_oct_resolution_y") 
@@ -84,8 +85,8 @@ const LightOctree& AMRmesh_impl<Impl_t>::getLightOctree()
 { 
   // Update LightOctree if needed
   updateLightOctree();
-  assert( lmesh->getNumOctants() == this->getNumOctants() );
-  assert( lmesh->getNumGhosts() == this->getNumGhosts() );
+  DYABLO_ASSERT_HOST_RELEASE( lmesh->getNumOctants() == this->getNumOctants(), "LightOctree::getLightOctree() is outdated pmesh " << this->getNumOctants() << "octs vs lmesh " << lmesh->getNumOctants() << "octs" );
+  DYABLO_ASSERT_HOST_RELEASE( lmesh->getNumGhosts() == this->getNumGhosts(), "LightOctree::getLightOctree() is outdated pmesh " << this->getNumGhosts() << "ghosts vs lmesh " << lmesh->getNumGhosts() << "ghosts" );
   return *lmesh; 
 }
 

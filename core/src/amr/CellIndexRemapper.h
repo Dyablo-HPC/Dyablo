@@ -28,8 +28,8 @@ public:
   {
     int ndim = lmesh_old.getNdim();
 
-    assert( iCell_new.is_valid() );
-    assert( !iCell_new.iOct.isGhost );
+    DYABLO_ASSERT_KOKKOS_DEBUG( iCell_new.is_valid(), "Invalid cell" );
+    DYABLO_ASSERT_KOKKOS_DEBUG( !iCell_new.iOct.isGhost, "Cell can't be ghost" );
 
     LightOctree::pos_t oct_pos_new = lmesh_new.getCenter(iCell_new.iOct);
     auto oct_size_new = lmesh_new.getSize(iCell_new.iOct);
@@ -80,7 +80,7 @@ public:
       int8_t k_oct_offset = (iCell_new.k > (iCell_new.bz-1)/2);
       // Get Suboctant index 
       auto oct_neighbors = lmesh_old.findNeighbors( iOct_old, {i_oct_offset, j_oct_offset, k_oct_offset} );
-      assert( oct_neighbors.size() == 1 ); // Siblings should be same size when coarsening
+      DYABLO_ASSERT_KOKKOS_DEBUG( oct_neighbors.size() == 1, "Siblings should be same size when coarsening" );
       OctantIndex iOct_old_smaller = oct_neighbors[0];
 
       // Compute position in suboctant
@@ -97,9 +97,11 @@ public:
 
       return iCell_old;
     }
-
-    assert(false);
-    return CELLINDEX_INVALID;
+    else
+    {
+      DYABLO_ASSERT_KOKKOS_DEBUG(false, "2:1 infringement during remap");
+      return CELLINDEX_INVALID;
+    }   
   }
 private:
   LightOctree lmesh_old, lmesh_new;

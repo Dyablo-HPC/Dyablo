@@ -5,6 +5,7 @@
 #include "bitpit_PABLO.hpp"
 #include "amr/UserDataLB.h"
 #include "utils/mpi/MpiComm.h"
+#include "utils/misc/Dyablo_assert.h"
 
 namespace dyablo {
 
@@ -48,10 +49,11 @@ public:
     AMRmesh_pablo( int dim, int balance_codim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max )
         : PabloUniform(dim), mpi_comm( PabloUniform::getComm() ), level_min(level_min)
     {
-        assert(dim == 2 || dim == 3);
-        assert(balance_codim <= dim);
-        if( level_max > this->getMaxLevel() )
-            throw std::runtime_error( std::string("level_max is too big for AMRmesh_pablo : is ") + std::to_string(level_max) + " but PABLO only supports " + std::to_string(this->getMaxLevel()) );
+        DYABLO_ASSERT_HOST_RELEASE(dim == 2 || dim == 3, "Invalid ndim : " << (int)dim);
+        DYABLO_ASSERT_HOST_RELEASE(balance_codim <= dim, "Invalid balance_codim : " << balance_codim);
+        DYABLO_ASSERT_HOST_RELEASE( level_max <= this->getMaxLevel(), 
+            "level_max is too big for AMRmesh_pablo : is " << (int) level_max << " but PABLO only supports " << (int )this->getMaxLevel());
+        
         bitpit::log::setConsoleVerbosity(this->getLog(), bitpit::log::Verbosity::QUIET);
 
         this->setBalanceCodimension(balance_codim);

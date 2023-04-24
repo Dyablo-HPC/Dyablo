@@ -18,9 +18,8 @@ namespace dyablo{
 AMRmesh_hashmap::AMRmesh_hashmap( int dim, int balance_codim, const std::array<bool,3>& periodic, level_t level_min, level_t level_max, const MpiComm& mpi_comm )
         : dim(dim), periodic(periodic), markers(1), level_min(level_min), level_max(level_max), mpi_comm(mpi_comm)
 {
-    assert(dim == 2 || dim == 3);
-    assert(balance_codim <= dim);
-
+    DYABLO_ASSERT_HOST_RELEASE(dim == 2 || dim == 3, "Invalid ndim : " << dim);
+    DYABLO_ASSERT_HOST_RELEASE(balance_codim == dim, "Invalid balance_codim : " << balance_codim);
     this->total_octs_count = 1;
     this->global_id_begin = 0;
 
@@ -38,7 +37,7 @@ AMRmesh_hashmap::AMRmesh_hashmap( int dim, int balance_codim, const std::array<b
 
 void AMRmesh_hashmap::adaptGlobalRefine()
 {
-    assert( this->sequential_mesh ); //No global refine after scattering
+    DYABLO_ASSERT_HOST_RELEASE( this->sequential_mesh, "No global refine after scattering" );
 
     uint32_t nb_subocts = std::pow(2, dim);
     uint32_t new_octs_count = this->getNumOctants()*nb_subocts;
@@ -82,7 +81,7 @@ void AMRmesh_hashmap::setMarker(uint32_t iOct, int marker)
     if(inserted.existing())
         markers.value_at(inserted.index()) = marker;
     
-    assert(!inserted.failed());
+    DYABLO_ASSERT_HOST_DEBUG(!inserted.failed(), "Insertion in Kokkos::UnorderedMap failed");
 }
 
 namespace {
@@ -142,7 +141,7 @@ bool is_full_coarsening(const LightOctree_hashmap& lmesh,
                         const markers_device_t& markers,
                         const OctantIndex& iOct)
 {
-    assert(!iOct.isGhost); //Cannot be a ghost : we may not have all the siblings
+    DYABLO_ASSERT_KOKKOS_DEBUG(!iOct.isGhost, "Cannot be a ghost : we may not have all the siblings");
 
     uint32_t nbOcts = lmesh.getNumOctants();
     //Position in parent octant
@@ -164,7 +163,7 @@ bool is_full_coarsening(const LightOctree_hashmap& lmesh,
                 if( x!=0 || y!=0 || z!=0 )
                 {
                     auto ns = lmesh.findNeighbors(iOct,{(int8_t)(sx*x),(int8_t)(sy*y),(int8_t)(sz*z)});
-                    assert(ns.size()>0);
+                    DYABLO_ASSERT_KOKKOS_DEBUG(ns.size()>0, "Neighbor not found");
                     const OctantIndex& iOct_other = ns[0];
                     level_t target_level_n = oct_getlevel(local_octs_coord, ghost_octs_coord, iOct_other);;
                     uint32_t im = markers.find(OctantIndex::OctantIndex_to_iOctLocal(iOct_other, nbOcts));
@@ -198,12 +197,12 @@ void adapt_clean(   const LightOctree_hashmap& lmesh,
         if(iOct.isGhost) return; // Don't modify ghosts
 
         int marker = markers.value_at(idx);
-        assert( marker==-1 || marker==1 );
+        DYABLO_ASSERT_KOKKOS_DEBUG( marker==-1 || marker==1, "Invalid marker" );
         // Remove partial octants coarsening        
         if(marker==1 ||  ( marker==-1 && is_full_coarsening(lmesh, local_octs_coord, ghost_octs_coord, markers, iOct)))
         { 
             [[maybe_unused]] auto res = markers_out.insert(iOct_local, marker);
-            assert(res.success());
+            DYABLO_ASSERT_KOKKOS_DEBUG(res.success(), "Could not insert in Kokkos::UnorderdMap");
         }
     });
 
@@ -218,7 +217,7 @@ bool need_refine_to_balance(const LightOctree_hashmap& lmesh,
                         const markers_device_t& markers,
                         const OctantIndex& iOct)
 {
-    assert(!iOct.isGhost);
+    DYABLO_ASSERT_KOKKOS_DEBUG(!iOct.isGhost, "need_refine_to_balance : iOct cannot be ghost");
 
     uint32_t nbOcts = lmesh.getNumOctants();
 
@@ -283,7 +282,7 @@ bool adapt_21balance_step(  const LightOctree_hashmap& lmesh,
             modified_local++;
             marker++;
 
-            assert(marker<=1);
+            DYABLO_ASSERT_KOKKOS_DEBUG(marker<=1, "Marker > 1 after need_refine update");
         }
 
         if(marker != 0)
@@ -357,7 +356,7 @@ oct_view_t adapt_apply( const oct_view_t& local_octs_coord,
             else
             {
                 n_new_octants = 0;
-                assert(false); // Only +1 -1 allowed in markers
+                DYABLO_ASSERT_KOKKOS_DEBUG(false, "Only +1 -1 allowed in markers");
             }
         }
         
@@ -402,7 +401,7 @@ oct_view_t adapt_apply( const oct_view_t& local_octs_coord,
         }
 
         iOct_new += n_new_octants;
-        assert(iOct_new <= new_size);
+        DYABLO_ASSERT_KOKKOS_DEBUG(iOct_new <= new_size, "Too many new octants during adapt::apply scan");
     });
 
     return local_octs_coord_out;
@@ -447,9 +446,9 @@ std::set< std::pair<int, uint32_t> > discover_ghosts(
         auto it = std::upper_bound( morton_intervals.begin(), morton_intervals.end(), morton );
         // neighbor_rank: last interval value <= morton
         uint32_t neighbor_rank = it - morton_intervals.begin() - 1;
-        assert( neighbor_rank<mpi_comm.MPI_Comm_size() );
-        assert( morton_intervals[neighbor_rank] <= morton);
-        assert( morton_intervals[neighbor_rank+1] > morton);
+        DYABLO_ASSERT_HOST_DEBUG( neighbor_rank<mpi_comm.MPI_Comm_size(), "find_rank : rank out of range" );
+        DYABLO_ASSERT_HOST_DEBUG( morton_intervals[neighbor_rank] <= morton && morton_intervals[neighbor_rank+1] > morton,
+            "find_rank : morton out of interval : " << morton << " not in [" << morton_intervals[neighbor_rank] << "," << morton_intervals[neighbor_rank+1] << "[" );
         return neighbor_rank;
     };
 
@@ -468,7 +467,7 @@ std::set< std::pair<int, uint32_t> > discover_ghosts(
         level_t level = local_octs_coord(octs_coord_id::LEVEL, iOct);
         coord_t max_i = std::pow(2, level);
 
-        assert(find_rank(get_morton_smaller(ix,iy,iz,level,level_max)) == mpi_rank);
+        DYABLO_ASSERT_HOST_DEBUG(find_rank(get_morton_smaller(ix,iy,iz,level,level_max)) == mpi_rank, "find_rank() should return local rank for local octants");
 
         int dz_max = (ndim == 2)? 0:1;
         for( int dz=-dz_max; dz<=dz_max; dz++ )
@@ -595,13 +594,14 @@ std::vector<morton_t> compute_current_morton_intervals(const AMRmesh_hashmap& me
     uint64_t morton_first = mesh.getNumOctants() == 0 ? 0 : get_morton_smaller(local_octs_coord, 0, level_max);
     std::vector<morton_t> morton_intervals(mpi_size+1);
     mpi_comm.MPI_Allgather( &morton_first, morton_intervals.data(), 1 );
-    assert( morton_intervals[0] == 0 );
+    DYABLO_ASSERT_HOST_RELEASE( morton_intervals[0] == 0, "First interval doesn,'t start at 0" );
     morton_intervals[mpi_size] = std::numeric_limits<morton_t>::max();
     for(int i=mpi_size-1; i>=1; i--)
     {
         if( morton_intervals[i]==0 )
             morton_intervals[i] = morton_intervals[i+1];
-        assert( morton_intervals[i] <= morton_intervals[i+1] );
+        DYABLO_ASSERT_HOST_RELEASE( morton_intervals[i] <= morton_intervals[i+1], 
+        "morton interval upper bound is smaller than lower bound. Rank " << i << " : [" << morton_intervals[i] << "," << morton_intervals[i+1] << "[" );
     }   
 
     return morton_intervals;
@@ -738,7 +738,8 @@ std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(level_t level)
                 // Truncate suboctants to keep `level` levels of suboctants compact
                 morton_intervals[rank] = (morton_intervals[rank] >> (3*level)) << (3*level);
             }
-            assert(morton_intervals[mpi_rank] <= morton_intervals[mpi_rank+1] );
+            DYABLO_ASSERT_HOST_RELEASE( morton_intervals[mpi_rank] <= morton_intervals[mpi_rank+1], 
+        "morton interval upper bound is smaller than lower bound. Rank " << mpi_rank << " : [" << morton_intervals[mpi_rank] << "," << morton_intervals[mpi_rank+1] << "[" );
         }
 
         std::cout << "Rank " << this->getRank() << ": new morton interval [" << morton_intervals[mpi_rank] << ", " << morton_intervals[mpi_rank+1] << "[" << std::endl;
@@ -814,9 +815,11 @@ std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(level_t level)
 
         if( getNumOctants() != 0 )
         {
-        std::cout << "Rank " << this->getRank() << ": actual morton interval [" << get_morton_smaller(local_octs_coord, 0, level_max) << ", " << get_morton_smaller(local_octs_coord, getNumOctants()-1, level_max) << "]" << std::endl;
-        assert( get_morton_smaller(local_octs_coord, 0, level_max) >= morton_intervals[mpi_rank] );
-        assert( get_morton_smaller(local_octs_coord, getNumOctants()-1, level_max) < morton_intervals[mpi_rank+1] );
+            std::cout << "Rank " << this->getRank() << ": actual morton interval [" << get_morton_smaller(local_octs_coord, 0, level_max) << ", " << get_morton_smaller(local_octs_coord, getNumOctants()-1, level_max) << "]" << std::endl;
+            DYABLO_ASSERT_HOST_RELEASE( get_morton_smaller(local_octs_coord, 0, level_max) >= morton_intervals[mpi_rank], 
+                "First octant not in morton interval. Rank " << mpi_rank << ", morton " << get_morton_smaller(local_octs_coord, 0, level_max) << " : [" << morton_intervals[mpi_rank] << "," << morton_intervals[mpi_rank+1] << "[" );
+            DYABLO_ASSERT_HOST_RELEASE( get_morton_smaller(local_octs_coord, getNumOctants()-1, level_max) >= morton_intervals[mpi_rank+1], 
+                "Last octant not in morton interval. Rank " << mpi_rank << ", morton " << get_morton_smaller(local_octs_coord, getNumOctants()-1, level_max) << " : [" << morton_intervals[mpi_rank] << "," << morton_intervals[mpi_rank+1] << "[" );
         }
         else 
         {
@@ -844,7 +847,7 @@ std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(level_t level)
     //     iter++;
     // }
 
-    assert(this->getNumOctants() > 0); // Process cannot be empty
+    DYABLO_ASSERT_HOST_RELEASE(this->getNumOctants() > 0, "Rank " << mpi_rank << " has 0 octant");
 
     pmesh_epoch++;
 
