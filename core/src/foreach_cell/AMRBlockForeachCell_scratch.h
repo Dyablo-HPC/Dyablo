@@ -113,7 +113,7 @@ public:
     uint32_t bx = cdata.bx+2*gx;
     uint32_t by = cdata.by+2*gy;
     uint32_t bz = cdata.bz+2*gz;
-    assert( cdata.ndim != 2 || bz==1 );
+    DYABLO_ASSERT_HOST_RELEASE( cdata.ndim != 2 || bz==1, "bz should be 1 in 2D" );
 
     scratch_size += DataArrayBlock::shmem_size(bx*by*bz, nvars, 1);
     return CellArray_patch({ DataArrayBlock(), bx, by, bz, 1, fm }, nvars);

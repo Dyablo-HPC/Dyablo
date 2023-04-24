@@ -47,9 +47,9 @@ template< int ndim, bool enable_different_block=true, typename Func >
 KOKKOS_INLINE_FUNCTION
 int foreach_smaller_neighbor( const CellIndex& iCell, const CellIndex::offset_t& offset, const CellArray_global_ghosted::Shape_t& array, const Func& apply_neighbor )
 {
-  assert( iCell.level_diff() == -1 );
-  // enable_different_block must be activated for cell-based or odd block size
-  assert( enable_different_block || ( iCell.bx%2 == 0 && iCell.by%2 == 0 && iCell.bz%2 == 0 ) );
+  DYABLO_ASSERT_KOKKOS_DEBUG( iCell.level_diff() == -1, "iCell must be smaller neighbor for foreach_smaller_neighbor" );
+  DYABLO_ASSERT_KOKKOS_DEBUG( enable_different_block || ( iCell.bx%2 == 0 && iCell.by%2 == 0 && iCell.bz%2 == 0 ),
+    "enable_different_block must be activated for cell-based or odd block size" );
 
   int di_count = (offset[IX]==0)?2:1;
   int dj_count = (offset[IY]==0)?2:1;
@@ -86,8 +86,8 @@ KOKKOS_INLINE_FUNCTION
 int foreach_sibling( const CellIndex& iCell, const CellArray_global_ghosted::Shape_t& array, const Func& apply_sibling )
 {
   // enable_different_block must be activated for cell-based or odd block size
-  assert( enable_different_block || ( iCell.bx%2 == 0 && iCell.by%2 == 0 && iCell.bz%2 == 0 ) );
-
+DYABLO_ASSERT_KOKKOS_DEBUG( enable_different_block || ( iCell.bx%2 == 0 && iCell.by%2 == 0 && iCell.bz%2 == 0 ),
+    "enable_different_block must be activated for cell-based or odd block size" );
   int dk_count = ndim==3?2:1;
   for( int8_t dk=0; dk<dk_count; dk++ )
   for( int8_t dj=0; dj<2; dj++ )
