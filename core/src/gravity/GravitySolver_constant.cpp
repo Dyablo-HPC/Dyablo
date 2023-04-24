@@ -16,9 +16,8 @@ public:
                 ForeachCell& foreach_cell,
                 Timers& timers )
   { 
-    GravityType gtype = configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_CST_SCALAR);
-    if(gtype != GRAVITY_CST_SCALAR)
-      throw std::runtime_error("GravitySolver_constant must have gravity_type=constant_scalar");
+    [[maybe_unused]] GravityType gtype = configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_CST_SCALAR);
+    DYABLO_ASSERT_HOST_RELEASE( gtype == GRAVITY_CST_SCALAR, "GravitySolver_cg must have gravity_type=constant_scalar" );
   }
   ~GravitySolver_constant(){}
   void update_gravity_field( UserData& U )
