@@ -5,6 +5,7 @@
 #include <cassert>
 
 #include "kokkos_shared.h"
+#include "utils/misc/Dyablo_assert.h"
 
 #include "OpenMPTimer.h"
 #ifdef KOKKOS_ENABLE_CUDA
@@ -106,7 +107,7 @@ Timers::Timer::Timer(const std::string& name)
 
 void Timers::Timer::start()
 {
-  assert(!data->running);
+  DYABLO_ASSERT_HOST_RELEASE(!data->running, "Attempting to start a timer that is already running : `" << name << "`");
   data->running=true;
 
   Kokkos::Profiling::pushRegion(this->name);
@@ -118,7 +119,7 @@ void Timers::Timer::start()
 
 void Timers::Timer::stop()
 {
-  assert(data->running);
+  DYABLO_ASSERT_HOST_RELEASE(data->running, "Attempting to stop a timer that is not running : `" << name << "`");
   data->running=false;
 
   Kokkos::Profiling::popRegion();
@@ -130,7 +131,7 @@ void Timers::Timer::stop()
 
 double Timers::Timer::elapsed(Timers::Timer::Elapsed_mode_t em) const
 {
-  assert(!data->running);
+  DYABLO_ASSERT_HOST_RELEASE(!data->running, "Attempting to fetch a timer's elapsed time but the timer is still running : `" << name << "`");
 
   if(em == ELAPSED_CPU)
     return data->omp_timer.elapsed();
@@ -140,7 +141,7 @@ double Timers::Timer::elapsed(Timers::Timer::Elapsed_mode_t em) const
   #endif
   else
   {
-    assert(false); // Unknown/incompatible elapsed mode
+    DYABLO_ASSERT_HOST_RELEASE(false, "Unknown/incompatible elapsed mode" );
     return 0;
   }
 }

@@ -38,7 +38,7 @@ public:
      ***/
     const FieldView_t& getShape() const
     {
-        assert( field_views.size() > 0 );
+        DYABLO_ASSERT_HOST_RELEASE( field_views.size() > 0, "Cannot getShape() of an empty UserData" );
         return field_views.begin()->second;
     }
 
@@ -52,8 +52,7 @@ public:
 
         for( const std::string& name : names )
         {
-            if( this->has_field(name) )
-                throw std::runtime_error(std::string("UserData::new_fields() - field already exists : ") + name);
+            DYABLO_ASSERT_HOST_RELEASE( !this->has_field(name) , "UserData::new_fields() - field already exists : " << name);
             std::string view_name = std::string("UserData_") + name;
             field_views.emplace( name, foreach_cell.allocate_ghosted_array( view_name, fm_1 ) );
         }
@@ -78,8 +77,7 @@ public:
     /// Get View associated with field name
     const FieldView_t& getField(const std::string& name) const
     {
-        if( !this->has_field(name)  )
-            throw std::runtime_error(std::string("UserData::getField() - field doesn't exist : ") + name);
+        DYABLO_ASSERT_HOST_RELEASE( this->has_field(name), "UserData::getField() - field doesn't exist : " << name);
 
         return field_views.at(name);
     }
@@ -87,8 +85,7 @@ public:
     /// Change field name from src to dest. If dest already exist it is replaced
     void move_field( const std::string& dest, const std::string& src )
     {
-        if( !this->has_field(src)  )
-            throw std::runtime_error(std::string("UserData::move_field() - field doesn't exist : ") + src);
+        DYABLO_ASSERT_HOST_RELEASE( this->has_field(src), "UserData::move_field() - field doesn't exist : " << src);
 
         field_views[ dest ] = field_views.at( src );
         field_views.erase( src );
@@ -163,10 +160,10 @@ public:
         {
             fm.activate( info.id );
             int index = fm[info.id];
-            assert( index < MAX_FIELD_COUNT );
+            DYABLO_ASSERT_HOST_RELEASE( index < MAX_FIELD_COUNT, "fm index out of bound" );
             field_views[index] = user_data.getField( info.name );
         }
-        assert( fields_info.size() == (size_t)fm.nbfields() ); // fields_info contains duplicate
+        DYABLO_ASSERT_HOST_RELEASE( fields_info.size() == (size_t)fm.nbfields(), "fields_info contains duplicate" );
     }
 
     KOKKOS_INLINE_FUNCTION

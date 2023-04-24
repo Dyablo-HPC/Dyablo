@@ -12,6 +12,7 @@
 
 #include "utils/mpi/GlobalMpiSession.h"
 #include "utils/config/inih/ini.h"
+#include "utils/misc/Dyablo_assert.h"
 #include "enums.h"
 #include "named_enum.h"
 #include <cassert>
@@ -38,18 +39,8 @@ type convert_to( const std::string& str )
   T res;
   value_stream >> res;
 
-  if( value_stream.fail() ) 
-  {
-    std::ostringstream sst;
-    sst << "Parse error. typeid : " << typeid(T).name() << ", Input : `" << str << "` -> " << res;
-    throw std::runtime_error( sst.str() );
-  }
-  if( !value_stream.eof() ) 
-  {
-    std::ostringstream sst;
-    sst << "Trailing junk on parse. typeid : " << typeid(T).name() << ", Input : `" << str << "` -> " << res;
-    throw std::runtime_error( sst.str() );
-  }
+  DYABLO_ASSERT_HOST_RELEASE( !value_stream.fail(), "Parse error. typeid : " << typeid(T).name() << ", Input : `" << str << "` -> " << res );
+  DYABLO_ASSERT_HOST_RELEASE( value_stream.eof(), "Trailing junk on parse. typeid : " << typeid(T).name() << ", Input : `" << str << "` -> " << res );
 
   return res;
 }
@@ -82,7 +73,7 @@ inline bool convert_to<bool>( const std::string& str )
       !str.compare("off"))
     return false;
   else
-    throw std::runtime_error( std::string("Could not parse to boolean. Input : `") + str + "`" );
+    DYABLO_ASSERT_HOST_RELEASE( false, "Could not parse to boolean. Input : `" << str << "`" );
 }
 
 /**
@@ -111,7 +102,7 @@ type convert_to( const std::string& str )
     {
       sst << "- `" << name << "` -> " << named_enum<T>::from_string( name ) << std::endl; 
     }
-    throw std::runtime_error( sst.str() );
+    DYABLO_ASSERT_HOST_RELEASE( false, sst.str() );
   }
 }
 
@@ -158,7 +149,7 @@ type to_string( const T& t )
     {
       sst << "- `" << name << "` -> " << named_enum<T>::from_string( name ) << std::endl; 
     }
-    throw std::runtime_error( sst.str() );
+    DYABLO_ASSERT_HOST_RELEASE( false, sst.str() );
   } 
 }
 
@@ -181,8 +172,8 @@ public:
   ConfigMap(const char* str)
   {
     int error = ini_parse_string(str, valueHandler, this);
-    if( error != 0 ) throw std::runtime_error(std::string("Error in .ini file line ") + std::to_string(error));
-  
+
+    DYABLO_ASSERT_HOST_RELEASE( error == 0, "Error in .ini file line " << error );
     this->print_config = this->getValue<bool>( "ini", "print_config", false );
   }
 
@@ -203,8 +194,7 @@ public:
       
       // open file and go to the end to get file size in bytes
       std::ifstream filein(filename.c_str(), std::ifstream::ate);
-      if( !filein )
-        throw std::runtime_error("Could not open .ini file : `" + filename + "`");
+      DYABLO_ASSERT_HOST_RELEASE(filein, "Could not open .ini file : `" + filename + "`");
       int file_size = filein.tellg();
       
       filein.seekg(0); // rewind
@@ -273,7 +263,8 @@ public:
     }
 
     T res = getValue<T>( section, name );
-    assert( is_present || default_value == res );
+    DYABLO_ASSERT_HOST_RELEASE( is_present || default_value == res, 
+      "Rounding error when writing defaut value in .ini. default was " << default_value << "but ended up `" << _values[section][name].value << "` in .ini"  );
 
     return res;
   }
@@ -285,10 +276,7 @@ public:
   T getValue( std::string section, std::string name)
   {
     bool is_present = hasValue(section, name);
-    if( !is_present )
-    {
-      throw std::runtime_error( std::string("Error while parsing .ini ") + section + "/" + name + " -- Value not found and no default was provided." );
-    }
+    DYABLO_ASSERT_HOST_RELEASE( is_present, "Error while parsing .ini " << section << "/" << name << " -- Value not found and no default was provided." )
     
     section = tolower(section);
     name = tolower(name);
@@ -300,7 +288,7 @@ public:
     }
     catch (const std::exception& e)
     {
-      throw std::runtime_error( std::string("Error while parsing .ini ") + section + "/" + name + " -- " + e.what() );
+      DYABLO_ASSERT_HOST_RELEASE( false, "Error while parsing .ini " << section << "/" << name << " -- " << e.what())
     }
 
     if( print_config )
