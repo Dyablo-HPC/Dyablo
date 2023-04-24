@@ -2,7 +2,7 @@
 
 #include <cassert>
 #include <utility>
-
+#include "utils/misc/Dyablo_assert.h"
 #include "amr/LightOctree_base.h"
 #include "enums.h"
 
@@ -255,8 +255,8 @@ public:
   KOKKOS_INLINE_FUNCTION
   logical_coord_t cell_count( ComponentIndex3D idim, level_t n ) const
   {
-      assert( n>=level_min );
-      assert( n < sizeof(logical_coord_t)*8 ); // 
+      DYABLO_ASSERT_KOKKOS_DEBUG( n>=level_min, "Cannot ask cell_count with level < level_min" );
+      DYABLO_ASSERT_KOKKOS_DEBUG( n < sizeof(logical_coord_t)*8, "Overflow : cell_count too big for logical_coord_t" );
       return coarse_grid_size[idim] << (n-level_min);
   }
 
