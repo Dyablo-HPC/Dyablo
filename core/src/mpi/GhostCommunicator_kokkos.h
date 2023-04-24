@@ -280,7 +280,8 @@ namespace GhostCommunicator_kokkos_impl{
     // with iOct rightmost index is used and has to be transposed
 
     // Verify Ghost allocation has the right size
-    assert( Ughost.extent(iOct_pos) == Ughost_right_iOct.extent(DataArray_t::rank-1) );
+    DYABLO_ASSERT_HOST_RELEASE( Ughost.extent(iOct_pos) == Ughost_right_iOct.extent(DataArray_t::rank-1),
+      "Ughost is not allocated to the expected size" );
 
     uint32_t elts_per_octs = octant_size<DataArray_t, iOct_pos>(Ughost);
 

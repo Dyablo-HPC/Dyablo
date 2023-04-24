@@ -84,7 +84,7 @@ public:
     template< typename DataArray_t>
     void exchange_ghosts( const DataArray_t& U, const DataArray_t& Ughost) const
     {
-        assert(Ughost.size() == 0);
+        DYABLO_ASSERT_HOST_RELEASE(Ughost.size() == 0, "Ghost array should be empty with GhostCommunicator_serial");
         /* Nothing to do */
     } 
 };
