@@ -2097,7 +2097,7 @@ public:
     }
     else
     {
-      assert("non conservative not implemented in 3D");
+      DYABLO_ASSERT_KOKKOS_DEBUG(false, "non conservative not implemented in 3D");
       //compute_fluxes_and_update_3d_non_conservative(member);
     }
   } // compute_fluxes_and_update_3d

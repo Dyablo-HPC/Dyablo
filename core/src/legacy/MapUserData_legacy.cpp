@@ -203,7 +203,7 @@ void apply_aux( const AMR_Remapper& remap,
       {
         fill_cell_newRefined(d, mapping, iCell);
       }
-      else assert(false);
+      else DYABLO_ASSERT_KOKKOS_DEBUG(false, "Mapping doesn't respect 2:1 balance");
     });
   });
 

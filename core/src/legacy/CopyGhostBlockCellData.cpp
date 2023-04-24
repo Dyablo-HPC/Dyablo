@@ -149,7 +149,7 @@ KOKKOS_INLINE_FUNCTION get_pos_t get_pos( const Functor& f, Functor::index_t ind
     }
     else //if( dir == DIR_Z )
     {
-        assert( (dir!=DIR_Z) or (ndim!=2) ); // Cannot use DIR_Z when dim == 2
+        static_assert( (dir!=DIR_Z) or (ndim!=2), "Cannot use DIR_Z when dim == 2" );
         dim1        = IX;
         dim2        = IY;
         dim_ghosts  = IZ;
@@ -210,8 +210,8 @@ KOKKOS_INLINE_FUNCTION get_pos_t get_pos( const Functor& f, Functor::index_t ind
                 res.neighbor_pos[current_dim] = 1;
                 pos_in_neighbor_aux[current_dim] -= f.blockSizes[current_dim];
             }
-            // pos_in_neighbor_aux should be inside neighbor domain
-            assert( pos_in_neighbor_aux[current_dim] >=0 && pos_in_neighbor_aux[current_dim] < (int32_t)f.blockSizes[current_dim] );
+            DYABLO_ASSERT_KOKKOS_DEBUG( pos_in_neighbor_aux[current_dim] >=0 && pos_in_neighbor_aux[current_dim] < (int32_t)f.blockSizes[current_dim],
+                "pos_in_neighbor_aux is outside neighbor domain" );
         }
         
         // Cast from signed to unsigned : pos_in_neighbor_aux should be inside domain (see assert above)
@@ -221,9 +221,12 @@ KOKKOS_INLINE_FUNCTION get_pos_t get_pos( const Functor& f, Functor::index_t ind
             static_cast<uint32_t>(pos_in_neighbor_aux[IZ])
         };
 
-        assert( res.pos_in_local[IX] == res.neighbor_pos[IX]*(int32_t)f.blockSizes[IX] + (int32_t)res.pos_in_neighbor[IX] );
-        assert( res.pos_in_local[IY] == res.neighbor_pos[IY]*(int32_t)f.blockSizes[IY] + (int32_t)res.pos_in_neighbor[IY] );
-        assert( res.pos_in_local[IZ] == res.neighbor_pos[IZ]*(int32_t)f.blockSizes[IZ] + (int32_t)res.pos_in_neighbor[IZ] );
+        DYABLO_ASSERT_KOKKOS_DEBUG( res.pos_in_local[IX] == res.neighbor_pos[IX]*(int32_t)f.blockSizes[IX] + (int32_t)res.pos_in_neighbor[IX],
+            "Internal error : mismatch betwen pos_in_local and pos_in_neighbor in direction X" );
+        DYABLO_ASSERT_KOKKOS_DEBUG( res.pos_in_local[IY] == res.neighbor_pos[IY]*(int32_t)f.blockSizes[IY] + (int32_t)res.pos_in_neighbor[IY],
+            "Internal error : mismatch betwen pos_in_local and pos_in_neighbor in direction Y" );
+        DYABLO_ASSERT_KOKKOS_DEBUG( res.pos_in_local[IZ] == res.neighbor_pos[IZ]*(int32_t)f.blockSizes[IZ] + (int32_t)res.pos_in_neighbor[IZ],
+            "Internal error : mismatch betwen pos_in_local and pos_in_neighbor in direction Z" );
     } 
     else 
         // Cell outside of current border : skip
@@ -359,7 +362,8 @@ KOKKOS_INLINE_FUNCTION CellData get_cell_data_smaller( const Functor& f, const L
     c0_neighbor[IZ] = c0_neighbor[IZ] * 2;
 
     // We Assume block size is pair : copy from only one neighbor suboctant
-    assert( f.blockSizes[IX]%2 == 0 && f.blockSizes[IY]%2 == 0 && ( ndim ==2 || f.blockSizes[IZ]%2 == 0 )  );
+    DYABLO_ASSERT_KOKKOS_DEBUG( f.blockSizes[IX]%2 == 0 && f.blockSizes[IY]%2 == 0 && ( ndim ==2 || f.blockSizes[IZ]%2 == 0 )  
+        , "This kernel require a pair block size to work, tweak bx, by, bz or use another kernel" );
     // Find which sub-octant contains the cell to fill
     int8_t suboctant = -1;
     for( size_t i=0; i<neighs.size(); i++ )
@@ -381,7 +385,7 @@ KOKKOS_INLINE_FUNCTION CellData get_cell_data_smaller( const Functor& f, const L
             break;
         }        
     }
-    assert( suboctant != -1 ); // Could not find suboctant
+    DYABLO_ASSERT_KOKKOS_DEBUG( suboctant != -1, "Could not find suboctant when fetching smaller neighbor" );
 
     CellData res = {};
 
@@ -562,13 +566,12 @@ KOKKOS_INLINE_FUNCTION CellData get_cell_data( const Functor& f, uint32_t iOct_l
     }
 
     //LightOctree::NeighborList neighbors = f.lmesh.findNeighbors({iOct_global,false}, neighbor);
-    if(ndim==2)
-        assert(neighbor[IZ]==0);
+    DYABLO_ASSERT_KOKKOS_DEBUG(ndim==3 || neighbor[IZ]==0, "Cannot fetch neighbor in Z direction in 2D");
     LightOctree::NeighborList neighbors = neighbor_cache(neighbor[IX]+1,neighbor[IY]+1,neighbor[IZ]+1);
 
     uint32_t oct_level = f.lmesh.getLevel({iOct_global,false});
     
-    assert(neighbors.size() > 0); //Should have at least one neighbor (Boundaries already taken care of)
+    DYABLO_ASSERT_KOKKOS_DEBUG(neighbors.size() > 0, "Could not find neighbor");
 
     // All neighbors are on same level as neighbor[0]
     uint32_t neigh_level = f.lmesh.getLevel(neighbors[0]);
@@ -746,8 +749,8 @@ KOKKOS_INLINE_FUNCTION void fill_ghosts(const Functor& f, Functor::team_policy_t
         // compute face X,left (left)
         fill_ghost_faces<ndim, DIR_X>(f, iOct_g, index, neighbor_cache);
         fill_ghost_faces<ndim, DIR_Y>(f, iOct_g, index, neighbor_cache);
-        if(ndim == 3)
-        fill_ghost_faces<ndim, DIR_Z>(f, iOct_g, index, neighbor_cache);          
+        if constexpr (ndim == 3)
+            fill_ghost_faces<ndim, DIR_Z>(f, iOct_g, index, neighbor_cache);          
     }); // end TeamVectorRange
 
     if( f.lmesh.getBound({iOct,false}) ) //This octant has ghosts outside of global domain
@@ -759,7 +762,7 @@ KOKKOS_INLINE_FUNCTION void fill_ghosts(const Functor& f, Functor::team_policy_t
                 // compute face X,left (left)
                 fill_boundary_faces<ndim, DIR_X>(f, iOct_g, index);
                 fill_boundary_faces<ndim, DIR_Y>(f, iOct_g, index);
-                if(ndim == 3)
+                if constexpr(ndim == 3)
                     fill_boundary_faces<ndim, DIR_Z>(f, iOct_g, index); 
             });
     }
