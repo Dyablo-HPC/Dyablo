@@ -33,9 +33,8 @@ struct AnalyticalFormula_riemann2d : public AnalyticalFormula_base{
     y0(configMap.getValue<real_t>("riemann2d", "y0", 0.5)),
     test_case(configMap.getValue<int>("riemann2d", "test_case", 1)-1)
   {
-    //assert(ndim == 2);
-    assert(test_case >= 0);
-    assert(test_case < 19);
+    DYABLO_ASSERT_HOST_RELEASE( test_case >= 0 && test_case < 19, 
+      "There are 19 riemann test cases, you used riemann2d/test_case = " << test_case);
   }
 
   KOKKOS_INLINE_FUNCTION

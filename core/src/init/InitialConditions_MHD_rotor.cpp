@@ -30,7 +30,7 @@ struct AnalyticalFormula_MHD_rotor : public AnalyticalFormula_base{
     ymid(0.5*(ymin+ymax))
     
   {
-    assert(ndim == 2);
+    DYABLO_ASSERT_HOST_RELEASE(ndim == 2, "Initial conditions only for 2D");
   }
 
 

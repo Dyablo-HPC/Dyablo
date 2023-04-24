@@ -51,7 +51,7 @@ struct AnalyticalFormula_RayleighTaylor : public AnalyticalFormula_base{
     seed(configMap.getValue<int>("RT", "seed", 12345)),
     rand_pool(seed*GlobalMpiSession::get_comm_world().MPI_Comm_rank()+1)
   {
-    assert(ndim == 2);
+    DYABLO_ASSERT_HOST_RELEASE(ndim == 2, "Initial conditions only for 2D");
 
     gz = (ndim == 2 ? configMap.getValue<real_t>("gravity", "gy", -0.1)
                     : configMap.getValue<real_t>("gravity", "gz", -0.1));

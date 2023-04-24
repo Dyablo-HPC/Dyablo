@@ -40,7 +40,7 @@ struct AnalyticalFormula_implode : public AnalyticalFormula_base{
     rho_in(configMap.getValue<real_t>("implode", "rho_in", 0.125)),
     rho_out(configMap.getValue<real_t>("implode", "rho_out", 1.0))
   {
-    assert(ndim == 2);
+    DYABLO_ASSERT_HOST_RELEASE(ndim == 2, "Initial conditions only for 2D");
   }
 
 
