@@ -26,7 +26,7 @@ void copyGhostBlockCellData(const Uin_t& Uin,
   }
   else if( iCell_Uin.level_diff() >= 0 ) 
   {
-    assert( iCell_Uin.is_valid() );
+    DYABLO_ASSERT_KOKKOS_DEBUG( iCell_Uin.is_valid(), "Invalid iCell" );
     // Neighbor is bigger or same size : copy the only neighbor cell
     ConsState u;
     getConservativeState<ndim>( Uin, iCell_Uin, u );
@@ -34,7 +34,7 @@ void copyGhostBlockCellData(const Uin_t& Uin,
   }
   else if( iCell_Uin.level_diff() == -1 ) 
   {
-    assert( iCell_Uin.is_valid() );
+    DYABLO_ASSERT_KOKKOS_DEBUG( iCell_Uin.is_valid(), "Invalid iCell" );
     ConsState u{}, u_subcell{};
     int nbCells =
     foreach_sibling<ndim>( iCell_Uin, Uin_shape, 
@@ -45,7 +45,7 @@ void copyGhostBlockCellData(const Uin_t& Uin,
     });
     setConservativeState<ndim>( Ugroup, iCell_Ugroup, u/nbCells );
   }
-  else assert(false); // Should not happen
+  else DYABLO_ASSERT_KOKKOS_DEBUG(false, "2:1 balance error : level_diff() is not -1, 0, 1");
 }
 
 }// namespace dyablo
