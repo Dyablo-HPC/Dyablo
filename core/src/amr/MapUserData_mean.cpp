@@ -23,27 +23,12 @@ public:
     this->lmesh_old = this->foreach_cell.get_amr_mesh().getLightOctree();
   }
 
-  void remap( UserData& U ) override
+
+  void remap( ForeachCell::CellArray_global_ghosted& Uin, ForeachCell::CellArray_global_ghosted& Uout ) override
   {
     using CellIndex = ForeachCell::CellIndex;
     int ndim = foreach_cell.getDim();
-    int nbfields = U.nbFields();
-
-    auto original_fields = U.getEnabledFields();
-
-    std::vector< UserData::FieldAccessor_FieldInfo > old_fields, new_fields;
-    for( const std::string& name : original_fields )
-    {
-      std::string name_new = name + "_remapped";
-      U.new_fields({name_new});
-      
-      VarIndex last_index = (VarIndex)old_fields.size();
-      old_fields.push_back( {name, last_index} );
-      new_fields.push_back( {name+"_remapped", last_index} );
-    }
-
-    const UserData::FieldAccessor Uin = U.getAccessor( old_fields );
-    UserData::FieldAccessor Uout = U.getAccessor( new_fields );
+    int nbfields = Uin.nbfields();
 
     CellIndexRemapper remapper( this->lmesh_old, this->foreach_cell );
 
@@ -72,12 +57,7 @@ public:
                 Uout.at_ivar( iCell_Uout, ivar ) += Uin.at_ivar( iCell_Uin_n, ivar ) / nsubcells;
             }
       }
-    });
-
-    for( const std::string& name : original_fields )
-    {
-      U.move_field( name, name+"_remapped" );
-    }
+    });    
   }
 
 private:

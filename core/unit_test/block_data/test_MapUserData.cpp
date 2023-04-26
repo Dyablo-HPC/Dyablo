@@ -77,7 +77,7 @@ void run_test(int ndim, std::string mapUserData_id)
     foreach_cell,
     timers
   );
-  
+
   uint32_t nbCellsPerOct = bx*by*bz;
   uint32_t nbOcts = amr_mesh->getNumOctants();
 
@@ -86,56 +86,21 @@ void run_test(int ndim, std::string mapUserData_id)
   uint32_t nbfields = U.nbFields();
 
   std::cout << "Initialize User Data..." << std::endl;
+
   { // Initialize U
-    DataArrayBlock::HostMirror U_host_px = Kokkos::create_mirror_view(U.getField("px").U);
-    DataArrayBlock::HostMirror U_host_py = Kokkos::create_mirror_view(U.getField("py").U);
-    DataArrayBlock::HostMirror U_host_pz = Kokkos::create_mirror_view(U.getField("pz").U);
-    for( uint32_t iOct=0; iOct<nbOcts; iOct++ )
+    enum VarIndex_test{Px,Py,Pz};
+
+    UserData::FieldAccessor Uin( U, {{"px", Px}, {"py", Py}, {"pz", Pz}} );
+    const ForeachCell::CellMetaData& cells = foreach_cell.getCellMetaData();
+    foreach_cell.foreach_cell( "Init_U", U.getShape(),
+      KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell )
     {
-      auto oct_pos = amr_mesh->getCoordinates(iOct);
-      real_t oct_size = amr_mesh->getSize(iOct)[0];
-      
-      for( uint32_t c=0; c<nbCellsPerOct; c++ )
-      {
-        uint32_t cz = c/(bx*by);
-        uint32_t cy = (c - cz*bx*by)/bx;
-        uint32_t cx = c - cz*bx*by - cy*bx;
-
-        U_host_px(c, 0, iOct) = oct_pos[IX] + (cx+0.5)*oct_size/bx;
-        U_host_py(c, 0, iOct) = oct_pos[IY] + (cy+0.5)*oct_size/by;
-        U_host_pz(c, 0, iOct) = oct_pos[IZ] + (cz+0.5)*oct_size/bz;
-      }
-    }
-    Kokkos::deep_copy( U.getField("px").U, U_host_px );
-    Kokkos::deep_copy( U.getField("py").U, U_host_py );
-    Kokkos::deep_copy( U.getField("pz").U, U_host_pz );
-  }
-
-  // Ughost must be initialized when using MPI because coarsened blocks can use ghost values
-  // Instead of MPI communication, Ughost is directly filled with cell positions
-  { // Initialize U
-    DataArrayBlock::HostMirror U_ghost_host_px = Kokkos::create_mirror_view(U.getField("px").Ughost);
-    DataArrayBlock::HostMirror U_ghost_host_py = Kokkos::create_mirror_view(U.getField("py").Ughost);
-    DataArrayBlock::HostMirror U_ghost_host_pz = Kokkos::create_mirror_view(U.getField("pz").Ughost);
-    for( uint32_t iOct=0; iOct<amr_mesh->getNumGhosts(); iOct++ )
-    {
-      auto oct_pos = amr_mesh->getCoordinatesGhost(iOct);
-      real_t oct_size = amr_mesh->getSizeGhost(iOct)[0];
-      
-      for( uint32_t c=0; c<nbCellsPerOct; c++ )
-      {
-        uint32_t cz = c/(bx*by);
-        uint32_t cy = (c - cz*bx*by)/bx;
-        uint32_t cx = c - cz*bx*by - cy*bx;
-
-        U_ghost_host_px(c, 0, iOct) = oct_pos[IX] + (cx+0.5)*oct_size/bx;
-        U_ghost_host_py(c, 0, iOct) = oct_pos[IY] + (cy+0.5)*oct_size/by;
-        U_ghost_host_pz(c, 0, iOct) = oct_pos[IZ] + (cz+0.5)*oct_size/bz;
-      }
-    }
-    Kokkos::deep_copy( U.getField("px").Ughost, U_ghost_host_px );
-    Kokkos::deep_copy( U.getField("py").Ughost, U_ghost_host_py );
-    Kokkos::deep_copy( U.getField("pz").Ughost, U_ghost_host_pz );
+      auto c = cells.getCellCenter( iCell );
+      Uin.at(iCell, Px) = c[IX];
+      Uin.at(iCell, Py) = c[IY];
+      Uin.at(iCell, Pz) = c[IZ];
+    });
+    U.exchange_ghosts( GhostCommunicator_kokkos( amr_mesh ) );
   }
 
   std::string iomanager_id = "IOManager_hdf5";
@@ -167,7 +132,7 @@ void run_test(int ndim, std::string mapUserData_id)
   
   std::cout << "Remap user data..." << std::endl;
 
-  mapUserData->remap(U);
+  U.remap(*mapUserData);
 
   {
     io_manager->save_snapshot(U, 1, 2);
@@ -219,8 +184,7 @@ void run_test(int ndim, std::string mapUserData_id)
         }
 
         if(ndim==2)
-          expected_z = oct_size_initial/(2*bz);
-
+          expected_z = 0;
 
         EXPECT_NEAR( Uhost_px(c, 0, iOct), expected_x , 0.0001);
         EXPECT_NEAR( Uhost_py(c, 0, iOct), expected_y , 0.0001);

@@ -35,6 +35,14 @@ public:
     field_enabled[(int)id] = true;
     _nbfields++;
   }
+  constexpr void activate( VarIndex id, int field_index )
+  {
+    assert( (int)id < MAX_INDEX_COUNT );
+    id2index[(int)id] = field_index;
+    assert(!field_enabled[(int)id]);
+    field_enabled[(int)id] = true;
+    _nbfields++;
+  }
   std::set<VarIndex> enabled_fields() const
   {
     std::set<VarIndex> res;

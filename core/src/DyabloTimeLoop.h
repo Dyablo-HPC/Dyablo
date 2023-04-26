@@ -93,18 +93,24 @@ public:
     );
 
     std::string iomanager_id = configMap.getValue<std::string>("output", "backend", "IOManager_hdf5");
-    this->io_manager = IOManagerFactory::make_instance( iomanager_id,
-      configMap,
-      m_foreach_cell,
-      timers
-    );
+    if( m_enable_output )
+    {
+      this->io_manager = IOManagerFactory::make_instance( iomanager_id,
+        configMap,
+        m_foreach_cell,
+        timers
+      );
+    }
 
     std::string iomanager_checkpoint_id = configMap.getValue<std::string>("output", "checkpoint", "IOManager_checkpoint");
-    this->io_manager_checkpoint = IOManagerFactory::make_instance( iomanager_checkpoint_id,
-      configMap,
-      m_foreach_cell,
-      timers
-    );
+    if( m_enable_checkpoint )
+    {
+      this->io_manager_checkpoint = IOManagerFactory::make_instance( iomanager_checkpoint_id,
+        configMap,
+        m_foreach_cell,
+        timers
+      );
+    }
 
     
 
@@ -373,12 +379,11 @@ public:
 
         // Resize and fill U with copied/interpolated/extrapolated data
         timers.get("AMR: remap userdata").start();
+        U.remap( *mapUserData );
         
         //TODO
         //std::cout << "Resize U after remap : " << DataArrayBlock::required_allocation_size(U2.U.extent(0), U2.U.extent(1), U2.U.extent(2)) * (2/1e6) 
         //    << " -> " << DataArrayBlock::required_allocation_size(U2.U.extent(0), U2.U.extent(1), m_amr_mesh->getNumOctants()) * (2/1e6) << " MBytes" << std::endl;
-
-        mapUserData->remap( U );
 
         timers.get("AMR: remap userdata").stop();
 

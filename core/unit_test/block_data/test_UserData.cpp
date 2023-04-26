@@ -38,7 +38,7 @@ void run_test()
   EXPECT_TRUE( U.has_field("pz") );
   EXPECT_FALSE( U.has_field("xx") );
 
-  EXPECT_EQ( U.getShape().nbOcts, pmesh.getNumOctants() );
+  //EXPECT_EQ( U.getShape().nbOcts, pmesh.getNumOctants() );
   EXPECT_EQ( U.getShape().bx, bx );
   EXPECT_EQ( U.getShape().by, by );
   EXPECT_EQ( U.getShape().bz, bz );

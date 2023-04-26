@@ -393,7 +393,7 @@ public:
     timers.get("HydroUpdate_hancock").start();
 
     ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
-    const GhostedArray& U_shape = U.getShape();
+    GhostedArray::Shape_t U_shape = U.getShape();
 
     Uin_t Uin_gravity;
     if (gravity_use_field) {

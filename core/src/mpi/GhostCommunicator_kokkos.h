@@ -320,6 +320,8 @@ void GhostCommunicator_kokkos::exchange_ghosts( const DataArray_t& U, const Data
   using MPIBuffer = typename DataArray_t::HostMirror;
 #endif
 
+  assert( Ughost.extent(iOct_pos) == nbghosts_recv );
+
   int nb_proc = mpi_comm.MPI_Comm_size();
 
   // Pack send buffers from U, allocate recieve buffers
