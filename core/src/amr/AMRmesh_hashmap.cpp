@@ -446,7 +446,7 @@ std::set< std::pair<int, uint32_t> > discover_ghosts(
         auto it = std::upper_bound( morton_intervals.begin(), morton_intervals.end(), morton );
         // neighbor_rank: last interval value <= morton
         uint32_t neighbor_rank = it - morton_intervals.begin() - 1;
-        DYABLO_ASSERT_HOST_DEBUG( neighbor_rank<mpi_comm.MPI_Comm_size(), "find_rank : rank out of range" );
+        DYABLO_ASSERT_HOST_DEBUG( (int)neighbor_rank < mpi_comm.MPI_Comm_size(), "find_rank : rank out of range" );
         DYABLO_ASSERT_HOST_DEBUG( morton_intervals[neighbor_rank] <= morton && morton_intervals[neighbor_rank+1] > morton,
             "find_rank : morton out of interval : " << morton << " not in [" << morton_intervals[neighbor_rank] << "," << morton_intervals[neighbor_rank+1] << "[" );
         return neighbor_rank;
@@ -818,7 +818,7 @@ std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(level_t level)
             std::cout << "Rank " << this->getRank() << ": actual morton interval [" << get_morton_smaller(local_octs_coord, 0, level_max) << ", " << get_morton_smaller(local_octs_coord, getNumOctants()-1, level_max) << "]" << std::endl;
             DYABLO_ASSERT_HOST_RELEASE( get_morton_smaller(local_octs_coord, 0, level_max) >= morton_intervals[mpi_rank], 
                 "First octant not in morton interval. Rank " << mpi_rank << ", morton " << get_morton_smaller(local_octs_coord, 0, level_max) << " : [" << morton_intervals[mpi_rank] << "," << morton_intervals[mpi_rank+1] << "[" );
-            DYABLO_ASSERT_HOST_RELEASE( get_morton_smaller(local_octs_coord, getNumOctants()-1, level_max) >= morton_intervals[mpi_rank+1], 
+            DYABLO_ASSERT_HOST_RELEASE( get_morton_smaller(local_octs_coord, getNumOctants()-1, level_max) < morton_intervals[mpi_rank+1], 
                 "Last octant not in morton interval. Rank " << mpi_rank << ", morton " << get_morton_smaller(local_octs_coord, getNumOctants()-1, level_max) << " : [" << morton_intervals[mpi_rank] << "," << morton_intervals[mpi_rank+1] << "[" );
         }
         else 
