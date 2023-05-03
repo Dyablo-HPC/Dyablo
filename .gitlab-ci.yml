@@ -34,7 +34,8 @@ after_script:
 .rules_mr_always_branch_manual: # Create active job for merge request pipeline and manual job for branch pipeline
     rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-    - if: $CI_COMMIT_BRANCH
+    - if: $CI_COMMIT_BRANCH == 'dev'
+    - if: $CI_COMMIT_BRANCH != 'dev'
       when: manual
 
 .rules_mr_always_branch_always: # Create active job for merge and branch pipeline
