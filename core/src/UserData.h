@@ -45,8 +45,8 @@ public:
     {
         FieldView_t fields_old = fields;
 
-        if( fields.U.extent(2) != foreach_cell.get_amr_mesh().getNumOctants() 
-            || fields.Ughost.extent(2) != foreach_cell.get_amr_mesh().getNumGhosts()  ) 
+        //if( fields.U.extent(2) != foreach_cell.get_amr_mesh().getNumOctants() 
+        // || fields.Ughost.extent(2) != foreach_cell.get_amr_mesh().getNumGhosts()  ) 
         {   // AMR mesh was updated : reallocate `max_field_count` fields with right oct count
             std::cout << "Reallocate : add octs " << fields.U.extent(2) << " -> " << foreach_cell.get_amr_mesh().getNumOctants() << std::endl;
             std::cout << "Reallocate : add ghosts " << fields.Ughost.extent(2) << " -> " << foreach_cell.get_amr_mesh().getNumGhosts() << std::endl;
@@ -112,19 +112,21 @@ public:
             
             int index = first_free();
             field_index[name].index = index;
-            Kokkos::parallel_for( "zero_new_field", fields.U.extent(0)*fields.U.extent(2),
+            const auto& U = fields.U;
+            Kokkos::parallel_for( "zero_new_field", U.extent(0)*U.extent(2),
                 KOKKOS_LAMBDA( uint32_t i )
             {
-                uint32_t iCell = i%fields.U.extent(0);
-                uint32_t iOct  = i/fields.U.extent(0);
-                fields.U(iCell, index, iOct) = 0;
+                uint32_t iCell = i%U.extent(0);
+                uint32_t iOct  = i/U.extent(0);
+                U(iCell, index, iOct) = 0;
             });
-            Kokkos::parallel_for( "zero_new_field_ghost", fields.Ughost.extent(0)*fields.Ughost.extent(2),
+            const auto& Ughost = fields.Ughost;
+            Kokkos::parallel_for( "zero_new_field_ghost", Ughost.extent(0)*Ughost.extent(2),
                 KOKKOS_LAMBDA( uint32_t i )
             {
-                uint32_t iCell = i%fields.Ughost.extent(0);
-                uint32_t iOct  = i/fields.Ughost.extent(0);
-                fields.Ughost(iCell, index, iOct) = 0;
+                uint32_t iCell = i%Ughost.extent(0);
+                uint32_t iOct  = i/Ughost.extent(0);
+                Ughost(iCell, index, iOct) = 0;
             });
         }
     }
