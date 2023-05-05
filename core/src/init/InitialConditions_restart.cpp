@@ -262,7 +262,17 @@ public:
       for( std::string field : fields )
       {
         U.new_fields({field});
-        restart_file.read_view( std::string("fields/") + field, U.getField(field).U);
+        ForeachCell::CellArray_global_ghosted field_view = foreach_cell.allocate_ghosted_array( field, FieldManager(1) );
+        restart_file.read_view( std::string("fields/") + field, field_view.U);
+
+        enum VarIndex_single { Ifield };
+        UserData::FieldAccessor Ufield = U.getAccessor({{field, Ifield}});
+
+        foreach_cell.foreach_cell( "restart_copy_field", U.getShape(),
+          KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell )
+        {
+          Ufield.at( iCell, Ifield ) = field_view.at(iCell, 0);
+        });
       }      
     }
   }  
