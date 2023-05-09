@@ -43,7 +43,7 @@ public :
     KOKKOS_INLINE_FUNCTION
     id2index_t get_id2index()
     {
-        return this->fm_ivar;
+        return FieldManager( fm_ivar.nbfields() ).get_id2index();
     }
 };
 
