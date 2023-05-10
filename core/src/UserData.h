@@ -37,7 +37,7 @@ public:
      ***/
     const FieldView_t::Shape_t getShape() const
     {
-        assert( field_index.size() > 0 );
+        DYABLO_ASSERT_HOST_RELEASE( field_index.size() > 0, "Cannot getShape() of an empty UserData" );
         return fields.getShape();
     }
 
@@ -64,8 +64,8 @@ public:
     {
         if( this->nbFields() != 0 )
         {
-            assert( fields.U.extent(2) == foreach_cell.get_amr_mesh().getNumOctants() );
-            assert( fields.Ughost.extent(2) == foreach_cell.get_amr_mesh().getNumGhosts() );
+            DYABLO_ASSERT_HOST_RELEASE( fields.U.extent(2) == foreach_cell.get_amr_mesh().getNumOctants(), "UserData internal error : mismatch between allocated size and octant count" );
+            DYABLO_ASSERT_HOST_RELEASE( fields.Ughost.extent(2) == foreach_cell.get_amr_mesh().getNumGhosts(), "UserData internal error : mismatch between allocated size and ghost octant count" );
         }
         
         int needed_field_count = nbFields() + names.size();
@@ -106,7 +106,7 @@ public:
                     }
                     if( free ) return i;
                 }
-                assert(false);
+                DYABLO_ASSERT_HOST_RELEASE(false, "UserData internal error : not enough fields allocated");
                 return -1;
             };
             
@@ -238,7 +238,7 @@ public:
     FieldAccessor(const UserData& user_data, const std::vector<FieldInfo>& fields_info)
         : fields(user_data.fields)
     {
-        assert( fields_info.size() > 0 );
+        DYABLO_ASSERT_HOST_RELEASE( fields_info.size() > 0, "fields_info cannot be empty" );
 
         int i=0; 
         for( const FieldInfo& info : fields_info )
@@ -250,7 +250,7 @@ public:
             i++;
         }
         fields = user_data.fields;
-        assert( fields_info.size() == (size_t)fm_ivar.nbfields() ); // fields_info contains duplicate
+        DYABLO_ASSERT_HOST_RELEASE( fields_info.size() == (size_t)fm_ivar.nbfields(), "fields_info contains duplicate" );
     }
 
     KOKKOS_INLINE_FUNCTION
@@ -268,7 +268,7 @@ public:
     KOKKOS_INLINE_FUNCTION
     FieldView_t::Shape_t getShape() const
     {
-        assert(nbFields() > 0);
+        DYABLO_ASSERT_HOST_RELEASE(nbFields() > 0, "Cannot getShape() of an empty UserData" );
         return fields.getShape();
     }
 

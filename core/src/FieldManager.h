@@ -37,9 +37,9 @@ public:
   }
   constexpr void activate( VarIndex id, int field_index )
   {
-    assert( (int)id < MAX_INDEX_COUNT );
+    DYABLO_ASSERT_ASSERT( (int)id < MAX_INDEX_COUNT, "Too many VarIndex : id >= MAX_INDEX_COUNT" );
     id2index[(int)id] = field_index;
-    assert(!field_enabled[(int)id]);
+    DYABLO_ASSERT_ASSERT(!field_enabled[(int)id], "Field already enabled" );
     field_enabled[(int)id] = true;
     _nbfields++;
   }
