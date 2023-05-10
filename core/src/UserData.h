@@ -48,8 +48,8 @@ public:
         //if( fields.U.extent(2) != foreach_cell.get_amr_mesh().getNumOctants() 
         // || fields.Ughost.extent(2) != foreach_cell.get_amr_mesh().getNumGhosts()  ) 
         {   // AMR mesh was updated : reallocate `max_field_count` fields with right oct count
-            std::cout << "Reallocate : add octs " << fields.U.extent(2) << " -> " << foreach_cell.get_amr_mesh().getNumOctants() << std::endl;
-            std::cout << "Reallocate : add ghosts " << fields.Ughost.extent(2) << " -> " << foreach_cell.get_amr_mesh().getNumGhosts() << std::endl;
+            // std::cout << "Reallocate : add octs " << fields.U.extent(2) << " -> " << foreach_cell.get_amr_mesh().getNumOctants() << std::endl;
+            // std::cout << "Reallocate : add ghosts " << fields.Ughost.extent(2) << " -> " << foreach_cell.get_amr_mesh().getNumGhosts() << std::endl;
             this->fields = foreach_cell.allocate_ghosted_array( "UserData_fields", FieldManager(this->max_field_count) );
         }
 
