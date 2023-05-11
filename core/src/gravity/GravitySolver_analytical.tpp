@@ -59,7 +59,7 @@ public:
 
     enum VarIndex_gravity {IGX, IGY, IGZ};
 
-    UserData::FieldAccessor Uout (U, {{"gx", IGX}, {"gy", IGY}, {"gz", IGZ}});
+    UserData::FieldAccessor Uout = U.getAccessor({{"gx", IGX}, {"gy", IGY}, {"gz", IGZ}});
     ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
 
     foreach_cell.foreach_cell( "GravitySolver_analytical::update_gravity_field", Uout.getShape(), 

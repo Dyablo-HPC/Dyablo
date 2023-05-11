@@ -62,7 +62,7 @@ struct DiagosticsFunctor {
 
     enum VarIndex_diag{ ID, IE, IU, IV, IW };
 
-    UserData::FieldAccessor U ( U_, {
+    UserData::FieldAccessor U = U_.getAccessor( {
       {"rho", ID},
       {"e_tot", IE},
       {"rho_vx", IU},

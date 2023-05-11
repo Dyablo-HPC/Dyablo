@@ -107,7 +107,7 @@ by=4
     UserData U_ ( configMap, foreach_cell );
     U_.new_fields({"px","py","pz"});
     enum VarIndex_checkpoint {Ipx, Ipy, Ipz};
-    UserData::FieldAccessor U (U_, {{"px",Ipx},{"py",Ipy},{"pz",Ipz}});
+    UserData::FieldAccessor U = U_.getAccessor( {{"px",Ipx},{"py",Ipy},{"pz",Ipz}});
 
     ForeachCell::CellMetaData cells = foreach_cell.getCellMetaData();
     foreach_cell.foreach_cell("Fill U", U.getShape(), 
@@ -205,7 +205,7 @@ void test_restart()
     EXPECT_EQ( expected_oct_count , amr_mesh.getGlobalNumOctants() );
 
     enum VarIndex_restart {Ipx, Ipy, Ipz};
-    UserData::FieldAccessor U (U_, {{"px",Ipx},{"py",Ipy},{"pz",Ipz}});
+    UserData::FieldAccessor U = U_.getAccessor( {{"px",Ipx},{"py",Ipy},{"pz",Ipz}});
 
     int error_count = 0;
     ForeachCell::CellMetaData cells = foreach_cell.getCellMetaData();
