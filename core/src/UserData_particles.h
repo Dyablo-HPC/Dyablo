@@ -20,6 +20,136 @@ public:
      ***/
     class ParticleAccessor; 
     struct ParticleAccessor_AttributeInfo;
+
+    using ParticleArray_t = ParticleArray;
+    using ParticleAttribute_t = ParticleData;
+
+    class ParticleContainer
+    {
+        friend UserData_particles::ParticleAccessor;
+
+    public:
+        ParticleContainer( const ParticleContainer& ) = default;
+        ParticleContainer( ParticleContainer&& ) = default;
+        ParticleContainer( const std::string& name, const ForeachParticle& foreach_particle, uint32_t num_particles )
+          : name(name), foreach_particle(foreach_particle), particles(name, num_particles, FieldManager(0))
+        {}
+        int nbAttributes() const
+        {
+            return attribute_index.size();
+        }
+        void new_ParticleAttribute( const std::string& attribute_name )
+        {
+            int nb_new_attributes = 1;
+            int needed_attr_count = nbAttributes() + nb_new_attributes;
+            this->max_particle_count = std::max( this->max_particle_count, needed_attr_count );
+            int allocated_attr_count = nbAttributes();
+            if( needed_attr_count > allocated_attr_count )
+            {
+                ParticleData particles_new( particles, FieldManager(needed_attr_count) );
+                if( allocated_attr_count != 0 )
+                {
+                    Kokkos::deep_copy( 
+                        Kokkos::subview( particles_new.particle_data, Kokkos::ALL(), std::pair(0,allocated_attr_count) ),
+                        particles.particle_data
+                    );
+                }
+                this->particles = particles_new;
+            }
+
+            for( const std::string& name : {attribute_name} )
+            {
+                DYABLO_ASSERT_HOST_RELEASE( !has_ParticleAttribute(name), "new_ParticleAttribute() - attribute already exist : " << name );
+            
+                auto first_free = [&]() -> int
+                {
+                    for(int i=0; i<particles.nbfields(); i++)
+                    {
+                        bool free = true;
+                        for( auto& p : attribute_index )
+                        {
+                            if(p.second == i)
+                                free = false;
+                        }
+                        if( free ) return i;
+                    }
+                    DYABLO_ASSERT_HOST_RELEASE(false, "new_ParticleAttribute internal error : not enough fields allocated");
+                    return -1;
+                };
+
+                int index = first_free();
+                attribute_index[name] = index;
+                
+                foreach_particle.foreach_particle( "zero_attribute", particles,
+                    KOKKOS_LAMBDA( const ForeachParticle::ParticleIndex& iPart )
+                {
+                    particles.at_ivar(iPart, index) = 0;
+                });
+            }
+            
+        }
+        bool has_ParticleAttribute( const std::string& name ) const
+        {
+            return attribute_index.end() != attribute_index.find(name); 
+        }
+        std::set<std::string> getEnabledParticleAttributes() const
+        {
+            std::set<std::string> res;
+            for( const auto& p : attribute_index )
+            {
+                res.insert( p.first );
+            }
+            return res;
+        }
+        ParticleArray_t getParticleArray() const
+        {
+            return particles;
+        }
+        ParticleAttribute_t getParticleAttribute( const std::string& attribute_name ) const
+        {
+            ParticleAttribute_t res( particles, FieldManager(1) );
+
+            int index = attribute_index.at(attribute_name);
+
+            foreach_particle.foreach_particle( "copy_attr", particles,
+                KOKKOS_LAMBDA( const ForeachParticle::ParticleIndex& iPart )
+            {
+                res.at_ivar(iPart, 0) = particles.at_ivar( iPart, index );
+            });
+
+            return res;
+        }
+        void move_ParticleAttribute( const std::string& attr_dest, const std::string& attr_src )
+        {
+            DYABLO_ASSERT_HOST_RELEASE( this->has_ParticleAttribute(attr_src), "move_ParticleAttribute() - source attribute doesn't exist : " << attr_src);
+
+            attribute_index[ attr_dest ] = attribute_index.at(attr_src);
+            attribute_index.erase( attr_src );
+        }
+        void delete_ParticleAttribute( const std::string& attribute_name)
+        {
+            attribute_index.erase( attribute_name );
+        }
+        void distributeParticles()
+        {
+            GhostCommunicator_kokkos part_comm = foreach_particle.get_distribute_communicator( particles );
+            uint32_t nbParticles_new = part_comm.getNumGhosts();
+
+            ParticleAttribute_t particles_new( this->name, nbParticles_new, FieldManager(particles.nbfields()) );
+
+            part_comm.exchange_ghosts<0>( particles.particle_data, particles_new.particle_data );
+            part_comm.exchange_ghosts<0>( particles.particle_position, particles_new.particle_position );
+
+            this->particles = particles_new;
+        }
+
+    private:
+        std::string name;
+        ForeachParticle foreach_particle;
+        ParticleAttribute_t particles;
+        std::map<std::string, int> attribute_index;
+        int max_particle_count = 0;
+    };
     
 
 public:
@@ -28,56 +158,54 @@ public:
 
     UserData_particles( ConfigMap& configMap, ForeachCell& foreach_cell )
     :   foreach_particle( foreach_cell.get_amr_mesh(), configMap )
-    {}
-
-    using ParticleArray_t = ParticleArray;
-    using ParticleAttribute_t = ParticleData;
+    {}    
 
     /// Create a new particle array
     void new_ParticleArray( const std::string& name, uint32_t num_particles )
     {
-        if( this->has_ParticleArray(name) )
-            throw std::runtime_error(std::string("UserData_particles::new_ParticleArray() - particle array already exists : ") + name);
-        std::string view_name = std::string("UserData_Particles_") + name;
-        particle_views.emplace( name, ParticleAttributes{ParticleArray_t(name, num_particles)} );
+        DYABLO_ASSERT_HOST_RELEASE( !this->has_ParticleArray(name), "UserData_particles::new_ParticleArray() - particle array already exists : " << name );
+        particle_containers.emplace( name, ParticleContainer(name, foreach_particle, num_particles) );
     }
 
+private:
+    ParticleContainer& getParticleContainer( const std::string& array_name )
+    {
+        DYABLO_ASSERT_HOST_RELEASE( this->has_ParticleArray(array_name), "Particle array does not exist : " << array_name );
+        return particle_containers.at(array_name);
+    }
+
+    const ParticleContainer& getParticleContainer( const std::string& array_name ) const
+    {
+        DYABLO_ASSERT_HOST_RELEASE( this->has_ParticleArray(array_name), "Particle array does not exist : " << array_name );
+        return particle_containers.at(array_name);
+    }
+
+public:
     /// Create a new attribute for particle array `array_name` (must exist)
     void new_ParticleAttribute( const std::string& array_name, const std::string& attribute_name )
     {
-        const FieldManager fm_1(1);
-
-        if( this->has_ParticleAttribute(array_name, attribute_name) )
-            throw std::runtime_error(std::string("UserData_particles::new_ParticleAttribute() - particle attribute already exists : ") + attribute_name);
-
-        std::string view_name = std::string("UserData_Particles_") + array_name + "_"+ attribute_name;
-        
-        const ParticleArray_t& array = particle_views.at(array_name).array;
-        std::map<std::string, ParticleAttribute_t>& attributes = particle_views.at(array_name).attributes;
-        attributes.emplace( attribute_name, ParticleAttribute_t(array, fm_1) );
+        ParticleContainer& array = getParticleContainer( array_name );
+        DYABLO_ASSERT_HOST_RELEASE( !array.has_ParticleAttribute(attribute_name), "UserData_particles::new_ParticleAttribute() - particle attribute already exists : " << attribute_name );
+        array.new_ParticleAttribute( attribute_name );
     }
 
     /// Check if UserData_particles contains a ParticleArray with this name
     bool has_ParticleArray(const std::string& name) const
     {
-        return particle_views.end() != particle_views.find(name);
+        return particle_containers.end() != particle_containers.find(name);
     }
 
     // Check is ParticleArray `array_name` (must exist) has an attribute wiuth this name
     bool has_ParticleAttribute(const std::string& array_name, const std::string& attribute_name ) const
     {
-        if( !this->has_ParticleArray(array_name) )
-            throw std::runtime_error(std::string("UserData_particles::has_ParticleAttribute() - particle array doesn't exist : ") + array_name);
-
-        const auto & attributes = particle_views.at(array_name).attributes;
-        return attributes.end() != attributes.find(attribute_name);
+        return getParticleContainer( array_name ).has_ParticleAttribute( attribute_name );
     }
 
     /// Get identifiers for all enabled particle arrays
     std::set<std::string> getEnabledParticleArrays() const
     {
         std::set<std::string> res;
-        for( const auto& p : particle_views )
+        for( const auto& p : particle_containers )
         {
             res.insert( p.first );
         }
@@ -87,34 +215,19 @@ public:
     /// Get identifiers for all enabled attribudes of particle array `array_name`
     std::set<std::string> getEnabledParticleAttributes( const std::string& array_name ) const
     {
-        if( !this->has_ParticleArray(array_name) )
-            throw std::runtime_error(std::string("UserData_particles::getEnabledParticleAttributes() - particle array doesn't exist : ") + array_name);
-
-
-        std::set<std::string> res;
-        for( const auto& p : particle_views.at(array_name).attributes )
-        {
-            res.insert( p.first );
-        }
-        return res;
+        return getParticleContainer(array_name).getEnabledParticleAttributes();
     } 
 
     // Get particle array associated with name
-    const ParticleArray_t& getParticleArray( const std::string& array_name ) const
-    {
-        if( !this->has_ParticleArray(array_name) )
-            throw std::runtime_error(std::string("UserData_particles::new_ParticleArray() - particle array doesn't exist : ") + array_name);
-
-        return particle_views.at(array_name).array;
+    ParticleArray_t getParticleArray( const std::string& array_name ) const
+    {        
+        return getParticleContainer(array_name).getParticleArray();;
     }
     
     // Get particle attribute with name `attribute_name` from particle array `array_name`
-    const ParticleAttribute_t& getParticleAttribute( const std::string& array_name, const std::string& attribute_name ) const
+    ParticleAttribute_t getParticleAttribute( const std::string& array_name, const std::string& attribute_name ) const
     {
-        if( !this->has_ParticleAttribute(array_name, attribute_name) )
-            throw std::runtime_error(std::string("UserData_particles::getParticleAttribute() - particle attribute doesn't exist : ") + attribute_name);
-
-        return particle_views.at(array_name).attributes.at(attribute_name);
+        return getParticleContainer(array_name).getParticleAttribute(attribute_name);
     }
 
     /***
@@ -124,12 +237,7 @@ public:
      ***/
     void move_ParticleAttribute( const std::string& array_name, const std::string& attr_dest, const std::string& attr_src )
     {
-        if( !this->has_ParticleAttribute(array_name, attr_src) )
-            throw std::runtime_error(std::string("UserData_particles::move_ParticleAttribute() - particle attribute doesn't exist : ") + attr_src);
-
-        auto & attrs = particle_views.at(array_name).attributes;
-        attrs[ attr_dest ] = attrs.at(attr_src);
-        attrs.erase(attr_src);    
+        getParticleContainer(array_name).move_ParticleAttribute(attr_dest, attr_src);   
     }
 
     /***
@@ -138,10 +246,7 @@ public:
      ***/
     void delete_ParticleAttribute(const std::string& array_name, const std::string& attribute_name)
     {
-        if( !this->has_ParticleAttribute(array_name, attribute_name) )
-            throw std::runtime_error(std::string("UserData_particles::delete_ParticleAttribute() - particle attribute doesn't exist : ") + attribute_name);
-
-        particle_views.at(array_name).attributes.erase(attribute_name);
+        getParticleContainer(array_name).delete_ParticleAttribute(attribute_name);
     }
 
     /***
@@ -157,44 +262,12 @@ public:
      ***/
     void distributeParticles( const std::string& array_name )
     {
-        if( !this->has_ParticleArray(array_name) )
-            throw std::runtime_error(std::string("UserData_particles::new_ParticleArray() - particle array doesn't exist : ") + array_name);
-
-        ParticleArray_t& particle_array = particle_views.at(array_name).array;
-
-        auto attr_names_aux = this->getEnabledParticleAttributes(array_name);
-        std::vector<std::string> attr_names(attr_names_aux.begin(), attr_names_aux.end());
-        std::vector<Kokkos::View< real_t**, Kokkos::LayoutLeft >> pdata; 
-        for( const std::string& attr : attr_names )
-        {
-            pdata.push_back( this->getParticleAttribute( array_name, attr ).particle_data );
-            this->delete_ParticleAttribute(array_name, attr);
-        }
-        
-        GhostCommunicator_kokkos part_comm = foreach_particle.get_distribute_communicator( particle_array );
-        uint32_t nbParticles_new = part_comm.getNumGhosts();
-        
-        ParticleArray particle_array_new( array_name, nbParticles_new );
-        part_comm.exchange_ghosts<0>( particle_array.particle_position, particle_array_new.particle_position );
-
-        particle_array = particle_array_new;
-        
-        for( size_t i=0; i<attr_names.size(); i++ )
-        {
-            this->new_ParticleAttribute(array_name, attr_names[i]);
-            part_comm.exchange_ghosts<0>( pdata[i], getParticleAttribute(array_name, attr_names[i]).particle_data );
-            pdata[i] = Kokkos::View< real_t**, Kokkos::LayoutLeft >();
-        }
+        getParticleContainer(array_name).distributeParticles();
     }
 
 private:
     ForeachParticle foreach_particle;
-    struct ParticleAttributes
-    {
-        ParticleArray_t array;
-        std::map<std::string, ParticleAttribute_t> attributes;
-    };
-    std::map<std::string, ParticleAttributes> particle_views;
+    std::map<std::string, ParticleContainer> particle_containers;
 };
 
 struct UserData_particles::ParticleAccessor_AttributeInfo
@@ -218,53 +291,57 @@ public:
     KOKKOS_INLINE_FUNCTION
     int nbFields() const
     {
-        return m_nbFields;
+        return fm_ivar.nbfields();
     }
 
     ParticleAccessor(const UserData_particles& user_data, const std::string& array_name, const std::vector<AttributeInfo>& attr_info)
-     : m_nbFields(attr_info.size())
+        : ParticleAccessor( user_data.getParticleContainer( array_name ), attr_info )
+    {}
+    
+    ParticleAccessor( const ParticleContainer& particles, const std::vector<AttributeInfo>& attr_info )
+     : particles(particles.particles)
     {
+        DYABLO_ASSERT_HOST_RELEASE( attr_info.size() > 0, "fields_info cannot be empty" );
+
+        int i=0; 
         for( const AttributeInfo& info : attr_info )
         {
-            fm.activate( info.id );
-            int index = fm[info.id];
-            assert( index < MAX_ATTR_COUNT );
-            particle_views[index] = user_data.getParticleAttribute( array_name, info.name );
+            // All required fields must have the same size (old/not old)
+            int index = particles.attribute_index.at(info.name);
+            fm_ivar.activate( info.id, index );
+            fm_active[i] = index; // TODO : maybe reorder?
+            i++;
         }
-        assert( attr_info.size() == (size_t)fm.nbfields() ); // attr_info contains duplicate
+        DYABLO_ASSERT_HOST_RELEASE( attr_info.size() == (size_t)fm_ivar.nbfields(), "attr_info contains duplicate" );
     }
 
     KOKKOS_INLINE_FUNCTION
     real_t& at( const ForeachParticle::ParticleIndex& iPart, const VarIndex& ivar ) const
     {
-        return particle_views[ fm[ivar] ].at_ivar( iPart, 0);
+        return particles.at_ivar( iPart, fm_ivar[ivar]);
     }
 
     KOKKOS_INLINE_FUNCTION
     real_t& at_ivar( const ForeachParticle::ParticleIndex& iPart, int ivar ) const
     {
-        assert( ivar < nbFields() );
-        return particle_views[ ivar ].at_ivar( iPart, 0);
+        return particles.at_ivar( iPart, fm_active[ivar]);
     }
 
     KOKKOS_INLINE_FUNCTION
     ParticleArray_t getShape() const
     {
-        assert(nbFields() > 0);
-        return particle_views[0];
+        return particles;
     }
 
 protected:
-    using particle_views_t = Kokkos::Array<ParticleAttribute_t, MAX_ATTR_COUNT>;
-
-    id2index_t fm;
-    particle_views_t particle_views;
-    int m_nbFields;
+    id2index_t fm_ivar; // ivar from fields_info to position in `fields` view
+    Kokkos::Array< int, MAX_ATTR_COUNT > fm_active; // ivar from int sequence to position in `fields` view
+    ParticleData particles;
 };
 
 inline UserData_particles::ParticleAccessor UserData_particles::getParticleAccessor( const std::string& array_name, const std::vector<ParticleAccessor_AttributeInfo>& attribute_info ) const
 {
-    return ParticleAccessor(*this, array_name, attribute_info);
+    return ParticleAccessor( *this, array_name, attribute_info );
 }
 
 

@@ -142,13 +142,13 @@ public:
     } 
 
     // Get particle array associated with name
-    const ParticleArray_t& getParticleArray( const std::string& array_name ) const
+    ParticleArray_t getParticleArray( const std::string& array_name ) const
     {
         return particles.getParticleArray(array_name);
     }
     
     // Get particle attribute with name `attribute_name` from particle array `array_name`
-    const ParticleAttribute_t& getParticleAttribute( const std::string& array_name, const std::string& attribute_name ) const
+    ParticleAttribute_t getParticleAttribute( const std::string& array_name, const std::string& attribute_name ) const
     {
         return particles.getParticleAttribute(array_name, attribute_name);
     }
