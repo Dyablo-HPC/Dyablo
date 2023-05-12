@@ -366,9 +366,9 @@ public:
         timers.get("AMR: adapt").start();
         // 1. adapt mesh with mapper enabled
         m_amr_mesh->adapt(true);
-        // Verify that adapt() doesn't need another iteration
-        assert(m_amr_mesh->check21Balance());
-        assert(!m_amr_mesh->checkToAdapt());        
+        // Verify that adapt() doesn't need another iteration (expensive : only debug)
+        DYABLO_ASSERT_HOST_DEBUG(m_amr_mesh->check21Balance(), "2:1 balance not respected");
+        DYABLO_ASSERT_HOST_DEBUG(!m_amr_mesh->checkToAdapt(), "Adapt not complete");        
         timers.get("AMR: adapt").stop();
 
         // Resize and fill U with copied/interpolated/extrapolated data

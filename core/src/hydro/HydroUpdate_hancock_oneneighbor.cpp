@@ -242,7 +242,7 @@ void compute_fluxes_and_update( const FieldArray& Uin, const FieldArray& Uout, c
                                  reconstruct_offset_t offsets,
                                  ForeachCell::CellMetaData::pos_t cell_size, real_t dt ) -> PrimState
   {
-    assert( ndim==3 || offsets[IZ]==0 );
+    DYABLO_ASSERT_KOKKOS_DEBUG( ndim==3 || offsets[IZ]==0, "offsets[IZ] should be 0 in 2D" );
 
     const real_t gamma  = params.gamma0;
     const real_t smallr = params.smallr;
@@ -494,12 +494,10 @@ public:
     GravityType gravity_type = configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE);
     this->gravity_enabled = gravity_type!=GRAVITY_NONE;
     this->gravity_use_field = gravity_type&GRAVITY_FIELD;
-    bool gravity_use_scalar = gravity_type==GRAVITY_CST_SCALAR;
+    [[maybe_unused]] bool gravity_use_scalar = gravity_type==GRAVITY_CST_SCALAR;
 
-    // If gravity is on it must either use the force field from U or a constant scalar force field
-    if( gravity_enabled && ( gravity_use_field == gravity_use_scalar )  )
-      throw std::runtime_error( "gravity/gravity_type inconsistant" );
-
+    DYABLO_ASSERT_HOST_RELEASE( !gravity_enabled || ( gravity_use_field != gravity_use_scalar ),
+      "If gravity is on it must either use the force field from U or a constant scalar force field"  );
   }
 
   void update(  UserData& U,
@@ -510,7 +508,8 @@ public:
       update_aux<2>(U, dt);
     else if(ndim==3)
       update_aux<3>(U, dt);
-    else assert(false);
+    else 
+      DYABLO_ASSERT_HOST_RELEASE(false, "invalid ndim = " << ndim);
   }
 
   template< int ndim>

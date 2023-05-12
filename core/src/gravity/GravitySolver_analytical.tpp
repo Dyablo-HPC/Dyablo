@@ -43,8 +43,8 @@ public:
      analytical_formula(configMap)
   { 
     GravityType gtype = configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_CST_FIELD);
-    if(gtype != GRAVITY_CST_FIELD)
-      throw std::runtime_error("GravitySolver_analytical must have gravity_type=constant_field");
+    
+    DYABLO_ASSERT_HOST_RELEASE( gtype == GRAVITY_CST_FIELD, "GravitySolver_analytical must have gravity_type=constant_field" )
   }
 
   ~GravitySolver_analytical(){}

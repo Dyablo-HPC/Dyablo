@@ -3,7 +3,7 @@
 #include <vector>
 #include <map>
 #include "Kokkos_UnorderedMap.hpp"
-
+#include "utils/misc/Dyablo_assert.h"
 #include "utils/mpi/GlobalMpiSession.h"
 #include "kokkos_shared.h"
 
@@ -71,7 +71,7 @@ public:
 
     bool getPeriodic(uint8_t i) const
     {
-        assert(i<6);
+        DYABLO_ASSERT_HOST_RELEASE(i<6, "Periodic index out of range");
         return periodic[i/2];
     }
 
@@ -101,7 +101,7 @@ public:
     void loadBalance(T&, level_t level)
     {
         if(this->getNproc() > 1)
-            assert(false); // loadBalance( UserCommLB ) cannot be used without PABLO : User data are not exchanged
+            DYABLO_ASSERT_HOST_RELEASE(false, "loadBalance( UserCommLB ) cannot be used without PABLO : User data are not exchanged");
     }
 
     void loadBalance_userdata( int compact_levels, UserData& U );
@@ -206,19 +206,19 @@ public:
 
     bool getIsNewC(uint32_t idx) const
     {
-        assert(false); //getIsNewC cannot be used without PABLO
+        DYABLO_ASSERT_HOST_RELEASE(false,"getIsNewC cannot be used without PABLO");
         return false;
     }
 
     bool getIsNewR(uint32_t idx) const
     {
-        assert(false); //getIsNewR cannot be used without PABLO
+        DYABLO_ASSERT_HOST_RELEASE(false,"getIsNewR cannot be used without PABLO");
         return false;
     }
 
     void getMapping(uint32_t & idx, std::vector<uint32_t> & mapper, std::vector<bool> & isghost) const
     {
-        assert(false); //getMapping cannot be used without PABLO
+        DYABLO_ASSERT_HOST_RELEASE(false,"getMapping cannot be used without PABLO");
     }
 
     void adaptGlobalRefine();
@@ -253,7 +253,7 @@ public:
     void findNeighbours(uint32_t iOct, uint8_t iface, uint8_t codim , 
                         std::vector<uint32_t>& neighbor_iOcts, std::vector<bool>& neighbor_isGhost) const
     {
-        assert(false); // findneighbours() cannot be used without PABLO
+        DYABLO_ASSERT_HOST_RELEASE(false,"findNeighbours cannot be used without PABLO");
     }
 protected:
     int pmesh_epoch = 1;

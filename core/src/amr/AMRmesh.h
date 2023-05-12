@@ -3,7 +3,7 @@
 #include "AMRmesh_pablo.h"
 #include "AMRmesh_hashmap.h"
 #include "AMRmesh_hashmap_new.h"
-
+#include "utils/misc/Dyablo_assert.h"
 
 #include "amr/LightOctree_forward.h"
 
@@ -59,12 +59,17 @@ public:
   AMRmesh_impl( int dim, int balance_codim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max, const Kokkos::Array<uint32_t,3>& coarse_grid_size)
     : Impl_t(dim, balance_codim, periodic, level_min, level_max), level_min(level_min), level_max(level_max)
   {
-    if( ( coarse_grid_size[IX] != (1U << level_min) ) 
-    || ( coarse_grid_size[IY] != (1U << level_min) ) 
-    || ( coarse_grid_size[IZ] != ((dim==3)?(1U << level_min):1 )) )
+    DYABLO_ASSERT_HOST_RELEASE(coarse_grid_size[IX] == (1U << level_min), "This AMRmesh implementation doesn't support non-square coarse domain");
+    DYABLO_ASSERT_HOST_RELEASE(coarse_grid_size[IY] == (1U << level_min), "This AMRmesh implementation doesn't support non-square coarse domain");
+    if( dim==3 )
     {
-      throw std::runtime_error( "This AMRmesh_implementation doesn't support non-square coarse domain" );
+      DYABLO_ASSERT_HOST_RELEASE(coarse_grid_size[IZ] == (1U << level_min), "This AMRmesh implementation doesn't support non-square coarse domain");
     }
+    else
+    {
+      DYABLO_ASSERT_HOST_RELEASE(coarse_grid_size[IZ] == 1, "coarse_grid_size[IZ] must be 1 in 2D ");
+    }
+
   }
 
   template<typename Impl_t_ = Impl_t, typename std::enable_if<has_coarse_grid_size_<Impl_t_>::value, int>::type = 0>
@@ -119,7 +124,7 @@ public:
 
   int get_level_min() const
   {
-    assert( level_min == Impl::get_level_min() );
+    DYABLO_ASSERT_HOST_RELEASE( level_min == Impl::get_level_min(), "level_min mismatch" );
     return level_min;
   }
 

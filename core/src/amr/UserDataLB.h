@@ -2,6 +2,7 @@
 
 #include "kokkos_shared.h"
 #include "userdata_utils.h"
+#include "utils/misc/Dyablo_assert.h"
 
 namespace bitpit{
 
@@ -36,7 +37,7 @@ public:
   UserDataLB( DataArray_t& data, DataArray_t& ghostdata )
     : data(data), ghostdata(ghostdata), layout(data.layout())
   {
-    assert( data.size() != 0 );
+    DYABLO_ASSERT_HOST_RELEASE( data.size() != 0, "data cannot be empty" );
     layout.dimension[iOct_pos] = 1;
     for(int i=0; i<DataArray_t::rank; i++)
     {

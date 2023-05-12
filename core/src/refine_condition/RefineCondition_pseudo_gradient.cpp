@@ -97,7 +97,7 @@ public:
             }
 
           }
-          else assert(false); // Should not happen
+          else DYABLO_ASSERT_KOKKOS_DEBUG(false, "2:1 balance error : invalid level_diff");
         }
         return diff_max;
       };

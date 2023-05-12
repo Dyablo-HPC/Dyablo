@@ -96,7 +96,7 @@ public:
     }, Kokkos::Max<real_t>(inv_dt) );
 
     real_t dt = cfl / inv_dt;
-    assert(dt>0);
+    DYABLO_ASSERT_HOST_RELEASE(dt>0, "invalid dt = " << dt);
     return dt;
   }
 

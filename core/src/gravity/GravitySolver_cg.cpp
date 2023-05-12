@@ -47,11 +47,11 @@ GravitySolver_cg::GravitySolver_cg(
     })
 {
   int ndim = configMap.getValue<int>("mesh", "ndim", 3);
-  if( ndim != 3 )
-    throw std::runtime_error("GravitySolver_cg can only run in 3D");
-  GravityType gtype = configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_FIELD);
-  if(gtype != GRAVITY_FIELD)
-    throw std::runtime_error("GravitySolver_cg must have gravity_type=field");
+  
+  DYABLO_ASSERT_HOST_RELEASE( ndim == 3, "GravitySolver_cg can only run in 3D" )
+  
+  [[maybe_unused]] GravityType gtype = configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_FIELD);
+  DYABLO_ASSERT_HOST_RELEASE( gtype == GRAVITY_FIELD, "GravitySolver_cg must have gravity_type=field" );
 }
 
 GravitySolver_cg::~GravitySolver_cg()

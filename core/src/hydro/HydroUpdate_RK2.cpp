@@ -124,7 +124,7 @@ public:
     else if(ndim == 3)
       update_aux<3>(U, dt);  
     else
-      assert(false);
+       DYABLO_ASSERT_HOST_RELEASE(false, "invalid ndim = " << ndim);
   }
 
   template<int ndim>
@@ -185,13 +185,11 @@ public:
 
     bool has_gravity = gravity_type!=GRAVITY_NONE;
     bool gravity_use_field = gravity_type&GRAVITY_FIELD;
-    #ifndef NDEBUG
-    bool gravity_use_scalar = gravity_type==GRAVITY_CST_SCALAR;
-    #endif
+    [[maybe_unused]] bool gravity_use_scalar = gravity_type==GRAVITY_CST_SCALAR;
     real_t gx = this->gx, gy = this->gy, gz = this->gz;
 
-    // If gravity is on it must either use the force field from U or a constant scalar force field
-    assert( !has_gravity || ( gravity_use_field != gravity_use_scalar )  );
+    DYABLO_ASSERT_HOST_RELEASE( !has_gravity || ( gravity_use_field != gravity_use_scalar ) ,
+      "If gravity is on it must either use the force field from U or a constant scalar force field"  );
 
     // Iterate over patches
     foreach_cell.foreach_patch( "HydroUpdate_euler::update",

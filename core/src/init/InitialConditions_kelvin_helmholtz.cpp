@@ -45,7 +45,7 @@ struct AnalyticalFormula_KelvinHelmholtz : public AnalyticalFormula_base{
     P0(configMap.getValue<real_t>("KH", "P0", 1.0)),
     uflow(configMap.getValue<real_t>("KH", "uflow", 1.0))
   {
-    assert(ndim == 2);
+    DYABLO_ASSERT_HOST_RELEASE(ndim == 2, "Initial conditions only for 2D");
   }
 
   KOKKOS_INLINE_FUNCTION

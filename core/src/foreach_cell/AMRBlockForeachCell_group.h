@@ -111,7 +111,7 @@ public:
     uint32_t by = cdata.by+2*gy;
     uint32_t bz = cdata.bz+2*gz;
     uint32_t nbOctsPerGroup = cdata.nbOctsPerGroup;
-    assert( cdata.ndim != 2 || bz==1 );
+    DYABLO_ASSERT_HOST_RELEASE( cdata.ndim != 2 || bz==1, "bz should be 1 in 2D" );
 
     // Do not initialize View to improve first-touch behavior
     DataArrayBlock data(Kokkos::ViewAllocateWithoutInitializing(name), bx*by*bz, nvars, nbOctsPerGroup);

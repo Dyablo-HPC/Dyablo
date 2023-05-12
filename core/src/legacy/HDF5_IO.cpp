@@ -833,7 +833,7 @@ HDF5_Writer::io_hdf5_write_coordinates()
       for (int32_t jz = 0; jz < (ndim-1); ++jz) {
         for (int32_t jy = 0; jy < 2; ++jy) {
           for (int32_t jx = 0; jx < 2; ++jx) {
-            assert(inode<m_nbNodesPerCell);
+            DYABLO_ASSERT_HOST_DEBUG(inode<m_nbNodesPerCell, "Internal error : unexpected node count");
             
             real_t x = orig_x + jx * dx;
             real_t y = orig_y + jy * dy;

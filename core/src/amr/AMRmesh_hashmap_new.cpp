@@ -57,10 +57,10 @@ AMRmesh_hashmap_new::AMRmesh_hashmap_new( int dim, int balance_codim,
     }
   }))
 {
-  assert( level_min <= level_max );
-  assert( coarse_grid_size[IX] <= (1U << level_min) );
-  assert( coarse_grid_size[IY] <= (1U << level_min) );
-  assert( coarse_grid_size[IZ] <= (dim==3)?(1U << level_min):1 );
+  DYABLO_ASSERT_HOST_RELEASE( level_min <= level_max, (int)level_min << " <= " << (int)level_max );
+  DYABLO_ASSERT_HOST_RELEASE( coarse_grid_size[IX] <= (1U << level_min), "Coarse grid size too big for level_min : " << coarse_grid_size[IX] << " > " << (int)(1U << level_min) );
+  DYABLO_ASSERT_HOST_RELEASE( coarse_grid_size[IY] <= (1U << level_min), "Coarse grid size too big for level_min : " << coarse_grid_size[IY] << " > " << (int)(1U << level_min) );
+  DYABLO_ASSERT_HOST_RELEASE( coarse_grid_size[IZ] <= (dim==3)?(1U << level_min):1, "Coarse grid size too big for level_min : " << coarse_grid_size[IZ] << " > " << (int)(1U << level_min) );
 
   if(  level_min > 0
     && coarse_grid_size[IX] <= (1U << (level_min-1)) 
@@ -69,14 +69,14 @@ AMRmesh_hashmap_new::AMRmesh_hashmap_new( int dim, int balance_codim,
   {
     std::cout << "WARNING : AMRmesh_hashmap_new coarse grid size = {" << coarse_grid_size[IX] << ", " << coarse_grid_size[IY] << ", " << coarse_grid_size[IZ] << "} is too small for level_min = " << (int)level_min << "." << std::endl;
     std::cout << "WARNING : level_min could be decreased to " << std::ceil(std::log2( std::max({coarse_grid_size[IX], coarse_grid_size[IY], coarse_grid_size[IZ]}) )) << std::endl;
-    throw std::runtime_error("level_min too big for coarse grid size");
+    DYABLO_ASSERT_HOST_RELEASE(false, "level_min too big for coarse grid size");
   }
   private_init(dim, coarse_grid_size);
 }
 
 void AMRmesh_hashmap_new::private_init(int dim, Kokkos::Array<logical_coord_t,3> coarse_grid_size)
 {
-  assert(dim == 3 || coarse_grid_size[IZ] == 1);
+  DYABLO_ASSERT_HOST_RELEASE(dim == 3 || coarse_grid_size[IZ] == 1, "coarse_grid_size[IZ] must be 1 in 2D but is : " << coarse_grid_size[IZ]);
 
   level_t level_min = this->pdata->level_min;
 
@@ -160,7 +160,7 @@ void AMRmesh_hashmap_new::private_init(int dim, Kokkos::Array<logical_coord_t,3>
       iOct ++;
     }
   }, nbOcts_added);
-  assert( nbOcts_local == nbOcts_added );
+  DYABLO_ASSERT_HOST_RELEASE( nbOcts_local == nbOcts_added, "Too few octs were added during Kokkos::scan : added " << nbOcts_added << ", expected " << nbOcts_local );
 
   // Exchange Ghosts
 
@@ -327,9 +327,9 @@ AMRmesh_hashmap_new::GhostMap_t discover_ghosts(
           // Just before the upper bound
           rank=begin-1;
         }
-        assert( rank<mpi_size );
-        assert( morton_intervals_device(rank) <= morton);
-        assert( morton_intervals_device(rank+1) > morton);
+        DYABLO_ASSERT_KOKKOS_DEBUG( rank<mpi_size, "Rank not found for morton " );
+        DYABLO_ASSERT_KOKKOS_DEBUG( morton_intervals_device(rank) <= morton && morton < morton_intervals_device(rank+1), 
+                            "morton not within local interval" );
         return rank;
       };
 
@@ -347,7 +347,7 @@ AMRmesh_hashmap_new::GhostMap_t discover_ghosts(
       Kokkos::Array<logical_coord_t, 3> pos = storage_device.get_logical_coords( {iOct, false} );
       level_t level = storage_device.getLevel( {iOct, false} );
 
-      assert(find_rank(compute_morton(pos, level)) == mpi_rank);
+      DYABLO_ASSERT_KOKKOS_DEBUG(find_rank(compute_morton(pos, level)) == mpi_rank, "Expected local rank but found remote instead");
 
       logical_coord_t max_ix = storage_device.cell_count(IX, level);
       logical_coord_t max_iy = storage_device.cell_count(IY, level);
@@ -514,7 +514,7 @@ AMRmesh_hashmap_new::GhostMap_t AMRmesh_hashmap_new::loadBalance(level_t level)
             new_morton_intervals[rank] = new_morton_begin_rank;
         }
       }
-      assert(new_morton_intervals[mpi_rank] < new_morton_intervals[mpi_rank+1] ); // Process would be empty
+      DYABLO_ASSERT_HOST_RELEASE(new_morton_intervals[mpi_rank] < new_morton_intervals[mpi_rank+1], "Process would be empty");
     }
 
     std::cout << "Rank " << mpi_rank << ": new morton interval [" << new_morton_intervals[mpi_rank] << ", " << new_morton_intervals[mpi_rank+1] << "[" << std::endl;
@@ -558,7 +558,7 @@ AMRmesh_hashmap_new::GhostMap_t AMRmesh_hashmap_new::loadBalance(level_t level)
 
     }
     std::cout << "Rank " << mpi_rank << ": iOct interval [" << new_oct_intervals[mpi_rank] << ", " << new_oct_intervals[mpi_rank+1] << "[" << std::endl;
-    assert( new_oct_intervals[mpi_rank] <= new_oct_intervals[mpi_rank+1] );
+    DYABLO_ASSERT_HOST_RELEASE( new_oct_intervals[mpi_rank] <= new_oct_intervals[mpi_rank+1], "iOct_interval upper bound smaller than lower bound" );
 
     // List octants to exchange
     GhostMap_t res;
@@ -599,7 +599,7 @@ AMRmesh_hashmap_new::GhostMap_t AMRmesh_hashmap_new::loadBalance(level_t level)
       GhostCommunicator_kokkos loadbalance_communicator( res.send_sizes, res.send_iOcts );
       loadbalance_communicator.exchange_ghosts<0>( old_storage_device.oct_data, new_storage_device.oct_data );
 
-      assert( new_storage_device.oct_data.extent(0) == new_nbOcts );
+      DYABLO_ASSERT_HOST_RELEASE( new_storage_device.oct_data.extent(0) == new_nbOcts, "Mismatch between nbOcts and allocation size : " << new_nbOcts << " != " << new_storage_device.oct_data.extent(0) );
     }
 
     // update misc metadata
@@ -634,8 +634,8 @@ AMRmesh_hashmap_new::GhostMap_t AMRmesh_hashmap_new::loadBalance(level_t level)
     if( new_nbOcts != 0 )
     {
       std::cout << "Rank " << mpi_rank << ": actual morton interval [" << compute_morton( storage, 0, level_max) << ", " << compute_morton( storage,  getNumOctants()-1, level_max) << "]" << std::endl;
-      assert( compute_morton( storage, 0, level_max) >= new_morton_intervals[mpi_rank] );
-      assert( compute_morton( storage, getNumOctants()-1, level_max) < new_morton_intervals[mpi_rank+1] );
+      DYABLO_ASSERT_HOST_RELEASE( compute_morton( storage, 0, level_max) >= new_morton_intervals[mpi_rank], "First octant outside of morton interval : " << compute_morton( storage, 0, level_max) );
+      DYABLO_ASSERT_HOST_RELEASE( compute_morton( storage, getNumOctants()-1, level_max) < new_morton_intervals[mpi_rank+1], "Last octant outside of morton interval : " << compute_morton( storage, getNumOctants()-1, level_max));
     }
     else 
     {
@@ -643,7 +643,7 @@ AMRmesh_hashmap_new::GhostMap_t AMRmesh_hashmap_new::loadBalance(level_t level)
       std::cout << "WARNING : Rank has 0 octant, this is probably not okay" << std::endl;
     } 
 
-    assert(this->getNumOctants() > 0); // Process cannot be empty
+    DYABLO_ASSERT_HOST_RELEASE(this->getNumOctants() > 0, "Process cannot be empty" );
 
     return res;
 }
@@ -682,7 +682,7 @@ void AMRmesh_hashmap_new::adapt(bool dummy)
   };
   auto setMarker = KOKKOS_LAMBDA( const OctantIndex& iOct, int marker )
   {
-    assert( !iOct.isGhost ); // Remote markers cannot be modified locally
+    DYABLO_ASSERT_KOKKOS_DEBUG( !iOct.isGhost, "Ghost markers cannot be modified locally");
     markers_device_out( iOct.iOct ) = marker;
   };
 
@@ -700,8 +700,8 @@ void AMRmesh_hashmap_new::adapt(bool dummy)
       int marker_current = getMarker( {iOct, false} );
       int marker_old = marker_current;
 
-      assert( marker_current >= -1 );
-      assert( marker_current <= 1 );
+      DYABLO_ASSERT_KOKKOS_DEBUG( marker_current >= -1, "Marker must be -1, 0, 1" );
+      DYABLO_ASSERT_KOKKOS_DEBUG( marker_current <= 1, "Marker must be -1, 0, 1" );
 
       // Check siblings for partial coarsening
       if( marker_current == -1 )
@@ -718,9 +718,9 @@ void AMRmesh_hashmap_new::adapt(bool dummy)
         if( x!=0 || y!=0 || z!=0 )
         {
           auto ns = lmesh.findNeighbors({iOct, false},{(int8_t)(sx*x),(int8_t)(sy*y),(int8_t)(sz*z)});
-          assert(ns.size()>0); // Siblings are never outside domain
+          DYABLO_ASSERT_KOKKOS_DEBUG(ns.size()>0, "Siblings can't be outside domain");
           level_t level_siblings = lmesh.getLevel( ns[0] );
-          assert( level_siblings >= level_current ); // Siblings cannot be coarser
+          DYABLO_ASSERT_KOKKOS_DEBUG( level_siblings >= level_current, "Siblings cannot be coarser");
 
           int marker_siblings = getMarker( ns[0] );
           // Cancel coarsening if siblings cannot be coarsened enough
@@ -750,8 +750,8 @@ void AMRmesh_hashmap_new::adapt(bool dummy)
         }
       }
 
-      assert( marker_current >= -1 );
-      assert( marker_current <= 1 );
+      DYABLO_ASSERT_KOKKOS_DEBUG( marker_current >= -1, "Marker must be -1, 0, 1" );
+      DYABLO_ASSERT_KOKKOS_DEBUG( marker_current <= 1, "Marker must be -1, 0, 1" );
 
       setMarker( {iOct, false}, marker_current );
 
@@ -815,7 +815,7 @@ void AMRmesh_hashmap_new::adapt(bool dummy)
         // Write coarsened oct when iOct_old is the first sibling
         // NOTE : ! first sibling may not be in same domain !
         else if( marker == -1)  nwrite = ( pos[IX]%2==0 && pos[IY]%2==0 && pos[IZ]%2==0 );
-        else assert(false);
+        else DYABLO_ASSERT_KOKKOS_DEBUG( false, "Marker must be -1, 0, 1" );
       }
 
       if(final) // Write offset in final pass
@@ -836,7 +836,7 @@ void AMRmesh_hashmap_new::adapt(bool dummy)
       int marker = getMarker( {iOct_old, false} );
       oct_index_t iOct_new = oct_offsets( iOct_old );
 
-      assert(marker == -1 || marker == 0 || marker == 1 ); // Only coarsen/refine one level is supported
+      DYABLO_ASSERT_KOKKOS_DEBUG( marker == -1 || marker == 0 || marker == 1, "Marker must be -1, 0, 1" );
 
       // int nwritten = 0; // Unused, but could be used for debug with parallel_reduce
       if( marker == 1 )

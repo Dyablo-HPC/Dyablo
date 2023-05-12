@@ -25,7 +25,7 @@ struct AnalyticalFormula_OrszagTang : public AnalyticalFormula_base{
     smallp(smallc*smallc / gamma0),
     error_max(configMap.getValue<real_t>("amr", "error_max", 0.8))
   {
-    assert(ndim == 2);
+    DYABLO_ASSERT_HOST_RELEASE(ndim == 2, "Initial conditions only for 2D");
   }
 
 

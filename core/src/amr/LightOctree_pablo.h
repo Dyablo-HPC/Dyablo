@@ -73,7 +73,7 @@ public:
     //! @copydoc LightOctree_base::getBound()
     bool getBound(const OctantIndex& iOct)  const
     {
-        assert( !iOct.isGhost );
+        DYABLO_ASSERT_HOST_DEBUG( !iOct.isGhost, "iOct can't be ghost" );
         return pmesh->getBound(iOct.iOct);
     }
     //! @copydoc LightOctree_base::getCenter()
@@ -113,7 +113,7 @@ public:
      **/
     NeighborList findNeighbors( const OctantIndex& iOct, const offset_t& offset )  const
     {
-        assert( !iOct.isGhost );
+        DYABLO_ASSERT_HOST_DEBUG( !iOct.isGhost, "iOct can't be ghost" );
 
         if( this->isBoundary(iOct, offset) )
             return NeighborList{0,{}};
@@ -157,7 +157,7 @@ public:
             }
             else
             {
-                assert(false); // This is undefined behavior ( see LightOctree_base::findNeighbors doc )
+                DYABLO_ASSERT_HOST_DEBUG(false, "Position outside of domain"); // This is undefined behavior ( see LightOctree_base::findNeighbors doc 
             }
         }
         else
@@ -175,7 +175,7 @@ public:
     }
     /// @copydoc LightOctree_base::isBoundary()
     bool isBoundary(const OctantIndex& iOct, const offset_t& offset) const {
-      assert( !iOct.isGhost );
+      DYABLO_ASSERT_HOST_DEBUG( !iOct.isGhost, "iOct cannot be ghost" );
       auto dh = this->getSize(iOct);
       pos_t center = this->getCenter(iOct);    
       pos_t pos {
@@ -252,15 +252,15 @@ private:
 
         if(ndim == 2)
         {
-            assert( codim == CODIM_EDGE ); // In 2D, only edges can have this issue
+            DYABLO_ASSERT_HOST_DEBUG( codim == CODIM_EDGE, "Internal error" ); // In 2D, only edges can have this issue
             // Search both faces connected to edge:
             if( check_neighbor({neighbor[IX],0           ,0}) ) return;
             if( check_neighbor({0,           neighbor[IY],0}) ) return;
-            assert(false); // Failed to find neighbor...
+            DYABLO_ASSERT_HOST_DEBUG(false, "Failed to find neighbor...");
         }
         else 
         {
-            assert( codim == CODIM_NODE || codim == CODIM_EDGE ); // In 3D, edges and node can have this issue
+            DYABLO_ASSERT_HOST_DEBUG( codim == CODIM_NODE || codim == CODIM_EDGE, "Internal error" ); // In 3D, edges and node can have this issue
 
             if(codim == CODIM_NODE) // search direction is a node (corner)
             {
@@ -282,7 +282,7 @@ private:
                     if( check_neighbor(search_neighbor) ) return;
                 }
             }
-            assert(false); // Failed to find neighbor...
+            DYABLO_ASSERT_HOST_DEBUG(false, "Failed to find neighbor...");
         }     
     } 
 };

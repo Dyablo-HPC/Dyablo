@@ -36,7 +36,7 @@ public:
   KOKKOS_INLINE_FUNCTION
   pos_t getCellSize( const CellIndex& iCell ) const
   {
-    assert(iCell.is_valid());
+    DYABLO_ASSERT_KOKKOS_DEBUG( iCell.is_valid(), "iCell should be valid to get size" );
 
     const AMRBlockForeachCell_CData& cdata = this->cdata;
     const LightOctree& lmesh = this->lmesh;
@@ -57,7 +57,7 @@ public:
   KOKKOS_INLINE_FUNCTION
   pos_t getCellCenter( const CellIndex& iCell ) const
   {
-    assert(iCell.is_valid());
+    DYABLO_ASSERT_KOKKOS_DEBUG( iCell.is_valid(), "iCell should be valid to get center" );
 
     const AMRBlockForeachCell_CData& cdata = this->cdata;
     int ndim = cdata.ndim;
@@ -221,7 +221,7 @@ public:
     int nbGhosts = pmesh.getNumGhosts();
     auto fm = fieldMgr.get_id2index();
 
-    assert( cdata.ndim != 2 || bz==1 );
+    DYABLO_ASSERT_HOST_RELEASE( cdata.ndim != 2 || bz==1, "bz should be 1 in 2D" );
 
     DataArrayBlock U(name, nbCellsPerOct, nbFields, nbOcts );
     DataArrayBlock Ughost(name+"ghost", nbCellsPerOct, nbFields, nbGhosts );

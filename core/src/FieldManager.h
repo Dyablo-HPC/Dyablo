@@ -28,9 +28,10 @@ private:
 public:
   constexpr void activate( VarIndex id )
   {
-    assert( (int)id < MAX_INDEX_COUNT );
+    // DYABLO_ASSERT_ASSERT used because function is constexpr
+    DYABLO_ASSERT_ASSERT( (int)id < MAX_INDEX_COUNT, "Too many VarIndex : id >= MAX_INDEX_COUNT" );
     id2index[(int)id] = _nbfields;
-    assert(!field_enabled[(int)id]);
+    DYABLO_ASSERT_ASSERT(!field_enabled[(int)id], "Field already enabled" );
     field_enabled[(int)id] = true;
     _nbfields++;
   }
@@ -56,7 +57,7 @@ public:
   KOKKOS_INLINE_FUNCTION
   int operator[](VarIndex id) const
   {
-    assert( enabled(id) ); // This variable is not active
+    DYABLO_ASSERT_KOKKOS_DEBUG( enabled(id), "This variable is not active");
     return id2index[(int)id];
   }
 };

@@ -7,6 +7,7 @@
 #include "amr/AMRmesh.h"
 #include "amr/LightOctree_storage.h"
 #include "Kokkos_UnorderedMap.hpp"
+#include "utils/misc/Dyablo_assert.h"
 
 #include "amr/LightOctree_base.h"
 
@@ -73,11 +74,8 @@ public:
             logical_coords.j = logical_pos[IY];
             logical_coords.k = logical_pos[IZ];           
 
-            #ifndef NDEBUG
-            oct_map_t::insert_result inserted = 
-            #endif
-            oct_map.insert( logical_coords, iOct );
-            assert(inserted.success());
+            [[maybe_unused]] oct_map_t::insert_result inserted = oct_map.insert( logical_coords, iOct );
+            DYABLO_ASSERT_KOKKOS_DEBUG(inserted.success(), "oct_map::insert() failed");
         });
     }
 
@@ -122,8 +120,6 @@ public:
     //! @copydoc LightOctree_base::findNeighbors()
     KOKKOS_INLINE_FUNCTION NeighborList findNeighbors( const OctantIndex& iOct, const offset_t& offset )  const
     {
-        //assert( !iOct.isGhost );
-
         int ndim = getNdim();
 
         if( offset[IX] == 0 && offset[IY] == 0 && offset[IZ] == 0 )
@@ -171,7 +167,7 @@ public:
             else
             {
                 // Neighbor(s) is(are) at finer level
-                assert(level+1 <= max_level);
+                DYABLO_ASSERT_KOKKOS_DEBUG(level+1 <= max_level, "Could not find neighbor : already at level_max");
                 
                 // Compute logical coord of first neighbor
                 key_t logical_coords_smaller_origin;
@@ -193,10 +189,10 @@ public:
                     logical_coords_smaller.j += sy;
                     logical_coords_smaller.k += sz;
                     auto it = oct_map.find(logical_coords_smaller);
-                    assert(oct_map.valid_at(it)); // Could not find neighbor
+                    DYABLO_ASSERT_KOKKOS_DEBUG(oct_map.valid_at(it), "Could not find neighbor");
                     res.m_neighbors[res.m_size-1] = oct_map.value_at(it);
                 }
-                assert(res.m_size<=2*(ndim-1));
+                DYABLO_ASSERT_KOKKOS_DEBUG(res.m_size<=2*(ndim-1), "Too many neighbors");
             }            
         }
         return res;
@@ -204,7 +200,6 @@ public:
     /// @copydoc LightOctree_base::isBoundary()
     KOKKOS_INLINE_FUNCTION
     bool isBoundary(const OctantIndex& iOct, const offset_t& offset) const {
-      //assert( !iOct.isGhost );
       auto dh = this->getSize(iOct);
       pos_t center = this->getCenter(iOct);    
       pos_t pos {
@@ -231,16 +226,18 @@ public:
     {
         int ndim = getNdim();
 
-        assert( ix < storage.cell_count(IX, level )  );
-        assert( iy < storage.cell_count(IY, level )  );
+        DYABLO_ASSERT_KOKKOS_DEBUG( ix < storage.cell_count(IX, level ), "ix out of bound" );
+        DYABLO_ASSERT_KOKKOS_DEBUG( iy < storage.cell_count(IY, level ), "iy out of bound"  );
         if(ndim == 3)
-            assert( iz < storage.cell_count(IZ, level )  );
+        {
+            DYABLO_ASSERT_KOKKOS_DEBUG( iz < storage.cell_count(IZ, level ), "iz out of bound" );
+        }
         else 
-            assert( iz == 0  );
+            DYABLO_ASSERT_KOKKOS_DEBUG( iz == 0, "iz must be 0 in 2D"  );
 
         auto it = oct_map.find({level, ix, iy, iz});
 
-        assert( oct_map.valid_at(it) );
+        DYABLO_ASSERT_KOKKOS_DEBUG( oct_map.valid_at(it), "Could not find iOct" );
 
         return oct_map.value_at(it);
     }
@@ -252,12 +249,14 @@ public:
     {
         int ndim = getNdim();
 
-        assert( 0 < pos[IX] && pos[IX] < 1 );
-        assert( 0 < pos[IY] && pos[IY] < 1 );
+        DYABLO_ASSERT_KOKKOS_DEBUG( 0 < pos[IX] && pos[IX] < 1, "pos_x out of bounds" );
+        DYABLO_ASSERT_KOKKOS_DEBUG( 0 < pos[IY] && pos[IY] < 1, "pos_y out of bounds" );
         if(ndim == 3)
-            assert( 0 < pos[IZ] && pos[IZ] < 1 );
+        {
+            DYABLO_ASSERT_KOKKOS_DEBUG( 0 < pos[IZ] && pos[IZ] < 1, "pos_z out of bounds" );
+        }
         else
-            assert( pos[IZ] == 0 );
+            DYABLO_ASSERT_KOKKOS_DEBUG( pos[IZ] == 0, "pos_z should be 0 in 2D");
 
         key_t logical_coords;
         {
@@ -284,7 +283,7 @@ public:
             logical_coords.k = logical_coords.k >> 1;
         }
 
-        assert(false); //Could not find octant at this position
+        DYABLO_ASSERT_KOKKOS_DEBUG(false, "Could not find octant at this position");
         return {};
     }
 

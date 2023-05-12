@@ -83,7 +83,7 @@ public:
 
       if( l_new == l_old ) // Same size cell
       {
-        assert(!iOct_old.isGhost); //Cannot be ghost
+        DYABLO_ASSERT_KOKKOS_DEBUG(!iOct_old.isGhost, "Cannot be ghost");
         data(offset(iOct_new)) = {
             iOct_new, iOct_old.iOct,
             0
@@ -91,7 +91,7 @@ public:
       }
       else if( l_new > l_old ) // New refined cell
       {
-        assert(!iOct_old.isGhost); //Cannot be ghost
+        DYABLO_ASSERT_KOKKOS_DEBUG(!iOct_old.isGhost, "Cannot be ghost");
 
         LightOctree_hashmap::pos_t c_old = lmesh_old.getCenter(iOct_old);
         // Get relative position using physical position of both octants
@@ -178,7 +178,7 @@ public:
 
       if ( pablo_mesh.getIsNewC(iOct) ) // Coarsened octant
       {
-        assert( mapper.size() == nsuboctants);
+        DYABLO_ASSERT_KOKKOS_DEBUG( mapper.size() == nsuboctants, "Unexpected PABLO result : coarsened mapping cell count");
 
         for( size_t i=0; i<mapper.size(); i++ )
         {
@@ -196,10 +196,10 @@ public:
       }
       else if ( pablo_mesh.getIsNewR(iOct) ) // Refined octant
       {
-        assert( mapper.size() == 1);
+        DYABLO_ASSERT_KOKKOS_DEBUG( mapper.size() == 1, "Unexpected PABLO result : refined mapping cell count != 1");
 
         uint32_t iOct_src = mapper[0];
-        assert( !isghost[0] );
+        DYABLO_ASSERT_KOKKOS_DEBUG( !isghost[0], "Unexpected PABLO result : mapped source cell is ghost" );
         
         // iOct_src will appear 2^ndim times as a source value for all its children
         // Find relative position according to parity of the discrete position of the octant
@@ -218,10 +218,10 @@ public:
       }
       else // Copied octant
       {
-        assert( mapper.size() == 1);
+        DYABLO_ASSERT_KOKKOS_DEBUG( mapper.size() == 1, "Unexpected PABLO result : same size mapping cell count != 1");
 
         uint32_t iOct_src = mapper[0];
-        assert( !isghost[0] );
+        DYABLO_ASSERT_KOKKOS_DEBUG( !isghost[0], "Unexpected PABLO result : mapped source cell is ghost" );
         data_host(offset(iOct)) = {
             iOct, iOct_src,
             0

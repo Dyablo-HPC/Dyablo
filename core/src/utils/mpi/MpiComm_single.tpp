@@ -35,14 +35,14 @@ void MpiComm::MPI_Alltoall( const T* sendbuf, int sendcount, T* recvbuf, int rec
 template<typename Kokkos_View_t>
 MpiComm::MPI_Request_t MpiComm::MPI_Isend( const Kokkos_View_t& view, int dest, int tag ) const
 {
-  assert( false );
+  DYABLO_ASSERT_HOST_RELEASE( false, "Cannot Isend in MpiComm single mode" );
   return 0;
 }
 
 template<typename Kokkos_View_t>
 MpiComm::MPI_Request_t MpiComm::MPI_Irecv( const Kokkos_View_t& view, int dest, int tag ) const
 {
-  assert( false );
+  DYABLO_ASSERT_HOST_RELEASE( false, "Cannot Irecv in MpiComm single mode" );
   return 0;
 }
 

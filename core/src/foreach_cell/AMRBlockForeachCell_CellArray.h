@@ -81,7 +81,7 @@ struct CellIndex
   KOKKOS_INLINE_FUNCTION
   uint32_t getOct() const
   {
-    assert(!iOct.isGhost);
+    DYABLO_ASSERT_KOKKOS_DEBUG(!iOct.isGhost, "iOct must not be ghost");
     return iOct.iOct;
   }
 
@@ -98,7 +98,7 @@ struct CellIndex
   KOKKOS_INLINE_FUNCTION
   void getBoundaryPosAndOffset(CellIndex& iCell_inside, offset_t& offset) const
   {
-    assert( is_boundary() );
+    DYABLO_ASSERT_KOKKOS_DEBUG(is_boundary(), "iOct must be in boundary");
 
     int32_t i = (int32_t)this->i - (int32_t)this->bx;
     int32_t j = (int32_t)this->j - (int32_t)this->by;
@@ -413,8 +413,8 @@ CellArray_shape_ghosted::CellArray_shape_ghosted( const CellArray_global_ghosted
 KOKKOS_INLINE_FUNCTION
 CellIndex CellArray_shape_local::convert_index(const CellIndex& in) const
 {
-  assert( in.is_valid() ); // Index needs to be valid for conversion
-  assert( in.is_local() ); // cannot access ghosts in CellArray
+  DYABLO_ASSERT_KOKKOS_DEBUG( in.is_valid(), "Index needs to be valid for conversion");
+  DYABLO_ASSERT_KOKKOS_DEBUG( in.is_local(), "Index needs to be local for conversion");
 
   if( in.bx == bx && in.by == by && in.bz == bz )
     return in;
@@ -426,9 +426,9 @@ CellIndex CellArray_shape_local::convert_index(const CellIndex& in) const
   int32_t j = in.j + gy;
   int32_t k = in.k + gz;
 
-  assert(i>=0); assert(i<(int32_t)bx);
-  assert(j>=0); assert(j<(int32_t)by);
-  assert(k>=0); assert(k<(int32_t)bz);
+  DYABLO_ASSERT_KOKKOS_DEBUG(i>=0, "i out of block bounds"); DYABLO_ASSERT_KOKKOS_DEBUG(i<(int32_t)bx, "i out of block bounds");
+  DYABLO_ASSERT_KOKKOS_DEBUG(j>=0, "j out of block bounds"); DYABLO_ASSERT_KOKKOS_DEBUG(j<(int32_t)by, "j out of block bounds");
+  DYABLO_ASSERT_KOKKOS_DEBUG(k>=0, "k out of block bounds"); DYABLO_ASSERT_KOKKOS_DEBUG(k<(int32_t)bz, "k out of block bounds");
 
   return CellIndex{in.iOct, (uint32_t)i, (uint32_t)j, (uint32_t)k, bx, by, bz, CellIndex::LOCAL_TO_BLOCK};
 }
@@ -436,8 +436,8 @@ CellIndex CellArray_shape_local::convert_index(const CellIndex& in) const
 KOKKOS_INLINE_FUNCTION
 CellIndex CellArray_shape_local::convert_index_ghost(const CellIndex& in) const
 {
-  assert( in.is_valid() ); // Index needs to be valid for conversion
-  assert( in.is_local() ); // cannot access ghosts in CellArray
+  DYABLO_ASSERT_KOKKOS_DEBUG( in.is_valid(), "Index needs to be valid for conversion");
+  DYABLO_ASSERT_KOKKOS_DEBUG( in.is_local(), "Index needs to be local for conversion");
 
   if( in.bx == bx && in.by == by && in.bz == bz )
     return in;
@@ -458,7 +458,7 @@ CellIndex CellArray_shape_local::convert_index_ghost(const CellIndex& in) const
 KOKKOS_INLINE_FUNCTION
 CellIndex convert_index_ghost_aux(const CellArray_shape_ghosted& array, const CellIndex& in, CellIndex::offset_t& offset)
 {
-  assert( in.is_valid() ); // Index needs to be valid for conversion
+  DYABLO_ASSERT_KOKKOS_DEBUG( in.is_valid(), "Index needs to be valid for conversion");
 
   int32_t bx = array.bx;
   int32_t by = array.by;
@@ -543,9 +543,9 @@ template< typename View_t >
 KOKKOS_INLINE_FUNCTION
 real_t& CellArray_base<View_t>::at_ivar(const CellIndex& iCell, int iVar) const
 {
-  assert(bx == iCell.bx);
-  assert(by == iCell.by);
-  assert(bz == iCell.bz);
+  DYABLO_ASSERT_KOKKOS_DEBUG(bx == iCell.bx, "bx mismatch icell vs array");
+  DYABLO_ASSERT_KOKKOS_DEBUG(by == iCell.by, "by mismatch icell vs array");
+  DYABLO_ASSERT_KOKKOS_DEBUG(bz == iCell.bz, "bz mismatch icell vs array");
 
   uint32_t i = iCell.i + iCell.j*iCell.bx + iCell.k*iCell.bx*iCell.by;
   return U(i, iVar, iCell.iOct.iOct%nbOcts);
@@ -560,14 +560,14 @@ real_t& CellArray_global_ghosted::at(const CellIndex& iCell, VarIndex field) con
 KOKKOS_INLINE_FUNCTION
 real_t& CellArray_global_ghosted::at_ivar(const CellIndex& iCell, int ivar) const
 {
-  assert(bx == iCell.bx);
-  assert(by == iCell.by);
-  assert(bz == iCell.bz);
+  DYABLO_ASSERT_KOKKOS_DEBUG(bx == iCell.bx, "bx mismatch icell vs array");
+  DYABLO_ASSERT_KOKKOS_DEBUG(by == iCell.by, "by mismatch icell vs array");
+  DYABLO_ASSERT_KOKKOS_DEBUG(bz == iCell.bz, "bz mismatch icell vs array");
 
   uint32_t i = iCell.i + iCell.j*iCell.bx + iCell.k*iCell.bx*iCell.by;
   if( iCell.iOct.isGhost )
   {
-    assert( Ughost.is_allocated() );
+    DYABLO_ASSERT_KOKKOS_DEBUG( Ughost.is_allocated(), "Ughost array not allocated" );
     return Ughost(i, ivar, iCell.iOct.iOct);
   }
   else
@@ -579,7 +579,7 @@ real_t& CellArray_global_ghosted::at_ivar(const CellIndex& iCell, int ivar) cons
 KOKKOS_INLINE_FUNCTION
 CellIndex CellIndex::getNeighbor( const offset_t& offset ) const
 {
-  assert(is_valid());
+  DYABLO_ASSERT_KOKKOS_DEBUG( this->is_valid(), "Index needs to be valid to get neighbor");
 
   CellIndex res = *this;
   res.i += offset[IX];
@@ -589,9 +589,9 @@ CellIndex CellIndex::getNeighbor( const offset_t& offset ) const
                 ? CellIndex::LOCAL_TO_BLOCK
                 : CellIndex::SAME_SIZE;
 
-  assert(res.i < bx);
-  assert(res.j < by);
-  assert(res.k < bz);
+  DYABLO_ASSERT_KOKKOS_DEBUG(res.i < bx, "i out of block bounds");
+  DYABLO_ASSERT_KOKKOS_DEBUG(res.j < by, "j out of block bounds");
+  DYABLO_ASSERT_KOKKOS_DEBUG(res.k < bz, "k out of block bounds");
  
   return res;
 }
@@ -601,14 +601,14 @@ CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_
 {
   const LightOctree& lmesh = array.lmesh;
 
-  assert(this->is_valid());
-  assert(this->bx == array.bx );
-  assert(this->by == array.by );
-  assert(this->bz == array.bz );
-  assert(this->is_local() || this->level_diff() == -1);
-  assert(int(this->bx) >= abs(offset[IX])*2 - 1 );
-  assert(int(this->by) >= abs(offset[IY])*2 - 1 );
-  assert(int(this->bz) >= abs(offset[IZ])*2 - 1 );  
+  DYABLO_ASSERT_KOKKOS_DEBUG(this->is_valid(), "Index needs to be valid to get neighbor");
+  DYABLO_ASSERT_KOKKOS_DEBUG(this->bx == array.bx, "bx mismatch icell vs array");
+  DYABLO_ASSERT_KOKKOS_DEBUG(this->by == array.by, "by mismatch icell vs array");
+  DYABLO_ASSERT_KOKKOS_DEBUG(this->bz == array.bz, "bz mismatch icell vs array");
+  DYABLO_ASSERT_KOKKOS_DEBUG(this->is_local() || this->level_diff() == -1, "iOct should be local to get neighbor (except to find siblings when smaller)");
+  DYABLO_ASSERT_KOKKOS_DEBUG(int(this->bx) >= abs(offset[IX])*2 - 1, "Block size not compatible with offset");
+  DYABLO_ASSERT_KOKKOS_DEBUG(int(this->by) >= abs(offset[IY])*2 - 1, "Block size not compatible with offset");
+  DYABLO_ASSERT_KOKKOS_DEBUG(int(this->bz) >= abs(offset[IZ])*2 - 1, "Block size not compatible with offset");  
 
   int32_t i = this->i + offset[IX];
   int32_t j = this->j + offset[IY];
@@ -623,20 +623,19 @@ CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_
   if( oct_offset[IX] == 0 && oct_offset[IY] == 0 && oct_offset[IZ] == 0 )
   { // Neighbor cell is inside local octant
     CellIndex res = this->getNeighbor( offset );
-    assert(res.is_valid());
+    DYABLO_ASSERT_KOKKOS_DEBUG(res.is_valid(), "internal error : found invalid neighbor");
     return res;
   }
   else
   { // Neighbor cell is outside local octant : need to find cell in neighbor octant
     const LightOctree::OctantIndex& iOct = this->iOct; 
-    //assert(!iOct.isGhost);
     if( lmesh.isBoundary( iOct, oct_offset ) )
     {
       return CellIndex{iOct,i+bx,j+by,k+bz,bx,by,bz, CellIndex::BOUNDARY};;
     }
     
     LightOctree::NeighborList oct_neighbors = lmesh.findNeighbors(iOct, oct_offset);
-    assert( oct_neighbors.size() != 0 ); 
+    DYABLO_ASSERT_KOKKOS_DEBUG( oct_neighbors.size() != 0, "Could not find neighbor" ); 
 
     int level_diff = lmesh.getLevel(iOct) - lmesh.getLevel(oct_neighbors[0]);
     
@@ -647,9 +646,9 @@ CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_
     
     if( level_diff == 0 )
     { // Neighbor is same size
-      assert(i_same<bx);
-      assert(j_same<by);
-      assert(k_same<bz);
+      DYABLO_ASSERT_KOKKOS_DEBUG(i_same<bx, "internal error : i out of block bounds");
+      DYABLO_ASSERT_KOKKOS_DEBUG(j_same<by, "internal error : j out of block bounds");
+      DYABLO_ASSERT_KOKKOS_DEBUG(k_same<bz, "internal error : k out of block bounds");
       return CellIndex{
         oct_neighbors[0],
         i_same, j_same, k_same,
@@ -681,9 +680,9 @@ CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_
       uint32_t j_larger = (j_same+suboctant_offset_y*by)/2;
       uint32_t k_larger = (k_same+suboctant_offset_z*bz)/2;
 
-      assert(i_larger<bx);
-      assert(j_larger<by);
-      assert(k_larger<bz);
+      DYABLO_ASSERT_KOKKOS_DEBUG(i_larger<bx, "internal error : i out of block bounds");
+      DYABLO_ASSERT_KOKKOS_DEBUG(j_larger<by, "internal error : j out of block bounds");
+      DYABLO_ASSERT_KOKKOS_DEBUG(k_larger<bz, "internal error : k out of block bounds");
 
       CellIndex res{
         oct_neighbors[0], 
@@ -703,9 +702,9 @@ CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_
       uint32_t j_smaller = j*2 + (int)(j<0) - oct_offset[IY] * by * 2;
       uint32_t k_smaller = k*2 + (int)(k<0) - oct_offset[IZ] * bz * 2;
 
-      assert(i_smaller < 2*bx );
-      assert(j_smaller < 2*by );
-      assert(k_smaller < 2*bz );
+      DYABLO_ASSERT_KOKKOS_DEBUG(i_smaller<2*bx, "internal error : i out of block bounds");
+      DYABLO_ASSERT_KOKKOS_DEBUG(j_smaller<2*by, "internal error : j out of block bounds");
+      DYABLO_ASSERT_KOKKOS_DEBUG(k_smaller<2*bz, "internal error : k out of block bounds");
 
       // Compute position of suboctant containing "first neighbor" among the 8 suboctants
       int suboctant_x = i_smaller >= bx;    
@@ -717,9 +716,9 @@ CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_
       j_smaller -= by * suboctant_y;
       k_smaller -= bz * suboctant_z;
 
-      assert(i_smaller < bx );
-      assert(j_smaller < by );
-      assert(k_smaller < bz );
+      DYABLO_ASSERT_KOKKOS_DEBUG(i_smaller<bx, "internal error : i out of block bounds");
+      DYABLO_ASSERT_KOKKOS_DEBUG(j_smaller<by, "internal error : j out of block bounds");
+      DYABLO_ASSERT_KOKKOS_DEBUG(k_smaller<bz, "internal error : k out of block bounds");
 
       // Find suboctant containing first neighbor
       LightOctree::pos_t current_oct_center = lmesh.getCenter(iOct);
@@ -746,7 +745,7 @@ CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_
         }
       }
 
-      assert( suboctant != -1 );
+      DYABLO_ASSERT_KOKKOS_DEBUG( suboctant != -1, "smaller neighbor : corresponding suboctant not found" );
 
       return CellIndex{
         oct_neighbors[suboctant], 
@@ -756,22 +755,21 @@ CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_
     }
     else
     {
-      assert(false); // Level-diff doesn't respect 2:1 balance
+      DYABLO_ASSERT_KOKKOS_DEBUG(false, "Level-diff doesn't respect 2:1 balance");
     }
   }
 
-  assert(false); // unhandled case
   return CELLINDEX_INVALID;
 }
 
 KOKKOS_INLINE_FUNCTION
 CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_shape_local& array ) const
 {
-  assert(this->is_valid());
-  assert(this->bx == array.bx );
-  assert(this->by == array.by );
-  assert(this->bz == array.bz );
-  assert(this->is_local());
+  DYABLO_ASSERT_KOKKOS_DEBUG(this->is_valid(), "Index needs to be valid to get neighbor");
+  DYABLO_ASSERT_KOKKOS_DEBUG(this->bx == array.bx, "bx mismatch icell vs array");
+  DYABLO_ASSERT_KOKKOS_DEBUG(this->by == array.by, "by mismatch icell vs array");
+  DYABLO_ASSERT_KOKKOS_DEBUG(this->bz == array.bz, "bz mismatch icell vs array");
+  DYABLO_ASSERT_KOKKOS_DEBUG(this->is_local(), "iOct should be local to get neighbor");
 
   uint32_t i = this->i + offset[IX];
   uint32_t j = this->j + offset[IY];
@@ -780,7 +778,7 @@ CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_
   if( i>=bx || j>=by || k>=bz )
   { // Neighbor cell is inside local octant
     CellIndex res = this->getNeighbor( offset );
-    assert(res.is_valid() && res.is_local());
+    DYABLO_ASSERT_KOKKOS_DEBUG(res.is_valid() && res.is_local(), "internal error : found invalid neighbor");
     return res;
   }
   else

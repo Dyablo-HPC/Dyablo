@@ -142,9 +142,10 @@ template< typename DataArray_t, int iOct_pos = DataArray_t::rank-1 >
 void exchange_ghosts_aux( AMRmesh_pablo& amr_mesh, 
                           const DataArray_t& U, const DataArray_t& Ughost)
 {
-  assert(U.extent( iOct_pos ) == amr_mesh.getNumOctants()); // Specified index must be iOct
-
-  assert( Ughost.extent( iOct_pos ) == amr_mesh.getNumGhosts()  );
+  DYABLO_ASSERT_HOST_RELEASE(U.extent( iOct_pos ) == amr_mesh.getNumOctants(), 
+    "Array Oct count doesn't match mesh size");
+  DYABLO_ASSERT_HOST_RELEASE( Ughost.extent( iOct_pos ) == amr_mesh.getNumGhosts(),
+    "Array Ghost count doesn't match mesh size");
 
   using DataArray_host_t = typename DataArray_t::HostMirror;
 

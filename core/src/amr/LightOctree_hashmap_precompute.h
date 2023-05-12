@@ -107,14 +107,12 @@ public:
             {
                 neighbors[i] = LightOctree_base::OctantIndex::iOctLocal_to_OctantIndex( neighbors_iOct( n_offset + i ), getNumOctants() );
             }
-#ifndef NDEBUG
-            auto nocache_neighbors = LightOctree_hashmap::findNeighbors(iOct, offset);
-            assert( nneighbors == nocache_neighbors.size() );
+            
+            DYABLO_ASSERT_KOKKOS_DEBUG( nneighbors == LightOctree_hashmap::findNeighbors(iOct, offset).size(), "Precomputed neighbor count mismatch" );
             for( int i=0; i<nneighbors; i++ )
             {
-                assert( neighbors[i].iOct == nocache_neighbors[i].iOct );
+                DYABLO_ASSERT_KOKKOS_DEBUG( neighbors[i].iOct == LightOctree_hashmap::findNeighbors(iOct, offset)[i].iOct, "Precomputed neighbor mismatch" );
             }
-#endif
 
             return NeighborList{ nneighbors, neighbors };
         }
