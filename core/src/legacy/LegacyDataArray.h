@@ -29,14 +29,14 @@ public :
     KOKKOS_INLINE_FUNCTION
     real_t& operator()( uint32_t iCell, int iVar, uint32_t iOct) const
     {
-        DYABLO_ASSERT_HOST_RELEASE(iVar<fm_ivar.nbfields(), "iVar out of bounds");
+        DYABLO_ASSERT_KOKKOS_DEBUG(iVar<fm_ivar.nbfields(), "iVar out of bounds");
         return this->fields.U(iCell, this->fm_active[iVar], iOct);
     }
 
     KOKKOS_INLINE_FUNCTION
     const real_t& ghost_val( uint32_t iCell, int iVar, uint32_t iOct) const
     {
-        DYABLO_ASSERT_HOST_RELEASE(iVar<fm_ivar.nbfields(), "iVar out of bounds");
+        DYABLO_ASSERT_KOKKOS_DEBUG(iVar<fm_ivar.nbfields(), "iVar out of bounds");
         return this->fields.Ughost(iCell, this->fm_active[iVar], iOct);
     }
     

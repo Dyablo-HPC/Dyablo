@@ -268,7 +268,7 @@ public:
     KOKKOS_INLINE_FUNCTION
     FieldView_t::Shape_t getShape() const
     {
-        DYABLO_ASSERT_HOST_RELEASE(nbFields() > 0, "Cannot getShape() of an empty UserData" );
+        DYABLO_ASSERT_KOKKOS_DEBUG(nbFields() > 0, "Cannot getShape() of an empty UserData" );
         return fields.getShape();
     }
 
