@@ -80,6 +80,8 @@ public:
                 int index = first_free();
                 attribute_index[name] = index;
                 
+                const auto& particles = this->particles;
+
                 foreach_particle.foreach_particle( "zero_attribute", particles,
                     KOKKOS_LAMBDA( const ForeachParticle::ParticleIndex& iPart )
                 {
@@ -111,6 +113,7 @@ public:
 
             int index = attribute_index.at(attribute_name);
 
+            const auto& particles = this->particles;
             foreach_particle.foreach_particle( "copy_attr", particles,
                 KOKKOS_LAMBDA( const ForeachParticle::ParticleIndex& iPart )
             {
