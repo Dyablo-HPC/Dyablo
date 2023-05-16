@@ -320,6 +320,8 @@ void GhostCommunicator_kokkos::exchange_ghosts( const DataArray_t& U, const Data
   using MPIBuffer = typename DataArray_t::HostMirror;
 #endif
 
+  DYABLO_ASSERT_HOST_RELEASE( Ughost.extent(iOct_pos) == nbghosts_recv, "Mismatch between view extent and expected ghost count" );
+
   int nb_proc = mpi_comm.MPI_Comm_size();
 
   // Pack send buffers from U, allocate recieve buffers

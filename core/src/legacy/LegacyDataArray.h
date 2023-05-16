@@ -29,21 +29,21 @@ public :
     KOKKOS_INLINE_FUNCTION
     real_t& operator()( uint32_t iCell, int iVar, uint32_t iOct) const
     {
-        DYABLO_ASSERT_KOKKOS_DEBUG(iVar<fm.nbfields(), "iVar out of bounds");
-        return this->field_views[iVar].U(iCell, 0, iOct);
+        DYABLO_ASSERT_KOKKOS_DEBUG(iVar<fm_ivar.nbfields(), "iVar out of bounds");
+        return this->fields.U(iCell, this->fm_active[iVar], iOct);
     }
 
     KOKKOS_INLINE_FUNCTION
     const real_t& ghost_val( uint32_t iCell, int iVar, uint32_t iOct) const
     {
-        DYABLO_ASSERT_KOKKOS_DEBUG(iVar<fm.nbfields(), "iVar out of bounds");
-        return this->field_views[iVar].Ughost(iCell, 0, iOct);
+        DYABLO_ASSERT_KOKKOS_DEBUG(iVar<fm_ivar.nbfields(), "iVar out of bounds");
+        return this->fields.Ughost(iCell, this->fm_active[iVar], iOct);
     }
     
     KOKKOS_INLINE_FUNCTION
     id2index_t get_id2index()
     {
-        return this->fm;
+        return FieldManager( fm_ivar.nbfields() ).get_id2index();
     }
 };
 

@@ -34,7 +34,7 @@ set( legacy_src
     ${CMAKE_CURRENT_SOURCE_DIR}/hydro/HydroUpdate_legacy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/compute_dt/Compute_dt_legacy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/refine_condition/RefineCondition_legacy.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/legacy/MapUserData_legacy.cpp
+    #${CMAKE_CURRENT_SOURCE_DIR}/legacy/MapUserData_legacy.cpp
 )
 
 set( mpi_src

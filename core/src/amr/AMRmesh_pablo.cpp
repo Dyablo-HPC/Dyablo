@@ -9,34 +9,32 @@ namespace dyablo {
 void AMRmesh_pablo::loadBalance_userdata( uint8_t compact_levels, UserData& U )
 {
 #ifdef DYABLO_USE_MPI
-    auto field_names_set = U.getEnabledFields();
-    std::vector<std::string> field_names(field_names_set.begin(), field_names_set.end());
-
-    using GatheredView = Kokkos::View<real_t***, Kokkos::LayoutLeft, Kokkos::HostSpace>;
+    uint32_t nbOcts_old = this->getNumOctants();
     
-    GatheredView U_gathered("U_gathered", U.getShape().U.extent(0), U.getShape().U.extent(2), U.nbFields());
-    for( int i=0; i<field_names.size(); i++ )
-    {
-        auto U_gathered_slice = Kokkos::subview( U_gathered, Kokkos::ALL(), Kokkos::ALL(), i );
-        auto U_field_slice = Kokkos::subview( U.getField(field_names[i]).U, Kokkos::ALL(), 0, Kokkos::ALL());
-        Kokkos::deep_copy( U_gathered_slice, U_field_slice );
-        U.delete_field(field_names[i]);
-    }
-
-    GatheredView Ughost_host; // Dummy ghost array
-    using UserDataLB_t = UserDataLB<GatheredView, 1> ;
-    UserDataLB_t data_lb(U_gathered, Ughost_host);
-    ParaTree::loadBalance<UserDataLB_t>(data_lb, compact_levels);
+    ParaTree::loadBalance(compact_levels);
     pmesh_epoch++;
 
-    for( int i=0; i<field_names.size(); i++ )
+    ParaTree::ExchangeRanges pablo_send_ranges = ParaTree::getLoadBalanceRanges().sendRanges;
+    
+    int mpi_rank = GlobalMpiSession::get_comm_world().MPI_Comm_rank();;
+
+    Kokkos::View< int* > target_domains( "target_domains", nbOcts_old );
     {
-        auto U_gathered_slice = Kokkos::subview( U_gathered, Kokkos::ALL(), Kokkos::ALL(), i );
-        U.new_fields({field_names[i]});
-        auto U_field_slice = Kokkos::subview( U.getField(field_names[i]).U, Kokkos::ALL(), 0, Kokkos::ALL() );
-        Kokkos::deep_copy( U_field_slice, U_gathered_slice );
+        auto target_domains_host = Kokkos::create_mirror_view(target_domains);
+
+        for( int i=0; i<target_domains.size(); i++  )
+            target_domains_host[i] = mpi_rank;
+        for( const auto& [target_rank, interval] : pablo_send_ranges )
+        {
+            for( int i = interval[0]; i<interval[1]; i++ )
+                target_domains_host[i] = target_rank;
+        }
+
+        Kokkos::deep_copy( target_domains, target_domains_host );
     }
 
+    GhostCommunicator_kokkos ghost_comm( target_domains );
+    U.exchange_loadbalance( ghost_comm );
 #endif // DYABLO_USE_MPI
 }
 

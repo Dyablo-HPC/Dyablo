@@ -4,8 +4,7 @@
 
 namespace dyablo {
 
-
-class MapUserData_legacy;
+//class MapUserData_legacy;
 class MapUserData_mean;
 
 } //namespace dyablo 
@@ -14,7 +13,7 @@ class MapUserData_mean;
 template<>
 inline bool dyablo::MapUserDataFactory::init()
 {
-  DECLARE_REGISTERED(dyablo::MapUserData_legacy);
+  //DECLARE_REGISTERED(dyablo::MapUserData_legacy);
   DECLARE_REGISTERED(dyablo::MapUserData_mean);
 
   return true;
