@@ -39,7 +39,7 @@ public:
 
     enum VarIndex_rho{ID};
 
-    UserData::FieldAccessor Uin( U, {{"rho", ID}} );
+    UserData::FieldAccessor Uin = U.getAccessor( {{"rho", ID}} );
     ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
 
     uint32_t nbOcts = foreach_cell.get_amr_mesh().getNumOctants();

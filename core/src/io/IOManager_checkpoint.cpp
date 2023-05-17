@@ -59,6 +59,16 @@ public:
         hdf5_file.collective_write( std::string("fields/")+field_name, U.getField(field_name).U );
       }
 
+      for( const std::string& particle_array : U.getEnabledParticleArrays() )
+      {
+        const auto& pos = U.getParticleArray(particle_array).particle_position;
+        hdf5_file.collective_write( std::string("particles/")+particle_array+"/pos/x", Kokkos::subview( pos, Kokkos::ALL(), (int)IX ) );
+        hdf5_file.collective_write( std::string("particles/")+particle_array+"/pos/y", Kokkos::subview( pos, Kokkos::ALL(), (int)IY ) );
+        hdf5_file.collective_write( std::string("particles/")+particle_array+"/pos/z", Kokkos::subview( pos, Kokkos::ALL(), (int)IZ ) );
+        for( const std::string& attr : U.getEnabledParticleAttributes( particle_array ) )
+          hdf5_file.collective_write( std::string("particles/")+particle_array+"/attributes/"+attr, U.getParticleAttribute(particle_array, attr).particle_data );
+      }
+
       // Select subview containing local octants
       LightOctree::Storage_t::oct_data_t oct_data = pdata->pmesh.getLightOctree().getStorage().getLocalSubview();
       LightOctree::Storage_t::oct_data_t oct_data_transpose;

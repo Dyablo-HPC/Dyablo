@@ -28,6 +28,8 @@ private:
   hid_t m_hdf5_file;
 
 public:
+  restart_file( const restart_file& ) = delete;
+
   restart_file(const std::string& filename)
   {
     hid_t plist = H5Pcreate(H5P_FILE_ACCESS);
@@ -57,6 +59,21 @@ public:
     return res;
   }
 
+  std::vector<hsize_t> get_field_layout( std::string hdf5_path )
+  {
+    hid_t dataset_properties = H5Pcreate(H5P_DATASET_ACCESS);
+    hid_t dataset = H5Dopen2( m_hdf5_file, hdf5_path.c_str(), dataset_properties );
+    hid_t filespace = H5Dget_space( dataset );
+    int rank = H5Sget_simple_extent_ndims(filespace);
+    std::vector<hsize_t> dims(rank);
+    H5Sget_simple_extent_dims( filespace, dims.data(), nullptr );
+    H5Dclose(dataset);
+    H5Sclose(filespace);
+    H5Pclose(dataset_properties);
+
+    return dims;
+  }
+
   template< typename T, int iOct_pos=T::rank-1  >
   void read_view_init( const std::string& name, T& view )
   {
@@ -67,6 +84,7 @@ public:
     hid_t dataset = H5Dopen2( m_hdf5_file, name.c_str(), dataset_properties );
     hid_t filespace = H5Dget_space( dataset );
 
+    DYABLO_ASSERT_HOST_RELEASE( rank == H5Sget_simple_extent_ndims(filespace), "hdf5 error : dataset rank doesn't match view rank" );
     hsize_t dims[rank], maxdims[rank];
     H5Sget_simple_extent_dims( filespace, dims, maxdims );
     
@@ -167,6 +185,7 @@ class InitialConditions_restart : public InitialConditions{
         int level_min, level_max;
     } data;
     std::string filename;
+    ForeachParticle foreach_particle;
 public:
   InitialConditions_restart(
         ConfigMap& configMap, 
@@ -177,7 +196,8 @@ public:
       foreach_cell.get_amr_mesh().get_level_min(),
       foreach_cell.get_amr_mesh().get_level_max()
     }),
-    filename( configMap.getValue<std::string>( "restart", "filename", "restart.h5" ) )
+    filename( configMap.getValue<std::string>( "restart", "filename", "restart.h5" ) ),
+    foreach_particle(foreach_cell.get_amr_mesh(), configMap)
   {}
 
   void init( UserData& U )
@@ -273,6 +293,41 @@ public:
         {
           Ufield.at( iCell, Ifield ) = field_view.at(iCell, 0);
         });
+      }      
+    }
+
+    {     
+      for( std::string particle_array : restart_file.list_fields("particles/") )
+      {
+        std::vector<hsize_t> field_dim = restart_file.get_field_layout(std::string("particles/")+particle_array+"/pos/x");
+
+        DYABLO_ASSERT_HOST_RELEASE( field_dim.size() == 1, "Error while reading particles : hdf5 field particles/" << particle_array << "/pos/x is not a 1D array" );
+        uint32_t nbParticles = field_dim[0];
+        int mpi_rank = GlobalMpiSession::get_comm_world().MPI_Comm_rank();
+        int nb_proc = GlobalMpiSession::get_comm_world().MPI_Comm_size();
+        uint32_t nbParticles_local = (nbParticles*(mpi_rank+1))/nb_proc - (nbParticles*(mpi_rank))/nb_proc;
+
+        U.new_ParticleArray(particle_array, nbParticles_local);
+        const auto& P_pos = U.getParticleArray(particle_array);
+        restart_file.read_view( std::string("particles/")+particle_array+"/pos/x", Kokkos::subview( P_pos.particle_position, Kokkos::ALL(), (int)IX ) );
+        restart_file.read_view( std::string("particles/")+particle_array+"/pos/y", Kokkos::subview( P_pos.particle_position, Kokkos::ALL(), (int)IY ) );
+        restart_file.read_view( std::string("particles/")+particle_array+"/pos/z", Kokkos::subview( P_pos.particle_position, Kokkos::ALL(), (int)IZ ) );
+
+        ParticleData file_data( P_pos, FieldManager(1) );
+
+        for( std::string attr : restart_file.list_fields(std::string("particles/")+particle_array+"/attributes"))
+        {
+          restart_file.read_view( std::string("particles/")+particle_array+"/attributes/"+attr, Kokkos::subview( file_data.particle_data, Kokkos::ALL(), 0 ) );
+
+          U.new_ParticleAttribute( particle_array, attr );
+          enum VarIndex_attr{ Iattr };
+          UserData::ParticleAccessor Pwrite = U.getParticleAccessor( particle_array, {{attr, Iattr}} );
+          foreach_particle.foreach_particle( "restart_copy_pos", file_data,
+            KOKKOS_LAMBDA(const ForeachParticle::ParticleIndex& iPart)
+          {
+            Pwrite.at( iPart, Iattr ) = file_data.at_ivar(iPart, 0);
+          });          
+        }
       }      
     }
   }  

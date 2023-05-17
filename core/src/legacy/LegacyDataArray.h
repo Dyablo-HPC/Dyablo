@@ -13,13 +13,13 @@ class LegacyDataArray : public UserData::FieldAccessor
 {
 public :
     LegacyDataArray( const UserData& U )
-    : UserData::FieldAccessor(U, {
+    : UserData::FieldAccessor(U.getAccessor( {
             {"rho", ID},
             {"e_tot", IE},
             {"rho_vx", IU},
             {"rho_vy", IV},
             {"rho_vz", IW},
-        })
+        }))
     {}
 
     LegacyDataArray( const UserData::FieldAccessor& U )

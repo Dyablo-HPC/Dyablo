@@ -28,7 +28,7 @@ using TmpViewHost = TmpView::HostMirror;
 namespace {
 
 enum VarIndex_test{
-  ID,IE,IP,IU,IV,IW,IGX,IGY,IGZ
+  ID,IE,IP=IE,IU,IV,IW,IGX,IGY,IGZ
 };
 
 /**

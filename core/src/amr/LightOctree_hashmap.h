@@ -20,6 +20,7 @@ public:
     using Storage_t = LightOctree_storage<>;
     using LightOctree_base::OctantIndex;
     using LightOctree_base::pos_t;
+    using morton_t = uint64_t;
 
     LightOctree_hashmap() = default;
     LightOctree_hashmap(const LightOctree_hashmap& lmesh) = default;
@@ -41,11 +42,32 @@ public:
     : storage( *pmesh ),
       oct_map(pmesh->getNumOctants()+pmesh->getNumGhosts()),
       min_level(level_min), max_level(level_max),
-      is_periodic( {pmesh->getPeriodic(2*IX), pmesh->getPeriodic(2*IY), pmesh->getPeriodic(2*IZ)} )
+      is_periodic( {pmesh->getPeriodic(2*IX), pmesh->getPeriodic(2*IY), pmesh->getPeriodic(2*IZ)} ),
+      morton_intervals( "morton_intervals", pmesh->getMpiComm().MPI_Comm_size()+1 )
     {
         std::cout << "LightOctree rehash ..." << std::endl;
     
         private_init();
+
+        // TODO use logical coords directly or even morton_intervals from AMRmesh
+        morton_t first_morton;
+        {
+            int ndim = getNdim();
+            auto pos = pmesh->getCoordinates((uint32_t)0);
+            index_t<3> logical_coords;
+            uint32_t octant_count = std::pow(2, max_level );
+            real_t octant_size = 1.0/octant_count;
+            logical_coords[IX] = std::floor(pos[IX]/octant_size);
+            logical_coords[IY] = std::floor(pos[IY]/octant_size);
+            logical_coords[IZ] = (ndim-2)*std::floor(pos[IZ]/octant_size);
+
+            first_morton = compute_morton_key( logical_coords );
+        }
+        auto morton_intervals_host = Kokkos::create_mirror_view( morton_intervals );
+        pmesh->getMpiComm().MPI_Allgather( &first_morton, morton_intervals_host.data(), 1 );
+        morton_intervals_host(morton_intervals_host.size()-1) = uint64_t(-1);
+        Kokkos::deep_copy(morton_intervals, morton_intervals_host);
+
     }
 
     /**
@@ -287,6 +309,44 @@ public:
         return {};
     }
 
+    KOKKOS_INLINE_FUNCTION
+    int getDomainFromPos(const pos_t& pos) const
+    {
+        int ndim = getNdim();
+
+        assert( 0 < pos[IX] && pos[IX] < 1 );
+        assert( 0 < pos[IY] && pos[IY] < 1 );
+        if(ndim == 3)
+            assert( 0 < pos[IZ] && pos[IZ] < 1 );
+        else
+            assert( pos[IZ] == 0 );
+        morton_t morton;
+        {
+            index_t<3> logical_coords;
+            uint32_t octant_count = std::pow(2, max_level );
+            real_t octant_size = 1.0/octant_count;
+            logical_coords[IX] = std::floor(pos[IX]/octant_size);
+            logical_coords[IY] = std::floor(pos[IY]/octant_size);
+            logical_coords[IZ] = (ndim-2)*std::floor(pos[IZ]/octant_size);
+
+            morton = compute_morton_key( logical_coords );
+        }
+
+        // first i with morton_intervals[i] > morton, minus 1
+        int res = -1;
+        for(size_t i=0; i<morton_intervals.size(); i++)
+            if( morton_intervals(i) > morton )
+            {
+                res = i-1; 
+                break;
+            }
+
+        assert( 0 <= res && res < (int)morton_intervals.size()-1 );
+
+        return res;
+    }
+
+
     using logical_coord_t = uint32_t;
     using level_t = logical_coord_t;
     struct key_t //! key type for hashmap (morton+level)
@@ -304,6 +364,7 @@ private:
     level_t min_level; //! Coarser level of the octree
     level_t max_level; //! Finer level of the octree
     Kokkos::Array<bool, 3> is_periodic;
+    Kokkos::View<morton_t*> morton_intervals;
 };
 
 } //namespace dyablo

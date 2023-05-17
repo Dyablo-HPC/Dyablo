@@ -90,7 +90,7 @@ void run_test(int ndim, std::string mapUserData_id)
   { // Initialize U
     enum VarIndex_test{Px,Py,Pz};
 
-    UserData::FieldAccessor Uin( U, {{"px", Px}, {"py", Py}, {"pz", Pz}} );
+    UserData::FieldAccessor Uin = U.getAccessor( {{"px", Px}, {"py", Py}, {"pz", Pz}} );
     const ForeachCell::CellMetaData& cells = foreach_cell.getCellMetaData();
     foreach_cell.foreach_cell( "Init_U", U.getShape(),
       KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell )

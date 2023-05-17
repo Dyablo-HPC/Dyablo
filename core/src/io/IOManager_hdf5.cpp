@@ -9,6 +9,7 @@
 #include "io/IOManager_base.h"
 #include "utils/io/HDF5ViewWriter.h"
 #include "foreach_cell/ForeachCell.h"
+#include "particles/ForeachParticle.h"
 
 #include "utils/monitoring/Timers.h"
 #include "utils/config/named_enum.h"
@@ -30,10 +31,65 @@ inline named_enum<OutputRealType>::init_list named_enum<OutputRealType>::names()
 namespace dyablo { 
 
 namespace{
-  std::string main_xdmf_footer=R"xml(
+
+class MainXmfFile{
+public:
+  std::string filename;
+  FILE* main_xdmf_fd = nullptr;
+  bool file_created = false;
+
+  MainXmfFile(const std::string& filename)
+  : filename(filename)
+  {}
+
+  ~MainXmfFile()
+  {
+    if(main_xdmf_fd)
+      fclose(main_xdmf_fd);
+  }
+
+  MainXmfFile( ) = default;
+  MainXmfFile( MainXmfFile&& ) = default;
+  MainXmfFile& operator=( MainXmfFile&& ) = default;
+
+  static constexpr std::string_view main_xdmf_footer=R"xml(
     </Grid>
   </Domain>
 </Xdmf>)xml";
+
+  void create_file()
+  { // Write main xdmf file with 0 timesteps
+    // prepare suffix string
+    this->main_xdmf_fd = fopen( filename.c_str(), "w" );
+    fprintf(main_xdmf_fd, 
+R"xml(<?xml version="1.0" ?>
+<!DOCTYPE Xdmf SYSTEM "Xdmf.dtd" []>
+<Xdmf xmlns:xi="http://www.w3.org/2001/XInclude" Version="2.0">
+  <Domain Name="MainTimeSeries">
+    <Grid Name="MainTimeSeries" GridType="Collection" CollectionType="Temporal">)xml");
+    fprintf(main_xdmf_fd, "%s", std::string(main_xdmf_footer).c_str());
+    fflush(main_xdmf_fd);
+  }
+
+  void append_xmf(const std::string& xmf_filename)
+  {
+    if(!file_created)
+    {
+      create_file();
+      file_created = true;
+    }
+
+    // Append Current timestep to main xmdf file
+    fseek( main_xdmf_fd, -main_xdmf_footer.size(), SEEK_END );
+    fprintf(main_xdmf_fd,
+R"xml(
+      <xi:include href="%s" xpointer="xpointer(//Xdmf/Domain/Grid)" />)xml",
+      xmf_filename.c_str());
+    fprintf(main_xdmf_fd, "%s", std::string(main_xdmf_footer).c_str());
+    fflush(main_xdmf_fd);
+  }
+};
+
 }
 
 class IOManager_hdf5 : public IOManager{
@@ -53,35 +109,53 @@ public:
     zmax(configMap.getValue<real_t>("mesh", "zmax", 1.0)),
     output_real_t(configMap.getValue<OutputRealType>("output", "output_real_type", OT_FLOAT))
   {
-    std::string write_variables = configMap.getValue<std::string>("output", "write_variables", "rho" );
-    std::stringstream sstream(write_variables);
-    std::string var_name;
-    while(std::getline(sstream, var_name, ','))
-    { //use comma as delim for cutting string
-      write_varnames.insert(var_name);
+    {
+      std::string write_variables = configMap.getValue<std::string>("output", "write_variables", "rho" );
+      std::stringstream sstream(write_variables);
+      std::string var_name;
+      while(std::getline(sstream, var_name, ','))
+      { //use comma as delim for cutting string
+        write_varnames.insert(var_name);
+      }
     }
-    
-    { // Write main xdmf file with 0 timesteps
-      // prepare suffix string
-      main_xdmf_fd = fopen( (filename + "_main.xmf").c_str(), "w" );
-      fprintf(main_xdmf_fd, 
-R"xml(<?xml version="1.0" ?>
-<!DOCTYPE Xdmf SYSTEM "Xdmf.dtd" []>
-<Xdmf xmlns:xi="http://www.w3.org/2001/XInclude" Version="2.0">
-  <Domain Name="MainTimeSeries">
-    <Grid Name="MainTimeSeries" GridType="Collection" CollectionType="Temporal">)xml");
-      fprintf(main_xdmf_fd, "%s", main_xdmf_footer.c_str());
-      fflush(main_xdmf_fd);
+    {
+      std::string write_variables = configMap.getValue<std::string>("output", "write_particle_variables", "" );
+      std::stringstream sstream(write_variables);
+      std::string var_name;
+      while(std::getline(sstream, var_name, ','))
+      { //use comma as delim for cutting string
+
+        size_t slashPos = var_name.find_last_of("/");
+        if( slashPos == std::string::npos )
+        {
+          write_particle_attributes[var_name]; // Create empty set for var_name
+          continue;
+        }
+        
+        auto trim = [](std::string& str)
+        {
+          str.erase(std::remove(str.begin(),str.end(),' '),str.end());
+        };
+
+        std::string array_name = var_name.substr(0, slashPos);
+        trim(array_name);
+        std::string attr_name = var_name.substr(slashPos + 1);
+        trim(attr_name);
+
+        //std::cout << "parsed array attribute '" << array_name << "' / '" << attr_name << "'" << std::endl;
+
+        write_particle_attributes[array_name].insert( attr_name );      
+      }
     }
-  }
-  ~IOManager_hdf5()
-  {
-    fclose(main_xdmf_fd);
+
+    main_xdmf_fd = MainXmfFile( filename + "_main.xmf" );
   }
 
   void save_snapshot( const UserData& U, uint32_t iter, real_t time );
   template <typename output_real_t>
-  void save_snapshot_aux( const UserData& U, uint32_t iter, real_t time );
+  void save_snapshot_aux( const UserData& U_, uint32_t iter, real_t time );
+  
+  void save_particles( const UserData& U, const std::string& particle_array,  uint32_t iter, real_t time );
 
   struct Data;
 private:
@@ -89,8 +163,9 @@ private:
   Timers& timers;
   std::string filename;
   std::set<std::string> write_varnames;
-  FILE* main_xdmf_fd;
-
+  std::map<std::string, std::set<std::string>> write_particle_attributes;
+  MainXmfFile main_xdmf_fd;
+  std::map<std::string, MainXmfFile> particles_main_xdmf_fds;
   const real_t xmin, xmax;
   const real_t ymin, ymax;
   const real_t zmin, zmax;
@@ -162,13 +237,7 @@ void IOManager_hdf5::save_snapshot_aux( const UserData& U_, uint32_t iter, real_
   if( foreach_cell.get_amr_mesh().getRank() == 0 )
   { 
     // Append Current timestep to main xmdf file
-    fseek( main_xdmf_fd, -main_xdmf_footer.size(), SEEK_END );
-    fprintf(main_xdmf_fd,
-R"xml(
-      <xi:include href="%s" xpointer="xpointer(//Xdmf/Domain/Grid)" />)xml",
-      (base_filename + ".xmf").c_str());
-    fprintf(main_xdmf_fd, "%s", main_xdmf_footer.c_str());
-    fflush(main_xdmf_fd);
+    main_xdmf_fd.append_xmf(base_filename + ".xmf");
 
     // Write xdmf file (only master MPI process)
     FILE* fd = fopen( (base_filename + ".xmf").c_str(), "w" );
@@ -382,6 +451,132 @@ R"xml(
       }
     }   
   }
+
+  for( const auto& p : write_particle_attributes )
+  {
+    std::string particle_array = p.first;
+
+    if( U_.has_ParticleArray(particle_array) )
+    {
+      if( particles_main_xdmf_fds.find(particle_array) == particles_main_xdmf_fds.end() )
+        particles_main_xdmf_fds[particle_array] = MainXmfFile(filename + "_particles_" + particle_array + "_main.xmf");
+      
+      save_particles( U_, particle_array, iter, time);
+    }
+    else
+      std::cout << "WARNING : Output particle array requested but not enabled : '" << particle_array << "'" << std::endl;
+  }
+}
+
+void IOManager_hdf5::save_particles( const UserData& U, const std::string& particle_array, uint32_t iter, real_t time )
+{
+  std::string base_filename;
+  {
+    // prepare suffix string
+    std::ostringstream strsuffix;
+    strsuffix << "_particles_" << particle_array << "_iter";
+    strsuffix.width(7);
+    strsuffix.fill('0');
+    strsuffix << iter;
+    strsuffix.str();
+    base_filename = filename + strsuffix.str();
+  }
+
+  auto mpi_comm = foreach_cell.get_amr_mesh().getMpiComm();
+
+  uint32_t local_num_particles = U.getParticleArray(particle_array).getNumParticles();
+  uint64_t global_num_particles;
+  {
+    uint64_t nbPart = local_num_particles;
+    mpi_comm.MPI_Allreduce( &nbPart, &global_num_particles, 1, MpiComm::MPI_Op_t::SUM );
+  }
+
+  if( mpi_comm.MPI_Comm_rank() == 0 )
+  { 
+    // Append Current timestep to main xmdf file
+    particles_main_xdmf_fds.at(particle_array).append_xmf(base_filename + ".xmf");
+
+    // Write xdmf file (only master MPI process)
+    FILE* fd = fopen( (base_filename + ".xmf").c_str(), "w" );
+
+    fprintf(fd, 
+R"xml(<?xml version="1.0" ?>
+<!DOCTYPE Xdmf SYSTEM "Xdmf.dtd" []>
+<Xdmf Version="2.0">
+  <Domain>
+    <Grid Name="%s" GridType="Uniform">
+      <Time TimeType="Single" Value="%g" />
+      <Topology TopologyType="Polyvertex" NumberOfElements="%lu" />
+      <Geometry GeometryType="XYZ">
+        <DataItem Dimensions="%lu 3" NumberType="Float" Precision="%d" Format="HDF">
+          %s.h5:/coordinates
+        </DataItem>
+      </Geometry>)xml",
+      base_filename.c_str(), 
+      time,
+      global_num_particles,
+      global_num_particles, (int)sizeof(real_t),
+      base_filename.c_str()
+    );
+
+    for( const std::string& var_name : write_particle_attributes.at(particle_array) )
+    {
+      if( U.has_ParticleAttribute(particle_array, var_name) )
+      {
+        fprintf(fd, 
+R"xml(
+      <Attribute Name="%s" AttributeType="Scalar" Center="Node">
+        <DataItem Dimensions="%lu 1" NumberType="Float" Precision="%d" Format="HDF">
+         %s.h5:/%s
+        </DataItem>
+      </Attribute>)xml",
+          var_name.c_str(),
+          global_num_particles, (int)sizeof(real_t),
+          base_filename.c_str(), var_name.c_str()
+        );
+      }
+      else
+      {
+        std::cout << "WARNING : Output attribute requested but not enabled : '" << particle_array << "/" << var_name << "'" << std::endl; 
+      }
+    }
+
+    fprintf(fd, 
+R"xml(
+    </Grid>
+  </Domain>
+</Xdmf>
+)xml");
+
+    fclose(fd);
+  }
+
+ { // Write hdf5 file
+    HDF5ViewWriter hdf5_writer( base_filename + ".h5" );
+
+    { // Write coordinates
+
+      const ParticleArray& P = U.getParticleArray(particle_array);
+      Kokkos::View< real_t**, Kokkos::LayoutLeft > tmp_view("particles_coordinates", 3, local_num_particles);
+      Kokkos::parallel_for( "compute_particles_coordinates", local_num_particles,
+      KOKKOS_LAMBDA( uint32_t iPart )
+      {
+        tmp_view(IX, iPart) = P.pos(iPart,IX);
+        tmp_view(IY, iPart) = P.pos(iPart,IY);
+        tmp_view(IZ, iPart) = P.pos(iPart,IZ);
+      });
+      hdf5_writer.collective_write( "coordinates", tmp_view );
+    } 
+
+    // Write selected variables
+    for( const std::string& var_name : write_particle_attributes.at(particle_array) )
+    {
+      if(  U.has_ParticleAttribute(particle_array, var_name) )
+      {
+        hdf5_writer.collective_write( var_name, U.getParticleAttribute(particle_array, var_name).particle_data );
+      }
+    }   
+ }
 }
 
 }// namespace dyablo
