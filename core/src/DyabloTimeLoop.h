@@ -13,6 +13,7 @@
 #include "io/IOManager.h"
 #include "gravity/GravitySolver.h"
 #include "hydro/HydroUpdate.h"
+#include "particles/ParticleUpdate.h"
 #include "amr/MapUserData.h"
 #include "UserData.h"
 
@@ -105,6 +106,13 @@ public:
     std::string godunov_updater_id = configMap.getValue<std::string>("hydro", "update", "HydroUpdate_hancock");
     this->has_mhd = godunov_updater_id.find("MHD") != std::string::npos;
     this->godunov_updater = HydroUpdateFactory::make_instance( godunov_updater_id,
+      configMap,
+      this->m_foreach_cell,
+      timers
+    );
+
+    std::string particle_position_updater_id = configMap.getValue<std::string>("particles", "update_position", "none");
+    this->particle_position_updater = ParticleUpdateFactory::make_instance( particle_position_updater_id,
       configMap,
       this->m_foreach_cell,
       timers
@@ -313,6 +321,13 @@ public:
         printf("time step=%7d (dt=% 10.8f t=% 10.8f)\n",m_iter, dt, m_t);
     }
     
+    // Move tracers
+    if( particle_position_updater )
+    {
+      particle_position_updater->update( U, dt );
+      U.distributeParticles("particles");
+    }
+
     GhostCommunicator ghost_comm(m_amr_mesh, m_communicator);
 
     // Update ghost cells
@@ -447,6 +462,7 @@ private:
   std::unique_ptr<RefineCondition> refine_condition;
   std::unique_ptr<HydroUpdate> godunov_updater;
   bool has_mhd; // TODO : remove this
+  std::unique_ptr<ParticleUpdate> particle_position_updater;
   std::unique_ptr<MapUserData> mapUserData;
   std::unique_ptr<IOManager> io_manager, io_manager_checkpoint;
   std::unique_ptr<GravitySolver> gravity_solver;
