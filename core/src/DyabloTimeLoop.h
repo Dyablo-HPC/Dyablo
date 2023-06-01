@@ -128,8 +128,16 @@ public:
       timers
     );
 
-    // Get initial conditions id
-    std::string init_id = configMap.getValue<std::string>("hydro", "problem", "unknown");
+    // .ini : report legacy hydro/problem to run/initial_conditions
+    if( configMap.hasValue("hydro", "problem") )
+    {
+      std::string hydro_problem = configMap.getValue<std::string>("hydro", "problem", "undefined");
+      std::cout << "WARNING : hydro/problem is deprecated in .ini, use run/initial_conditions instead" << std::endl;
+      configMap.getValue<std::vector<std::string>>("run", "initial_conditions", {hydro_problem});
+    }
+
+    // Get initial conditions ids
+    std::vector<std::string> initial_conditions_ids = configMap.getValue<std::vector<std::string>>("run", "initial_conditions");    
 
     int rank = m_communicator.MPI_Comm_rank();
     if (rank==0) {
@@ -137,7 +145,10 @@ public:
       std::cout << "Godunov updater    : " << godunov_updater_id << std::endl;
       std::cout << "IO Manager         : " << iomanager_id << std::endl;
       std::cout << "Gravity solver     : " << gravity_solver_id << std::endl;
-      std::cout << "Initial conditions : " << init_id << std::endl;
+      std::cout << "Initial conditions : " ;
+        for( const std::string& id : initial_conditions_ids )
+          std::cout << "`" << id << "` ";
+      std::cout << std::endl;
       std::cout << "Refine condition   : " << refine_condition_id << std::endl;
       std::cout << "Compute dt         : " << compute_dt_id << std::endl;
       std::cout << "##########################" << std::endl;
@@ -145,17 +156,23 @@ public:
 
     // Initialize cells
     {
-      // test if we are performing a re-start run (default : false)
-      bool restartEnabled = configMap.getValue<bool>("run","restart_enabled", false);
+      // Handle legacy run/restart_enabled option
+      if( configMap.hasValue("run","restart_enabled") )
+      {
+        std::cout << "WARNING : run/restart_enabled is deprecated, use run/initial_conditions=restart,... instead" << std::endl;
+        DYABLO_ASSERT_HOST_RELEASE( !configMap.getValue<bool>("run","restart_enabled") || initial_conditions_ids.end() != std::find( initial_conditions_ids.begin(), initial_conditions_ids.end(), "restart" ),
+                                    "run/restart_enabled=ON but 'restart' is not in run/initial_conditions list" );
+      }
 
-      std::string init_name = restartEnabled ? "restart" : init_id;
-      std::unique_ptr<InitialConditions> initial_conditions =
-        InitialConditionsFactory::make_instance(init_id, 
-          configMap,
-          m_foreach_cell,
-          timers);
-
-      initial_conditions->init( U );
+      for( std::string init_name : initial_conditions_ids )
+      {
+        std::unique_ptr<InitialConditions> initial_conditions =
+          InitialConditionsFactory::make_instance(init_name, 
+            configMap,
+            m_foreach_cell,
+            timers);
+        initial_conditions->init( U );
+      }     
     }
  
 

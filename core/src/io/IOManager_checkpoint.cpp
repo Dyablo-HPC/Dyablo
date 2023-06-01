@@ -82,7 +82,7 @@ public:
 
       configMap_copy.set( "run", "tstart", time); 
       configMap_copy.set( "run", "iter_start", iter);
-      configMap_copy.set( "hydro", "problem", "restart" );
+      configMap_copy.set( "run", "initial_conditions", "restart" );
       configMap_copy.set( "restart", "filename", filename.str()+".h5");
 
       std::ofstream ini_file(filename.str()+".ini");
