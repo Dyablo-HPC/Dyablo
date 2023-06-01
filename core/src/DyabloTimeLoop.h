@@ -118,6 +118,13 @@ public:
       timers
     );
 
+    std::string particle_update_density_id = configMap.getValue<std::string>("particles", "update_density", "none");
+    this->particle_update_density = ParticleUpdateFactory::make_instance( particle_update_density_id,
+      configMap,
+      this->m_foreach_cell,
+      timers
+    );
+
     std::string mapUserData_id = configMap.getValue<std::string>("amr", "remap", "MapUserData_mean");
     this->mapUserData = MapUserDataFactory::make_instance( mapUserData_id,
       configMap,
@@ -144,8 +151,6 @@ public:
         timers
       );
     }
-
-    
 
     std::string compute_dt_id = configMap.getValue<std::string>("dt", "dt_kernel", "Compute_dt_generic");
     this->compute_dt = Compute_dtFactory::make_instance( compute_dt_id,
@@ -320,13 +325,6 @@ public:
       if( rank == 0 && m_iter % m_nlog == 0 )
         printf("time step=%7d (dt=% 10.8f t=% 10.8f)\n",m_iter, dt, m_t);
     }
-    
-    // Move tracers
-    if( particle_position_updater )
-    {
-      particle_position_updater->update( U, dt );
-      U.distributeParticles("particles");
-    }
 
     GhostCommunicator ghost_comm(m_amr_mesh, m_communicator);
 
@@ -343,14 +341,38 @@ public:
       U.new_fields({"Bx_next", "By_next", "Bz_next"});
     
     if (m_gravity_type & GRAVITY_FIELD) {
-      U.new_fields({"gx", "gy", "gz"});
+      if( !U.has_field("gx") )
+        U.new_fields({"gx", "gy", "gz"});
       if( !U.has_field("gphi") )
         U.new_fields({"gphi"});
     }
 
     // Update gravity
     if( gravity_solver )
+    {
+      if( particle_update_density )
+      {
+        U.new_fields({"rho_g"});
+        particle_update_density->update( U, dt );
+        
+        // Backup rho without projected particles
+        U.move_field("rho_bak", "rho");
+        U.move_field("rho", "rho_g");
+      }
+
       gravity_solver->update_gravity_field(U);
+
+      // Restore rho before projection (only if particle projection)
+      if( particle_update_density )
+        U.move_field("rho", "rho_bak");
+    }
+    
+    // Move particles
+    if( particle_position_updater )
+    {
+      particle_position_updater->update( U, dt );
+      U.distributeParticles("particles");
+    }
 
     // Update hydro
     godunov_updater->update( U, dt );
@@ -371,9 +393,9 @@ public:
     
     if (m_gravity_type & GRAVITY_FIELD)
     {
-      U.delete_field("gx");
-      U.delete_field("gy");
-      U.delete_field("gz");
+      // U.delete_field("gx");
+      // U.delete_field("gy");
+      // U.delete_field("gz");
     }    
 
     // AMR cycle
@@ -462,7 +484,7 @@ private:
   std::unique_ptr<RefineCondition> refine_condition;
   std::unique_ptr<HydroUpdate> godunov_updater;
   bool has_mhd; // TODO : remove this
-  std::unique_ptr<ParticleUpdate> particle_position_updater;
+  std::unique_ptr<ParticleUpdate> particle_position_updater, particle_update_density;
   std::unique_ptr<MapUserData> mapUserData;
   std::unique_ptr<IOManager> io_manager, io_manager_checkpoint;
   std::unique_ptr<GravitySolver> gravity_solver;
