@@ -92,21 +92,15 @@ public:
     this->m_loadbalance_coherent_levels = configMap.getValue<int>("amr", "loadbalance_coherent_levels", 3);
 
     std::string gravity_solver_id = configMap.getValue<std::string>("gravity", "solver", "none");
-    if( gravity_solver_id == "none" )
-    {
-      m_gravity_type = GRAVITY_NONE;
-      this->gravity_solver = nullptr;
-    }
-    else
-    {
-      this->gravity_solver = GravitySolverFactory::make_instance( gravity_solver_id,
+    this->gravity_solver = GravitySolverFactory::make_instance( gravity_solver_id,
         configMap,
         m_foreach_cell,
         timers
       );
-      // [gravity]gravity_type should be set from the instanciaion of gravity_solver
+    if( this->gravity_solver )
       m_gravity_type = configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE);
-    }
+    else
+      m_gravity_type = GRAVITY_NONE;
 
     std::string godunov_updater_id = configMap.getValue<std::string>("hydro", "update", "HydroUpdate_hancock");
     this->has_mhd = godunov_updater_id.find("MHD") != std::string::npos;

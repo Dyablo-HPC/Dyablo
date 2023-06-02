@@ -63,6 +63,9 @@ public:
   {
     init();
 
+    if( id == "none" )
+      return std::unique_ptr<BaseType>();
+
     auto& constructs = get_constructs(); 
 
     if( constructs.find(id) == constructs.end() )
@@ -84,6 +87,9 @@ public:
   template<typename T>
   static bool register_class(const std::string& id)
   {
+    if(id == "none")
+      throw std::runtime_error("id 'none' is reserved for nullptr");
+
     static_assert(std::is_base_of<BaseType, T>::value, "T is not a base of BaseType");
 
     auto res = get_constructs().emplace(
