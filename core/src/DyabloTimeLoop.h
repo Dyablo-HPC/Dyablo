@@ -333,12 +333,6 @@ public:
     timers.get("MPI ghosts").start();
     U.exchange_ghosts( ghost_comm );
     timers.get("MPI ghosts").stop();
-
-    U.new_fields({"rho_next", "e_tot_next", "rho_vx_next", "rho_vy_next", "rho_vz_next"});
-    
-    // TODO automatic new fields according to kernel
-    if( this->has_mhd )
-      U.new_fields({"Bx_next", "By_next", "Bz_next"});
     
     if (m_gravity_type & GRAVITY_FIELD) {
       if( !U.has_field("gx") )
@@ -375,21 +369,29 @@ public:
     }
 
     // Update hydro
-    godunov_updater->update( U, dt );
+    if( godunov_updater )
+    {
+      U.new_fields({"rho_next", "e_tot_next", "rho_vx_next", "rho_vy_next", "rho_vz_next"});    
+      // TODO automatic new fields according to kernel
+      if( this->has_mhd )
+        U.new_fields({"Bx_next", "By_next", "Bz_next"});
+
+      godunov_updater->update( U, dt );
+
+      U.move_field( "rho", "rho_next" ); 
+      U.move_field( "e_tot", "e_tot_next" ); 
+      U.move_field( "rho_vx", "rho_vx_next" ); 
+      U.move_field( "rho_vy", "rho_vy_next" ); 
+      U.move_field( "rho_vz", "rho_vz_next" );
+      if( this->has_mhd )
+      {
+        U.move_field( "Bx", "Bx_next" ); 
+        U.move_field( "By", "By_next" ); 
+        U.move_field( "Bz", "Bz_next" );
+      }
+    }
 
     m_t += dt;
-
-    U.move_field( "rho", "rho_next" ); 
-    U.move_field( "e_tot", "e_tot_next" ); 
-    U.move_field( "rho_vx", "rho_vx_next" ); 
-    U.move_field( "rho_vy", "rho_vy_next" ); 
-    U.move_field( "rho_vz", "rho_vz_next" );
-    if( this->has_mhd )
-    {
-      U.move_field( "Bx", "Bx_next" ); 
-      U.move_field( "By", "By_next" ); 
-      U.move_field( "Bz", "Bz_next" );
-    }
     
     if (m_gravity_type & GRAVITY_FIELD)
     {
