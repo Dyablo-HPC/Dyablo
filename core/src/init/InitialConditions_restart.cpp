@@ -50,6 +50,10 @@ public:
       return 0;
     };
 
+    htri_t group_exists = H5Lexists(m_hdf5_file, hdf5_path.c_str(), H5P_DEFAULT);
+    if( group_exists <= 0 ) // Group Does not exist : empty list
+      return {};
+
     hid_t group_id = m_hdf5_file;
     if( hdf5_path!="" )
         group_id = H5Gopen(m_hdf5_file, hdf5_path.c_str(), H5P_DEFAULT);
