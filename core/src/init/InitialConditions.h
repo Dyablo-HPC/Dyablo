@@ -27,6 +27,9 @@ class AnalyticalFormula_MHD_rotor;
 // Particles
 class InitialConditions_simple_particles;
 
+//cosmo
+class InitialConditions_grafic_fields;
+
 
 } // namespace dyablo
 
@@ -51,6 +54,8 @@ bool dyablo::InitialConditionsFactory::init()
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_MHD_blast> );
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_MHD_rotor> );
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_sod> );
+
+  DECLARE_REGISTERED( dyablo::InitialConditions_grafic_fields );
 
   return true;
 }
