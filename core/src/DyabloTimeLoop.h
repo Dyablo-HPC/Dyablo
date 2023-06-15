@@ -13,6 +13,7 @@
 #include "io/IOManager.h"
 #include "gravity/GravitySolver.h"
 #include "hydro/HydroUpdate.h"
+#include "particles/ParticleUpdate.h"
 #include "amr/MapUserData.h"
 #include "UserData.h"
 
@@ -92,25 +93,33 @@ public:
     this->m_loadbalance_coherent_levels = configMap.getValue<int>("amr", "loadbalance_coherent_levels", 3);
 
     std::string gravity_solver_id = configMap.getValue<std::string>("gravity", "solver", "none");
-    if( gravity_solver_id == "none" )
-    {
-      m_gravity_type = GRAVITY_NONE;
-      this->gravity_solver = nullptr;
-    }
-    else
-    {
-      this->gravity_solver = GravitySolverFactory::make_instance( gravity_solver_id,
+    this->gravity_solver = GravitySolverFactory::make_instance( gravity_solver_id,
         configMap,
         m_foreach_cell,
         timers
       );
-      // [gravity]gravity_type should be set from the instanciaion of gravity_solver
+    if( this->gravity_solver )
       m_gravity_type = configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE);
-    }
+    else
+      m_gravity_type = GRAVITY_NONE;
 
     std::string godunov_updater_id = configMap.getValue<std::string>("hydro", "update", "HydroUpdate_hancock");
     this->has_mhd = godunov_updater_id.find("MHD") != std::string::npos;
     this->godunov_updater = HydroUpdateFactory::make_instance( godunov_updater_id,
+      configMap,
+      this->m_foreach_cell,
+      timers
+    );
+
+    std::string particle_position_updater_id = configMap.getValue<std::string>("particles", "update_position", "none");
+    this->particle_position_updater = ParticleUpdateFactory::make_instance( particle_position_updater_id,
+      configMap,
+      this->m_foreach_cell,
+      timers
+    );
+
+    std::string particle_update_density_id = configMap.getValue<std::string>("particles", "update_density", "none");
+    this->particle_update_density = ParticleUpdateFactory::make_instance( particle_update_density_id,
       configMap,
       this->m_foreach_cell,
       timers
@@ -142,8 +151,6 @@ public:
         timers
       );
     }
-
-    
 
     std::string compute_dt_id = configMap.getValue<std::string>("dt", "dt_kernel", "Compute_dt_generic");
     this->compute_dt = Compute_dtFactory::make_instance( compute_dt_id,
@@ -318,7 +325,7 @@ public:
       if( rank == 0 && m_iter % m_nlog == 0 )
         printf("time step=%7d (dt=% 10.8f t=% 10.8f)\n",m_iter, dt, m_t);
     }
-    
+
     GhostCommunicator ghost_comm(m_amr_mesh, m_communicator);
 
     // Update ghost cells
@@ -326,45 +333,71 @@ public:
     timers.get("MPI ghosts").start();
     U.exchange_ghosts( ghost_comm );
     timers.get("MPI ghosts").stop();
-
-    U.new_fields({"rho_next", "e_tot_next", "rho_vx_next", "rho_vy_next", "rho_vz_next"});
-    
-    // TODO automatic new fields according to kernel
-    if( this->has_mhd )
-      U.new_fields({"Bx_next", "By_next", "Bz_next"});
     
     if (m_gravity_type & GRAVITY_FIELD) {
-      U.new_fields({"gx", "gy", "gz"});
+      if( !U.has_field("gx") )
+        U.new_fields({"gx", "gy", "gz"});
       if( !U.has_field("gphi") )
         U.new_fields({"gphi"});
     }
 
     // Update gravity
     if( gravity_solver )
+    {
+      if( particle_update_density )
+      {
+        U.new_fields({"rho_g"});
+        particle_update_density->update( U, dt );
+        
+        // Backup rho without projected particles
+        U.move_field("rho_bak", "rho");
+        U.move_field("rho", "rho_g");
+      }
+
       gravity_solver->update_gravity_field(U);
 
+      // Restore rho before projection (only if particle projection)
+      if( particle_update_density )
+        U.move_field("rho", "rho_bak");
+    }
+    
+    // Move particles
+    if( particle_position_updater )
+    {
+      particle_position_updater->update( U, dt );
+      U.distributeParticles("particles");
+    }
+
     // Update hydro
-    godunov_updater->update( U, dt );
+    if( godunov_updater )
+    {
+      U.new_fields({"rho_next", "e_tot_next", "rho_vx_next", "rho_vy_next", "rho_vz_next"});    
+      // TODO automatic new fields according to kernel
+      if( this->has_mhd )
+        U.new_fields({"Bx_next", "By_next", "Bz_next"});
+
+      godunov_updater->update( U, dt );
+
+      U.move_field( "rho", "rho_next" ); 
+      U.move_field( "e_tot", "e_tot_next" ); 
+      U.move_field( "rho_vx", "rho_vx_next" ); 
+      U.move_field( "rho_vy", "rho_vy_next" ); 
+      U.move_field( "rho_vz", "rho_vz_next" );
+      if( this->has_mhd )
+      {
+        U.move_field( "Bx", "Bx_next" ); 
+        U.move_field( "By", "By_next" ); 
+        U.move_field( "Bz", "Bz_next" );
+      }
+    }
 
     m_t += dt;
-
-    U.move_field( "rho", "rho_next" ); 
-    U.move_field( "e_tot", "e_tot_next" ); 
-    U.move_field( "rho_vx", "rho_vx_next" ); 
-    U.move_field( "rho_vy", "rho_vy_next" ); 
-    U.move_field( "rho_vz", "rho_vz_next" );
-    if( this->has_mhd )
-    {
-      U.move_field( "Bx", "Bx_next" ); 
-      U.move_field( "By", "By_next" ); 
-      U.move_field( "Bz", "Bz_next" );
-    }
     
     if (m_gravity_type & GRAVITY_FIELD)
     {
-      U.delete_field("gx");
-      U.delete_field("gy");
-      U.delete_field("gz");
+      // U.delete_field("gx");
+      // U.delete_field("gy");
+      // U.delete_field("gz");
     }    
 
     // AMR cycle
@@ -453,6 +486,7 @@ private:
   std::unique_ptr<RefineCondition> refine_condition;
   std::unique_ptr<HydroUpdate> godunov_updater;
   bool has_mhd; // TODO : remove this
+  std::unique_ptr<ParticleUpdate> particle_position_updater, particle_update_density;
   std::unique_ptr<MapUserData> mapUserData;
   std::unique_ptr<IOManager> io_manager, io_manager_checkpoint;
   std::unique_ptr<GravitySolver> gravity_solver;

@@ -22,6 +22,11 @@ class AnalyticalFormula_RayleighTaylor;
 class AnalyticalFormula_OrszagTang;
 class AnalyticalFormula_MHD_blast;
 class AnalyticalFormula_MHD_rotor;
+
+// Particles
+class InitialConditions_simple_particles;
+
+
 } // namespace dyablo
 
 
@@ -32,6 +37,8 @@ bool dyablo::InitialConditionsFactory::init()
 #ifdef DYABLO_USE_HDF5
   DECLARE_REGISTERED( dyablo::InitialConditions_restart );
 #endif
+
+  DECLARE_REGISTERED( dyablo::InitialConditions_simple_particles );
   
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_blast> );
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_implode> );
