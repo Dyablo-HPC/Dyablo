@@ -1,4 +1,4 @@
-#include "refine_condition/RefineCondition_base.h"
+#include "refine_condition/RefineCondition_helper.h"
 
 #include "kokkos_shared.h"
 #include "foreach_cell/ForeachCell.h"
@@ -116,7 +116,7 @@ public:
     ForeachCell::CellArray_patch::Ref Qgroup_ = foreach_cell.reserve_patch_tmp("Qgroup", 2, 2, (ndim == 3)?2:0, PrimState::getFieldManager().get_id2index(), ConsState::getFieldManager().nbfields());
 
     uint32_t nbOcts = foreach_cell.get_amr_mesh().getNumOctants();
-    Kokkos::View<real_t*> oct_err_max("Oct_err_max", nbOcts);
+    Kokkos::View<int*> oct_marker_max("Oct_marker_max", nbOcts);
 
     const UserData::FieldAccessor Uin = Uin_.getAccessor( ConsState::getFieldsInfo() );
 
@@ -157,63 +157,20 @@ public:
           f_max = FMAX( f_max, FMAX( fx, FMAX(fy, fz) ) );
         }
 
-        Kokkos::atomic_fetch_max( &oct_err_max( iCell_Qgroup.getOct() ), f_max );
+        // -1 means coarsen
+        //  0 means don't modify
+        // +1 means refine
+        int criterion = -1;
+        if (f_max > error_min)
+          criterion = criterion < 0 ? 0 : criterion;
+        if (f_max > error_max)
+          criterion = criterion < 1 ? 1 : criterion;
+
+        Kokkos::atomic_fetch_max( &oct_marker_max( iCell_Qgroup.getOct() ), criterion );
       });
     });
 
-    AMRmesh& pmesh = foreach_cell.get_amr_mesh();
-    int level_min = pmesh.get_level_min();
-    int level_max = pmesh.get_level_max();
-    const LightOctree& lmesh = pmesh.getLightOctree();    
-    Kokkos::View<uint32_t*> markers_iOct("markers_iOct", nbOcts);
-    Kokkos::View<int*> markers_marker("markers_marker", nbOcts);
-    uint32_t nb_markers = 0;
-    Kokkos::parallel_scan( "MarkOctantsHydroFunctor::compress_markers", nbOcts,
-      KOKKOS_LAMBDA( uint32_t iOct, uint32_t& nb_markers, bool final )
-    {
-      uint8_t level = lmesh.getLevel({iOct,false});
-      real_t error = oct_err_max(iOct);
-
-      // -1 means coarsen
-      //  0 means don't modify
-      // +1 means refine
-      int criterion = -1;
-      if (error > error_min)
-        criterion = criterion < 0 ? 0 : criterion;
-      if (error > error_max)
-        criterion = criterion < 1 ? 1 : criterion;
-
-      // Don't coarsen/refine out of [level_min, level_max]
-      if( level >= level_max && criterion==1 )
-        criterion = 0;
-      if( level <= level_min && criterion==-1 )
-        criterion = 0;
-
-      if( criterion != 0 )
-      {
-        if( final )
-        {
-          markers_iOct(nb_markers) = iOct;
-          markers_marker(nb_markers) = criterion;
-        }
-        nb_markers ++;
-      }
-    }, nb_markers);
-
-    auto markers_iOct_host = Kokkos::create_mirror_view(markers_iOct);
-    auto markers_marker_host = Kokkos::create_mirror_view(markers_marker);
-    Kokkos::deep_copy( markers_iOct_host, markers_iOct );
-    Kokkos::deep_copy( markers_marker_host, markers_marker );
-
-    Kokkos::parallel_for( "MarkOctantsHydroFunctor::set_markers_pablo", 
-                        Kokkos::RangePolicy<Kokkos::OpenMP>(0,nb_markers),
-                        [&](uint32_t i)
-    {
-      uint32_t iOct = markers_iOct_host(i);
-      int marker = markers_marker_host(i);
-
-      pmesh.setMarker(iOct, marker);
-    });
+    RefineCondition_utils::set_markers(foreach_cell.get_amr_mesh(), oct_marker_max);
   }
 
 private:
