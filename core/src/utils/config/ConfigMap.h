@@ -19,141 +19,164 @@
 
 namespace Impl{
 
+/// Template wrapper class for partial specialization of convert_to
+template< typename T >
+struct convert_to_t
+{
+  static T convert( const std::string& str )
+  {
+    static_assert( !std::is_same<T, unsigned char>::value && !std::is_same<T, signed char>::value, 
+                    "char is not be used as variable type in configMap because its output in an ascii file is confusing" );
+
+    if constexpr ( std::is_same_v<T, std::string> )
+    { // For string just return unmodified
+      return str;
+    }
+    else if constexpr ( std::is_same_v<T, bool> )
+    { // For bool : also parse 1/0, yes/no, true/false, on/off as bool
+      if (!str.compare("1") or 
+          !str.compare("yes") or 
+          !str.compare("true") or
+          !str.compare("on"))
+        return true;
+      else if (!str.compare("0") or 
+          !str.compare("no") or 
+          !str.compare("false") or
+          !str.compare("off"))
+        return false;
+      else
+        DYABLO_ASSERT_HOST_RELEASE( false, "Could not parse to boolean. Input : `" << str << "`" );
+    }
+    else if constexpr ( std::is_enum_v<T> )
+    { // For enumerations : Parse numbers and names listed in named_enum<T> to enum type T 
+      try { // Try parsing integer
+        return static_cast<T>(convert_to_t<typename std::underlying_type<T>::type>::convert(str));
+      } 
+      catch(...) {} // Ignore and try other conversion
+      
+      try { // Try parsing named enum
+        return named_enum<T>::from_string(str);
+      } 
+      catch(...) 
+      {
+        std::ostringstream sst;
+        sst << "Could not parse enum. typeid : " << typeid(T).name() << ", Input : `" << str << "`";
+        auto names = named_enum<T>::available_names();
+        sst << "Possible values (" << names.size() << ") are :" << std::endl;
+        for( const std::string& name : names )
+        {
+          sst << "- `" << name << "` -> " << named_enum<T>::from_string( name ) << std::endl; 
+        }
+        DYABLO_ASSERT_HOST_RELEASE( false, sst.str() );
+      }
+    }
+    else
+    {
+      // Default : use std::ostringstream::operator<< to parse string. 
+      // throws std::runtime_error if there is a parsing error (either << fails or stream contains too many tokens) 
+
+      std::istringstream value_stream( str );
+      T res;
+      value_stream >> res;
+
+      DYABLO_ASSERT_HOST_RELEASE( !value_stream.fail(), "Parse error. typeid : " << typeid(T).name() << ", Input : `" << str << "` -> " << res );
+      DYABLO_ASSERT_HOST_RELEASE( value_stream.eof(), "Trailing junk on parse. typeid : " << typeid(T).name() << ", Input : `" << str << "` -> " << res );
+
+      return res;
+    }
+  }
+};
+
+/// Specialization for std::vector with multiple tokens
+template< typename T >
+struct convert_to_t<std::vector<T>>
+{
+  static std::vector<T> convert(const std::string& str)
+  {
+    std::istringstream str_stream( str );
+
+    std::vector<T> res;
+    std::string token;
+    while( std::getline( str_stream, token, ',' ) )
+    {
+        T value = convert_to_t<T>::convert(token);
+        res.push_back( value );
+    }
+    return res;
+  }
+};
+
 /**
  * Parse string to type T
  * @tparam Type to convert to
  * @param str string to parse into type T
- * 
- * Specialization when type is not an enum :
- * use std::ostringstream::operator<< to parse string.
- * throws std::runtime_error if there is a parsing error (either << fails or stream contains multiple tokens) 
  **/
 template< typename T >
-typename std::enable_if< !std::is_enum<T>::value, T >::
-type convert_to( const std::string& str )
+T convert_to( const std::string& str )
 {
-  static_assert( !std::is_same<T, unsigned char>::value && !std::is_same<T, signed char>::value, 
-                 "char is not be used as variable type in configMap because its output in an ascii file is confusing" );
-
-  std::istringstream value_stream( str );
-  T res;
-  value_stream >> res;
-
-  DYABLO_ASSERT_HOST_RELEASE( !value_stream.fail(), "Parse error. typeid : " << typeid(T).name() << ", Input : `" << str << "` -> " << res );
-  DYABLO_ASSERT_HOST_RELEASE( value_stream.eof(), "Trailing junk on parse. typeid : " << typeid(T).name() << ", Input : `" << str << "` -> " << res );
-
-  return res;
+  return convert_to_t<T>::convert( str );
 }
 
-/**
- * convert_to specialization for std::string : 
- * Just return input string
- **/
-template<>
-inline std::string convert_to<std::string>( const std::string& str )
-{
-  return str;
-}
 
-/**
- * convert_to specialization for bool : 
- * also parse 1/0, yes/no, true/false, on/off as bool
- **/
-template<>
-inline bool convert_to<bool>( const std::string& str )
-{
-  if (!str.compare("1") or 
-      !str.compare("yes") or 
-      !str.compare("true") or
-      !str.compare("on"))
-    return true;
-  else if (!str.compare("0") or 
-      !str.compare("no") or 
-      !str.compare("false") or
-      !str.compare("off"))
-    return false;
-  else
-    DYABLO_ASSERT_HOST_RELEASE( false, "Could not parse to boolean. Input : `" << str << "`" );
-}
 
-/**
- * convert_to specialization for enums :
- * Parse numbers and names listed in named_enum<T> to enum type T 
- **/
-template<typename T>
-typename std::enable_if< std::is_enum<T>::value, T >::
-type convert_to( const std::string& str )
+/// Template wrapper class for partial specialization of to_string
+template< typename T >
+struct to_string_t
 {
-  try { // Try parsing integer
-    return static_cast<T>(convert_to<typename std::underlying_type<T>::type>(str));
-  } 
-  catch(...) {} // Ignore and try other conversion
-  
-  try { // Try parsing named enum
-    return named_enum<T>::from_string(str);
-  } 
-  catch(...) 
+  static std::string convert( const T& t )
   {
-    std::ostringstream sst;
-    sst << "Could not parse enum. typeid : " << typeid(T).name() << ", Input : `" << str << "`";
-    auto names = named_enum<T>::available_names();
-    sst << "Possible values (" << names.size() << ") are :" << std::endl;
-    for( const std::string& name : names )
-    {
-      sst << "- `" << name << "` -> " << named_enum<T>::from_string( name ) << std::endl; 
+    if constexpr( std::is_enum_v<T> )
+    { // When enum : use named_enum<T>::to_string() to convert.
+      // throws runtime_error if no name has been defined for t
+      try{
+        return named_enum<T>::to_string( t ); 
+      } catch(...) {
+        std::ostringstream sst;
+        sst << "Could not find name for enum value. typeid : " << typeid(T).name() << ", Input : `" << t << "`" << std::endl;
+        auto names = named_enum<T>::available_names();
+        sst << "Possible values (" << names.size() << ") are :" << std::endl;
+        for( const std::string& name : names )
+        {
+          sst << "- `" << name << "` -> " << named_enum<T>::from_string( name ) << std::endl; 
+        }
+        DYABLO_ASSERT_HOST_RELEASE( false, sst.str() );
+      } 
     }
-    DYABLO_ASSERT_HOST_RELEASE( false, sst.str() );
+    else
+    { // Default : use std::istringstream::operator<< to convert.
+      std::ostringstream sst;
+      sst << std::boolalpha; // write true/false for bool
+      if constexpr( std::is_floating_point_v<T> )
+      {
+        sst << std::setprecision(std::numeric_limits<T>::max_digits10);
+      }
+      sst << t;
+      return sst.str();
+    }
   }
-}
+};
 
-
-/**
- * Convert t to string
- * 
- * Specialization when type is not an enum :
- * use std::istringstream::operator<< to convert.
- **/
 template< typename T >
-typename std::enable_if< !std::is_enum<T>::value, std::string >::
-type to_string( const T& t )
+struct to_string_t<std::vector<T>>
 {
-  std::ostringstream sst;
-  sst << std::boolalpha; // write true/false for bool
-  if constexpr( std::is_floating_point_v<T> )
+  static std::string convert( const std::vector<T>& v_t )
   {
-    sst << std::setprecision(std::numeric_limits<T>::max_digits10);
-  }
-  sst << t;
-  return sst.str();
-}
-
-/**
- * Convert t to string
- * 
- * Specialization when type an enum :
- * use named_enum<T>::to_string() to convert.
- * throws runtime_error if no name has been defined for t
- **/
-template< typename T >
-typename std::enable_if< std::is_enum<T>::value, std::string >::
-type to_string( const T& t )
-{
-  try{
-    return named_enum<T>::to_string( t ); 
-  } catch(...) {
-    std::ostringstream sst;
-    sst << "Could not find name for enum value. typeid : " << typeid(T).name() << ", Input : `" << t << "`" << std::endl;
-    auto names = named_enum<T>::available_names();
-    sst << "Possible values (" << names.size() << ") are :" << std::endl;
-    for( const std::string& name : names )
+    std::string res;
+    for( const T& v : v_t )
     {
-      sst << "- `" << name << "` -> " << named_enum<T>::from_string( name ) << std::endl; 
+      res += to_string_t<T>::convert(v) + ",";
     }
-    DYABLO_ASSERT_HOST_RELEASE( false, sst.str() );
-  } 
+    if(!res.empty())
+      res.pop_back(); // Remove last ','
+    return res;
+  }
+};
+
+template< typename T >
+std::string to_string( const T& v )
+{
+  return to_string_t<T>::convert(v);
 }
-
-
 
 } // namespace Impl
 
@@ -264,7 +287,7 @@ public:
 
     T res = getValue<T>( section, name );
     DYABLO_ASSERT_HOST_RELEASE( is_present || default_value == res, 
-      "Rounding error when writing defaut value in .ini. default was " << default_value << "but ended up `" << _values[section][name].value << "` in .ini"  );
+      "Rounding error when writing defaut value in .ini. default was " << Impl::to_string( default_value ) << "but ended up `" << _values[section][name].value << "` in .ini"  );
 
     return res;
   }
@@ -302,7 +325,7 @@ public:
       std::cout << std::setw( 25 ) << section;
       std::cout << std::setw( 25 ) << name;
       std::cout << std::setw( 25 ) << std::string("'")+val.value+"'" ;
-      std::cout << " -> " << res;
+      std::cout << " -> " << Impl::to_string(res);
       std::cout << std::endl;
     }
 

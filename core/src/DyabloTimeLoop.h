@@ -35,30 +35,61 @@ public:
    * Create ans initialize a simulation
    **/
   DyabloTimeLoop( ConfigMap& configMap )
-  : m_iter_end( configMap.getValue<int>("run","nstepmax",1000) ),    
-    m_t_end( configMap.getValue<real_t>("run", "tEnd", 0.0) ),
-    m_nlog( configMap.getValue<int>("run", "nlog", 10) ),
-    m_enable_output( configMap.getValue<bool>("run", "enable_output", true) ),
-    m_output_frequency( configMap.getValue<int>("run", "output_frequency", -1) ),
-    m_output_timeslice( configMap.getValue<real_t>("run", "output_timeslice", -1) ),  
-    m_enable_checkpoint( configMap.getValue<bool>("run", "enable_checkpoint", true) ),
-    m_checkpoint_frequency( configMap.getValue<int>("run", "checkpoint_frequency", -1) ),
-    m_checkpoint_timeslice( configMap.getValue<real_t>("run", "checkpoint_timeslice", -1) ), 
-    m_amr_cycle_frequency( configMap.getValue<int>("amr", "cycle_frequency", 1) ),
-    m_loadbalance_frequency( configMap.getValue<int>("amr", "load_balancing_frequency", 10) ),
-    m_iter_start( configMap.getValue<int>("run", "iter_start", 0) ),
-    m_iter( m_iter_start ),
-    m_t( configMap.getValue<real_t>("run", "tStart", 0.0) ), 
-    m_output_timeslice_count( m_t / m_output_timeslice ),
-    m_checkpoint_timeslice_count( m_t / m_checkpoint_timeslice ),
-    m_communicator( GlobalMpiSession::get_comm_world() ),
+  : m_communicator( GlobalMpiSession::get_comm_world() ),
     m_amr_mesh( init_amr_mesh( configMap ) ),
     m_foreach_cell( *m_amr_mesh, configMap ),
-    U(configMap, m_foreach_cell),
-    m_loadbalance_coherent_levels( configMap.getValue<int>("amr", "loadbalance_coherent_levels", 3) )
+    U(configMap, m_foreach_cell)
   {
-    configMap.getValue<int>("mesh", "ndim", 3);
-    
+    // .ini : report legacy hydro/problem to run/initial_conditions
+    if( configMap.hasValue("hydro", "problem") )
+    {
+      std::string hydro_problem = configMap.getValue<std::string>("hydro", "problem", "undefined");
+      std::cout << "WARNING : hydro/problem is deprecated in .ini, use run/initial_conditions instead" << std::endl;
+      configMap.getValue<std::vector<std::string>>("run", "initial_conditions", {hydro_problem});
+    }   
+
+    // Get initial conditions ids
+    std::vector<std::string> initial_conditions_ids = configMap.getValue<std::vector<std::string>>("run", "initial_conditions");
+    // Initialize cells
+    {
+      // Handle legacy run/restart_enabled option
+      if( configMap.hasValue("run","restart_enabled") )
+      {
+        std::cout << "WARNING : run/restart_enabled is deprecated, use run/initial_conditions=restart,... instead" << std::endl;
+        DYABLO_ASSERT_HOST_RELEASE( !configMap.getValue<bool>("run","restart_enabled") || initial_conditions_ids.end() != std::find( initial_conditions_ids.begin(), initial_conditions_ids.end(), "restart" ),
+                                    "run/restart_enabled=ON but 'restart' is not in run/initial_conditions list" );
+      }
+
+      for( std::string init_name : initial_conditions_ids )
+      {
+        std::unique_ptr<InitialConditions> initial_conditions =
+          InitialConditionsFactory::make_instance(init_name, 
+            configMap,
+            m_foreach_cell,
+            timers);
+        initial_conditions->init( U );
+      }     
+    } 
+
+    configMap.getValue<int>("mesh", "ndim", 3); 
+
+    this->m_iter_end = configMap.getValue<int>("run","nstepmax",1000);
+    this->m_t_end = configMap.getValue<real_t>("run", "tEnd", 0.0);
+    this->m_nlog = configMap.getValue<int>("run", "nlog", 10);
+    this->m_enable_output = configMap.getValue<bool>("run", "enable_output", true);
+    this->m_output_frequency = configMap.getValue<int>("run", "output_frequency", -1);
+    this->m_output_timeslice = configMap.getValue<real_t>("run", "output_timeslice", -1);
+    this->m_enable_checkpoint = configMap.getValue<bool>("run", "enable_checkpoint", true);
+    this->m_checkpoint_frequency = configMap.getValue<int>("run", "checkpoint_frequency", -1);
+    this->m_checkpoint_timeslice = configMap.getValue<real_t>("run", "checkpoint_timeslice", -1);
+    this->m_amr_cycle_frequency = configMap.getValue<int>("amr", "cycle_frequency", 1);
+    this->m_loadbalance_frequency = configMap.getValue<int>("amr", "load_balancing_frequency", 10);
+    this->m_iter_start = configMap.getValue<int>("run", "iter_start", 0);
+    this->m_iter = m_iter_start;
+    this->m_t = configMap.getValue<real_t>("run", "tStart", 0.0);
+    this->m_output_timeslice_count = m_t / m_output_timeslice;
+    this->m_checkpoint_timeslice_count = m_t / m_checkpoint_timeslice;
+    this->m_loadbalance_coherent_levels = configMap.getValue<int>("amr", "loadbalance_coherent_levels", 3);
 
     std::string gravity_solver_id = configMap.getValue<std::string>("gravity", "solver", "none");
     if( gravity_solver_id == "none" )
@@ -128,36 +159,20 @@ public:
       timers
     );
 
-    // Get initial conditions id
-    std::string init_id = configMap.getValue<std::string>("hydro", "problem", "unknown");
-
     int rank = m_communicator.MPI_Comm_rank();
     if (rank==0) {
       std::cout << "##########################" << "\n";
       std::cout << "Godunov updater    : " << godunov_updater_id << std::endl;
       std::cout << "IO Manager         : " << iomanager_id << std::endl;
       std::cout << "Gravity solver     : " << gravity_solver_id << std::endl;
-      std::cout << "Initial conditions : " << init_id << std::endl;
+      std::cout << "Initial conditions : " ;
+        for( const std::string& id : initial_conditions_ids )
+          std::cout << "`" << id << "` ";
+      std::cout << std::endl;
       std::cout << "Refine condition   : " << refine_condition_id << std::endl;
       std::cout << "Compute dt         : " << compute_dt_id << std::endl;
       std::cout << "##########################" << std::endl;
-    }
-
-    // Initialize cells
-    {
-      // test if we are performing a re-start run (default : false)
-      bool restartEnabled = configMap.getValue<bool>("run","restart_enabled", false);
-
-      std::string init_name = restartEnabled ? "restart" : init_id;
-      std::unique_ptr<InitialConditions> initial_conditions =
-        InitialConditionsFactory::make_instance(init_id, 
-          configMap,
-          m_foreach_cell,
-          timers);
-
-      initial_conditions->init( U );
-    }
- 
+    } 
 
     std::ofstream out_ini("last.ini" );
     configMap.output( out_ini );       
