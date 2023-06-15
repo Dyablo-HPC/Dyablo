@@ -68,7 +68,7 @@ public:
         (part_pos[IY] - cell_pos[IY])/cell_size[IY], 
         (part_pos[IZ] - cell_pos[IZ])/cell_size[IZ] 
       };
-      auto sign = [](const auto& x) -> uint8_t {return (x>=0)?1:-1;};
+      auto sign = [](const auto& x) -> int8_t {return (x>=0)?1:-1;};
       ForeachCell::CellIndex::offset_t part_offset = {sign(p[IX]), sign(p[IY]), sign(p[IZ])};
       
       pos_t v_out = {abs(p[IX]), abs(p[IY]), abs(p[IZ])};     // volume fraction in neighbor cells [0,0.5]^3
