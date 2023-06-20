@@ -13,7 +13,9 @@ public:
         ConfigMap& configMap, 
         ForeachCell& foreach_cell,  
         Timers& timers )
-  : foreach_cell(foreach_cell),
+  : 
+    graficDir( configMap.getValue<std::string>("grafic", "inputDir", "data/IC/") ),
+    foreach_cell(foreach_cell),
     xmin( configMap.getValue<real_t>("mesh", "xmin", 0.0) ),
     ymin( configMap.getValue<real_t>("mesh", "ymin", 0.0) ),
     zmin( configMap.getValue<real_t>("mesh", "zmin", 0.0) ),
@@ -22,21 +24,12 @@ public:
     smallr(configMap.getValue<real_t>("hydro", "smallr", 1e-10)),
     smallc(configMap.getValue<real_t>("hydro", "smallc", 1e-10)),
     smallp(smallc * smallc / gamma0)
-  {
-    AMRmesh& pmesh = foreach_cell.get_amr_mesh();
-
-    // TODO : what if domain is not a cube?
-    int level = std::ceil(log2(foreach_cell.blockSize()[IX]*pmesh.get_coarse_grid_size()[IX]));
-    std::string grafic_dir = configMap.getValue<std::string>("grafic", "inputDir", "data/IC/");
-    this->filename = grafic_dir + std::to_string(level);
-  }
+  {}
 
   void init( UserData& U )
   {
     ForeachCell& foreach_cell = this->foreach_cell;
     AMRmesh& pmesh = foreach_cell.get_amr_mesh();
-
-    std::ifstream grafic_file( filename, std::ios::in|std::ios::binary );
 
     struct grafic_header
     {
@@ -47,38 +40,55 @@ public:
       float om,ov,H0;
     };
 
+    // Read header from ic_deltab
     grafic_header header;
-    FortranBinaryReader::read_record( grafic_file, &header, 1 );
+    {
+      // Open grafic file ic_deltab
+      std::string grafic_filename = this->graficDir + "/ic_deltab";
+      std::ifstream grafic_file(grafic_filename , std::ios::in|std::ios::binary );
+      DYABLO_ASSERT_HOST_RELEASE(grafic_file, "Could not open grafic file : `" + grafic_filename + "`");
+      FortranBinaryReader::read_record( grafic_file, &header, 1 );
+
+      DYABLO_ASSERT_HOST_RELEASE( header.nx == foreach_cell.blockSize()[IX]*pmesh.get_coarse_grid_size()[IX], 
+        "grafic mesh size does not match AMR grid size (X)");
+      DYABLO_ASSERT_HOST_RELEASE( header.ny == foreach_cell.blockSize()[IY]*pmesh.get_coarse_grid_size()[IY], 
+        "grafic mesh size does not match AMR grid size (Y)");
+      DYABLO_ASSERT_HOST_RELEASE( header.nz == foreach_cell.blockSize()[IZ]*pmesh.get_coarse_grid_size()[IZ], 
+        "grafic mesh size does not match AMR grid size (Z)");
+    }
 
     int32_t nx = header.nx;
     int32_t ny = header.ny;
     int32_t nz = header.nz;
 
-    DYABLO_ASSERT_HOST_RELEASE( nx == foreach_cell.blockSize()[IX]*pmesh.get_coarse_grid_size()[IX], 
-      "grafic mesh size does not match AMR grid size (X)");
-    DYABLO_ASSERT_HOST_RELEASE( ny == foreach_cell.blockSize()[IY]*pmesh.get_coarse_grid_size()[IY], 
-      "grafic mesh size does not match AMR grid size (Y)");
-    DYABLO_ASSERT_HOST_RELEASE( nz == foreach_cell.blockSize()[IZ]*pmesh.get_coarse_grid_size()[IZ], 
-      "grafic mesh size does not match AMR grid size (Z)");
+    
 
     ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
 
-    auto fill_field = [&](const std::string& field_name)
+    auto fill_field = [&](const std::string& grafic_file_name, const std::string& dyablo_field_name)
     {
-      Kokkos::View< double***, Kokkos::LayoutLeft > grafic_field_device ( 
-          std::string("grafic_")+field_name,
+      Kokkos::View< float***, Kokkos::LayoutLeft > grafic_field_device ( 
+          grafic_file_name,
           nx, ny, nz
       );
 
       {
+        // Open grafic file
+        std::string grafic_filename = this->graficDir + "/" + grafic_file_name;
+        std::ifstream grafic_file(grafic_filename , std::ios::in|std::ios::binary );
+        DYABLO_ASSERT_HOST_RELEASE(grafic_file, "Could not open grafic file : `" + grafic_filename + "`");
+        // Read header from grafic file
+        grafic_header header;
+        FortranBinaryReader::read_record( grafic_file, &header, 1 );
         // Read array from grafic file
         auto grafic_field_host = Kokkos::create_mirror_view( grafic_field_device );
-        FortranBinaryReader::read_record( grafic_file, grafic_field_host.data(), nx*ny*nz );
+        for(uint32_t z=0; z<nz; z++)
+          FortranBinaryReader::read_record( grafic_file, &grafic_field_host(0,0,z), nx*ny );
         Kokkos::deep_copy( grafic_field_device, grafic_field_host );
       }
 
       enum VarIndex { Ifield };
-      UserData::FieldAccessor U_field = U.getAccessor({{field_name, Ifield}});
+      UserData::FieldAccessor U_field = U.getAccessor({{dyablo_field_name, Ifield}});
 
       foreach_cell.foreach_cell( "InitialConditions_grafic_fields::init_field", U_field.getShape(),
         KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell )
@@ -95,10 +105,10 @@ public:
 
     // Sequentially read density and velocities from grafic file
     U.new_fields({"rho","e_tot","rho_vx","rho_vy","rho_vz"});
-    fill_field( "rho" );
-    fill_field( "rho_vx" );
-    fill_field( "rho_vy" );
-    fill_field( "rho_vz" );
+    fill_field( "ic_deltab", "rho" );
+    fill_field( "ic_velbx", "rho_vx" );
+    fill_field( "ic_velby", "rho_vy" );
+    fill_field( "ic_velbz", "rho_vz" );
 
     enum VarIndex_hydro {ID, IE, IU, IV, IW};
     UserData::FieldAccessor Uinout = U.getAccessor({
@@ -167,7 +177,7 @@ public:
   }
 
 private:
-  std::string filename;
+  std::string graficDir;
   ForeachCell& foreach_cell;
   real_t xmin, ymin, zmin;
   real_t omegab;

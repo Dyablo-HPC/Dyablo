@@ -26,13 +26,16 @@ class FortranBinaryReader
 {
 public:
   inline static bool _byteswap = false;
-  using RecordTag_t = uint32_t;
+  using RecordTag_t = int32_t;
 
 public:
   template < typename T > 
   static void read_record( std::istream& istr, T* buffer, size_t count )
   {
-    using namespace FortranBinaryReader_impl;
+    // GCC doc on fortran unfomatted output :
+    // https://gcc.gnu.org/onlinedocs/gfortran/File-format-of-unformatted-sequential-files.html
+
+    using namespace FortranBinaryReader_impl;    
     // Fortran files write tags at beginning and end of writes containing the number for bytes written
     RecordTag_t begin_tag;
     istr.read((char*)&begin_tag, sizeof(RecordTag_t));
@@ -41,7 +44,7 @@ public:
       RecordTag_t record_size = _byteswap ? endian_swap(begin_tag) : begin_tag;
       if( record_size != count*sizeof(T) )
       {
-        DYABLO_ASSERT_HOST_RELEASE( endian_swap(record_size) == count,
+        DYABLO_ASSERT_HOST_RELEASE( endian_swap(record_size) == count*sizeof(T),
           "Fortran record tag doesn't match required read size.\n"
           "required size : " << count*sizeof(T) << "\n"
           "Begin tag is " << record_size << " ( " << endian_swap(record_size) << " with swapped endianness )" );
