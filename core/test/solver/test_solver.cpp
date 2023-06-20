@@ -9,6 +9,14 @@ int main(int argc, char *argv[])
   using namespace dyablo;
   DyabloSession mpi_session(argc, argv);
 
+  if( argc < 2 )
+  {
+    std::cout << "Error : no input file" << std::endl;
+    std::cout << "Usage:" << std::endl;
+    std::cout << "  ./test_solver [--kokkos-***=*] input_file.ini" << std::endl;
+    return EXIT_FAILURE;
+  }
+
   /*
    * read parameter file and initialize a ConfigMap object
    */

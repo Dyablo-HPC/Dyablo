@@ -13,7 +13,7 @@ private:
   int m_rank, m_nRanks;
   std::unique_ptr<dyablo::GlobalMpiSession> mpiSession;
 public:
-  DyabloSession(int argc, char *argv[])
+  DyabloSession(int& argc, char *argv[])
   {
     using namespace dyablo;
 
