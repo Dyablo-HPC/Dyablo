@@ -56,12 +56,15 @@ public:
     // Setting up particles
     int rank = GlobalMpiSession::get_comm_world().MPI_Comm_rank();
 
-    if (rank == 0) {    
-      U.new_ParticleArray("particles", npart);
-      U.new_ParticleAttribute("particles", "vx");
-      U.new_ParticleAttribute("particles", "vy");
-      U.new_ParticleAttribute("particles", "vz");
-      U.new_ParticleAttribute("particles", "mass");
+    int npart_local = (rank==0) ? npart : 0;
+
+    U.new_ParticleArray("particles", npart_local);
+    U.new_ParticleAttribute("particles", "vx");
+    U.new_ParticleAttribute("particles", "vy");
+    U.new_ParticleAttribute("particles", "vz");
+    U.new_ParticleAttribute("particles", "mass");
+
+    if (rank == 0) { 
 
       const ForeachParticle::ParticleArray& P = U.getParticleArray("particles"); 
 
