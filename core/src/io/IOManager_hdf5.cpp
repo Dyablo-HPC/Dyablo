@@ -154,7 +154,7 @@ public:
   void save_snapshot( const UserData& U, uint32_t iter, real_t time );
   template <typename output_real_t>
   void save_snapshot_aux( const UserData& U_, uint32_t iter, real_t time );
-  
+  template <typename output_real_t>
   void save_particles( const UserData& U, const std::string& particle_array,  uint32_t iter, real_t time );
 
   struct Data;
@@ -461,13 +461,14 @@ R"xml(
       if( particles_main_xdmf_fds.find(particle_array) == particles_main_xdmf_fds.end() )
         particles_main_xdmf_fds[particle_array] = MainXmfFile(filename + "_particles_" + particle_array + "_main.xmf");
       
-      save_particles( U_, particle_array, iter, time);
+      save_particles<output_real_t>( U_, particle_array, iter, time);
     }
     else
       std::cout << "WARNING : Output particle array requested but not enabled : '" << particle_array << "'" << std::endl;
   }
 }
 
+template <typename output_real_t>
 void IOManager_hdf5::save_particles( const UserData& U, const std::string& particle_array, uint32_t iter, real_t time )
 {
   std::string base_filename;
@@ -515,7 +516,7 @@ R"xml(<?xml version="1.0" ?>
       base_filename.c_str(), 
       time,
       global_num_particles,
-      global_num_particles, (int)sizeof(real_t),
+      global_num_particles, (int)sizeof(output_real_t),
       base_filename.c_str()
     );
 
@@ -531,7 +532,7 @@ R"xml(
         </DataItem>
       </Attribute>)xml",
           var_name.c_str(),
-          global_num_particles, (int)sizeof(real_t),
+          global_num_particles, (int)sizeof(output_real_t),
           base_filename.c_str(), var_name.c_str()
         );
       }
@@ -557,13 +558,13 @@ R"xml(
     { // Write coordinates
 
       const ParticleArray& P = U.getParticleArray(particle_array);
-      Kokkos::View< real_t**, Kokkos::LayoutLeft > tmp_view("particles_coordinates", 3, local_num_particles);
+      Kokkos::View< output_real_t**, Kokkos::LayoutLeft > tmp_view("particles_coordinates", 3, local_num_particles);
       Kokkos::parallel_for( "compute_particles_coordinates", local_num_particles,
       KOKKOS_LAMBDA( uint32_t iPart )
       {
-        tmp_view(IX, iPart) = P.pos(iPart,IX);
-        tmp_view(IY, iPart) = P.pos(iPart,IY);
-        tmp_view(IZ, iPart) = P.pos(iPart,IZ);
+        tmp_view(IX, iPart) = static_cast<output_real_t>(P.pos(iPart,IX));
+        tmp_view(IY, iPart) = static_cast<output_real_t>(P.pos(iPart,IY));
+        tmp_view(IZ, iPart) = static_cast<output_real_t>(P.pos(iPart,IZ));
       });
       hdf5_writer.collective_write( "coordinates", tmp_view );
     } 
@@ -573,7 +574,17 @@ R"xml(
     {
       if(  U.has_ParticleAttribute(particle_array, var_name) )
       {
-        hdf5_writer.collective_write( var_name, U.getParticleAttribute(particle_array, var_name).particle_data );
+        enum VarIndex {Ivar};
+        auto Pin = U.getParticleAccessor(particle_array, {{var_name, Ivar}} );
+
+        Kokkos::View< output_real_t*, Kokkos::LayoutLeft > tmp_view(particle_array + "/" + var_name, local_num_particles);
+        Kokkos::parallel_for( "copy_particle_attribute", local_num_particles,
+        KOKKOS_LAMBDA( uint32_t iPart )
+        {
+          tmp_view(iPart) = static_cast<output_real_t>(Pin.at(iPart,Ivar));
+        });
+
+        hdf5_writer.collective_write( var_name, tmp_view );
       }
     }   
  }
