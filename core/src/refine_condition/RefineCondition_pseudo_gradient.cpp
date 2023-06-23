@@ -93,14 +93,13 @@ public:
       diff_max = FMAX( diff_max, grad(IZ, -1) );
     }
 
-    // -1 means coarsen
-    //  0 means don't modify
-    // +1 means refine
-    int criterion = -1;
-    if (diff_max > error_min)
-      criterion = criterion < 0 ? 0 : criterion;
-    if (diff_max > error_max)
-      criterion = criterion < 1 ? 1 : criterion;
+    int criterion;
+    if( diff_max > error_max )
+      criterion = RefineCondition::REFINE;
+    else if( diff_max <= error_min )
+      criterion = RefineCondition::COARSEN;
+    else
+      criterion = RefineCondition::NOCHANGE;
 
     return criterion;
   }

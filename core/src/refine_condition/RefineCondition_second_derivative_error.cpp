@@ -157,14 +157,13 @@ public:
           f_max = FMAX( f_max, FMAX( fx, FMAX(fy, fz) ) );
         }
 
-        // -1 means coarsen
-        //  0 means don't modify
-        // +1 means refine
-        int criterion = -1;
-        if (f_max > error_min)
-          criterion = criterion < 0 ? 0 : criterion;
-        if (f_max > error_max)
-          criterion = criterion < 1 ? 1 : criterion;
+        int criterion;
+        if( f_max > error_max )
+          criterion = RefineCondition::REFINE;
+        else if( f_max <= error_min )
+          criterion = RefineCondition::COARSEN;
+        else
+          criterion = RefineCondition::NOCHANGE;
 
         Kokkos::atomic_fetch_max( &oct_marker_max( iCell_Qgroup.getOct() ), criterion );
       });

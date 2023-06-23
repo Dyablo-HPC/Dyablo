@@ -25,18 +25,15 @@ static void set_markers(AMRmesh& pmesh, const Kokkos::View<int*>& oct_marker)
   {
     uint8_t level = lmesh.getLevel({iOct,false});
 
-    // -1 means coarsen
-    //  0 means don't modify
-    // +1 means refine
     int criterion = oct_marker(iOct);
 
     // Don't coarsen/refine out of [level_min, level_max]
-    if( level >= level_max && criterion==1 )
-      criterion = 0;
-    if( level <= level_min && criterion==-1 )
-      criterion = 0;
+    if( level >= level_max && criterion==RefineCondition::REFINE )
+      criterion = RefineCondition::NOCHANGE;
+    if( level <= level_min && criterion==RefineCondition::COARSEN )
+      criterion = RefineCondition::NOCHANGE;
 
-    if( criterion != 0 )
+    if( criterion != RefineCondition::NOCHANGE )
     {
       if( final )
       {
