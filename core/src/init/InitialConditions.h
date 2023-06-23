@@ -17,6 +17,7 @@ class AnalyticalFormula_implode;
 class AnalyticalFormula_riemann2d;
 class AnalyticalFormula_KelvinHelmholtz;
 class AnalyticalFormula_RayleighTaylor;
+class AnalyticalFormula_sod;
 
 // MHD
 class AnalyticalFormula_OrszagTang;
@@ -49,6 +50,7 @@ bool dyablo::InitialConditionsFactory::init()
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_OrszagTang> );
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_MHD_blast> );
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_MHD_rotor> );
+  DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_sod> );
 
   return true;
 }
