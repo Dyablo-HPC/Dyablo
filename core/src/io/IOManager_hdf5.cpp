@@ -14,6 +14,8 @@
 #include "utils/monitoring/Timers.h"
 #include "utils/config/named_enum.h"
 
+#include "filesystem"
+
 enum OutputRealType {
   OT_FLOAT, 
   OT_DOUBLE
@@ -58,7 +60,11 @@ public:
 </Xdmf>)xml";
 
   void create_file()
-  { // Write main xdmf file with 0 timesteps
+  { 
+    namespace fs = std::filesystem;
+    fs::create_directories( fs::path(filename).remove_filename() );
+    
+    // Write main xdmf file with 0 timesteps
     // prepare suffix string
     this->main_xdmf_fd = fopen( filename.c_str(), "w" );
     fprintf(main_xdmf_fd, 
