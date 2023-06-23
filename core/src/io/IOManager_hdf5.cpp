@@ -100,7 +100,8 @@ public:
     Timers& timers )
   : foreach_cell(foreach_cell),
     timers( timers ),
-    filename( configMap.getValue<std::string>("output", "outputDir", "./") + "/" + configMap.getValue<std::string>("output", "outputPrefix", "output") ),
+    output_dir(configMap.getValue<std::string>("output", "outputDir", ".")),
+    filename_prefix( configMap.getValue<std::string>("output", "outputPrefix", "output") ),
     xmin(configMap.getValue<real_t>("mesh", "xmin", 0.0)),
     xmax(configMap.getValue<real_t>("mesh", "xmax", 1.0)),
     ymin(configMap.getValue<real_t>("mesh", "ymin", 0.0)),
@@ -148,7 +149,8 @@ public:
       }
     }
 
-    main_xdmf_fd = MainXmfFile( filename + "_main.xmf" );
+    std::string filepath = output_dir + "/" + filename_prefix;
+    main_xdmf_fd = MainXmfFile( filepath + "_main.xmf" );
   }
 
   void save_snapshot( const UserData& U, uint32_t iter, real_t time );
@@ -161,7 +163,8 @@ public:
 private:
   ForeachCell& foreach_cell;
   Timers& timers;
-  std::string filename;
+  std::string output_dir;
+  std::string filename_prefix;
   std::set<std::string> write_varnames;
   std::map<std::string, std::set<std::string>> write_particle_attributes;
   MainXmfFile main_xdmf_fd;
@@ -231,16 +234,16 @@ void IOManager_hdf5::save_snapshot_aux( const UserData& U_, uint32_t iter, real_
     strsuffix.fill('0');
     strsuffix << iter;
     strsuffix.str();
-    base_filename = filename + strsuffix.str();
+    base_filename = filename_prefix + strsuffix.str();
   }
 
   if( foreach_cell.get_amr_mesh().getRank() == 0 )
   { 
     // Append Current timestep to main xmdf file
-    main_xdmf_fd.append_xmf(base_filename + ".xmf");
+    main_xdmf_fd.append_xmf( base_filename + ".xmf");
 
     // Write xdmf file (only master MPI process)
-    FILE* fd = fopen( (base_filename + ".xmf").c_str(), "w" );
+    FILE* fd = fopen( (output_dir + "/" + base_filename + ".xmf").c_str(), "w" );
 
     uint64_t global_num_cells = foreach_cell.getNumCells_global();
 
@@ -326,7 +329,7 @@ R"xml(
       return iCell.i + iCell.bx * (iCell.j + iCell.by * ( iCell.k + iCell.bz * iCell.iOct.iOct )); 
     };
 
-    HDF5ViewWriter hdf5_writer( base_filename + ".h5" );
+    HDF5ViewWriter hdf5_writer( output_dir + "/" + base_filename + ".h5" );
 
     // Compute and write node coordinates
     {
@@ -459,7 +462,7 @@ R"xml(
     if( U_.has_ParticleArray(particle_array) )
     {
       if( particles_main_xdmf_fds.find(particle_array) == particles_main_xdmf_fds.end() )
-        particles_main_xdmf_fds[particle_array] = MainXmfFile(filename + "_particles_" + particle_array + "_main.xmf");
+        particles_main_xdmf_fds[particle_array] = MainXmfFile(output_dir + "/" + filename_prefix + "_particles_" + particle_array + "_main.xmf");
       
       save_particles<output_real_t>( U_, particle_array, iter, time);
     }
@@ -480,7 +483,7 @@ void IOManager_hdf5::save_particles( const UserData& U, const std::string& parti
     strsuffix.fill('0');
     strsuffix << iter;
     strsuffix.str();
-    base_filename = filename + strsuffix.str();
+    base_filename = filename_prefix + strsuffix.str();
   }
 
   auto mpi_comm = foreach_cell.get_amr_mesh().getMpiComm();
@@ -498,7 +501,7 @@ void IOManager_hdf5::save_particles( const UserData& U, const std::string& parti
     particles_main_xdmf_fds.at(particle_array).append_xmf(base_filename + ".xmf");
 
     // Write xdmf file (only master MPI process)
-    FILE* fd = fopen( (base_filename + ".xmf").c_str(), "w" );
+    FILE* fd = fopen( (output_dir + "/" + base_filename + ".xmf").c_str(), "w" );
 
     fprintf(fd, 
 R"xml(<?xml version="1.0" ?>
@@ -553,7 +556,7 @@ R"xml(
   }
 
  { // Write hdf5 file
-    HDF5ViewWriter hdf5_writer( base_filename + ".h5" );
+    HDF5ViewWriter hdf5_writer( output_dir + "/" + base_filename + ".h5" );
 
     { // Write coordinates
 
