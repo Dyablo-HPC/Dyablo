@@ -10,6 +10,12 @@ namespace dyablo {
 
 class RefineCondition{
 public: 
+  enum Marker
+  {
+    COARSEN = -1,
+    NOCHANGE = 0,
+    REFINE = 1
+  };
   // RefineCondition(
   //               const ConfigMap& configMap,
   //               ForeachCell& foreach_cell,
