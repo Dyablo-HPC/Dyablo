@@ -14,6 +14,8 @@
 #include "utils/monitoring/Timers.h"
 #include "utils/config/named_enum.h"
 
+#include "filesystem"
+
 enum OutputRealType {
   OT_FLOAT, 
   OT_DOUBLE
@@ -58,7 +60,11 @@ public:
 </Xdmf>)xml";
 
   void create_file()
-  { // Write main xdmf file with 0 timesteps
+  { 
+    namespace fs = std::filesystem;
+    fs::create_directories( fs::path(filename).remove_filename() );
+    
+    // Write main xdmf file with 0 timesteps
     // prepare suffix string
     this->main_xdmf_fd = fopen( filename.c_str(), "w" );
     fprintf(main_xdmf_fd, 
@@ -100,7 +106,8 @@ public:
     Timers& timers )
   : foreach_cell(foreach_cell),
     timers( timers ),
-    filename( configMap.getValue<std::string>("output", "outputDir", "./") + "/" + configMap.getValue<std::string>("output", "outputPrefix", "output") ),
+    output_dir(configMap.getValue<std::string>("output", "outputDir", ".")),
+    filename_prefix( configMap.getValue<std::string>("output", "outputPrefix", "output") ),
     xmin(configMap.getValue<real_t>("mesh", "xmin", 0.0)),
     xmax(configMap.getValue<real_t>("mesh", "xmax", 1.0)),
     ymin(configMap.getValue<real_t>("mesh", "ymin", 0.0)),
@@ -148,20 +155,22 @@ public:
       }
     }
 
-    main_xdmf_fd = MainXmfFile( filename + "_main.xmf" );
+    std::string filepath = output_dir + "/" + filename_prefix;
+    main_xdmf_fd = MainXmfFile( filepath + "_main.xmf" );
   }
 
   void save_snapshot( const UserData& U, uint32_t iter, real_t time );
   template <typename output_real_t>
   void save_snapshot_aux( const UserData& U_, uint32_t iter, real_t time );
-  
+  template <typename output_real_t>
   void save_particles( const UserData& U, const std::string& particle_array,  uint32_t iter, real_t time );
 
   struct Data;
 private:
   ForeachCell& foreach_cell;
   Timers& timers;
-  std::string filename;
+  std::string output_dir;
+  std::string filename_prefix;
   std::set<std::string> write_varnames;
   std::map<std::string, std::set<std::string>> write_particle_attributes;
   MainXmfFile main_xdmf_fd;
@@ -231,16 +240,16 @@ void IOManager_hdf5::save_snapshot_aux( const UserData& U_, uint32_t iter, real_
     strsuffix.fill('0');
     strsuffix << iter;
     strsuffix.str();
-    base_filename = filename + strsuffix.str();
+    base_filename = filename_prefix + strsuffix.str();
   }
 
   if( foreach_cell.get_amr_mesh().getRank() == 0 )
   { 
     // Append Current timestep to main xmdf file
-    main_xdmf_fd.append_xmf(base_filename + ".xmf");
+    main_xdmf_fd.append_xmf( base_filename + ".xmf");
 
     // Write xdmf file (only master MPI process)
-    FILE* fd = fopen( (base_filename + ".xmf").c_str(), "w" );
+    FILE* fd = fopen( (output_dir + "/" + base_filename + ".xmf").c_str(), "w" );
 
     uint64_t global_num_cells = foreach_cell.getNumCells_global();
 
@@ -326,7 +335,7 @@ R"xml(
       return iCell.i + iCell.bx * (iCell.j + iCell.by * ( iCell.k + iCell.bz * iCell.iOct.iOct )); 
     };
 
-    HDF5ViewWriter hdf5_writer( base_filename + ".h5" );
+    HDF5ViewWriter hdf5_writer( output_dir + "/" + base_filename + ".h5" );
 
     // Compute and write node coordinates
     {
@@ -459,15 +468,16 @@ R"xml(
     if( U_.has_ParticleArray(particle_array) )
     {
       if( particles_main_xdmf_fds.find(particle_array) == particles_main_xdmf_fds.end() )
-        particles_main_xdmf_fds[particle_array] = MainXmfFile(filename + "_particles_" + particle_array + "_main.xmf");
+        particles_main_xdmf_fds[particle_array] = MainXmfFile(output_dir + "/" + filename_prefix + "_particles_" + particle_array + "_main.xmf");
       
-      save_particles( U_, particle_array, iter, time);
+      save_particles<output_real_t>( U_, particle_array, iter, time);
     }
     else
       std::cout << "WARNING : Output particle array requested but not enabled : '" << particle_array << "'" << std::endl;
   }
 }
 
+template <typename output_real_t>
 void IOManager_hdf5::save_particles( const UserData& U, const std::string& particle_array, uint32_t iter, real_t time )
 {
   std::string base_filename;
@@ -479,7 +489,7 @@ void IOManager_hdf5::save_particles( const UserData& U, const std::string& parti
     strsuffix.fill('0');
     strsuffix << iter;
     strsuffix.str();
-    base_filename = filename + strsuffix.str();
+    base_filename = filename_prefix + strsuffix.str();
   }
 
   auto mpi_comm = foreach_cell.get_amr_mesh().getMpiComm();
@@ -497,7 +507,7 @@ void IOManager_hdf5::save_particles( const UserData& U, const std::string& parti
     particles_main_xdmf_fds.at(particle_array).append_xmf(base_filename + ".xmf");
 
     // Write xdmf file (only master MPI process)
-    FILE* fd = fopen( (base_filename + ".xmf").c_str(), "w" );
+    FILE* fd = fopen( (output_dir + "/" + base_filename + ".xmf").c_str(), "w" );
 
     fprintf(fd, 
 R"xml(<?xml version="1.0" ?>
@@ -515,7 +525,7 @@ R"xml(<?xml version="1.0" ?>
       base_filename.c_str(), 
       time,
       global_num_particles,
-      global_num_particles, (int)sizeof(real_t),
+      global_num_particles, (int)sizeof(output_real_t),
       base_filename.c_str()
     );
 
@@ -531,7 +541,7 @@ R"xml(
         </DataItem>
       </Attribute>)xml",
           var_name.c_str(),
-          global_num_particles, (int)sizeof(real_t),
+          global_num_particles, (int)sizeof(output_real_t),
           base_filename.c_str(), var_name.c_str()
         );
       }
@@ -552,18 +562,18 @@ R"xml(
   }
 
  { // Write hdf5 file
-    HDF5ViewWriter hdf5_writer( base_filename + ".h5" );
+    HDF5ViewWriter hdf5_writer( output_dir + "/" + base_filename + ".h5" );
 
     { // Write coordinates
 
       const ParticleArray& P = U.getParticleArray(particle_array);
-      Kokkos::View< real_t**, Kokkos::LayoutLeft > tmp_view("particles_coordinates", 3, local_num_particles);
+      Kokkos::View< output_real_t**, Kokkos::LayoutLeft > tmp_view("particles_coordinates", 3, local_num_particles);
       Kokkos::parallel_for( "compute_particles_coordinates", local_num_particles,
       KOKKOS_LAMBDA( uint32_t iPart )
       {
-        tmp_view(IX, iPart) = P.pos(iPart,IX);
-        tmp_view(IY, iPart) = P.pos(iPart,IY);
-        tmp_view(IZ, iPart) = P.pos(iPart,IZ);
+        tmp_view(IX, iPart) = static_cast<output_real_t>(P.pos(iPart,IX));
+        tmp_view(IY, iPart) = static_cast<output_real_t>(P.pos(iPart,IY));
+        tmp_view(IZ, iPart) = static_cast<output_real_t>(P.pos(iPart,IZ));
       });
       hdf5_writer.collective_write( "coordinates", tmp_view );
     } 
@@ -573,7 +583,17 @@ R"xml(
     {
       if(  U.has_ParticleAttribute(particle_array, var_name) )
       {
-        hdf5_writer.collective_write( var_name, U.getParticleAttribute(particle_array, var_name).particle_data );
+        enum VarIndex {Ivar};
+        auto Pin = U.getParticleAccessor(particle_array, {{var_name, Ivar}} );
+
+        Kokkos::View< output_real_t*, Kokkos::LayoutLeft > tmp_view(particle_array + "/" + var_name, local_num_particles);
+        Kokkos::parallel_for( "copy_particle_attribute", local_num_particles,
+        KOKKOS_LAMBDA( uint32_t iPart )
+        {
+          tmp_view(iPart) = static_cast<output_real_t>(Pin.at(iPart,Ivar));
+        });
+
+        hdf5_writer.collective_write( var_name, tmp_view );
       }
     }   
  }
