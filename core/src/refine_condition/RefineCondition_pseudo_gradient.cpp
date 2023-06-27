@@ -24,6 +24,7 @@ public:
   }
 
   template< int ndim >
+  KOKKOS_INLINE_FUNCTION
   int getMarker( const ForeachCell::CellIndex& iCell, const ForeachCell::CellMetaData& cells ) const
   {
     using CellIndex = ForeachCell::CellIndex;
