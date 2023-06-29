@@ -8,6 +8,15 @@
 
 namespace dyablo{
 
+/**
+ * Create particles along a cartesian grid, initial particle velocities are set using 
+ * the rho_vx, rho_vy, rho_vz fields
+ * Configured in .ini in the [particle_grid] section
+ * - nx, ny, nz, the number of particles in each direction
+ * - total_mass the cumulated mass of all the particles, each particle has the same mass
+ * - dt_perturb : dt used to displace particles (using particle velocities)
+ * 
+**/
 class InitialConditions_particle_grid : public InitialConditions{ 
     ForeachCell& foreach_cell;
     ForeachParticle foreach_particle;
@@ -16,6 +25,7 @@ class InitialConditions_particle_grid : public InitialConditions{
     const real_t ymin, ymax;
     const real_t zmin, zmax;
     const real_t total_mass;
+    const real_t dt_perturb;
     std::string particle_array_name;
 
 public:
@@ -32,6 +42,7 @@ public:
     ymin( configMap.getValue<real_t>("mesh", "ymin", 0.0) ), ymax( configMap.getValue<real_t>("mesh", "ymax", 1.0) ),
     zmin( configMap.getValue<real_t>("mesh", "zmin", 0.0) ), zmax( configMap.getValue<real_t>("mesh", "zmax", 1.0) ),
     total_mass(configMap.getValue<real_t>("particle_grid", "total_mass", 1.0)),
+    dt_perturb(configMap.getValue<real_t>("particle_grid", "dt_perturb", 0)),
     particle_array_name(configMap.getValue<std::string>("particle_grid", "particle_array_name", "particles"))
   {}
 
@@ -51,9 +62,12 @@ public:
     U.new_ParticleArray(particle_array_name, nbpart_local);
     UserData::ParticleArray_t P = U.getParticleArray( particle_array_name );
 
-    real_t dx = (this->xmax-this->xmin)/this->nx;
-    real_t dy = (this->ymax-this->ymin)/this->ny;
-    real_t dz = (this->zmax-this->zmin)/this->nz;
+    real_t Lx = this->xmax-this->xmin;
+    real_t Ly = this->ymax-this->ymin;
+    real_t Lz = this->zmax-this->zmin;
+    real_t dx = (Lx)/this->nx;
+    real_t dy = (Ly)/this->ny;
+    real_t dz = (Lz)/this->nz;
     real_t xmin = this->xmin;
     real_t ymin = this->ymin;
     real_t zmin = this->zmin;
@@ -96,19 +110,37 @@ public:
 
     ForeachCell::CellMetaData cells = foreach_cell.getCellMetaData();
 
+    real_t dt_perturb = this->dt_perturb;
+
     foreach_particle.foreach_particle("InitialConditions_particle_grid::init_attributes", P,
     KOKKOS_LAMBDA (ParticleData::ParticleIndex iPart) 
     {
       ForeachCell::CellMetaData::pos_t pos = {P.pos(iPart, IX), P.pos(iPart, IY), P.pos(iPart, IZ)};
       ForeachCell::CellIndex iCell = cells.getCellFromPos( pos );
 
-      real_t rho = Uin.at(iCell, IRHO);
-      Pout.at( iPart, IVX ) = Uin.at(iCell, IVX) / rho;
-      Pout.at( iPart, IVY ) = Uin.at(iCell, IVY) / rho;
-      Pout.at( iPart, IVZ ) = Uin.at(iCell, IVZ) / rho;
-
       Pout.at( iPart, IMASS ) = mass;
+
+      real_t rho = Uin.at(iCell, IRHO);
+      real_t u = Uin.at(iCell, IVX) / rho;
+      real_t v = Uin.at(iCell, IVY) / rho;
+      real_t w = Uin.at(iCell, IVZ) / rho;
+
+      Pout.at( iPart, IVX ) = u;
+      Pout.at( iPart, IVY ) = v;
+      Pout.at( iPart, IVZ ) = w;
+
+      P.pos( iPart, IX ) = P.pos( iPart, IX ) + u * dt_perturb;
+      P.pos( iPart, IY ) = P.pos( iPart, IY ) + v * dt_perturb;
+      P.pos( iPart, IZ ) = P.pos( iPart, IZ ) + w * dt_perturb;
+
+      // Compute periodic position
+      P.pos(iPart, IX) = fmod( (P.pos(iPart, IX) - xmin) + (Lx) , Lx) + xmin;
+      P.pos(iPart, IY) = fmod( (P.pos(iPart, IY) - ymin) + (Ly) , Ly) + ymin;
+      P.pos(iPart, IZ) = fmod( (P.pos(iPart, IZ) - zmin) + (Lz) , Lz) + zmin;
+
     });
+
+    U.distributeParticles(particle_array_name);
   }  
 }; 
 
