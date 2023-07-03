@@ -314,9 +314,10 @@ public:
     real_t dt = 0;    
     {
       timers.get("dt").start();
-      double dt_local = compute_dt->compute_dt( U );
+      compute_dt->compute_dt( U, m_scalar_data );
 
-      m_communicator.MPI_Allreduce(&dt_local, &dt, 1, MpiComm::MPI_Op_t::MIN);
+      dt = m_scalar_data.get<real_t>("dt");
+
       // correct dt if end of simulation
       if (m_t_end > 0 && m_t + dt > m_t_end) {
         dt = m_t_end - m_t;

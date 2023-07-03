@@ -21,12 +21,21 @@ public:
     has_mhd( configMap.getValue<std::string>("hydro", "update", "HydroUpdate_hancock").find("MHD") != std::string::npos )
   {}
 
-  double compute_dt( const UserData& U )
+  void compute_dt( const UserData& U, ScalarSimulationData& scalar_data )
   {
+    real_t dt_local;
     if( has_mhd )
-      return compute_dt_aux<MHDState>(U);
+      dt_local = compute_dt_aux<MHDState>(U);
     else
-      return compute_dt_aux<HydroState>(U);
+      dt_local = compute_dt_aux<HydroState>(U);
+
+    DYABLO_ASSERT_HOST_RELEASE(dt_local>0, "invalid dt = " << dt_local);
+
+    real_t dt;
+    auto communicator = foreach_cell.get_amr_mesh().getMpiComm();
+    communicator.MPI_Allreduce(&dt_local, &dt, 1, MpiComm::MPI_Op_t::MIN);
+
+    scalar_data.set<real_t>("dt", dt);
   }
 
   template< typename State >

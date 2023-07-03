@@ -16,7 +16,7 @@ public:
     foreach_cell(foreach_cell)
   {}
 
-  double compute_dt( const UserData& U_)
+  void compute_dt( const UserData& U_, ScalarSimulationData& scalar_data)
   {
     real_t inv_dt = 0;
 
@@ -27,11 +27,15 @@ public:
                                   params, U.get_id2index(),
                                   foreach_cell.blockSize(), U, inv_dt);
 
-    real_t dt = cfl / inv_dt;
+    real_t dt_local = cfl / inv_dt;
 
-    DYABLO_ASSERT_HOST_RELEASE(dt>0, "invalid dt = " << dt);
+    DYABLO_ASSERT_HOST_RELEASE(dt_local>0, "invalid dt = " << dt_local);
 
-    return dt;
+    real_t dt;
+    auto communicator = foreach_cell.get_amr_mesh().getMpiComm();
+    communicator.MPI_Allreduce(&dt_local, &dt, 1, MpiComm::MPI_Op_t::MIN);
+
+    scalar_data.set<real_t>("dt", dt);
   }
 
 private:

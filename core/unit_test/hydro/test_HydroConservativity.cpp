@@ -201,15 +201,15 @@ void run_test(int ndim, std::string HydroUpdate_id ) {
     std::cout << " . Computing initial quantities" << std::endl;
     DiagArray diag0 = diags.compute(U);
     
+    ScalarSimulationData scalar_data;
+
     // Advancing a few steps
     std::cout << " . Running hydro solver" << std::endl;
     constexpr int nsteps = 10;
     real_t time = 0;
     iomanager->save_snapshot(U, 0, time);
     for (int i=0; i < nsteps; ++i) {
-      real_t dt_local = compute_dt->compute_dt(U);
-      real_t dt;
-      GlobalMpiSession::get_comm_world().MPI_Allreduce(&dt_local, &dt, 1, MpiComm::MPI_Op_t::MIN);
+      compute_dt->compute_dt(U, scalar_data);
       U.exchange_ghosts( ghost_comm );
 
       // TODO automatic new fields according to kernel
@@ -217,9 +217,7 @@ void run_test(int ndim, std::string HydroUpdate_id ) {
       if( has_mhd )
         U.new_fields({"Bx_next", "By_next", "Bz_next"});
 
-    ScalarSimulationData scalar_data;
-    scalar_data.set("dt", dt);
-    updater->update(U, scalar_data); 
+      updater->update(U, scalar_data); 
 
       U.move_field( "rho", "rho_next" ); 
       U.move_field( "e_tot", "e_tot_next" ); 
@@ -233,7 +231,7 @@ void run_test(int ndim, std::string HydroUpdate_id ) {
         U.move_field( "Bz", "Bz_next" );
       }         
       
-      time += dt;
+      time += scalar_data.get<real_t>("dt");
       iomanager->save_snapshot(U, i+1, time);
       
       std::cout << "   Iteration #" << i << std::endl;
