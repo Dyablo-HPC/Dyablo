@@ -49,7 +49,7 @@ public:
 
   ~GravitySolver_analytical(){}
 
-  void update_gravity_field( UserData& U )
+  void update_gravity_field( UserData& U, ScalarSimulationData& scalar_data )
   {
     AnalyticalFormula_t& analytical_formula = this->analytical_formula;
     ForeachCell& foreach_cell = this->foreach_cell;

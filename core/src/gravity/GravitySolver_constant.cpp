@@ -20,7 +20,7 @@ public:
     DYABLO_ASSERT_HOST_RELEASE( gtype == GRAVITY_CST_SCALAR, "GravitySolver_cg must have gravity_type=constant_scalar" );
   }
   ~GravitySolver_constant(){}
-  void update_gravity_field( UserData& U )
+  void update_gravity_field( UserData& U, ScalarSimulationData& scalar_data )
   {
     /* Does nothing : constant values are used when applying gravity */
   }

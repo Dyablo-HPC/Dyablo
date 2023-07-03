@@ -361,7 +361,7 @@ public:
         U.move_field("rho", "rho_g");
       }
 
-      gravity_solver->update_gravity_field(U);
+      gravity_solver->update_gravity_field(U, m_scalar_data);
 
       // Restore rho before projection (only if particle projection)
       if( particle_update_density )
