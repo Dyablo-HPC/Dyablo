@@ -20,7 +20,7 @@ public:
                 ForeachCell& foreach_cell,
                 Timers& timers  );
   ~HydroUpdate_legacy();
-  void update( UserData& U, real_t dt) override;
+  void update( UserData& U, ScalarSimulationData& scalar_data) override;
 
    struct Data;
 private:

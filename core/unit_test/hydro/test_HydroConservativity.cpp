@@ -217,7 +217,9 @@ void run_test(int ndim, std::string HydroUpdate_id ) {
       if( has_mhd )
         U.new_fields({"Bx_next", "By_next", "Bz_next"});
 
-      updater->update(U, dt); 
+    ScalarSimulationData scalar_data;
+    scalar_data.set("dt", dt);
+    updater->update(U, scalar_data); 
 
       U.move_field( "rho", "rho_next" ); 
       U.move_field( "e_tot", "e_tot_next" ); 

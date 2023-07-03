@@ -47,8 +47,9 @@ HydroUpdate_legacy::HydroUpdate_legacy(
 HydroUpdate_legacy::~HydroUpdate_legacy()
 {}
 
-void HydroUpdate_legacy::update( UserData& U_, real_t dt )
-{ 
+void HydroUpdate_legacy::update( UserData& U_, ScalarSimulationData& scalar_data) 
+{
+  real_t dt = scalar_data.get<real_t>("dt");
   ForeachCell& foreach_cell = pdata->foreach_cell;
   const LightOctree& lmesh = foreach_cell.get_amr_mesh().getLightOctree();
 

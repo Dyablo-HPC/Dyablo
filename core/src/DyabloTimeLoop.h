@@ -4,6 +4,7 @@
 
 #include "utils/config/ConfigMap.h"
 #include "utils/monitoring/Timers.h"
+#include "ScalarSimulationData.h"
 #include "amr/AMRmesh.h"
 #include "foreach_cell/ForeachCell.h"
 
@@ -179,8 +180,11 @@ public:
       std::cout << "Refine condition   : " << refine_condition_id << std::endl;
       std::cout << "Compute dt         : " << compute_dt_id << std::endl;
       std::cout << "##########################" << std::endl;
-    } 
+    }
 
+    m_scalar_data.set("iter", m_iter);
+    m_scalar_data.set("time", m_t);
+ 
     std::ofstream out_ini("last.ini" );
     configMap.output( out_ini );       
   }
@@ -216,6 +220,7 @@ public:
     {
       step();
       m_iter++;
+      m_scalar_data.set("iter", m_iter);
       int any_interrupted;
       m_communicator.MPI_Allreduce(&interrupted, &any_interrupted, 1, MpiComm::MPI_Op_t::LOR);
       finished = ( m_t_end > 0    && m_t >= (m_t_end - 1e-14) ) // End if physical time exceeds end time
@@ -316,6 +321,7 @@ public:
       if (m_t_end > 0 && m_t + dt > m_t_end) {
         dt = m_t_end - m_t;
       }
+      m_scalar_data.set("dt", dt);
       timers.get("dt").stop();
     }
 
@@ -376,7 +382,7 @@ public:
       if( this->has_mhd )
         U.new_fields({"Bx_next", "By_next", "Bz_next"});
 
-      godunov_updater->update( U, dt );
+      godunov_updater->update( U, m_scalar_data );
 
       U.move_field( "rho", "rho_next" ); 
       U.move_field( "e_tot", "e_tot_next" ); 
@@ -392,6 +398,7 @@ public:
     }
 
     m_t += dt;
+    m_scalar_data.set("time", m_t);
     
     if (m_gravity_type & GRAVITY_FIELD)
     {
@@ -473,6 +480,8 @@ private:
   real_t m_t; //! Current physical time
   int m_output_timeslice_count; //! Number of timeslices already written
   int m_checkpoint_timeslice_count; //! Number of timeslices already written
+
+  ScalarSimulationData m_scalar_data;
 
   MpiComm m_communicator;
   std::shared_ptr<AMRmesh> m_amr_mesh;
