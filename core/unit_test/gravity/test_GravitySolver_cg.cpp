@@ -224,12 +224,14 @@ void test_GravitySolver( std::shared_ptr<AMRmesh> amr_mesh )
   );
 
   ScalarSimulationData scalar_data;
-
+  
   gravitysolver.update_gravity_field( U_, scalar_data);
 
   int iter = 0;
   int time = 0;
-  iomanager->save_snapshot(U_, iter++, time++);
+  scalar_data.set<int>("iter", iter++);
+  scalar_data.set<real_t>("time",time++);
+  iomanager->save_snapshot(U_, scalar_data);
   
   real_t rcore = 2*Hernquist::r0;
   {
@@ -287,7 +289,9 @@ void test_GravitySolver( std::shared_ptr<AMRmesh> amr_mesh )
     EXPECT_EQ(err_count, 0);
   }
 
-  iomanager->save_snapshot(U_, iter++, time++);  
+  scalar_data.set<int>("iter", iter++);
+  scalar_data.set<real_t>("time",time++);
+  iomanager->save_snapshot(U_, scalar_data);  
 }
 
 } // namespace dyablo

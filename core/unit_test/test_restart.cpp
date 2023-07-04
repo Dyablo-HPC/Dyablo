@@ -151,14 +151,18 @@ by=4
     configMap.getValue<std::string>("output", "outputPrefix", std::string("test_")+std::to_string(mpi_size));
     std::unique_ptr<IOManager> io_checkpoint = IOManagerFactory::make_instance( "IOManager_checkpoint", configMap, foreach_cell, timers );
     
+    ScalarSimulationData scalar_data;
+    scalar_data.set<int>("iter", 0);
+    scalar_data.set<real_t>("time",1.0);
+
     std::cout << "Checkpoint...";
-    io_checkpoint->save_snapshot(U_, 0, 0.0);
+    io_checkpoint->save_snapshot(U_, scalar_data);
     std::cout << "Done" << std::endl;
     
     configMap.getValue<std::string>("output", "write_particle_variables", "p1/a1,p1/a2" );
     std::unique_ptr<IOManager> io_hdf5 = IOManagerFactory::make_instance( "IOManager_hdf5", configMap, foreach_cell, timers );
     std::cout << "Output...";
-    io_hdf5->save_snapshot(U_, 0, 0.0);
+    io_hdf5->save_snapshot(U_, scalar_data);
     std::cout << "Done" << std::endl;
 }
 

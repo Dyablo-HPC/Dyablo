@@ -232,11 +232,11 @@ public:
     // Always output after last iteration
     timers.get("outputs").start();
     if( m_enable_output )
-      io_manager->save_snapshot(U, m_iter, m_t);
+      io_manager->save_snapshot(U, m_scalar_data);
     timers.get("outputs").stop();
     timers.get("checkpoint").start();
     if( m_enable_checkpoint )
-      io_manager_checkpoint->save_snapshot(U, m_iter, m_t);
+      io_manager_checkpoint->save_snapshot(U, m_scalar_data);
     timers.get("checkpoint").stop();
 
     timers.get("Total").stop();
@@ -283,7 +283,7 @@ public:
         {
           std::cout << "Output results at time t=" << m_t << " step " << m_iter << std::endl;
         }
-        io_manager->save_snapshot(U, m_iter, m_t);
+        io_manager->save_snapshot(U, m_scalar_data);
       }
       timers.get("outputs").stop();
     }
@@ -305,7 +305,7 @@ public:
         {
           std::cout << "Checkpoint at time t=" << m_t << " step " << m_iter << std::endl;
         }
-        io_manager_checkpoint->save_snapshot(U, m_iter, m_t);
+        io_manager_checkpoint->save_snapshot(U, m_scalar_data);
       }
       timers.get("checkpoint").stop();
     }

@@ -207,7 +207,9 @@ void run_test(int ndim, std::string HydroUpdate_id ) {
     std::cout << " . Running hydro solver" << std::endl;
     constexpr int nsteps = 10;
     real_t time = 0;
-    iomanager->save_snapshot(U, 0, time);
+    scalar_data.set<int>("iter", 0);
+    scalar_data.set<real_t>("time", time);
+    iomanager->save_snapshot(U, scalar_data);
     for (int i=0; i < nsteps; ++i) {
       compute_dt->compute_dt(U, scalar_data);
       U.exchange_ghosts( ghost_comm );
@@ -232,7 +234,9 @@ void run_test(int ndim, std::string HydroUpdate_id ) {
       }         
       
       time += scalar_data.get<real_t>("dt");
-      iomanager->save_snapshot(U, i+1, time);
+      scalar_data.set<int>("iter", i+1);
+      scalar_data.set<real_t>("time",time);
+      iomanager->save_snapshot(U, scalar_data);
       
       std::cout << "   Iteration #" << i << std::endl;
     }

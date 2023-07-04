@@ -156,7 +156,10 @@ void run_test(const Test_data& test_data)
     ConfigMap configMap(configmap_str);
     ForeachCell foreach_cell( amr_mesh, configMap );
     UserData U(configMap, foreach_cell);
-    IOManagerFactory::make_instance("IOManager_hdf5",configMap,foreach_cell,timers)->save_snapshot( U, 0, 0 );
+    ScalarSimulationData scalar_data;
+    scalar_data.set<int>("iter", 0);
+    scalar_data.set<real_t>("time",1.0);
+    IOManagerFactory::make_instance("IOManager_hdf5",configMap,foreach_cell,timers)->save_snapshot( U, scalar_data);
   }
 
   // Verify 2:1 balance

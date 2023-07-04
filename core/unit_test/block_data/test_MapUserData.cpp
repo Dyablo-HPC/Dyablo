@@ -103,13 +103,17 @@ void run_test(int ndim, std::string mapUserData_id)
     U.exchange_ghosts( GhostCommunicator_kokkos( amr_mesh ) );
   }
 
+  
+  ScalarSimulationData scalar_data;
+  scalar_data.set<int>("iter", 0);
+  scalar_data.set<real_t>("time",1.0);
   std::string iomanager_id = "IOManager_hdf5";
   std::unique_ptr<IOManager> io_manager = IOManagerFactory::make_instance( iomanager_id,
     configMap,
     foreach_cell,
     timers
   );
-  io_manager->save_snapshot(U, 0, 1);
+  io_manager->save_snapshot(U, scalar_data);
 
   mapUserData->save_old_mesh();
   {
@@ -135,7 +139,9 @@ void run_test(int ndim, std::string mapUserData_id)
   U.remap(*mapUserData);
 
   {
-    io_manager->save_snapshot(U, 1, 2);
+    scalar_data.set<int>("iter", 1);
+    scalar_data.set<real_t>("time",2.0);
+    io_manager->save_snapshot(U, scalar_data);
 
     uint32_t nbOcts = amr_mesh->getNumOctants();
 
