@@ -419,7 +419,7 @@ public:
         timers.get("MPI ghosts").stop();
 
         timers.get("AMR: Mark cells").start();
-        refine_condition->mark_cells( U );
+        refine_condition->mark_cells( U, m_scalar_data );
         timers.get("AMR: Mark cells").stop();
 
         // Backup old mesh

@@ -73,24 +73,24 @@ public:
       refineCondition_formula(configMap)
   {}
 
-  void mark_cells( const UserData& U )
+  void mark_cells( const UserData& U, ScalarSimulationData& scalar_data)
   {
     int ndim = foreach_cell.getDim();
     if( ndim == 2 )
-      mark_cells_aux<2>( U );
+      mark_cells_aux<2>( U, scalar_data );
     else if( ndim == 3 )
-      mark_cells_aux<3>( U );
+      mark_cells_aux<3>( U, scalar_data );
   }
 
   template< int ndim >
-  void mark_cells_aux( const UserData& U )
+  void mark_cells_aux( const UserData& U, ScalarSimulationData& scalar_data )
   {
     using CellIndex = ForeachCell::CellIndex;
 
     ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
 
     RefineCondition_formula& refineCondition_formula = this->refineCondition_formula;
-    refineCondition_formula.init(U);
+    refineCondition_formula.init(U,scalar_data);
 
     uint32_t nbOcts = foreach_cell.get_amr_mesh().getNumOctants();
     Kokkos::View<int*> oct_marker_max("oct_marker_max", nbOcts);

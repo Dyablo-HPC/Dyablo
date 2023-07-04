@@ -18,7 +18,7 @@ public:
 
   enum VarIndex { ID };
 
-  void init(const UserData& U)
+  void init(const UserData& U, ScalarSimulationData& scalar_data)
   {
     this->Uin = U.getAccessor( {{"rho", ID}} );
   }
