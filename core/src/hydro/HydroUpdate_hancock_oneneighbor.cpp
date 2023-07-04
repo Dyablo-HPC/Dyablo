@@ -500,9 +500,9 @@ public:
       "If gravity is on it must either use the force field from U or a constant scalar force field"  );
   }
 
-  void update(  UserData& U,
-                real_t dt)
+  void update( UserData& U, ScalarSimulationData& scalar_data) 
   {
+    real_t dt = scalar_data.get<real_t>("dt");
     int ndim = foreach_cell.getDim();
     if(ndim==2)
       update_aux<2>(U, dt);

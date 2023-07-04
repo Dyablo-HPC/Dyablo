@@ -7,6 +7,7 @@
 #include "foreach_cell/ForeachCell.h"
 #include "particles/ForeachParticle.h"
 #include "UserData.h"
+#include "ScalarSimulationData.h"
 
 namespace dyablo {
 
@@ -31,7 +32,7 @@ public:
    * @param iter iteration number
    * @param time physical time of the simulation
    **/
-  virtual void save_snapshot( const UserData& U, uint32_t iter, real_t time ) = 0;
+  virtual void save_snapshot( const UserData& U, ScalarSimulationData& scalar_data ) = 0;
 };
 
 using IOManagerFactory = RegisteringFactory< IOManager, 

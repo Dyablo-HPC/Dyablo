@@ -4,6 +4,7 @@
 #include "utils/monitoring/Timers.h"
 #include "foreach_cell/ForeachCell.h"
 #include "UserData.h"
+#include "ScalarSimulationData.h"
 
 namespace dyablo {
 
@@ -21,7 +22,7 @@ public:
   //               ForeachCell& foreach_cell,
   //               Timers& timers );
   virtual ~RefineCondition(){}
-  virtual void mark_cells( const UserData& U ) = 0;
+  virtual void mark_cells( const UserData& U, ScalarSimulationData& scalar_data) = 0;
 };
 
 using RefineConditionFactory = RegisteringFactory< RefineCondition, 

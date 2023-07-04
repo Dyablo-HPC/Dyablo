@@ -155,7 +155,7 @@ real_t MPI_Allreduce_scalar( real_t local_v )
 
 } // namespace
 
-void GravitySolver_cg::update_gravity_field( UserData& U )
+void GravitySolver_cg::update_gravity_field( UserData& U, ScalarSimulationData& scalar_data )
 {
   uint8_t ndim = pdata->foreach_cell.getDim();
   ForeachCell& foreach_cell = pdata->foreach_cell;

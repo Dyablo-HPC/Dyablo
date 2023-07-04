@@ -20,7 +20,7 @@ public:
                 ForeachCell& foreach_cell,
                 Timers& timers );
   ~GravitySolver_cg();
-  void update_gravity_field( UserData& U);
+  void update_gravity_field( UserData& U, ScalarSimulationData& scalar_data);
 
    struct Data;
 private:

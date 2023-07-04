@@ -159,7 +159,15 @@ public:
     main_xdmf_fd = MainXmfFile( filepath + "_main.xmf" );
   }
 
-  void save_snapshot( const UserData& U, uint32_t iter, real_t time );
+  void save_snapshot( const UserData& U_, ScalarSimulationData& scalar_data )
+  {
+    int iter = scalar_data.get<int>( "iter" );
+    real_t time = scalar_data.get<real_t>( "time" );
+    switch (output_real_t) {
+    case OutputRealType::OT_FLOAT:  save_snapshot_aux<float>(U_, iter, time); break;
+    case OutputRealType::OT_DOUBLE: save_snapshot_aux<double>(U_, iter, time); break;
+  }
+  }
   template <typename output_real_t>
   void save_snapshot_aux( const UserData& U_, uint32_t iter, real_t time );
   template <typename output_real_t>
@@ -199,14 +207,6 @@ template<> [[maybe_unused]] std::string xmf_type_attr<float>     () { return R"x
 template<> [[maybe_unused]] std::string xmf_type_attr<double>    () { return R"xml(NumberType="Float" Precision="8")xml"; }
 
 } // namespace
-
-void IOManager_hdf5::save_snapshot( const UserData& U_, uint32_t iter, real_t time )
-{
-  switch (output_real_t) {
-    case OutputRealType::OT_FLOAT:  save_snapshot_aux<float>(U_, iter, time); break;
-    case OutputRealType::OT_DOUBLE: save_snapshot_aux<double>(U_, iter, time); break;
-  }
-}
 
 template <typename output_real_t>
 void IOManager_hdf5::save_snapshot_aux( const UserData& U_, uint32_t iter, real_t time )

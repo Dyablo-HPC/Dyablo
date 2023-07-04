@@ -88,7 +88,7 @@ public:
       smallp( smallc*smallc/gamma0 )
   {}
 
-  void mark_cells( const UserData& Uin )
+  void mark_cells( const UserData& Uin, ScalarSimulationData& scalar_data )
   {
     int ndim = foreach_cell.getDim();
     if( ndim == 2 )

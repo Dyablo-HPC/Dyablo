@@ -7,6 +7,7 @@
 #include "utils/monitoring/Timers.h"
 #include "foreach_cell/ForeachCell.h"
 #include "UserData.h"
+#include "ScalarSimulationData.h"
 
 namespace dyablo {
 
@@ -20,7 +21,7 @@ public:
   //               uint32_t bx, uint32_t by, uint32_t bz,
   //               Timers& timers );
   virtual ~HydroUpdate(){}
-  virtual void update( UserData& U, real_t dt) = 0;
+  virtual void update( UserData& U, ScalarSimulationData& scalar_data) = 0;
 };
 
 using HydroUpdateFactory = RegisteringFactory< HydroUpdate, 

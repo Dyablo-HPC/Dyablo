@@ -4,6 +4,7 @@
 #include "utils/monitoring/Timers.h"
 #include "foreach_cell/ForeachCell.h"
 #include "UserData.h"
+#include "ScalarSimulationData.h"
 
 namespace dyablo {
 
@@ -15,7 +16,7 @@ public:
   //               ForeachCell& foreach_cell,
   //               Timers& timers );
   virtual ~Compute_dt(){}
-  virtual double compute_dt( const UserData& Uin) = 0;
+  virtual void compute_dt( const UserData& Uin, ScalarSimulationData& scalar_data) = 0;
 };
 
 using Compute_dtFactory = RegisteringFactory< Compute_dt, 

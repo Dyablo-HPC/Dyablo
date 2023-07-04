@@ -4,6 +4,7 @@
 
 #include "utils/config/ConfigMap.h"
 #include "utils/monitoring/Timers.h"
+#include "ScalarSimulationData.h"
 #include "amr/AMRmesh.h"
 #include "foreach_cell/ForeachCell.h"
 
@@ -179,8 +180,11 @@ public:
       std::cout << "Refine condition   : " << refine_condition_id << std::endl;
       std::cout << "Compute dt         : " << compute_dt_id << std::endl;
       std::cout << "##########################" << std::endl;
-    } 
+    }
 
+    m_scalar_data.set("iter", m_iter);
+    m_scalar_data.set("time", m_t);
+ 
     std::ofstream out_ini("last.ini" );
     configMap.output( out_ini );       
   }
@@ -216,6 +220,7 @@ public:
     {
       step();
       m_iter++;
+      m_scalar_data.set("iter", m_iter);
       int any_interrupted;
       m_communicator.MPI_Allreduce(&interrupted, &any_interrupted, 1, MpiComm::MPI_Op_t::LOR);
       finished = ( m_t_end > 0    && m_t >= (m_t_end - 1e-14) ) // End if physical time exceeds end time
@@ -227,11 +232,11 @@ public:
     // Always output after last iteration
     timers.get("outputs").start();
     if( m_enable_output )
-      io_manager->save_snapshot(U, m_iter, m_t);
+      io_manager->save_snapshot(U, m_scalar_data);
     timers.get("outputs").stop();
     timers.get("checkpoint").start();
     if( m_enable_checkpoint )
-      io_manager_checkpoint->save_snapshot(U, m_iter, m_t);
+      io_manager_checkpoint->save_snapshot(U, m_scalar_data);
     timers.get("checkpoint").stop();
 
     timers.get("Total").stop();
@@ -278,7 +283,7 @@ public:
         {
           std::cout << "Output results at time t=" << m_t << " step " << m_iter << std::endl;
         }
-        io_manager->save_snapshot(U, m_iter, m_t);
+        io_manager->save_snapshot(U, m_scalar_data);
       }
       timers.get("outputs").stop();
     }
@@ -300,7 +305,7 @@ public:
         {
           std::cout << "Checkpoint at time t=" << m_t << " step " << m_iter << std::endl;
         }
-        io_manager_checkpoint->save_snapshot(U, m_iter, m_t);
+        io_manager_checkpoint->save_snapshot(U, m_scalar_data);
       }
       timers.get("checkpoint").stop();
     }
@@ -309,13 +314,15 @@ public:
     real_t dt = 0;    
     {
       timers.get("dt").start();
-      double dt_local = compute_dt->compute_dt( U );
+      compute_dt->compute_dt( U, m_scalar_data );
 
-      m_communicator.MPI_Allreduce(&dt_local, &dt, 1, MpiComm::MPI_Op_t::MIN);
+      dt = m_scalar_data.get<real_t>("dt");
+
       // correct dt if end of simulation
       if (m_t_end > 0 && m_t + dt > m_t_end) {
         dt = m_t_end - m_t;
       }
+      m_scalar_data.set("dt", dt);
       timers.get("dt").stop();
     }
 
@@ -354,7 +361,7 @@ public:
         U.move_field("rho", "rho_g");
       }
 
-      gravity_solver->update_gravity_field(U);
+      gravity_solver->update_gravity_field(U, m_scalar_data);
 
       // Restore rho before projection (only if particle projection)
       if( particle_update_density )
@@ -376,7 +383,7 @@ public:
       if( this->has_mhd )
         U.new_fields({"Bx_next", "By_next", "Bz_next"});
 
-      godunov_updater->update( U, dt );
+      godunov_updater->update( U, m_scalar_data );
 
       U.move_field( "rho", "rho_next" ); 
       U.move_field( "e_tot", "e_tot_next" ); 
@@ -392,6 +399,7 @@ public:
     }
 
     m_t += dt;
+    m_scalar_data.set("time", m_t);
     
     if (m_gravity_type & GRAVITY_FIELD)
     {
@@ -411,7 +419,7 @@ public:
         timers.get("MPI ghosts").stop();
 
         timers.get("AMR: Mark cells").start();
-        refine_condition->mark_cells( U );
+        refine_condition->mark_cells( U, m_scalar_data );
         timers.get("AMR: Mark cells").stop();
 
         // Backup old mesh
@@ -473,6 +481,8 @@ private:
   real_t m_t; //! Current physical time
   int m_output_timeslice_count; //! Number of timeslices already written
   int m_checkpoint_timeslice_count; //! Number of timeslices already written
+
+  ScalarSimulationData m_scalar_data;
 
   MpiComm m_communicator;
   std::shared_ptr<AMRmesh> m_amr_mesh;

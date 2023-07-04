@@ -32,7 +32,7 @@ public:
       smallp( smallc*smallc/gamma0 )
   {}
 
-  void mark_cells( const UserData& U_ )
+  void mark_cells( const UserData& U_, ScalarSimulationData& scalar_data )
   {
     int ndim = foreach_cell.getDim();
 

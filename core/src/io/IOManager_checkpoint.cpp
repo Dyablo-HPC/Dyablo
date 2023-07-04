@@ -44,8 +44,11 @@ public:
         configMap.getValue<std::string>("output", "outputPrefix", "output")
       })
   {}
-  void save_snapshot( const UserData& U, uint32_t iter, real_t time )
+  void save_snapshot( const UserData& U, ScalarSimulationData& scalar_data )
   {
+    int iter = scalar_data.get<int>( "iter" );
+    real_t time = scalar_data.get<real_t>( "time" );
+
     std::stringstream filename;
     filename << pdata->outputDir << "/restart_" << pdata->outputPrefix << "_" << iter;
 
