@@ -88,7 +88,7 @@ public:
       smallp( smallc*smallc/gamma0 )
   {}
 
-  void mark_cells( const UserData& Uin, ScalarSimulationData& scalar_data )
+  void mark_cells( UserData& Uin, ScalarSimulationData& scalar_data )
   {
     int ndim = foreach_cell.getDim();
     if( ndim == 2 )
@@ -100,7 +100,7 @@ public:
   template< int ndim,
             typename PrimState,
             typename ConsState >
-  void mark_cells_aux( const UserData& Uin_ )
+  void mark_cells_aux( UserData& Uin_ )
   {
     auto bc_manager = this->bc_manager;
     real_t gamma0 = this->gamma0;
