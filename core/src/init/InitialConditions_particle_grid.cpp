@@ -60,7 +60,6 @@ public:
     uint32_t nbpart_local = ipart_global_end-ipart_global_begin;
 
     U.new_ParticleArray(particle_array_name, nbpart_local);
-    UserData::ParticleArray_t P = U.getParticleArray( particle_array_name );
 
     real_t Lx = this->xmax-this->xmin;
     real_t Ly = this->ymax-this->ymin;
@@ -72,24 +71,28 @@ public:
     real_t ymin = this->ymin;
     real_t zmin = this->zmin;
 
-    foreach_particle.foreach_particle("InitialConditions_particle_grid::init_pos", P,
-    KOKKOS_LAMBDA (ParticleData::ParticleIndex iPart) 
     {
-      uint64_t ipart_global = ipart_global_begin + iPart;
+      UserData::ParticleArray_t P = U.getParticleArray( particle_array_name );
+      foreach_particle.foreach_particle("InitialConditions_particle_grid::init_pos", P,
+      KOKKOS_LAMBDA (ParticleData::ParticleIndex iPart) 
+      {
+        uint64_t ipart_global = ipart_global_begin + iPart;
 
-      // TODO : maybe add particles in morton order?
-      uint32_t i = ipart_global%nx;
-      uint32_t j = (ipart_global/nx)%ny;
-      uint32_t k = (ipart_global/nx)/ny;
+        // TODO : maybe add particles in morton order?
+        uint32_t i = ipart_global%nx;
+        uint32_t j = (ipart_global/nx)%ny;
+        uint32_t k = (ipart_global/nx)/ny;
 
-      P.pos(iPart, IX) = xmin + i*dx + 0.5*dx;
-      P.pos(iPart, IY) = ymin + j*dy + 0.5*dy;
-      P.pos(iPart, IZ) = zmin + k*dz + 0.5*dz;
-    });
+        P.pos(iPart, IX) = xmin + i*dx + 0.5*dx;
+        P.pos(iPart, IY) = ymin + j*dy + 0.5*dy;
+        P.pos(iPart, IZ) = zmin + k*dz + 0.5*dz;
+      });
+    }
 
     U.distributeParticles(particle_array_name);
 
     bool mass = this->total_mass / nbpart_global;
+    real_t dt_perturb = this->dt_perturb;
 
     U.new_ParticleAttribute(particle_array_name, "vx");
     U.new_ParticleAttribute(particle_array_name, "vy");
@@ -97,48 +100,51 @@ public:
     U.new_ParticleAttribute(particle_array_name, "mass");
     
     enum VarIndex_particle_grid { IVX, IVY, IVZ, IMASS, IRHO };
-    auto Pout = U.getParticleAccessor( particle_array_name,
-                                      { {"vx", IVX}, 
-                                        {"vy", IVY},
-                                        {"vz", IVZ},
-                                        {"mass", IMASS} });
-    auto Uin = U.getAccessor( { {"rho", IRHO},
-                                {"rho_vx", IVX}, 
-                                {"rho_vy", IVY},
-                                {"rho_vz", IVZ} });
+      
 
-
-    ForeachCell::CellMetaData cells = foreach_cell.getCellMetaData();
-
-    real_t dt_perturb = this->dt_perturb;
-
-    foreach_particle.foreach_particle("InitialConditions_particle_grid::init_attributes", P,
-    KOKKOS_LAMBDA (ParticleData::ParticleIndex iPart) 
     {
-      ForeachCell::CellMetaData::pos_t pos = {P.pos(iPart, IX), P.pos(iPart, IY), P.pos(iPart, IZ)};
-      ForeachCell::CellIndex iCell = cells.getCellFromPos( pos );
+      UserData::ParticleArray_t P = U.getParticleArray( particle_array_name );
+      auto Pout = U.getParticleAccessor( particle_array_name,
+                                        { {"vx", IVX}, 
+                                          {"vy", IVY},
+                                          {"vz", IVZ},
+                                          {"mass", IMASS} });
+      auto Uin = U.getAccessor( { {"rho", IRHO},
+                                  {"rho_vx", IVX}, 
+                                  {"rho_vy", IVY},
+                                  {"rho_vz", IVZ} });
 
-      Pout.at( iPart, IMASS ) = mass;
 
-      real_t rho = Uin.at(iCell, IRHO);
-      real_t u = Uin.at(iCell, IVX) / rho;
-      real_t v = Uin.at(iCell, IVY) / rho;
-      real_t w = Uin.at(iCell, IVZ) / rho;
+      ForeachCell::CellMetaData cells = foreach_cell.getCellMetaData();
 
-      Pout.at( iPart, IVX ) = u;
-      Pout.at( iPart, IVY ) = v;
-      Pout.at( iPart, IVZ ) = w;
+      foreach_particle.foreach_particle("InitialConditions_particle_grid::init_attributes", P,
+      KOKKOS_LAMBDA (ParticleData::ParticleIndex iPart) 
+      {
+        ForeachCell::CellMetaData::pos_t pos = {P.pos(iPart, IX), P.pos(iPart, IY), P.pos(iPart, IZ)};
+        ForeachCell::CellIndex iCell = cells.getCellFromPos( pos );
 
-      P.pos( iPart, IX ) = P.pos( iPart, IX ) + u * dt_perturb;
-      P.pos( iPart, IY ) = P.pos( iPart, IY ) + v * dt_perturb;
-      P.pos( iPart, IZ ) = P.pos( iPart, IZ ) + w * dt_perturb;
+        Pout.at( iPart, IMASS ) = mass;
 
-      // Compute periodic position
-      P.pos(iPart, IX) = fmod( (P.pos(iPart, IX) - xmin) + (Lx) , Lx) + xmin;
-      P.pos(iPart, IY) = fmod( (P.pos(iPart, IY) - ymin) + (Ly) , Ly) + ymin;
-      P.pos(iPart, IZ) = fmod( (P.pos(iPart, IZ) - zmin) + (Lz) , Lz) + zmin;
+        real_t rho = Uin.at(iCell, IRHO);
+        real_t u = Uin.at(iCell, IVX) / rho;
+        real_t v = Uin.at(iCell, IVY) / rho;
+        real_t w = Uin.at(iCell, IVZ) / rho;
 
-    });
+        Pout.at( iPart, IVX ) = u;
+        Pout.at( iPart, IVY ) = v;
+        Pout.at( iPart, IVZ ) = w;
+
+        P.pos( iPart, IX ) = P.pos( iPart, IX ) + u * dt_perturb;
+        P.pos( iPart, IY ) = P.pos( iPart, IY ) + v * dt_perturb;
+        P.pos( iPart, IZ ) = P.pos( iPart, IZ ) + w * dt_perturb;
+
+        // Compute periodic position
+        P.pos(iPart, IX) = fmod( (P.pos(iPart, IX) - xmin) + (Lx) , Lx) + xmin;
+        P.pos(iPart, IY) = fmod( (P.pos(iPart, IY) - ymin) + (Ly) , Ly) + ymin;
+        P.pos(iPart, IZ) = fmod( (P.pos(iPart, IZ) - zmin) + (Lz) , Lz) + zmin;
+
+      });
+    }
 
     U.distributeParticles(particle_array_name);
   }  
