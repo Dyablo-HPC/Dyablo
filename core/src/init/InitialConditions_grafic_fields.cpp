@@ -90,6 +90,10 @@ public:
       enum VarIndex { Ifield };
       UserData::FieldAccessor U_field = U.getAccessor({{dyablo_field_name, Ifield}});
 
+      real_t xmin = this->xmin;
+      real_t ymin = this->ymin;
+      real_t zmin = this->zmin;
+
       foreach_cell.foreach_cell( "InitialConditions_grafic_fields::init_field", U_field.getShape(),
         KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell )
       {
@@ -124,11 +128,14 @@ public:
     // Parameters?
     constexpr real_t YHE = 0.24; // Helium Mass fraction
     constexpr real_t yHE = (YHE/(1.-YHE)/MHE_OVER_MH); // Helium number fraction
+    constexpr real_t KBOLTZ = Units::KBOLTZ;
+    
     
     real_t gamma0 = this->gamma0;
     real_t omegab = this->omegab;
     real_t omegam = header.om;
     real_t astart = header.astart;
+    real_t smallp = this->smallp;
 
     real_t H0 = header.H0 * (Kilo * meter) / second / (Mega * parsec); // Hubble constant (s-1)
     real_t rhoc = 3. * H0 * H0 / (8. * M_PI * NEWTON_G); // comoving critical density (kg/m3)
