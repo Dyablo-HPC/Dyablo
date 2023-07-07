@@ -90,10 +90,8 @@ public:
 
       
       int criterion;
-      if( local_mass > mass_refine ) {
-        printf("Local mass = %lf; rho = %lf; dV=%lf\n", local_mass, Uin.at(iCell, IRho), size[IX]*size[IY]*size[IZ]);
+      if( local_mass > mass_refine )
         criterion = RefineCondition::REFINE;
-      }
       else if( local_mass <= mass_coarsen )
         criterion = RefineCondition::COARSEN;
       else
