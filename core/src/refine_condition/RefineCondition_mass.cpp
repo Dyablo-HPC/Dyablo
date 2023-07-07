@@ -67,7 +67,8 @@ public:
 
     std::string field_name = "rho";
     if (particle_update_density) {
-      Uin_.new_fields({"rho_g"});
+      if (!Uin_.has_field("rho_g"))
+        Uin_.new_fields({"rho_g"});
       particle_update_density->update( Uin_, dt );
       field_name = "rho_g";
     }
@@ -84,11 +85,15 @@ public:
     foreach_cell.foreach_cell( "RefineCondition_mass::mark_cells", Uin.getShape(),
       KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell )
     {
-      real_t local_mass = mass.at(iCell, IMass);
+      auto size = cellmetadata.getCellSize(iCell);
+      real_t local_mass = Uin.at(iCell, IRho) * size[IX]*size[IY]*(ndim == 3 ? size[IZ] : 1.0);
 
+      
       int criterion;
-      if( local_mass > mass_refine )
+      if( local_mass > mass_refine ) {
+        printf("Local mass = %lf; rho = %lf; dV=%lf\n", local_mass, Uin.at(iCell, IRho), size[IX]*size[IY]*size[IZ]);
         criterion = RefineCondition::REFINE;
+      }
       else if( local_mass <= mass_coarsen )
         criterion = RefineCondition::COARSEN;
       else
@@ -98,7 +103,7 @@ public:
     });
 
     if (particle_update_density)
-      U.delete_field({"rho_g"});
+      Uin_.delete_field({"rho_g"});
 
     RefineCondition_utils::set_markers(foreach_cell.get_amr_mesh(), oct_marker_max);
   }
