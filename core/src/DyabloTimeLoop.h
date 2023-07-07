@@ -153,7 +153,7 @@ public:
       );
     }
 
-    std::vector<std::string> compute_dt_ids = configMap.getValue<std::vector<std::string>>("dt", "dt_kernel");
+    std::vector<std::string> compute_dt_ids = configMap.getValue<std::vector<std::string>>("dt", "dt_kernel", {"Compute_dt_hydro"});
     DYABLO_ASSERT_HOST_RELEASE(compute_dt_ids.size() > 0, "dt_kernel should not be empty !");
     for (auto compute_dt_id: compute_dt_ids) {
       this->compute_dt.push_back(Compute_dtFactory::make_instance( compute_dt_id,
