@@ -11,7 +11,8 @@ set( core_src
     ${CMAKE_CURRENT_SOURCE_DIR}/gravity/GravitySolver_point_mass.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gravity/GravitySolver_constant.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gravity/GravitySolver_cg.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/compute_dt/Compute_dt_generic.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/compute_dt/Compute_dt_hydro.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/compute_dt/Compute_dt_particle_velocity.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/refine_condition/RefineCondition_second_derivative_error.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/refine_condition/RefineCondition_pseudo_gradient.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/particles/ParticleUpdate_tracers_move.cpp

@@ -7,19 +7,26 @@
 namespace dyablo {
 
 
-class Compute_dt_generic : public Compute_dt
+class Compute_dt_hydro : public Compute_dt
 {
 public:
-  Compute_dt_generic(   ConfigMap& configMap,
+  Compute_dt_hydro(   ConfigMap& configMap,
                         ForeachCell& foreach_cell,
                         Timers& timers )
   : foreach_cell(foreach_cell),
-    cfl( configMap.getValue<real_t>("hydro", "cfl", 0.5) ),
+    cfl( configMap.getValue<real_t>("dt", "hydro_cfl", 0.5) ),
     gamma0( configMap.getValue<real_t>("hydro","gamma0", 1.4) ),
     smallr( configMap.getValue<real_t>("hydro","smallr", 1e-10) ),
     smallc( configMap.getValue<real_t>("hydro","smallc", 1e-10) ),
     has_mhd( configMap.getValue<std::string>("hydro", "update", "HydroUpdate_hancock").find("MHD") != std::string::npos )
-  {}
+  {
+    if (configMap.hasValue("hydro", "cfl")) {
+      std::cout << "WARNING : hydro/cfl is deprecated in .ini, use dt/hydro_cfl instead !" << std::endl;
+      real_t cfl = configMap.getValue<real_t>("hydro", "cfl");
+      configMap.getValue<real_t>("dt", "hydro_cfl", cfl);
+    }
+
+  }
 
   void compute_dt( const UserData& U, ScalarSimulationData& scalar_data )
   {
@@ -120,4 +127,4 @@ private:
 
 } // namespace dyablo 
 
-FACTORY_REGISTER( dyablo::Compute_dtFactory, dyablo::Compute_dt_generic, "Compute_dt_generic" );
+FACTORY_REGISTER( dyablo::Compute_dtFactory, dyablo::Compute_dt_hydro, "Compute_dt_hydro" );

@@ -184,6 +184,7 @@ public:
       std::cout << "Compute dt         : "; 
         for( const std::string& id : compute_dt_ids )
           std::cout << "`" << id << "` ";
+      std::cout << std::endl;
       std::cout << "##########################" << std::endl;
     }
 
