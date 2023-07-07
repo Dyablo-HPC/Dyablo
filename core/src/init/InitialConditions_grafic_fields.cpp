@@ -8,6 +8,15 @@ namespace dyablo {
 
 class InitialConditions_grafic_fields : public InitialConditions
 {
+  struct grafic_header
+  {
+    int32_t nx,ny,nz;
+    float dx;
+    float xo,yo,zo;
+    float astart;
+    float om,ov,H0;
+  };
+
 public:
   InitialConditions_grafic_fields(
         ConfigMap& configMap, 
@@ -16,29 +25,64 @@ public:
   : 
     graficDir( configMap.getValue<std::string>("grafic", "inputDir", "data/IC/") ),
     foreach_cell(foreach_cell),
-    xmin( configMap.getValue<real_t>("mesh", "xmin", 0.0) ),
-    ymin( configMap.getValue<real_t>("mesh", "ymin", 0.0) ),
-    zmin( configMap.getValue<real_t>("mesh", "zmin", 0.0) ),
-    omegab(configMap.getValue<real_t>("cosmology", "omegab", 1.0)),
     gamma0(configMap.getValue<real_t>("hydro", "gamma0", 1.4)),
     smallr(configMap.getValue<real_t>("hydro", "smallr", 1e-10)),
     smallc(configMap.getValue<real_t>("hydro", "smallc", 1e-10)),
     smallp(smallc * smallc / gamma0)
-  {}
+  {
+    /// Read header from grafic file, check if values are the same as .ini (or create new entries)
+    grafic_header header;
+
+    // Read header from grafic file
+    std::string grafic_filename = this->graficDir + "/ic_deltab";
+    std::ifstream grafic_file(grafic_filename , std::ios::in|std::ios::binary );
+    DYABLO_ASSERT_HOST_RELEASE(grafic_file, "Could not open grafic file : `" + grafic_filename + "`");
+    FortranBinaryReader::read_record( grafic_file, &header, 1 );
+
+    auto set_or_check = [&]( std::string section, std::string param, auto val )
+    {
+      using T = decltype(val);
+      if( configMap.hasValue(section, param) )
+      {
+        DYABLO_ASSERT_HOST_RELEASE( configMap.getValue< T >(section, param) == val, 
+          ".ini parameter does not match grafic file : \n"
+          << ".ini " << section << "/" << param << " : " << configMap.getValue< T >(section, param) << "\n"
+          << grafic_filename << " : " << val
+           )
+      }
+      else
+        configMap.getValue< T >(section, param, val);
+    };
+
+    set_or_check( "amr", "coarse_oct_resolution_x", header.nx/foreach_cell.blockSize()[IX] );
+    set_or_check( "amr", "coarse_oct_resolution_y", header.ny/foreach_cell.blockSize()[IY] );
+    set_or_check( "amr", "coarse_oct_resolution_z", header.nz/foreach_cell.blockSize()[IZ] );
+    this->xmin = header.xo;
+    set_or_check( "mesh", "xmin", header.xo );
+    this->ymin = header.yo;
+    set_or_check( "mesh", "ymin", header.yo );
+    this->zmin = header.zo;
+    set_or_check( "mesh", "zmin", header.zo );
+
+    this->astart = header.astart;
+    set_or_check( "cosmology", "astart", header.astart );
+    this->omegam = header.om;
+    set_or_check( "cosmology", "omegam", omegam );
+    set_or_check( "cosmology", "omegav", header.ov );
+    this->omegab = configMap.getValue<real_t>("cosmology", "omegab", 0.049);
+
+    using namespace Units;
+
+    this->H0 = header.H0 * (Kilo * meter) / second / (Mega * parsec); // Hubble constant (s-1)
+    set_or_check( "cosmology", "H0", H0 );
+
+    real_t dx = header.dx * (Mega * parsec); // Cell size (m)
+    set_or_check( "cosmology", "dx", dx );
+  }
 
   void init( UserData& U )
   {
     ForeachCell& foreach_cell = this->foreach_cell;
-    AMRmesh& pmesh = foreach_cell.get_amr_mesh();
-
-    struct grafic_header
-    {
-      int32_t nx,ny,nz;
-      float dx;
-      float xo,yo,zo;
-      float astart;
-      float om,ov,H0;
-    };
 
     // Read header from ic_deltab
     grafic_header header;
@@ -48,20 +92,11 @@ public:
       std::ifstream grafic_file(grafic_filename , std::ios::in|std::ios::binary );
       DYABLO_ASSERT_HOST_RELEASE(grafic_file, "Could not open grafic file : `" + grafic_filename + "`");
       FortranBinaryReader::read_record( grafic_file, &header, 1 );
-
-      DYABLO_ASSERT_HOST_RELEASE( header.nx == foreach_cell.blockSize()[IX]*pmesh.get_coarse_grid_size()[IX], 
-        "grafic mesh size does not match AMR grid size (X)");
-      DYABLO_ASSERT_HOST_RELEASE( header.ny == foreach_cell.blockSize()[IY]*pmesh.get_coarse_grid_size()[IY], 
-        "grafic mesh size does not match AMR grid size (Y)");
-      DYABLO_ASSERT_HOST_RELEASE( header.nz == foreach_cell.blockSize()[IZ]*pmesh.get_coarse_grid_size()[IZ], 
-        "grafic mesh size does not match AMR grid size (Z)");
     }
 
     int32_t nx = header.nx;
     int32_t ny = header.ny;
-    int32_t nz = header.nz;
-
-    
+    int32_t nz = header.nz;    
 
     ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
 
@@ -133,11 +168,11 @@ public:
     
     real_t gamma0 = this->gamma0;
     real_t omegab = this->omegab;
-    real_t omegam = header.om;
-    real_t astart = header.astart;
+    real_t omegam = this->omegam;
+    real_t astart = this->astart;
     real_t smallp = this->smallp;
+    real_t H0 = this->H0;
 
-    real_t H0 = header.H0 * (Kilo * meter) / second / (Mega * parsec); // Hubble constant (s-1)
     real_t rhoc = 3. * H0 * H0 / (8. * M_PI * NEWTON_G); // comoving critical density (kg/m3)
     real_t rstar = header.nx * header.dx * (Mega * parsec); // box size in m 
     real_t tstar = 2. / H0 / sqrt(omegam); // sec
@@ -146,7 +181,6 @@ public:
     real_t pstar = rhostar * vstar * vstar;
 
     real_t cosmo_z = 1. / astart - 1.;
-    // let's assign a temperature (Recfast Calibration for Planck(+18?)
     real_t temp = 317.5 * (cosmo_z * cosmo_z) / (151.0 * 151.0);
 
     foreach_cell.foreach_cell( "InitialConditions_grafic_fields::compute_conservative", Uinout.getShape(),
@@ -186,8 +220,14 @@ public:
 private:
   std::string graficDir;
   ForeachCell& foreach_cell;
+  
+  // Cosmo params
   real_t xmin, ymin, zmin;
   real_t omegab;
+  real_t astart, omegam;
+  real_t H0;
+
+  // Hydro params
   real_t gamma0;
   real_t smallr,smallc,smallp;
 };

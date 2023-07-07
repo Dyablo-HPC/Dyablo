@@ -20,12 +20,12 @@ namespace dyablo{
 class InitialConditions_particle_grid : public InitialConditions{ 
     ForeachCell& foreach_cell;
     ForeachParticle foreach_particle;
-    const uint32_t nx, ny, nz;
+    uint32_t nx, ny, nz;
     const real_t xmin, xmax;
     const real_t ymin, ymax;
     const real_t zmin, zmax;
-    const real_t total_mass;
-    const real_t dt_perturb;
+    real_t total_mass;
+    real_t dt_perturb;
     std::string particle_array_name;
 
 public:
@@ -35,16 +35,72 @@ public:
         Timers& timers )
   : foreach_cell(foreach_cell),
     foreach_particle( foreach_cell.get_amr_mesh(), configMap ),
-    nx(configMap.getValue<uint32_t>("particle_grid", "nx", 4)),
-    ny(configMap.getValue<uint32_t>("particle_grid", "ny", 4)),
-    nz(configMap.getValue<uint32_t>("particle_grid", "nz", 4)),
     xmin( configMap.getValue<real_t>("mesh", "xmin", 0.0) ), xmax( configMap.getValue<real_t>("mesh", "xmax", 1.0) ),
     ymin( configMap.getValue<real_t>("mesh", "ymin", 0.0) ), ymax( configMap.getValue<real_t>("mesh", "ymax", 1.0) ),
     zmin( configMap.getValue<real_t>("mesh", "zmin", 0.0) ), zmax( configMap.getValue<real_t>("mesh", "zmax", 1.0) ),
-    total_mass(configMap.getValue<real_t>("particle_grid", "total_mass", 1.0)),
-    dt_perturb(configMap.getValue<real_t>("particle_grid", "dt_perturb", 0)),
+    
     particle_array_name(configMap.getValue<std::string>("particle_grid", "particle_array_name", "particles"))
-  {}
+  {
+    AMRmesh& pmesh = foreach_cell.get_amr_mesh();
+    uint32_t default_nx = foreach_cell.blockSize()[IX]*pmesh.get_coarse_grid_size()[IX];
+    uint32_t default_ny = foreach_cell.blockSize()[IY]*pmesh.get_coarse_grid_size()[IY];
+    uint32_t default_nz = foreach_cell.blockSize()[IZ]*pmesh.get_coarse_grid_size()[IZ];
+    this->nx = configMap.getValue<uint32_t>("particle_grid", "nx", default_nx);
+    this->ny = configMap.getValue<uint32_t>("particle_grid", "ny", default_ny);
+    this->nz = configMap.getValue<uint32_t>("particle_grid", "nz", default_nz);
+    
+    real_t default_total_mass=1.0, default_dt_perturb=0.0;
+    bool cosmo = configMap.hasValue("cosmology", "astart");
+    if( cosmo )
+    {
+      real_t astart = configMap.getValue<real_t>( "cosmology", "astart" );
+      real_t omegam = configMap.getValue<real_t>( "cosmology", "omegam" );
+      real_t omegab = configMap.getValue<real_t>( "cosmology", "omegab" );
+      real_t omegav = configMap.getValue<real_t>( "cosmology", "omegav" );
+      
+      real_t omegak = 1.0 - omegam - omegav;
+      real_t eta    = sqrt(omegam / astart + omegav * astart * astart + omegak);
+      real_t dladt = astart * eta;
+
+      real_t fomega;
+      if (omegam >= 1.0 && omegav <= 0.0)
+        fomega = 1.0;
+      else
+      {
+        real_t dplus;
+        {
+          auto ddplus = [&](real_t a)
+          {
+            if (a <= 0.0)
+              return 0.0;
+
+            real_t eta = sqrt(omegam / a + omegav * a * a + 1.0 - omegam - omegav);
+            return 2.5 / (eta * eta * eta);
+          };
+
+          // UGLY trapezoid rule integration
+          const real_t Np = 1000;
+          const real_t da = astart / Np;
+          real_t sum      = 0.0;
+          for (int i = 0; i < Np; ++i)
+          {
+            sum += 0.5 * (ddplus(i * da) + ddplus((i + 1) * da));
+          }
+          sum *= da;
+
+          dplus = eta / astart * sum;
+        }
+        fomega = (2.5 / dplus - 1.5 * omegam / astart - omegak) / (eta * eta);
+      }
+
+      default_total_mass = 1.0-omegab/omegam;
+      default_dt_perturb = 1/ (2 * fomega * dladt / sqrt(omegam));
+    }
+
+    this->total_mass = configMap.getValue<real_t>("particle_grid", "total_mass", default_total_mass);
+    this->dt_perturb = configMap.getValue<real_t>("particle_grid", "dt_perturb", default_dt_perturb);
+
+  }
 
   void init( UserData& U )
   {
