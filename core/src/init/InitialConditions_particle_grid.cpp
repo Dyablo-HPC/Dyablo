@@ -147,7 +147,7 @@ public:
 
     U.distributeParticles(particle_array_name);
 
-    bool mass = this->total_mass / nbpart_global;
+    real_t mass = this->total_mass / nbpart_global;
     real_t dt_perturb = this->dt_perturb;
 
     U.new_ParticleAttribute(particle_array_name, "vx");
