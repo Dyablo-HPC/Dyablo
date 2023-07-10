@@ -42,8 +42,6 @@ public:
     uint32_t nbOcts = foreach_cell.get_amr_mesh().getNumOctants();
     Kokkos::View<int*> oct_marker_max("Oct_marker_max", nbOcts);
 
-    const real_t dt = scalar_data.get<real_t>("dt");
-
     const real_t mass_coarsen = this->mass_coarsen; 
     const real_t mass_refine  = this->mass_refine;
 
@@ -51,7 +49,7 @@ public:
     if (particle_update_density) {
       if (!Uin_.has_field("rho_g"))
         Uin_.new_fields({"rho_g"});
-      particle_update_density->update( Uin_, dt );
+      particle_update_density->update( Uin_, scalar_data );
       field_name = "rho_g";
     }
 
