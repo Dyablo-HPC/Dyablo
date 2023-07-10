@@ -17,6 +17,7 @@
 #include "particles/ParticleUpdate.h"
 #include "amr/MapUserData.h"
 #include "UserData.h"
+#include "Cosmo.h"
 
 namespace dyablo {
 
@@ -88,7 +89,15 @@ public:
     this->m_loadbalance_frequency = configMap.getValue<int>("amr", "load_balancing_frequency", 10);
     this->m_iter_start = configMap.getValue<int>("run", "iter_start", 0);
     this->m_iter = m_iter_start;
-    this->m_t = configMap.getValue<real_t>("run", "tStart", 0.0);
+
+    this->cosmo_manager = std::make_unique<CosmoManager>( configMap );
+    real_t t0_default = 0.0;
+    if( cosmo_manager->cosmo_run )
+    {
+      t0_default = cosmo_manager->expansionToTime( cosmo_manager->a_start );
+    }
+
+    this->m_t = configMap.getValue<real_t>("run", "tStart", t0_default);
     this->m_output_timeslice_count = m_t / m_output_timeslice;
     this->m_checkpoint_timeslice_count = m_t / m_checkpoint_timeslice;
     this->m_loadbalance_coherent_levels = configMap.getValue<int>("amr", "loadbalance_coherent_levels", 3);
@@ -316,6 +325,12 @@ public:
       timers.get("checkpoint").stop();
     }
 
+    if( cosmo_manager->cosmo_run )
+    {
+      real_t aexp = cosmo_manager->timeToExpansion(m_t);
+      m_scalar_data.set("aexp", aexp);
+    }
+
     // Compute new dt
     real_t dt = 0;    
     {
@@ -512,6 +527,8 @@ private:
   std::unique_ptr<MapUserData> mapUserData;
   std::unique_ptr<IOManager> io_manager, io_manager_checkpoint;
   std::unique_ptr<GravitySolver> gravity_solver;
+
+  std::unique_ptr<CosmoManager> cosmo_manager;
 
   Timers timers;
 };
