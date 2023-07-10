@@ -1,8 +1,6 @@
 #include "Compute_dt_base.h"
 
-#include "utils_hydro.h"
-
-#include "states/State_forward.h"
+#include "Cosmo.h"
 
 namespace dyablo {
 
@@ -13,12 +11,13 @@ public:
   Compute_dt_cosmology( ConfigMap& configMap,
                     ForeachCell& foreach_cell,
                     Timers& timers )
-  : cfl( configMap.getValue<real_t>("dt", "cosmo_cfl", 0.5) )
+  : cosmo_manager( configMap )
   {}
 
   void compute_dt( const UserData& U, ScalarSimulationData& scalar_data )
   {
-    real_t dt = cfl * scalar_data.get<real_t>("aexp") / scalar_data.get<real_t>("daexp_dt");
+    real_t aexp = scalar_data.get<real_t>("aexp");
+    real_t dt = cosmo_manager.compute_cosmo_dt( aexp );
 
     DYABLO_ASSERT_HOST_RELEASE(dt>0, "invalid dt = " << dt);
 
@@ -26,7 +25,7 @@ public:
   }
 
 private:
-  real_t cfl;
+  CosmoManager cosmo_manager;
 };
 
 
