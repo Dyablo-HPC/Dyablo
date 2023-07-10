@@ -4,22 +4,6 @@
 #include "foreach_cell/ForeachCell.h"
 #include "particles/ParticleUpdate.h"
 
-
-namespace dyablo {
-
-namespace{
-
-using GhostedArray = ForeachCell::CellArray_global_ghosted;
-using GlobalArray = ForeachCell::CellArray_global;
-using PatchArray = ForeachCell::CellArray_patch;
-using CellIndex = ForeachCell::CellIndex;
-
-}// namespace
-}// namespace dyablo
-
-
-#include "hydro/CopyGhostBlockCellData.h"
-
 namespace dyablo {
 
 class RefineCondition_mass : public RefineCondition
@@ -44,15 +28,13 @@ public:
   void mark_cells( UserData& Uin, ScalarSimulationData& scalar_data )
   {
     int ndim = foreach_cell.getDim();
-    if( ndim == 2 )
-      mark_cells_aux<2, PrimHydroState, ConsHydroState>( Uin, scalar_data );
-    else if( ndim == 3 )
-      mark_cells_aux<3, PrimHydroState, ConsHydroState>( Uin, scalar_data );
+    if (ndim == 2)
+      mark_cells_aux<2>( Uin, scalar_data );
+    else if (ndim == 3)
+      mark_cells_aux<3>( Uin, scalar_data );
   }
 
-  template< int ndim,
-            typename PrimState,
-            typename ConsState >
+  template< int ndim>
   void mark_cells_aux( UserData& Uin_, ScalarSimulationData& scalar_data ) 
   {
     ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
