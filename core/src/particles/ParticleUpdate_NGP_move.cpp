@@ -25,9 +25,11 @@ public:
 
   ~ParticleUpdate_NGP_move() {}
 
-  void update( UserData& U, real_t dt) 
+  void update( UserData& U, ScalarSimulationData& scalar_data) 
   {
     timers.get("ParticleUpdate_NGP_move").start();
+
+    const real_t dt = scalar_data.get<real_t>("dt");
 
     enum VarIndex_g{
       IGX,IGY,IGZ

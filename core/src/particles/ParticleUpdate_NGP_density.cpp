@@ -17,7 +17,7 @@ public:
 
   ~ParticleUpdate_NGP_density() {}
 
-  void update( UserData& U, real_t dt) 
+  void update( UserData& U, ScalarSimulationData& scalar_data) 
   {
     timers.get("ParticleUpdate_NGP_density").start();
 

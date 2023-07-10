@@ -20,16 +20,16 @@ public:
 
   ~ParticleUpdate_CIC_density() {}
 
-  void update( UserData& U, real_t dt) 
+  void update( UserData& U, ScalarSimulationData& scalar_data ) 
   {
     if( foreach_cell.getDim() == 2 )
-      update_aux<2>(U, dt);
+      update_aux<2>(U, scalar_data);
     else
-      update_aux<3>(U, dt);
+      update_aux<3>(U, scalar_data);
   }
 
   template< int ndim>
-  void update_aux( UserData& U, real_t dt) 
+  void update_aux( UserData& U, ScalarSimulationData& scalar_data ) 
   {
     timers.get("ParticleUpdate_CIC_density").start();
 

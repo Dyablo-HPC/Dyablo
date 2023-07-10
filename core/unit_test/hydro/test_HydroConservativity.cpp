@@ -158,8 +158,8 @@ void run_test(int ndim, std::string HydroUpdate_id ) {
   std::unique_ptr<HydroUpdate> updater;
   std::unique_ptr<IOManager> iomanager;
   {
-    std::string compute_dt_id = configMap.getValue<std::string>("dt", "dt_kernel", "Compute_dt_generic");
-    compute_dt = Compute_dtFactory::make_instance("Compute_dt_generic",
+    std::string compute_dt_id = configMap.getValue<std::string>("dt", "dt_kernel", "Compute_dt_hydro");
+    compute_dt = Compute_dtFactory::make_instance("Compute_dt_hydro",
                                                   configMap,
                                                   foreach_cell, 
                                                   timers);

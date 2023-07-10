@@ -153,12 +153,15 @@ public:
       );
     }
 
-    std::string compute_dt_id = configMap.getValue<std::string>("dt", "dt_kernel", "Compute_dt_generic");
-    this->compute_dt = Compute_dtFactory::make_instance( compute_dt_id,
-      configMap,
-      m_foreach_cell, 
-      timers
-    );
+    std::vector<std::string> compute_dt_ids = configMap.getValue<std::vector<std::string>>("dt", "dt_kernel", {"Compute_dt_hydro"});
+    DYABLO_ASSERT_HOST_RELEASE(compute_dt_ids.size() > 0, "dt_kernel should not be empty !");
+    for (auto compute_dt_id: compute_dt_ids) {
+      this->compute_dt.push_back(Compute_dtFactory::make_instance( compute_dt_id,
+        configMap,
+        m_foreach_cell, 
+        timers
+      ));
+    }
 
     std::string refine_condition_id = configMap.getValue<std::string>("amr", "markers_kernel", "RefineCondition_second_derivative_error");
     this->refine_condition = RefineConditionFactory::make_instance( refine_condition_id,
@@ -178,7 +181,10 @@ public:
           std::cout << "`" << id << "` ";
       std::cout << std::endl;
       std::cout << "Refine condition   : " << refine_condition_id << std::endl;
-      std::cout << "Compute dt         : " << compute_dt_id << std::endl;
+      std::cout << "Compute dt         : "; 
+        for( const std::string& id : compute_dt_ids )
+          std::cout << "`" << id << "` ";
+      std::cout << std::endl;
       std::cout << "##########################" << std::endl;
     }
 
@@ -314,9 +320,15 @@ public:
     real_t dt = 0;    
     {
       timers.get("dt").start();
-      compute_dt->compute_dt( U, m_scalar_data );
+      // Getting the smallest timestep according to all the given kernels
+      dt = std::numeric_limits<real_t>::max();
+      for (auto &dt_kernel: compute_dt) {
+        dt_kernel->compute_dt( U, m_scalar_data );
+        const real_t loc_dt = m_scalar_data.get<real_t>("dt");
+        dt = std::min(dt, loc_dt);
+      }
 
-      dt = m_scalar_data.get<real_t>("dt");
+      m_scalar_data.set<real_t>("dt", dt);
 
       // correct dt if end of simulation
       if (m_t_end > 0 && m_t + dt > m_t_end) {
@@ -354,7 +366,7 @@ public:
       if( particle_update_density )
       {
         U.new_fields({"rho_g"});
-        particle_update_density->update( U, dt );
+        particle_update_density->update( U, m_scalar_data );
         
         // Backup rho without projected particles
         U.move_field("rho_bak", "rho");
@@ -371,7 +383,7 @@ public:
     // Move particles
     if( particle_position_updater )
     {
-      particle_position_updater->update( U, dt );
+      particle_position_updater->update( U, m_scalar_data );
       U.distributeParticles("particles");
     }
 
@@ -492,7 +504,7 @@ private:
 
   using CellArray = ForeachCell::CellArray_global_ghosted;
 
-  std::unique_ptr<Compute_dt> compute_dt;
+  std::vector<std::unique_ptr<Compute_dt>> compute_dt;
   std::unique_ptr<RefineCondition> refine_condition;
   std::unique_ptr<HydroUpdate> godunov_updater;
   bool has_mhd; // TODO : remove this

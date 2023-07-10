@@ -17,9 +17,11 @@ public:
 
   ~ParticleUpdate_tracers_move() {}
 
-  void update( UserData& U, real_t dt) 
+  void update( UserData& U, ScalarSimulationData& scalar_data) 
   {
     timers.get("ParticleUpdate_tracers_move").start();
+
+    const real_t dt = scalar_data.get<real_t>("dt");
 
     enum VarIndex_rhov{
       ID,IVX,IVY,IVZ
