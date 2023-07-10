@@ -366,7 +366,7 @@ public:
       if( particle_update_density )
       {
         U.new_fields({"rho_g"});
-        particle_update_density->update( U, dt );
+        particle_update_density->update( U, m_scalar_data );
         
         // Backup rho without projected particles
         U.move_field("rho_bak", "rho");
@@ -383,7 +383,7 @@ public:
     // Move particles
     if( particle_position_updater )
     {
-      particle_position_updater->update( U, dt );
+      particle_position_updater->update( U, m_scalar_data );
       U.distributeParticles("particles");
     }
 
