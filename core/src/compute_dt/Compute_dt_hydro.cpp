@@ -14,18 +14,17 @@ public:
                         ForeachCell& foreach_cell,
                         Timers& timers )
   : foreach_cell(foreach_cell),
-    cfl( configMap.getValue<real_t>("dt", "hydro_cfl", 0.5) ),
     gamma0( configMap.getValue<real_t>("hydro","gamma0", 1.4) ),
     smallr( configMap.getValue<real_t>("hydro","smallr", 1e-10) ),
     smallc( configMap.getValue<real_t>("hydro","smallc", 1e-10) ),
     has_mhd( configMap.getValue<std::string>("hydro", "update", "HydroUpdate_hancock").find("MHD") != std::string::npos )
   {
+    real_t default_cfl = 0.5;
     if (configMap.hasValue("hydro", "cfl")) {
       std::cout << "WARNING : hydro/cfl is deprecated in .ini, use dt/hydro_cfl instead !" << std::endl;
-      real_t cfl = configMap.getValue<real_t>("hydro", "cfl");
-      configMap.getValue<real_t>("dt", "hydro_cfl", cfl);
+      default_cfl = configMap.getValue<real_t>("hydro", "cfl");
     }
-
+    this->cfl = configMap.getValue<real_t>("dt", "hydro_cfl", default_cfl);
   }
 
   void compute_dt( const UserData& U, ScalarSimulationData& scalar_data )
