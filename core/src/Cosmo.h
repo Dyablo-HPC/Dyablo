@@ -2,8 +2,72 @@
 
 #include <string>
 #include <vector>
+#include <cmath>
+#include <algorithm>
+#include <fstream>
 
 namespace dyablo {
+
+namespace Impl { 
+namespace { 
+
+real_t lookup_interpolate( const std::vector<real_t>& lookup_x, const std::vector<real_t>& lookup_y, real_t x )
+  {
+    auto lower_bound_it = std::lower_bound( lookup_x.begin(), lookup_x.end(), x );
+    int i = lower_bound_it - lookup_x.begin(); // First greater or equal
+
+    real_t x_interp = ( x - lookup_x[i-1] ) / ( lookup_x[i] - lookup_x[i-1] );
+    return lookup_y[i-1] + x_interp * ( lookup_y[i] - lookup_y[i-1]  );
+  }
+
+/***
+ * Integrate function f in [a,b] with accuracy 'acc' and steps 'max_steps'
+ * using Romberg's method
+ * https://en.wikipedia.org/wiki/Romberg%27s_method
+ * @param f : real_t -> real_t function to integrate
+ * @param a : lower limit
+ * @param b : upper limit
+ * @param max_steps: maximum steps of the procedure
+ * @param acc  : desired accuracy
+ ***/
+template< typename Func /* real_t -> real_t */ >
+real_t romberg(const Func& f, real_t a, real_t b, size_t max_steps, real_t acc) 
+{
+  real_t R1[max_steps], R2[max_steps]; // buffers
+  real_t *Rp = &R1[0], *Rc = &R2[0]; // Rp is previous row, Rc is current row
+  real_t h = b-a; //step size
+  Rp[0] = (f(a) + f(b))*h*0.5; // first trapezoidal step
+
+  for (size_t i = 1; i < max_steps; ++i) {
+    h /= 2.;
+    real_t c = 0;
+    size_t ep = 1 << (i-1); //2^(n-1)
+    for (size_t j = 1; j <= ep; ++j) {
+      c += f(a + (2*j-1) * h);
+    }
+    Rc[0] = h*c + .5*Rp[0]; // R(i,0)
+
+    for (size_t j = 1; j <= i; ++j) {
+      real_t n_k = pow(4, j);
+      Rc[j] = (n_k*Rc[j-1] - Rp[j-1]) / (n_k-1); // compute R(i,j)
+    }
+
+    if (i > 1 && fabs(Rp[i-1]-Rc[i]) < acc) {
+      return Rc[i];
+    }
+
+    // swap Rn and Rc as we only need the last row
+    real_t *rt = Rp;
+    Rp = Rc;
+    Rc = rt;
+  }
+
+  std::cout << "WARNING : Romberg did not converge in " << max_steps << " iterations; Error = " << fabs(Rp[max_steps-1]-Rc[max_steps]) << std::endl;
+  return Rp[max_steps-1]; // return our best guess
+}
+  
+} // namespace
+} // namespace Impl::
 
 /**
  * @brief Utility struct for all of the cosmo
@@ -11,61 +75,16 @@ namespace dyablo {
  */
 class CosmoManager {
 private:
-  real_t faexp_tilde(real_t a) {
-    return 1.0 / sqrt(std::pow(a, 4) * (1.0-omega_m-omega_v) 
-                    + std::pow(a, 3) * omega_m 
-                    + std::pow(a, 5) * omega_v);
-  };
-
-  real_t integrate_da_dt(real_t a, real_t b, real_t tol) {
-    real_t h  = 0.5*(b-a);
-    real_t gmax = h*(faexp_tilde(a) + faexp_tilde(b));
-    int jmax;
-    constexpr int max_tab=5;
+  real_t integrate_da_dt(real_t a, real_t b, real_t tol)
+  {
     constexpr int max_iterations=16;
-
-    std::vector<real_t> g(max_tab+2);
-    g[1] = gmax;
-    
-    int N = 1;
-    real_t err = 1.0e20;
-    int nite = 0;
-    real_t g0 = 0.0;
-
-    while (fabs(err) > tol && nite < max_iterations) {
-      nite++;
-      
-      g0 = 0.0;
-
-      for (int k=1; k <= N; ++k)
-        g0 += faexp_tilde(a + (2*k-1)*h);
-
-      g0 = 0.5 * g[1] + h*g0;
-      h  = 0.5*h;
-      N *=2;
-      jmax = (nite < max_tab ? nite : max_tab);
-      real_t j4 = 1.0;
-
-      for (int j=1; j <= jmax; ++j) {
-        j4 *= 4;
-        real_t g1 = g0 + (g0-g[j]) / (j4-1.0);
-        g[j] = g0;
-        g0 = g1;
-      }
-
-      if (fabs(g0) > tol)
-        err = 1.0 - gmax/g0;
-      else
-        err = gmax;
-
-      gmax = g0;
-      g[jmax + 1] = g0;
-    }
-
-    if (nite >= max_iterations && (fabs(err) > tol))
-      std::cout << "WARNING : Friedmann-Lemaître did not converge in " << nite << " iterations; Error = " << fabs(err) << std::endl;
-
-    return g0;
+    auto faexp_tilde = [&](real_t aexp)
+    {
+      return 1.0 / sqrt(std::pow(aexp, 4) * (1.0-omega_m-omega_v) 
+                    + std::pow(aexp, 3) * omega_m 
+                    + std::pow(aexp, 5) * omega_v);
+    };
+    return Impl::romberg( faexp_tilde, a, b, max_iterations, tol );
   }
 
 public:
@@ -76,56 +95,43 @@ public:
       a_start(configMap.getValue<real_t>("cosmology",  "aStart",  1.0e-2)),
       a_end(configMap.getValue<real_t>("cosmology", "aEnd", 1.00)),
       da(configMap.getValue<real_t>("cosmology", "da", 1.02)),
-      levelMin(configMap.getValue<int>("amr", "level_min", 5)),
-      bx(configMap.getValue<int>("amr", "bx", 1.0)),
-      omega_b(configMap.getValue<real_t>("cosmology", "omegab", 1.0)),
       save_expansion_table(configMap.getValue<bool>("cosmology", "save_expansion_table", false)),
       lookup_size(configMap.getValue<size_t>("cosmology", "lookup_size", 1024)) {
     computeFLM();
   }
 
-  bool isRunFinished(const real_t time) const {
-    return timeToExpansion(time) >= a_end - 1.0e-14;
-  }
+  real_t timeToExpansion(const real_t time) const 
+  {   
+    return Impl::lookup_interpolate( lookup_t, lookup_a, time );
+  }  
 
-  real_t timeToExpansion(const real_t time) const {
-    int i=0;
-    while (lookup_t[i] < time)
-      i++;
-    
-    const real_t x = (time - lookup_t[i-1]) / (lookup_t[i]-lookup_t[i-1]);
-    return (1.0-x) * lookup_a[i-1] + x * lookup_a[i];
-  }
-
-  real_t expansionToTime(const real_t aexp) const {
-    int i=0;
-    while (lookup_a[i] < aexp)
-      i++;
-    
-    const real_t x = (aexp - lookup_a[i-1]) / (lookup_a[i]-lookup_a[i-1]);
-    return (1.0-x) * lookup_t[i-1] + x * lookup_t[i];
+  real_t expansionToTime(const real_t aexp) const 
+  {
+    return Impl::lookup_interpolate( lookup_a, lookup_t, aexp );
   }
 
   void computeFLM() {
     const real_t a_ext = a_end * 1.1; // Getting a safety margin
-    const real_t da = a_ext - a_start;
-    std::ofstream f_out;
-    if (save_expansion_table) {
-      f_out.open("expansion_table.dat");
-      f_out << "#a t" << std::endl;
-    }
-
+    const real_t delta_a = a_ext - a_start;
+    
+    lookup_a.reserve(lookup_size);
+    lookup_t.reserve(lookup_size);
     for (int i=0; i < lookup_size; ++i) {
-      real_t a = a_start + i*da / (lookup_size-1);
+      real_t a = a_start + i*delta_a / (lookup_size-1);
       real_t t = -0.5 * sqrt(omega_m) * integrate_da_dt(a, 1.0, 1.0e-8);
       lookup_a.push_back(a);
       lookup_t.push_back(t);
-
-      if (save_expansion_table)
-        f_out << a << " " << t << std::endl;
     }
-    if (save_expansion_table)
-      f_out.close();
+
+    if (save_expansion_table) 
+    {
+      std::ofstream f_out("expansion_table.dat");
+      f_out << "#a t" << std::endl;
+      for (int i=0; i < lookup_size; ++i)
+      {
+        f_out << lookup_a[i] << " " << lookup_t[i] << std::endl;
+      }
+    }
   }
 
   real_t compute_cosmo_dt(const real_t a) {
@@ -138,10 +144,6 @@ public:
   real_t omega_m, omega_v; //!< Energy budget
   real_t a_start, a_end;   //!< Expansion factor at the start and at the end of the simulation
   real_t da;               //!< By how much do we need to multiplpy a for the next step
-  int levelMin;
-  int bx;
-  const std::string graficDir;
-  real_t omega_b;
 
   bool save_expansion_table;
 
