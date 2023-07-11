@@ -52,6 +52,33 @@ public:
     getMap<T>()[name] = v;
   }
 
+  template <typename T, typename Func>
+  void foreach_var_t(const Func& f)
+  {
+    for( const auto& p : getMap<T>()  )
+    {
+      f( p.first, p.second );
+    }
+  }
+
+  template <typename Func>
+  void foreach_var(const Func& f)
+  {
+    ( foreach_var_t<Ts>(f), ... );
+  }
+
+  void print()
+  {
+    std::cout << "scalar_data : ";
+
+    foreach_var( [](const std::string& name, auto val)
+    {
+      std::cout << name << "=" << val << " ";
+    } );
+    
+    std::cout << std::endl;
+  }
+
 private:
   std::tuple< map_t<Ts>... > maps;
   

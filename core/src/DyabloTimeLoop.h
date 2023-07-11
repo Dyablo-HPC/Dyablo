@@ -357,7 +357,7 @@ public:
     { // Todo make a logger
       int rank = m_communicator.MPI_Comm_rank();
       if( rank == 0 && m_iter % m_nlog == 0 )
-        printf("time step=%7d (dt=% 10.8f t=% 10.8f)\n",m_iter, dt, m_t);
+        m_scalar_data.print();
     }
 
     GhostCommunicator ghost_comm(m_amr_mesh, m_communicator);
