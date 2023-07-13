@@ -161,15 +161,13 @@ public:
 
   void save_snapshot( const UserData& U_, ScalarSimulationData& scalar_data )
   {
-    int iter = scalar_data.get<int>( "iter" );
-    real_t time = scalar_data.get<real_t>( "time" );
     switch (output_real_t) {
-    case OutputRealType::OT_FLOAT:  save_snapshot_aux<float>(U_, iter, time); break;
-    case OutputRealType::OT_DOUBLE: save_snapshot_aux<double>(U_, iter, time); break;
+    case OutputRealType::OT_FLOAT:  save_snapshot_aux<float>(U_, scalar_data); break;
+    case OutputRealType::OT_DOUBLE: save_snapshot_aux<double>(U_, scalar_data); break;
   }
   }
   template <typename output_real_t>
-  void save_snapshot_aux( const UserData& U_, uint32_t iter, real_t time );
+  void save_snapshot_aux( const UserData& U_, ScalarSimulationData& scalar_data );
   template <typename output_real_t>
   void save_particles( const UserData& U, const std::string& particle_array,  uint32_t iter, real_t time );
 
@@ -209,8 +207,11 @@ template<> [[maybe_unused]] std::string xmf_type_attr<double>    () { return R"x
 } // namespace
 
 template <typename output_real_t>
-void IOManager_hdf5::save_snapshot_aux( const UserData& U_, uint32_t iter, real_t time )
+void IOManager_hdf5::save_snapshot_aux( const UserData& U_, ScalarSimulationData& scalar_data )
 {
+  int iter = scalar_data.get<int>( "iter" );
+  real_t time = scalar_data.get<real_t>( "time" );
+
   //static_assert( std::is_same_v<decltype(U_.U), DataArrayBlock>, "Only compatible with DataArrayBlock" );
 
   int ndim = foreach_cell.getDim();
@@ -336,6 +337,11 @@ R"xml(
     };
 
     HDF5ViewWriter hdf5_writer( output_dir + "/" + base_filename + ".h5" );
+
+    scalar_data.foreach_var( [&]( const std::string& name, auto val )
+    {
+      hdf5_writer.write_scalar(std::string("scalar_data/")+name, val);
+    });
 
     // Compute and write node coordinates
     {
