@@ -78,8 +78,6 @@ public:
       userdata_utils::transpose_to_right_iOct<0>( oct_data, oct_data_transpose );
       hdf5_file.collective_write("Octree", oct_data_transpose);
 
-      hdf5_file.write_scalar("test/test", GlobalMpiSession::get_comm_world().MPI_Comm_rank()+1);
-
       scalar_data.foreach_var( [&]( const std::string& name, auto val )
       {
         hdf5_file.write_scalar(std::string("scalar_data/")+name, val);
