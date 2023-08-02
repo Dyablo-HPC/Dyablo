@@ -20,7 +20,7 @@ public:
 
   void compute_dt( const UserData& U, ScalarSimulationData& scalar_data )
   {
-    real_t dt_local = dt_local = compute_dt_aux(U);
+    real_t dt_local = compute_dt_aux(U);
 
     DYABLO_ASSERT_HOST_RELEASE(dt_local>0, "invalid dt = " << dt_local);
 

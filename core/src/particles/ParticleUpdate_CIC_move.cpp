@@ -66,7 +66,6 @@ public:
 
       pos_t cell_size = cells.getCellSize( iCell );
       pos_t cell_pos = cells.getCellCenter( iCell );
-      real_t Vcell = cell_size[IX]*cell_size[IY]*cell_size[IZ];
 
       real_t gx=0, gy=0, gz=0;
 

@@ -116,7 +116,7 @@ public:
     
     lookup_a.reserve(lookup_size);
     lookup_t.reserve(lookup_size);
-    for (int i=0; i < lookup_size; ++i) {
+    for (size_t i=0; i < lookup_size; ++i) {
       real_t a = a_start + i*delta_a / (lookup_size-1);
       real_t t = -0.5 * sqrt(omega_m) * integrate_da_dt(a, 1.0, 1.0e-8);
       lookup_a.push_back(a);
@@ -127,7 +127,7 @@ public:
     {
       std::ofstream f_out("expansion_table.dat");
       f_out << "#a t" << std::endl;
-      for (int i=0; i < lookup_size; ++i)
+      for (size_t i=0; i < lookup_size; ++i)
       {
         f_out << lookup_a[i] << " " << lookup_t[i] << std::endl;
       }

@@ -117,7 +117,7 @@ public:
         FortranBinaryReader::read_record( grafic_file, &header, 1 );
         // Read array from grafic file
         auto grafic_field_host = Kokkos::create_mirror_view( grafic_field_device );
-        for(uint32_t z=0; z<nz; z++)
+        for(uint32_t z=0; z<(uint32_t)nz; z++)
           FortranBinaryReader::read_record( grafic_file, &grafic_field_host(0,0,z), nx*ny );
         Kokkos::deep_copy( grafic_field_device, grafic_field_host );
       }

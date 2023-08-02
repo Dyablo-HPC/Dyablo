@@ -42,9 +42,10 @@ public:
     
     {
       RecordTag_t record_size = _byteswap ? endian_swap(begin_tag) : begin_tag;
-      if( record_size != count*sizeof(T) )
+      DYABLO_ASSERT_HOST_RELEASE( record_size >= 0, "Record size is negative : subrecords are not supported" );
+      if( (size_t)record_size != count*sizeof(T) )
       {
-        DYABLO_ASSERT_HOST_RELEASE( endian_swap(record_size) == count*sizeof(T),
+        DYABLO_ASSERT_HOST_RELEASE( (size_t)endian_swap(record_size) == count*sizeof(T),
           "Fortran record tag doesn't match required read size.\n"
           "required size : " << count*sizeof(T) << "\n"
           "Begin tag is " << record_size << " ( " << endian_swap(record_size) << " with swapped endianness )" );
@@ -56,7 +57,7 @@ public:
 
     if( _byteswap )
     {
-        for( int i=0; i<count; i++ )
+        for( size_t i=0; i<count; i++ )
             buffer[i] = endian_swap(buffer[i]);
     }
 
