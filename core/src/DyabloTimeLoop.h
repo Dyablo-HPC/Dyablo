@@ -470,6 +470,8 @@ public:
 
         timers.get("AMR: remap userdata").stop();
 
+        U.distributeAllParticles();
+
         timers.get("AMR").stop();
       }
     }
@@ -481,6 +483,7 @@ public:
         timers.get("AMR: load-balance").start();
 
         m_amr_mesh->loadBalance_userdata(m_loadbalance_coherent_levels, U);
+        U.distributeAllParticles();
 
         timers.get("AMR: load-balance").stop();
       }

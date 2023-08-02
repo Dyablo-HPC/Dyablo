@@ -267,6 +267,11 @@ public:
     {
         getParticleContainer(array_name).distributeParticles();
     }
+    void distributeAllParticles()
+    {
+        for(auto& pair : particle_containers)
+            pair.second.distributeParticles();
+    }
 
 private:
     ForeachParticle foreach_particle;
