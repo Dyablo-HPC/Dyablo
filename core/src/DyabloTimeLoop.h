@@ -22,6 +22,146 @@
 namespace dyablo {
 
 
+/***
+ * Triggers when variable <var> has increased more than <interval> since last trigger
+ * (last trigger is rounded to a multiple of <interval> to avoid drifting)
+ ***/ 
+template< typename T >
+struct Interval_trigger
+{
+private:
+  std::string var;
+  bool enabled;
+  T interval;
+  T last_trigger;
+
+public:
+  Interval_trigger( const std::string& var, T interval, const ScalarSimulationData& scalar_data  )
+    : var(var),
+      enabled( interval > 0 ),
+      interval(interval),
+      last_trigger( std::floor(scalar_data.get<T>(var)/interval) * interval )
+  {}
+
+  bool trigger( const ScalarSimulationData& scalar_data )
+  {
+    if( !enabled )
+      return false;
+
+    T val = scalar_data.get<T>(var);
+    if( val - last_trigger >= interval )
+    {
+      last_trigger = std::floor(val/interval) * interval;
+      return true;
+    }
+    else 
+      return false;
+  }
+};
+
+/***
+ * Contains information to determine is specific operations must be executed or not at each timestep
+ * ( output, checkpoint, end, ... )
+ ***/
+class IterationHandler
+{
+public:
+  Interval_trigger<int> output_frequency, checkpoint_frequency;
+  std::string output_slice_var;
+  Interval_trigger<real_t> output_timeslice, checkpoint_timeslice;
+  Interval_trigger<int> loadbalance_frequency, amr_frequency;
+
+  bool output_first_iter = true;
+
+  int iter_end; // max iteration count (negative => ignored)
+  std::string t_end_var; // scalar_data variable used to test for simulation end ("time" by default, but could be "aexp")
+  real_t t_end; // End value for selected scalar_data variable t_end_var
+  bool use_t_end; // enable/disable termination when end value is attaigned (default on t_end is positive, but can be overriden )
+
+  IterationHandler(ConfigMap& configMap, const ScalarSimulationData& scalar_data )
+  : output_frequency     ( "iter", configMap.getValue<int>("run", "output_frequency",       -1), scalar_data ),
+    checkpoint_frequency    ( "iter", configMap.getValue<int>("run", "checkpoint_frequency",   -1), scalar_data ),
+    output_slice_var     ( configMap.getValue<std::string>("run", "output_slice_var", "time") ),
+    output_timeslice     ( output_slice_var, configMap.getValue<real_t>("run", "output_timeslice", -1), scalar_data),
+    checkpoint_timeslice ( output_slice_var, configMap.getValue<real_t>("run", "checkpoint_timeslice", -1), scalar_data),
+    loadbalance_frequency( "iter", configMap.getValue<int>("amr", "load_balancing_frequency",1000), scalar_data ),
+    amr_frequency        ( "iter", configMap.getValue<int>("amr", "cycle_frequency",         1), scalar_data),
+    iter_end             ( configMap.getValue<int>("run", "nstepmax",                1000) ),
+    t_end_var            ( configMap.getValue<std::string>("run", "t_end_var", "time") ),
+    t_end                ( configMap.getValue<real_t>("run", "tEnd", 0.0) ),
+    use_t_end            ( configMap.getValue<bool>("run", "use_tEnd", t_end > 0) )
+  {
+    if( t_end_var != "time" ) 
+      std::cout << "WARNING : can't correct dt to match t_end, possible overshoot. var=" << t_end_var << std::endl;
+
+  }
+
+  /// return true if end of simulation
+  bool stop_criterion( const ScalarSimulationData& scalar_data )
+  {
+    int iter = scalar_data.get<int>("iter");
+    real_t time = scalar_data.get<real_t>(t_end_var); // time may not be time, can be some other variable user for end
+
+    bool stop_iter = iter_end > 0 && iter >= iter_end;
+    bool stop_time = use_t_end    && time >= t_end;
+
+    return stop_iter || stop_time;
+  }
+
+  /// return true if snapshot output should be executed at this timestep
+  bool output_trigger( const ScalarSimulationData& scalar_data )
+  {
+    // Always output first iteration
+    bool first_iter = output_first_iter;
+    output_first_iter = false;
+    // Output at fixed frequency set by 'm_output_frequency'
+    bool frequency_trigger = output_frequency.trigger( scalar_data );
+    bool timeslice_trigger = output_timeslice.trigger( scalar_data );
+
+    return first_iter || frequency_trigger || timeslice_trigger;
+  }
+
+  /// return true if checkpoint output should be executed at this timestep
+  bool checkpoint_trigger( const ScalarSimulationData& scalar_data )
+  {
+    // Output at fixed frequency set by 'm_output_frequency'
+    bool frequency_trigger = checkpoint_frequency.trigger( scalar_data );
+    bool timeslice_trigger = checkpoint_timeslice.trigger( scalar_data );
+
+    return frequency_trigger || timeslice_trigger;
+  }
+
+  /// return true if amr cycle should be executed at this timestep
+  bool amr_cycle_trigger( const ScalarSimulationData& scalar_data )
+  {
+    return amr_frequency.trigger(scalar_data);
+  }
+
+  /// return true if loadbalancing should be executed at this timestep
+  bool loadbalance_trigger( const ScalarSimulationData& scalar_data )
+  {
+    return loadbalance_frequency.trigger(scalar_data);
+  }
+
+  /// Correct dt value to avoid overshooting t_end
+  void correct_dt_end( ScalarSimulationData& scalar_data )
+  {
+    if( t_end_var == "time" ) // Keep check in constructor updated when adding cases
+    {
+      real_t time = scalar_data.get<real_t>("time");
+      if (use_t_end && time + scalar_data.get<real_t>("dt") > t_end)
+          scalar_data.get<real_t>("dt") = t_end - time;
+    }
+  }
+
+  /// Apply defore going to next iteration
+  void next_iter( ScalarSimulationData& scalar_data )
+  {
+    scalar_data.get<int>("iter")++;
+    scalar_data.get<real_t>("time")+=scalar_data.get<real_t>("dt");
+  }
+};
+
 /**
  * Main class to run Dyablo simulation
  **/
@@ -76,30 +216,25 @@ public:
 
     configMap.getValue<int>("mesh", "ndim", 3); 
 
-    this->m_iter_end = configMap.getValue<int>("run","nstepmax",1000);
-    this->m_t_end = configMap.getValue<real_t>("run", "tEnd", 0.0);
     this->m_nlog = configMap.getValue<int>("run", "nlog", 10);
     this->m_enable_output = configMap.getValue<bool>("run", "enable_output", true);
-    this->m_output_frequency = configMap.getValue<int>("run", "output_frequency", -1);
-    this->m_output_timeslice = configMap.getValue<real_t>("run", "output_timeslice", -1);
     this->m_enable_checkpoint = configMap.getValue<bool>("run", "enable_checkpoint", true);
-    this->m_checkpoint_frequency = configMap.getValue<int>("run", "checkpoint_frequency", -1);
-    this->m_checkpoint_timeslice = configMap.getValue<real_t>("run", "checkpoint_timeslice", -1);
-    this->m_amr_cycle_frequency = configMap.getValue<int>("amr", "cycle_frequency", 1);
-    this->m_loadbalance_frequency = configMap.getValue<int>("amr", "load_balancing_frequency", 10);
     this->m_iter_start = configMap.getValue<int>("run", "iter_start", 0);
-    this->m_iter = m_iter_start;
-
+  
     this->cosmo_manager = std::make_unique<CosmoManager>( configMap );
-    real_t t0_default = 0.0;
+    real_t t0_default = 0;
     if( cosmo_manager->cosmo_run )
     {
       t0_default = cosmo_manager->expansionToTime( cosmo_manager->a_start );
+      m_scalar_data.set("aexp", cosmo_manager->a_start);
     }
 
-    this->m_t = configMap.getValue<real_t>("run", "tStart", t0_default);
-    this->m_output_timeslice_count = m_t / m_output_timeslice;
-    this->m_checkpoint_timeslice_count = m_t / m_checkpoint_timeslice;
+    this->m_scalar_data.set("iter", m_iter_start);
+    {
+      real_t t0 = configMap.getValue<real_t>("run", "tStart", t0_default);
+      this->m_scalar_data.set("time", t0);
+    }
+
     this->m_loadbalance_coherent_levels = configMap.getValue<int>("amr", "loadbalance_coherent_levels", 3);
 
     std::string gravity_solver_id = configMap.getValue<std::string>("gravity", "solver", "none");
@@ -112,6 +247,8 @@ public:
       m_gravity_type = configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE);
     else
       m_gravity_type = GRAVITY_NONE;
+
+    this->m_iteration_handler = std::make_unique<IterationHandler>(configMap, m_scalar_data);
 
     std::string godunov_updater_id = configMap.getValue<std::string>("hydro", "update", "HydroUpdate_hancock");
     this->has_mhd = godunov_updater_id.find("MHD") != std::string::npos;
@@ -196,9 +333,6 @@ public:
       std::cout << std::endl;
       std::cout << "##########################" << std::endl;
     }
-
-    m_scalar_data.set("iter", m_iter);
-    m_scalar_data.set("time", m_t);
  
     std::ofstream out_ini("last.ini" );
     configMap.output( out_ini );       
@@ -233,14 +367,10 @@ public:
     bool finished = false;
     while( !finished )
     {
-      step();
-      m_iter++;
-      m_scalar_data.set("iter", m_iter);
+      step();      
       int any_interrupted;
       m_communicator.MPI_Allreduce(&interrupted, &any_interrupted, 1, MpiComm::MPI_Op_t::LOR);
-      finished = ( m_t_end > 0    && m_t >= (m_t_end - 1e-14) ) // End if physical time exceeds end time
-              || ( m_iter_end > 0 && m_iter >= m_iter_end    )  // Or if iter count exceeds maximum iter count
-              || any_interrupted;
+      finished = m_iteration_handler->stop_criterion( m_scalar_data ) || any_interrupted;
     }
     signal( SIGINT, SIG_DFL );
 
@@ -259,7 +389,8 @@ public:
     int rank = m_communicator.MPI_Comm_rank();
     if ( rank == 0 ) 
     {
-      printf("final time is %f\n", m_t);
+      std::cout << "Final ";
+      m_scalar_data.print();
 
       timers.print();
 
@@ -282,21 +413,13 @@ public:
     // Write output files
     {
       timers.get("outputs").start();
-      // Always output first iteration
-      bool first_iter = (m_iter == m_iter_start);
-      // Output at fixed frequency set by 'm_output_frequency'
-      bool frequency_trigger = ( m_output_frequency > 0 && m_iter % m_output_frequency == 0 );
-      // Output at fixed physical time interval 'm_output_timeslice'
-      bool timeslice_trigger = ( m_output_timeslice > 0 && (m_t - m_output_timeslice*m_output_timeslice_count) >= m_output_timeslice );
-      if( timeslice_trigger )
-        m_output_timeslice_count++;        
-
-      if( m_enable_output && (first_iter || frequency_trigger || timeslice_trigger) )
+      if( m_enable_output && m_iteration_handler->output_trigger(m_scalar_data) )
       {
         int rank = m_communicator.MPI_Comm_rank();
         if( rank == 0 )
         {
-          std::cout << "Output results at time t=" << m_t << " step " << m_iter << std::endl;
+          std::cout << "Output: "; 
+          m_scalar_data.print();
         }
         io_manager->save_snapshot(U, m_scalar_data);
       }
@@ -306,19 +429,13 @@ public:
     // Write checkpoint
     {
       timers.get("checkpoint").start();
-      // Output at fixed frequency set by 'm_output_frequency'
-      bool frequency_trigger = ( m_checkpoint_frequency > 0 && m_iter % m_checkpoint_frequency == 0 );
-      // Output at fixed physical time interval 'm_output_timeslice'
-      bool timeslice_trigger = ( m_checkpoint_timeslice > 0 && (m_t - m_checkpoint_timeslice*m_checkpoint_timeslice_count) >= m_checkpoint_timeslice );
-      if( timeslice_trigger )
-        m_checkpoint_timeslice_count++;        
-
-      if( m_enable_checkpoint && (frequency_trigger || timeslice_trigger) )
+      if( m_enable_checkpoint && m_iteration_handler->checkpoint_trigger(m_scalar_data) )
       {
         int rank = m_communicator.MPI_Comm_rank();
         if( rank == 0 )
         {
-          std::cout << "Checkpoint at time t=" << m_t << " step " << m_iter << std::endl;
+          std::cout << "Checkpoint: "; 
+          m_scalar_data.print();
         }
         io_manager_checkpoint->save_snapshot(U, m_scalar_data);
       }
@@ -327,36 +444,34 @@ public:
 
     if( cosmo_manager->cosmo_run )
     {
-      real_t aexp = cosmo_manager->timeToExpansion(m_t);
+      real_t time = m_scalar_data.get<real_t>("time");
+      real_t aexp = cosmo_manager->timeToExpansion(time);
       m_scalar_data.set("aexp", aexp);
     }
 
     // Compute new dt
-    real_t dt = 0;    
     {
       timers.get("dt").start();
       // Getting the smallest timestep according to all the given kernels
-      dt = std::numeric_limits<real_t>::max();
+      real_t dt = std::numeric_limits<real_t>::max();
       for (auto &dt_kernel: compute_dt) {
         dt_kernel->compute_dt( U, m_scalar_data );
         const real_t loc_dt = m_scalar_data.get<real_t>("dt");
         dt = std::min(dt, loc_dt);
       }
 
-      m_scalar_data.set<real_t>("dt", dt);
+      m_scalar_data.set("dt", dt);
 
       // correct dt if end of simulation
-      if (m_t_end > 0 && m_t + dt > m_t_end) {
-        dt = m_t_end - m_t;
-      }
-      m_scalar_data.set("dt", dt);
+      m_iteration_handler->correct_dt_end(m_scalar_data);     
+      
       timers.get("dt").stop();
     }
 
     // Log iteration    
     { // Todo make a logger
       int rank = m_communicator.MPI_Comm_rank();
-      if( rank == 0 && m_iter % m_nlog == 0 )
+      if( rank == 0 && m_scalar_data.get<int>("iter") % m_nlog == 0 )
         m_scalar_data.print();
     }
 
@@ -425,8 +540,7 @@ public:
       }
     }
 
-    m_t += dt;
-    m_scalar_data.set("time", m_t);
+    m_iteration_handler->next_iter(m_scalar_data);
     
     if (m_gravity_type & GRAVITY_FIELD)
     {
@@ -437,7 +551,7 @@ public:
 
     // AMR cycle
     {
-      if( m_amr_cycle_frequency > 0 && ( (m_iter % m_amr_cycle_frequency) == 0 ) )
+      if( m_iteration_handler->amr_cycle_trigger(m_scalar_data) )
       {
         timers.get("AMR").start();
 
@@ -478,7 +592,7 @@ public:
 
     //Load Balancing
     {
-      if( m_loadbalance_frequency > 0 && ( (m_iter % m_loadbalance_frequency) == 0 ) )
+      if( m_iteration_handler->loadbalance_trigger(m_scalar_data)  )
       {
         timers.get("AMR: load-balance").start();
 
@@ -492,27 +606,15 @@ public:
 
 private:
   // Simulation parameters
-  int m_iter_end; //! Number of iterations before ending the simulation 
-  real_t m_t_end; //! Physical time to end the simulation
   int m_nlog; //! Timestep log frequency  
   bool m_enable_output; //! Enable vizualization output and output at least at beginning and end of simulation
-  int m_output_frequency; //! Maximum number of iterations between outputs (does nothing if m_enable_output==false)
-  double m_output_timeslice; //! Physical time interval between outputs (does nothing if m_enable_output==false)
   bool m_enable_checkpoint; //! Enable checkpoint output and output at least at beginning and end of simulation
-  int m_checkpoint_frequency; //! Maximum number of iterations between checkpoints (does nothing if m_enable_output==false)
-  double m_checkpoint_timeslice; //! Physical time interval between checkpoints (does nothing if m_enable_output==false)
   
-  int m_amr_cycle_frequency; //! Number of iterations between amr cycles (<= 0 is never)
-  int m_loadbalance_frequency; //! Number of iterations between load balancing (<= 0 is never)
   GravityType m_gravity_type;
   
   int m_iter_start; //! First iteration (for restart)
-  int m_iter; //! Current Iteration number
-  real_t m_t; //! Current physical time
-  int m_output_timeslice_count; //! Number of timeslices already written
-  int m_checkpoint_timeslice_count; //! Number of timeslices already written
 
-  ScalarSimulationData m_scalar_data;
+  ScalarSimulationData m_scalar_data;  
 
   MpiComm m_communicator;
   std::shared_ptr<AMRmesh> m_amr_mesh;
@@ -522,6 +624,7 @@ private:
 
   using CellArray = ForeachCell::CellArray_global_ghosted;
 
+  std::unique_ptr<IterationHandler> m_iteration_handler;
   std::vector<std::unique_ptr<Compute_dt>> compute_dt;
   std::unique_ptr<RefineCondition> refine_condition;
   std::unique_ptr<HydroUpdate> godunov_updater;
