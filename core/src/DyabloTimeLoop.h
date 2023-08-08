@@ -31,11 +31,15 @@ struct Interval_trigger
 {
 private:
   std::string var;
-  bool enabled;
+  bool enabled = false;
   T interval;
   T last_trigger;
 
 public:
+  Interval_trigger() = default;
+  Interval_trigger(const Interval_trigger&) = default;
+  Interval_trigger& operator=(const Interval_trigger&) = default;
+    
   Interval_trigger( const std::string& var, T interval, const ScalarSimulationData& scalar_data  )
     : var(var),
       enabled( interval > 0 ),
@@ -81,9 +85,6 @@ public:
   IterationHandler(ConfigMap& configMap, const ScalarSimulationData& scalar_data )
   : output_frequency     ( "iter", configMap.getValue<int>("run", "output_frequency",       -1), scalar_data ),
     checkpoint_frequency    ( "iter", configMap.getValue<int>("run", "checkpoint_frequency",   -1), scalar_data ),
-    output_slice_var     ( configMap.getValue<std::string>("run", "output_slice_var", "time") ),
-    output_timeslice     ( output_slice_var, configMap.getValue<real_t>("run", "output_timeslice", -1), scalar_data),
-    checkpoint_timeslice ( output_slice_var, configMap.getValue<real_t>("run", "checkpoint_timeslice", -1), scalar_data),
     loadbalance_frequency( "iter", configMap.getValue<int>("amr", "load_balancing_frequency",1000), scalar_data ),
     amr_frequency        ( "iter", configMap.getValue<int>("amr", "cycle_frequency",         1), scalar_data),
     iter_end             ( configMap.getValue<int>("run", "nstepmax",                1000) ),
@@ -91,6 +92,32 @@ public:
     t_end                ( configMap.getValue<real_t>("run", "tEnd", 0.0) ),
     use_t_end            ( configMap.getValue<bool>("run", "use_tEnd", t_end > 0) )
   {
+    // Translate output/checkpoint_expslice into 
+    if( configMap.hasValue("run", "output_expslice") || configMap.hasValue("run", "checkpoint_expslice")  )
+    {
+      real_t output_expslice = configMap.getValue<real_t>("run", "output_expslice", -1);
+      real_t checkpoint_expslice = configMap.getValue<real_t>("run", "checkpoint_expslice", -1);
+      if( output_expslice > 0 || checkpoint_expslice > 0)
+      {
+        std::string slice_var = configMap.getValue<std::string>("run", "output_slice_var", "aexp");
+        if( slice_var != "aexp" )
+          std::cout << "WARNING : run/checkpoint_expslice is set but run/output_slice_var != aexp. output/checkpoint_expslice ignored" << std::endl;
+        else
+        {
+          real_t output_timeslice = configMap.getValue<real_t>("run", "output_timeslice", output_expslice);
+          if( output_timeslice != output_expslice )
+            std::cout << "WARNING : output_expslice ("<<output_expslice<<") is set but run/output_timeslice was already set to a different value. Using run/output_timeslice = " << output_timeslice << std::endl;
+        
+          real_t checkpoint_timeslice = configMap.getValue<real_t>("run", "checkpoint_timeslice", checkpoint_expslice);
+          if( checkpoint_timeslice != checkpoint_expslice )
+            std::cout << "WARNING : checkpoint_expslice ("<<checkpoint_expslice<<") is set but run/checkpoint_timeslice was already set to a different value. Using run/checkpoint_timeslice = " << checkpoint_timeslice << std::endl;
+        }
+      }
+    }
+    this->output_slice_var = configMap.getValue<std::string>("run", "output_slice_var", "time");
+    this->output_timeslice     = Interval_trigger(output_slice_var, configMap.getValue<real_t>("run", "output_timeslice", -1), scalar_data);
+    this->checkpoint_timeslice = Interval_trigger(output_slice_var, configMap.getValue<real_t>("run", "checkpoint_timeslice", -1), scalar_data);
+    
     if( t_end_var != "time" ) 
       std::cout << "WARNING : can't correct dt to match t_end, possible overshoot. var=" << t_end_var << std::endl;
 
