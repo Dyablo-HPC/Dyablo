@@ -323,11 +323,12 @@ public:
         morton_t morton;
         {
             index_t<3> logical_coords;
-            uint32_t octant_count = std::pow(2, max_level );
-            real_t octant_size = 1.0/octant_count;
-            logical_coords[IX] = std::floor(pos[IX]/octant_size);
-            logical_coords[IY] = std::floor(pos[IY]/octant_size);
-            logical_coords[IZ] = (ndim-2)*std::floor(pos[IZ]/octant_size);
+            real_t octant_size_x = 1.0/( storage.cell_count(IX, max_level) );
+            real_t octant_size_y = 1.0/( storage.cell_count(IY, max_level) );
+            real_t octant_size_z = 1.0/( storage.cell_count(IZ, max_level) );
+            logical_coords[IX] = std::floor(pos[IX]/octant_size_x);
+            logical_coords[IY] = std::floor(pos[IY]/octant_size_y);
+            logical_coords[IZ] = (ndim-2)*std::floor(pos[IZ]/octant_size_z);
 
             morton = compute_morton_key( logical_coords );
         }
