@@ -150,7 +150,7 @@ public:
     typename State,
     typename Uin_t>
   KOKKOS_INLINE_FUNCTION
-  typename State::ConsState getUserdefBoundaryValue(const Uin_t            &Uin, 
+  typename State::ConsState getUserdefBoundaryValue(const Uin_t               &Uin, 
                                                     const CellIndex           &iCell_Boundary, 
                                                     const CellMetaData        &metadata, 
                                                     const CellIndex::offset_t &offset, 
@@ -182,6 +182,19 @@ public:
                                                  const ComponentIndex3D          dir,
                                                  const bool                      min_bound) const 
   {
+    return flux_in;
+  }
+
+  template<
+    int ndim,
+    typename State>
+  KOKKOS_INLINE_FUNCTION
+  real_t overrideBoundaryHeatFlux(real_t                          flux_in,
+                                  const typename State::PrimState q,
+                                  const real_t                    kappa,
+                                  const real_t                    dh,
+                                  const ComponentIndex3D          dir,
+                                  const bool                      min_bound) const {
     return flux_in;
   }
 

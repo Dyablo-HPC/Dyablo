@@ -14,6 +14,7 @@ set( core_src
     ${CMAKE_CURRENT_SOURCE_DIR}/compute_dt/Compute_dt_hydro.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/compute_dt/Compute_dt_cosmology.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/compute_dt/Compute_dt_particle_velocity.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/compute_dt/Compute_dt_parabolic.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/refine_condition/RefineCondition_second_derivative_error.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/refine_condition/RefineCondition_pseudo_gradient.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/refine_condition/RefineCondition_mass.cpp
@@ -22,6 +23,7 @@ set( core_src
     ${CMAKE_CURRENT_SOURCE_DIR}/particles/ParticleUpdate_NGP_density.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/particles/ParticleUpdate_CIC_move.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/particles/ParticleUpdate_CIC_density.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/parabolic/ParabolicUpdate_explicit.cpp
 )
 
 set( ic_src
