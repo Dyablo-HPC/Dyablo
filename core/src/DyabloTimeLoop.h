@@ -362,18 +362,18 @@ public:
       timers
     );
 
-    std::string viscosity_solver_id = configMap.getValue<std::string>("viscosity", "update", "none");
-    if (viscosity_solver_id != "none") {
-      this->viscosity_solver = ParabolicUpdateFactory::make_instance( viscosity_solver_id,
+    std::string viscosity_updater_id = configMap.getValue<std::string>("viscosity", "update", "none");
+    if (viscosity_updater_id != "none") {
+      this->viscosity_updater = ParabolicUpdateFactory::make_instance( viscosity_updater_id,
         configMap,
         m_foreach_cell,
         timers,
         PARABOLIC_VISCOSITY
       );
     }
-    std::string tc_solver_id = configMap.getValue<std::string>("thermal_conduction", "update", "none");
-    if (tc_solver_id != "none") {
-      this->thermal_conduction_solver = ParabolicUpdateFactory::make_instance( tc_solver_id,
+    std::string tc_updater_id = configMap.getValue<std::string>("thermal_conduction", "update", "none");
+    if (tc_updater_id != "none") {
+      this->thermal_conduction_updater = ParabolicUpdateFactory::make_instance( tc_updater_id,
         configMap,
         m_foreach_cell,
         timers,
@@ -381,8 +381,9 @@ public:
       );
     }
 
-    DYABLO_ASSERT_HOST_RELEASE(godunov_updater || !viscosity_solver, "Cannot have viscosity without hydro !");
-    DYABLO_ASSERT_HOST_RELEASE(godunov_updater || !thermal_conduction_solver, "Cannot have thermal conduction without hydro !");
+    // Sanity check : No sense in doing parabolic update without hydro
+    DYABLO_ASSERT_HOST_RELEASE(godunov_updater || !viscosity_updater, "Cannot have viscosity without hydro !");
+    DYABLO_ASSERT_HOST_RELEASE(godunov_updater || !thermal_conduction_updater, "Cannot have thermal conduction without hydro !");
 
     int rank = m_communicator.MPI_Comm_rank();
     if (rank==0) {
@@ -398,10 +399,10 @@ public:
       std::cout << "Compute dt         : "; 
         for( const std::string& id : compute_dt_ids )
           std::cout << "`" << id << "` ";
-      if (viscosity_solver_id != "none") 
-        std::cout << "Viscosiry solver : " << viscosity_solver_id << std::endl;
-      if (tc_solver_id != "none") 
-        std::cout << "Thermal conduction solver : " << tc_solver_id << std::endl;
+      if (viscosity_updater_id != "none") 
+        std::cout << "Viscosity solver : " << viscosity_updater_id << std::endl;
+      if (tc_updater_id != "none") 
+        std::cout << "Thermal conduction solver : " << tc_updater_id << std::endl;
       std::cout << std::endl;
       std::cout << "##########################" << std::endl;
     }
@@ -600,10 +601,10 @@ public:
 
       godunov_updater->update( U, m_scalar_data );
 
-      if ( viscosity_solver )
-        viscosity_solver->update( U, m_scalar_data );
-      if ( thermal_conduction_solver )
-        thermal_conduction_solver->update( U, m_scalar_data );   
+      if ( viscosity_updater )
+        viscosity_updater->update( U, m_scalar_data );
+      if ( thermal_conduction_updater )
+        thermal_conduction_updater->update( U, m_scalar_data );   
 
       U.move_field( "rho", "rho_next" ); 
       U.move_field( "e_tot", "e_tot_next" ); 
@@ -716,8 +717,8 @@ private:
 
   std::unique_ptr<CosmoManager> cosmo_manager;
 
-  std::unique_ptr<ParabolicUpdate> thermal_conduction_solver;
-  std::unique_ptr<ParabolicUpdate> viscosity_solver;
+  std::unique_ptr<ParabolicUpdate> thermal_conduction_updater;
+  std::unique_ptr<ParabolicUpdate> viscosity_updater;
 
   Timers timers;
 };
