@@ -8,6 +8,15 @@
 
 namespace dyablo {
 
+namespace {
+
+struct GravityInfo {
+  real_t gx, gy, gz;
+  bool apply_gravity_in_step;
+  bool well_balanced;
+};
+}
+
 /**
  * @brief Computes the primitive variables at a given cell index in an array
  *        and stores it in another array
@@ -125,15 +134,27 @@ compute_euler_flux(const typename State::PrimState& sourceL,
                    const typename State::PrimState& slopeR,
                    ComponentIndex3D                 dir, 
                    const RiemannParams&             params,
-                   real_t dL, real_t dR)
+                   real_t dL, real_t dR, real_t size,
+                   const GravityInfo &ginfo,
+                   real_t &p_out)
 {
   using PrimState = typename State::PrimState;
   using ConsState = typename State::ConsState;
 
-  const real_t smallr = params.smallr;
-  PrimState qL = reconstruct_lin_state(sourceL, slopeL,  1, smallr, dL);
-  PrimState qR = reconstruct_lin_state(sourceR, slopeR, -1, smallr, dR);
+  PrimState qL, qR;
+  if (ginfo.well_balanced) {
+    real_t gval = (dir == IX ? ginfo.gx : (dir == IY ? ginfo.gy : ginfo.gz));
+    qL = sourceL;
+    qR = sourceR;
 
+    qL.p += qL.rho * gval * size * 0.5;
+    qR.p -= qR.rho * gval * size * 0.5;
+  }
+  else {
+    const real_t smallr = params.smallr;
+    qL = reconstruct_lin_state(sourceL, slopeL,  1, smallr, dL);
+    qR = reconstruct_lin_state(sourceR, slopeR, -1, smallr, dR);
+  }
   // riemann solver along Y or Z direction requires to 
   // swap velocity components
   PrimState qL_swap = swapComponents(qL, dir);
@@ -141,7 +162,7 @@ compute_euler_flux(const typename State::PrimState& sourceL,
 
   // step 4 : compute flux (Riemann solver)
   ConsState flux{};
-  flux = riemann_hydro(qL_swap, qR_swap, params);
+  flux = riemann_hydro(qL_swap, qR_swap, params, p_out);
   return swapComponents(flux, dir);
 }
 
@@ -353,6 +374,7 @@ void euler_update(const RiemannParams&     params,
                   const real_t             dt,
                   const real_t             ddir,
                   const BoundaryConditions bc_manager,
+                  const GravityInfo&       ginfo,
                   const ArrayOut&          Uout)
 {
   using PrimState = typename State::PrimState;
@@ -451,6 +473,9 @@ void euler_update(const RiemannParams&     params,
   real_t dflux_LR  = df_factors[ldiff_L+1][1];
   real_t dflux_RL  = df_factors[ldiff_R+1][1]; // this is not an error
   real_t dflux_RR  = df_factors[ldiff_R+1][0];
+
+  // Output pressures, necessary for the well-balanced solver
+  real_t poutL, poutR;
   
   // == Left interface
   // 1- Same size or bigger
@@ -471,10 +496,7 @@ void euler_update(const RiemannParams&     params,
     // value of qR (so with a cell size equal to the current one).
     // SlopeCL considers a right averaged value, SlopeCR considers a left averaged value
     const PrimState slopeCL = compute_slope<ndim>(qL, qC, qR, dslope_L, 1.0);
-    fluxL = compute_euler_flux<ndim, State>(qL, qC, slopeL, slopeCL, dir, params, dflux_LL, dflux_LR);
-
-    if (iUinL.is_boundary() && bc_manager.bc_min[dir] == BC_USER)
-      fluxL = bc_manager.template overrideBoundaryFlux<ndim, State>(fluxL, qC, dir, true);
+    fluxL = compute_euler_flux<ndim, State>(qL, qC, slopeL, slopeCL, dir, params, dflux_LL, dflux_LR, ddir, ginfo, poutL);
   }
   // 2- Smaller
   else {
@@ -490,9 +512,12 @@ void euler_update(const RiemannParams&     params,
                 qLL = consToPrim<ndim>(uLL, params.gamma0);
                 const PrimState slopeC = compute_slope<ndim>(qL, qC, qR, dslope_L, dslope_R);
                 const PrimState slopeL = compute_slope<ndim>(qLL, qL, qC, dslope_LL, dslope_L);
-                fluxL += compute_euler_flux<ndim, State>(qL, qC, slopeL, slopeC, dir, params, dflux_LL, dflux_LR);
+                real_t pout_tmp;
+                fluxL += compute_euler_flux<ndim, State>(qL, qC, slopeL, slopeC, dir, params, dflux_LL, dflux_LR, ddir, ginfo, pout_tmp);
+                poutL += pout_tmp;
               });
     fluxL *= fac; 
+    poutL *= fac;
   }
 
   // == Right interface
@@ -509,10 +534,7 @@ void euler_update(const RiemannParams&     params,
     const PrimState slopeR = compute_slope<ndim>(qC, qR, qRR, dslope_R, dslope_RR);
     
     PrimState slopeCR = compute_slope<ndim>(qL, qC, qR, 1.0, dslope_R);
-    fluxR = compute_euler_flux<ndim, State>(qC, qR, slopeCR, slopeR, dir, params, dflux_RL, dflux_RR);
-
-    if (iUinR.is_boundary() && bc_manager.bc_max[dir] == BC_USER)
-      fluxR = bc_manager.template overrideBoundaryFlux<ndim, State>(fluxR, qC, dir, false);
+    fluxR = compute_euler_flux<ndim, State>(qC, qR, slopeCR, slopeR, dir, params, dflux_RL, dflux_RR, ddir, ginfo, poutR);
   }
   // 2- Smaller :
   else {
@@ -529,14 +551,68 @@ void euler_update(const RiemannParams&     params,
                 qRR = consToPrim<ndim>(uRR, params.gamma0);
                 const PrimState slopeC = compute_slope<ndim>(qL, qC, qR,  dslope_L, dslope_R);
                 const PrimState slopeR = compute_slope<ndim>(qC, qR, qRR, dslope_R, dslope_RR);
-                fluxR += compute_euler_flux<ndim, State>(qC, qR, slopeC, slopeR, dir, params, dflux_RL, dflux_RR);
+                real_t pout_tmp;
+                fluxR += compute_euler_flux<ndim, State>(qC, qR, slopeC, slopeR, dir, params, dflux_RL, dflux_RR, ddir, ginfo, pout_tmp);
+                poutR += pout_tmp;
               });
     fluxR *= fac;      
+    poutR *= fac;
+  }
+
+  const real_t gval = (!ginfo.apply_gravity_in_step ? 0.0
+                      : (dir == IX ? ginfo.gx : dir == IY ? ginfo.gy : ginfo.gz));
+
+  // Specific treatments at boundary
+  //
+  // In the case of Well-balancing the solver we make sure HSE is respected at the boundaries
+  // by enforcing an equilibrium between the two sides of the cell.
+  // This allows the gravity term to be computed using fluxes with no escape of matter
+  // or energy from the domain
+  if (iUinL.is_boundary()) {
+    if (bc_manager.bc_min[dir] == BC_USER)
+      fluxL = bc_manager.template overrideBoundaryFlux<ndim, State>(fluxL, qC, dir, true);
+    else if (ginfo.well_balanced) {
+      const real_t mom_term = poutR - qC.rho * gval * ddir;
+      fluxL = {}; // 0 everywhere except in the momentum term
+      
+      switch (dir) {
+        case IX: fluxL.rho_u = mom_term; break;
+        case IY: fluxL.rho_v = mom_term; break;
+        case IZ: fluxL.rho_w = mom_term; break;
+      }
+    }
+  }
+  if (iUinR.is_boundary()) {
+    if (bc_manager.bc_max[dir] == BC_USER)
+      fluxR = bc_manager.template overrideBoundaryFlux<ndim, State>(fluxR, qC, dir, false);
+    else if (ginfo.well_balanced) {
+      const real_t mom_term = poutL + qC.rho * gval * ddir;
+      fluxR = {}; // 0 everywhere except in the momentum term
+      
+      switch (dir) {
+        case IX: fluxR.rho_u = mom_term; break;
+        case IY: fluxR.rho_v = mom_term; break;
+        case IZ: fluxR.rho_w = mom_term; break;
+      }
+    }
   }
 
   ConsState u{};
   getConservativeState<ndim>(Uout, iCell_Uout, u);
   u += (fluxL - fluxR) * dtddir;
+
+  // Gravity update
+  if (ginfo.apply_gravity_in_step) {
+    real_t mom_term = dt * qC.rho * gval;
+    switch (dir) {
+      case IX: u.rho_u += mom_term; break;
+      case IY: u.rho_v += mom_term; break;
+      case IZ: u.rho_w += mom_term; break;
+    }
+
+    u.e_tot += dt * 0.5 * (fluxR.rho + fluxL.rho)*gval;
+  }
+
   setConservativeState<ndim>(Uout, iCell_Uout, u);
 }
 

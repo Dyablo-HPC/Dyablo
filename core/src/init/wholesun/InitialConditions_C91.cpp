@@ -16,11 +16,7 @@ namespace dyablo{
  * a small pressure perturbation. By cooling the top of the domain, and heating the bottom
  * the setup generates solar-like convection plumes.
  */
-template<typename State>
 struct AnalyticalFormula_C91 : public AnalyticalFormula_base{
-  using ConsState = typename State::ConsState;
-  using PrimState = typename State::PrimState;
-
   using RNGPool = Kokkos::Random_XorShift64_Pool<>;
   using RNGType = RNGPool::generator_type;
 
@@ -35,7 +31,7 @@ struct AnalyticalFormula_C91 : public AnalyticalFormula_base{
   const real_t theta;          // Temperature gradient
   const real_t pert_amplitude; // Amplitude of the perturbations in pressure
   const real_t m;              // Polytropic index
-  const real_t Bx0, By0, Bz0;  // Initial magnetic field
+  const real_t rho0, T0;       // Hydro values at the top layer
   RNGPool      rand_pool;      // Random pool for multi-mode perturbation
   bool geom_ref;
 
@@ -50,9 +46,8 @@ struct AnalyticalFormula_C91 : public AnalyticalFormula_base{
     theta(configMap.getValue<real_t>("C91", "theta", 10.0)),
     pert_amplitude(configMap.getValue<real_t>("C91", "pert_amplitude", 1.0e-3)),
     m(configMap.getValue<real_t>("C91", "mpoly", 1.0)),
-    Bx0(configMap.getValue<real_t>("C91", "Bx0", 0.0)),
-    By0(configMap.getValue<real_t>("C91", "By0", 0.0)),
-    Bz0(configMap.getValue<real_t>("C91", "Bz0", 1.0e-3)),
+    rho0(configMap.getValue<real_t>("C91", "rho0", 10.0)),
+    T0(configMap.getValue<real_t>("C91", "T0", 10.0)),
     rand_pool(seed*GlobalMpiSession::get_comm_world().MPI_Comm_rank()+1)
   {
   }
@@ -69,12 +64,13 @@ struct AnalyticalFormula_C91 : public AnalyticalFormula_base{
   }
 
   KOKKOS_INLINE_FUNCTION
-  ConsState value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
+  ConsHydroState value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
   {
     // Hydro init
     real_t d = (ndim == 2 ? y : z);
-    real_t rho = pow(1.0 + theta*d, m);
-    real_t p   = pow(1.0 + theta*d, m+1.0);
+    real_t T   = T0 + theta * d;
+    real_t rho = rho0    * pow(T/T0, m);
+    real_t p   = rho0*T0 * pow(T/T0, m+1.0);
     
     // Perturbation
     RNGType rand_gen = rand_pool.get_state();
@@ -85,25 +81,11 @@ struct AnalyticalFormula_C91 : public AnalyticalFormula_base{
     if (d < 0.1 || d > 0.9)
       pert = 0.0;  
 
-    ConsState res{};
-
-    // MHD init
-    constexpr bool is_glm = std::is_same_v<ConsState, ConsGLMMHDState>;
-    constexpr bool has_mhd = std::is_same_v<ConsState, ConsMHDState> || is_glm;
-    if constexpr (has_mhd) {
-      res.Bx = Bx0;
-      res.By = By0;
-      res.Bz = Bz0;
-
-      if constexpr (is_glm) {
-        res.psi = 0.0;
-      }
-    }
-    const real_t Eb = (has_mhd ? 0.5*(Bx0*Bx0+By0*By0+Bz0*Bz0) : 0.0);
+    ConsHydroState res{};
 
     // Assigning the conservative variable as a result
     res.rho = rho;
-    res.e_tot = Eb + p * (1.0+pert) / (gamma0-1.0);
+    res.e_tot = p * (1.0+pert) / (gamma0-1.0);
 
     return res; 
   }
@@ -111,5 +93,5 @@ struct AnalyticalFormula_C91 : public AnalyticalFormula_base{
 } // namespace dyablo
 
 FACTORY_REGISTER(dyablo::InitialConditionsFactory, 
-                 dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_C91<dyablo::HydroState>>, "C91");
+                 dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_C91>, "C91");
 

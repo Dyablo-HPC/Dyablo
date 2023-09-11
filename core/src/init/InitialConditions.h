@@ -28,8 +28,12 @@ class AnalyticalFormula_MHD_rotor;
 class InitialConditions_simple_particles;
 class InitialConditions_particle_grid;
 
-//cosmo
+// Cosmology
 class InitialConditions_grafic_fields;
+
+// Convection
+class AnalyticalFormula_C91;
+class AnalyticalFormula_tri_layer;
 
 
 } // namespace dyablo
@@ -58,6 +62,9 @@ bool dyablo::InitialConditionsFactory::init()
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_sod> );
 
   DECLARE_REGISTERED( dyablo::InitialConditions_grafic_fields );
+
+  DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_C91> );
+  DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_tri_layer> );
 
   return true;
 }

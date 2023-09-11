@@ -73,7 +73,8 @@ KOKKOS_INLINE_FUNCTION
 void riemann_hllc(const PrimHydroState& qleft,
 		              const PrimHydroState& qright,
 		              ConsHydroState& flux,
-		              const RiemannParams& params)
+		              const RiemannParams& params,
+                  real_t &p_out)
 {
   real_t gamma0 = params.gamma0;
   real_t smallr = params.smallr;
@@ -135,21 +136,25 @@ void riemann_hllc(const PrimHydroState& qleft,
     uo=ul;
     ptoto=ptotl;
     etoto=etotl;
+    p_out=pl;
   } else if (ustar > ZERO_F) {
     ro=rstarl;
     uo=ustar;
     ptoto=ptotstar;
     etoto=etotstarl;
+    p_out=ptotstar;
   } else if (SR > ZERO_F) {
     ro=rstarr;
     uo=ustar;
     ptoto=ptotstar;
     etoto=etotstarr;
+    p_out=ptotstar;
   } else {
     ro=rr;
     uo=ur;
     ptoto=ptotr;
     etoto=etotr;
+    p_out=pr;
   }
       
   // Compute the Godunov flux
@@ -266,9 +271,35 @@ KOKKOS_INLINE_FUNCTION
 void riemann_hydro( const PrimHydroState& qleft,
 		                const PrimHydroState& qright,
 		                ConsHydroState& flux,
+		                const RiemannParams& params,
+                    real_t &p_out)
+{
+  riemann_hllc(qleft,qright,flux,params,p_out);
+} // riemann_hydro
+
+KOKKOS_INLINE_FUNCTION
+void riemann_hydro( const PrimHydroState& qleft,
+		                const PrimHydroState& qright,
+		                ConsHydroState& flux,
 		                const RiemannParams& params)
 {
-  riemann_hllc(qleft,qright,flux,params);
+  real_t p_out; // Discarded
+  riemann_hllc(qleft,qright,flux,params,p_out);
+} // riemann_hydro
+
+/**
+ * Another Wrapper function calling the actual riemann solver.
+ */
+KOKKOS_INLINE_FUNCTION
+ConsHydroState riemann_hydro( const PrimHydroState& qleft,
+                              const PrimHydroState& qright,
+                              const RiemannParams& params,
+                              real_t &p_out)
+{
+  ConsHydroState flux;
+  riemann_hydro(qleft, qright, flux, params, p_out);
+  return flux;
+
 } // riemann_hydro
 
 /**
@@ -280,7 +311,8 @@ ConsHydroState riemann_hydro( const PrimHydroState& qleft,
                               const RiemannParams& params)
 {
   ConsHydroState flux;
-  riemann_hydro(qleft, qright, flux, params);
+  real_t p_out; // Discarded
+  riemann_hydro(qleft, qright, flux, params, p_out);
   return flux;
 
 } // riemann_hydro
@@ -292,6 +324,21 @@ KOKKOS_INLINE_FUNCTION
 ConsMHDState riemann_hydro( const PrimMHDState& qleft,
                             const PrimMHDState& qright,
                             const RiemannParams& params)
+{
+  ConsMHDState flux{};
+  riemann_mhd(qleft, qright, flux, params);
+  return flux;
+
+} // riemann_hydro
+
+/**
+ * Another Wrapper function calling the actual riemann solver.
+ */
+KOKKOS_INLINE_FUNCTION
+ConsMHDState riemann_hydro( const PrimMHDState& qleft,
+                            const PrimMHDState& qright,
+                            const RiemannParams& params,
+                            real_t &p_out)
 {
   ConsMHDState flux{};
   riemann_mhd(qleft, qright, flux, params);
