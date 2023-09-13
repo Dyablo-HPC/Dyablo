@@ -9,6 +9,25 @@
 #include "foreach_cell/ForeachCell_utils.h"
 
 #include "boundary_conditions/BoundaryConditions.h"
+#include "utils/config/named_enum.h"
+
+/**
+ * In the case we have an analytical kappa, this enum allows to pick which 
+ * way kappa is calculated.
+ */
+enum KappaMode {
+  KM_NONE,
+  KM_TRI_LAYER, 
+};
+
+template<>
+inline named_enum<KappaMode>::init_list named_enum<KappaMode>::names() 
+{
+  return {
+    {KappaMode::KM_NONE,      "none"},
+    {KappaMode::KM_TRI_LAYER, "tri_layer"},
+  };
+}
 
 namespace dyablo {
 
@@ -39,14 +58,45 @@ public:
   ParabolicTerm_thermal_conduction(ConfigMap &configMap)
     : params(configMap),
       bc_manager(configMap),
-      kappa_cst(configMap.getValue<real_t>("thermal_conduction", "kappa", 0.0))
-       {};
+      kappa_cst(configMap.getValue<real_t>("thermal_conduction", "kappa", 0.0)),
+      diffusivity_mode(configMap.getValue<DiffusivityMode>("thermal_conduction", "diffusivity_mode", DM_CONSTANT))
+      {
+        if (diffusivity_mode == DM_ANALYTICAL) {
+          kappa_mode = configMap.getValue<KappaMode>("thermal_conduction", "kappa_mode", KM_NONE);
+
+          if (kappa_mode == KM_TRI_LAYER) {
+            tr_thick = configMap.getValue<real_t>("tri_layer", "transition_thickness", 0.0);
+            z1       = configMap.getValue<real_t>("tri_layer", "z1", 0.0);
+            z2       = configMap.getValue<real_t>("tri_layer", "z2", 1.0);
+            K1       = configMap.getValue<real_t>("tri_layer", "K1", 1.0);
+            K2       = configMap.getValue<real_t>("tri_layer", "K2", 1.0);
+          }
+        }
+        else 
+          kappa_mode = KM_NONE;
+      };
 
 
   template <int ndim>
   KOKKOS_INLINE_FUNCTION
   real_t compute_kappa(const pos_t& pos) const {
     real_t kappa = kappa_cst;
+
+    // Analytical calculations 
+    if (diffusivity_mode == DM_ANALYTICAL) {
+      if (kappa_mode == KM_TRI_LAYER) {
+        const real_t d = (ndim == 2 ? pos[IY] : pos[IZ]);
+        const real_t th = tr_thick;
+        const real_t k1 = kappa_cst * K1;
+        const real_t k2 = kappa_cst * K2;
+
+        const real_t tr1 = (tanh((d-z1)/th) + 1.0) * 0.5;
+        const real_t tr2 = (tanh((z2-d)/th) + 1.0) * 0.5;
+        const real_t tr = tr1*tr2;
+
+        kappa = k2 * (1.0-tr) + k1 * tr;
+      }
+    }
 
     return kappa;
   }
@@ -211,6 +261,11 @@ private:
   BoundaryConditions bc_manager;
 
   real_t kappa_cst;
+  DiffusivityMode diffusivity_mode;
+  KappaMode kappa_mode;
+
+  // Tri-Layer parameters
+  real_t tr_thick, z1, z2, K1, K2;
 };
 
 }

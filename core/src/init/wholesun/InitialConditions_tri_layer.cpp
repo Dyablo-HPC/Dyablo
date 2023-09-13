@@ -32,6 +32,7 @@ struct AnalyticalFormula_tri_layer : public AnalyticalFormula_base{
   const real_t z1, z2;          // Position of the two transition layers
   const real_t theta1, theta2;  // Gradients in the convective and stable layers
   const real_t m1, m2;          // Polytropic indices of the convective and stable layers
+  const real_t rho0, T0;        // Density and temperature at the top of the domain
   const real_t perturbation;    // Amplitude of the small random pressure perturbation
 
   RNGPool      rand_pool;  // Random pool for multi-mode perturbation
@@ -50,6 +51,8 @@ struct AnalyticalFormula_tri_layer : public AnalyticalFormula_base{
     theta2(configMap.getValue<real_t>("tri_layer", "theta2", 1.0)),
     m1(configMap.getValue<real_t>("tri_layer", "m1", 1.0)),
     m2(configMap.getValue<real_t>("tri_layer", "m2", 1.0)),
+    rho0(configMap.getValue<real_t>("tri_layer", "rho0", 10.0)),
+    T0(configMap.getValue<real_t>("tri_layer", "T0", 10.0)),
     perturbation(configMap.getValue<real_t>("tri_layer", "perturbation", 1.0e-3)),
     rand_pool(seed*GlobalMpiSession::get_comm_world().MPI_Comm_rank()+1)
 
@@ -86,8 +89,6 @@ struct AnalyticalFormula_tri_layer : public AnalyticalFormula_base{
     //        
     //        Empirically, T0/rho0=10.0 seem to work with Stiffnesses up to 7., for theta1 = 10.0
 
-    const real_t T0 = 10.0;
-    const real_t rho0 = 10.0;
     const real_t p0 = rho0*T0;
 
     const real_t T1   = T0 + theta2 * z1;
