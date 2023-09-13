@@ -86,12 +86,13 @@ public:
     static_assert( std::is_same_v< typename View_t::array_layout, Kokkos::LayoutLeft >, "View is not LayoutLeft" );
 
     // Read Rank and extent from view
-    constexpr int view_rank = View_t::rank;
+    int view_rank = View_t::rank;
     hsize_t local_extents[view_rank];
     hsize_t global_extents[view_rank];
-    hsize_t first_global_indexes[view_rank] = {};
+    hsize_t first_global_indexes[view_rank];
     for( int i=0; i<view_rank; i++ )
     {
+      first_global_indexes[i] = 0;
       local_extents[i] = data.extent(view_rank-1-i);
       global_extents[i] = data.extent(view_rank-1-i);
     }
