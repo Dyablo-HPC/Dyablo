@@ -87,9 +87,9 @@ public:
 
     // Read Rank and extent from view
     int view_rank = View_t::rank;
-    hsize_t local_extents[view_rank];
-    hsize_t global_extents[view_rank];
-    hsize_t first_global_indexes[view_rank];
+    std::vector<hsize_t> local_extents(view_rank);
+    std::vector<hsize_t> global_extents(view_rank);
+    std::vector<hsize_t> first_global_indexes(view_rank);
     for( int i=0; i<view_rank; i++ )
     {
       first_global_indexes[i] = 0;
@@ -102,13 +102,13 @@ public:
 
     hid_t memspace;
     {
-      memspace = H5Screate_simple(view_rank, local_extents, nullptr);
+      memspace = H5Screate_simple(view_rank, local_extents.data(), nullptr);
     }
 
     hid_t filespace;
     {
-      filespace = H5Screate_simple(view_rank, global_extents, nullptr);
-      H5Sselect_hyperslab(filespace, H5S_SELECT_SET, first_global_indexes, nullptr, local_extents, nullptr);
+      filespace = H5Screate_simple(view_rank, global_extents.data(), nullptr);
+      H5Sselect_hyperslab(filespace, H5S_SELECT_SET, first_global_indexes.data(), nullptr, local_extents.data(), nullptr);
     }
     
     hid_t group_id;
