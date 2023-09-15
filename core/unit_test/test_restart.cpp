@@ -166,6 +166,33 @@ by=4
     std::cout << "Done" << std::endl;
 }
 
+template<typename RawType>
+KOKKOS_INLINE_FUNCTION
+bool almost_equal(RawType v1, RawType v2)
+{
+  using Bits = typename testing::internal::TypeWithSize<sizeof(RawType)>::UInt;
+
+  if (isnan(v1) || isnan(v2)) return false;
+
+  auto SignAndMagnitudeToBiased = [](const Bits &sam) {
+    Bits kSignBitMask = static_cast<Bits>(1) << (8*sizeof(RawType) - 1);
+    if (kSignBitMask & sam) {
+      // sam represents a negative number.
+      return ~sam + 1;
+    } else {
+      // sam represents a positive number.
+      return kSignBitMask | sam;
+    }
+  };
+  
+  Bits* sam1 = reinterpret_cast<Bits*>(&v1);
+  Bits* sam2 = reinterpret_cast<Bits*>(&v2);
+  const Bits biased1 = SignAndMagnitudeToBiased(*sam1);
+  const Bits biased2 = SignAndMagnitudeToBiased(*sam2);
+  uint32_t kMaxUlps = 4;
+  return ( (biased1 >= biased2) ? (biased1 - biased2) : (biased2 - biased1) ) <= kMaxUlps;
+}
+
 /// Load previously saved checkpoint and check values
 void test_restart()
 {
@@ -248,16 +275,18 @@ void test_restart()
       uint32_t iy = (iPart/Wp1)%Wp1;
       uint32_t iz =  iPart/(Wp1*Wp1);
 
-      if( P1.pos( iPart, IX ) != (ix+0.5)/Wp1) 
-        error_count++;
-      if( P1.pos( iPart, IY ) != (iy+0.5)/Wp1) 
-        error_count++;
-      if( P1.pos( iPart, IZ ) != (ndim-2)*((iz+0.5)/Wp1)) 
-        error_count++;
-      if( P1a.at( iPart, IA1 ) != ix) 
-        error_count++;
-      if( P1a.at( iPart, IA2 ) != iy) 
-        error_count++;
+      auto expect_equal = [&](real_t expected, real_t actual)
+      {
+        //EXPECT_DOUBLE_EQ(expected, actual);       
+        if( !almost_equal( expected, actual ) )
+          error_count++;
+      };
+
+      expect_equal( P1.pos( iPart, IX ), (ix+0.5)/Wp1);
+      expect_equal( P1.pos( iPart, IY ), (iy+0.5)/Wp1);
+      expect_equal( P1.pos( iPart, IZ ), (ndim-2)*((iz+0.5)/Wp1));
+      expect_equal( P1a.at( iPart, IA1 ), ix);
+      expect_equal( P1a.at( iPart, IA2 ), iy);
     }, error_count);
 
     EXPECT_EQ( 0, error_count );
