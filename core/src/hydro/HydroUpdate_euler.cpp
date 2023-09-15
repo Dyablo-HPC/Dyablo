@@ -111,7 +111,7 @@ public:
       gz = configMap.getValue<real_t>("gravity", "gz", 0.0);
     } 
 
-    DYABLO_ASSERT_HOST_RELEASE((std::is_same_v<PrimState, PrimHydroState> && well_balanced), 
+    DYABLO_ASSERT_HOST_RELEASE((std::is_same_v<PrimState, PrimHydroState> || !well_balanced), 
                                "Well balanced scheme not implemented for MHD solvers yet !");
   }
 
@@ -250,3 +250,7 @@ FACTORY_REGISTER( dyablo::HydroUpdateFactory,
 FACTORY_REGISTER( dyablo::HydroUpdateFactory, 
                   dyablo::HydroUpdate_euler<dyablo::MHDState>, 
                   "MHDUpdate_euler")
+
+FACTORY_REGISTER( dyablo::HydroUpdateFactory, 
+                  dyablo::HydroUpdate_euler<dyablo::GLMMHDState>, 
+                  "GLMMHDUpdate_euler")

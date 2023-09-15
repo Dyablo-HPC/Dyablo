@@ -299,6 +299,7 @@ public:
 
     std::string godunov_updater_id = configMap.getValue<std::string>("hydro", "update", "HydroUpdate_hancock");
     this->has_mhd = godunov_updater_id.find("MHD") != std::string::npos;
+    this->is_glm  = godunov_updater_id.find("GLM") != std::string::npos;
     this->godunov_updater = HydroUpdateFactory::make_instance( godunov_updater_id,
       configMap,
       this->m_foreach_cell,
@@ -608,8 +609,11 @@ public:
     {
       U.new_fields({"rho_next", "e_tot_next", "rho_vx_next", "rho_vy_next", "rho_vz_next"});    
       // TODO automatic new fields according to kernel
-      if( this->has_mhd )
+      if( this->has_mhd ) {
         U.new_fields({"Bx_next", "By_next", "Bz_next"});
+        if (this->is_glm)
+          U.new_fields({"psi_next"});
+      }
 
       godunov_updater->update( U, m_scalar_data );
 
@@ -630,6 +634,8 @@ public:
         U.move_field( "Bx", "Bx_next" ); 
         U.move_field( "By", "By_next" ); 
         U.move_field( "Bz", "Bz_next" );
+        if (this->is_glm)
+          U.move_field( "psi", "psi_next" );
       }
     }
 
@@ -723,7 +729,7 @@ private:
   std::vector<std::unique_ptr<Compute_dt>> compute_dt;
   std::unique_ptr<RefineCondition> refine_condition;
   std::unique_ptr<HydroUpdate> godunov_updater;
-  bool has_mhd; // TODO : remove this
+  bool has_mhd, is_glm; // TODO : remove this
   std::unique_ptr<ParticleUpdate> particle_position_updater, particle_update_density;
   std::unique_ptr<MapUserData> mapUserData;
   std::unique_ptr<IOManager> io_manager, io_manager_checkpoint;

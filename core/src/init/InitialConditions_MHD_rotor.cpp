@@ -1,9 +1,13 @@
 #include "InitialConditions_analytical.h"
 #include "AnalyticalFormula_tools.h"
+#include "states/State_forward.h"
 
 namespace dyablo{
 
+template <typename State>
 struct AnalyticalFormula_MHD_rotor : public AnalyticalFormula_base{
+  using PrimState = typename State::PrimState;
+  using ConsState = typename State::ConsState;
   
   const int    ndim;
   const real_t gamma0;
@@ -46,9 +50,9 @@ struct AnalyticalFormula_MHD_rotor : public AnalyticalFormula_base{
   }
 
   KOKKOS_INLINE_FUNCTION
-  ConsMHDState value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
+  ConsState value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
   {
-    PrimMHDState res;
+    PrimState res;
     constexpr real_t p0   = 1.0;
     constexpr real_t rho0 = 10.0;
     constexpr real_t rho2 = 1.0;
@@ -92,7 +96,10 @@ struct AnalyticalFormula_MHD_rotor : public AnalyticalFormula_base{
     res.By  = 0.0;
     res.Bz  = 0.0;
     
-    ConsMHDState cons_res;
+    if constexpr (std::is_same_v<PrimState, PrimGLMMHDState>)
+      res.psi = 0.0;
+
+    ConsState cons_res;
     cons_res = primToCons<3>(res, gamma0);
     return cons_res; 
   }
@@ -100,6 +107,9 @@ struct AnalyticalFormula_MHD_rotor : public AnalyticalFormula_base{
 } // namespace dyablo
 
 FACTORY_REGISTER(dyablo::InitialConditionsFactory, 
-                 dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_MHD_rotor>, 
+                 dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_MHD_rotor<dyablo::MHDState>>, 
                  "MHD_rotor");
 
+FACTORY_REGISTER(dyablo::InitialConditionsFactory, 
+                 dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_MHD_rotor<dyablo::GLMMHDState>>, 
+                 "MHD_rotor_glm");

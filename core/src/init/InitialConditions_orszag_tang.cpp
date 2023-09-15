@@ -1,5 +1,6 @@
 #include "InitialConditions_analytical.h"
 #include "AnalyticalFormula_tools.h"
+#include "states/State_forward.h"
 
 namespace dyablo{
 
@@ -8,7 +9,10 @@ namespace dyablo{
  * Based on Orszag-Tang 1979 "Small-scale structure of two-dimensional magnetohydrodynamic turbulence"
  * Journal of Fluid Mechanics, 1979. Vol 90 pp 128-143
  **/
+template<typename State>
 struct AnalyticalFormula_OrszagTang : public AnalyticalFormula_base{
+  using ConsState = typename State::ConsState;
+  using PrimState = typename State::PrimState;
   
   const int    ndim;
   const real_t gamma0;
@@ -41,9 +45,9 @@ struct AnalyticalFormula_OrszagTang : public AnalyticalFormula_base{
   }
 
   KOKKOS_INLINE_FUNCTION
-  ConsMHDState value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
+  ConsState value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
   {
-    PrimMHDState res {};
+    PrimState res {};
     constexpr real_t rho0 = 25.0 / (36.0*M_PI);
     constexpr real_t P0   = 5.0  / (12.0*M_PI);
     const real_t B0       = 1.0  / sqrt(4.0*M_PI);
@@ -61,13 +65,20 @@ struct AnalyticalFormula_OrszagTang : public AnalyticalFormula_base{
     res.By  = By;
     res.Bz  = 0.0;
     
-    ConsMHDState cons_res = primToCons<3>(res, gamma0);
+    if constexpr (std::is_same_v<PrimState, PrimGLMMHDState>) {
+      res.psi = 0.0;
+    }
+    ConsState cons_res = primToCons<3>(res, gamma0);
     return cons_res; 
   }
 };
 } // namespace dyablo
 
 FACTORY_REGISTER(dyablo::InitialConditionsFactory, 
-                 dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_OrszagTang>, 
+                 dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_OrszagTang<dyablo::MHDState>>, 
                  "orszag_tang");
+
+FACTORY_REGISTER(dyablo::InitialConditionsFactory, 
+                 dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_OrszagTang<dyablo::GLMMHDState>>, 
+                 "orszag_tang_glm");
 

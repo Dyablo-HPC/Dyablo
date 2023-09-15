@@ -1,6 +1,7 @@
 #pragma once
 
 #include "init/InitialConditions_base.h"
+#include "states/State_forward.h"
 
 namespace dyablo{
 
@@ -20,9 +21,9 @@ class AnalyticalFormula_RayleighTaylor;
 class AnalyticalFormula_sod;
 
 // MHD
-class AnalyticalFormula_OrszagTang;
-class AnalyticalFormula_MHD_blast;
-class AnalyticalFormula_MHD_rotor;
+template<typename State> class AnalyticalFormula_OrszagTang;
+template<typename State> class AnalyticalFormula_MHD_blast;
+template<typename State> class AnalyticalFormula_MHD_rotor;
 
 // Particles
 class InitialConditions_simple_particles;
@@ -56,9 +57,12 @@ bool dyablo::InitialConditionsFactory::init()
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_KelvinHelmholtz> );
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_RayleighTaylor> );
 
-  DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_OrszagTang> );
-  DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_MHD_blast> );
-  DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_MHD_rotor> );
+  DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_OrszagTang<dyablo::MHDState> > );
+  DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_OrszagTang<dyablo::GLMMHDState> > );
+  DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_MHD_blast<dyablo::MHDState>> );
+  DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_MHD_blast<dyablo::GLMMHDState>> );
+  DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_MHD_rotor<dyablo::MHDState>> );
+  DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_MHD_rotor<dyablo::GLMMHDState>> );
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_sod> );
 
   DECLARE_REGISTERED( dyablo::InitialConditions_grafic_fields );

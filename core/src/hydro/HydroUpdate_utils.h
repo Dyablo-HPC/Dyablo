@@ -134,7 +134,7 @@ compute_euler_flux(const typename State::PrimState& sourceL,
                    const typename State::PrimState& slopeR,
                    ComponentIndex3D                 dir, 
                    const RiemannParams&             params,
-                   real_t dL, real_t dR, real_t size,
+                   real_t dL, real_t dR, real_t dt, real_t size,
                    const GravityInfo &ginfo,
                    real_t &p_out)
 {
@@ -162,7 +162,7 @@ compute_euler_flux(const typename State::PrimState& sourceL,
 
   // step 4 : compute flux (Riemann solver)
   ConsState flux{};
-  flux = riemann_hydro(qL_swap, qR_swap, params, p_out);
+  flux = riemann_hydro(qL_swap, qR_swap, params, p_out, dt);
   return swapComponents(flux, dir);
 }
 
@@ -496,7 +496,7 @@ void euler_update(const RiemannParams&     params,
     // value of qR (so with a cell size equal to the current one).
     // SlopeCL considers a right averaged value, SlopeCR considers a left averaged value
     const PrimState slopeCL = compute_slope<ndim>(qL, qC, qR, dslope_L, 1.0);
-    fluxL = compute_euler_flux<ndim, State>(qL, qC, slopeL, slopeCL, dir, params, dflux_LL, dflux_LR, ddir, ginfo, poutL);
+    fluxL = compute_euler_flux<ndim, State>(qL, qC, slopeL, slopeCL, dir, params, dflux_LL, dflux_LR, dt, ddir, ginfo, poutL);
   }
   // 2- Smaller
   else {
@@ -513,7 +513,7 @@ void euler_update(const RiemannParams&     params,
                 const PrimState slopeC = compute_slope<ndim>(qL, qC, qR, dslope_L, dslope_R);
                 const PrimState slopeL = compute_slope<ndim>(qLL, qL, qC, dslope_LL, dslope_L);
                 real_t pout_tmp;
-                fluxL += compute_euler_flux<ndim, State>(qL, qC, slopeL, slopeC, dir, params, dflux_LL, dflux_LR, ddir, ginfo, pout_tmp);
+                fluxL += compute_euler_flux<ndim, State>(qL, qC, slopeL, slopeC, dir, params, dflux_LL, dflux_LR, dt, ddir, ginfo, pout_tmp);
                 poutL += pout_tmp;
               });
     fluxL *= fac; 
@@ -534,7 +534,7 @@ void euler_update(const RiemannParams&     params,
     const PrimState slopeR = compute_slope<ndim>(qC, qR, qRR, dslope_R, dslope_RR);
     
     PrimState slopeCR = compute_slope<ndim>(qL, qC, qR, 1.0, dslope_R);
-    fluxR = compute_euler_flux<ndim, State>(qC, qR, slopeCR, slopeR, dir, params, dflux_RL, dflux_RR, ddir, ginfo, poutR);
+    fluxR = compute_euler_flux<ndim, State>(qC, qR, slopeCR, slopeR, dir, params, dflux_RL, dflux_RR, dt, ddir, ginfo, poutR);
   }
   // 2- Smaller :
   else {
@@ -552,7 +552,7 @@ void euler_update(const RiemannParams&     params,
                 const PrimState slopeC = compute_slope<ndim>(qL, qC, qR,  dslope_L, dslope_R);
                 const PrimState slopeR = compute_slope<ndim>(qC, qR, qRR, dslope_R, dslope_RR);
                 real_t pout_tmp;
-                fluxR += compute_euler_flux<ndim, State>(qC, qR, slopeC, slopeR, dir, params, dflux_RL, dflux_RR, ddir, ginfo, pout_tmp);
+                fluxR += compute_euler_flux<ndim, State>(qC, qR, slopeC, slopeR, dir, params, dflux_RL, dflux_RR, dt, ddir, ginfo, pout_tmp);
                 poutR += pout_tmp;
               });
     fluxR *= fac;      
@@ -611,6 +611,14 @@ void euler_update(const RiemannParams&     params,
     }
 
     u.e_tot += dt * 0.5 * (fluxR.rho + fluxL.rho)*gval;
+  }
+
+  // GLM MHD -> Diffusion term
+  if constexpr (std::is_same_v<State, GLMMHDState>) {
+    const real_t ch = params.ch / dt;
+    const real_t cp = sqrt(params.cr*ch);
+    const real_t para_term = exp(-0.5 * dt * ch*ch/(cp*cp));
+    u.psi *= para_term;
   }
 
   setConservativeState<ndim>(Uout, iCell_Uout, u);
