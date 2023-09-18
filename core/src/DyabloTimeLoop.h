@@ -474,6 +474,7 @@ public:
       real_t time = m_scalar_data.get<real_t>("time");
       real_t aexp = cosmo_manager->timeToExpansion(time);
       m_scalar_data.set("aexp", aexp);
+      m_scalar_data.set("z", 1.0/(aexp)-1.0);
     }
 
     // Compute new dt
