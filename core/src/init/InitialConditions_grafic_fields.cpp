@@ -23,13 +23,19 @@ public:
         ForeachCell& foreach_cell,  
         Timers& timers )
   : 
-    graficDir( configMap.getValue<std::string>("grafic", "inputDir", "data/IC/") ),
     foreach_cell(foreach_cell),
     gamma0(configMap.getValue<real_t>("hydro", "gamma0", 1.4)),
     smallr(configMap.getValue<real_t>("hydro", "smallr", 1e-10)),
     smallc(configMap.getValue<real_t>("hydro", "smallc", 1e-10)),
     smallp(smallc * smallc / gamma0)
   {
+    {
+      const AMRmesh& pmesh = foreach_cell.get_amr_mesh();
+      int bx = foreach_cell.blockSize()[IX];
+      int cell_level = pmesh.get_level_min() + std::log2(bx);
+      this->graficDir = configMap.getValue<std::string>("grafic", "inputDir", std::string("data/IC_")+std::to_string(cell_level));
+    }
+
     /// Read header from grafic file, check if values are the same as .ini (or create new entries)
     grafic_header header;
 
@@ -38,6 +44,8 @@ public:
     std::ifstream grafic_file(grafic_filename , std::ios::in|std::ios::binary );
     DYABLO_ASSERT_HOST_RELEASE(grafic_file, "Could not open grafic file : `" + grafic_filename + "`");
     FortranBinaryReader::read_record( grafic_file, &header, 1 );
+
+    printHeader(header, graficDir);
 
     auto set_or_check = [&]( std::string section, std::string param, auto val )
     {
@@ -54,6 +62,21 @@ public:
         configMap.getValue< T >(section, param, val);
     };
 
+    {
+      // Mean mass for a raw cell
+      double mass0 = 1.0/(header.nx*header.ny*header.nz);
+      std::cout << "COSMO mass0=" << mass0 << std::endl;
+
+      real_t mass_coarsen_factor = configMap.getValue<real_t>("cosmology", "mass_coarsen_factor", 0.1);
+      real_t mass_refine_factor = configMap.getValue<real_t>("cosmology", "mass_refine_factor", 1.0);
+
+      set_or_check("amr", "mass_coarsen", mass0*mass_coarsen_factor );
+      set_or_check("amr", "mass_refine", mass0*mass_refine_factor );
+    }
+
+    DYABLO_ASSERT_HOST_RELEASE( 0 == header.nx%foreach_cell.blockSize()[IX], "Block size (x) is not compatible with grafic file" );
+    DYABLO_ASSERT_HOST_RELEASE( 0 == header.ny%foreach_cell.blockSize()[IY], "Block size (y) is not compatible with grafic file" );
+    DYABLO_ASSERT_HOST_RELEASE( 0 == header.nz%foreach_cell.blockSize()[IZ], "Block size (z) is not compatible with grafic file" );
     set_or_check( "amr", "coarse_oct_resolution_x", header.nx/foreach_cell.blockSize()[IX] );
     set_or_check( "amr", "coarse_oct_resolution_y", header.ny/foreach_cell.blockSize()[IY] );
     set_or_check( "amr", "coarse_oct_resolution_z", header.nz/foreach_cell.blockSize()[IZ] );
@@ -215,7 +238,30 @@ public:
       Uinout.at( iCell, IV ) = rho_v;
       Uinout.at( iCell, IW ) = rho_w;
     });
+
+
   }
+
+/**
+ * Print header
+*/
+void printHeader(grafic_header hdr, std::string graficDir){
+
+ std::cout << "GRAFIC : reading initial Conditions from " << graficDir << std::endl
+           << "nx = " << hdr.nx << std::endl
+           << "ny = " << hdr.ny << std::endl
+           << "nz = " << hdr.nz << std::endl
+           << "x0 = " << hdr.xo << std::endl
+           << "y0 = " << hdr.yo << std::endl
+           << "z0 = " << hdr.zo << std::endl
+           << "dx = " << hdr.dx << std::endl
+           << "astart = " << hdr.astart << std::endl
+           << "H0 = " << hdr.H0 << std::endl
+           << "om = " << hdr.om << std::endl
+           << "ov = " << hdr.ov << std::endl
+      //     << "mass0 = " << mass0 << std::endl
+           << "##########################" << std::endl;
+}
 
 private:
   std::string graficDir;
