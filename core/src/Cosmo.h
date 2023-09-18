@@ -75,7 +75,7 @@ real_t romberg(const Func& f, real_t a, real_t b, size_t max_steps, real_t acc)
  */
 class CosmoManager {
 private:
-  real_t integrate_da_dt(real_t a, real_t b, real_t tol)
+  static real_t integrate_da_dt(real_t omega_m, real_t omega_v, real_t a, real_t b, real_t tol)
   {
     constexpr int max_iterations=16;
     auto faexp_tilde = [&](real_t aexp)
@@ -118,7 +118,7 @@ public:
     lookup_t.reserve(lookup_size);
     for (size_t i=0; i < lookup_size; ++i) {
       real_t a = a_start + i*delta_a / (lookup_size-1);
-      real_t t = -0.5 * sqrt(omega_m) * integrate_da_dt(a, 1.0, 1.0e-8);
+      real_t t = -0.5 * sqrt(omega_m) * integrate_da_dt(omega_m, omega_v, a, 1.0, 1.0e-8);
       lookup_a.push_back(a);
       lookup_t.push_back(t);
     }
@@ -134,8 +134,13 @@ public:
     }
   }
 
-  real_t compute_cosmo_dt(const real_t a) {
-    return -0.5 * sqrt(omega_m) * integrate_da_dt(a*da, a, 1.0e-8);
+  static real_t static_compute_cosmo_dt(real_t omega_m, real_t omega_v, real_t a, real_t da) {
+    return -0.5 * sqrt(omega_m) * integrate_da_dt(omega_m, omega_v, a*da, a, 1.0e-8);
+  }
+
+  real_t compute_cosmo_dt(real_t a)
+  {
+    return static_compute_cosmo_dt(omega_m, omega_v, a, da);
   }
 
 
