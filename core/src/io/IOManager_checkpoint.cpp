@@ -77,6 +77,11 @@ public:
       LightOctree::Storage_t::oct_data_t oct_data_transpose;
       userdata_utils::transpose_to_right_iOct<0>( oct_data, oct_data_transpose );
       hdf5_file.collective_write("Octree", oct_data_transpose);
+
+      scalar_data.foreach_var( [&]( const std::string& name, auto val )
+      {
+        hdf5_file.write_scalar(std::string("scalar_data/")+name, val);
+      });
     }
 
     // Write .ini file

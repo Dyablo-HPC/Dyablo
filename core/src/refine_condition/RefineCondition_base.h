@@ -22,7 +22,7 @@ public:
   //               ForeachCell& foreach_cell,
   //               Timers& timers );
   virtual ~RefineCondition(){}
-  virtual void mark_cells( const UserData& U, ScalarSimulationData& scalar_data) = 0;
+  virtual void mark_cells( UserData& U, ScalarSimulationData& scalar_data) = 0;
 };
 
 using RefineConditionFactory = RegisteringFactory< RefineCondition, 

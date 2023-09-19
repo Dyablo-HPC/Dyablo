@@ -53,6 +53,43 @@ public:
     }
   }
 
+  template< typename T >
+  void write_scalar( const std::string& varpath, const T& value)
+  {
+    hid_t type_id = hdf5_type_id<T>();
+    hid_t filespace = H5Screate(H5S_SCALAR);
+    hid_t dataset = H5Pcreate(H5P_ATTRIBUTE_CREATE);
+
+    hid_t group_id;
+    std::string varname;
+    {
+      auto slash_pos = varpath.find_last_of('/');
+      
+      std::string group_path;
+      if( slash_pos != std::string::npos )
+      {
+        group_path = varpath.substr( 0, slash_pos );
+        varname = varpath.substr( slash_pos+1 );
+      }
+      else
+      {
+        group_path = "";
+        varname = varpath;
+      }
+
+      group_id = get_group(group_path);
+    }
+
+    hid_t attr = H5Acreate2(group_id, varname.c_str(), type_id, filespace, dataset, H5P_DEFAULT);
+
+    H5Awrite( attr, type_id, &value );
+  
+    H5Aclose(attr);
+    H5Gclose(group_id);
+    H5Pclose(dataset);
+    H5Sclose(filespace);
+  }
+
   /**
    * Same as `collective_write_hint` but `global_extent` and `first_global_index`
    * are determined using MPI communications.
@@ -128,21 +165,7 @@ public:
         varname = varpath;
       }
 
-      std::stringstream ss (group_path);
-      group_id = m_hdf5_file;
-      std::string group_name;
-      while( getline (ss, group_name, '/' ) )
-      {
-        hid_t group_id_old = group_id;
-        htri_t group_exists = H5Lexists(group_id, group_name.c_str(), H5P_DEFAULT);
-        if( group_exists <= 0 ) // Does not exist : create
-          group_id = H5Gcreate(group_id, group_name.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-        else // Group exists
-          group_id = H5Gopen(group_id, group_name.c_str(), H5P_DEFAULT);
-        
-        if( group_id_old != m_hdf5_file )
-          H5Gclose(group_id_old);
-      }
+      group_id = get_group(group_path);
     }
 
     hid_t dataset;
@@ -182,6 +205,26 @@ public:
 private:
   hid_t m_hdf5_file; // HDF5 file descriptor
   MpiComm m_mpi_comm;
+
+  hid_t get_group(const std::string& group_path)
+  {
+    std::stringstream ss (group_path);
+    hid_t group_id = m_hdf5_file;
+    std::string group_name;
+    while( getline (ss, group_name, '/' ) )
+    {
+      hid_t group_id_old = group_id;
+      htri_t group_exists = H5Lexists(group_id, group_name.c_str(), H5P_DEFAULT);
+      if( group_exists <= 0 ) // Does not exist : create
+        group_id = H5Gcreate(group_id, group_name.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+      else // Group exists
+        group_id = H5Gopen(group_id, group_name.c_str(), H5P_DEFAULT);
+      
+      if( group_id_old != m_hdf5_file )
+        H5Gclose(group_id_old);
+    }
+    return group_id;
+  }
 };
 
 } // namespace dyablo

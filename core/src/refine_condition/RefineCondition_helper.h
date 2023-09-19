@@ -73,7 +73,7 @@ public:
       refineCondition_formula(configMap)
   {}
 
-  void mark_cells( const UserData& U, ScalarSimulationData& scalar_data)
+  void mark_cells( UserData& U, ScalarSimulationData& scalar_data)
   {
     int ndim = foreach_cell.getDim();
     if( ndim == 2 )
@@ -83,7 +83,7 @@ public:
   }
 
   template< int ndim >
-  void mark_cells_aux( const UserData& U, ScalarSimulationData& scalar_data )
+  void mark_cells_aux( UserData& U, ScalarSimulationData& scalar_data )
   {
     using CellIndex = ForeachCell::CellIndex;
 

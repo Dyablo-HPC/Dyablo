@@ -191,6 +191,11 @@ public:
         particles.distributeParticles(array_name);
     }
 
+    void distributeAllParticles()
+    {
+        particles.distributeAllParticles();
+    }
+
 private:
     UserData_fields fields;
     UserData_particles particles;

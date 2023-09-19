@@ -12,8 +12,8 @@ class RefineCondition_legacy : public RefineCondition
 {
 public:
   RefineCondition_legacy( ConfigMap& configMap,
-                ForeachCell& foreach_cell,
-                Timers& timers )
+                          ForeachCell& foreach_cell,
+                          Timers& timers )
     : foreach_cell(foreach_cell),
       timers(timers),
       error_min ( configMap.getValue<real_t>("amr", "error_min", 0.2) ),
@@ -32,7 +32,7 @@ public:
       smallp( smallc*smallc/gamma0 )
   {}
 
-  void mark_cells( const UserData& U_, ScalarSimulationData& scalar_data )
+  void mark_cells( UserData& U_, ScalarSimulationData& scalar_data )
   {
     int ndim = foreach_cell.getDim();
 

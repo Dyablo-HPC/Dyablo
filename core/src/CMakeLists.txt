@@ -12,9 +12,11 @@ set( core_src
     ${CMAKE_CURRENT_SOURCE_DIR}/gravity/GravitySolver_constant.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gravity/GravitySolver_cg.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/compute_dt/Compute_dt_hydro.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/compute_dt/Compute_dt_cosmology.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/compute_dt/Compute_dt_particle_velocity.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/refine_condition/RefineCondition_second_derivative_error.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/refine_condition/RefineCondition_pseudo_gradient.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/refine_condition/RefineCondition_mass.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/particles/ParticleUpdate_tracers_move.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/particles/ParticleUpdate_NGP_move.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/particles/ParticleUpdate_NGP_density.cpp
@@ -33,6 +35,8 @@ set( ic_src
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_MHD_rotor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_simple_particles.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_sod.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_particle_grid.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_grafic_fields.cpp
 )
      
 set( legacy_src

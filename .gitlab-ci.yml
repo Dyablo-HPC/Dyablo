@@ -49,8 +49,13 @@ after_script:
   stage: build
   artifacts:
     paths:
-      - build/dyablo/test/solver
-      - build/dyablo/unit_test
+      - build/dyablo/test/solver/test_solver
+      - build/dyablo/test/solver/*.ini
+      - build/dyablo/test/solver/*.pvsm
+      - build/dyablo/unit_test/utest_*
+      - build/dyablo/unit_test/block_data
+      - build/dyablo/unit_test/hydro
+      - build/dyablo/unit_test/CTestTestfile.cmake
     expire_in: 1 week
   extends: .rules_mr_always_branch_manual
 

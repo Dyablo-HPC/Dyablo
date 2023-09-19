@@ -20,7 +20,7 @@ public:
   {}
 
   template <typename T> 
-  T& get( const std::string& name )
+  const T& get( const std::string& name ) const
   {
     try{
         return getMap<T>().at(name);
@@ -47,9 +47,43 @@ public:
   }
 
   template <typename T> 
+  T& get( const std::string& name )
+  {
+    const T& res_const = static_cast< const MultiTypeMap* >(this)->get<T>(name);
+    return const_cast<T&>( res_const );
+  }
+
+  template <typename T> 
   void set( const std::string& name, const T& v )
   {
     getMap<T>()[name] = v;
+  }
+
+  template <typename T, typename Func>
+  void foreach_var_t(const Func& f)
+  {
+    for( const auto& p : getMap<T>()  )
+    {
+      f( p.first, p.second );
+    }
+  }
+
+  template <typename Func>
+  void foreach_var(const Func& f)
+  {
+    ( foreach_var_t<Ts>(f), ... );
+  }
+
+  void print()
+  {
+    std::cout << "scalar_data : ";
+
+    foreach_var( [](const std::string& name, auto val)
+    {
+      std::cout << name << "=" << val << " ";
+    } );
+    
+    std::cout << std::endl;
   }
 
 private:
@@ -57,6 +91,13 @@ private:
   
   template< typename T >
   map_t<T>& getMap()
+  {
+    static_assert( (std::is_same_v<T, Ts> || ...), "Type not included in MultiTypeMap type list" );
+    return std::get<map_t<T>>(maps);
+  }
+
+  template< typename T >
+  const map_t<T>& getMap() const
   {
     static_assert( (std::is_same_v<T, Ts> || ...), "Type not included in MultiTypeMap type list" );
     return std::get<map_t<T>>(maps);
