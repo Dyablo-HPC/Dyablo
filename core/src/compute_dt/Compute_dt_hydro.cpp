@@ -77,9 +77,9 @@ public:
       PrimState qLoc = consToPrim<3>(uLoc, gamma0);
       const real_t cs = sqrt(qLoc.p * gamma0 / qLoc.rho);
 
-      real_t vx = cs + qLoc.u;
-      real_t vy = cs + qLoc.v;
-      real_t vz = (ndim==2)? 0 : cs + qLoc.w;
+      real_t vx = cs + FABS(qLoc.u);
+      real_t vy = cs + FABS(qLoc.v);
+      real_t vz = (ndim==2)? 0 : cs + FABS(qLoc.w);
 
       inv_dt_update = FMAX( inv_dt_update, vx/dx + vy/dy + vz/dz );
 
