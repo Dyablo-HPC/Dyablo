@@ -92,12 +92,12 @@ public:
     PatchArray::Ref Ugroup_ = foreach_cell.reserve_patch_tmp("Ugroup", 2, 2, (ndim == 3)?2:0, fm_cons, State::N);
     PatchArray::Ref Qgroup_ = foreach_cell.reserve_patch_tmp("Qgroup", 2, 2, (ndim == 3)?2:0, fm_prim, State::N);
     PatchArray::Ref rhs_    = foreach_cell.reserve_patch_tmp("rhs", 0, 0, 0, fm_cons, State::N);
-  
-    std::string kernel_name = "Parabolic[explicit] ";
-    kernel_name += term_type;
-    timers.get(kernel_name).start();
 
     ParabolicTerm parabolic_term{configMap};
+
+    std::string kernel_name = "Parabolic[explicit] " + named_enum<ParabolicTermType>::to_string(term_type);
+    timers.get(kernel_name).start();
+
     BoundaryConditions bc_manager = this->bc_manager;
     RiemannParams params{configMap};
 
