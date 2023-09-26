@@ -113,10 +113,22 @@ public:
   level_t getLevelGhost( uint32_t idx ) const
   { return storage.getLevel( {idx, true} ); }
 
+  
+
   struct GhostMap_t
   {
       Kokkos::View< uint32_t* > send_sizes; // Number of octants to send to each process (of size nb_proc)
       Kokkos::View< uint32_t* > send_iOcts; // Octants to send (of size sum(send_sizes(i)) )
+      
+      enum Face{
+        XL, XR,
+        YL, YR,
+        ZL, ZR,
+        FACE_COUNT
+      };
+      using CellMask = uint8_t;
+
+      Kokkos::View<CellMask*> send_cell_masks;
   };
 
   // Output is not used in AMRmesh_impl

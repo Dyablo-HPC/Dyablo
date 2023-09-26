@@ -266,6 +266,7 @@ struct NeighborPair
   int rank_neighbor;
 };
 
+
 AMRmesh_hashmap_new::GhostMap_t discover_ghosts(
   const LightOctree_storage<>& storage_device,
   const std::vector<morton_t>& morton_intervals_,
@@ -273,6 +274,9 @@ AMRmesh_hashmap_new::GhostMap_t discover_ghosts(
   const Kokkos::Array<bool,3>& periodic,
   const MpiComm& mpi_comm)
 {
+  using CellMask = AMRmesh_hashmap_new::GhostMap_t::CellMask;
+  using Face = AMRmesh_hashmap_new::GhostMap_t::Face;
+
   int mpi_rank = mpi_comm.MPI_Comm_rank();
   int mpi_size = mpi_comm.MPI_Comm_size();
   int ndim = storage_device.getNdim();
@@ -285,9 +289,8 @@ AMRmesh_hashmap_new::GhostMap_t discover_ghosts(
     Kokkos::deep_copy( morton_intervals_device, morton_intervals_host );
   }
   
-  
   size_t neighbor_count_guess = storage_device.getNumOctants();
-  Kokkos::UnorderedMap< NeighborPair, void > neighborMap( neighbor_count_guess );
+  Kokkos::UnorderedMap< NeighborPair, CellMask > neighborMap( neighbor_count_guess );
 
   // Storage must be allocated before launching the kernel, 
   // but we don't know the number of ghosts to send :
@@ -333,13 +336,19 @@ AMRmesh_hashmap_new::GhostMap_t discover_ghosts(
         return rank;
       };
 
-      // Register current octant as ghost for neighbor_rank
-      auto register_neighbor = [&]( int neighbor_rank )
+      // Register current octant as ghost for neighbor_rank, aggregate masks for faces
+      auto register_neighbor = [&]( int neighbor_rank, Face face )
       {
         if(neighbor_rank != mpi_rank)
         {
-          auto insert_result = neighborMap.insert( NeighborPair{iOct, neighbor_rank } );
-          if( insert_result.failed() )
+          CellMask faceMask = 1 << face;
+          auto insert_result = neighborMap.insert( NeighborPair{iOct, neighbor_rank }, faceMask );
+          if( insert_result.existing() )
+          {
+            int it = neighborMap.find(NeighborPair{iOct, neighbor_rank });
+            Kokkos::atomic_or( &neighborMap.value_at( it ), faceMask );
+          }
+          else if( insert_result.failed() )
             first_fail_local = first_fail_local < iOct ? first_fail_local : iOct;
         }
       };
@@ -369,6 +378,18 @@ AMRmesh_hashmap_new::GhostMap_t discover_ghosts(
         morton_t morton_n = compute_morton( pos_n, level );
         int neighbor_rank = find_rank( morton_n );
 
+        Face neighbor_face; // face of current cell facing neighbor
+        if      ( dx==-1 ) neighbor_face = Face::XL; // Whole face is included for corners 
+        else if ( dx== 1 ) neighbor_face = Face::XR; 
+        else if ( dy==-1 ) neighbor_face = Face::YL;
+        else if ( dy== 1 ) neighbor_face = Face::YR;
+        else if ( dz==-1 ) neighbor_face = Face::ZL;
+        else if ( dz== 1 ) neighbor_face = Face::ZR;
+        else 
+        {
+          DYABLO_ASSERT_KOKKOS_DEBUG( false, "discover_ghosts : cannot determine face");
+        }
+
         // Verify that the whole same-size virtual neighbor is owned by neighbor_rank
         // i.e : last suboctant of same-size neighbor is owned by the same MPI
         // TODO : get morton of last neighbor to filter even more
@@ -376,7 +397,7 @@ AMRmesh_hashmap_new::GhostMap_t discover_ghosts(
                 morton_next = shift_level(morton_next, level_max-level);
         if( level<level_max && morton_next < morton_intervals_device(neighbor_rank+1) )
         {// Neighbors are owned by only one MPI
-          register_neighbor(neighbor_rank);
+          register_neighbor(neighbor_rank, neighbor_face);
         }
         else
         {// Neighbors may be scattered between multiple MPIs  
@@ -403,7 +424,7 @@ AMRmesh_hashmap_new::GhostMap_t discover_ghosts(
             };
             morton_t m_suboctant = compute_morton( pos_n_smaller, level+1 );
             int neighbor_rank = find_rank(m_suboctant);
-            register_neighbor(neighbor_rank);
+            register_neighbor(neighbor_rank, neighbor_face);
           }
         }
       }
@@ -449,6 +470,7 @@ AMRmesh_hashmap_new::GhostMap_t discover_ghosts(
     
     // Fill to_send_device with neighbors to send to other ranks
     Kokkos::View<oct_index_t*> to_send_device("discover_ghosts::to_send", to_send_count_total);
+    Kokkos::View<CellMask*> to_send_masks("discover_ghosts::masks", to_send_count_total);
     Kokkos::parallel_for( "fill_neighbors", neighborMap.capacity(),
       KOKKOS_LAMBDA( uint32_t i )
     {
@@ -457,10 +479,13 @@ AMRmesh_hashmap_new::GhostMap_t discover_ghosts(
         const NeighborPair& p = neighborMap.key_at(i);
         oct_index_t offset = Kokkos::atomic_fetch_add( &to_send_offset_device(p.rank_neighbor), 1 );
         to_send_device( offset ) = p.iOct_local;
+        const CellMask& m = neighborMap.value_at(i);
+        to_send_masks( offset ) = m;
       }
     });
 
     to_send.send_iOcts = to_send_device;
+    to_send.send_cell_masks = to_send_masks;
   }
 
   return to_send;  

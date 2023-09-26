@@ -57,6 +57,7 @@ set( legacy_src
 
 set( mpi_src
     ${CMAKE_CURRENT_SOURCE_DIR}/mpi/GhostCommunicator_kokkos.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mpi/GhostCommunicator_partial_blocks.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mpi/GhostCommunicator_pablo.cpp
 )
 
