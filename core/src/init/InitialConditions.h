@@ -11,6 +11,7 @@ class InitialConditions_analytical;
 
 // Restart
 class InitialConditions_restart;
+class InitialConditions_tiled_restart;
 
 // Hydrodynamics
 class AnalyticalFormula_blast;
@@ -46,6 +47,7 @@ bool dyablo::InitialConditionsFactory::init()
 {
 #ifdef DYABLO_USE_HDF5
   DECLARE_REGISTERED( dyablo::InitialConditions_restart );
+  DECLARE_REGISTERED( dyablo::InitialConditions_tiled_restart );
 #endif
 
   DECLARE_REGISTERED( dyablo::InitialConditions_simple_particles );
