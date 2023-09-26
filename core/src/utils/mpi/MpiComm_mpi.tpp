@@ -111,6 +111,26 @@ void MpiComm::MPI_Alltoall( const T* sendbuf, int sendcount, T* recvbuf, int rec
                   mpi_comm_id );
 }
 
+template<typename T>
+void MpiComm::MPI_Alltoallv( const T* sendbuf, const int* sendcounts, T* recvbuf, const int* recvcounts ) const
+{
+  using namespace MpiComm_impl;
+  int mpi_size = this->MPI_Comm_size();
+  std::vector<int> senddispls(mpi_size);
+  std::vector<int> recvdispls(mpi_size);
+  int ssum = 0, rsum=0;
+  for( int i=0; i<mpi_size; i++ )
+  {
+    senddispls[i] = ssum;
+    recvdispls[i] = rsum;
+    ssum += sendcounts[i];
+    rsum += recvcounts[i];
+  }
+  ::MPI_Alltoallv( sendbuf, sendcounts, senddispls.data(), mpi_type<T>(), 
+                   recvbuf, recvcounts, recvdispls.data(), mpi_type<T>(),
+                   mpi_comm_id );
+}
+
 template<typename Kokkos_View_t>
 MpiComm::MPI_Request_t MpiComm::MPI_Isend( const Kokkos_View_t& view, int dest, int tag ) const
 {
