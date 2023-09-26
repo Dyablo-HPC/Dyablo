@@ -17,7 +17,7 @@ Modularity is also key to use state-of-the-art libraries interchangeably, reuse 
 Dyablo includes Kokkos and PABLO as git submodules. Make sure to clone this repository recursively, this will also download Kokkos and PABLO from github.
 
 ```bash
-git clone --recurse-submodules git@gitlab.maisondelasimulation.fr:pkestene/dyablo.git
+git clone --recurse-submodules git@drf-gitlab.cea.fr:dyablo/dyablo.git
 ```
 
 or if you already cloned the repository without --recurse-submodules :
@@ -76,7 +76,7 @@ cmake -DCMAKE_BUILD_TYPE=Release -DKokkos_ENABLE_CUDA=ON  ..
 make
 ```
 
-Build commands for some linux distributions and supercomputers can be found [here](https://gitlab.maisondelasimulation.fr/pkestene/dyablo/-/wikis/Build%20and%20Run/Build%20commands%20on%20specific%20systems) to help you find the right packages or modules as well as the command line to use to compile Dyablo.
+Build commands for some linux distributions and supercomputers can be found [here](https://drf-gitlab.cea.fr/dyablo/dyablo/-/wikis/Build%20and%20Run/Build%20commands%20on%20specific%20systems) to help you find the right packages or modules as well as the command line to use to compile Dyablo.
 
 Configuration options for Dyablo ( `cmake -D` arguments ) include :
 - `-DCMAKE_BUILD_TYPE=<buildtype>` : `Release` (recommended for performance), `Debug` (enables asserts and debug symbols), `RelWithDebInfo`
@@ -134,7 +134,7 @@ If you used the XDMF+HDF5 output backend, Dyablo should produce *.h5 and *.xmf f
 
 # More information
 
-For now, just visit the wiki page https://gitlab.maisondelasimulation.fr/pkestene/dyablo/wikis/home
+For now, just visit the wiki page https://drf-gitlab.cea.fr/dyablo/dyablo/-/wikis/home
 
 
 
