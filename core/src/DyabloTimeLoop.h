@@ -16,6 +16,8 @@
 #include "hydro/HydroUpdate.h"
 #include "particles/ParticleUpdate.h"
 #include "amr/MapUserData.h"
+#include "parabolic/ParabolicUpdate.h"
+#include "cooling/CoolingUpdate.h"
 #include "UserData.h"
 #include "Cosmo.h"
 
@@ -297,6 +299,7 @@ public:
 
     std::string godunov_updater_id = configMap.getValue<std::string>("hydro", "update", "HydroUpdate_hancock");
     this->has_mhd = godunov_updater_id.find("MHD") != std::string::npos;
+    this->is_glm  = godunov_updater_id.find("GLM") != std::string::npos;
     this->godunov_updater = HydroUpdateFactory::make_instance( godunov_updater_id,
       configMap,
       this->m_foreach_cell,
@@ -361,6 +364,38 @@ public:
       timers
     );
 
+    std::string viscosity_updater_id = configMap.getValue<std::string>("viscosity", "update", "none");
+    if (viscosity_updater_id != "none") {
+      this->viscosity_updater = ParabolicUpdateFactory::make_instance( viscosity_updater_id,
+        configMap,
+        m_foreach_cell,
+        timers,
+        PARABOLIC_VISCOSITY
+      );
+    }
+    std::string tc_updater_id = configMap.getValue<std::string>("thermal_conduction", "update", "none");
+    if (tc_updater_id != "none") {
+      this->thermal_conduction_updater = ParabolicUpdateFactory::make_instance( tc_updater_id,
+        configMap,
+        m_foreach_cell,
+        timers,
+        PARABOLIC_THERMAL_CONDUCTION
+      );
+    }
+
+    std::string cooling_updater_id = configMap.getValue<std::string>("cooling", "update", "none");
+    if (cooling_updater_id != "none") {
+      this->cooling_updater = CoolingUpdateFactory::make_instance( cooling_updater_id,
+        configMap,
+        m_foreach_cell,
+        timers);
+    }
+
+    // Sanity check : No sense in doing parabolic update nor cooling without hydro 
+    DYABLO_ASSERT_HOST_RELEASE(godunov_updater || !viscosity_updater, "Cannot have viscosity without hydro !");
+    DYABLO_ASSERT_HOST_RELEASE(godunov_updater || !thermal_conduction_updater, "Cannot have thermal conduction without hydro !");
+    DYABLO_ASSERT_HOST_RELEASE(godunov_updater || !cooling_updater, "Cannot have cooling without hydro");
+
     int rank = m_communicator.MPI_Comm_rank();
     if (rank==0) {
       std::cout << "##########################" << "\n";
@@ -375,6 +410,12 @@ public:
       std::cout << "Compute dt         : "; 
         for( const std::string& id : compute_dt_ids )
           std::cout << "`" << id << "` ";
+      if (viscosity_updater_id != "none") 
+        std::cout << std::endl << "Viscosity solver : " << viscosity_updater_id << std::endl;
+      if (tc_updater_id != "none") 
+        std::cout << "Thermal conduction solver : " << tc_updater_id << std::endl;
+      if (cooling_updater_id != "none")
+        std::cout << "Cooling : " << cooling_updater_id << std::endl;
       std::cout << std::endl;
       std::cout << "##########################" << std::endl;
     }
@@ -568,10 +609,20 @@ public:
     {
       U.new_fields({"rho_next", "e_tot_next", "rho_vx_next", "rho_vy_next", "rho_vz_next"});    
       // TODO automatic new fields according to kernel
-      if( this->has_mhd )
+      if( this->has_mhd ) {
         U.new_fields({"Bx_next", "By_next", "Bz_next"});
+        if (this->is_glm)
+          U.new_fields({"psi_next"});
+      }
 
       godunov_updater->update( U, m_scalar_data );
+
+      if ( viscosity_updater )
+        viscosity_updater->update( U, m_scalar_data );
+      if ( thermal_conduction_updater )
+        thermal_conduction_updater->update( U, m_scalar_data );   
+      if ( cooling_updater )
+        cooling_updater->update( U, m_scalar_data );
 
       U.move_field( "rho", "rho_next" ); 
       U.move_field( "e_tot", "e_tot_next" ); 
@@ -583,8 +634,12 @@ public:
         U.move_field( "Bx", "Bx_next" ); 
         U.move_field( "By", "By_next" ); 
         U.move_field( "Bz", "Bz_next" );
+        if (this->is_glm)
+          U.move_field( "psi", "psi_next" );
       }
     }
+
+     
 
     m_iteration_handler->next_iter(m_scalar_data);
     
@@ -674,13 +729,17 @@ private:
   std::vector<std::unique_ptr<Compute_dt>> compute_dt;
   std::unique_ptr<RefineCondition> refine_condition;
   std::unique_ptr<HydroUpdate> godunov_updater;
-  bool has_mhd; // TODO : remove this
+  bool has_mhd, is_glm; // TODO : remove this
   std::unique_ptr<ParticleUpdate> particle_position_updater, particle_update_density;
   std::unique_ptr<MapUserData> mapUserData;
   std::unique_ptr<IOManager> io_manager, io_manager_checkpoint;
   std::unique_ptr<GravitySolver> gravity_solver;
 
   std::unique_ptr<CosmoManager> cosmo_manager;
+
+  std::unique_ptr<ParabolicUpdate> thermal_conduction_updater;
+  std::unique_ptr<ParabolicUpdate> viscosity_updater;
+  std::unique_ptr<CoolingUpdate> cooling_updater;
 
   Timers timers;
 };

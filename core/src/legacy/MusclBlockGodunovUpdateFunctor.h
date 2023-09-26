@@ -67,7 +67,8 @@ HydroState3d riemann_hydro( const HydroState3d& qleft_,
   PrimHydroState qleft{qleft_[fm_state[ID]], qleft_[fm_state[IP]], qleft_[fm_state[IU]], qleft_[fm_state[IV]], qleft_[fm_state[IW]]};
   PrimHydroState qright{qright_[fm_state[ID]], qright_[fm_state[IP]], qright_[fm_state[IU]], qright_[fm_state[IV]], qright_[fm_state[IW]]};
   ConsHydroState flux;
-  riemann_hllc(qleft,qright,flux,params);
+  real_t p_out; // discarded
+  riemann_hllc(qleft,qright,flux,params,p_out);
   HydroState3d flux_;
   flux_[fm_state[ID]] = flux.rho;
   flux_[fm_state[IP]] = flux.e_tot;
@@ -86,8 +87,9 @@ HydroState2d riemann_hydro( const HydroState2d& qleft_,
 
   PrimHydroState qleft{qleft_[fm_state[ID]], qleft_[fm_state[IP]], qleft_[fm_state[IU]], qleft_[fm_state[IV]], 0.0};
   PrimHydroState qright{qright_[fm_state[ID]], qright_[fm_state[IP]], qright_[fm_state[IU]], qright_[fm_state[IV]], 0.0};
-  ConsHydroState flux;
-  riemann_hllc(qleft,qright,flux,params);
+  ConsHydroState flux;  
+  real_t p_out; // discarded
+  riemann_hllc(qleft,qright,flux,params,p_out);
   HydroState2d flux_;
   flux_[fm_state[ID]] = flux.rho;
   flux_[fm_state[IP]] = flux.e_tot;

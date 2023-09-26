@@ -53,3 +53,31 @@ inline named_enum<GravityType>::init_list named_enum<GravityType>::names()
     {GravityType::GRAVITY_FIELD,  "field"},
   };
 }
+
+enum ParabolicTermType {
+  PARABOLIC_VISCOSITY,
+  PARABOLIC_THERMAL_CONDUCTION 
+};
+
+template<>
+inline named_enum<ParabolicTermType>::init_list named_enum<ParabolicTermType>::names() 
+{
+  return {
+    {ParabolicTermType::PARABOLIC_VISCOSITY,          "viscosity"},
+    {ParabolicTermType::PARABOLIC_THERMAL_CONDUCTION, "thermal_conduction"},
+  };
+}
+
+enum DiffusivityMode {
+  DM_CONSTANT,
+  DM_ANALYTICAL 
+};
+
+template<>
+inline named_enum<DiffusivityMode>::init_list named_enum<DiffusivityMode>::names() 
+{
+  return {
+    {DiffusivityMode::DM_CONSTANT, "constant"},
+    {DiffusivityMode::DM_ANALYTICAL, "analytical"},
+  };
+}

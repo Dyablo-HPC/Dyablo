@@ -27,8 +27,10 @@ inline bool dyablo::HydroUpdateFactory::init()
   DECLARE_REGISTERED(dyablo::HydroUpdate_hancock<dyablo::MHDState>);
   DECLARE_REGISTERED(dyablo::HydroUpdate_euler<dyablo::HydroState>);
   DECLARE_REGISTERED(dyablo::HydroUpdate_euler<dyablo::MHDState>);
+  DECLARE_REGISTERED(dyablo::HydroUpdate_euler<dyablo::GLMMHDState>);
   DECLARE_REGISTERED(dyablo::HydroUpdate_RK2<dyablo::HydroState>);
   DECLARE_REGISTERED(dyablo::HydroUpdate_RK2<dyablo::MHDState>);
+  DECLARE_REGISTERED(dyablo::HydroUpdate_RK2<dyablo::GLMMHDState>);
 
   return true;
 }

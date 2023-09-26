@@ -129,16 +129,31 @@ void run_test(int ndim, std::string HydroUpdate_id ) {
   std::cout << "// =========================================\n";
 
   bool has_mhd = HydroUpdate_id.find("MHD") != std::string::npos;
+  bool is_glm  = HydroUpdate_id.find("GLM") != std::string::npos;
 
-  // Content of .ini file used ton configure configmap and HydroParams
-  std::string configmap_str = 
-    "[output]\n"
-    "outputPrefix=test_Conservativity\n"
-    "write_variables=rho,e_tot,Bx,By,Bz,level,rank\n"
-    "enable_hdf5=on\n"
-    "[amr]\n"
-    "use_block_data=yes\n"
-    "\n";
+  // Content of .ini file used to configure configmap and HydroParams
+  std::string configmap_str;
+  if (has_mhd) {
+    configmap_str = 
+        "[output]\n"
+        "outputPrefix=test_Conservativity\n"
+        "write_variables=rho,e_tot,Bx,By,Bz,level,rank\n"
+        "enable_hdf5=on\n"
+        "[amr]\n"
+        "use_block_data=yes\n"
+        "\n";
+  }
+  else {
+    configmap_str = 
+        "[output]\n"
+        "outputPrefix=test_Conservativity\n"
+        "write_variables=rho,e_tot,level,rank\n"
+        "enable_hdf5=on\n"
+        "[amr]\n"
+        "use_block_data=yes\n"
+        "\n";
+  }
+
   ConfigMap configMap(configmap_str);
 
   // Set ndim in configmap
@@ -216,8 +231,14 @@ void run_test(int ndim, std::string HydroUpdate_id ) {
 
       // TODO automatic new fields according to kernel
       U.new_fields({"rho_next", "e_tot_next", "rho_vx_next", "rho_vy_next", "rho_vz_next"});
-      if( has_mhd )
+      if( has_mhd ) {
         U.new_fields({"Bx_next", "By_next", "Bz_next"});
+        if ( is_glm ) {
+          if (!U.has_field("psi"))
+            U.new_fields({"psi"});
+          U.new_fields({"psi_next"});
+        }
+      }
 
       updater->update(U, scalar_data); 
 
@@ -231,6 +252,8 @@ void run_test(int ndim, std::string HydroUpdate_id ) {
         U.move_field( "Bx", "Bx_next" ); 
         U.move_field( "By", "By_next" ); 
         U.move_field( "Bz", "Bz_next" );
+        if ( is_glm )
+          U.move_field( "psi", "psi_next" );
       }         
       
       time += scalar_data.get<real_t>("dt");

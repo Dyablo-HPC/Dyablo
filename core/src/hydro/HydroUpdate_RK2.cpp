@@ -98,13 +98,17 @@ public:
     timers(timers),
     params(configMap),
     bc_manager(configMap),
-    gravity_type(configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE))
+    gravity_type(configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE)),
+    well_balanced(configMap.getValue<bool>("hydro", "well_balanced", false))
   {
     if (gravity_type & GRAVITY_CONSTANT) {
       gx = configMap.getValue<real_t>("gravity", "gx",  0.0);
       gy = configMap.getValue<real_t>("gravity", "gy",  0.0);
       gz = configMap.getValue<real_t>("gravity", "gz",  0.0);
     } 
+
+    DYABLO_ASSERT_HOST_RELEASE((std::is_same_v<PrimState, PrimHydroState> || !well_balanced), 
+                               "Well balanced scheme not implemented for MHD solvers yet !");
   }
 
   ~HydroUpdate_RK2() {}
@@ -189,6 +193,10 @@ public:
     [[maybe_unused]] bool gravity_use_scalar = gravity_type==GRAVITY_CST_SCALAR;
     real_t gx = this->gx, gy = this->gy, gz = this->gz;
 
+    GravityInfo ginfo {gx, gy, gz, 
+                       has_gravity && gravity_use_scalar,
+                       this->well_balanced};
+
     DYABLO_ASSERT_HOST_RELEASE( !has_gravity || ( gravity_use_field != gravity_use_scalar ) ,
       "If gravity is on it must either use the force field from U or a constant scalar force field"  );
 
@@ -220,13 +228,13 @@ public:
         typename State::ConsState u0{};
         getConservativeState<ndim>(Uin, iCell_Uout, u0);
         setConservativeState<ndim>(Uout, iCell_Uout, u0);
-        euler_update<ndim, State>(params, IX, iCell_Uout, Uin, Qgroup, dt, size[IX], bc_manager, Uout);
-        euler_update<ndim, State>(params, IY, iCell_Uout, Uin, Qgroup, dt, size[IY], bc_manager, Uout);
+        euler_update<ndim, State>(params, IX, iCell_Uout, Uin, Qgroup, dt, size[IX], bc_manager, ginfo, Uout);
+        euler_update<ndim, State>(params, IY, iCell_Uout, Uin, Qgroup, dt, size[IY], bc_manager, ginfo, Uout);
         if(ndim==3) 
-          euler_update<ndim, State>(params, IZ, iCell_Uout, Uin, Qgroup, dt, size[IZ], bc_manager, Uout);
+          euler_update<ndim, State>(params, IZ, iCell_Uout, Uin, Qgroup, dt, size[IZ], bc_manager, ginfo, Uout);
       
         // Applying correction step for gravity
-        if (has_gravity)
+        if (has_gravity && !ginfo.apply_gravity_in_step)
           apply_gravity_correction<ndim, ConsState>(Uin, Uin_g, iCell_Uout, dt, gravity_use_field, gx, gy, gz, Uout);
       });
     });
@@ -264,6 +272,7 @@ private:
   
   GravityType gravity_type;
   real_t gx, gy, gz;
+  bool well_balanced;
 };
 
 }
@@ -276,3 +285,8 @@ FACTORY_REGISTER( dyablo::HydroUpdateFactory,
 FACTORY_REGISTER( dyablo::HydroUpdateFactory, 
                   dyablo::HydroUpdate_RK2<dyablo::MHDState>, 
                   "MHDUpdate_RK2")
+
+FACTORY_REGISTER( dyablo::HydroUpdateFactory, 
+                  dyablo::HydroUpdate_RK2<dyablo::GLMMHDState>, 
+                  "GLMMHDUpdate_RK2")
+
