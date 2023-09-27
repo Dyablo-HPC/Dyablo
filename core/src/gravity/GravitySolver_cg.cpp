@@ -1,7 +1,7 @@
 #include "GravitySolver_cg.h"
 
 #include "utils/monitoring/Timers.h"
-#include "mpi/GhostCommunicator.h"
+#include "mpi/GhostCommunicator_partial_blocks.h"
 #include "foreach_cell/ForeachCell_utils.h"
 #include <mpi.h>
 
@@ -172,7 +172,7 @@ void GravitySolver_cg::update_gravity_field( UserData& U, ScalarSimulationData& 
   real_t xmin = pdata->xmin, ymin = pdata->ymin, zmin = pdata->zmin;
   real_t xmax = pdata->xmax, ymax = pdata->ymax, zmax = pdata->zmax;
   Kokkos::Array<BoundaryConditionType, 3> boundarycondition = pdata->boundarycondition;
-  GhostCommunicator ghost_comm(std::shared_ptr<AMRmesh>(&foreach_cell.get_amr_mesh(), [](AMRmesh*){}));
+  GhostCommunicator_partial_blocks ghost_comm(foreach_cell.get_amr_mesh().getMesh(), U.getShape() );
 
   real_t eps = pdata->CG_eps;
 
@@ -240,7 +240,7 @@ void GravitySolver_cg::update_gravity_field( UserData& U, ScalarSimulationData& 
     it++;
     // Communicate ghosts for CG_IP
     // TODO : exchange only CG_IP
-    CGdata.exchange_ghosts(ghost_comm);
+    ghost_comm.exchange_ghosts(CGdata);
 
     // Compute p'Ap for alpha    
     real_t pAp = 0;    
@@ -297,7 +297,7 @@ void GravitySolver_cg::update_gravity_field( UserData& U, ScalarSimulationData& 
     std::cout << R << " : " << it << " iter" << std::endl;
   // Communicate ghosts for CG_PHI
   // TODO : exchange only CG_PHI 
-  CGdata.exchange_ghosts(ghost_comm);
+  ghost_comm.exchange_ghosts(CGdata);
 
   UserData::FieldAccessor Uout = U.getAccessor({ 
     {"gx", IGX},
