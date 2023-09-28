@@ -563,7 +563,9 @@ public:
         m_scalar_data.print();
     }
 
-    GhostCommunicator_partial_blocks ghost_comm(m_amr_mesh->getMesh(), U.getShape(), m_communicator);
+    int ghost_count = std::min( {U.getShape().bx, U.getShape().by, (uint32_t)2} );
+
+    GhostCommunicator_partial_blocks ghost_comm(m_amr_mesh->getMesh(), U.getShape(), ghost_count, m_communicator);
 
     auto communicate_ghosts = [&](std::vector< std::string > exchange_vars)
     {

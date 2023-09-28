@@ -13,9 +13,9 @@ namespace dyablo {
 class GhostCommunicator_partial_blocks
 {
 public:
-    GhostCommunicator_partial_blocks( const AMRmesh_hashmap_new& amr_mesh, const ForeachCell::CellArray_global_ghosted::Shape_t& shape, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() );
+    GhostCommunicator_partial_blocks( const AMRmesh_hashmap_new& amr_mesh, const ForeachCell::CellArray_global_ghosted::Shape_t& shape,  int ghost_count, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() );
 
-    void init( const AMRmesh_hashmap_new& amr_mesh, const ForeachCell::CellArray_global_ghosted::Shape_t& shape, const MpiComm& mpi_comm );
+    void init( const AMRmesh_hashmap_new& amr_mesh, const ForeachCell::CellArray_global_ghosted::Shape_t& shape, int ghost_count, const MpiComm& mpi_comm );
 
     template< typename AMRmesh_t >
     GhostCommunicator_partial_blocks( const AMRmesh_t& amr_mesh, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )

@@ -172,7 +172,8 @@ void GravitySolver_cg::update_gravity_field( UserData& U, ScalarSimulationData& 
   real_t xmin = pdata->xmin, ymin = pdata->ymin, zmin = pdata->zmin;
   real_t xmax = pdata->xmax, ymax = pdata->ymax, zmax = pdata->zmax;
   Kokkos::Array<BoundaryConditionType, 3> boundarycondition = pdata->boundarycondition;
-  GhostCommunicator_partial_blocks ghost_comm(foreach_cell.get_amr_mesh().getMesh(), U.getShape() );
+  int ghost_count = 1; 
+  GhostCommunicator_partial_blocks ghost_comm(foreach_cell.get_amr_mesh().getMesh(), U.getShape(), ghost_count );
 
   real_t eps = pdata->CG_eps;
 

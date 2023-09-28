@@ -332,7 +332,7 @@ void test_GhostCommunicator_partial_block()
   // GhostCommunicator_kokkos ghost_communicator( amr_mesh->getMesh());
   // ghost_communicator.exchange_ghosts<2>( U.fields.fields.U, U.fields.fields.Ughost );
 
-  GhostCommunicator_partial_blocks ghost_communicator( amr_mesh->getMesh(), U.getShape() );
+  GhostCommunicator_partial_blocks ghost_communicator( amr_mesh->getMesh(), U.getShape(), 2 );
   ghost_communicator.exchange_ghosts( Ua );
 
   // test that ghosts have the right value

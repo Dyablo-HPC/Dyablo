@@ -33,6 +33,7 @@ void precompute_facemask_cells( uint32_t bx, uint32_t by, uint32_t bz, uint32_t 
       z += zmin;
 
       uint32_t iCell = x + bx*y + bx*by*z;
+      DYABLO_ASSERT_KOKKOS_DEBUG( i0 + i < facemask_iCells.extent(1), "precompute_facemask_cells : too many cells");
       facemask_iCells(mask, i0 + i) = iCell;
     });
   };
@@ -46,7 +47,7 @@ void precompute_facemask_cells( uint32_t bx, uint32_t by, uint32_t bz, uint32_t 
     // add_cells( mask, 0, bx, 0, by, 0, bz );
     // continue;
 
-    int xmin = 0, xmax = bx;
+    uint32_t xmin = 0, xmax = bx; // avoid duplicates : all cells with x<xmin are already added
     if( has_face(mask, Face::XL) )
     {
       int xl_xmax = ghost_count;
@@ -55,12 +56,12 @@ void precompute_facemask_cells( uint32_t bx, uint32_t by, uint32_t bz, uint32_t 
     }
     if( has_face(mask, Face::XR) )
     {
-      int xr_xmin = bx-ghost_count;
+      int xr_xmin = std::max( bx-ghost_count, xmin ); // avoid adding cells already added when ghost_count < 2*bx
       add_cells( mask, xr_xmin, bx, 0, by, 0, bz );
       xmax = xr_xmin;
     }
     
-    int ymin = 0, ymax = by;
+    uint32_t ymin = 0, ymax = by;
     if( has_face(mask, Face::YL) )
     {
       int yl_ymax = ghost_count;
@@ -69,19 +70,21 @@ void precompute_facemask_cells( uint32_t bx, uint32_t by, uint32_t bz, uint32_t 
     }
     if( has_face(mask, Face::YR) )
     {
-      int yr_ymin = by-ghost_count;
+      int yr_ymin = std::max( by-ghost_count, ymin );
       add_cells( mask, xmin, xmax, yr_ymin, by, 0, bz );
       ymax = yr_ymin;
     }
 
+    uint32_t zmin = 0;
     if( has_face(mask, Face::ZL) )
     {
       int zl_zmax = ghost_count;
       add_cells( mask, xmin, xmax, ymin, ymax, 0, zl_zmax );
+      zmin = zl_zmax;
     }
     if( has_face(mask, Face::ZR) )
     {
-      int zr_zmin = bz-ghost_count;
+      int zr_zmin = std::max( bz-ghost_count, zmin );
       add_cells( mask, xmin, xmax, ymin, ymax, zr_zmin, bz );
     }
   }
@@ -92,24 +95,25 @@ void precompute_facemask_cells( uint32_t bx, uint32_t by, uint32_t bz, uint32_t 
 }
 
 
-GhostCommunicator_partial_blocks::GhostCommunicator_partial_blocks( const AMRmesh_hashmap_new& amr_mesh, const ForeachCell::CellArray_global_ghosted::Shape_t& shape, const MpiComm& mpi_comm )
+GhostCommunicator_partial_blocks::GhostCommunicator_partial_blocks( const AMRmesh_hashmap_new& amr_mesh, const ForeachCell::CellArray_global_ghosted::Shape_t& shape, int ghost_count, const MpiComm& mpi_comm )
   : mpi_comm(mpi_comm)
 {
-  init(amr_mesh, shape, mpi_comm);
+  init(amr_mesh, shape, ghost_count, mpi_comm);
 }
 
-void GhostCommunicator_partial_blocks::init( const AMRmesh_hashmap_new& amr_mesh, const ForeachCell::CellArray_global_ghosted::Shape_t& shape, const MpiComm& mpi_comm )
+void GhostCommunicator_partial_blocks::init( const AMRmesh_hashmap_new& amr_mesh, const ForeachCell::CellArray_global_ghosted::Shape_t& shape, int ghost_count, const MpiComm& mpi_comm )
 {
   using GhostMap_t = AMRmesh_hashmap_new::GhostMap_t;
 
   int mpi_size = mpi_comm.MPI_Comm_size();
+
+  DYABLO_ASSERT_HOST_RELEASE( ghost_count <= shape.bx || ghost_count <= shape.by, "GhostCommunicator_partial_blocks::init : ghost_count ("<<ghost_count<<") not compatible with block size (" << shape.bx << "," << shape.by << "," << shape.bz << ")"  );
 
   // Compute list of cells to send
   std::vector<int> send_sizes( mpi_size );
   Kokkos::View<uint32_t*> send_iOct;
   Kokkos::View<uint32_t*> send_iCell;
   {
-    int ghost_count = 2;
     int masks_count = (1 << 6);
     int max_icells = shape.bx*shape.by*shape.bz;
     Kokkos::View<uint32_t*> facemask_count("facemask_count", masks_count);// number of cells to add for facemask
