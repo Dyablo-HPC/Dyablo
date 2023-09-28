@@ -445,45 +445,40 @@ AMRmesh_hashmap_new::GhostMap_t discover_ghosts(
   {
     // Compute number of neighbors to send to each other rank
     Kokkos::View<oct_index_t*> to_send_count_device("discover_ghosts::to_send_count", mpi_size);
-    Kokkos::parallel_for( "discover_ghosts::count_neighbors", neighborMap.capacity(),
-      KOKKOS_LAMBDA( uint32_t i )
-    {
-      if( neighborMap.valid_at(i) )
-      {
-        const NeighborPair& p = neighborMap.key_at(i);
-        Kokkos::atomic_increment( &to_send_count_device(p.rank_neighbor) );
-      }
-    });
+    auto to_send_count_host = Kokkos::create_mirror_view( to_send_count_device );        
 
-    to_send.send_sizes = to_send_count_device;
-
-    // Compute offsets marking beginning of each process in a single contiguous list of neighbors
-    Kokkos::View<oct_index_t*> to_send_offset_device("discover_ghosts::to_send_offset", mpi_size);
-    oct_index_t to_send_count_total = 0; // Total number of neighbor octants
-    Kokkos::parallel_scan( "discover_ghosts::compute_offsets", mpi_size,
-      KOKKOS_LAMBDA( int rank, oct_index_t& offset_local, bool final )
-    {
-      if(final)
-        to_send_offset_device(rank) = offset_local;
-      offset_local += to_send_count_device(rank);
-    }, to_send_count_total);
-    
-    // Fill to_send_device with neighbors to send to other ranks
+    oct_index_t to_send_count_total = neighborMap.size();
     Kokkos::View<oct_index_t*> to_send_device("discover_ghosts::to_send", to_send_count_total);
     Kokkos::View<CellMask*> to_send_masks("discover_ghosts::masks", to_send_count_total);
-    Kokkos::parallel_for( "fill_neighbors", neighborMap.capacity(),
-      KOKKOS_LAMBDA( uint32_t i )
+    oct_index_t rank_first_offset = 0;
+    for( int rank=0; rank<mpi_size; rank++ )
     {
-      if( neighborMap.valid_at(i) )
+      oct_index_t rank_count = 0;
+      Kokkos::parallel_scan( "discover_ghosts::fill_neighbors", neighborMap.capacity(),
+        KOKKOS_LAMBDA( uint32_t i, oct_index_t& offset_local, bool final)
       {
-        const NeighborPair& p = neighborMap.key_at(i);
-        oct_index_t offset = Kokkos::atomic_fetch_add( &to_send_offset_device(p.rank_neighbor), 1 );
-        to_send_device( offset ) = p.iOct_local;
-        const CellMask& m = neighborMap.value_at(i);
-        to_send_masks( offset ) = m;
-      }
-    });
+        if( neighborMap.valid_at(i) )
+        {
+          const NeighborPair& p = neighborMap.key_at(i);
+          if( p.rank_neighbor == rank )
+          {
+            if(final)
+            {
+              oct_index_t offset = rank_first_offset + offset_local;
+              to_send_device( offset ) = p.iOct_local;
+              CellMask m = neighborMap.value_at(i);
+              to_send_masks( offset ) = m;
+            }
+            offset_local++;
+          }
+        }
+      }, rank_count);
+      to_send_count_host(rank) = rank_count;
+      rank_first_offset += rank_count;
+    }
 
+    Kokkos::deep_copy(to_send_count_device, to_send_count_host);
+    to_send.send_sizes = to_send_count_device;
     to_send.send_iOcts = to_send_device;
     to_send.send_cell_masks = to_send_masks;
   }
