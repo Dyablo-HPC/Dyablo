@@ -39,6 +39,7 @@ void precompute_facemask_cells( uint32_t bx, uint32_t by, uint32_t bz, uint32_t 
   };
 
   int masks_count = (1 << Face::FACE_COUNT);
+  DYABLO_ASSERT_HOST_RELEASE( ghost_count <= bx || ghost_count <= by, "GhostCommunicator_partial_blocks::init : ghost_count ("<<ghost_count<<") not compatible with block size (" << bx << "," << by << "," << bz << ")"  );
 
   for( CellMask mask = 1; mask < masks_count; mask++  )
   {
@@ -84,7 +85,7 @@ void precompute_facemask_cells( uint32_t bx, uint32_t by, uint32_t bz, uint32_t 
     }
     if( has_face(mask, Face::ZR) )
     {
-      int zr_zmin = std::max( bz-ghost_count, zmin );
+      int zr_zmin = std::max( (int)(bz-ghost_count), (int)zmin );
       add_cells( mask, xmin, xmax, ymin, ymax, zr_zmin, bz );
     }
   }
