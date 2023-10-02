@@ -13,21 +13,24 @@ void precompute_facemask_cells( uint32_t bx, uint32_t by, uint32_t bz, uint32_t 
   // Check if face is included in mask
   auto has_face = [](CellMask mask, Face face){ return mask & (1 << face); };
   // Add cells of block to facemask_* delimited by region (xmin:xmax, ...)
-  auto add_cells = [&](CellMask mask, int xmin, int xmax, int ymin, int ymax, int zmin, int zmax)
+  auto add_cells = [&](CellMask mask, uint32_t xmin, uint32_t xmax, uint32_t ymin, uint32_t ymax, uint32_t zmin, uint32_t zmax)
   {
-    int dx = (xmax-xmin);
-    int dy = (ymax-ymin);
-    int dz = (zmax-zmin);
+    DYABLO_ASSERT_HOST_DEBUG( xmin <= xmax && xmax <= bx, "add_cells, xmin, xmax error, should have 0 <= xmin (" << xmin << ") <= xmax (" << xmax << ") <= bx (" << bx << ")" );
+    DYABLO_ASSERT_HOST_DEBUG( ymin <= ymax && ymax <= by, "add_cells, ymin, ymax error, should have 0 <= ymin (" << ymin << ") <= ymax (" << ymax << ") <= by (" << by << ")" );
+    DYABLO_ASSERT_HOST_DEBUG( zmin <= zmax && zmax <= bz, "add_cells, zmin, zmax error, should have 0 <= zmin (" << zmin << ") <= zmax (" << zmax << ") <= bz (" << bz << ")" );
+    uint32_t dx = (xmax-xmin);
+    uint32_t dy = (ymax-ymin);
+    uint32_t dz = (zmax-zmin);
 
-    int i0 = facemask_count_host(mask);
+    uint32_t i0 = facemask_count_host(mask);
     facemask_count_host(mask) += dx*dy*dz;
 
     Kokkos::parallel_for( "add_cells", dx*dy*dz,
-      KOKKOS_LAMBDA( int i )
+      KOKKOS_LAMBDA( uint32_t i )
     {
-      int x = i%dx;
-      int y = (i/dx)%dy;
-      int z = (i/dx)/dy;
+      uint32_t x = i%dx;
+      uint32_t y = (i/dx)%dy;
+      uint32_t z = (i/dx)/dy;
       x += xmin;
       y += ymin;
       z += zmin;
@@ -51,13 +54,13 @@ void precompute_facemask_cells( uint32_t bx, uint32_t by, uint32_t bz, uint32_t 
     uint32_t xmin = 0, xmax = bx; // avoid duplicates : all cells with x<xmin are already added
     if( has_face(mask, Face::XL) )
     {
-      int xl_xmax = ghost_count;
+      uint32_t xl_xmax = ghost_count;
       add_cells( mask, 0, xl_xmax, 0, by, 0, bz );
       xmin = xl_xmax;
     }
     if( has_face(mask, Face::XR) )
     {
-      int xr_xmin = std::max( bx-ghost_count, xmin ); // avoid adding cells already added when ghost_count < 2*bx
+      uint32_t xr_xmin = std::max( bx-ghost_count, xmin ); // avoid adding cells already added when ghost_count < 2*bx
       add_cells( mask, xr_xmin, bx, 0, by, 0, bz );
       xmax = xr_xmin;
     }
@@ -65,13 +68,13 @@ void precompute_facemask_cells( uint32_t bx, uint32_t by, uint32_t bz, uint32_t 
     uint32_t ymin = 0, ymax = by;
     if( has_face(mask, Face::YL) )
     {
-      int yl_ymax = ghost_count;
+      uint32_t yl_ymax = ghost_count;
       add_cells( mask, xmin, xmax, 0, yl_ymax, 0, bz );
       ymin = yl_ymax;
     }
     if( has_face(mask, Face::YR) )
     {
-      int yr_ymin = std::max( by-ghost_count, ymin );
+      uint32_t yr_ymin = std::max( by-ghost_count, ymin );
       add_cells( mask, xmin, xmax, yr_ymin, by, 0, bz );
       ymax = yr_ymin;
     }
@@ -79,13 +82,13 @@ void precompute_facemask_cells( uint32_t bx, uint32_t by, uint32_t bz, uint32_t 
     uint32_t zmin = 0;
     if( has_face(mask, Face::ZL) )
     {
-      int zl_zmax = ghost_count;
+      uint32_t zl_zmax = std::min( ghost_count, bz );
       add_cells( mask, xmin, xmax, ymin, ymax, 0, zl_zmax );
       zmin = zl_zmax;
     }
     if( has_face(mask, Face::ZR) )
     {
-      int zr_zmin = std::max( (int)(bz-ghost_count), (int)zmin );
+      uint32_t zr_zmin = std::max( (int)bz-(int)ghost_count, (int)zmin);
       add_cells( mask, xmin, xmax, ymin, ymax, zr_zmin, bz );
     }
   }
