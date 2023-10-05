@@ -683,7 +683,8 @@ public:
         timers.get("AMR").start();
 
         timers.get("MPI ghosts").start();
-        communicate_ghosts( {"rho","e_tot","rho_vx","rho_vy","rho_vz"} );
+        GhostCommunicator_kokkos ghost_comm_full( m_amr_mesh->getMesh() );
+        U.exchange_ghosts( ghost_comm_full );
         timers.get("MPI ghosts").stop();
 
         timers.get("AMR: Mark cells").start();
