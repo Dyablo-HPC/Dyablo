@@ -192,7 +192,8 @@ void GhostCommunicator_partial_blocks::init( const AMRmesh_hashmap_new& amr_mesh
     for( int rank=0; rank<mpi_size; rank++ )
     {
       uint32_t max_rank_octant = 0;
-      Kokkos::parallel_scan( "convert_recv_iOct", (uint32_t)recv_sizes[rank],
+      uint32_t recv_size_rank = recv_sizes[rank];
+      Kokkos::parallel_scan( "convert_recv_iOct",recv_size_rank,
         KOKKOS_LAMBDA( uint32_t ighost_local, uint32_t& current_rank_octant, bool final )
       {
         uint32_t ighost = first_rank_ighost + ighost_local;
@@ -203,7 +204,7 @@ void GhostCommunicator_partial_blocks::init( const AMRmesh_hashmap_new& amr_mesh
             recv_iOcts_local(ighost) = current_local_octant;
         }
 
-        if( ighost==total_recv_count-1 || recv_iOcts_remote(ighost) != recv_iOcts_remote(ighost+1) ) 
+        if( ighost_local==recv_size_rank-1 || recv_iOcts_remote(ighost) != recv_iOcts_remote(ighost+1) ) 
         {
           current_rank_octant++;
         }
