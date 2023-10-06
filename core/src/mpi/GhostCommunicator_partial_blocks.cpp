@@ -180,10 +180,30 @@ void GhostCommunicator_partial_blocks::init( const AMRmesh_hashmap_new& amr_mesh
     uint32_t total_recv_count = std::accumulate( recv_sizes.begin(), recv_sizes.end(), 0);
     Kokkos::View< uint32_t* > recv_iOcts_remote( "recv_iOct_remote", total_recv_count );
     recv_iCell = Kokkos::View< uint32_t* >( "recv_iCell", total_recv_count );  
-    Kokkos::fence();
-    mpi_comm.MPI_Alltoallv( send_iOct.data(), send_sizes.data(), recv_iOcts_remote.data(), recv_sizes.data() );
-    mpi_comm.MPI_Alltoallv( send_iCell.data(), send_sizes.data(), recv_iCell.data(), recv_sizes.data() );
-    Kokkos::fence();
+    #ifdef MPI_IS_CUDA_AWARE 
+    {
+      Kokkos::fence();
+      mpi_comm.MPI_Alltoallv( send_iOct.data(), send_sizes.data(), recv_iOcts_remote.data(), recv_sizes.data() );
+      mpi_comm.MPI_Alltoallv( send_iCell.data(), send_sizes.data(), recv_iCell.data(), recv_sizes.data() );
+      Kokkos::fence();
+    }
+    #else
+      {
+        auto send_iOct_host = Kokkos::create_mirror_view(send_iOct);
+        auto recv_iOcts_remote_host = Kokkos::create_mirror_view(recv_iOcts_remote);
+        Kokkos::deep_copy(send_iOct_host, send_iOct);
+        mpi_comm.MPI_Alltoallv( send_iOct_host.data(), send_sizes.data(), recv_iOcts_remote_host.data(), recv_sizes.data() );
+        Kokkos::deep_copy(recv_iOcts_remote, recv_iOcts_remote_host);
+
+
+        auto send_iCell_host = Kokkos::create_mirror_view(send_iCell);
+        auto recv_iCell_host = Kokkos::create_mirror_view(recv_iCell);
+        Kokkos::deep_copy(send_iCell_host, send_iCell);
+        mpi_comm.MPI_Alltoallv( send_iCell_host.data(), send_sizes.data(), recv_iCell_host.data(), recv_sizes.data() );
+        Kokkos::deep_copy(recv_iCell, recv_iCell_host);
+
+      }  
+    #endif
     
     // Convert iOct to local octants 
     recv_iOcts_local = Kokkos::View< uint32_t* >( "recv_iOcts", recv_iOcts_remote.layout() );
