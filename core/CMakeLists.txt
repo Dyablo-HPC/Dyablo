@@ -111,21 +111,24 @@ endif()
 #####################################################################
 # MPI
 #####################################################################
-find_package(MPI)
-if (DYABLO_USE_MPI)
-  if(MPI_CXX_FOUND)
-    message(STATUS "MPI support found")
-    message(STATUS "MPI compile flags: " ${MPI_CXX_COMPILE_FLAGS})
-    message(STATUS "MPI include path: " ${MPI_CXX_INCLUDE_PATH})
-    message(STATUS "MPI LINK flags path: " ${MPI_CXX_LINK_FLAGS})
-    message(STATUS "MPI libraries: " ${MPI_CXX_LIBRARIES})
-    
-    #set(CMAKE_EXE_LINKER_FLAGS ${MPI_CXX_LINK_FLAGS})
+if(DYABLO_USE_MPI)
+  find_package(MPI REQUIRED)
+
+  message(STATUS "MPI support found")
+  message(STATUS "MPI compile flags: " ${MPI_CXX_COMPILE_FLAGS})
+  message(STATUS "MPI include path: " ${MPI_CXX_INCLUDE_PATH})
+  message(STATUS "MPI LINK flags path: " ${MPI_CXX_LINK_FLAGS})
+  message(STATUS "MPI libraries: " ${MPI_CXX_LIBRARIES})
+
+  if( DYABLO_USE_MPI_CUDA_AWARE_ENFORCED )
+    message( STATUS "  MPI is CUDA Aware because DYABLO_USE_MPI_CUDA_AWARE_ENFORCED is ON" )
+    set( MPI_IS_CUDA_AWARE ON )
+  else( DYABLO_USE_MPI_CUDA_AWARE_ENFORCED )
     if(Kokkos_ENABLE_CUDA)
       find_program(OMPI_INFO
         NAMES ompi_info
         PATHS ${MPI_CXX_LIBRARIES}/../bin)
-    
+
       message( STATUS "MPI checking CUDA support..." )
       # Full command line to probe if cuda support in MPI implementation is enabled
       # ompi_info --parsable --all | grep mpi_built_with_cuda_support:value
@@ -133,33 +136,29 @@ if (DYABLO_USE_MPI)
         message( STATUS "  Found ompi_info" )
         execute_process(COMMAND ${OMPI_INFO}
           OUTPUT_VARIABLE _output)
-        if ( (_output MATCHES "smcuda") )
+        if ((_output MATCHES "smcuda"))
           message( STATUS "  OpenMPI is CUDA Aware" )
-          set(MPI_CUDA_AWARE_DETECTED ON)
-        else()
+          set( MPI_IS_CUDA_AWARE ON )
+        else((_output MATCHES "smcuda"))
           message( STATUS "  OpenMPI is NOT CUDA Aware" )
-        endif()
-      else()
-	# Not using OpenMPI and not enforcing CUDA Aware flag -> Warning
-	if (NOT DYABLO_USE_MPI_CUDA_AWARE_ENFORCED)
-          message( WARNING "  Could not find ompi_info. MPI is supposed NOT CUDA Aware. (To override, set DYABLO_USE_MPI_CUDA_AWARE_ENFORCED)")
-	endif()
-      endif()
-      if( DYABLO_USE_MPI_CUDA_AWARE_ENFORCED OR MPI_CUDA_AWARE_DETECTED )
-        message(STATUS "MPI CUDA Aware : ON")
-        add_compile_options(-DMPI_IS_CUDA_AWARE)
-        if( NOT MPI_CUDA_AWARE_DETECTED )
-          message( WARNING "Dyablo uses CUDA Aware MPI calls but could not determine if MPI supports CUDA !" )
-        endif()
-      else()
-        message(STATUS "MPI CUDA Aware : OFF")
-      endif()
-    endif()
-  else()
-    message(WARNING "Not compiling with MPI. Suppress this warning with -DDYABLO_USE_MPI=OFF")
-    set(DYABLO_USE_MPI OFF)
-  endif()
-endif()
+          set( MPI_IS_CUDA_AWARE OFF )
+        endif((_output MATCHES "smcuda"))
+      else(OMPI_INFO)
+        message( STATUS "  MPI is supposed NOT CUDA Aware : could not detect (To override, set DYABLO_USE_MPI_CUDA_AWARE_ENFORCED) " )
+        set( MPI_IS_CUDA_AWARE OFF )
+      endif(OMPI_INFO)
+    else(Kokkos_ENABLE_CUDA)
+      message( STATUS "  MPI is supposed NOT CUDA Aware : CUDA not used (To override, set DYABLO_USE_MPI_CUDA_AWARE_ENFORCED) " )
+      set( MPI_IS_CUDA_AWARE OFF )
+    endif(Kokkos_ENABLE_CUDA)
+  endif( DYABLO_USE_MPI_CUDA_AWARE_ENFORCED )
+
+  message( STATUS "  MPI CUDA Aware = ${MPI_IS_CUDA_AWARE}" )
+
+  if( MPI_IS_CUDA_AWARE )
+    add_compile_options(-DMPI_IS_CUDA_AWARE)
+  endif ( MPI_IS_CUDA_AWARE )
+endif(DYABLO_USE_MPI)
 
 #####################################################################
 # HDF5
