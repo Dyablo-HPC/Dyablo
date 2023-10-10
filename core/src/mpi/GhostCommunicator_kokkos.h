@@ -175,7 +175,7 @@ namespace GhostCommunicator_kokkos_impl{
     static_assert( std::is_same<typename DataArray_t::array_layout, Kokkos::LayoutLeft>::value, 
                  "This implementation of GhostCommunicator_kokkos only supports Kokkos::LayoutLeft views" ); 
 
-    constexpr int dim = DataArray_t::rank;
+    constexpr int dim = (int)DataArray_t::rank;
     
     // Allocate send_buffers with same dimension for each octant but with sum(send_sizes_host) octants
     // iOct is also displaced to the rightmost coordinate (if it's not already the case)
@@ -200,7 +200,7 @@ namespace GhostCommunicator_kokkos_impl{
     // allocated and then sliced in subviews for each rank,
     // When iOct is not the rightmost subscript in U, a temporary transposed array is created
 
-    constexpr int dim = DataArray_t::rank;
+    constexpr int dim = (int)DataArray_t::rank;
     
     // Allocate send_buffers with same dimension for each octant but with sum(send_sizes_host) octants
     // iOct is also displaced to the rightmost coordinate (if it's not already the case)
@@ -329,7 +329,7 @@ void GhostCommunicator_kokkos::exchange_ghosts( const DataArray_t& U, const Data
 
   // Allocate Ughost_tmp with same volume of data, but with iOct at rightmost position
   Kokkos::LayoutLeft extents_Ughost_tmp = U.layout();
-  for(int i=iOct_pos; i<DataArray_t::rank-1; i++)
+  for(uint32_t i=iOct_pos; i<DataArray_t::rank-1; i++)
     extents_Ughost_tmp.dimension[i] = extents_Ughost_tmp.dimension[i+1];
   extents_Ughost_tmp.dimension[DataArray_t::rank-1] = this->nbghosts_recv;
   DataArray_t Ughost_tmp(U.label()+"_ghost", extents_Ughost_tmp);

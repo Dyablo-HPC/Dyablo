@@ -82,7 +82,7 @@ public:
   void read_view_init( const std::string& name, T& view )
   {
     hid_t hdf5_type = get_hdf5_type<typename T::value_type>();
-    constexpr hid_t rank = T::rank;
+    constexpr hid_t rank = (hid_t)T::rank;
 
     hid_t dataset_properties = H5Pcreate(H5P_DATASET_ACCESS);
     hid_t dataset = H5Dopen2( m_hdf5_file, name.c_str(), dataset_properties );
@@ -119,7 +119,7 @@ public:
   void read_view( const std::string& name, const T& view )
   {
     hid_t hdf5_type = get_hdf5_type<typename T::value_type>();
-    constexpr hid_t rank = T::rank;
+    constexpr hid_t rank = (hid_t)T::rank;
     hsize_t local_dims[rank];
     hsize_t global_dims[rank];
     hsize_t local_start[rank];

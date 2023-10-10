@@ -57,7 +57,7 @@ namespace userdata_utils{
   {
     // Compute number of values per octants
     uint32_t elts_per_octs = 1;
-    for(int i=0; i<DataArray_t::rank; i++)
+    for(uint32_t i=0; i<DataArray_t::rank; i++)
       if( i != iOct_pos )
         elts_per_octs *= U.extent(i);
     return elts_per_octs;
@@ -77,7 +77,7 @@ namespace userdata_utils{
 
     // Realloc U with the correct number of octants
     auto layout_U = U.layout();
-    for(int i=0; i<DataArray_t::rank; i++)
+    for(uint32_t i=0; i<DataArray_t::rank; i++)
     {
       if( i < iOct_pos )
         layout_U.dimension[i] = U_right_iOct.extent(i);
@@ -125,7 +125,7 @@ namespace userdata_utils{
 
     // Realloc U_right_iOct with the correct number of octants
     auto layout_right_iOct = U.layout();
-    for(int i=0; i<DataArray_t::rank-1; i++)
+    for(uint32_t i=0; i<DataArray_t::rank-1; i++)
     {
       if( i < iOct_pos )
         layout_right_iOct.dimension[i] = U.extent(i);
