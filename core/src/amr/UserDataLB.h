@@ -39,7 +39,7 @@ public:
   {
     DYABLO_ASSERT_HOST_RELEASE( data.size() != 0, "data cannot be empty" );
     layout.dimension[iOct_pos] = 1;
-    for(int i=0; i<DataArray_t::rank; i++)
+    for(uint32_t i=0; i<DataArray_t::rank; i++)
     {
       vals_per_oct *= layout.dimension[i];
     }

@@ -109,7 +109,7 @@ public:
     ghostData(ghostData_)
   {
     elts_per_oct = 1;
-    for( int i=0; i<DataArray_t::rank-1; i++ )
+    for( uint32_t i=0; i<DataArray_t::rank-1; i++ )
     {
       elts_per_oct *= data.extent(i);
     }
