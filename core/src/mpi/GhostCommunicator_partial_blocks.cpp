@@ -133,8 +133,22 @@ void GhostCommunicator_partial_blocks::init( const AMRmesh_hashmap_new& amr_mesh
   // Send mask to recieving ranks
   Kokkos::View<CellMask*>& ghostmap_send_masks = ghostmap.send_cell_masks;
   Kokkos::View<CellMask*>  ghostmap_recv_masks("ghostmap_recv_masks", total_ghostmap_recv_count);
-  mpi_comm.MPI_Alltoallv( ghostmap_send_masks.data(), ghostmap_send_sizes.data(),
-                          ghostmap_recv_masks.data(), ghostmap_recv_sizes.data());
+
+  #ifdef MPI_IS_CUDA_AWARE 
+  {
+    mpi_comm.MPI_Alltoallv( ghostmap_send_masks.data(), ghostmap_send_sizes.data(),
+                            ghostmap_recv_masks.data(), ghostmap_recv_sizes.data());
+  }
+  #else
+  {
+    auto ghostmap_send_masks_host = Kokkos::create_mirror_view(ghostmap_send_masks);
+    auto ghostmap_recv_masks_host = Kokkos::create_mirror_view(ghostmap_recv_masks);
+    Kokkos::deep_copy(ghostmap_send_masks_host, ghostmap_send_masks);
+    mpi_comm.MPI_Alltoallv( ghostmap_send_masks_host.data(), ghostmap_send_sizes.data(), 
+                            ghostmap_recv_masks_host.data(), ghostmap_recv_sizes.data() );
+    Kokkos::deep_copy(ghostmap_recv_masks, ghostmap_recv_masks_host);
+  }
+  #endif
 
   // Precompute cells for each mask type
   int masks_count = (1 << 6);
