@@ -113,33 +113,53 @@ void GhostCommunicator_partial_blocks::init( const AMRmesh_hashmap_new& amr_mesh
 
   DYABLO_ASSERT_HOST_RELEASE( ghost_count <= shape.bx || ghost_count <= shape.by, "GhostCommunicator_partial_blocks::init : ghost_count ("<<ghost_count<<") not compatible with block size (" << shape.bx << "," << shape.by << "," << shape.bz << ")"  );
 
+  // Exchange ghostmap sizes
+  GhostMap_t ghostmap = amr_mesh.getGhostMap();
+  
+  std::vector<int> ghostmap_send_sizes( mpi_size );
+  {
+    auto ghostmap_send_sizes_host = Kokkos::create_mirror_view(ghostmap.send_sizes);
+    Kokkos::deep_copy( ghostmap_send_sizes_host, ghostmap.send_sizes );
+    for( int i=0; i<mpi_size; i++ )
+      ghostmap_send_sizes[i] = ghostmap_send_sizes_host(i);
+  }
+  std::vector<int> ghostmap_recv_sizes( mpi_size );
+  mpi_comm.MPI_Alltoall(  ghostmap_send_sizes.data(), 1, 
+                          ghostmap_recv_sizes.data(), 1);
+  uint32_t total_ghostmap_recv_count = std::accumulate( ghostmap_recv_sizes.begin(), 
+                                                        ghostmap_recv_sizes.end(), 0 );
+
+  using CellMask = GhostMap_t::CellMask;
+  // Send mask to recieving ranks
+  Kokkos::View<CellMask*>& ghostmap_send_masks = ghostmap.send_cell_masks;
+  Kokkos::View<CellMask*>  ghostmap_recv_masks("ghostmap_recv_masks", total_ghostmap_recv_count);
+  mpi_comm.MPI_Alltoallv( ghostmap_send_masks.data(), ghostmap_send_sizes.data(),
+                          ghostmap_recv_masks.data(), ghostmap_recv_sizes.data());
+
+  // Precompute cells for each mask type
+  int masks_count = (1 << 6);
+  int max_icells = shape.bx*shape.by*shape.bz;
+  Kokkos::View<uint32_t*> facemask_count("facemask_count", masks_count);// number of cells to add for facemask
+  Kokkos::View<uint32_t**> facemask_iCells("facemask_iCells", masks_count, max_icells);// cells to add for facemask
+  precompute_facemask_cells( shape.bx, shape.by, shape.bz, ghost_count, facemask_count, facemask_iCells );
+  
   // Compute list of cells to send
   std::vector<int> send_sizes( mpi_size );
   Kokkos::View<uint32_t*> send_iOct;
   Kokkos::View<uint32_t*> send_iCell;
   {
-    int masks_count = (1 << 6);
-    int max_icells = shape.bx*shape.by*shape.bz;
-    Kokkos::View<uint32_t*> facemask_count("facemask_count", masks_count);// number of cells to add for facemask
-    Kokkos::View<uint32_t**> facemask_iCells("facemask_iCells", masks_count, max_icells);// cells to add for facemask
-    precompute_facemask_cells( shape.bx, shape.by, shape.bz, ghost_count, facemask_count, facemask_iCells );
-
-    GhostMap_t ghostmap = amr_mesh.getGhostMap();
-    auto ghostmap_send_sizes_host = Kokkos::create_mirror_view(ghostmap.send_sizes);
-    Kokkos::deep_copy( ghostmap_send_sizes_host, ghostmap.send_sizes );
-
     // Count cells to send to each process
     uint32_t first_rank_iOct = 0;
     for( int rank=0; rank<mpi_size; rank++ )
     {
-      Kokkos::parallel_reduce("GhostCommunicator_partial_blocks::count_cells", ghostmap_send_sizes_host(rank),
+      Kokkos::parallel_reduce("GhostCommunicator_partial_blocks::count_cells", ghostmap_send_sizes[rank],
         KOKKOS_LAMBDA( uint32_t iOct, int& count )
       {
         GhostMap_t::CellMask facemask = ghostmap.send_cell_masks(first_rank_iOct+iOct);
         count += facemask_count(facemask);
 
       }, send_sizes[rank]);
-      first_rank_iOct += ghostmap_send_sizes_host(rank);
+      first_rank_iOct += ghostmap_send_sizes[rank];
     }
 
     // Allocate cell containers
@@ -167,80 +187,57 @@ void GhostCommunicator_partial_blocks::init( const AMRmesh_hashmap_new& amr_mesh
     });
   }
 
-  // Get list of cells to recieve
+
+  // Compute list of cells to recieve
   std::vector<int> recv_sizes( mpi_size );
-  Kokkos::View< uint32_t* > recv_iOcts_local;
+  Kokkos::View< uint32_t* > recv_iOcts;
   Kokkos::View< uint32_t* > recv_iCell;
-  int local_octant_count = 0;
+  int local_octant_count = total_ghostmap_recv_count;
   {
-    // Exchange sizes
-    mpi_comm.MPI_Alltoall( send_sizes.data(), 1, recv_sizes.data(), 1 );
-
-    // Exchange iOct and iCell to pack/unpack
-    uint32_t total_recv_count = std::accumulate( recv_sizes.begin(), recv_sizes.end(), 0);
-    Kokkos::View< uint32_t* > recv_iOcts_remote( "recv_iOct_remote", total_recv_count );
-    recv_iCell = Kokkos::View< uint32_t* >( "recv_iCell", total_recv_count );  
-    #ifdef MPI_IS_CUDA_AWARE 
-    {
-      Kokkos::fence();
-      mpi_comm.MPI_Alltoallv( send_iOct.data(), send_sizes.data(), recv_iOcts_remote.data(), recv_sizes.data() );
-      mpi_comm.MPI_Alltoallv( send_iCell.data(), send_sizes.data(), recv_iCell.data(), recv_sizes.data() );
-      Kokkos::fence();
-    }
-    #else
-      {
-        auto send_iOct_host = Kokkos::create_mirror_view(send_iOct);
-        auto recv_iOcts_remote_host = Kokkos::create_mirror_view(recv_iOcts_remote);
-        Kokkos::deep_copy(send_iOct_host, send_iOct);
-        mpi_comm.MPI_Alltoallv( send_iOct_host.data(), send_sizes.data(), recv_iOcts_remote_host.data(), recv_sizes.data() );
-        Kokkos::deep_copy(recv_iOcts_remote, recv_iOcts_remote_host);
-
-
-        auto send_iCell_host = Kokkos::create_mirror_view(send_iCell);
-        auto recv_iCell_host = Kokkos::create_mirror_view(recv_iCell);
-        Kokkos::deep_copy(send_iCell_host, send_iCell);
-        mpi_comm.MPI_Alltoallv( send_iCell_host.data(), send_sizes.data(), recv_iCell_host.data(), recv_sizes.data() );
-        Kokkos::deep_copy(recv_iCell, recv_iCell_host);
-
-      }  
-    #endif
-    
-    // Convert iOct to local octants 
-    recv_iOcts_local = Kokkos::View< uint32_t* >( "recv_iOcts", recv_iOcts_remote.layout() );
-    uint32_t first_rank_ighost = 0;
-    uint32_t first_rank_octant = 0;
+    // Count cells to recieve from each process
+    uint32_t first_rank_iOct = 0;
     for( int rank=0; rank<mpi_size; rank++ )
     {
-      uint32_t max_rank_octant = 0;
-      uint32_t recv_size_rank = recv_sizes[rank];
-      Kokkos::parallel_scan( "convert_recv_iOct",recv_size_rank,
-        KOKKOS_LAMBDA( uint32_t ighost_local, uint32_t& current_rank_octant, bool final )
+      Kokkos::parallel_reduce("GhostCommunicator_partial_blocks::count_recv_cells", ghostmap_recv_sizes[rank],
+        KOKKOS_LAMBDA( uint32_t iOct, int& count )
       {
-        uint32_t ighost = first_rank_ighost + ighost_local;
-        DYABLO_ASSERT_KOKKOS_DEBUG( ighost < recv_iOcts_local.size(), "convert_recv_iOct recv_iOcts_local out of bounds" );
-        uint32_t current_local_octant = first_rank_octant + current_rank_octant;
-        if( final )
-        {
-            recv_iOcts_local(ighost) = current_local_octant;
-        }
+        GhostMap_t::CellMask facemask = ghostmap_recv_masks(first_rank_iOct+iOct);
+        count += facemask_count(facemask);
 
-        if( ighost_local==recv_size_rank-1 || recv_iOcts_remote(ighost) != recv_iOcts_remote(ighost+1) ) 
-        {
-          current_rank_octant++;
-        }
-      }, max_rank_octant);
-      first_rank_octant += max_rank_octant;
-      first_rank_ighost += recv_sizes[rank];
+      }, recv_sizes[rank]);
+      first_rank_iOct += ghostmap_recv_sizes[rank];
     }
 
-    local_octant_count = first_rank_octant;
+    // Allocate cell containers
+    uint32_t total_cell_count = std::accumulate( recv_sizes.begin(), recv_sizes.end(), 0 );
+    recv_iOcts = Kokkos::View<uint32_t*>( "recv_iOct", total_cell_count );
+    recv_iCell = Kokkos::View<uint32_t*>( "recv_iCell", total_cell_count ); 
+
+    // Fill cell containers
+    Kokkos::parallel_scan("GhostCommunicator_partial_blocks::list_recv_cells", local_octant_count,
+      KOKKOS_LAMBDA( uint32_t iOct, uint32_t& iCell_begin, bool final )
+    {
+      GhostMap_t::CellMask facemask = ghostmap_recv_masks(iOct);
+
+      if( final )
+      {
+        for(uint32_t i=0; i<facemask_count(facemask); i++)
+        {
+          DYABLO_ASSERT_KOKKOS_DEBUG( (iCell_begin + i) < total_cell_count, "GhostCommunicator_partial_blocks::list_cells out of bounds " );
+          recv_iOcts( iCell_begin + i ) = iOct;
+          recv_iCell( iCell_begin + i ) = facemask_iCells( facemask, i);
+        }
+      }
+
+      iCell_begin += facemask_count(facemask);
+    });
   }
 
   this->m_send_cell_count = send_sizes;
   this->m_recv_cell_count = recv_sizes;
   this->m_send_iOct = send_iOct;
   this->m_send_iCell = send_iCell; 
-  this->m_recv_iOct = recv_iOcts_local;
+  this->m_recv_iOct = recv_iOcts;
   this->m_recv_iCell = recv_iCell;
   this->m_local_ghost_octants = local_octant_count;
 }
