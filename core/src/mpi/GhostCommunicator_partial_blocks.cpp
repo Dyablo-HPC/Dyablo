@@ -3,7 +3,7 @@
 namespace dyablo {
 
 void precompute_facemask_cells( uint32_t bx, uint32_t by, uint32_t bz, uint32_t ghost_count, 
-                                Kokkos::View<uint32_t*>& facemask_count, Kokkos::View<uint32_t**>& facemask_iCells )
+                                Kokkos::View<uint32_t*>& facemask_count, Kokkos::View<uint32_t**, Kokkos::LayoutRight>& facemask_iCells )
 {
   using CellMask = AMRmesh_hashmap_new::GhostMap_t::CellMask;
   using Face = AMRmesh_hashmap_new::GhostMap_t::Face;
@@ -154,7 +154,7 @@ void GhostCommunicator_partial_blocks::init( const AMRmesh_hashmap_new& amr_mesh
   int masks_count = (1 << 6);
   int max_icells = shape.bx*shape.by*shape.bz;
   Kokkos::View<uint32_t*> facemask_count("facemask_count", masks_count);// number of cells to add for facemask
-  Kokkos::View<uint32_t**> facemask_iCells("facemask_iCells", masks_count, max_icells);// cells to add for facemask
+  Kokkos::View<uint32_t**, Kokkos::LayoutRight> facemask_iCells("facemask_iCells", masks_count, max_icells);// cells to add for facemask
   precompute_facemask_cells( shape.bx, shape.by, shape.bz, ghost_count, facemask_count, facemask_iCells );
   
   // Compute list of cells to send
@@ -163,17 +163,21 @@ void GhostCommunicator_partial_blocks::init( const AMRmesh_hashmap_new& amr_mesh
   Kokkos::View<uint32_t*> send_iCell;
   {
     // Count cells to send to each process
+    Kokkos::View<uint32_t*> offset_iOct("offset_iOct", ghostmap.send_cell_masks.size());
     uint32_t first_rank_iOct = 0;
+    uint32_t offset = 0;
     for( int rank=0; rank<mpi_size; rank++ )
     {
-      Kokkos::parallel_reduce("GhostCommunicator_partial_blocks::count_cells", ghostmap_send_sizes[rank],
-        KOKKOS_LAMBDA( uint32_t iOct, int& count )
+      Kokkos::parallel_scan("GhostCommunicator_partial_blocks::count_send_cells", ghostmap_send_sizes[rank],
+        KOKKOS_LAMBDA( uint32_t iOct, int& count, bool final )
       {
         GhostMap_t::CellMask facemask = ghostmap.send_cell_masks(first_rank_iOct+iOct);
+        if( final )
+          offset_iOct( first_rank_iOct+iOct ) = count + offset;
         count += facemask_count(facemask);
-
       }, send_sizes[rank]);
       first_rank_iOct += ghostmap_send_sizes[rank];
+      offset+=send_sizes[rank];
     }
 
     // Allocate cell containers
@@ -182,22 +186,22 @@ void GhostCommunicator_partial_blocks::init( const AMRmesh_hashmap_new& amr_mesh
     send_iCell = Kokkos::View<uint32_t*>( "send_iCell", total_cell_count ); 
 
     // Fill cell containers
-    Kokkos::parallel_scan("GhostCommunicator_partial_blocks::list_cells", ghostmap.send_iOcts.size(),
-      KOKKOS_LAMBDA( uint32_t iOct, uint32_t& iCell_begin, bool final )
+    Kokkos::parallel_for("GhostCommunicator_partial_blocks::list_send_cells", 
+      Kokkos::TeamPolicy<>(ghostmap.send_iOcts.size(), Kokkos::AUTO),
+      KOKKOS_LAMBDA( const Kokkos::TeamPolicy<>::member_type& team )
     {
+      uint32_t iOct = team.league_rank();
       GhostMap_t::CellMask facemask = ghostmap.send_cell_masks(iOct);
+      uint32_t iCell_begin = offset_iOct(iOct);
+      uint32_t current_send_iOct = ghostmap.send_iOcts(iOct);
 
-      if( final )
+      Kokkos::parallel_for( Kokkos::TeamVectorRange(team, facemask_count(facemask)),
+        [&]( uint32_t i )
       {
-        for(uint32_t i=0; i<facemask_count(facemask); i++)
-        {
-          DYABLO_ASSERT_KOKKOS_DEBUG( (iCell_begin + i) < total_cell_count, "GhostCommunicator_partial_blocks::list_cells out of bounds " );
-          send_iOct( iCell_begin + i ) = ghostmap.send_iOcts(iOct);
-          send_iCell( iCell_begin + i ) = facemask_iCells( facemask, i);
-        }
-      }
-
-      iCell_begin += facemask_count(facemask);
+        DYABLO_ASSERT_KOKKOS_DEBUG( (iCell_begin + i) < total_cell_count, "GhostCommunicator_partial_blocks::list_cells out of bounds " );
+        send_iOct( iCell_begin + i ) = current_send_iOct;
+        send_iCell( iCell_begin + i ) = facemask_iCells( facemask, i);
+      });
     });
   }
 
@@ -209,17 +213,22 @@ void GhostCommunicator_partial_blocks::init( const AMRmesh_hashmap_new& amr_mesh
   int local_octant_count = total_ghostmap_recv_count;
   {
     // Count cells to recieve from each process
+    Kokkos::View<uint32_t*> offset_iOct("offset_iOct", ghostmap_recv_masks.size());
     uint32_t first_rank_iOct = 0;
+    uint32_t offset = 0;
     for( int rank=0; rank<mpi_size; rank++ )
     {
-      Kokkos::parallel_reduce("GhostCommunicator_partial_blocks::count_recv_cells", ghostmap_recv_sizes[rank],
-        KOKKOS_LAMBDA( uint32_t iOct, int& count )
+      Kokkos::parallel_scan("GhostCommunicator_partial_blocks::count_recv_cells", ghostmap_recv_sizes[rank],
+        KOKKOS_LAMBDA( uint32_t iOct, int& count, bool final )
       {
         GhostMap_t::CellMask facemask = ghostmap_recv_masks(first_rank_iOct+iOct);
+        if( final )
+          offset_iOct( first_rank_iOct+iOct ) = count + offset;
         count += facemask_count(facemask);
 
       }, recv_sizes[rank]);
       first_rank_iOct += ghostmap_recv_sizes[rank];
+      offset+=send_sizes[rank];
     }
 
     // Allocate cell containers
@@ -228,22 +237,21 @@ void GhostCommunicator_partial_blocks::init( const AMRmesh_hashmap_new& amr_mesh
     recv_iCell = Kokkos::View<uint32_t*>( "recv_iCell", total_cell_count ); 
 
     // Fill cell containers
-    Kokkos::parallel_scan("GhostCommunicator_partial_blocks::list_recv_cells", local_octant_count,
-      KOKKOS_LAMBDA( uint32_t iOct, uint32_t& iCell_begin, bool final )
+    Kokkos::parallel_for("GhostCommunicator_partial_blocks::list_recv_cells", 
+      Kokkos::TeamPolicy<>(local_octant_count, Kokkos::AUTO),
+      KOKKOS_LAMBDA( const Kokkos::TeamPolicy<>::member_type& team )
     {
+      uint32_t iOct = team.league_rank();
       GhostMap_t::CellMask facemask = ghostmap_recv_masks(iOct);
+      uint32_t iCell_begin = offset_iOct(iOct);
 
-      if( final )
+      Kokkos::parallel_for( Kokkos::TeamVectorRange(team, facemask_count(facemask)),
+        [&]( uint32_t i )
       {
-        for(uint32_t i=0; i<facemask_count(facemask); i++)
-        {
-          DYABLO_ASSERT_KOKKOS_DEBUG( (iCell_begin + i) < total_cell_count, "GhostCommunicator_partial_blocks::list_cells out of bounds " );
-          recv_iOcts( iCell_begin + i ) = iOct;
-          recv_iCell( iCell_begin + i ) = facemask_iCells( facemask, i);
-        }
-      }
-
-      iCell_begin += facemask_count(facemask);
+        DYABLO_ASSERT_KOKKOS_DEBUG( (iCell_begin + i) < total_cell_count, "GhostCommunicator_partial_blocks::list_cells out of bounds " );
+        recv_iOcts( iCell_begin + i ) = iOct;
+        recv_iCell( iCell_begin + i ) = facemask_iCells( facemask, i);
+      });
     });
   }
 
