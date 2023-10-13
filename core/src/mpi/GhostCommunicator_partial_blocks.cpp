@@ -228,7 +228,7 @@ void GhostCommunicator_partial_blocks::init( const AMRmesh_hashmap_new& amr_mesh
 
       }, recv_sizes[rank]);
       first_rank_iOct += ghostmap_recv_sizes[rank];
-      offset+=send_sizes[rank];
+      offset+=recv_sizes[rank];
     }
 
     // Allocate cell containers
