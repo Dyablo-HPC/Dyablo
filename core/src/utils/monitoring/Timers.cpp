@@ -14,136 +14,198 @@
 
 #ifdef DYABLO_DISABLE_TIMERS
 
-Timers::Timers()
-: timer_total("Total")
-{}
-Timers::~Timers()
-{}
-Timers::Timer& Timers::get(const std::string& name)
-{
-  static Timer dummy("");
-  return dummy;
-}
-void Timers::print()
-{
-  std::cout << "(Timers are disabled)" << std::endl;
-}
-struct Timers::Timer::Timer_pimpl {};
-Timers::Timer::Timer(const std::string& name)
-{}
-void Timers::Timer::start()
-{}
-void Timers::Timer::stop()
-{}
-double Timers::Timer::elapsed(Timers::Timer::Elapsed_mode_t em) const
-{return 0;}
+/*-----------------------------
+ * Timers Disabled
+-------------------------------*/
 
-#else
-
-Timers::Timers()
-: timer_total("Total")
+struct Timers_Timer_pimpl
 {
-  timer_total.start();
-}
-Timers::~Timers()
-{
-  timer_total.stop();
-}
-
-Timers::Timer& Timers::get(const std::string& name)
-{
-  auto it = this->timer_map.find(name);
-  if( it == this->timer_map.end() )
-    it = this->timer_map.emplace(std::piecewise_construct, 
-                                std::forward_as_tuple(name),
-                                std::forward_as_tuple(name) ).first; 
-  return it->second;
-}
-
-void Timers::print()
-{
-  using Mode = Timer::Elapsed_mode_t;
-  timer_total.stop();
-  double t_tot_CPU = timer_total.elapsed(Mode::ELAPSED_CPU);
-  std::cout << "Total elapsed time (CPU) : " << t_tot_CPU;
-  #ifdef KOKKOS_ENABLE_CUDA
-  double t_tot_GPU = timer_total.elapsed(Mode::ELAPSED_GPU);
-  std::cout << " , (GPU) : " << t_tot_GPU;
-  #endif
-  std::cout << std::endl;
-  timer_total.start();
-  
-  for( const auto& p : this->timer_map )
-  {
-    const std::string& name = p.first;
-    {
-      double time_CPU = p.second.elapsed(Mode::ELAPSED_CPU);
-      double percent_CPU = 100 * time_CPU / t_tot_CPU;
-      std::cout << std::left << std::setw(25) << name;
-      printf(" time (CPU) : %5.3f \ts (%5.2f%%)", time_CPU, percent_CPU);
-    }
-    #ifdef KOKKOS_ENABLE_CUDA
-    {
-      double time_GPU = p.second.elapsed(Mode::ELAPSED_GPU);
-      double percent_GPU = 100 * time_GPU / t_tot_GPU;
-      printf(" , (GPU) : %5.3f \ts (%5.2f%%)", time_GPU, percent_GPU);
-    }
-    #endif 
-    std::cout << std::endl;  
-  }
-}
-
-struct Timers::Timer::Timer_pimpl{
-  OpenMPTimer omp_timer;
-  #ifdef KOKKOS_ENABLE_CUDA
-  CudaTimer cuda_timer;
-  #endif
-  bool running = false;
+  void start(){}
+  void stop(){}
+  using Elapsed_mode_t = Timers_Timer::Elapsed_mode_t;
+  double elapsed(Elapsed_mode_t mode) const{ return 0.0; }
 };
 
-Timers::Timer::Timer(const std::string& name)
-: name(name), data(std::make_unique<Timer_pimpl>())
-{}
-
-void Timers::Timer::start()
+struct Timers_pimpl
 {
-  DYABLO_ASSERT_HOST_RELEASE(!data->running, "Attempting to start a timer that is already running : `" << name << "`");
-  data->running=true;
-
-  Kokkos::Profiling::pushRegion(this->name);
-  data->omp_timer.start();
-  #ifdef KOKKOS_ENABLE_CUDA
-  data->cuda_timer.start();
-  #endif
-}
-
-void Timers::Timer::stop()
-{
-  DYABLO_ASSERT_HOST_RELEASE(data->running, "Attempting to stop a timer that is not running : `" << name << "`");
-  data->running=false;
-
-  Kokkos::Profiling::popRegion();
-  data->omp_timer.stop();
-  #ifdef KOKKOS_ENABLE_CUDA
-  data->cuda_timer.stop();
-  #endif
-}
-
-double Timers::Timer::elapsed(Timers::Timer::Elapsed_mode_t em) const
-{
-  DYABLO_ASSERT_HOST_RELEASE(!data->running, "Attempting to fetch a timer's elapsed time but the timer is still running : `" << name << "`");
-
-  if(em == ELAPSED_CPU)
-    return data->omp_timer.elapsed();
-  #ifdef KOKKOS_ENABLE_CUDA
-  else if( em == ELAPSED_GPU )
-    return data->cuda_timer.elapsed();
-  #endif
-  else
+  /// Get Timer associated to name
+  Timers_Timer& get(const std::string& name)
   {
-    DYABLO_ASSERT_HOST_RELEASE(false, "Unknown/incompatible elapsed mode" );
-    return 0;
+    static Timers_Timer dummy = Timers_Timer_pimpl();
+    return dummy;
   }
-}
+  /// Print a summary of all the timers
+  void print()
+  {
+    std::cout << "(Timers are disabled)" << std::endl;
+  }
+};
+
+#else //DYABLO_DISABLE_TIMERS
+/*-----------------------------
+ * Timers enabled 
+-------------------------------*/
+
+struct Timers_Timer_pimpl
+{
+  /// Members
+  std::string name;
+  OpenMPTimer omp_timer;
+  #ifdef KOKKOS_ENABLE_CUDA
+  std::unique_ptr<CudaTimer> cuda_timer;
+  #endif
+  bool running = false;
+
+  /// Methods
+
+  Timers_Timer_pimpl(const std::string& name)
+  : name(name), cuda_timer(std::make_unique<CudaTimer>())
+  {}
+
+  void start()
+  {
+    DYABLO_ASSERT_HOST_RELEASE(!this->running, "Attempting to start a timer that is already running : `" << name << "`");
+    this->running=true;
+
+    Kokkos::Profiling::pushRegion(this->name);
+    this->omp_timer.start();
+    #ifdef KOKKOS_ENABLE_CUDA
+    this->cuda_timer->start();
+    #endif
+  }
+
+  void stop()
+  {
+    DYABLO_ASSERT_HOST_RELEASE(this->running, "Attempting to stop a timer that is not running : `" << name << "`");
+    this->running=false;
+
+    Kokkos::Profiling::popRegion();
+    this->omp_timer.stop();
+    #ifdef KOKKOS_ENABLE_CUDA
+    this->cuda_timer->stop();
+    #endif
+  }
+
+  using Elapsed_mode_t = Timers_Timer::Elapsed_mode_t;
+  
+  double elapsed(Elapsed_mode_t em) const
+  {
+    DYABLO_ASSERT_HOST_RELEASE(!this->running, "Attempting to fetch a timer's elapsed time but the timer is still running : `" << name << "`");
+
+    if(em == Timers_Timer::ELAPSED_CPU)
+      return this->omp_timer.elapsed();
+    #ifdef KOKKOS_ENABLE_CUDA
+    else if( em == Timers_Timer::ELAPSED_GPU )
+      return this->cuda_timer->elapsed();
+    #endif
+    else
+    {
+      DYABLO_ASSERT_HOST_RELEASE(false, "Unknown/incompatible elapsed mode" );
+      return 0;
+    }
+  }
+};
+
+struct Timers_pimpl
+{
+  /// Members
+  std::map<std::string, Timers_Timer> timer_map;
+  Timers_Timer timer_total;
+
+
+  // Methods
+  Timers_pimpl()
+  : timer_total{std::make_unique<Timers_Timer_pimpl>("Total")}
+  {
+    timer_total.start();
+  }
+
+  ~Timers_pimpl()
+  {
+    timer_total.stop();
+  }
+
+  /// Get Timer associated to name
+  Timers_Timer& get(const std::string& name)
+  {
+    auto it = this->timer_map.find(name);
+    if( it == this->timer_map.end() )
+    {
+      Timers_Timer timer{ std::make_unique<Timers_Timer_pimpl>(name) };
+      it = this->timer_map.emplace(std::piecewise_construct, 
+                                  std::forward_as_tuple(name),
+                                  std::forward_as_tuple(std::move(timer)) ).first; 
+    }
+    return it->second;
+  }
+  /// Print a summary of all the timers
+  void print()
+  {
+    using Mode = Timers_Timer::Elapsed_mode_t;
+    timer_total.stop();
+    double t_tot_CPU = timer_total.elapsed(Mode::ELAPSED_CPU);
+    std::cout << "Total elapsed time (CPU) : " << t_tot_CPU;
+    #ifdef KOKKOS_ENABLE_CUDA
+    double t_tot_GPU = timer_total.elapsed(Mode::ELAPSED_GPU);
+    std::cout << " , (GPU) : " << t_tot_GPU;
+    #endif
+    std::cout << std::endl;
+    timer_total.start();
+    
+    for( const auto& p : this->timer_map )
+    {
+      const std::string& name = p.first;
+      {
+        double time_CPU = p.second.elapsed(Mode::ELAPSED_CPU);
+        double percent_CPU = 100 * time_CPU / t_tot_CPU;
+        std::cout << std::left << std::setw(25) << name;
+        printf(" time (CPU) : %5.3f \ts (%5.2f%%)", time_CPU, percent_CPU);
+      }
+      #ifdef KOKKOS_ENABLE_CUDA
+      {
+        double time_GPU = p.second.elapsed(Mode::ELAPSED_GPU);
+        double percent_GPU = 100 * time_GPU / t_tot_GPU;
+        printf(" , (GPU) : %5.3f \ts (%5.2f%%)", time_GPU, percent_GPU);
+      }
+      #endif 
+      std::cout << std::endl;  
+    }
+  }
+};
 
 #endif
+
+
+/*-----------------------------
+ * Delegate to pimpl
+-------------------------------*/
+void Timers_Timer::start()
+{
+  data->start();
+}
+
+void Timers_Timer::stop()
+{
+  data->stop();
+}
+
+double Timers_Timer::elapsed(Elapsed_mode_t mode) const
+{
+  return data->elapsed(mode);
+}
+
+Timers::Timers()
+: data( std::make_unique<Timers_pimpl>() )
+{}
+
+Timers::~Timers(){}
+
+Timers_Timer& Timers::get(const std::string& name)
+{
+  return data->get(name);
+}
+
+void Timers::print()
+{
+  data->print();
+}
