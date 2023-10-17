@@ -16,7 +16,7 @@ struct Timers_Timer{
     ELAPSED_GPU
   };
   double elapsed(Elapsed_mode_t mode) const;
-  std::unique_ptr<Timers_Timer_pimpl> data;
+  Timers_Timer_pimpl* data;
 };
 
 class Timers{
@@ -25,7 +25,7 @@ class Timers{
     Timers();
     ~Timers();
     /// Get Timer associated to name
-    Timer& get(const std::string& name);
+    Timer get(const std::string& name);
     /// Print a summary of all the timers
     void print();
   private:
