@@ -301,6 +301,22 @@ public:
     std::string godunov_updater_id = configMap.getValue<std::string>("hydro", "update", "HydroUpdate_hancock");
     this->has_mhd = godunov_updater_id.find("MHD") != std::string::npos;
     this->is_glm  = godunov_updater_id.find("GLM") != std::string::npos;
+    
+
+    {
+      int hydro_ghost_count;      
+      if( godunov_updater_id.find("oneneighbor") != std::string::npos )
+        hydro_ghost_count = 2; // Could be 1 but other kernels may need 2
+      else if( godunov_updater_id.find("hancock") != std::string::npos )
+        hydro_ghost_count = 4;
+      else
+        hydro_ghost_count = 2;
+
+      this->ghost_count = std::min( {U.getShape().bx, U.getShape().by, (uint32_t)hydro_ghost_count} );
+    }
+    
+
+
     this->godunov_updater = HydroUpdateFactory::make_instance( godunov_updater_id,
       configMap,
       this->m_foreach_cell,
@@ -563,7 +579,6 @@ public:
         m_scalar_data.print();
     }
 
-    int ghost_count = std::min( {U.getShape().bx, U.getShape().by, (uint32_t)2} );
 
     GhostCommunicator_partial_blocks ghost_comm(m_amr_mesh->getMesh(), U.getShape(), ghost_count, m_communicator);
 
@@ -756,6 +771,7 @@ private:
   std::unique_ptr<RefineCondition> refine_condition;
   std::unique_ptr<HydroUpdate> godunov_updater;
   bool has_mhd, is_glm; // TODO : remove this
+  int ghost_count; // TODO : remove this
   std::unique_ptr<ParticleUpdate> particle_position_updater, particle_update_density;
   std::unique_ptr<MapUserData> mapUserData;
   std::unique_ptr<IOManager> io_manager, io_manager_checkpoint;
