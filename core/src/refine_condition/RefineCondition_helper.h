@@ -94,6 +94,11 @@ public:
 
     uint32_t nbOcts = foreach_cell.get_amr_mesh().getNumOctants();
     Kokkos::View<int*> oct_marker_max("oct_marker_max", nbOcts);
+    Kokkos::parallel_for( "fill_markers", oct_marker_max.size(),
+      KOKKOS_LAMBDA( uint32_t iOct )
+    {
+      oct_marker_max(iOct) = -1;
+    });
     foreach_cell.foreach_cell( "RefineCondition_helper::mark_cells", U.getShape(),
       KOKKOS_LAMBDA( const CellIndex& iCell )
     {
