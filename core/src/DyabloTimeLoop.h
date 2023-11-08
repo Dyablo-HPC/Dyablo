@@ -20,6 +20,7 @@
 #include "cooling/CoolingUpdate.h"
 #include "UserData.h"
 #include "Cosmo.h"
+#include "mpi/GhostCommunicator_partial_blocks.h"
 
 namespace dyablo {
 
@@ -300,6 +301,22 @@ public:
     std::string godunov_updater_id = configMap.getValue<std::string>("hydro", "update", "HydroUpdate_hancock");
     this->has_mhd = godunov_updater_id.find("MHD") != std::string::npos;
     this->is_glm  = godunov_updater_id.find("GLM") != std::string::npos;
+    
+
+    {
+      int hydro_ghost_count;      
+      if( godunov_updater_id.find("oneneighbor") != std::string::npos )
+        hydro_ghost_count = 2; // Could be 1 but other kernels may need 2
+      else if( godunov_updater_id.find("hancock") != std::string::npos )
+        hydro_ghost_count = 4;
+      else
+        hydro_ghost_count = 2;
+
+      this->ghost_count = std::min( {U.getShape().bx, U.getShape().by, (uint32_t)hydro_ghost_count} );
+    }
+    
+
+
     this->godunov_updater = HydroUpdateFactory::make_instance( godunov_updater_id,
       configMap,
       this->m_foreach_cell,
@@ -562,13 +579,18 @@ public:
         m_scalar_data.print();
     }
 
-    GhostCommunicator ghost_comm(m_amr_mesh, m_communicator);
 
-    // Update ghost cells
-    // TODO use a timer INSIDE exchange_ghosts()?
-    timers.get("MPI ghosts").start();
-    U.exchange_ghosts( ghost_comm );
-    timers.get("MPI ghosts").stop();
+    GhostCommunicator_partial_blocks ghost_comm(m_amr_mesh->getMesh(), U.getShape(), ghost_count, m_communicator);
+
+    auto communicate_ghosts = [&](std::vector< std::string > exchange_vars)
+    {
+      std::vector<UserData::FieldAccessor::FieldInfo> field_info;
+      for(int i=0; i<exchange_vars.size(); i++)
+        field_info.push_back( {exchange_vars[i],i} );
+      auto Uexchange = U.getAccessor(field_info);
+      ghost_comm.exchange_ghosts( Uexchange );
+    };
+    
     
     if (m_gravity_type & GRAVITY_FIELD) {
       if( !U.has_field("gx") )
@@ -576,6 +598,25 @@ public:
       if( !U.has_field("gphi") )
         U.new_fields({"gphi"});
     }
+
+    //U.exchange_ghosts( ghost_comm );
+    std::vector<std::string> fields_to_exchange{"rho","e_tot","rho_vx","rho_vy","rho_vz"};
+    if( this->has_mhd )
+    {
+      fields_to_exchange.push_back("Bx");
+      fields_to_exchange.push_back("By");
+      fields_to_exchange.push_back("Bz");
+      if (this->is_glm)
+        fields_to_exchange.push_back({"psi"});
+    }
+    if (m_gravity_type & GRAVITY_FIELD) 
+    {
+      fields_to_exchange.push_back("gphi");
+    }
+
+    timers.get("MPI ghosts").start();
+    communicate_ghosts( fields_to_exchange );
+    timers.get("MPI ghosts").stop();
 
     // Update gravity
     if( gravity_solver )
@@ -657,7 +698,7 @@ public:
         timers.get("AMR").start();
 
         timers.get("MPI ghosts").start();
-        U.exchange_ghosts( ghost_comm );
+        communicate_ghosts( fields_to_exchange );
         timers.get("MPI ghosts").stop();
 
         timers.get("AMR: Mark cells").start();
@@ -730,6 +771,7 @@ private:
   std::unique_ptr<RefineCondition> refine_condition;
   std::unique_ptr<HydroUpdate> godunov_updater;
   bool has_mhd, is_glm; // TODO : remove this
+  int ghost_count; // TODO : remove this
   std::unique_ptr<ParticleUpdate> particle_position_updater, particle_update_density;
   std::unique_ptr<MapUserData> mapUserData;
   std::unique_ptr<IOManager> io_manager, io_manager_checkpoint;

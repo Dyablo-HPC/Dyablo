@@ -263,6 +263,12 @@ public:
     return fm.nbfields();
   }
 
+  KOKKOS_INLINE_FUNCTION
+  int nbFields() const
+  {
+    return this->nbfields();
+  }
+
   using Shape_t = CellArray_shape_local;
 
   KOKKOS_INLINE_FUNCTION

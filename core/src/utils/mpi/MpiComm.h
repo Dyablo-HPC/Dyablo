@@ -70,6 +70,9 @@ public:
   template<typename T>
   void MPI_Alltoall( const T* sendbuf, int sendcount, T* recvbuf, int recvcount ) const;
 
+  template<typename T>
+  void MPI_Alltoallv( const T* sendbuf, const int* sendcounts, T* recvbuf, const int* recvcount ) const;
+
   // NOTE : does not support sending to self
   template<typename Kokkos_View_t>
   MPI_Request_t MPI_Isend( const Kokkos_View_t& view, int dest, int tag ) const;
