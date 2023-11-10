@@ -7,7 +7,6 @@
 
 #include "kokkos_shared.h"
 #include "utils/misc/Dyablo_assert.h"
-#include "utils/mpi/GlobalMpiSession.h"
 
 #include "OpenMPTimer.h"
 #ifdef KOKKOS_ENABLE_CUDA
@@ -213,59 +212,23 @@ struct Timers_pimpl
     return times_current;
   }
   
-  void get_timers_aux(const Timers_Timer_pimpl& timer, std::vector<std::string>& names, std::vector<real_t>& cpu_times_local)
+  void get_timers_aux(const Timers_Timer_pimpl& timer, const std::string& prefix, std::vector<std::string>& names, std::vector<double>& cpu_times_local)
   {
     using Mode = Timers_Timer::Elapsed_mode_t;
-    names.push_back( timer.name );
+    names.push_back( prefix + timer.name );
     cpu_times_local.push_back( timer.elapsed(Mode::ELAPSED_CPU) );
+    std::string sub_prefix = prefix + timer.name + "/";
     for( const auto& p : timer.timer_map )
     {
-      get_timers_aux(p.second, names, cpu_times_local);
+      get_timers_aux(p.second, sub_prefix, names, cpu_times_local);
     }
   }
 
-  void print_file()
+  void get_timers(std::vector<std::string>& names, std::vector<double>& cpu_times)
   {
-    dyablo::MpiComm mpi_comm = dyablo::GlobalMpiSession::get_comm_world();
-    int tag = 10;
-
-    std::vector<std::string> names;
-    std::vector<real_t> cpu_times_local;
-
     timer_total.stop();
-    get_timers_aux( timer_total, names, cpu_times_local );
+    get_timers_aux( timer_total, "", names, cpu_times );
     timer_total.start();
-
-    if( mpi_comm.MPI_Comm_rank() != 0 )
-      mpi_comm.MPI_Send(cpu_times_local.data(), cpu_times_local.size(), 0, tag);
-    else
-    {
-      std::ofstream out("timers.txt");
-      out << "Rank"; 
-      for( const std::string& name : names )
-      {
-        out << " ; " << name;
-      }
-      out << std::endl;
-      out << 0;
-      for( real_t time : cpu_times_local )
-      {
-        out << " ; " << time;
-      }
-      out << std::endl;
-      for( int r=1; r<mpi_comm.MPI_Comm_size(); r++ )
-      {
-        std::vector<real_t> cpu_times_remote(cpu_times_local.size());
-        mpi_comm.MPI_Recv(cpu_times_remote.data(), cpu_times_remote.size(), r, tag);
-        out << r;
-        for( real_t time : cpu_times_remote )
-        {
-          out << " ; " << time;
-        }
-        out << std::endl;
-      }
-    }  
-    
   }
 
   /// Print a summary of all the timers
@@ -328,7 +291,7 @@ void Timers::print()
   data->print();
 }
 
-void Timers::print_file()
+void Timers::get_timers(std::vector<std::string>& names, std::vector<double>& cpu_times)
 {
-  data->print_file();
+  data->get_timers(names, cpu_times);
 }

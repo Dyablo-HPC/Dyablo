@@ -3,6 +3,7 @@
 #include <map>
 #include <string>
 #include <memory>
+#include <vector>
 
 struct Timers_Timer_pimpl;
 struct Timers_pimpl;
@@ -28,7 +29,7 @@ class Timers{
     Timer get(const std::string& name);
     /// Print a summary of all the timers
     void print();
-    void print_file();
+    void get_timers(std::vector<std::string>& names, std::vector<double>& cpu_times);
   private:
     std::unique_ptr<Timers_pimpl> data;
 };

@@ -463,6 +463,47 @@ public:
     }
   }
 
+  void timer_file(Timers& timers)
+  {
+    dyablo::MpiComm mpi_comm = dyablo::GlobalMpiSession::get_comm_world();
+    int tag = 10;
+
+    std::vector<std::string> names;
+    std::vector<real_t> cpu_times_local;
+
+    timers.get_timers( names, cpu_times_local );
+
+    if( mpi_comm.MPI_Comm_rank() != 0 )
+      mpi_comm.MPI_Send(cpu_times_local.data(), cpu_times_local.size(), 0, tag);
+    else
+    {
+      std::ofstream out("timers.txt");
+      out << "Rank"; 
+      for( const std::string& name : names )
+      {
+        out << " ; " << name;
+      }
+      out << std::endl;
+      out << 0;
+      for( real_t time : cpu_times_local )
+      {
+        out << " ; " << time;
+      }
+      out << std::endl;
+      for( int r=1; r<mpi_comm.MPI_Comm_size(); r++ )
+      {
+        std::vector<real_t> cpu_times_remote(cpu_times_local.size());
+        mpi_comm.MPI_Recv(cpu_times_remote.data(), cpu_times_remote.size(), r, tag);
+        out << r;
+        for( real_t time : cpu_times_remote )
+        {
+          out << " ; " << time;
+        }
+        out << std::endl;
+      }
+    }    
+  }
+
   /**
    * Run the simulation for multiple timesteps until a stop condition is met
    **/
@@ -512,7 +553,7 @@ public:
       // printf("Total number of cell-updates : %ld\n",
       //       m_total_num_cell_updates * (bx*by*bz));
     }
-    timers.print_file();
+    timer_file(timers);
 
   }
 
