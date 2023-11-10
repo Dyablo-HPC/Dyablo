@@ -39,7 +39,7 @@ struct Timers_pimpl
   {
     std::cout << "(Timers are disabled)" << std::endl;
   }
-  void print_file()
+  void get_timers(std::vector<std::string>& names, std::vector<double>& cpu_times)
   {
     /*empty*/
   }
@@ -66,7 +66,10 @@ struct Timers_Timer_pimpl
   /// Methods
 
   Timers_Timer_pimpl(const std::string& name, Timers_pimpl& parent_timers)
-  : name(name), parent_timers(parent_timers), cuda_timer(std::make_unique<CudaTimer>())
+  : name(name), parent_timers(parent_timers)
+  #ifdef KOKKOS_ENABLE_CUDA
+  , cuda_timer(std::make_unique<CudaTimer>())
+  #endif
   {}
 
   void start_timer_parent();
