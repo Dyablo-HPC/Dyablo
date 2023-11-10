@@ -32,7 +32,7 @@ struct Timers_pimpl
   /// Get Timer associated to name
   Timers_Timer get(const std::string& name)
   {
-    return Timers_Timer_pimpl();
+    return Timers_Timer();
   }
   /// Print a summary of all the timers
   void print()
