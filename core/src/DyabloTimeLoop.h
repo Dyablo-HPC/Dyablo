@@ -512,6 +512,7 @@ public:
       // printf("Total number of cell-updates : %ld\n",
       //       m_total_num_cell_updates * (bx*by*bz));
     }
+    timers.print_file();
 
   }
 

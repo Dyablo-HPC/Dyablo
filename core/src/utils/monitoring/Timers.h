@@ -28,6 +28,7 @@ class Timers{
     Timer get(const std::string& name);
     /// Print a summary of all the timers
     void print();
+    void print_file();
   private:
     std::unique_ptr<Timers_pimpl> data;
 };

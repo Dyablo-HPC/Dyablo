@@ -3,9 +3,11 @@
 #include <iostream>
 #include <iomanip>
 #include <cassert>
+#include <fstream>
 
 #include "kokkos_shared.h"
 #include "utils/misc/Dyablo_assert.h"
+#include "utils/mpi/GlobalMpiSession.h"
 
 #include "OpenMPTimer.h"
 #ifdef KOKKOS_ENABLE_CUDA
@@ -37,6 +39,10 @@ struct Timers_pimpl
   void print()
   {
     std::cout << "(Timers are disabled)" << std::endl;
+  }
+  void print_file()
+  {
+    /*empty*/
   }
 };
 
@@ -161,18 +167,19 @@ struct Timers_pimpl
 
     auto print_timer = [&]( std::string name, print_times_t times, std::string prefix )
     {
-      std::cout << prefix;
+      std::cout << prefix << std::left << std::setw(25) << name;
+      //int prefix_align_w = 10;
+      //std::cout << std::setw(prefix_align_w-prefix.length()) << ""; // Align timers
       {
         double time_CPU = times.time_cpu;
         double percent_CPU = 100 * time_CPU / t_tot_CPU;
-        std::cout << std::left << std::setw(25) << name;
-        printf(" time (CPU) : %5.3f \ts (%5.2f%%)", time_CPU, percent_CPU);
+        printf(" time (CPU) : %9.3f s (%6.2f%%)", time_CPU, percent_CPU);
       }
       #ifdef KOKKOS_ENABLE_CUDA
       {
         double time_GPU = times.time_gpu;
         double percent_GPU = 100 * time_GPU / t_tot_GPU;
-        printf(" , (GPU) : %5.3f \ts (%5.2f%%)", time_GPU, percent_GPU);
+        printf(" , (GPU) : %9.3f s (%6.2f%%)", time_GPU, percent_GPU);
       }
       #endif 
       std::cout << std::endl;  
@@ -186,8 +193,8 @@ struct Timers_pimpl
     print_timer(timer.name, times_current, prefix);
 
     print_times_t sub_times_total{};
-    //std::string sub_prefix = prefix + "| ";
-    std::string sub_prefix = prefix + timer.name + "/";
+    std::string sub_prefix = prefix + "| ";
+    //std::string sub_prefix = prefix + timer.name + "/";
     for( const auto& p : timer.timer_map )
     {
       print_times_t sub_times = print_aux(p.second, sub_prefix);
@@ -206,6 +213,61 @@ struct Timers_pimpl
     return times_current;
   }
   
+  void get_timers_aux(const Timers_Timer_pimpl& timer, std::vector<std::string>& names, std::vector<real_t>& cpu_times_local)
+  {
+    using Mode = Timers_Timer::Elapsed_mode_t;
+    names.push_back( timer.name );
+    cpu_times_local.push_back( timer.elapsed(Mode::ELAPSED_CPU) );
+    for( const auto& p : timer.timer_map )
+    {
+      get_timers_aux(p.second, names, cpu_times_local);
+    }
+  }
+
+  void print_file()
+  {
+    dyablo::MpiComm mpi_comm = dyablo::GlobalMpiSession::get_comm_world();
+    int tag = 10;
+
+    std::vector<std::string> names;
+    std::vector<real_t> cpu_times_local;
+
+    timer_total.stop();
+    get_timers_aux( timer_total, names, cpu_times_local );
+    timer_total.start();
+
+    if( mpi_comm.MPI_Comm_rank() != 0 )
+      mpi_comm.MPI_Send(cpu_times_local.data(), cpu_times_local.size(), 0, tag);
+    else
+    {
+      std::ofstream out("timers.txt");
+      out << "Rank"; 
+      for( const std::string& name : names )
+      {
+        out << " ; " << name;
+      }
+      out << std::endl;
+      out << 0;
+      for( real_t time : cpu_times_local )
+      {
+        out << " ; " << time;
+      }
+      out << std::endl;
+      for( int r=1; r<mpi_comm.MPI_Comm_size(); r++ )
+      {
+        std::vector<real_t> cpu_times_remote(cpu_times_local.size());
+        mpi_comm.MPI_Recv(cpu_times_remote.data(), cpu_times_remote.size(), r, tag);
+        out << r;
+        for( real_t time : cpu_times_remote )
+        {
+          out << " ; " << time;
+        }
+        out << std::endl;
+      }
+    }  
+    
+  }
+
   /// Print a summary of all the timers
   void print()
   {
@@ -264,4 +326,9 @@ Timers_Timer Timers::get(const std::string& name)
 void Timers::print()
 {
   data->print();
+}
+
+void Timers::print_file()
+{
+  data->print_file();
 }
