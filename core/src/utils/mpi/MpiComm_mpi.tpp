@@ -151,6 +151,25 @@ MpiComm::MPI_Request_t MpiComm::MPI_Irecv( const Kokkos_View_t& view, int dest, 
   return r;
 }
 
+template<typename T>
+void MpiComm::MPI_Send( const T* buffer, int count, int dest, int tag ) const
+{
+  using namespace MpiComm_impl;
+  MPI_Datatype type = mpi_type<T>();
+  ::MPI_Send( buffer, count, type, dest, tag, mpi_comm_id);
+}
+
+template<typename T>
+void MpiComm::MPI_Recv( T* buffer, int count, int source, int tag ) const
+{
+  using namespace MpiComm_impl;
+  MPI_Datatype type = mpi_type<T>();
+  MPI_Status status;
+  ::MPI_Recv( buffer, count, type, source, tag, mpi_comm_id, &status);
+}
+
+
+
 inline void MpiComm::MPI_Waitall( int count, MPI_Request_t* array_of_requests ) const
 {
   ::MPI_Waitall(count, array_of_requests, MPI_STATUSES_IGNORE);

@@ -46,6 +46,18 @@ MpiComm::MPI_Request_t MpiComm::MPI_Irecv( const Kokkos_View_t& view, int dest, 
   return 0;
 }
 
+template<typename T>
+void MpiComm::MPI_Send( const T* buffer, int count, int dest, int tag ) const
+{
+  DYABLO_ASSERT_HOST_RELEASE( false, "Cannot MPI_Send in MpiComm single mode" );
+}
+
+template<typename T>
+void MpiComm::MPI_Recv( T* view, int count, int dest, int tag ) const
+{
+  DYABLO_ASSERT_HOST_RELEASE( false, "Cannot MPI_Recv in MpiComm single mode" );
+}
+
 inline void MpiComm::MPI_Waitall( int count, MPI_Request_t* array_of_requests ) const
 { /*nothing to do*/ }
 

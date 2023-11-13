@@ -231,6 +231,8 @@ public:
     m_foreach_cell( *m_amr_mesh, configMap ),
     U(configMap, m_foreach_cell)
   {
+    timers.get("Init").start();
+
     // .ini : report legacy hydro/problem to run/initial_conditions
     if( configMap.hasValue("hydro", "problem") )
     {
@@ -239,6 +241,8 @@ public:
       configMap.getValue<std::vector<std::string>>("run", "initial_conditions", {hydro_problem});
     }   
 
+
+    timers.get("initial_conditions").start();
     // Get initial conditions ids
     std::vector<std::string> initial_conditions_ids = configMap.getValue<std::vector<std::string>>("run", "initial_conditions");
     // Initialize cells
@@ -261,6 +265,7 @@ public:
         initial_conditions->init( U );
       }     
     } 
+    timers.get("initial_conditions").stop();
 
     configMap.getValue<int>("mesh", "ndim", 3); 
 
@@ -439,6 +444,8 @@ public:
  
     std::ofstream out_ini("last.ini" );
     configMap.output( out_ini );       
+
+    timers.get("Init").stop();
   }
 
   static int interrupted;
@@ -456,12 +463,53 @@ public:
     }
   }
 
+  void timer_file(Timers& timers)
+  {
+    dyablo::MpiComm mpi_comm = dyablo::GlobalMpiSession::get_comm_world();
+    int tag = 10;
+
+    std::vector<std::string> names;
+    std::vector<real_t> cpu_times_local;
+
+    timers.get_timers( names, cpu_times_local );
+
+    if( mpi_comm.MPI_Comm_rank() != 0 )
+      mpi_comm.MPI_Send(cpu_times_local.data(), cpu_times_local.size(), 0, tag);
+    else
+    {
+      std::ofstream out("timers.txt");
+      out << "Rank"; 
+      for( const std::string& name : names )
+      {
+        out << " ; " << name;
+      }
+      out << std::endl;
+      out << 0;
+      for( real_t time : cpu_times_local )
+      {
+        out << " ; " << time;
+      }
+      out << std::endl;
+      for( int r=1; r<mpi_comm.MPI_Comm_size(); r++ )
+      {
+        std::vector<real_t> cpu_times_remote(cpu_times_local.size());
+        mpi_comm.MPI_Recv(cpu_times_remote.data(), cpu_times_remote.size(), r, tag);
+        out << r;
+        for( real_t time : cpu_times_remote )
+        {
+          out << " ; " << time;
+        }
+        out << std::endl;
+      }
+    }    
+  }
+
   /**
    * Run the simulation for multiple timesteps until a stop condition is met
    **/
   void run()
   {
-    timers.get("Total").start();
+    timers.get("TimeLoop").start();
 
     // Stop simulation when recieving SIGINT 
     // NOTE : mpirun catches SIGINT and forwards SIGTERM to child process
@@ -477,6 +525,8 @@ public:
     }
     signal( SIGINT, SIG_DFL );
 
+    timers.get("TimeLoop").stop();
+
     // Always output after last iteration
     timers.get("outputs").start();
     if( m_enable_output )
@@ -486,8 +536,6 @@ public:
     if( m_enable_checkpoint )
       io_manager_checkpoint->save_snapshot(U, m_scalar_data);
     timers.get("checkpoint").stop();
-
-    timers.get("Total").stop();
 
     int rank = m_communicator.MPI_Comm_rank();
     if ( rank == 0 ) 
@@ -505,6 +553,7 @@ public:
       // printf("Total number of cell-updates : %ld\n",
       //       m_total_num_cell_updates * (bx*by*bz));
     }
+    timer_file(timers);
 
   }
 

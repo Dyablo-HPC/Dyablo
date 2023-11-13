@@ -80,6 +80,12 @@ public:
   template<typename Kokkos_View_t>
   MPI_Request_t MPI_Irecv( const Kokkos_View_t& view, int dest, int tag ) const;
 
+  template<typename T>
+  void MPI_Send( const T* buffer, int count, int dest, int tag ) const;
+
+  template<typename T>
+  void MPI_Recv( T* view, int count, int dest, int tag ) const;
+
   inline void MPI_Waitall( int count, MPI_Request_t* requests ) const;
 private:
   MPI_Comm_t mpi_comm_id;
