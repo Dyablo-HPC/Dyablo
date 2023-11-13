@@ -15,7 +15,7 @@
   #define DYABLO_USE_GPU_TIMER
 #elif defined(KOKKOS_ENABLE_HIP)
   #include "HipTimer.h"
-  using GpuTimer = CudaTimer;
+  using GpuTimer = HipTimer;
   #define DYABLO_USE_GPU_TIMER
 #else
   class GpuTimer{};
@@ -74,7 +74,7 @@ struct Timers_Timer_pimpl
   Timers_Timer_pimpl(const std::string& name, Timers_pimpl& parent_timers)
   : name(name), parent_timers(parent_timers)
   #ifdef DYABLO_USE_GPU_TIMER
-  , gpu_timer(std::make_unique<CudaTimer>())
+  , gpu_timer(std::make_unique<GpuTimer>())
   #endif
   {}
 
