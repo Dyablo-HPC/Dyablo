@@ -9,8 +9,16 @@
 #include "utils/misc/Dyablo_assert.h"
 
 #include "OpenMPTimer.h"
-#ifdef KOKKOS_ENABLE_CUDA
-#include "CudaTimer.h"
+#if defined(KOKKOS_ENABLE_CUDA)
+  #include "CudaTimer.h"
+  using GpuTimer = CudaTimer;
+  #define DYABLO_USE_GPU_TIMER
+#elif defined(KOKKOS_ENABLE_HIP)
+  #include "HipTimer.h"
+  using GpuTimer = CudaTimer;
+  #define DYABLO_USE_GPU_TIMER
+#else
+  class GpuTimer{};
 #endif
 
 #ifdef DYABLO_DISABLE_TIMERS
@@ -57,9 +65,7 @@ struct Timers_Timer_pimpl
   Timers_pimpl& parent_timers;
 
   OpenMPTimer omp_timer;
-  #ifdef KOKKOS_ENABLE_CUDA
-  std::unique_ptr<CudaTimer> cuda_timer;
-  #endif
+  std::unique_ptr<GpuTimer> gpu_timer;
   std::map<std::string, Timers_Timer_pimpl> timer_map;
   Timers_Timer_pimpl* parent_timer = nullptr;
 
@@ -67,8 +73,8 @@ struct Timers_Timer_pimpl
 
   Timers_Timer_pimpl(const std::string& name, Timers_pimpl& parent_timers)
   : name(name), parent_timers(parent_timers)
-  #ifdef KOKKOS_ENABLE_CUDA
-  , cuda_timer(std::make_unique<CudaTimer>())
+  #ifdef DYABLO_USE_GPU_TIMER
+  , gpu_timer(std::make_unique<CudaTimer>())
   #endif
   {}
 
@@ -82,8 +88,8 @@ struct Timers_Timer_pimpl
 
     Kokkos::Profiling::pushRegion(this->name);
     this->omp_timer.start();
-    #ifdef KOKKOS_ENABLE_CUDA
-    this->cuda_timer->start();
+    #ifdef DYABLO_USE_GPU_TIMER
+    this->gpu_timer->start();
     #endif
   }
 
@@ -93,8 +99,8 @@ struct Timers_Timer_pimpl
 
     Kokkos::Profiling::popRegion();
     this->omp_timer.stop();
-    #ifdef KOKKOS_ENABLE_CUDA
-    this->cuda_timer->stop();
+    #ifdef DYABLO_USE_GPU_TIMER
+    this->gpu_timer->stop();
     #endif
   }
 
@@ -106,9 +112,9 @@ struct Timers_Timer_pimpl
 
     if(em == Timers_Timer::ELAPSED_CPU)
       return this->omp_timer.elapsed();
-    #ifdef KOKKOS_ENABLE_CUDA
+    #ifdef DYABLO_USE_GPU_TIMER
     else if( em == Timers_Timer::ELAPSED_GPU )
-      return this->cuda_timer->elapsed();
+      return this->gpu_timer->elapsed();
     #endif
     else
     {
@@ -163,7 +169,7 @@ struct Timers_pimpl
   {
     using Mode = Timers_Timer::Elapsed_mode_t;
     double t_tot_CPU = timer_total.elapsed(Mode::ELAPSED_CPU);
-    #ifdef KOKKOS_ENABLE_CUDA
+    #ifdef DYABLO_USE_GPU_TIMER
     double t_tot_GPU = timer_total.elapsed(Mode::ELAPSED_GPU);
     #endif
 
@@ -177,7 +183,7 @@ struct Timers_pimpl
         double percent_CPU = 100 * time_CPU / t_tot_CPU;
         printf(" time (CPU) : %9.3f s (%6.2f%%)", time_CPU, percent_CPU);
       }
-      #ifdef KOKKOS_ENABLE_CUDA
+      #ifdef DYABLO_USE_GPU_TIMER
       {
         double time_GPU = times.time_gpu;
         double percent_GPU = 100 * time_GPU / t_tot_GPU;
@@ -189,7 +195,7 @@ struct Timers_pimpl
 
     print_times_t times_current;
     times_current.time_cpu = timer.elapsed(Mode::ELAPSED_CPU);
-    #ifdef KOKKOS_ENABLE_CUDA
+    #ifdef DYABLO_USE_GPU_TIMER
     times_current.time_gpu = timer.elapsed(Mode::ELAPSED_GPU);
     #endif
     print_timer(timer.name, times_current, prefix);
