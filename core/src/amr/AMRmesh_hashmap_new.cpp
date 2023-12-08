@@ -537,7 +537,7 @@ AMRmesh_hashmap_new::GhostMap_t AMRmesh_hashmap_new::loadBalance(level_t level)
       DYABLO_ASSERT_HOST_RELEASE(new_morton_intervals[mpi_rank] < new_morton_intervals[mpi_rank+1], "Process would be empty");
     }
 
-    std::cout << "Rank " << mpi_rank << ": new morton interval [" << new_morton_intervals[mpi_rank] << ", " << new_morton_intervals[mpi_rank+1] << "[" << std::endl;
+    //std::cout << "Rank " << mpi_rank << ": new morton interval [" << new_morton_intervals[mpi_rank] << ", " << new_morton_intervals[mpi_rank+1] << "[" << std::endl;
 
     // Compute `new_oct_intervals` corresponding to `morton_intervals`
     std::vector<global_oct_index_t> new_oct_intervals(mpi_size+1); // First global index for rank i
@@ -559,7 +559,7 @@ AMRmesh_hashmap_new::GhostMap_t AMRmesh_hashmap_new::loadBalance(level_t level)
           old_morton_interval_end = old_morton_intervals[mpi_rank+1];
         }            
 
-        std::cout << "Rank " << mpi_rank << ": old morton interval [" << old_morton_interval_begin << ", " << old_morton_interval_end << "[" << std::endl;
+        //std::cout << "Rank " << mpi_rank << ": old morton interval [" << old_morton_interval_begin << ", " << old_morton_interval_end << "[" << std::endl;
 
         int nb_local_pivots=0;
         for(int rank=0; rank<mpi_size; rank++)
@@ -577,7 +577,7 @@ AMRmesh_hashmap_new::GhostMap_t AMRmesh_hashmap_new::loadBalance(level_t level)
         new_oct_intervals[mpi_size] = this->getGlobalNumOctants();
 
     }
-    std::cout << "Rank " << mpi_rank << ": iOct interval [" << new_oct_intervals[mpi_rank] << ", " << new_oct_intervals[mpi_rank+1] << "[" << std::endl;
+    //std::cout << "Rank " << mpi_rank << ": iOct interval [" << new_oct_intervals[mpi_rank] << ", " << new_oct_intervals[mpi_rank+1] << "[" << std::endl;
     DYABLO_ASSERT_HOST_RELEASE( new_oct_intervals[mpi_rank] <= new_oct_intervals[mpi_rank+1], "iOct_interval upper bound smaller than lower bound" );
 
     // List octants to exchange
@@ -653,14 +653,14 @@ AMRmesh_hashmap_new::GhostMap_t AMRmesh_hashmap_new::loadBalance(level_t level)
     // TODO clean raw console outputs?
     if( new_nbOcts != 0 )
     {
-      std::cout << "Rank " << mpi_rank << ": actual morton interval [" << compute_morton( storage, 0, level_max) << ", " << compute_morton( storage,  getNumOctants()-1, level_max) << "]" << std::endl;
+      //std::cout << "Rank " << mpi_rank << ": actual morton interval [" << compute_morton( storage, 0, level_max) << ", " << compute_morton( storage,  getNumOctants()-1, level_max) << "]" << std::endl;
       DYABLO_ASSERT_HOST_RELEASE( compute_morton( storage, 0, level_max) >= new_morton_intervals[mpi_rank], "First octant outside of morton interval : " << compute_morton( storage, 0, level_max) );
       DYABLO_ASSERT_HOST_RELEASE( compute_morton( storage, getNumOctants()-1, level_max) < new_morton_intervals[mpi_rank+1], "Last octant outside of morton interval : " << compute_morton( storage, getNumOctants()-1, level_max));
     }
     else 
     {
       std::cout << "Rank " << mpi_rank << ": actual morton interval [EMPTY]" << std::endl;
-      std::cout << "WARNING : Rank has 0 octant, this is probably not okay" << std::endl;
+      //std::cout << "WARNING : Rank has 0 octant, this is probably not okay" << std::endl;
     } 
 
     DYABLO_ASSERT_HOST_RELEASE(this->getNumOctants() > 0, "Process cannot be empty" );

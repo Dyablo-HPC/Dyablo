@@ -277,15 +277,7 @@ public:
    **/
   void adapt(bool dummy = true)
   { 
-    uint32_t nbOcts_old = this->getNumOctants();
-    uint32_t nbGhosts_old = this->getNumGhosts();
-
     Impl::adapt(dummy); 
-
-    uint32_t nbOcts_new = this->getNumOctants();
-    uint32_t nbGhosts_new = this->getNumGhosts();
-    std::cout << "Adapt - rank " << this->getRank() << " octs : " << nbOcts_old << " (" << nbGhosts_old << ")"
-                                                    << " -> "     << nbOcts_new << " (" << nbGhosts_new << ")" << std::endl;         
   }
   /// Refine all octants : same as adapt with all octants marked +1
   void adaptGlobalRefine()
