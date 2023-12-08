@@ -38,6 +38,7 @@ public:
     m_rank   = GlobalMpiSession::get_comm_world().MPI_Comm_rank();
     m_nRanks = GlobalMpiSession::get_comm_world().MPI_Comm_size();
 
+    if( m_rank == 0 )
     {
       std::cout << "##########################\n";
       std::cout << "KOKKOS CONFIG             \n";
@@ -55,27 +56,27 @@ public:
       Kokkos::print_configuration(msg);
       std::cout << msg.str();
       std::cout << "##########################\n";
+    }
 
 #ifdef KOKKOS_ENABLE_CUDA
-      if( MPI_enabled() )
-      {
+    if( MPI_enabled() )
+    {
 
-        // To enable kokkos accessing multiple GPUs don't forget to
-        // add option "--ndevices=X" where X is the number of GPUs
-        // you want to use per node.
+      // To enable kokkos accessing multiple GPUs don't forget to
+      // add option "--ndevices=X" where X is the number of GPUs
+      // you want to use per node.
 
-        // on a large cluster, the scheduler should assign ressources
-        // in a way that each MPI task is mapped to a different GPU
-        // let's cross-checked that:
+      // on a large cluster, the scheduler should assign ressources
+      // in a way that each MPI task is mapped to a different GPU
+      // let's cross-checked that:
 
-        int cudaDeviceId;
-        cudaGetDevice(&cudaDeviceId);
-        std::cout << "I'm MPI task #" << m_rank << " (out of " << m_nRanks
-                  << ")"
-                  << " pinned to GPU #" << cudaDeviceId << "\n";
-      }
+      int cudaDeviceId;
+      cudaGetDevice(&cudaDeviceId);
+      std::cout << "I'm MPI task #" << m_rank << " (out of " << m_nRanks
+                << ")"
+                << " pinned to GPU #" << cudaDeviceId << "\n";
+    }
 #endif // KOKKOS_ENABLE_CUDA
-    }  // end kokkos config
   }
 
   ~DyabloSession() { Kokkos::finalize(); }
