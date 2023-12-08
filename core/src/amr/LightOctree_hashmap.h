@@ -33,7 +33,6 @@ public:
       min_level(level_min), max_level(level_max),
       is_periodic(periodic)
     {
-        std::cout << "LightOctree rehash ..." << std::endl;
         private_init();
     }
 
@@ -44,9 +43,7 @@ public:
       min_level(level_min), max_level(level_max),
       is_periodic( {pmesh->getPeriodic(2*IX), pmesh->getPeriodic(2*IY), pmesh->getPeriodic(2*IZ)} ),
       morton_intervals( "morton_intervals", pmesh->getMpiComm().MPI_Comm_size()+1 )
-    {
-        std::cout << "LightOctree rehash ..." << std::endl;
-    
+    {    
         private_init();
 
         // TODO use logical coords directly or even morton_intervals from AMRmesh

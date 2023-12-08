@@ -624,8 +624,15 @@ public:
     // Log iteration    
     { // Todo make a logger
       int rank = m_communicator.MPI_Comm_rank();
-      if( rank == 0 && m_scalar_data.get<int>("iter") % m_nlog == 0 )
-        m_scalar_data.print();
+      if( m_scalar_data.get<int>("iter") % m_nlog == 0 )
+      {
+        if( rank == 0 )
+          m_scalar_data.print();
+
+        uint32_t nbOcts = m_amr_mesh->getNumOctants();
+        uint32_t nbGhosts = m_amr_mesh->getNumGhosts();
+        std::cout << "Mesh - rank " << rank << " octs : " << nbOcts << " (" << nbGhosts << ")" << std::endl;
+      }
     }
 
 
