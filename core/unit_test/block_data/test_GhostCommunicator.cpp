@@ -551,3 +551,151 @@ TEST(dyablo, test_GhostCommunicator_reduce)
 {
   run_test_reduce();
 }
+
+void run_test_reduce_partial_blocks()
+{
+  using namespace dyablo;
+
+  std::cout << "// =========================================\n";
+  std::cout << "// Testing GhostCommunicator_partial_block reduce ...\n";
+  std::cout << "// =========================================\n";
+
+  std::cout << "Create mesh..." << std::endl;
+  std::shared_ptr<AMRmesh> amr_mesh; //solver->amr_mesh 
+  constexpr int ndim = 3;
+  {
+    amr_mesh = std::make_shared<AMRmesh>(ndim, ndim, std::array<bool,3>{true,true,true}, 3, 7);
+    //amr_mesh->setBalanceCodimension(ndim);
+    //uint32_t idx = 0;
+    //amr_mesh->setBalance(idx,true);
+    // mr_mesh->setPeriodic(0);
+    // amr_mesh->setPeriodic(1);
+    // amr_mesh->setPeriodic(2);
+    // amr_mesh->setPeriodic(3);
+    //amr_mesh->setPeriodic(4);
+    //amr_mesh->setPeriodic(5);
+
+    debug::output_vtk("before_initial", *amr_mesh);
+    if( amr_mesh->getRank() == 0 )
+      amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
+    amr_mesh->adapt();
+    debug::output_vtk("after_adapt1", *amr_mesh);
+    if( amr_mesh->getRank() == 0 )
+      amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
+    amr_mesh->adapt();
+    debug::output_vtk("after_adapt2", *amr_mesh);
+    if( amr_mesh->getRank() == 0 )
+      amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
+    amr_mesh->adapt();
+    debug::output_vtk("after_adapt3", *amr_mesh);
+    if( amr_mesh->getRank() == 0 )
+      amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
+    amr_mesh->adapt();
+    debug::output_vtk("after_adapt4", *amr_mesh);
+
+    amr_mesh->loadBalance();
+    amr_mesh->updateConnectivity();
+  }
+
+  uint32_t bx = 8;
+  uint32_t by = 8;
+  uint32_t bz = 8;
+  ConfigMap configMap ("");
+  configMap.getValue<uint32_t>("amr", "bx", bx);
+  configMap.getValue<uint32_t>("amr", "by", by);
+  configMap.getValue<uint32_t>("amr", "bz", bz);
+  
+  ForeachCell foreach_cell(*amr_mesh, configMap);  
+  UserData U ( configMap, foreach_cell );
+
+  U.new_fields({"px", "py", "pz"});
+
+  std::cout << "Initialize User Data..." << std::endl;
+
+  {// Initialize U
+
+    enum VarIndex_test{Px,Py,Pz};
+
+    UserData::FieldAccessor Uin = U.getAccessor( {{"px", Px}, {"py", Py}, {"pz", Pz}} );
+
+    foreach_cell.foreach_cell( "Fill_neighbors", U.getShape(),
+      CELL_LAMBDA( const CellIndex& iCell )
+    {
+      auto fill_neighbor = [&](CellIndex::offset_t offset, VarIndex iVar)
+      {
+        CellIndex iCell_n = iCell.getNeighbor_ghost( offset, Uin );    
+        assert( iCell_n.is_valid() ); // This test uses periodic
+        assert( iCell_n.level_diff() >= -1 &&  iCell_n.level_diff() <= 1 );
+        if( iCell_n.level_diff() == 0 ) // Same size
+        {
+          Kokkos::atomic_add(&Uin.at( iCell_n, iVar ), 1); 
+        }
+        else if( iCell_n.level_diff() == 1 ) // Neighbor is bigger
+        {
+          Kokkos::atomic_add(&Uin.at( iCell_n, iVar ), 0.25); 
+        }
+        else if( iCell_n.level_diff() == -1 ) // Neighbors are smaller
+        {
+          foreach_smaller_neighbor<ndim>( iCell_n, offset, Uin.getShape(),
+            [&]( const CellIndex& iCell_ns )
+          {
+            Kokkos::atomic_add(&Uin.at( iCell_ns, iVar ), 1);
+          });       
+        }
+        else
+        {
+          assert(false);
+        }
+      };
+      fill_neighbor( { 1, 0, 0}, Px );
+      fill_neighbor( {-1, 0, 0}, Px );
+      fill_neighbor( { 0, 1, 0}, Py );
+      fill_neighbor( { 0,-1, 0}, Py );
+      fill_neighbor( { 0, 0, 1}, Pz );
+      fill_neighbor( { 0, 0,-1}, Pz );
+    });
+
+  }
+
+  enum VarIndex_test{Px,Py,Pz};
+  UserData::FieldAccessor Ua = U.getAccessor( {{"px", Px}, {"py", Py}, {"pz", Pz}} );
+
+  //test with full communicator : U.fields.fields.U* must be modified to public
+  //GhostCommunicator_kokkos ghost_communicator( amr_mesh->getMesh());
+  //ghost_communicator.reduce_ghosts<2>( U.fields.fields.U, U.fields.fields.Ughost );
+
+  GhostCommunicator_partial_blocks ghost_communicator( amr_mesh->getMesh(), U.getShape(), 2 );
+  ghost_communicator.reduce_ghosts( Ua );
+
+  int nerrors = 0;
+  foreach_cell.reduce_cell( "check_values", U.getShape(),
+    CELL_LAMBDA( const CellIndex& iCell, int& nerrors )
+  {
+    constexpr real_t eps = 1e-10;
+    real_t U_IU = Ua.at( iCell, Px );
+    real_t U_IV = Ua.at( iCell, Py );
+    real_t U_IW = Ua.at( iCell, Pz );
+
+    #ifndef __CUDA_ARCH__
+    EXPECT_NEAR( 2, U_IU, eps);
+    EXPECT_NEAR( 2, U_IV, eps);
+    EXPECT_NEAR( 2, U_IW, eps);
+    #endif
+
+    if( abs( U_IU - 2) > eps )
+      nerrors++;
+    if( abs( U_IV - 2) > eps )
+      nerrors++;
+    if( abs( U_IW - 2) > eps )
+      nerrors++;
+    
+  }, nerrors);
+
+  EXPECT_EQ(nerrors, 0);
+
+} // run_test_reduce
+
+TEST(dyablo, test_GhostCommunicator_partial_blocks_reduce)
+{
+  run_test_reduce_partial_blocks();
+}
