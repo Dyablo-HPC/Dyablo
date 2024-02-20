@@ -241,10 +241,23 @@ public:
     {
         DYABLO_ASSERT_HOST_RELEASE( fields_info.size() > 0, "fields_info cannot be empty" );
 
+        auto unknown_field_error = [&](std::string field_name)
+        {
+            std::stringstream s;
+            s << "Could not find field '" << field_name << "' in UserData" << std::endl;
+            s << "Available fields are :" << std::endl;
+            for( auto& p : user_data.field_index )
+            {
+                s << " - '" << p.first << "'" << std::endl;
+            }
+            return s.str();
+        };
+
         int i=0; 
         for( const FieldInfo& info : fields_info )
         {
-            // All required fields must have the same size (old/not old)
+            DYABLO_ASSERT_HOST_RELEASE( user_data.has_field(info.name), 
+                                        unknown_field_error(info.name) );
             int index = user_data.field_index.at(info.name).index;
             fm_ivar.activate( info.id, index );
             fm_active[i] = index; // TODO : maybe reorder?
