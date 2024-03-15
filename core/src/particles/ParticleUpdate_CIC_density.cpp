@@ -2,6 +2,7 @@
 
 #include "ForeachParticle.h"
 #include "foreach_cell/ForeachCell_utils.h"
+#include "mpi/GhostCommunicator_partial_blocks.h"
 
 namespace dyablo {
 
@@ -120,9 +121,9 @@ public:
 
     });
 
-    GhostCommunicator ghost_comm(std::shared_ptr<AMRmesh>(&foreach_cell.get_amr_mesh(), [](AMRmesh*){}));
-    const auto& Urhog = U.getField( "rho_g" );
-    ghost_comm.reduce_ghosts<2>( Urhog.U, Urhog.Ughost);
+    GhostCommunicator_partial_blocks ghost_communicator( foreach_cell.get_amr_mesh().getMesh(), U.getShape(), 1 );
+    auto Urhog = U.getAccessor( {{"rho_g", IRhoG}} );
+    ghost_communicator.reduce_ghosts(Urhog);
 
     timers.get("ParticleUpdate_CIC_density").stop();
   }
