@@ -190,7 +190,7 @@ public:
       configMap.getValue<real_t>("mesh", "xmax", 1),
       configMap.getValue<real_t>("mesh", "ymax", 1),
       configMap.getValue<real_t>("mesh", "zmax", 1),
-      configMap.getValue<uint32_t>("amr", "nbOctsPerGroup", 64)
+      configMap.getValue<uint32_t>("amr", "nbOctsPerGroup", 1024)
     },
     patchmanager(cdata, pmesh)
   {}

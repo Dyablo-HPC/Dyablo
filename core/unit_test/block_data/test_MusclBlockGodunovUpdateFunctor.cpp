@@ -98,7 +98,7 @@ void run_test(std::string name, std::string filename) {
   uint32_t nbCellsPerOct_g =
       ndim == 2 ? bx_g * by_g : bx_g * by_g * bz_g;
 
-  uint32_t nbOctsPerGroup = configMap.getValue<uint32_t>("amr", "nbOctsPerGroup", 32);
+  uint32_t nbOctsPerGroup = configMap.getValue<uint32_t>("amr", "nbOctsPerGroup", 1024);
 
   /*
    * allocate/initialize Ugroup / Qgroup
