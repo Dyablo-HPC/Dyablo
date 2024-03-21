@@ -311,10 +311,23 @@ public:
     {
         DYABLO_ASSERT_HOST_RELEASE( attr_info.size() > 0, "fields_info cannot be empty" );
 
+        auto unknown_attr_error = [&](std::string attr_name)
+        {
+            std::stringstream s;
+            s << "Could not find particle attribute '" << attr_name << "' in ParticleArray" << std::endl;
+            s << "Available attributes are :" << std::endl;
+            for( const std::string& particle_attr : particles.getEnabledParticleAttributes() )
+            {
+                s << " - '" << particle_attr << "'" << std::endl;
+            }
+            return s.str();
+        };
+
         int i=0; 
         for( const AttributeInfo& info : attr_info )
         {
-            // All required fields must have the same size (old/not old)
+            DYABLO_ASSERT_HOST_RELEASE( particles.has_ParticleAttribute(info.name),
+                                        unknown_attr_error(info.name));
             int index = particles.attribute_index.at(info.name);
             fm_ivar.activate( info.id, index );
             fm_active[i] = index; // TODO : maybe reorder?
