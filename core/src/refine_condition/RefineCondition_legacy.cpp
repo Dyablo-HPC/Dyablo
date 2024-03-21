@@ -18,7 +18,7 @@ public:
       timers(timers),
       error_min ( configMap.getValue<real_t>("amr", "error_min", 0.2) ),
       error_max ( configMap.getValue<real_t>("amr", "error_max", 0.8) ),
-      nbOctsPerGroup(configMap.getValue<uint32_t>("amr", "nbOctsPerGroup", 64)),
+      nbOctsPerGroup(configMap.getValue<uint32_t>("amr", "nbOctsPerGroup", 1024)),
       gravity_type( configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE) ),
       bxmin( configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_ABSORBING) ),
       bxmax( configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmax", BC_ABSORBING) ),

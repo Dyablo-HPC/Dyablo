@@ -31,7 +31,7 @@ HydroUpdate_legacy::HydroUpdate_legacy(
   Timers& timers )
  : pdata(new Data
     {foreach_cell, 
-    configMap.getValue<uint32_t>("amr","nbOctsPerGroup",64),
+    configMap.getValue<uint32_t>("amr","nbOctsPerGroup",1024),
     foreach_cell.get_amr_mesh().getDim(),
     MusclBlockGodunovUpdateFunctor::Params(configMap),
     configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_ABSORBING),
