@@ -689,6 +689,11 @@ public:
 
       gravity_solver->update_gravity_field(U, m_scalar_data);
 
+      // Maybe put this only in CIC move since we don't need it for NGP
+      timers.get("MPI ghosts").start();
+      communicate_ghosts( {"gx", "gy", "gz"} );
+      timers.get("MPI ghosts").stop();
+
       // Restore rho before projection (only if particle projection)
       if( particle_update_density )
         U.move_field("rho", "rho_bak");
