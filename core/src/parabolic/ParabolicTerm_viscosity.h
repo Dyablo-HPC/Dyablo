@@ -82,173 +82,142 @@ public:
     PrimHydroState q;
     getPrimitiveState<ndim>(Qgroup, iCell_Qgroup, q);
 
-    const ComponentIndex3D tangent_comp[3][2] {{IY, IZ},
-                                               {IX, IZ},
-                                               {IX, IY}};
+    // Computing mu at local position
+    auto pos = cellmetadata.getCellCenter(iCell_Qgroup);
+    const real_t mu_cell = compute_mu<ndim>(pos);
 
-    const real_t volume {size[IX] * size[IY] * (ndim == 3 ? size[IZ] : 1.0)};
-    const real_t A[3] = {ndim == 3 ? size[IY]*size[IZ] : size[IY],
-                         ndim == 3 ? size[IX]*size[IZ] : size[IX],
-                         size[IX]*size[IY]};
+    PrimState::VarIndex IU = PrimState::VarIndex::Iu;
+    PrimState::VarIndex IV = PrimState::VarIndex::Iv;
+    PrimState::VarIndex IW = PrimState::VarIndex::Iw;
 
-    
-
-    using Stencil = PrimHydroState[3][3][3];
-    Stencil stencil{};
-
-    // TODO : Place this in a utility header/source
-    // TODO : Should be optimized to only extract the right cells for the stencil
-    // Lambda to extract a cubic stencil around an array
-    auto fill_stencil = [&](const CellIndex &iCell) -> void {
-      offset_t off;
-      int k0 = -1;
-      int k1 = (ndim == 2 ? 0 : 2);
-
-      for (int i=-1; i<2; ++i) {
-        off[IX] = i;
-        for (int j=-1; j<2; ++j) {
-          off[IY] = j;
-          for (int k=k0; k<k1; ++k) {
-            off[IZ] = (ndim == 2 ? k+1 : k);
-
-            getPrimitiveState<ndim>(Qgroup, iCell_Qgroup + off, stencil[i+1][j+1][k+1]);
-          }
-        }
-      }
+    auto stencil = [&](const offset_t& offset, PrimState::VarIndex& ivar)
+    {
+      return Qgroup.at( iCell_Qgroup + offset, ivar );
     };
 
+    ConsHydroState vf{};
 
-    auto compute_viscous_flux = [&](const ComponentIndex3D dir) {
-      // Here i is the normal component, j the 1st tangential component and k the 2nd
-      // Also, u is the normal velocity component, v and w the two tangential
-      const auto td1 = tangent_comp[dir][0];
-      const auto td2 = tangent_comp[dir][1];
+    // For each side and each direction
+    for( int side : {0,1} )
+    {
+      int8_t R = side;
+      int8_t L = side-1;
 
-      // Computing mu at local position
-      auto pos = cellmetadata.getCellCenter(iCell_Qgroup);
-      const real_t mu = compute_mu<ndim>(pos);
+      // viscous_flux for direction IX
+      {
+        const real_t dudx = inv_size[IX] * (stencil({R, 0, 0}, IU) - stencil({L, 0, 0}, IU));
+        const real_t dvdx = inv_size[IX] * (stencil({R, 0, 0}, IV) - stencil({L, 0, 0}, IV));
 
-      real_t area = A[dir];
+        const real_t dudy = 0.25 * inv_size[IY] * ( stencil({R, 1, 0}, IU) - stencil({R, -1, 0}, IU) 
+                                                  + stencil({L, 1, 0}, IU) - stencil({L, -1, 0}, IU));
+        const real_t dvdy = 0.25 * inv_size[IY] * ( stencil({R, 1, 0}, IV) - stencil({R, -1, 0}, IV) 
+                                                  + stencil({L, 1, 0}, IV) - stencil({L, -1, 0}, IV));
 
-      ConsHydroState vf{};
+        real_t dwdx=0.0, dudz=0.0, dwdz=0.0, qi_w=0;
+        if (ndim == 3) 
+        {
+          dwdx = inv_size[IX] * ( stencil({R, 0, 0}, IW) - stencil({L, 0, 0}, IW) );
+          dudz = 0.25 * inv_size[IZ] * (  stencil({R, 0, 1}, IU) - stencil({R, 0, -1}, IU) 
+                                        + stencil({L, 0, 1}, IU) - stencil({L, 0, -1}, IU) );
+        
+          dwdz = 0.25 * inv_size[IZ] * (  stencil({R, 0, 1}, IW) - stencil({R, 0, -1}, IW) 
+                                        + stencil({L, 0, 1}, IW) - stencil({L, 0, -1}, IW) );
 
-      // Extracting cells from stencil
-      fill_stencil(iCell_Qgroup);
-
-      // Going on each side of the cell
-      for (int side=1; side < 3; ++side) {
-        if (dir == IX) {
-          PrimHydroState qi = 0.5 * (stencil[side][1][1] + stencil[side-1][1][1]);
-          
-          const real_t dudx = inv_size[dir] * (stencil[side][1][1].u - stencil[side-1][1][1].u);
-          const real_t dvdx = inv_size[dir] * (stencil[side][1][1].v - stencil[side-1][1][1].v);
-
-          const real_t dudy = 0.25 * inv_size[td1] * (stencil[side  ][2][1].u - stencil[side  ][0][1].u 
-                                                    + stencil[side-1][2][1].u - stencil[side-1][0][1].u);
-          const real_t dvdy = 0.25 * inv_size[td1] * (stencil[side  ][2][1].v - stencil[side  ][0][1].v 
-                                                    + stencil[side-1][2][1].v - stencil[side-1][0][1].v);
-
-
-          real_t dwdx=0.0, dudz=0.0, dwdz=0.0;
-          if (ndim == 3) {
-            dwdx = inv_size[dir] * (stencil[side][1][1].w - stencil[side-1][1][1].w);
-            dudz = 0.25 * inv_size[td2] * (stencil[side  ][1][2].u - stencil[side  ][1][0].u 
-                                         + stencil[side-1][1][2].u - stencil[side-1][1][0].u);
-          
-            dwdz = 0.25 * inv_size[td2] * (stencil[side  ][1][2].w - stencil[side  ][1][0].w 
-                                         + stencil[side-1][1][2].w - stencil[side-1][1][0].w);
-          }
-
-          // Building relevant tensor elements
-          constexpr real_t four_thirds = 4.0/3.0;
-          constexpr real_t two_thirds  = 2.0/3.0;
-          const real_t tau_xx = four_thirds * dudx - two_thirds * (dvdy + dwdz);
-          const real_t tau_xy = dudy + dvdx;
-          const real_t tau_xz = dudz + dwdx;
-
-          // Building flux
-          real_t sign = (side == 1 ? -1.0 : 1.0);
-          vf.rho_u += sign * mu * tau_xx;
-          vf.rho_v += sign * mu * tau_xy;
-          vf.rho_w += sign * mu * tau_xz;
-          vf.e_tot += sign * mu * (qi.u * tau_xx + qi.v * tau_xy + qi.w * tau_xz);
+          qi_w = 0.5 * ( stencil({R, 0, 0}, IW) + stencil({L, 0, 0}, IW) );
         }
-        else if (dir == IY) {
-          PrimHydroState qi = 0.5 * (stencil[1][side][1] + stencil[1][side-1][1]);
-          
-          const real_t dudy = inv_size[dir] * (stencil[1][side][1].u - stencil[1][side-1][1].u);
-          const real_t dvdy = inv_size[dir] * (stencil[1][side][1].v - stencil[1][side-1][1].v);
 
-          const real_t dudx = 0.25 * inv_size[td1] * (stencil[2][side  ][1].u - stencil[0][side  ][1].u 
-                                                    + stencil[2][side-1][1].u - stencil[0][side-1][1].u);
-          const real_t dvdx = 0.25 * inv_size[td1] * (stencil[2][side  ][1].v - stencil[0][side  ][1].v 
-                                                    + stencil[2][side-1][1].v - stencil[0][side-1][1].v);
+        const real_t qi_u = 0.5 * ( stencil({R, 0, 0}, IU) + stencil({L, 0, 0}, IU) );
+        const real_t qi_v = 0.5 * ( stencil({R, 0, 0}, IV) + stencil({L, 0, 0}, IV) );
 
-          real_t dwdy=0.0, dvdz=0.0, dwdz=0.0;
-          if (ndim == 3) {                                         
-            dwdy = inv_size[dir] * (stencil[1][side][1].w - stencil[1][side-1][1].w);
-            dvdz = 0.25 * inv_size[td2] * (stencil[1][side  ][2].v - stencil[1][side  ][0].v 
-                                         + stencil[1][side-1][2].v - stencil[1][side-1][0].v);
-            dwdz = 0.25 * inv_size[td2] * (stencil[1][side  ][2].w - stencil[1][side  ][0].w 
-                                         + stencil[1][side-1][2].w - stencil[1][side-1][0].w);
-          }
+        // Building relevant tensor elements
+        const real_t tau_xx = 4.0/3.0 * dudx - 2.0/3.0 * (dvdy + dwdz);
+        const real_t tau_xy = dudy + dvdx;
+        const real_t tau_xz = dudz + dwdx;
 
-          // Building relevant tensor elements
-          constexpr real_t four_thirds = 4.0/3.0;
-          constexpr real_t two_thirds  = 2.0/3.0;
-          const real_t tau_yy = four_thirds * dvdy - two_thirds * (dudx + dwdz);
-          const real_t tau_xy = dudy + dvdx;
-          const real_t tau_yz = dvdz + dwdy;
-
-          // Building flux
-          real_t sign = (side == 1 ? -1.0 : 1.0);
-          vf.rho_u += sign * mu * tau_xy;
-          vf.rho_v += sign * mu * tau_yy;
-          vf.rho_w += sign * mu * tau_yz;
-          vf.e_tot += sign * mu * (qi.u * tau_xy + qi.v * tau_yy + qi.w * tau_yz);
-        }
-        else {
-          PrimHydroState qi = 0.5 * (stencil[1][1][side] + stencil[1][1][side-1]);
-          
-          const real_t dudz = inv_size[dir] * (stencil[1][1][side].u - stencil[1][1][side-1].u);
-          const real_t dvdz = inv_size[dir] * (stencil[1][1][side].v - stencil[1][1][side-1].v);
-          const real_t dwdz = inv_size[dir] * (stencil[1][1][side].w - stencil[1][1][side-1].w);
-
-          const real_t dudx = 0.25 * inv_size[td1] * (stencil[2][1][side  ].u - stencil[0][1][side  ].u 
-                                                    + stencil[2][1][side-1].u - stencil[0][1][side-1].u);
-          const real_t dwdx = 0.25 * inv_size[td1] * (stencil[2][1][side  ].w - stencil[0][1][side  ].w 
-                                                    + stencil[2][1][side-1].w - stencil[0][1][side-1].w);
-                                                    
-          const real_t dvdy = 0.25 * inv_size[td2] * (stencil[1][2][side  ].v - stencil[1][0][side  ].v 
-                                                    + stencil[1][2][side-1].v - stencil[1][0][side-1].v);
-          const real_t dwdy = 0.25 * inv_size[td2] * (stencil[1][2][side  ].w - stencil[1][0][side  ].w 
-                                                    + stencil[1][2][side-1].w - stencil[1][0][side-1].w);
-
-          // Building relevant tensor elements
-          constexpr real_t four_thirds = 4.0/3.0;
-          constexpr real_t two_thirds  = 2.0/3.0;
-          const real_t tau_zz = four_thirds * dwdz - two_thirds * (dudx + dvdy);
-          const real_t tau_xz = dudz + dwdx;
-          const real_t tau_yz = dvdz + dwdy;
-
-          // Building flux
-          real_t sign = (side == 1 ? -1.0 : 1.0);
-          vf.rho_u += sign * mu * tau_xz;
-          vf.rho_v += sign * mu * tau_yz;
-          vf.rho_w += sign * mu * tau_zz;
-          vf.e_tot += sign * mu * (qi.u * tau_xz + qi.v * tau_yz + qi.w * tau_zz);
-        }
+        // Building flux
+        real_t sign = (side == 1 ? -1.0 : 1.0);
+        vf.rho_u += sign * tau_xx;
+        vf.rho_v += sign * tau_xy;
+        vf.rho_w += sign * tau_xz;
+        vf.e_tot += sign * (qi_u * tau_xx + qi_v * tau_xy + qi_w * tau_xz);
       }
-      
-      return area * vf;
-    };
 
-    const ConsHydroState vf_x = compute_viscous_flux(IX);
-    const ConsHydroState vf_y = compute_viscous_flux(IY);
-    ConsHydroState vf_z{};
-    if (ndim == 3) 
-      vf_z = compute_viscous_flux(IZ);
-    const ConsHydroState res = mu_cst * (vf_x + vf_y + vf_z) / volume;
+      // viscous_flux for direction IY
+      {
+        const real_t dudy = inv_size[IY] * (stencil({0, R, 0}, IU) - stencil({0, L, 0}, IU));
+        const real_t dvdy = inv_size[IY] * (stencil({0, R, 0}, IV) - stencil({0, L, 0}, IV));
+
+        const real_t dudx = 0.25 * inv_size[IX] * ( stencil({1, R, 0}, IU) - stencil({-1, R, 0}, IU) 
+                                                  + stencil({1, L, 0}, IU) - stencil({-1, L, 0}, IU));
+        const real_t dvdx = 0.25 * inv_size[IX] * ( stencil({1, R, 0}, IV) - stencil({-1, R, 0}, IV) 
+                                                  + stencil({1, L, 0}, IV) - stencil({-1, L, 0}, IV));
+
+        real_t dwdy=0.0, dvdz=0.0, dwdz=0.0, qi_w=0;
+        if (ndim == 3) 
+        {
+          dwdy = inv_size[IY] * ( stencil({0, R, 0}, IW) - stencil({0, L, 0}, IW) );
+          dvdz = 0.25 * inv_size[IZ] * (  stencil({0, R, 1}, IV) - stencil({0, R, -1}, IV) 
+                                        + stencil({0, L, 1}, IV) - stencil({0, L, -1}, IV) );
+        
+          dwdz = 0.25 * inv_size[IZ] * (  stencil({0, R, 1}, IW) - stencil({0, R, -1}, IW) 
+                                        + stencil({0, L, 1}, IW) - stencil({0, L, -1}, IW) );
+
+          qi_w = 0.5 * ( stencil({0, R, 0}, IW) + stencil({0, L, 0}, IW) );
+        }
+
+        const real_t qi_u = 0.5 * ( stencil({0, R, 0}, IU) + stencil({0, L, 0}, IU) );
+        const real_t qi_v = 0.5 * ( stencil({0, R, 0}, IV) + stencil({0, L, 0}, IV) );
+
+        // Building relevant tensor elements
+        const real_t tau_yy = 4.0/3.0 * dvdy - 2.0/3.0 * (dudx + dwdz);
+        const real_t tau_xy = dudy + dvdx;
+        const real_t tau_yz = dvdz + dwdy;
+
+        // Building flux
+        real_t sign = (side == 1 ? -1.0 : 1.0);
+        vf.rho_u += sign * tau_xy;
+        vf.rho_v += sign * tau_yy;
+        vf.rho_w += sign * tau_yz;
+        vf.e_tot += sign * (qi_u * tau_xy + qi_v * tau_yy + qi_w * tau_yz);
+      }
+
+      // viscous_flux for direction IZ
+      if (ndim == 3) 
+      {
+        const real_t dudz = inv_size[IZ] * (stencil({R, 0, 0}, IU) - stencil({L, 0, 0}, IU));
+        const real_t dvdz = inv_size[IZ] * (stencil({R, 0, 0}, IV) - stencil({L, 0, 0}, IV));
+        const real_t dwdz = inv_size[IZ] * (stencil({R, 0, 0}, IW) - stencil({L, 0, 0}, IW));
+
+        const real_t dudx = 0.25 * inv_size[IX] * ( stencil({1, 0, R}, IU) - stencil({-1, 0, R}, IU) 
+                                                  + stencil({1, 0, L}, IU) - stencil({-1, 0, L}, IU));
+        const real_t dwdx = 0.25 * inv_size[IX] * ( stencil({1, 0, R}, IW) - stencil({-1, 0, R}, IW) 
+                                                  + stencil({1, 0, L}, IW) - stencil({-1, 0, L}, IW));
+
+        const real_t dvdy = 0.25 * inv_size[IY] * ( stencil({0, 1, R}, IV) - stencil({ 0,-1, R}, IV) 
+                                                  + stencil({0, 1, L}, IV) - stencil({ 0,-1, L}, IV));
+        const real_t dwdy = 0.25 * inv_size[IY] * ( stencil({0, 1, R}, IW) - stencil({ 0,-1, R}, IW) 
+                                                  + stencil({0, 1, L}, IW) - stencil({ 0,-1, L}, IW));
+
+        const real_t qi_u = 0.5 * ( stencil({0, 0, R}, IU) + stencil({0, 0, L}, IU) );
+        const real_t qi_v = 0.5 * ( stencil({0, 0, R}, IV) + stencil({0, 0, L}, IV) );
+        const real_t qi_w = 0.5 * ( stencil({0, 0, R}, IW) + stencil({0, 0, L}, IW) );
+
+        // Building relevant tensor elements
+        const real_t tau_zz = 4.0/3.0 * dwdz - 2.0/3.0 * (dudx + dvdy);
+        const real_t tau_xz = dudz + dwdx;
+        const real_t tau_yz = dvdz + dwdy;
+
+        // Building flux
+        real_t sign = (side == 1 ? -1.0 : 1.0);
+        vf.rho_u += sign * tau_xz;
+        vf.rho_v += sign * tau_yz;
+        vf.rho_w += sign * tau_zz;
+        vf.e_tot += sign * (qi_u * tau_xz + qi_v * tau_yz + qi_w * tau_zz);
+      }
+    }
+
+    const real_t volume  = size[IX] * size[IY] * (ndim == 3 ? size[IZ] : 1.0);
+    const ConsHydroState res = mu_cst * mu_cell * vf / volume;
 
     setConservativeState<ndim>(rhs, iCell_rhs, res);
   }
