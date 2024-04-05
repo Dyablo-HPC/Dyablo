@@ -135,11 +135,12 @@ public:
         const real_t tau_xz = dudz + dwdx;
 
         // Building flux
-        real_t sign = (side == 1 ? -1.0 : 1.0);
-        vf.rho_u += sign * tau_xx;
-        vf.rho_v += sign * tau_xy;
-        vf.rho_w += sign * tau_xz;
-        vf.e_tot += sign * (qi_u * tau_xx + qi_v * tau_xy + qi_w * tau_xz);
+        real_t sign = (side == 0 ? -1.0 : 1.0);
+        real_t area = size[IY] * size[IZ];
+        vf.rho_u += sign * area * tau_xx;
+        vf.rho_v += sign * area * tau_xy;
+        vf.rho_w += sign * area * tau_xz;
+        vf.e_tot += sign * area * (qi_u * tau_xx + qi_v * tau_xy + qi_w * tau_xz);
       }
 
       // viscous_flux for direction IY
@@ -174,19 +175,20 @@ public:
         const real_t tau_yz = dvdz + dwdy;
 
         // Building flux
-        real_t sign = (side == 1 ? -1.0 : 1.0);
-        vf.rho_u += sign * tau_xy;
-        vf.rho_v += sign * tau_yy;
-        vf.rho_w += sign * tau_yz;
-        vf.e_tot += sign * (qi_u * tau_xy + qi_v * tau_yy + qi_w * tau_yz);
+        real_t sign = (side == 0 ? -1.0 : 1.0);
+        real_t area = size[IX] * size[IZ];
+        vf.rho_u += sign * area * tau_xy;
+        vf.rho_v += sign * area * tau_yy;
+        vf.rho_w += sign * area * tau_yz;
+        vf.e_tot += sign * area * (qi_u * tau_xy + qi_v * tau_yy + qi_w * tau_yz);
       }
 
       // viscous_flux for direction IZ
       if (ndim == 3) 
       {
-        const real_t dudz = inv_size[IZ] * (stencil({R, 0, 0}, IU) - stencil({L, 0, 0}, IU));
-        const real_t dvdz = inv_size[IZ] * (stencil({R, 0, 0}, IV) - stencil({L, 0, 0}, IV));
-        const real_t dwdz = inv_size[IZ] * (stencil({R, 0, 0}, IW) - stencil({L, 0, 0}, IW));
+        const real_t dudz = inv_size[IZ] * (stencil({0, 0, R}, IU) - stencil({0, 0, L}, IU));
+        const real_t dvdz = inv_size[IZ] * (stencil({0, 0, R}, IV) - stencil({0, 0, L}, IV));
+        const real_t dwdz = inv_size[IZ] * (stencil({0, 0, R}, IW) - stencil({0, 0, L}, IW));
 
         const real_t dudx = 0.25 * inv_size[IX] * ( stencil({1, 0, R}, IU) - stencil({-1, 0, R}, IU) 
                                                   + stencil({1, 0, L}, IU) - stencil({-1, 0, L}, IU));
@@ -208,16 +210,17 @@ public:
         const real_t tau_yz = dvdz + dwdy;
 
         // Building flux
-        real_t sign = (side == 1 ? -1.0 : 1.0);
-        vf.rho_u += sign * tau_xz;
-        vf.rho_v += sign * tau_yz;
-        vf.rho_w += sign * tau_zz;
-        vf.e_tot += sign * (qi_u * tau_xz + qi_v * tau_yz + qi_w * tau_zz);
+        real_t sign = (side == 0 ? -1.0 : 1.0);
+	real_t area = size[IX] * size[IY];
+        vf.rho_u += sign * area * tau_xz;
+        vf.rho_v += sign * area * tau_yz;
+        vf.rho_w += sign * area * tau_zz;
+        vf.e_tot += sign * area * (qi_u * tau_xz + qi_v * tau_yz + qi_w * tau_zz);
       }
     }
 
     const real_t volume  = size[IX] * size[IY] * (ndim == 3 ? size[IZ] : 1.0);
-    const ConsHydroState res = mu_cst * mu_cell * vf / volume;
+    const ConsHydroState res = mu_cell * vf / volume;
 
     setConservativeState<ndim>(rhs, iCell_rhs, res);
   }
