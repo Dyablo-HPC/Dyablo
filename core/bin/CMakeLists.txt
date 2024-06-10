@@ -1,9 +1,9 @@
 #
 # euler_pablo test executable
 #
-set(EXE_NAME "test_solver")
+set(EXE_NAME "dyablo")
 add_executable(${EXE_NAME}
-  test_solver.cpp
+  ${CMAKE_SOURCE_DIR}/src/dyablo_main.cpp
   ${BACKWARD_ENABLE}
   )
 

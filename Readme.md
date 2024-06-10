@@ -88,11 +88,11 @@ Compilation may take a long time, we recommend you use parallel compilation with
 
 ## Run Dyablo
 
-The main executable `test_solver` is in `build/dyablo/test/solver/`. The directory also contains some *.ini files that can passed to the executable on the command line. For instance, to run a 2d Sedov-blast on the block-AMR backend, the command will be `./test_solver test_blast_2D_block.ini`
+The main executable `dyablo` is in `build/dyablo/bin`. The directory also contains some *.ini files that can passed to the executable on the command line. For instance, to run a 2d Sedov-blast on the block-AMR backend, the command will be `./dyablo test_blast_2D_block.ini`
 
 Beware, when recompiling, the .ini files may be reset to their original state.
 
-run for instance `./test_solver test_blast_3D_block.ini` to run the 3D block-base blast test case. This executable accepts [Kokkos command-line parameters](https://github.com/kokkos/kokkos/wiki/Initialization).
+run for instance `./dyablo test_blast_3D_block.ini` to run the 3D block-based blast test case. This executable accepts [Kokkos command-line parameters](https://github.com/kokkos/kokkos/wiki/Initialization).
 
 For the best performance, you should follow the global advice for any Kokkos program :
 * Configure OpenMP to bind threads by setting the environment variable OMP_PROC_BIND=true

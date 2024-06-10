@@ -217,10 +217,10 @@ endif()
 #add_definitions( -Wall -Wextra )
 add_definitions( -Wall )
 
+add_subdirectory(bin)
+
 if( DYABLO_BUILD_EXPERIMENTS )
 add_subdirectory(test)
-else()
-add_subdirectory(test/solver)
 endif()
 
 add_subdirectory(src)

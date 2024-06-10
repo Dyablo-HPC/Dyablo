@@ -4,12 +4,12 @@ root=`pwd`
 
 if [ $# -eq 0 ]
 then
-    echo "render.sh <pvsm filename local to build/dyablo/test/solver>"
+    echo "render.sh <pvsm filename local to build/dyablo/bin>"
     exit -1
 fi
 pvsm_filename=$1
 
-cd build/dyablo/test/solver
+cd build/dyablo/bin
 
 if [ -x "$(command -v Xvfb)" ]
 then

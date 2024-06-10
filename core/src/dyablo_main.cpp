@@ -13,7 +13,7 @@ int main(int argc, char *argv[])
   {
     std::cout << "Error : no input file" << std::endl;
     std::cout << "Usage:" << std::endl;
-    std::cout << "  ./test_solver [--kokkos-***=*] input_file.ini" << std::endl;
+    std::cout << "  ./dyablo [--kokkos-***=*] input_file.ini" << std::endl;
     return EXIT_FAILURE;
   }
 
