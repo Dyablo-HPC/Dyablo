@@ -7,6 +7,12 @@
 namespace dyablo {
 
 
+/**
+ * @brief Timestep limiter for particles.
+ * 
+ * This class computes the limitation of the timestep for the particles
+ * in the same way as the "traditional" CFL for hydro works. 
+*/
 class Compute_dt_particle_velocity : public Compute_dt
 {
 public:

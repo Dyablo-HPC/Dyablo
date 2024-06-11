@@ -7,6 +7,10 @@
 
 namespace dyablo { 
 
+/**
+ * @brief Structure storing all the necessary information for the 
+ * resolution of the conjugate gradient
+ **/
 struct GravitySolver_cg::Data{
   ForeachCell& foreach_cell;
   
@@ -73,6 +77,18 @@ enum VarIndex_CG
   CG_IP, CG_IR, CG_PHI, IGPHI
 };
 
+/**
+ * @brief Method returning the value of a given cell.
+ * 
+ * If the cell index is pointing to a neighbor, then averaging is applied 
+ * to the smaller neighbors
+ * 
+ * @param U[in]: The data to read from
+ * @param iCell_U[in]: cell index where the data should be read
+ * @param var[in]: variable to read in U
+ * @param offset[in]: offset applied prior to calling the method to get iCell_U
+ * @return the value of the variable at iCell_U 
+*/
 template< typename Array_t >
 KOKKOS_INLINE_FUNCTION
 real_t get_value(const Array_t& U, const CellIndex& iCell_U, VarIndex var, const CellIndex::offset_t& offset)
@@ -102,6 +118,18 @@ real_t get_value(const Array_t& U, const CellIndex& iCell_U, VarIndex var, const
   } 
 }
 
+/**
+ * @brief Matrix-free calculation of Ax
+ * 
+ * @param GCdata[in]: data linked to the conjugate gradient solver
+ * @param iCell_CGdata[in]: cell index pointing to the position in the array where to compute the matrix product
+ * @param var[in]: Varindex indicating which variable we are considering
+ * @param dx[in]: cell size along x
+ * @param dy[in]: cell size along y 
+ * @param dz[in]: cell size along z
+ * @param boundarycondition[in]: boundary conditions to apply outside of the domain
+ * @return the value of (Ax)_i with i being the value of iCell_CGdata
+ */
 template< typename Array_t >
 KOKKOS_INLINE_FUNCTION
 real_t matprod(const Array_t& GCdata, const CellIndex& iCell_CGdata, VarIndex var, real_t dx, real_t dy, real_t dz, const Kokkos::Array<BoundaryConditionType, 3>& boundarycondition)
@@ -137,19 +165,54 @@ real_t matprod(const Array_t& GCdata, const CellIndex& iCell_CGdata, VarIndex va
   return -res;
 }
 
+/**
+ * @brief Aii term of the Laplacian for preconditioning
+ * 
+ * @param GCdata[in]: data linked to the conjugate gradient solver (not used)
+ * @param iCell_CGdata[in]: cell index pointing to the position in the array where to compute the matrix product (not used)
+ * @param var[in]: Varindex indicating which variable we are considering (not used)
+ * @param dx[in]: cell size along x
+ * @param dy[in]: cell size along y 
+ * @param dz[in]: cell size along z
+ * @param boundarycondition[in]: boundary conditions to apply outside of the domain (not used)
+ * @return the value of A_ii with i being the value of iCell_CGdata
+ */
 KOKKOS_INLINE_FUNCTION
 real_t Aii(const UserData::FieldAccessor& GCdata, const CellIndex& iCell_CGdata, real_t dx, real_t dy, real_t dz, const Kokkos::Array<BoundaryConditionType, 3>& boundarycondition)
 {
   return (dx*dy*dz)*(2/(dx*dx)+2/(dy*dy)+2/(dz*dz));
 }
 
-/// Right-hand term for linear solver : 4 Pi G rho
+/**
+ * @brief Right hand term of the poisson equation in the non-cosmo case
+ * 
+ * The right handside of the Poisson equation for gravity in non-cosmological case
+ * is 4*pi*G*rho
+ * 
+ * @param Uin[in]: Array to read the density from
+ * @param iCell_Uin[in]: cell index where to read the density
+ * @param rho_mean[in]: average value of rho in the box for periodic cases
+ * @param four_Pi_G[in]: value of four*pi*G
+ * @param size[in]: sizes of the cell at iCell_Uin
+ */
 KOKKOS_INLINE_FUNCTION
 real_t b(const UserData::FieldAccessor& Uin, const CellIndex& iCell_Uin, real_t rho_mean, real_t four_Pi_G, ForeachCell::CellMetaData::pos_t size)
 {
   return -four_Pi_G*(Uin.at(iCell_Uin, ID)-rho_mean)*size[IX]*size[IY]*size[IZ];
 }
 
+/**
+ * @brief Right hand term of the poisson equation in the cosmo case
+ * 
+ * The right hand side of the Poisson equation for gravity in cosmological cases.
+ * This expression comes from Martel & Shapiro 1998, eq. (38)
+ * 
+ * @param Uin[in]: Array to read the density from
+ * @param iCell_Uin[in]: cell index where to read the density
+ * @param rho_mean[in]: average value of rho in the box for periodic cases
+ * @param aexp[in]: expansion factor
+ * @param size[in]: sizes of the cell at iCell_Uin
+ */
 KOKKOS_INLINE_FUNCTION
 real_t b_cosmo(const UserData::FieldAccessor& Uin, const CellIndex& iCell_Uin, real_t rho_mean, real_t aexp, ForeachCell::CellMetaData::pos_t size)
 {
@@ -165,6 +228,12 @@ real_t MPI_Allreduce_scalar( real_t local_v )
 
 } // namespace
 
+/**
+ * @brief Solves the Poisson equation and updates the gravity field
+ * 
+ * @param U[inout]: UserData structure to update
+ * @param scalar_data[in]: ScalarSimulationData structure
+*/
 void GravitySolver_cg::update_gravity_field( UserData& U, ScalarSimulationData& scalar_data )
 {
   uint8_t ndim = pdata->foreach_cell.getDim();

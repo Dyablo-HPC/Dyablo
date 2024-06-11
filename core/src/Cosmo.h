@@ -134,6 +134,13 @@ public:
     }
   }
 
+  /**
+   * @brief Computes the value of dt corresponding to a value of da at a given expansion factor
+   * 
+   * Reference : Martel & Shapiro, "A convenient set of comoving cosmological variables and their application"
+   * Eq. (32) is used to get the relation between dt and da. We take a0=1.0 and, 
+   * in the definition of ttilde, fn=1.0. Omega_0 is identified with omega_m.
+  */
   static real_t static_compute_cosmo_dt(real_t omega_m, real_t omega_v, real_t a, real_t da) {
     return -0.5 * sqrt(omega_m) * integrate_da_dt(omega_m, omega_v, a*da, a, 1.0e-8);
   }

@@ -6,13 +6,22 @@
 
 namespace dyablo {
 
-
+/**
+ * @brief Timestep limiter for (magneto)hydrodynamics
+ * 
+ * Limits the timestep according to the CFL condition.
+ * The limitation is of the form dt = C * min_h(d_h / |lambda_h|)
+ * with :
+ *  . C a constant factor < 1,
+ *  . d_h the cell_size along direction h,
+ *  . lambda_h the maximum signal speed in that direction
+ **/
 class Compute_dt_hydro : public Compute_dt
 {
 public:
-  Compute_dt_hydro(   ConfigMap& configMap,
-                        ForeachCell& foreach_cell,
-                        Timers& timers )
+  Compute_dt_hydro( ConfigMap& configMap,
+                    ForeachCell& foreach_cell,
+                    Timers& timers )
   : foreach_cell(foreach_cell),
     gamma0( configMap.getValue<real_t>("hydro","gamma0", 1.4) ),
     smallr( configMap.getValue<real_t>("hydro","smallr", 1e-10) ),

@@ -3,8 +3,8 @@
 namespace dyablo{
 
 /**
- * AnalyticalFormula_gravity implementation for point mass
- * to use with GravitySolver_analytical
+ * @brief AnalyticalFormula_gravity implementation for point mass
+ * to use with GravitySolver_analytical.
  **/
 class AnalyticalFormula_gravity_point_mass : public AnalyticalFormula_gravity
 {

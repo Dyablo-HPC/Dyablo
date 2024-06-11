@@ -9,7 +9,17 @@
 
 namespace dyablo {
 
-
+/**
+ * @brief Timestep limiter for parabolic terms solved explicitly.
+ * 
+ * Accounts for thermal conduction and viscosity
+ * 
+ * The limitation is of the form dt = C min_h(d_h^2/lambda_h)
+ * with :
+ *  . C a constant factor < 0.5,
+ *  . d_h the cell size along direction h
+ *  . lambda_h the diffusion coefficient along direction h
+ */
 class Compute_dt_parabolic : public Compute_dt
 {
 public:

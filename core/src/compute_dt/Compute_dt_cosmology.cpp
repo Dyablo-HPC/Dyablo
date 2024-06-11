@@ -5,6 +5,11 @@
 namespace dyablo {
 
 
+/**
+ * @brief Timestep limiter for cosmology
+ * 
+ * Relies on the CosmoManager to calculate the limited dt.
+*/
 class Compute_dt_cosmology : public Compute_dt
 {
 public:
@@ -14,6 +19,15 @@ public:
   : cosmo_manager( configMap )
   {}
 
+  /**
+   * @brief Computes the maximum acceptable dt for cosmological simulations.
+   * 
+   * Calls the CosmoManager to manage this part of the calculation, nothing is 
+   * actually done in here.
+   * 
+   * @param U[in] UserData structure
+   * @param scalar_data[inout] ScalarSimulationData structure
+  */
   void compute_dt( const UserData& U, ScalarSimulationData& scalar_data )
   {
     real_t aexp = scalar_data.get<real_t>("aexp");

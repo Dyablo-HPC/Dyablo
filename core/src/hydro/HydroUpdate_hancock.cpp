@@ -301,6 +301,9 @@ namespace {
 
 namespace dyablo {
 
+/**
+ * @brief Solves the hydrodynamics equations using Hancock time-stepping. 
+ */
 template<typename State_>
 class HydroUpdate_hancock : public HydroUpdate {
 public:

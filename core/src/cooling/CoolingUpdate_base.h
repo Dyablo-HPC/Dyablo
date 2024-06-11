@@ -11,7 +11,6 @@
 
 namespace dyablo {
 
-
 class CoolingUpdate{
 public: 
   virtual ~CoolingUpdate(){}
