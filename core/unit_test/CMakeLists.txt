@@ -80,11 +80,11 @@ dyablo_add_test(utest_LightOctree OFF
   main.cpp)
 
 dyablo_add_test(utest_CopyGhostBlockCellData ON 
-  block_data/test_CopyGhostBlockCellData.cpp
+  legacy/test_CopyGhostBlockCellData.cpp
   main.cpp)
 
 dyablo_add_test(utest_MusclBlockGodunovUpdateFunctor OFF
-  block_data/test_MusclBlockGodunovUpdateFunctor.cpp
+  legacy/test_MusclBlockGodunovUpdateFunctor.cpp
   main.cpp)
 
 dyablo_add_test(utest_GhostCommunicator ON
