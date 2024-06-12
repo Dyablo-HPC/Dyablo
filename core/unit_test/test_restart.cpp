@@ -166,6 +166,14 @@ by=4
     std::cout << "Done" << std::endl;
 }
 
+// Shamelessly stolen from google test and adapted for Kokkos device code
+// https://github.com/google/googletest/blob/a7f443b80b105f940225332ed3c31f2790092f47/googletest/include/gtest/internal/gtest-internal.h#L336
+// Returns true if and only if v1 is at most kMaxUlps=4 ULP's away
+// from v2.  In particular, this function:
+//
+//   - returns false if either number is (or both are) NAN.
+//   - treats really large numbers as almost equal to infinity.
+//   - thinks +0.0 and -0.0 are 0 DLP's apart.
 template<typename RawType>
 KOKKOS_INLINE_FUNCTION
 bool almost_equal(RawType v1, RawType v2)
