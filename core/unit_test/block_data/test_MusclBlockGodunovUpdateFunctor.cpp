@@ -21,31 +21,37 @@ using Device = Kokkos::DefaultExecutionSpace;
 namespace dyablo {
 
 
-void run_test(std::string name, std::string filename) {
+void run_test(std::string name, int ndim) {
 
   std::cout << "// =========================================\n";
   std::cout << "// Testing " << name << " ...\n";
   std::cout << "// =========================================\n";
 
-  /*
-   * read parameter file and initialize a ConfigMap object
-   */
-  // only MPI rank 0 actually reads input file
-  //std::string input_file = std::string(argv[1]);
-  std::string input_file = filename;
-  ConfigMap configMap = ConfigMap::broadcast_parameters(input_file);
+  // Content of .ini file used ton configure configmap and HydroParams
+  std::string configmap_str = 
+    "[mesh]\n"
+    "boundary_type_xmin=absorbing\n"
+    "boundary_type_xmax=absorbing\n"
+    "boundary_type_ymin=absorbing\n"
+    "boundary_type_ymax=absorbing\n"
+    "boundary_type_zmin=absorbing\n"
+    "boundary_type_zmax=absorbing\n"
+    "[gravity]\n"
+    "gravity_type=none\n"
+    "\n";
+  ConfigMap configMap(configmap_str);
 
   Timers timers;
 
   // block sizes
-  int ndim = configMap.getValue<int>("mesh", "ndim", 3);
-  uint32_t bx = configMap.getValue<uint32_t>("amr", "bx", 4);
-  uint32_t by = configMap.getValue<uint32_t>("amr", "by", 4);
-  uint32_t bz = configMap.getValue<uint32_t>("amr", "bz", 4);
+  configMap.getValue<int>("mesh", "ndim", ndim);
+  uint32_t bx = configMap.getValue<uint32_t>("amr", "bx",4);
+  uint32_t by = configMap.getValue<uint32_t>("amr", "by",4);
+  uint32_t bz = configMap.getValue<uint32_t>("amr", "bz", (ndim==3)?4:1);
   FieldManager field_manager({ID,IP,IU,IV,IW});
   AMRmesh amr_mesh( ndim, ndim, {false, false, false}, 2, 4 );  
 
-  std::string init_name = configMap.getValue<std::string>("hydro", "problem", "unknown");
+  std::string init_name = "blast";
 
   ForeachCell foreach_cell(amr_mesh, configMap);
 
@@ -200,11 +206,11 @@ void run_test(std::string name, std::string filename) {
 
 TEST(dyablo, test_HydroUpdate_hancock_blast_2D)
 {
-  dyablo::run_test("HydroUpdate_hancock (2D)", "./block_data/test_blast_2D_block.ini");
+  dyablo::run_test("HydroUpdate_hancock (2D)", 2);
 }
 
 TEST(dyablo, test_HydroUpdate_hancock_blast_3D)
 {
-  dyablo::run_test("HydroUpdate_hancock (3D)", "./block_data/test_blast_3D_block.ini");
+  dyablo::run_test("HydroUpdate_hancock (3D)", 3);
 }
 

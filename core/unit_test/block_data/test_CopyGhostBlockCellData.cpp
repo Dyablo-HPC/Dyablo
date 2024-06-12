@@ -501,16 +501,11 @@ void run_test()
   std::cout << "// Testing CopyGhostBlockCellDataFunctor " << ndim << "D ... "<< std::endl;
   std::cout << "// =========================================\n";
 
-  /*
-   * read parameter file and initialize a ConfigMap object
-   */
-  // only MPI rank 0 actually reads input file
-  std::string input_file = (ndim == 2) ? "./block_data/test_blast_2D_block.ini"
-                                        :"./block_data/test_blast_3D_block.ini";
-  ConfigMap configMap = ConfigMap::broadcast_parameters(input_file);
+  // Create an empty configMap
+  ConfigMap configMap("");
 
-  [[maybe_unused]] int ndim_ini = configMap.getValue<int>("mesh", "ndim", ndim);
-  assert( ndim_ini == ndim );
+  configMap.getValue<int>("mesh", "ndim", ndim);
+
   GravityType gravity_type = configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE);
 
   // Setup Fieldmanager
