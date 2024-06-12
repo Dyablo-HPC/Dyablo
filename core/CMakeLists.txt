@@ -40,7 +40,6 @@ set    (Kokkos_DIR "Kokkos installation directory or internal source" CACHE PATH
 
 
 # Options not forwarded from superbuild
-option (DYABLO_BUILD_EXPERIMENTS "Build optional experiments from core/test" OFF)
 option (DYABLO_BUILD_DOC  "Enable / disable documentation build" OFF)
 set    (DYABLO_DOC "doxygen" CACHE STRING "documentation type (doxygen or mkdocs)")
 option (DYABLO_USE_DOUBLE "build with double precision" ON)
@@ -218,11 +217,6 @@ endif()
 add_definitions( -Wall )
 
 add_subdirectory(bin)
-
-if( DYABLO_BUILD_EXPERIMENTS )
-add_subdirectory(test)
-endif()
-
 add_subdirectory(src)
 
 # Documentation type
