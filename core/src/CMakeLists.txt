@@ -77,6 +77,7 @@ target_link_libraries( dyablo_core PUBLIC
 
 if (DYABLO_USE_MPI)
     target_compile_definitions(dyablo_core PUBLIC BITPIT_ENABLE_MPI)
+    target_link_libraries( dyablo_core PUBLIC mpiUtils)
     target_sources( dyablo_core PRIVATE ${mpi_src} )
 endif (DYABLO_USE_MPI)
 
