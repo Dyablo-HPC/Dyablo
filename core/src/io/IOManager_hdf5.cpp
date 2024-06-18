@@ -227,7 +227,7 @@ void IOManager_hdf5::save_snapshot_aux( const UserData& U_, ScalarSimulationData
   uint32_t nbCellsPerOct = bx*by*bz;
   uint32_t Bx = bx+1;
   uint32_t By = by+1;
-  uint32_t Bz = bz+1;
+  uint32_t Bz = (ndim==3)?(bz+1):1;
   uint32_t nbNodesPerOct = Bx*By*Bz;
   
   const LightOctree& lmesh = foreach_cell.get_amr_mesh().getLightOctree();
