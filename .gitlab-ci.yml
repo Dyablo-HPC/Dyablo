@@ -49,9 +49,9 @@ after_script:
   stage: build
   artifacts:
     paths:
-      - build/dyablo/test/solver/test_solver
-      - build/dyablo/test/solver/*.ini
-      - build/dyablo/test/solver/*.pvsm
+      - build/dyablo/bin/dyablo
+      - build/dyablo/bin/*.ini
+      - build/dyablo/bin/*.pvsm
       - build/dyablo/unit_test/utest_*
       - build/dyablo/unit_test/block_data
       - build/dyablo/unit_test/hydro
@@ -179,7 +179,7 @@ run_all::cuda_4mpi:
   variables:
     INI_FILE:
       value: "test_gravity_spheres_3D.ini"
-      #description: ".ini file for test_solver"
+      #description: ".ini file for dyablo"
     PVSM_FILE: 
       value: "visu_gravity_spheres_3D.pvsm"
       #description: "pvsm file to generate image"

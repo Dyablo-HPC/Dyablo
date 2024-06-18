@@ -71,14 +71,6 @@ dyablo_add_test(utest_morton_utils OFF
   shared/test_morton_utils.cpp
   main.cpp)
 
-# Import .ini files
-configure_file(
-  block_data/test_blast_2D_block.ini
-  block_data/test_blast_2D_block.ini COPYONLY)
-configure_file(
-  block_data/test_blast_3D_block.ini
-  block_data/test_blast_3D_block.ini COPYONLY)
-
 dyablo_add_test(utest_AMRmesh ON
   amr/test_AMRmesh.cpp
   main.cpp)
@@ -88,11 +80,11 @@ dyablo_add_test(utest_LightOctree OFF
   main.cpp)
 
 dyablo_add_test(utest_CopyGhostBlockCellData ON 
-  block_data/test_CopyGhostBlockCellData.cpp
+  legacy/test_CopyGhostBlockCellData.cpp
   main.cpp)
 
 dyablo_add_test(utest_MusclBlockGodunovUpdateFunctor OFF
-  block_data/test_MusclBlockGodunovUpdateFunctor.cpp
+  legacy/test_MusclBlockGodunovUpdateFunctor.cpp
   main.cpp)
 
 dyablo_add_test(utest_GhostCommunicator ON
@@ -139,13 +131,6 @@ dyablo_add_test(utest_BoundaryConditions ON
 dyablo_add_test(utest_Particles ON
   particles/test_Particles.cpp
   main.cpp)
-
-configure_file(
-  hydro/test_blast_2D_block.ini
-  hydro/test_blast_2D_block.ini COPYONLY)
-configure_file(
-  hydro/test_blast_3D_block.ini
-  hydro/test_blast_3D_block.ini COPYONLY)
 
 ## Implementations registered to a factory that are contained in a separate static library have to be thourouhly tested
 add_library( RegisteringFactory_impl_lib STATIC utils/RegisteringFactory_impl_to_register.cpp )

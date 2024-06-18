@@ -16,7 +16,8 @@ using FieldArray = UserData::FieldAccessor;
 enum VarIndex_gravity {IGX, IGY, IGZ};
 
 /**
- * Applies corrector step for gravity
+ * @brief Applies corrector step for gravity
+ * 
  * @param Uin Initial values before update
  * @param iCell_Uin Position insides Uin/Uout (non ghosted)
  * @param dt time step
@@ -83,9 +84,8 @@ void apply_gravity_correction( const FieldArray& Uin,
 namespace dyablo {
 
 /**
- * @brief Euler update algorithm
- * 
- * @tparam State the type of state to treat
+ * @brief Class for solving the (magneto)hydrodynamics equations 
+ * using a 1st order Euler timestepping.
  */
 template<typename State_>
 class HydroUpdate_euler : public HydroUpdate {

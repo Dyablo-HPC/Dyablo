@@ -8,7 +8,7 @@
 namespace dyablo {
 
 /**
- * Interface to implement for AnalyticalFormula_t template parameter
+ * @brief Interface to implement for AnalyticalFormula_t template parameter
  * for GravitySolver_analytical
  **/
 struct AnalyticalFormula_gravity
@@ -24,7 +24,7 @@ public:
 };
 
 /**
- * Helper to write analytical force fields
+ * @brief Helper to write analytical force fields
  * @tparam AnalyticalFormula_t implementation of AnalyticalFormula_gravity to be applied to each cell
  **/
 template< typename AnalyticalFormula_t >

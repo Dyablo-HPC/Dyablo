@@ -8,7 +8,9 @@
 class Timers;
 namespace dyablo {
 
-
+/**
+ * @brief Class applying a constant gravity acceleration to the grid.
+*/
 class GravitySolver_constant : public GravitySolver{
 public: 
   GravitySolver_constant(

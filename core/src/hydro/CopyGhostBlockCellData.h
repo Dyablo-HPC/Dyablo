@@ -5,6 +5,19 @@
 
 namespace dyablo { 
 
+/**
+ * @brief Fills in block ghosts with neighboring data
+ * 
+ * This method is used when filling groups of blocks to copy the value of 
+ * adjacent blocks. Here the "ghost" term refers to the cells surrounding a
+ * a given block. They might be outside of the domain, or not. 
+ * 
+ * @param Uin[in] : Array to read the data from 
+ * @param iCell_Ugroup[in] : Cell index in the frame of reference of the group
+ * @param patch[in] : Cell metadata
+ * @param bc_manager[in] : Boundary conditions to apply when filling cells outside of the domain
+ * @param Ugroup[inout] : Array to update
+ */
 template< int ndim, typename State, typename Uin_t >
 KOKKOS_INLINE_FUNCTION
 void copyGhostBlockCellData(const Uin_t& Uin,

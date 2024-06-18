@@ -34,7 +34,7 @@ struct AnalyticalFormula_KelvinHelmholtz : public AnalyticalFormula_base{
     smallr(configMap.getValue<real_t>("hydro","smallr", 1e-10)),
     smallc(configMap.getValue<real_t>("hydro","smallc", 1e-10)),
     smallp(smallc*smallc / gamma0),
-    error_max(configMap.getValue<real_t>("amr", "error_max", 0.8)),
+    error_max(configMap.getValue<real_t>("amr", "epsilon_coarsen", 0.8)),
     
     rho_fac(configMap.getValue<real_t>("KH", "rho_fac", 0.0)),
     z1(configMap.getValue<real_t>("KH", "z1", 0.5)),

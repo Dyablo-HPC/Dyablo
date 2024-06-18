@@ -12,7 +12,10 @@ class ConfigMap;
 
 namespace dyablo {
 
-
+/**
+ * @brief Class solving the poisson equation for gravity using
+ * a matrix-free implementation of the preconditionned-conjugate gradient 
+ */
 class GravitySolver_cg : public GravitySolver{
 public: 
   GravitySolver_cg(

@@ -11,7 +11,6 @@
 
 namespace dyablo {
 
-
 class HydroUpdate{
 public: 
   // HydroUpdate(

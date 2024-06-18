@@ -472,6 +472,13 @@ void apply_gravity_correction( const FieldArray& Uin,
 
 }
 
+/**
+ * @brief Solves the hydrodynamics equations with a Hancock timestepping on 
+ * small blocks.
+ * 
+ * This solver should only be used for comparison with cell-based AMR
+ * as it is the only one allowing for bx=by=bz=1.
+*/
 template <typename State_>
 class HydroUpdate_hancock_oneneighbor : public HydroUpdate{
 public: 

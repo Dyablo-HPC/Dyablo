@@ -71,7 +71,7 @@ struct AnalyticalFormula_MHD_rotor : public AnalyticalFormula_base{
     real_t rho, u, v;
     if (r < r0) {
       rho = rho0;
-      u = q*ddy;
+      u = -q*ddy;
       v = q*ddx;
     }
     else if (r > r1) {
@@ -81,7 +81,7 @@ struct AnalyticalFormula_MHD_rotor : public AnalyticalFormula_base{
     }
     else {
       rho = rho2 + (rho0-rho2)*f;
-      u = f*q*ddy;
+      u = -f*q*ddy;
       v = f*q*ddx;
     }
 

@@ -4,14 +4,14 @@ namespace dyablo{
 
 namespace {
   enum VarIndex_Cooling {IE};
-
   enum CoolingLayer {ONE_CELL, LAYER};
 }
 
 /**
  * @brief Flux-Flux cooling term. 
- * This plugin will cool the domain at the top (zmin in 3D, ymin in 2D)
- * and heat the domain at the bottom (zmax/ymax). The heating will be
+ * 
+ * This plugin cools the domain at the top (zmin in 3D, ymin in 2D)
+ * and heats the domain at the bottom (zmax/ymax). The heating is
  * exactly compensated by the cooling so that no total energy is injected
  * in the box.
  */

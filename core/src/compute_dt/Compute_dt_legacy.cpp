@@ -4,6 +4,9 @@
 namespace dyablo {
 
 
+/**
+ * @brief Legacy code kept only for backward compatibility and comparison purposes.
+ */
 class Compute_dt_legacy : public Compute_dt
 {
 public:
