@@ -217,6 +217,11 @@ void AMRmesh_hashmap_new::setMarker(uint32_t iOct, int marker)
   pdata->markers(iOct) = marker;
 }
 
+void AMRmesh_hashmap_new::setMarkers( const Kokkos::View<int*>& oct_marker )
+{
+  Kokkos::deep_copy( pdata->markers, oct_marker );
+}
+
 namespace{
 
 KOKKOS_INLINE_FUNCTION
