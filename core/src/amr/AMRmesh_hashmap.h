@@ -222,8 +222,8 @@ public:
     }
 
     void adaptGlobalRefine();
-    void setMarkersCapacity(uint32_t capa);
     void setMarker(uint32_t iOct, int marker);
+    void setMarkers( const Kokkos::View<int*>& oct_markers );
     void adapt(bool dummy = true);
 
     bool check21Balance()

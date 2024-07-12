@@ -269,6 +269,10 @@ public:
    **/
   void setMarker(uint32_t iOct, int marker)
   { Impl::setMarker(iOct, marker); }
+
+  void setMarkers( const Kokkos::View<int*>& oct_markers )
+  { Impl::setMarkers(oct_markers); }
+
   /**
    * Coarsen and refine octants according to markers set with setMarker()
    * adapt() includes 2:1 balancing in the directions set with `balance_codim` in the constructor

@@ -157,7 +157,23 @@ public:
         return getLevel(getGhostOctant(iOct));
     }
 
-    void setMarkersCapacity(uint32_t capa){}
+    void setMarkers( const Kokkos::View<int*>& markers )
+    {
+        uint32_t nbOcts = this->getNumOctants();
+        DYABLO_ASSERT_HOST_RELEASE( nbOcts == markers.size(), "Markers count mismatch nbOcts=" << nbOcts << " != markers.size()=" << markers.size()  );
+
+        auto markers_host = Kokkos::create_mirror_view(markers);
+        Kokkos::deep_copy( markers_host, markers );
+
+        Kokkos::parallel_for( "AMRmesh_pablo::setMarkers", 
+                            Kokkos::RangePolicy<Kokkos::OpenMP>(0,nbOcts),
+                            [&](uint32_t iOct)
+        {
+            int marker = markers_host(iOct);
+            if( marker != 0 )
+                setMarker(iOct, marker);
+        });
+    }
 
     void adapt(int dummy)
     {

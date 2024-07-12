@@ -69,10 +69,6 @@ void AMRmesh_hashmap::adaptGlobalRefine()
     pmesh_epoch++;
 }
 
-void AMRmesh_hashmap::setMarkersCapacity(uint32_t capa)
-{
-}
-
 void AMRmesh_hashmap::setMarker(uint32_t iOct, int marker)
 {
     if(marker==0) return;
@@ -82,6 +78,29 @@ void AMRmesh_hashmap::setMarker(uint32_t iOct, int marker)
         markers.value_at(inserted.index()) = marker;
     
     DYABLO_ASSERT_HOST_DEBUG(!inserted.failed(), "Insertion in Kokkos::UnorderedMap failed");
+}
+
+void AMRmesh_hashmap::setMarkers( const Kokkos::View<int*>& ioct_markers )
+{
+    uint32_t nbOcts = this->getNumOctants();
+    DYABLO_ASSERT_HOST_RELEASE( nbOcts == ioct_markers.size(), "Markers count mismatch nbOcts=" << nbOcts << " != markers.size()=" << markers.size()  );
+
+    markers_device_t markers_device( nbOcts );
+
+    Kokkos::parallel_for( "AMRmesh_pablo::setMarkers", nbOcts,
+                        KOKKOS_LAMBDA(uint32_t iOct)
+    {
+        int marker = ioct_markers(iOct);
+        if( marker!=0 )
+        {
+            auto inserted = markers_device.insert( iOct, marker );
+            if(inserted.existing())
+                markers_device.value_at(inserted.index()) = marker;
+            DYABLO_ASSERT_KOKKOS_DEBUG(!inserted.failed(), "Insertion in Kokkos::UnorderedMap failed");
+        }
+    });
+
+    Kokkos::deep_copy(this->markers, markers_device);
 }
 
 namespace {
