@@ -212,8 +212,11 @@ struct UserData_fields::FieldAccessor_FieldInfo
     VarIndex id; /// id to use to access with at()
 };
 
+class GhostCommunicator_full_blocks;
+
 class UserData_fields::FieldAccessor
 {
+friend GhostCommunicator_full_blocks;
 public:
     static constexpr int MAX_FIELD_COUNT = 32;
     using FieldInfo = FieldAccessor_FieldInfo;

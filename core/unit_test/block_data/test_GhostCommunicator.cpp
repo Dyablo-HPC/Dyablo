@@ -14,7 +14,7 @@
 #include "foreach_cell/ForeachCell.h"
 #include "foreach_cell/ForeachCell_utils.h"
 
-#include "mpi/GhostCommunicator_partial_blocks.h"
+#include "mpi/GhostCommunicator.h"
 #include "UserData.h"
 #include "utils/config/ConfigMap.h"
 
@@ -93,11 +93,7 @@ void test_GhostCommunicator_partial_block()
   enum VarIndex_test{Px,Py,Pz};
   UserData::FieldAccessor Ua = U.getAccessor( {{"px", Px}, {"py", Py}, {"pz", Pz}} );
 
-  // test with full communicator : U.fields.fields.U* must be modified to public
-  // ViewCommunicator ghost_communicator( amr_mesh->getMesh());
-  // ghost_communicator.exchange_ghosts<2>( U.fields.fields.U, U.fields.fields.Ughost );
-
-  GhostCommunicator_partial_blocks ghost_communicator( amr_mesh->getMesh(), U.getShape(), 2 );
+  GhostCommunicator ghost_communicator( *amr_mesh, U.getShape(), 2 );
   ghost_communicator.exchange_ghosts( Ua );
 
   // test that ghosts have the right value
@@ -287,11 +283,7 @@ void run_test_reduce_partial_blocks()
   enum VarIndex_test{Px,Py,Pz};
   UserData::FieldAccessor Ua = U.getAccessor( {{"px", Px}, {"py", Py}, {"pz", Pz}} );
 
-  //test with full communicator : U.fields.fields.U* must be modified to public
-  //ViewCommunicator ghost_communicator( amr_mesh->getMesh());
-  //ghost_communicator.reduce_ghosts<2>( U.fields.fields.U, U.fields.fields.Ughost );
-
-  GhostCommunicator_partial_blocks ghost_communicator( amr_mesh->getMesh(), U.getShape(), 2 );
+  GhostCommunicator ghost_communicator( *amr_mesh, U.getShape(), 2 );
   ghost_communicator.reduce_ghosts( Ua );
 
   int nerrors = 0;
@@ -322,7 +314,7 @@ void run_test_reduce_partial_blocks()
 
 } // run_test_reduce
 
-TEST(dyablo, test_GhostCommunicator_partial_blocks_reduce)
+TEST(dyablo, test_GhostCommunicator_reduce)
 {
   run_test_reduce_partial_blocks();
 }

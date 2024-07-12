@@ -1,7 +1,7 @@
 #include "GravitySolver_cg.h"
 
 #include "utils/monitoring/Timers.h"
-#include "mpi/GhostCommunicator_partial_blocks.h"
+#include "mpi/GhostCommunicator.h"
 #include "foreach_cell/ForeachCell_utils.h"
 #include <mpi.h>
 
@@ -242,7 +242,7 @@ void GravitySolver_cg::update_gravity_field( UserData& U, ScalarSimulationData& 
   real_t xmax = pdata->xmax, ymax = pdata->ymax, zmax = pdata->zmax;
   Kokkos::Array<BoundaryConditionType, 3> boundarycondition = pdata->boundarycondition;
   int ghost_count = 1; 
-  GhostCommunicator_partial_blocks ghost_comm(foreach_cell.get_amr_mesh().getMesh(), U.getShape(), ghost_count );
+  GhostCommunicator ghost_comm(foreach_cell.get_amr_mesh(), U.getShape(), ghost_count );
 
   real_t eps = pdata->CG_eps;
 

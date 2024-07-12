@@ -20,7 +20,7 @@
 #include "init/InitialConditions_analytical.h"
 #include "foreach_cell/AMRBlockForeachCell.h"
 
-#include "mpi/GhostCommunicator_partial_blocks.h"
+#include "mpi/GhostCommunicator.h"
 
 using Device = Kokkos::DefaultExecutionSpace;
 
@@ -615,7 +615,7 @@ void run_test()
   init_implode.init( U_ ); 
   AnalyticalFormula_implode_norefine init_implode_formula( configMap );
 
-  GhostCommunicator_partial_blocks ghost_comm( amr_mesh->getMesh(), U_.getShape(), 2*ghostWidth );
+  GhostCommunicator ghost_comm( *amr_mesh, U_.getShape(), 2*ghostWidth );
   
   LegacyDataArray U( U_ );
   ghost_comm.exchange_ghosts( U );

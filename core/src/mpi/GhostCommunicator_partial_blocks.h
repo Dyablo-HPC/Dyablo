@@ -16,15 +16,6 @@ public:
     GhostCommunicator_partial_blocks( const AMRmesh_hashmap_new& amr_mesh, const ForeachCell::CellArray_global_ghosted::Shape_t& shape,  int ghost_count, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() );
 
     void init( const AMRmesh_hashmap_new& amr_mesh, const ForeachCell::CellArray_global_ghosted::Shape_t& shape, int ghost_count, const MpiComm& mpi_comm );
-
-    template< typename AMRmesh_t >
-    GhostCommunicator_partial_blocks( const AMRmesh_t& amr_mesh, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
-      : mpi_comm(mpi_comm)
-    {
-      static_assert( std::is_same_v<AMRmesh_t, AMRmesh_t>, "GhostCommunicator_partial_blocks is only compatible with AMRmesh_hashmap_new" );
-    }
-    
-    GhostCommunicator_partial_blocks( std::shared_ptr<AMRmesh> amr_mesh, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() );
     
     /// @copydoc GhostCommunicator_base::getNumGhosts
     uint32_t getNumGhosts() const

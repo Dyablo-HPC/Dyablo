@@ -14,7 +14,7 @@
 #include "hydro/HydroUpdate_utils.h"
 
 #include "states/State_forward.h"
-#include "mpi/GhostCommunicator_partial_blocks.h"
+#include "mpi/GhostCommunicator.h"
 
 #include "boundary_conditions/BoundaryConditions.h"
 
@@ -528,7 +528,7 @@ public:
     const BoundaryConditions& bc_manager = this->bc_manager;
     ForeachCell& foreach_cell = this->foreach_cell;
     int nb_ghosts = 2;
-    GhostCommunicator_partial_blocks ghost_comm(foreach_cell.get_amr_mesh().getMesh(), U.getShape(), nb_ghosts );
+    GhostCommunicator ghost_comm(foreach_cell.get_amr_mesh(), U.getShape(), nb_ghosts );
     bool gravity_use_field = this->gravity_use_field;
     bool gravity_enabled = this->gravity_enabled;
     real_t gx = this->gx;

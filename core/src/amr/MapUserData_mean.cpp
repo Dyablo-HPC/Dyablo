@@ -81,7 +81,7 @@ public:
       // TODO : find a test-case that uses that
       // TODO : communicate only needed octants
 
-      ViewCommunicator ghost_comm = ViewCommunicator::from_mesh(foreach_cell.get_amr_mesh().getMesh());
+      ViewCommunicator ghost_comm = ViewCommunicator::from_mesh(foreach_cell.get_amr_mesh());
       ghost_comm.exchange_ghosts<2>( Uin.U, Uin.Ughost );
       remap();
     }

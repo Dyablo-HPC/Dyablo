@@ -128,7 +128,7 @@ void run_test()
     Kokkos::deep_copy( U, U_host );
   }
 
-  dyablo::ViewCommunicator ghost_communicator = ViewCommunicator::from_mesh( amr_mesh->getMesh() );
+  dyablo::ViewCommunicator ghost_communicator = ViewCommunicator::from_mesh( *amr_mesh );
 
   auto Ughostlayout = layout<Array_t>(bx,by,bz,nbfields,ghost_communicator.getNumGhosts());
   Array_t Ughost("Ughost", Ughostlayout);
@@ -341,7 +341,7 @@ void run_test_reduce()
     fill_neighbor( { 0, 0,-1}, IW );
   });
 
-  dyablo::ViewCommunicator ghost_communicator = ViewCommunicator::from_mesh( amr_mesh->getMesh() );
+  dyablo::ViewCommunicator ghost_communicator = ViewCommunicator::from_mesh( *amr_mesh );
   ghost_communicator.reduce_ghosts<2>( U.U, U.Ughost );
 
   int nerrors = 0;

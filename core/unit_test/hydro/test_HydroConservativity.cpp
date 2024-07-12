@@ -22,7 +22,7 @@
 #include "utils_hydro.h"
 #include "io/IOManager.h"
 #include "states/State_hydro.h"
-#include "mpi/GhostCommunicator_partial_blocks.h"
+#include "mpi/GhostCommunicator.h"
 using blockSize_t    = Kokkos::Array<uint32_t, 3>;
 
 using Device = Kokkos::DefaultExecutionSpace;
@@ -220,7 +220,7 @@ void run_test(int ndim, std::string HydroUpdate_id ) {
     hydro_ghost_count = std::min( {U.getShape().bx, U.getShape().by, (uint32_t)hydro_ghost_count} );
   }
 
-  GhostCommunicator_partial_blocks ghost_comm(amr_mesh->getMesh(), U.getShape(), hydro_ghost_count);
+  GhostCommunicator ghost_comm(*amr_mesh, U.getShape(), hydro_ghost_count);
 
   auto exchange_ghosts = [&](const UserData& U)
   {  

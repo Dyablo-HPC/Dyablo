@@ -22,16 +22,21 @@ namespace dyablo {
  **/
 class ViewCommunicator
 {
-public:  
-    static ViewCommunicator from_mesh( const AMRmesh_hashmap_new& mesh )
+public: 
+    static ViewCommunicator from_mesh( const AMRmesh& mesh, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
+    {
+      return from_mesh(mesh.getMesh(), mpi_comm);
+    }
+
+    static ViewCommunicator from_mesh( const AMRmesh_hashmap_new& mesh, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
     {
       auto gm = mesh.getGhostMap();
-      return ViewCommunicator( gm.send_sizes, gm.send_iOcts );
+      return ViewCommunicator( gm.send_sizes, gm.send_iOcts, mpi_comm );
     }
     
-    static ViewCommunicator from_mesh( const AMRmesh_hashmap& mesh )
+    static ViewCommunicator from_mesh( const AMRmesh_hashmap& mesh, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
     {
-      return ViewCommunicator( mesh.getBordersPerProc() );
+      return ViewCommunicator( mesh.getBordersPerProc(), mpi_comm );
     }
 
     /**

@@ -3,7 +3,7 @@
 #include "HydroUpdate_utils.h"
 
 #include "boundary_conditions/BoundaryConditions.h"
-#include "mpi/GhostCommunicator_partial_blocks.h"
+#include "mpi/GhostCommunicator.h"
 
 namespace dyablo {
 namespace{
@@ -139,7 +139,7 @@ public:
     Timers& timers = this->timers; 
     ForeachCell& foreach_cell = this->foreach_cell;
     int nb_ghosts = 2;
-    GhostCommunicator_partial_blocks ghost_comm(foreach_cell.get_amr_mesh().getMesh(), U.getShape(), nb_ghosts );
+    GhostCommunicator ghost_comm(foreach_cell.get_amr_mesh(), U.getShape(), nb_ghosts );
       
     auto fields_info = ConsState::getFieldsInfo();
     UserData::FieldAccessor Uin = U.getAccessor( fields_info );

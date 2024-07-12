@@ -20,7 +20,7 @@
 #include "cooling/CoolingUpdate.h"
 #include "UserData.h"
 #include "Cosmo.h"
-#include "mpi/GhostCommunicator_partial_blocks.h"
+#include "mpi/GhostCommunicator.h"
 
 namespace dyablo {
 
@@ -636,7 +636,7 @@ public:
     }
 
 
-    GhostCommunicator_partial_blocks ghost_comm(m_amr_mesh->getMesh(), U.getShape(), ghost_count, m_communicator);
+    GhostCommunicator ghost_comm(*m_amr_mesh, U.getShape(), ghost_count, m_communicator);
 
     auto communicate_ghosts = [&](std::vector< std::string > exchange_vars)
     {

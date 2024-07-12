@@ -230,7 +230,7 @@ void apply_aux( const AMR_Remapper& remap,
                                 blockSize_t blockSizes,
                                 UserData& U )
 {
-  apply_aux( AMR_Remapper(lmesh_new.getMesh()), lmesh_new.getNdim(),
+  apply_aux( AMR_Remapper(lmesh_new), lmesh_new.getNdim(),
              blockSizes, U );
 }
 
