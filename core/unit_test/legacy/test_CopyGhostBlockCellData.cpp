@@ -164,7 +164,6 @@ std::shared_ptr<AMRmesh> create_mesh<2>()
   amr_mesh->setMarker(28,1);
 
   amr_mesh->adapt();
-  amr_mesh->updateConnectivity();
   amr_mesh->loadBalance();
 
   return amr_mesh;
@@ -211,7 +210,6 @@ std::shared_ptr<AMRmesh> create_mesh<3>()
   amr_mesh->setMarker(121 ,1);
 
   amr_mesh->adapt();
-  amr_mesh->updateConnectivity();
   amr_mesh->loadBalance();
 
   return amr_mesh;

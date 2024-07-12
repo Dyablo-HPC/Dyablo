@@ -73,7 +73,6 @@ void run_test()
     }
 
     amr_mesh->adapt();
-    amr_mesh->updateConnectivity();
   }
 
   ConfigMap configMap(R"ini(

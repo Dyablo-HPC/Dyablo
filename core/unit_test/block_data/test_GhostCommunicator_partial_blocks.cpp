@@ -58,9 +58,6 @@ void test_GhostCommunicator_partial_block()
       amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
     amr_mesh->adapt();
     debug::output_vtk("after_adapt4", *amr_mesh);
-
-    //amr_mesh->loadBalance();
-    amr_mesh->updateConnectivity();
   }
 
   uint32_t bx = 8;
@@ -225,7 +222,6 @@ void run_test_reduce_partial_blocks()
     debug::output_vtk("after_adapt4", *amr_mesh);
 
     amr_mesh->loadBalance();
-    amr_mesh->updateConnectivity();
   }
 
   uint32_t bx = 8;

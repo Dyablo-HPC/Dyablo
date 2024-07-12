@@ -237,8 +237,6 @@ public:
         //TODO
         return false;
     }
-    void computeConnectivity(){}
-    void updateConnectivity(){}
 
     /**
      * @param dim number of dimensions 2D/3D

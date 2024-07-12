@@ -96,9 +96,6 @@ void run_test()
       amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
     amr_mesh->adapt();
     debug::output_vtk("after_adapt4", *amr_mesh);
-
-    //amr_mesh->loadBalance();
-    amr_mesh->updateConnectivity();
   }
 
   uint32_t bx = 8;
@@ -288,7 +285,6 @@ void run_test_reduce()
     debug::output_vtk("after_adapt4", *amr_mesh);
 
     amr_mesh->loadBalance();
-    amr_mesh->updateConnectivity();
   }
 
   // Content of .ini file used ton configure configmap and HydroParams
