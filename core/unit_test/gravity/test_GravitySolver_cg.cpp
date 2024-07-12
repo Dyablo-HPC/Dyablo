@@ -22,7 +22,7 @@
 
 #include "gtest/gtest.h"
 #include "amr/AMRmesh.h"
-#include "mpi/GhostCommunicator.h"
+#include "mpi/GhostCommunicator_partial_blocks.h"
 #include "gravity/GravitySolver_cg.h"
 #include "io/IOManager.h"
 
@@ -205,7 +205,8 @@ void test_GravitySolver( std::shared_ptr<AMRmesh> amr_mesh )
       U.at( iCell, Irho ) = Hernquist::rho(r2);
     });
 
-    U_.exchange_ghosts(GhostCommunicator(amr_mesh));
+    GhostCommunicator_partial_blocks ghost_comm( amr_mesh->getMesh(), U.getShape(), 1 );
+    ghost_comm.exchange_ghosts( U );
   }
 
   Timers timers;

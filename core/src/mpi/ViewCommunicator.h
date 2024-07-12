@@ -1,78 +1,112 @@
 #pragma once
 
 #include "Kokkos_Core.hpp"
-#include "GhostCommunicator.h"
 #include "userdata_utils.h"
+#include "amr/AMRmesh.h"
 
 namespace dyablo {
 
 /**
- * Ghost communicator that extracts communication metadata from PABLO 
- * then serialize/deserialize in Kokkos kernels and use CUDA-aware MPI 
+ * Communicator to exchange Kokkos::View data between MPI domains. ViewCommunicator can exchange 
+ * multidimensionnal views that are distributed in a single dimension. (e.g. cell block arrays 
+ * are distributed along the `iOct` dimension, particle arrays are distributed along the iPart dimension).
+ * 
+ * The distributed dimension is the position of the index in Kokkos::operator() for the distributed objects. 
+ * Any index can be the distributed dimension, objects will be automatically packed and unpacked if they 
+ * are not contiguous (be aware of performance implications).
+ * 
+ * ViewCommunicator is constructed with a description of the exchange 
+ * pattern (e.g. which local octant to send to which rank), then 
+ * exchange_ghosts<distributed_dim>() and reduce_ghosts<distributed_dim>() 
+ * are used to perform MPI operations. 
  **/
-class GhostCommunicator_kokkos : public GhostCommunicator_base
+class ViewCommunicator
 {
-public:
+public:  
+    static ViewCommunicator from_mesh( const AMRmesh_hashmap_new& mesh )
+    {
+      auto gm = mesh.getGhostMap();
+      return ViewCommunicator( gm.send_sizes, gm.send_iOcts );
+    }
+    
+    static ViewCommunicator from_mesh( const AMRmesh_hashmap& mesh )
+    {
+      return ViewCommunicator( mesh.getBordersPerProc() );
+    }
+
     /**
-     * Create a new GhostCommunicator using a view containing the target domain for each local octant
-     * This is used for load balancing when blocks are moved from one rank to another
-     * ( since there is only one target domain per block, this cannot be used for ghosts) 
+     * Create a new ViewCommunicator using a view containing the target domain for each local object
+     * This is for example used for load balancing when blocks are moved from one rank to another
+     * (since there is only one target domain per block, this cannot be used for ghosts) 
+     * 
+     * @param target_domains View containing the target domain for each local object in the distributed 
+     *                      dimension (same size as the distributed dimension extent)
      **/
-    GhostCommunicator_kokkos( const Kokkos::View< int* > target_domains, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
+    ViewCommunicator( const Kokkos::View< int* > target_domains, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
     : mpi_comm(mpi_comm)
     {
       private_init_domains(target_domains);
     }
+
     /**
      * DO NOT CALL THIS YOURSELF
-     * this is here because KOKKOS_LAMBDAS cannot be declared in constructors or private methods
+     * this is here because KOKKOS_LAMBDAS cannot be declared in constructors or private methods with nvcc
      **/
     void private_init_domains( const Kokkos::View< int* > domains );
     
     /**
-     * Create a new GhostCommunicator using a map containing local octants to send to each remote domain
-     * octants can be communicated to multiple ghosts in different domains
+     * Create a new ViewCommunicator by listing local object to send to each remote domain (map<int, vector> representation).
+     * Same object can be sent to multiple domains
+     * 
+     * @param ghost_map a 'rank -> local octant list' map to describe which objects to send to each MPI process
      **/
-    GhostCommunicator_kokkos( const std::map<int, std::vector<uint32_t>>& ghost_map, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() );   
-    GhostCommunicator_kokkos( const Kokkos::View< uint32_t* > send_sizes, const Kokkos::View< uint32_t* > send_iOcts, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
+    ViewCommunicator( const std::map<int, std::vector<uint32_t>>& ghost_map, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() );   
+    
+    /**
+     * Create a new ViewCommunicator by listing local object to send to each remote domain ( Kokkos::View representation )
+     * Same object can be sent to multiple domains
+     * 
+     * @param send_sizes an array of size `MPI_comm_size()` describing how many object to send to each rank
+     * @param send_iObj local object indices to send. First send_sizes(0) objects in send_iObj will be sent to rank 0, etc...
+     **/
+    ViewCommunicator( const Kokkos::View< uint32_t* > send_sizes, const Kokkos::View< uint32_t* > send_iObj, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
     : mpi_comm(mpi_comm)
     {
-      private_init_map(send_sizes, send_iOcts);
+      private_init_map(send_sizes, send_iObj);
     }
 
-    GhostCommunicator_kokkos( const AMRmesh_hashmap_new& amr_mesh, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
-     : GhostCommunicator_kokkos(amr_mesh.getGhostMap().send_sizes, amr_mesh.getGhostMap().send_iOcts, mpi_comm)
-    {}
-
-    template< typename AMRmesh_t >
-    GhostCommunicator_kokkos( const AMRmesh_t& amr_mesh, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
-     : GhostCommunicator_kokkos(amr_mesh.getBordersPerProc(), mpi_comm)
-    {}
-    
-    GhostCommunicator_kokkos( std::shared_ptr<AMRmesh> amr_mesh, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
-     : GhostCommunicator_kokkos(amr_mesh->getMesh(), mpi_comm)
-    {}
-    
-    /// @copydoc GhostCommunicator_base::getNumGhosts
+    /// Get the number of ghosts in local process with the current exchange pattern
     uint32_t getNumGhosts() const;
 
     /**
-     * Generic function to exchange octant data stored un a Kokkos View
+     * Generic function to send object data stored in U to Ughost according to communication pattern
+     * 
      * @tparam is the Kokkos::View type. It must be Kokkos::LayoutLeft
-     * @tparam iOct_pos position of iOct coordinate in U. When iOct is not leftmost 
-     *         coordinate (iOct_pos = DataArray_t::rank-1), packing/unpacking is less efficient 
-     *         because data needs to be transposed.
-     * @param U is local octant data with iOct_pos-nth subscript the octant index
-     * @param Ughost is the ghost octant data to fill, it will be resized to match the number of ghost octants
+     * @tparam distributed_dim position distributed objects index coordinate in U(..,..,...). 
+     *         When distributed object index is not the leftmost index (distributed_dim != DataArray_t::rank-1), 
+     *         packing/unpacking is less efficient because data needs to be transposed.
+     * @param U a view containing data distributed accross the distributed_dim-th dimension. 
+     *          Must be in accordance with the communication pattern.
+     * @param Ughost A view to recieve the exchanged objects. This must be allocated to have getNumGhosts() 
+     *               elements in the distributed_dim-th dimension, and must have the same shape than U in all other dimensions
      **/
-    template< int iOct_pos, typename DataArray_t >
+    template< int distributed_dim, typename DataArray_t >
     void exchange_ghosts( const DataArray_t& U, const DataArray_t& Ughost) const;
 
     /**
-     * Generic function to reduce ghost values to source cell
-     * Ghost values from every process are sent to owning process and then added to the non-ghost cell
+     * Generic function to reduce ghost values to source object
+     * Ghost values from every process are sent to owning process and then added to the local non-ghost cell
+     * 
+     * @tparam is the Kokkos::View type. It must be Kokkos::LayoutLeft
+     * @tparam distributed_dim position distributed objects index coordinate in U(..,..,...). 
+     *         When distributed object index is not the leftmost index (distributed_dim != DataArray_t::rank-1), 
+     *         packing/unpacking is less efficient because data needs to be transposed.
+     * @param U a view containing data distributed accross the distributed_dim-th dimension. 
+     *          Must be in accordance with the communication pattern.
+     * @param Ughost A view to recieve the exchanged objects. This must have getNumGhosts() 
+     *               elements in the distributed_dim-th dimension, and must have the same shape than U in all other dimensions
      **/
-    template< int iOct_pos, typename DataArray_t >
+    template< int distributed_dim, typename DataArray_t >
     void reduce_ghosts( const DataArray_t& U, const DataArray_t& Ughost) const;
 
 private:
@@ -85,7 +119,12 @@ private:
     MpiComm mpi_comm;    
 };
 
-namespace GhostCommunicator_kokkos_impl{
+namespace ViewCommunicator_impl{
+  /***
+   * Note : Implementation detail documentation use octants as distributed objects
+   * this is from a time when 
+   ***/
+
   using namespace userdata_utils;  
 
   /**
@@ -173,7 +212,7 @@ namespace GhostCommunicator_kokkos_impl{
     // When iOct is not the rightmost subscript in U, a temporary transposed array is created
 
     static_assert( std::is_same<typename DataArray_t::array_layout, Kokkos::LayoutLeft>::value, 
-                 "This implementation of GhostCommunicator_kokkos only supports Kokkos::LayoutLeft views" ); 
+                 "ViewCommunicator only supports Kokkos::LayoutLeft views" ); 
 
     constexpr int dim = (int)DataArray_t::rank;
     
@@ -212,7 +251,7 @@ namespace GhostCommunicator_kokkos_impl{
         elts_per_octs *= U.extent(i);
 
     // Copy values to send from U to send_buffers
-    Kokkos::parallel_for( "GhostCommunicator::fill_send_buffer", send_buffers.size(),
+    Kokkos::parallel_for( "ViewCommunicator::fill_send_buffer", send_buffers.size(),
                           KOKKOS_LAMBDA(uint32_t index)
     {
       uint32_t iGhost = index/elts_per_octs;
@@ -286,7 +325,7 @@ namespace GhostCommunicator_kokkos_impl{
     uint32_t elts_per_octs = octant_size<DataArray_t, iOct_pos>(Ughost);
 
     // Transpose value from Ughost_right_iOct to Ughost
-    Kokkos::parallel_for( "GhostCommunicator::unpack_transpose", Ughost_right_iOct.size(),
+    Kokkos::parallel_for( "ViewCommunicator::unpack_transpose", Ughost_right_iOct.size(),
                           KOKKOS_LAMBDA(uint32_t index)
     {
       uint32_t iOct = index/elts_per_octs;
@@ -307,12 +346,12 @@ namespace GhostCommunicator_kokkos_impl{
     Kokkos::deep_copy( Ughost, Ughost_right_iOct );
   }
 
-} // namespace GhostCommunicator_kokkos_impl
+} // namespace ViewCommunicator_impl
 
 template< int iOct_pos, typename DataArray_t >
-void GhostCommunicator_kokkos::exchange_ghosts( const DataArray_t& U, const DataArray_t& Ughost) const
+void ViewCommunicator::exchange_ghosts( const DataArray_t& U, const DataArray_t& Ughost) const
 { 
-  using namespace GhostCommunicator_kokkos_impl;
+  using namespace ViewCommunicator_impl;
   using MPI_Request_t = MpiComm::MPI_Request_t;
 #ifdef MPI_IS_CUDA_AWARE    
   using MPIBuffer = DataArray_t;
@@ -366,9 +405,9 @@ void GhostCommunicator_kokkos::exchange_ghosts( const DataArray_t& U, const Data
 }
 
 template< int iOct_pos, typename DataArray_t >
-void GhostCommunicator_kokkos::reduce_ghosts( const DataArray_t& U, const DataArray_t& Ughost) const
+void ViewCommunicator::reduce_ghosts( const DataArray_t& U, const DataArray_t& Ughost) const
 {
-  using namespace GhostCommunicator_kokkos_impl;
+  using namespace ViewCommunicator_impl;
   using MPI_Request_t = MpiComm::MPI_Request_t;
   #ifdef MPI_IS_CUDA_AWARE    
     using MPIBuffer = DataArray_t;
@@ -419,7 +458,7 @@ void GhostCommunicator_kokkos::reduce_ghosts( const DataArray_t& U, const DataAr
     auto& send_iOcts = this->send_iOcts;
 
     // Accumulate ghost cells gathered from all process in local cells
-    Kokkos::parallel_for( "GhostCommunicator_kokkos::reduce_ghosts::unpack_reduce", recv_buffers_device.size(),
+    Kokkos::parallel_for( "ViewCommunicator::reduce_ghosts::unpack_reduce", recv_buffers_device.size(),
       KOKKOS_LAMBDA (uint32_t index)
     {
       uint32_t iOct_ghost = index/elts_per_octs;

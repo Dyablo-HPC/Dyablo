@@ -3,7 +3,6 @@
 #include "kokkos_shared.h"
 #include "FieldManager.h"
 #include "amr/LightOctree.h"
-#include "mpi/GhostCommunicator.h"
 
 namespace dyablo {
 
@@ -402,11 +401,6 @@ public :
    **/
   KOKKOS_INLINE_FUNCTION
   real_t& at_ivar( const CellIndex& iCell, int ivar ) const;
-
-  void exchange_ghosts(const GhostCommunicator& ghost_comm) const
-  {
-    ghost_comm.exchange_ghosts<2>(U, Ughost);
-  }
 };
 
 KOKKOS_INLINE_FUNCTION

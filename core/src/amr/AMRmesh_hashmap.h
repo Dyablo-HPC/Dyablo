@@ -92,7 +92,7 @@ public:
     /**
      * \brief Change octants distribution to redistribute the load
      * \return a map contianig exchanged octants to create 
-     *         a GhostCommunicator_kokkos to communicate user data of migrated octants
+     *         a ViewCommunicator to communicate user data of migrated octants
      **/
     
     std::map<int, std::vector<uint32_t>> loadBalance(level_t level=0);

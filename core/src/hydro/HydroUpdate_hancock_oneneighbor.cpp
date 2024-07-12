@@ -14,6 +14,7 @@
 #include "hydro/HydroUpdate_utils.h"
 
 #include "states/State_forward.h"
+#include "mpi/GhostCommunicator_partial_blocks.h"
 
 #include "boundary_conditions/BoundaryConditions.h"
 
@@ -526,7 +527,8 @@ public:
     const RiemannParams& riemann_params = this->riemann_params;
     const BoundaryConditions& bc_manager = this->bc_manager;
     ForeachCell& foreach_cell = this->foreach_cell;
-    GhostCommunicator ghost_comm(std::shared_ptr<AMRmesh>(&foreach_cell.get_amr_mesh(), [](AMRmesh*){}));
+    int nb_ghosts = 2;
+    GhostCommunicator_partial_blocks ghost_comm(foreach_cell.get_amr_mesh().getMesh(), U.getShape(), nb_ghosts );
     bool gravity_use_field = this->gravity_use_field;
     bool gravity_enabled = this->gravity_enabled;
     real_t gx = this->gx;
@@ -556,7 +558,7 @@ public:
         computePrimitives<ndim, State>(riemann_params, Uin, iCell_Q, Q);
     });
     // Primitive variables of ghost cells are needed to compute slopes
-    Q.exchange_ghosts(ghost_comm);
+    ghost_comm.exchange_ghosts(Q);
 
     // Create arrays to store slopes
     GhostedArray Slopes_x = foreach_cell.allocate_ghosted_array( "Slopes_x", fm_prim );
@@ -573,10 +575,10 @@ public:
         compute_limited_slopes<ndim, State>(Q, iCell_Q, cellmetadata.getCellCenter(iCell_Q), cellmetadata.getCellSize(iCell_Q), Slopes_x, Slopes_y, Slopes_z);
     });
     // Slopes of ghost cells are needed to compute flux
-    Slopes_x.exchange_ghosts(ghost_comm);
-    Slopes_y.exchange_ghosts(ghost_comm);
+    ghost_comm.exchange_ghosts(Slopes_x);
+    ghost_comm.exchange_ghosts(Slopes_y);
     if(ndim == 3)
-      Slopes_z.exchange_ghosts(ghost_comm);
+      ghost_comm.exchange_ghosts(Slopes_z);
 
     // Compute flux and update Uout
     foreach_cell.foreach_cell("HydroUpdate_hancock_oneneighbor::flux_and_update", Q, KOKKOS_LAMBDA(const CellIndex& iCell_Q)

@@ -87,8 +87,12 @@ dyablo_add_test(utest_MusclBlockGodunovUpdateFunctor OFF
   legacy/test_MusclBlockGodunovUpdateFunctor.cpp
   main.cpp)
 
-dyablo_add_test(utest_GhostCommunicator ON
-  block_data/test_GhostCommunicator.cpp
+dyablo_add_test(utest_ViewCommunicator ON
+  block_data/test_ViewCommunicator.cpp
+  main.cpp)
+
+  dyablo_add_test(utest_GhostCommunicator_partial_blocks ON
+  block_data/test_GhostCommunicator_partial_blocks.cpp
   main.cpp)
 
 dyablo_add_test(utest_LoadBalance ON

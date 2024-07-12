@@ -22,6 +22,7 @@
 #include "utils_hydro.h"
 #include "io/IOManager.h"
 #include "states/State_hydro.h"
+#include "mpi/GhostCommunicator_partial_blocks.h"
 using blockSize_t    = Kokkos::Array<uint32_t, 3>;
 
 using Device = Kokkos::DefaultExecutionSpace;
@@ -205,10 +206,36 @@ void run_test(int ndim, std::string HydroUpdate_id ) {
                                 timers);
 
     initial_conditions->init(U);
-  }  
+  }
 
-  GhostCommunicator ghost_comm(amr_mesh);
-  U.exchange_ghosts( ghost_comm );
+  int hydro_ghost_count;
+  {          
+    if( HydroUpdate_id.find("oneneighbor") != std::string::npos )
+      hydro_ghost_count = 2; // Could be 1 but other kernels may need 2
+    else if( HydroUpdate_id.find("hancock") != std::string::npos )
+      hydro_ghost_count = 4;
+    else
+      hydro_ghost_count = 2;
+
+    hydro_ghost_count = std::min( {U.getShape().bx, U.getShape().by, (uint32_t)hydro_ghost_count} );
+  }
+
+  GhostCommunicator_partial_blocks ghost_comm(amr_mesh->getMesh(), U.getShape(), hydro_ghost_count);
+
+  auto exchange_ghosts = [&](const UserData& U)
+  {  
+    std::vector< UserData::FieldAccessor::FieldInfo > fields_to_exchange;
+    int i=0;
+    for( const std::string& field : U.getEnabledFields() )
+    {
+      fields_to_exchange.push_back( {field, i} );
+      i++;
+    }
+    auto Uin = U.getAccessor( fields_to_exchange );
+    ghost_comm.exchange_ghosts(Uin);
+  };
+  exchange_ghosts( U );
+
 
   DiagosticsFunctor diags(foreach_cell);
   {
@@ -227,7 +254,7 @@ void run_test(int ndim, std::string HydroUpdate_id ) {
     iomanager->save_snapshot(U, scalar_data);
     for (int i=0; i < nsteps; ++i) {
       compute_dt->compute_dt(U, scalar_data);
-      U.exchange_ghosts( ghost_comm );
+      exchange_ghosts( U );
 
       // TODO automatic new fields according to kernel
       U.new_fields({"rho_next", "e_tot_next", "rho_vx_next", "rho_vy_next", "rho_vz_next"});

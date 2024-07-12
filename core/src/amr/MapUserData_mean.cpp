@@ -1,6 +1,7 @@
 #include "amr/MapUserData_base.h"
 
 #include "amr/CellIndexRemapper.h"
+#include "mpi/ViewCommunicator.h"
 
 namespace dyablo {
 
@@ -21,7 +22,6 @@ public:
   void save_old_mesh() override
   {
     this->lmesh_old = this->foreach_cell.get_amr_mesh().getLightOctree();
-    this->ghost_comm = std::make_unique<GhostCommunicator_kokkos>( foreach_cell.get_amr_mesh().getMesh() );
   }
 
 
@@ -80,8 +80,9 @@ public:
       // before remapping again
       // TODO : find a test-case that uses that
       // TODO : communicate only needed octants
-      //GhostCommunicator_kokkos ghost_comm( foreach_cell.get_amr_mesh().getMesh() );
-      this->ghost_comm->exchange_ghosts<2>( Uin.U, Uin.Ughost );
+
+      ViewCommunicator ghost_comm = ViewCommunicator::from_mesh(foreach_cell.get_amr_mesh().getMesh());
+      ghost_comm.exchange_ghosts<2>( Uin.U, Uin.Ughost );
       remap();
     }
   }
@@ -89,7 +90,6 @@ public:
 private:
   ForeachCell& foreach_cell;
   LightOctree lmesh_old;
-  std::unique_ptr<GhostCommunicator_kokkos> ghost_comm;
 };
 
 } // namespace dyablo;

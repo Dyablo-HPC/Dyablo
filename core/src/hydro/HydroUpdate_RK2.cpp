@@ -3,6 +3,7 @@
 #include "HydroUpdate_utils.h"
 
 #include "boundary_conditions/BoundaryConditions.h"
+#include "mpi/GhostCommunicator_partial_blocks.h"
 
 namespace dyablo {
 namespace{
@@ -137,7 +138,8 @@ public:
   {
     Timers& timers = this->timers; 
     ForeachCell& foreach_cell = this->foreach_cell;
-    GhostCommunicator ghost_comm(std::shared_ptr<AMRmesh>(&foreach_cell.get_amr_mesh(), [](AMRmesh*){}));
+    int nb_ghosts = 2;
+    GhostCommunicator_partial_blocks ghost_comm(foreach_cell.get_amr_mesh().getMesh(), U.getShape(), nb_ghosts );
       
     auto fields_info = ConsState::getFieldsInfo();
     UserData::FieldAccessor Uin = U.getAccessor( fields_info );
@@ -158,7 +160,7 @@ public:
     // Two update stages and one correction stage
     timers.get("HydroUpdate_RK2").start();
     rk_update<ndim>(Uin, Uin_g,  Ustar, dt);
-    Ustar.exchange_ghosts(ghost_comm);
+    ghost_comm.exchange_ghosts(Ustar);
     rk_update<ndim>(Ustar, Uin_g, Uout, dt);
     rk_correct<ndim>(Uin, Uout);
 

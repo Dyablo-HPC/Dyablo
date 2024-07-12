@@ -8,7 +8,7 @@
 
 #include "legacy/utils_block.h"
 #include "amr/AMRmesh.h"
-#include "mpi/GhostCommunicator.h"
+#include "mpi/ViewCommunicator.h"
 
 #include "foreach_cell/ForeachCell.h"
 #include "UserData.h"
@@ -111,7 +111,6 @@ level_max=5
       Uin.at(iCell, Py) = c[IY];
       Uin.at(iCell, Pz) = c[IZ];
     });
-    U.exchange_ghosts( GhostCommunicator_kokkos( amr_mesh ) );
   }
 
   std::cout << "Perform load balancing..." << std::endl;

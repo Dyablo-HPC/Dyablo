@@ -152,7 +152,6 @@ public:
         }
       }
       Kokkos::deep_copy( U.U, U_host );
-      U.exchange_ghosts(GhostCommunicator(amr_mesh));
     }
   }
 

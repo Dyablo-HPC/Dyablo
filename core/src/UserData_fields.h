@@ -179,13 +179,7 @@ public:
         field_index.erase( name );
     }
 
-    // TODO exchange ghost for only some fields
-    void exchange_ghosts( const GhostCommunicator& ghost_comm ) const
-    {
-        fields.exchange_ghosts(ghost_comm);
-    }
-
-    void exchange_loadbalance( const GhostCommunicator& ghost_comm )
+    void exchange_loadbalance( const ViewCommunicator& ghost_comm )
     {
         const FieldManager fm(fields.nbfields());
         auto new_fields = foreach_cell.allocate_ghosted_array( fields.U.label(), fm );

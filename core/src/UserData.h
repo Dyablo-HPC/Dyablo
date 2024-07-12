@@ -80,13 +80,7 @@ public:
         fields.delete_field(name);
     }
 
-    // TODO exchange ghost for only some fields
-    void exchange_ghosts( const GhostCommunicator& ghost_comm ) const
-    {
-        fields.exchange_ghosts(ghost_comm);
-    }
-
-    void exchange_loadbalance( const GhostCommunicator& ghost_comm )
+    void exchange_loadbalance( const ViewCommunicator& ghost_comm )
     {
         fields.exchange_loadbalance(ghost_comm);
     }

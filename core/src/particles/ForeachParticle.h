@@ -2,6 +2,7 @@
 
 #include "kokkos_shared.h"
 #include "particles/ParticleArray.h"
+#include "mpi/ViewCommunicator.h"
 
 namespace dyablo
 {
@@ -55,7 +56,7 @@ public:
     reduce_particle(kernel_name, iter_space, f, Kokkos::Sum<Value_t>(reducer)...);
   }
 
-  GhostCommunicator_kokkos get_distribute_communicator(const ParticleArray& particles_in)
+  ViewCommunicator get_distribute_communicator(const ParticleArray& particles_in)
   {
     const LightOctree& lmesh = pmesh.getLightOctree();
     uint32_t nbParticles = particles_in.getNumParticles();
@@ -88,12 +89,12 @@ public:
       particle_domain(iPart) = domain;
     });
 
-    return GhostCommunicator_kokkos( particle_domain, pmesh.getMpiComm() );
+    return ViewCommunicator( particle_domain, pmesh.getMpiComm() );
   }
 
   void distribute( ParticleData& particles_in )
   {
-    GhostCommunicator_kokkos part_comm = get_distribute_communicator(particles_in);
+    ViewCommunicator part_comm = get_distribute_communicator(particles_in);
     uint32_t nbParticles_new = part_comm.getNumGhosts();
     // TODO fetch old name
     ParticleData particles_out( ParticleArray("xxx", nbParticles_new), particles_in.field_manager() );
