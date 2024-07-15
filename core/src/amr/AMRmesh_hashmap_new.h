@@ -136,6 +136,7 @@ public:
   void loadBalance_userdata( level_t compact_levels, UserData& userData );
 
   void setMarker(uint32_t iOct, int marker);
+  void setMarkers( const Kokkos::View<int*>& oct_marker );
   void adapt(bool dummy);
   
   void adaptGlobalRefine();

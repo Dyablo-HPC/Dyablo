@@ -17,11 +17,8 @@ static void set_markers(AMRmesh& pmesh, const Kokkos::View<int*>& oct_marker)
   int level_max = pmesh.get_level_max();
   uint32_t nbOcts = pmesh.getNumOctants();
   const LightOctree& lmesh = pmesh.getLightOctree();    
-  Kokkos::View<uint32_t*> markers_iOct("markers_iOct", nbOcts);
-  Kokkos::View<int*> markers_marker("markers_marker", nbOcts);
-  uint32_t nb_markers = 0;
-  Kokkos::parallel_scan( "MarkOctantsHydroFunctor::compress_markers", nbOcts,
-    KOKKOS_LAMBDA( uint32_t iOct, uint32_t& nb_markers, bool final )
+  Kokkos::parallel_for( "MarkOctantsHydroFunctor::adjust_markers", nbOcts,
+    KOKKOS_LAMBDA( uint32_t iOct )
   {
     uint8_t level = lmesh.getLevel({iOct,false});
 
@@ -33,31 +30,10 @@ static void set_markers(AMRmesh& pmesh, const Kokkos::View<int*>& oct_marker)
     if( level <= level_min && criterion==RefineCondition::COARSEN )
       criterion = RefineCondition::NOCHANGE;
 
-    if( criterion != RefineCondition::NOCHANGE )
-    {
-      if( final )
-      {
-        markers_iOct(nb_markers) = iOct;
-        markers_marker(nb_markers) = criterion;
-      }
-      nb_markers ++;
-    }
-  }, nb_markers);
-
-  auto markers_iOct_host = Kokkos::create_mirror_view(markers_iOct);
-  auto markers_marker_host = Kokkos::create_mirror_view(markers_marker);
-  Kokkos::deep_copy( markers_iOct_host, markers_iOct );
-  Kokkos::deep_copy( markers_marker_host, markers_marker );
-
-  Kokkos::parallel_for( "MarkOctantsHydroFunctor::set_markers_pablo", 
-                      Kokkos::RangePolicy<Kokkos::OpenMP>(0,nb_markers),
-                      [&](uint32_t i)
-  {
-    uint32_t iOct = markers_iOct_host(i);
-    int marker = markers_marker_host(i);
-
-    pmesh.setMarker(iOct, marker);
+    oct_marker( iOct ) = criterion;
   });
+
+  pmesh.getMesh().setMarkers( oct_marker );
 }
 
 } // namespace RefineConditions_utils
