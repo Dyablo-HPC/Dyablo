@@ -132,6 +132,21 @@ namespace ViewCommunicator_impl{
 
   using namespace userdata_utils;  
 
+  template< typename Layout_t >
+  Kokkos::LayoutLeft to_LayoutLeft( const Layout_t& l )
+  {
+    Kokkos::LayoutLeft ll(l.dimension[0],
+                          l.dimension[1],
+                          l.dimension[2],
+                          l.dimension[3],
+                          l.dimension[4],
+                          l.dimension[5],
+                          l.dimension[6],
+                          l.dimension[7]
+                        );
+    return ll;
+  };
+
   /**
    * Generic way to get a subview of an an n-dimensional Kokkos view
    * with Kokkos::ALL, ..., std::make_pair(iOct_begin, iOct_end) as parameters
@@ -209,25 +224,25 @@ namespace ViewCommunicator_impl{
     return res;
   }
 
-  template <int iOct_pos, typename DataArray_t>
-  DataArray_t allocate_packed( const DataArray_t& U, const Kokkos::View<uint32_t*>& send_iOcts, const Kokkos::View<uint32_t*>::HostMirror& send_sizes_host )
+  template <typename PackBuffer_t, int iOct_pos, typename DataArray_t>
+  PackBuffer_t allocate_packed( const DataArray_t& U, uint32_t send_oct_count, const Kokkos::View<uint32_t*>::HostMirror& send_sizes_host )
   {
     // When iOct is the rightmost subscript in U, a unique view of size (:,...,sum(send_sizes_host)) is 
     // allocated,
     // When iOct is not the rightmost subscript in U, a temporary transposed array is created
 
-    static_assert( std::is_same<typename DataArray_t::array_layout, Kokkos::LayoutLeft>::value, 
-                 "ViewCommunicator only supports Kokkos::LayoutLeft views" ); 
+    static_assert( std::is_same<typename PackBuffer_t::array_layout, Kokkos::LayoutLeft>::value, 
+                 "ViewCommunicator only supports Kokkos::LayoutLeft PackBuffer" ); 
 
     constexpr int dim = (int)DataArray_t::rank;
     
     // Allocate send_buffers with same dimension for each octant but with sum(send_sizes_host) octants
     // iOct is also displaced to the rightmost coordinate (if it's not already the case)
-    Kokkos::LayoutLeft extents_send = U.layout();
+    Kokkos::LayoutLeft extents_send = to_LayoutLeft(U.layout());
     for(int i=iOct_pos; i<dim-1; i++)
       extents_send.dimension[i] = extents_send.dimension[i+1];
-    extents_send.dimension[dim-1] = send_iOcts.size(); 
-    DataArray_t send_buffers("Send buffers", extents_send); 
+    extents_send.dimension[dim-1] = send_oct_count; 
+    PackBuffer_t send_buffers("Send buffers", extents_send); 
 
     return send_buffers;
   }
@@ -237,7 +252,7 @@ namespace ViewCommunicator_impl{
    * @tparam iOct_pos position of coorinate iOct in U
    * @returns the list of buffers ready to be sent to every rank, buffers are transposed from U to have iOct as leftmost subscript
    **/
-  template <typename MPIBuffer_t, int iOct_pos, typename DataArray_t>
+  template <typename MPIBuffer_t, typename PackBuffer_t, int iOct_pos, typename DataArray_t>
   std::vector<MPIBuffer_t> pack( const DataArray_t& U, const Kokkos::View<uint32_t*>& send_iOcts, const Kokkos::View<uint32_t*>::HostMirror& send_sizes_host )
   {
     // When iOct is the rightmost subscript in U, a unique view of size (:,...,sum(send_sizes_host)) is 
@@ -248,7 +263,7 @@ namespace ViewCommunicator_impl{
     
     // Allocate send_buffers with same dimension for each octant but with sum(send_sizes_host) octants
     // iOct is also displaced to the rightmost coordinate (if it's not already the case)
-    DataArray_t send_buffers = allocate_packed<iOct_pos>(U, send_iOcts, send_sizes_host);
+    PackBuffer_t send_buffers = allocate_packed<PackBuffer_t, iOct_pos>(U, send_iOcts.size(), send_sizes_host);
 
     uint32_t elts_per_octs = 1;
     for(int i=0; i<dim; i++)
@@ -316,15 +331,17 @@ namespace ViewCommunicator_impl{
    * Transfert values from Ughost_right_iOct to Ughost
    * When iOct is not rightmost index in Ughost
    **/
-  template <int iOct_pos, typename DataArray_t>
+  template <int iOct_pos, typename DataArray_right_t, typename DataArray_t>
   std::enable_if_t< iOct_pos < DataArray_t::rank-1 , 
-  void > transpose( const DataArray_t& Ughost_right_iOct, const DataArray_t& Ughost )
+  void > transpose( const DataArray_right_t& Ughost_right_iOct, const DataArray_t& Ughost )
   {
     // When iOct is not the rightmost index, a temportary MPI buffer 
     // with iOct rightmost index is used and has to be transposed
 
+    constexpr int rank = DataArray_t::rank();
+
     // Verify Ghost allocation has the right size
-    DYABLO_ASSERT_HOST_RELEASE( Ughost.extent(iOct_pos) == Ughost_right_iOct.extent(DataArray_t::rank-1),
+    DYABLO_ASSERT_HOST_RELEASE( Ughost.extent(iOct_pos) == Ughost_right_iOct.extent(rank-1),
       "Ughost is not allocated to the expected size" );
 
     uint32_t elts_per_octs = octant_size<DataArray_t, iOct_pos>(Ughost);
@@ -336,7 +353,7 @@ namespace ViewCommunicator_impl{
       uint32_t iOct = index/elts_per_octs;
       uint32_t i = index%elts_per_octs;
       
-      get_U<iOct_pos>(Ughost, iOct, i) = get_U<DataArray_t::rank-1>(Ughost_right_iOct, iOct, i);
+      get_U<iOct_pos>(Ughost, iOct, i) = get_U<rank-1>(Ughost_right_iOct, iOct, i);
     });
   }
 
@@ -344,9 +361,9 @@ namespace ViewCommunicator_impl{
    * Transfert values from Ughost_right_iOct to Ughost
    * When iOct is rightmost index un Ughost there is nothing to transpose 
    **/
-  template <int iOct_pos, typename DataArray_t>
+  template <int iOct_pos, typename DataArray_right_t, typename DataArray_t>
   std::enable_if_t< iOct_pos == DataArray_t::rank-1 , 
-  void > transpose( const DataArray_t& Ughost_right_iOct, const DataArray_t& Ughost )
+  void > transpose( const DataArray_right_t& Ughost_right_iOct, const DataArray_t& Ughost )
   {
     Kokkos::deep_copy( Ughost, Ughost_right_iOct );
   }
@@ -358,10 +375,12 @@ void ViewCommunicator::exchange_ghosts( const DataArray_t& U, const DataArray_t&
 { 
   using namespace ViewCommunicator_impl;
   using MPI_Request_t = MpiComm::MPI_Request_t;
+
+  using PackBuffer = Kokkos::View< typename DataArray_t::data_type, Kokkos::LayoutLeft >;
 #ifdef MPI_IS_CUDA_AWARE    
-  using MPIBuffer = DataArray_t;
+  using MPIBuffer = PackBuffer;
 #else
-  using MPIBuffer = typename DataArray_t::HostMirror;
+  using MPIBuffer = typename PackBuffer::HostMirror;
 #endif
 
   DYABLO_ASSERT_HOST_RELEASE( Ughost.extent(iOct_pos) == nbghosts_recv, "Mismatch between view extent and expected ghost count" );
@@ -369,14 +388,14 @@ void ViewCommunicator::exchange_ghosts( const DataArray_t& U, const DataArray_t&
   int nb_proc = mpi_comm.MPI_Comm_size();
 
   // Pack send buffers from U, allocate recieve buffers
-  std::vector<MPIBuffer> send_buffers = pack<MPIBuffer, iOct_pos>( U, this->send_iOcts, this->send_sizes_host );
+  std::vector<MPIBuffer> send_buffers = pack<MPIBuffer, PackBuffer, iOct_pos>( U, this->send_iOcts, this->send_sizes_host );
 
   // Allocate Ughost_tmp with same volume of data, but with iOct at rightmost position
-  Kokkos::LayoutLeft extents_Ughost_tmp = U.layout();
+  Kokkos::LayoutLeft extents_Ughost_tmp = to_LayoutLeft(U.layout());
   for(uint32_t i=iOct_pos; i<DataArray_t::rank-1; i++)
     extents_Ughost_tmp.dimension[i] = extents_Ughost_tmp.dimension[i+1];
   extents_Ughost_tmp.dimension[DataArray_t::rank-1] = this->nbghosts_recv;
-  DataArray_t Ughost_tmp(U.label()+"_ghost", extents_Ughost_tmp);
+  PackBuffer Ughost_tmp(U.label()+"_ghost", extents_Ughost_tmp);
 
   std::vector<MPIBuffer> recv_buffers = get_subviews<MPIBuffer>(Ughost_tmp, recv_sizes_host);
   
@@ -409,24 +428,62 @@ void ViewCommunicator::exchange_ghosts( const DataArray_t& U, const DataArray_t&
   transpose<iOct_pos>( Ughost_tmp, Ughost );
 }
 
+template <typename MPIBuffer_t, typename PackBuffer_t, int iOct_pos, typename DataArray_t>
+std::vector<MPIBuffer_t> pack_ghosts( const DataArray_t& Ughost, const Kokkos::View<uint32_t*>::HostMirror& ghost_send_sizes_host )
+{
+  using namespace ViewCommunicator_impl;
+
+  // When iOct is the rightmost subscript in U, a unique view of size (:,...,sum(send_sizes_host)) is 
+  // allocated and then sliced in subviews for each rank,
+  // When iOct is not the rightmost subscript in U, a temporary transposed array is created
+
+  constexpr int dim = (int)DataArray_t::rank;
+  
+  // Allocate send_buffers with same dimension for each octant but with sum(send_sizes_host) octants
+  // iOct is also displaced to the rightmost coordinate (if it's not already the case)
+  PackBuffer_t send_buffers = allocate_packed<PackBuffer_t, iOct_pos>(Ughost, Ughost.extent(iOct_pos), ghost_send_sizes_host);
+
+  uint32_t elts_per_octs = 1;
+  for(int i=0; i<dim; i++)
+    if( i!= iOct_pos )
+      elts_per_octs *= Ughost.extent(i);
+
+  // Copy values to send from U to send_buffers
+  Kokkos::parallel_for( "ViewCommunicator::fill_send_buffer", send_buffers.size(),
+                        KOKKOS_LAMBDA(uint32_t index)
+  {
+    uint32_t iGhost = index/elts_per_octs;
+    uint32_t iOct_origin = iGhost;
+    uint32_t i = index%elts_per_octs;
+    
+    // copy octant data with iOct dimension moved from iOct_pos to DataArray_t::rank-1
+    get_U<DataArray_t::rank-1>(send_buffers, iGhost, i) = get_U<iOct_pos>(Ughost, iOct_origin, i);
+  });
+
+  // Slice send_buffers into subviews
+  return get_subviews<MPIBuffer_t>(send_buffers, ghost_send_sizes_host);
+}
+
 template< int iOct_pos, typename DataArray_t >
 void ViewCommunicator::reduce_ghosts( const DataArray_t& U, const DataArray_t& Ughost) const
 {
   using namespace ViewCommunicator_impl;
   using MPI_Request_t = MpiComm::MPI_Request_t;
+  
+  using PackBuffer = Kokkos::View< typename DataArray_t::data_type, Kokkos::LayoutLeft >;
   #ifdef MPI_IS_CUDA_AWARE    
-    using MPIBuffer = DataArray_t;
+    using MPIBuffer = PackBuffer;
   #else
-    using MPIBuffer = typename DataArray_t::HostMirror;
+    using MPIBuffer = typename PackBuffer::HostMirror;
   #endif
 
   int nb_proc = mpi_comm.MPI_Comm_size();
 
   // Send and recv buffers are reversed in this method compared to exchange_ghosts()
   // Send buffers are Ughost sliced into subviews of sizes *recv*_sizes_host[i]
-  std::vector<MPIBuffer> send_buffers = get_subviews<MPIBuffer>(Ughost, recv_sizes_host);
+  std::vector<MPIBuffer> send_buffers = pack_ghosts<MPIBuffer, PackBuffer, iOct_pos>(Ughost, recv_sizes_host);
   // Recv buffers are allocated and sliced into subviews of size *send*_sizes_host[i]
-  DataArray_t recv_buffers_device = allocate_packed<iOct_pos>( U, send_iOcts, send_sizes_host );
+  PackBuffer recv_buffers_device = allocate_packed<PackBuffer,iOct_pos>( U, send_iOcts.size(), send_sizes_host );
   std::vector<MPIBuffer> recv_buffers = get_subviews<MPIBuffer>(recv_buffers_device, send_sizes_host);
   {
     std::vector<MPI_Request_t> mpi_requests;

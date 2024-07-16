@@ -68,21 +68,24 @@ namespace userdata_utils{
    * Transfert values from U_right_iOct to U
    * When iOct is not rightmost index in U
    **/
-  template <int iOct_pos, typename DataArray_t>
+  template <int iOct_pos, typename DataArray_right_t, typename DataArray_t>
   std::enable_if_t< iOct_pos < DataArray_t::rank-1 , 
-  void > transpose_from_right_iOct( const DataArray_t& U_right_iOct, DataArray_t& U )
+  void > transpose_from_right_iOct( const DataArray_right_t& U_right_iOct, DataArray_t& U )
   {
     // When iOct is not the rightmost index, a temportary MPI buffer 
     // with iOct rightmost index is used and has to be transposed
 
+    constexpr int rank = DataArray_t::rank;
+    static_assert( DataArray_t::rank == DataArray_right_t::rank, "Rank Mismatch" );
+
     // Realloc U with the correct number of octants
     auto layout_U = U.layout();
-    for(uint32_t i=0; i<DataArray_t::rank; i++)
+    for(uint32_t i=0; i<rank; i++)
     {
       if( i < iOct_pos )
         layout_U.dimension[i] = U_right_iOct.extent(i);
       else if( i == iOct_pos )
-        layout_U.dimension[i] = U_right_iOct.extent(DataArray_t::rank-1);
+        layout_U.dimension[i] = U_right_iOct.extent(rank-1);
       else // (i > iOct_pos)
         layout_U.dimension[i] = U_right_iOct.extent(i-1);
     }
@@ -97,16 +100,16 @@ namespace userdata_utils{
       uint32_t iOct = index/elts_per_octs;
       uint32_t i = index%elts_per_octs;
       
-      get_U<iOct_pos>(U, iOct, i) = get_U<DataArray_t::rank-1>(U_right_iOct, iOct, i);
+      get_U<iOct_pos>(U, iOct, i) = get_U<rank-1>(U_right_iOct, iOct, i);
     });
   }
 
   /**
    * Transfert values from U_right_iOct to U
-   * When iOct is rightmost index un U there is nothing to transpose 
+   * When View is LayoutLeft and iOct is rightmost index in U there is nothing to transpose 
    **/
   template <int iOct_pos, typename DataArray_t>
-  std::enable_if_t< iOct_pos == DataArray_t::rank-1 , 
+  std::enable_if_t< std::is_same_v<typename DataArray_t::array_layout, Kokkos::LayoutLeft> && iOct_pos == DataArray_t::rank-1 , 
   void > transpose_from_right_iOct( const DataArray_t& U_right_iOct, DataArray_t& U )
   {
     U = U_right_iOct;
@@ -114,25 +117,28 @@ namespace userdata_utils{
 
   /**
    * Transfert values from U to U_right_iOct
-   * When iOct is not rightmost index in U
+   * When iOct is not rightmost index in U (or not layoutleft)
    **/
-  template <int iOct_pos, typename DataArray_t>
+  template <int iOct_pos, typename DataArray_t, typename DataArray_right_t>
   std::enable_if_t< iOct_pos < DataArray_t::rank-1 , 
-  void > transpose_to_right_iOct( const DataArray_t& U, DataArray_t& U_right_iOct )
+  void > transpose_to_right_iOct( const DataArray_t& U, DataArray_right_t& U_right_iOct )
   {
     // When iOct is not the rightmost index, a temportary MPI buffer 
     // with iOct rightmost index is used and has to be transposed
 
+    constexpr int rank = DataArray_t::rank;
+    static_assert( DataArray_t::rank == DataArray_right_t::rank, "Rank Mismatch" );
+
     // Realloc U_right_iOct with the correct number of octants
     auto layout_right_iOct = U.layout();
-    for(uint32_t i=0; i<DataArray_t::rank-1; i++)
+    for(uint32_t i=0; i<rank-1; i++)
     {
       if( i < iOct_pos )
         layout_right_iOct.dimension[i] = U.extent(i);
       else // (i >= iOct_pos)
         layout_right_iOct.dimension[i] = U.extent(i+1);
     }
-    layout_right_iOct.dimension[DataArray_t::rank-1] = U.extent(iOct_pos);
+    layout_right_iOct.dimension[rank-1] = U.extent(iOct_pos);
 
     Kokkos::realloc(U_right_iOct, layout_right_iOct);
 
@@ -145,12 +151,12 @@ namespace userdata_utils{
       uint32_t iOct = index/elts_per_octs;
       uint32_t i = index%elts_per_octs;
       
-      get_U<DataArray_t::rank-1>(U_right_iOct, iOct, i) = get_U<iOct_pos>(U, iOct, i);
+      get_U<rank-1>(U_right_iOct, iOct, i) = get_U<iOct_pos>(U, iOct, i);
     });
   }
 
   template <int iOct_pos, typename DataArray_t>
-  std::enable_if_t< iOct_pos == DataArray_t::rank-1 , 
+  std::enable_if_t< std::is_same_v<typename DataArray_t::array_layout, Kokkos::LayoutLeft> && iOct_pos == DataArray_t::rank-1, 
   void > transpose_to_right_iOct( const DataArray_t& U, DataArray_t& U_right_iOct )
   {
     U_right_iOct = U;
