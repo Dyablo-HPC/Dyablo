@@ -17,6 +17,11 @@ public:
 
     void init( const AMRmesh_hashmap_new& amr_mesh, const ForeachCell::CellArray_global_ghosted::Shape_t& shape, int ghost_count, const MpiComm& mpi_comm );
     
+    static std::string name()
+    {
+      return "GhostCommunicator_partial_blocks";
+    }
+
     /// @copydoc GhostCommunicator_base::getNumGhosts
     uint32_t getNumGhosts() const
     {

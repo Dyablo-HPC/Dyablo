@@ -18,12 +18,14 @@
 #include "UserData.h"
 #include "utils/config/ConfigMap.h"
 
+
+template< typename GhostCommunicator_t >
 void test_GhostCommunicator_partial_block()
 {
   using namespace dyablo;
 
   std::cout << "// =========================================\n";
-  std::cout << "// Testing GhostCommunicator_partial_block ...\n";
+  std::cout << "// Testing GhostCommunicator ("<<GhostCommunicator_t::name()<<") ...\n";
   std::cout << "// =========================================\n";
 
   std::cout << "Create mesh..." << std::endl;
@@ -71,14 +73,14 @@ void test_GhostCommunicator_partial_block()
   ForeachCell foreach_cell(*amr_mesh, configMap);  
   UserData U ( configMap, foreach_cell );
 
-  U.new_fields({"px", "py", "pz"});
+  U.new_fields({"px", "dummy", "py", "pz"});
 
   std::cout << "Initialize User Data..." << std::endl;
 
   { // Initialize U
-    enum VarIndex_test{Px,Py,Pz};
+    enum VarIndex_test{Px,Py,Pz,Dummy};
 
-    UserData::FieldAccessor Uin = U.getAccessor( {{"px", Px}, {"py", Py}, {"pz", Pz}} );
+    UserData::FieldAccessor Uin = U.getAccessor( {{"px", Px}, {"py", Py}, {"pz", Pz}, {"dummy", Dummy}} );
     const ForeachCell::CellMetaData& cells = foreach_cell.getCellMetaData();
     foreach_cell.foreach_cell( "Init_U", U.getShape(),
       KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell )
@@ -87,13 +89,15 @@ void test_GhostCommunicator_partial_block()
       Uin.at(iCell, Px) = c[IX];
       Uin.at(iCell, Py) = c[IY];
       Uin.at(iCell, Pz) = c[IZ];
+      Uin.at(iCell, Dummy) = 99;
     });
   }
 
-  enum VarIndex_test{Px,Py,Pz};
+  enum VarIndex_test{Px,Py,Pz,Dummy};
   UserData::FieldAccessor Ua = U.getAccessor( {{"px", Px}, {"py", Py}, {"pz", Pz}} );
+  UserData::FieldAccessor Udummy = U.getAccessor( {{"dummy", Dummy}} );
 
-  GhostCommunicator ghost_communicator( *amr_mesh, U.getShape(), 2 );
+  GhostCommunicator_t ghost_communicator( *amr_mesh, U.getShape(), 2 );
   ghost_communicator.exchange_ghosts( Ua );
 
   // test that ghosts have the right value
@@ -119,6 +123,8 @@ void test_GhostCommunicator_partial_block()
       test_equal( pos[IX], Ua.at(iCell, Px) );
       test_equal( pos[IY], Ua.at(iCell, Py) );
       test_equal( pos[IZ], Ua.at(iCell, Pz) );
+
+      test_equal(  iCell.iOct.isGhost?0:99, Udummy.at(iCell, Dummy) );
     }; 
 
     auto test_offset = [&]( CellIndex::offset_t offset, int ghost_width )
@@ -171,17 +177,28 @@ void test_GhostCommunicator_partial_block()
   EXPECT_EQ(0, error_count);
 }
 
-TEST(dyablo, test_GhostCommunicator_partial_block)
+TEST(dyablo, test_GhostCommunicator_full_blocks_exchange)
 {
-  test_GhostCommunicator_partial_block();
+  using namespace dyablo;
+  test_GhostCommunicator_partial_block<GhostCommunicator_impl<GhostCommunicator_full_blocks>>();
 }
 
+TEST(dyablo, test_GhostCommunicator_partial_blocks_exchange)
+{
+  using namespace dyablo;
+  if constexpr( std::is_same_v<AMRmesh::Impl_t, AMRmesh_hashmap_new> )
+    test_GhostCommunicator_partial_block<GhostCommunicator_impl<GhostCommunicator_partial_blocks>>();
+  else
+    GTEST_SKIP();
+}
+
+template< typename GhostCommunicator_t >
 void run_test_reduce_partial_blocks()
 {
   using namespace dyablo;
 
   std::cout << "// =========================================\n";
-  std::cout << "// Testing GhostCommunicator_partial_block reduce ...\n";
+  std::cout << "// Testing GhostCommunicator reduce (" << GhostCommunicator_t::name() << ") ...\n";
   std::cout << "// =========================================\n";
 
   std::cout << "Create mesh..." << std::endl;
@@ -231,15 +248,15 @@ void run_test_reduce_partial_blocks()
   ForeachCell foreach_cell(*amr_mesh, configMap);  
   UserData U ( configMap, foreach_cell );
 
-  U.new_fields({"px", "py", "pz"});
+  U.new_fields({"px", "dummy", "py", "pz"});
 
   std::cout << "Initialize User Data..." << std::endl;
 
   {// Initialize U
 
-    enum VarIndex_test{Px,Py,Pz};
+    enum VarIndex_test{Px,Py,Pz,Dummy};
 
-    UserData::FieldAccessor Uin = U.getAccessor( {{"px", Px}, {"py", Py}, {"pz", Pz}} );
+    UserData::FieldAccessor Uin = U.getAccessor( {{"px", Px}, {"py", Py}, {"pz", Pz}, {"dummy", Dummy}} );
 
     foreach_cell.foreach_cell( "Fill_neighbors", U.getShape(),
       CELL_LAMBDA( const CellIndex& iCell )
@@ -278,12 +295,19 @@ void run_test_reduce_partial_blocks()
       fill_neighbor( { 0, 0,-1}, Pz );
     });
 
+    foreach_cell.foreach_ghost_cell( "Fill_dummy_ghosts", U.getShape(),
+      CELL_LAMBDA( const CellIndex& iCell )
+    {
+      Uin.at( iCell, Dummy ) = 99;
+    });
+
   }
 
-  enum VarIndex_test{Px,Py,Pz};
+  enum VarIndex_test{Px,Py,Pz,Dummy};
   UserData::FieldAccessor Ua = U.getAccessor( {{"px", Px}, {"py", Py}, {"pz", Pz}} );
+  UserData::FieldAccessor Udummy = U.getAccessor( {{"dummy", Dummy}} ); 
 
-  GhostCommunicator ghost_communicator( *amr_mesh, U.getShape(), 2 );
+  GhostCommunicator_t ghost_communicator( *amr_mesh, U.getShape(), 2 );
   ghost_communicator.reduce_ghosts( Ua );
 
   int nerrors = 0;
@@ -294,11 +318,14 @@ void run_test_reduce_partial_blocks()
     real_t U_IU = Ua.at( iCell, Px );
     real_t U_IV = Ua.at( iCell, Py );
     real_t U_IW = Ua.at( iCell, Pz );
+    real_t U_Dummy = Udummy.at(iCell, Dummy);
 
     #ifndef __CUDA_ARCH__
     EXPECT_NEAR( 2, U_IU, eps);
     EXPECT_NEAR( 2, U_IV, eps);
     EXPECT_NEAR( 2, U_IW, eps);
+    // Dummy is not part of reduce_ghosts and should not be reduced
+    EXPECT_NEAR( 0, U_Dummy, eps);
     #endif
 
     if( abs( U_IU - 2) > eps )
@@ -307,6 +334,8 @@ void run_test_reduce_partial_blocks()
       nerrors++;
     if( abs( U_IW - 2) > eps )
       nerrors++;
+    if( abs( U_Dummy ) > eps )
+      nerrors++;
     
   }, nerrors);
 
@@ -314,7 +343,17 @@ void run_test_reduce_partial_blocks()
 
 } // run_test_reduce
 
-TEST(dyablo, test_GhostCommunicator_reduce)
+TEST(dyablo, test_GhostCommunicator_full_blocks_reduce)
 {
-  run_test_reduce_partial_blocks();
+  using namespace dyablo;
+  run_test_reduce_partial_blocks<GhostCommunicator_impl<GhostCommunicator_full_blocks>>();
+}
+
+TEST(dyablo, test_GhostCommunicator_partial_blocks_reduce)
+{
+  using namespace dyablo;
+  if constexpr( std::is_same_v<AMRmesh::Impl_t, AMRmesh_hashmap_new> )
+    run_test_reduce_partial_blocks<GhostCommunicator_impl<GhostCommunicator_partial_blocks>>();
+  else
+    GTEST_SKIP();
 }

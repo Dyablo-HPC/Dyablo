@@ -27,6 +27,11 @@ public:
   : Impl(mesh.getMesh(), shape, ghost_count, mpi_comm)
   {}
 
+  static std::string name()
+  {
+    return Impl::name();
+  }
+
   /// Number of ghost blocks (possibly partial blocks) for this mesh 
   uint32_t getNumGhosts() const
   {
@@ -35,7 +40,7 @@ public:
 
   /***
    * Send ghosts cells for the selected Fields in the accessor
-   * Depending on the backend, other fields from UserData could also be exchanged.
+   * Ghosts from other fields in UserData WILL NOT be modified
    * Cells at a distance greater than ghost_count from the local domain have undefined value
    * (they may be exchanged or not depending on the backend)
    ***/
