@@ -527,7 +527,7 @@ public:
     const RiemannParams& riemann_params = this->riemann_params;
     const BoundaryConditions& bc_manager = this->bc_manager;
     ForeachCell& foreach_cell = this->foreach_cell;
-    int nb_ghosts = 2;
+    int nb_ghosts = 1;
     GhostCommunicator ghost_comm(foreach_cell.get_amr_mesh(), U.getShape(), nb_ghosts );
     bool gravity_use_field = this->gravity_use_field;
     bool gravity_enabled = this->gravity_enabled;
