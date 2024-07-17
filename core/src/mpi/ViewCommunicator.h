@@ -39,6 +39,13 @@ public:
       return ViewCommunicator( mesh.getBordersPerProc(), mpi_comm );
     }
 
+#ifdef DYABLO_COMPILE_PABLO
+    static ViewCommunicator from_mesh( const AMRmesh_pablo& mesh, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
+    {
+      return ViewCommunicator( mesh.getBordersPerProc(), mpi_comm );
+    }
+#endif
+
     /**
      * Create a new ViewCommunicator using a view containing the target domain for each local object
      * This is for example used for load balancing when blocks are moved from one rank to another
