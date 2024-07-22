@@ -208,7 +208,9 @@ void ViewCommunicator::exchange_ghosts( const DataArray_t& U, const DataArray_t&
   using namespace ViewCommunicator_impl;
   using MPI_Request_t = MpiComm::MPI_Request_t;
 
-  using PackBuffer = Kokkos::View< typename DataArray_t::data_type, Kokkos::LayoutLeft >;
+  using PackBuffer = std::conditional_t<  std::is_same_v<typename DataArray_t::array_layout, Kokkos::LayoutLeft>,
+                                          DataArray_t,
+                                          Kokkos::View< typename DataArray_t::data_type, Kokkos::LayoutLeft >>;
   
 #ifdef MPI_IS_CUDA_AWARE    
   using MPIMemorySpace = typename DataArray_t::memory_space;
@@ -235,6 +237,8 @@ void ViewCommunicator::exchange_ghosts( const DataArray_t& U, const DataArray_t&
   uint32_t first_local_recv_oct = 0;
   for( int r=0; r<local_rank; r++ )
     first_local_recv_oct += recv_sizes_host(r);
+
+  constexpr bool contiguous_octs = std::is_same_v<typename DataArray_t::array_layout, Kokkos::LayoutLeft> && iOct_pos == ndim-1;
 
   // Pack send buffers from U, allocate recieve buffers
   std::vector<PackBuffer> send_buffers;
@@ -270,15 +274,26 @@ void ViewCommunicator::exchange_ghosts( const DataArray_t& U, const DataArray_t&
   PackBuffer unpack_buffer;
   std::vector<PackBuffer> recv_buffers;
   {
-    // Allocate unpack_buffer with same volume of data, but with iOct at rightmost position
-    Kokkos::LayoutLeft extents_unpack_buffer = to_LayoutLeft(U.layout());
-    for(uint32_t i=iOct_pos; i<DataArray_t::rank-1; i++)
-      extents_unpack_buffer.dimension[i] = extents_unpack_buffer.dimension[i+1];
-    extents_unpack_buffer.dimension[DataArray_t::rank-1] = this->nbghosts_recv - num_local_oct;
-    // TODO : use Ughost when PackBuffer == DataArray_t
-    unpack_buffer = PackBuffer("recv_buffers", extents_unpack_buffer);
+    //If LayoutLeft directly use Ughost to recieve, allocate transposed buffer otherwise
+    if constexpr( contiguous_octs )
+    { 
+      // Slice Ughost into subviews (don't ignore local iocts for offsets)
+      recv_buffers = get_subviews(Ughost, recv_sizes_host, -1);
+      // Remove local octants from recv list
+      recv_buffers[local_rank] = PackBuffer();
+    }
+    else
+    {
+      // Allocate unpack_buffer with same volume of data, but with iOct at rightmost position
+      Kokkos::LayoutLeft extents_unpack_buffer = to_LayoutLeft(U.layout());
+      for(uint32_t i=iOct_pos; i<DataArray_t::rank-1; i++)
+        extents_unpack_buffer.dimension[i] = extents_unpack_buffer.dimension[i+1];
+      extents_unpack_buffer.dimension[DataArray_t::rank-1] = this->nbghosts_recv - num_local_oct;
+      // TODO : use Ughost when PackBuffer == DataArray_t
+      unpack_buffer = PackBuffer("recv_buffers", extents_unpack_buffer);
 
-    recv_buffers = get_subviews(unpack_buffer, recv_sizes_host, local_rank);
+      recv_buffers = get_subviews(unpack_buffer, recv_sizes_host, local_rank);
+    }
   }
     
   {
@@ -340,15 +355,18 @@ void ViewCommunicator::exchange_ghosts( const DataArray_t& U, const DataArray_t&
   }
 
   // Unpack unpack_buffer to Ughost
-  Kokkos::parallel_for( "ViewCommunicator::unpack", unpack_buffer.size(),
-                        KOKKOS_LAMBDA(uint32_t index)
+  if( !contiguous_octs )
   {
-    uint32_t iOct_recv = index/elts_per_octs;
-    uint32_t iOct_ghost = (iOct_recv < first_local_recv_oct) ? (iOct_recv) : (iOct_recv + num_local_oct);
-    uint32_t i = index%elts_per_octs;
-    
-    get_U<iOct_pos>(Ughost, iOct_ghost, i) = get_U<ndim-1>(unpack_buffer, iOct_recv, i);
-  });
+    Kokkos::parallel_for( "ViewCommunicator::unpack", unpack_buffer.size(),
+                          KOKKOS_LAMBDA(uint32_t index)
+    {
+      uint32_t iOct_recv = index/elts_per_octs;
+      uint32_t iOct_ghost = (iOct_recv < first_local_recv_oct) ? (iOct_recv) : (iOct_recv + num_local_oct);
+      uint32_t i = index%elts_per_octs;
+      
+      get_U<iOct_pos>(Ughost, iOct_ghost, i) = get_U<ndim-1>(unpack_buffer, iOct_recv, i);
+    });
+  }
 }
 
 template< int iOct_pos, typename DataArray_t >
@@ -357,7 +375,9 @@ void ViewCommunicator::reduce_ghosts( const DataArray_t& U, const DataArray_t& U
   using namespace ViewCommunicator_impl;
   using MPI_Request_t = MpiComm::MPI_Request_t;
 
-  using PackBuffer = Kokkos::View< typename DataArray_t::data_type, Kokkos::LayoutLeft >;
+  using PackBuffer = std::conditional_t<  std::is_same_v<typename DataArray_t::array_layout, Kokkos::LayoutLeft>,
+                                          DataArray_t,
+                                          Kokkos::View< typename DataArray_t::data_type, Kokkos::LayoutLeft >>;
   
 #ifdef MPI_IS_CUDA_AWARE    
   using MPIMemorySpace = typename DataArray_t::memory_space;
@@ -379,36 +399,48 @@ void ViewCommunicator::reduce_ghosts( const DataArray_t& U, const DataArray_t& U
     if(i != iOct_pos)
       elts_per_octs *= U.extent(i);
 
+  constexpr bool contiguous_octs = std::is_same_v<typename DataArray_t::array_layout, Kokkos::LayoutLeft> && iOct_pos == ndim-1;
+
   // Send and recv buffers are reversed in this method compared to exchange_ghosts()
 
   // Pack send buffers from Ughost
   // Send buffers are Ughost (eventually transposed) sliced into subviews of sizes *recv*_sizes_host[i]
   std::vector<PackBuffer> send_buffers;
   {
-    // Allocate packbuffer with same dimension for each octant but with sum(*recv*_sizes_host) octants
-    // iOct is also displaced to the rightmost coordinate (if it's not already the case)
-    size_t send_oct_count = nbghosts_recv;
-    Kokkos::LayoutLeft extents_send = to_LayoutLeft(Ughost.layout());
-    for(int i=iOct_pos; i<ndim-1; i++)
-      extents_send.dimension[i] = extents_send.dimension[i+1];
-    extents_send.dimension[ndim-1] = send_oct_count; 
-    PackBuffer packbuffer("send_buffers", extents_send);
-
-    // Copy values to send from Ughost to packbuffer
-    // TODO : use Ughost directly for send buffer if iOct is righmost index
-    Kokkos::parallel_for( "ViewCommunicator::reduce::fill_send_buffer", packbuffer.size(),
-                          KOKKOS_LAMBDA(uint32_t index)
+    if constexpr ( contiguous_octs )
     {
-      uint32_t iGhost = index/elts_per_octs;
-      uint32_t iOct_origin = iGhost;
-      uint32_t i = index%elts_per_octs;
-      
-      // copy octant data with iOct dimension moved from iOct_pos to DataArray_t::rank-1
-      get_U<ndim-1>(packbuffer, iGhost, i) = get_U<iOct_pos>(Ughost, iOct_origin, i);
-    });
+      // Slice Ughost into subviews
+      send_buffers = get_subviews(Ughost, recv_sizes_host, local_rank);
+    }
+    else
+    {    
+      // Allocate packbuffer with same dimension for each octant but with sum(*recv*_sizes_host) octants
+      // iOct is also displaced to the rightmost coordinate (if it's not already the case)
+      size_t send_oct_count = nbghosts_recv;
+      Kokkos::LayoutLeft extents_send = to_LayoutLeft(Ughost.layout());
+      for(int i=iOct_pos; i<ndim-1; i++)
+        extents_send.dimension[i] = extents_send.dimension[i+1];
+      extents_send.dimension[ndim-1] = send_oct_count; 
+      PackBuffer packbuffer("send_buffers", extents_send);
 
-    // Slice send_buffers into subviews
-    send_buffers = get_subviews(packbuffer, recv_sizes_host, local_rank);
+      // Copy values to send from Ughost to packbuffer
+      // TODO : use Ughost directly for send buffer if iOct is righmost index
+      Kokkos::parallel_for( "ViewCommunicator::reduce::fill_send_buffer", packbuffer.size(),
+                            KOKKOS_LAMBDA(uint32_t index)
+      {
+        uint32_t iGhost = index/elts_per_octs;
+        uint32_t iOct_origin = iGhost;
+        uint32_t i = index%elts_per_octs;
+        
+        // copy octant data with iOct dimension moved from iOct_pos to DataArray_t::rank-1
+        get_U<ndim-1>(packbuffer, iGhost, i) = get_U<iOct_pos>(Ughost, iOct_origin, i);
+      });
+
+      // Slice send_buffers into subviews
+      send_buffers = get_subviews(packbuffer, recv_sizes_host, local_rank);
+    }
+
+    
   }
 
   // Recv buffers are allocated and sliced into subviews of size *send*_sizes_host[i]
