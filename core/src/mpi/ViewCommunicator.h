@@ -172,10 +172,11 @@ namespace ViewCommunicator_impl{
 
   /**
    * Slice view into one subview per rank.
+   * (ignore local_rank)
    * Each subview `res[rank]` contains `sizes[rank]` octants from `view`
    **/
   template <typename PackBuffer_t>
-  std::vector<PackBuffer_t> get_subviews(const PackBuffer_t& view, const Kokkos::View<uint32_t*>::HostMirror& sizes)
+  std::vector<PackBuffer_t> get_subviews(const PackBuffer_t& view, const Kokkos::View<uint32_t*>::HostMirror& sizes, int local_rank)
   {
     int nb_proc = sizes.size();
 
@@ -186,15 +187,16 @@ namespace ViewCommunicator_impl{
     uint32_t iOct_offset = 0;
     for(int rank=0; rank<nb_proc; rank++)
     {
-      uint32_t iOct_range_end = iOct_offset+sizes(rank);
-      // This only works if PackBuffer_t is LayoutLeft
-      // Otherwise, subview is not contiguous and this is necessary for MPI
-      res[rank] = get_subview( view, iOct_offset, iOct_range_end);
+      if( rank != local_rank )
+      {
+        uint32_t iOct_range_end = iOct_offset+sizes(rank);
+        // This only works if PackBuffer_t is LayoutLeft
+        // Otherwise, subview is not contiguous and this is necessary for MPI
+        res[rank] = get_subview( view, iOct_offset, iOct_range_end);
 
-      iOct_offset += sizes(rank);
+        iOct_offset += sizes(rank);
+      }
     }
-
-    Kokkos::fence();
 
     return res;
   }
@@ -220,17 +222,26 @@ void ViewCommunicator::exchange_ghosts( const DataArray_t& U, const DataArray_t&
 
   constexpr int ndim = DataArray_t::rank();
   int nb_proc = mpi_comm.MPI_Comm_size();
+  int local_rank = mpi_comm.MPI_Comm_rank();
   uint32_t elts_per_octs = 1;
   for( int i=0; i<ndim; i++ )
     if(i != iOct_pos)
       elts_per_octs *= U.extent(i);
+
+  uint32_t num_local_oct = send_sizes_host(local_rank);
+  uint32_t first_local_send_oct = 0;
+    for( int r=0; r<local_rank; r++ )
+      first_local_send_oct += send_sizes_host(r);
+  uint32_t first_local_recv_oct = 0;
+  for( int r=0; r<local_rank; r++ )
+    first_local_recv_oct += recv_sizes_host(r);
 
   // Pack send buffers from U, allocate recieve buffers
   std::vector<PackBuffer> send_buffers;
   {
     // Allocate packbuffer with same dimension for each octant but with sum(send_sizes_host) octants
     // iOct is also displaced to the rightmost coordinate (if it's not already the case)
-    size_t send_oct_count = send_iOcts.size();
+    size_t send_oct_count = send_iOcts.size() - num_local_oct ;
     Kokkos::LayoutLeft extents_send = to_LayoutLeft(U.layout());
     for(int i=iOct_pos; i<ndim-1; i++)
       extents_send.dimension[i] = extents_send.dimension[i+1];
@@ -244,7 +255,8 @@ void ViewCommunicator::exchange_ghosts( const DataArray_t& U, const DataArray_t&
                           KOKKOS_LAMBDA(uint32_t index)
     {
       uint32_t iGhost = index/elts_per_octs;
-      uint32_t iOct_origin = send_iOcts(iGhost);
+      // Skip local octants that will be copied locally
+      uint32_t iOct_origin = send_iOcts((iGhost<first_local_send_oct) ? iGhost : iGhost + num_local_oct);
       uint32_t i = index%elts_per_octs;
       
       // copy octant data with iOct dimension moved from iOct_pos to DataArray_t::rank-1
@@ -252,7 +264,7 @@ void ViewCommunicator::exchange_ghosts( const DataArray_t& U, const DataArray_t&
     });
 
     // Slice send_buffers into subviews
-    send_buffers = get_subviews(packbuffer, send_sizes_host);
+    send_buffers = get_subviews(packbuffer, send_sizes_host, local_rank);
   }
 
   PackBuffer unpack_buffer;
@@ -262,11 +274,11 @@ void ViewCommunicator::exchange_ghosts( const DataArray_t& U, const DataArray_t&
     Kokkos::LayoutLeft extents_unpack_buffer = to_LayoutLeft(U.layout());
     for(uint32_t i=iOct_pos; i<DataArray_t::rank-1; i++)
       extents_unpack_buffer.dimension[i] = extents_unpack_buffer.dimension[i+1];
-    extents_unpack_buffer.dimension[DataArray_t::rank-1] = this->nbghosts_recv;
+    extents_unpack_buffer.dimension[DataArray_t::rank-1] = this->nbghosts_recv - num_local_oct;
     // TODO : use Ughost when PackBuffer == DataArray_t
     unpack_buffer = PackBuffer("recv_buffers", extents_unpack_buffer);
 
-    recv_buffers = get_subviews(unpack_buffer, recv_sizes_host);
+    recv_buffers = get_subviews(unpack_buffer, recv_sizes_host, local_rank);
   }
     
   {
@@ -297,6 +309,25 @@ void ViewCommunicator::exchange_ghosts( const DataArray_t& U, const DataArray_t&
       }
     }
 
+    // Copy Local octants
+    {
+      auto& send_iOcts = this->send_iOcts;
+
+      // Copy values to send from U to packbuffer
+      Kokkos::parallel_for( "ViewCommunicator::copy_local", num_local_oct*elts_per_octs,
+                            KOKKOS_LAMBDA(uint32_t index)
+      {
+        uint32_t iGhost = index/elts_per_octs;
+        // Skip local octants that will be copied locally
+        uint32_t iOct_U = send_iOcts( iGhost + first_local_send_oct ) ;
+        uint32_t iOct_Ughost = iGhost + first_local_recv_oct;
+        uint32_t i = index%elts_per_octs;
+        
+        // copy octant data with iOct dimension moved from iOct_pos to DataArray_t::rank-1
+        get_U<iOct_pos>(Ughost, iOct_Ughost, i) = get_U<iOct_pos>(U, iOct_U, i);
+      });
+    }
+
     mpi_comm.MPI_Waitall(mpi_requests.size(), mpi_requests.data());
 
     for(int rank=0; rank<nb_proc; rank++)
@@ -312,10 +343,11 @@ void ViewCommunicator::exchange_ghosts( const DataArray_t& U, const DataArray_t&
   Kokkos::parallel_for( "ViewCommunicator::unpack", unpack_buffer.size(),
                         KOKKOS_LAMBDA(uint32_t index)
   {
-    uint32_t iOct = index/elts_per_octs;
+    uint32_t iOct_recv = index/elts_per_octs;
+    uint32_t iOct_ghost = (iOct_recv < first_local_recv_oct) ? (iOct_recv) : (iOct_recv + num_local_oct);
     uint32_t i = index%elts_per_octs;
     
-    get_U<iOct_pos>(Ughost, iOct, i) = get_U<ndim-1>(unpack_buffer, iOct, i);
+    get_U<iOct_pos>(Ughost, iOct_ghost, i) = get_U<ndim-1>(unpack_buffer, iOct_recv, i);
   });
 }
 
@@ -334,8 +366,11 @@ void ViewCommunicator::reduce_ghosts( const DataArray_t& U, const DataArray_t& U
 #endif
   
   using MPIBuffer = decltype( Kokkos::create_mirror_view( MPIMemorySpace(), std::declval<PackBuffer>() ) );
+  
+  int local_rank = mpi_comm.MPI_Comm_rank();
 
   DYABLO_ASSERT_HOST_RELEASE( Ughost.extent(iOct_pos) == nbghosts_recv, "Mismatch between view extent and expected ghost count" );
+  DYABLO_ASSERT_HOST_RELEASE( send_sizes_host(local_rank) == 0, "ViewCommunicator::reduce_ghosts is not compatible with local octant copy" );
 
   constexpr int ndim = DataArray_t::rank();
   int nb_proc = mpi_comm.MPI_Comm_size();
@@ -373,7 +408,7 @@ void ViewCommunicator::reduce_ghosts( const DataArray_t& U, const DataArray_t& U
     });
 
     // Slice send_buffers into subviews
-    send_buffers = get_subviews(packbuffer, recv_sizes_host);
+    send_buffers = get_subviews(packbuffer, recv_sizes_host, local_rank);
   }
 
   // Recv buffers are allocated and sliced into subviews of size *send*_sizes_host[i]
@@ -388,7 +423,7 @@ void ViewCommunicator::reduce_ghosts( const DataArray_t& U, const DataArray_t& U
     // TODO : use Ughost when PackBuffer == DataArray_t
     unpack_buffer = PackBuffer("recv_buffers", extents_unpack_buffer);
 
-    recv_buffers = get_subviews(unpack_buffer, send_sizes_host);
+    recv_buffers = get_subviews(unpack_buffer, send_sizes_host, local_rank);
   }
   
   {
