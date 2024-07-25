@@ -369,6 +369,25 @@ void ViewCommunicator::exchange_ghosts( const DataArray_t& U, const DataArray_t&
   }
 }
 
+template< int iOct_pos, typename U_t, typename PackBuffer_t >
+void unpack_reduce( const Kokkos::View<uint32_t*>& send_iOcts, const U_t& U, const PackBuffer_t& unpack_buffer, uint32_t elts_per_octs )
+{
+  using namespace ViewCommunicator_impl;
+  // Accumulate ghost cells gathered from all process in local cells
+  Kokkos::parallel_for( "ViewCommunicator::reduce_ghosts::unpack_reduce", unpack_buffer.size(),
+    KOKKOS_LAMBDA (uint32_t index)
+  {
+    uint32_t iOct_ghost = index/elts_per_octs;
+    uint32_t i = index%elts_per_octs;
+
+    uint32_t iOct_local = send_iOcts(iOct_ghost);
+    
+    real_t& local_cell_value = get_U<iOct_pos>(U, iOct_local, i);
+    real_t  ghost_cell_value = get_U<U_t::rank-1>(unpack_buffer, iOct_ghost, i);
+    Kokkos::atomic_add( &local_cell_value, ghost_cell_value );
+  });
+}
+
 template< int iOct_pos, typename DataArray_t >
 void ViewCommunicator::reduce_ghosts( const DataArray_t& U, const DataArray_t& Ughost) const
 {
@@ -497,23 +516,9 @@ void ViewCommunicator::reduce_ghosts( const DataArray_t& U, const DataArray_t& U
     }
   }
 
-  {
-    auto& send_iOcts = this->send_iOcts;
-
-    // Accumulate ghost cells gathered from all process in local cells
-    Kokkos::parallel_for( "ViewCommunicator::reduce_ghosts::unpack_reduce", unpack_buffer.size(),
-      KOKKOS_LAMBDA (uint32_t index)
-    {
-      uint32_t iOct_ghost = index/elts_per_octs;
-      uint32_t i = index%elts_per_octs;
-
-      uint32_t iOct_local = send_iOcts(iOct_ghost);
-      
-      real_t& local_cell_value = get_U<iOct_pos>(U, iOct_local, i);
-      real_t  ghost_cell_value = get_U<DataArray_t::rank-1>(unpack_buffer, iOct_ghost, i);
-      Kokkos::atomic_add( &local_cell_value, ghost_cell_value );
-    });
-  }
+  // nvcc for cuda 11.2 fails when this is inlined for some reason
+  unpack_reduce<iOct_pos>(this->send_iOcts, U, unpack_buffer, elts_per_octs);
+  
 }
 
 } // namespace dyablo
