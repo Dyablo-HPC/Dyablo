@@ -41,6 +41,24 @@ public:
         return fields.getShape();
     }
 
+    void extend_fields( )
+    {
+        int allocated_field_count = fields.nbfields();
+        auto fields_new = foreach_cell.allocate_ghosted_array( "UserData_fields", FieldManager(this->max_field_count) );
+        if( allocated_field_count != 0 )
+        {
+            Kokkos::deep_copy( 
+                Kokkos::subview(fields_new.U, Kokkos::ALL(), std::pair(0,allocated_field_count), Kokkos::ALL() ),
+                fields.U
+            );
+            Kokkos::deep_copy( 
+                Kokkos::subview(fields_new.Ughost, Kokkos::ALL(), std::pair(0,allocated_field_count), Kokkos::ALL() ),
+                fields.Ughost
+            );
+        }
+        fields = fields_new;
+    }
+
     /**
      * Add new fields with unique identifiers 
      * names should not be already present
@@ -59,19 +77,7 @@ public:
         if( needed_field_count > allocated_field_count )
         {   // Not enough fields : resize to add fields
             std::cout << "Reallocate : add fields " << allocated_field_count << " -> " << max_field_count << std::endl;
-            auto fields_new = foreach_cell.allocate_ghosted_array( "UserData_fields", FieldManager(max_field_count) );
-            if( allocated_field_count != 0 )
-            {
-                Kokkos::deep_copy( 
-                    Kokkos::subview(fields_new.U, Kokkos::ALL(), std::pair(0,allocated_field_count), Kokkos::ALL() ),
-                    fields.U
-                );
-                Kokkos::deep_copy( 
-                    Kokkos::subview(fields_new.Ughost, Kokkos::ALL(), std::pair(0,allocated_field_count), Kokkos::ALL() ),
-                    fields.Ughost
-                );
-            }
-            fields = fields_new;
+            extend_fields();
         }
 
         for( const std::string& name : names )
@@ -287,9 +293,18 @@ inline UserData_fields::FieldAccessor UserData_fields::backup_and_realloc()
         all_fields.push_back({field, i++});
     FieldAccessor fields_old = this->getAccessor( all_fields );
 
-    // TODO : shrink fields_old by removing unused fields before allocating new array
-
-    this->fields = foreach_cell.allocate_ghosted_array( "UserData_fields", FieldManager(this->max_field_count) );
+    this->fields = foreach_cell.allocate_ghosted_array( "UserData_fields", FieldManager(this->field_index.size()) );
+    // Reorder fields to reduce fragmentation
+    std::map<std::string, field_index_t> field_index_new;
+    {
+        int new_index = 0;
+        for( const auto& [field_name, old_index] : this->field_index )
+        {
+            field_index_new[field_name].index = new_index;
+            new_index++;
+        }
+    }
+    this->field_index = field_index_new;
 
     return fields_old;
 }

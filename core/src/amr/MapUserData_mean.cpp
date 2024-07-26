@@ -38,6 +38,7 @@ public:
     }
 
     remap_aux( fields_old, fields_new );
+    user_data.extend_fields();
   }
 
   void remap_aux( const UserData::FieldAccessor& Uin, const UserData::FieldAccessor& Uout ) 
