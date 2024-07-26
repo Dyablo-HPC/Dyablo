@@ -42,21 +42,6 @@ public:
         return fields.getShape();
     }
 
-    void remap( MapUserData& mapUserData )
-    {
-        FieldView_t fields_old = fields;
-
-        //if( fields.U.extent(2) != foreach_cell.get_amr_mesh().getNumOctants() 
-        // || fields.Ughost.extent(2) != foreach_cell.get_amr_mesh().getNumGhosts()  ) 
-        {   // AMR mesh was updated : reallocate `max_field_count` fields with right oct count
-            // std::cout << "Reallocate : add octs " << fields.U.extent(2) << " -> " << foreach_cell.get_amr_mesh().getNumOctants() << std::endl;
-            // std::cout << "Reallocate : add ghosts " << fields.Ughost.extent(2) << " -> " << foreach_cell.get_amr_mesh().getNumGhosts() << std::endl;
-            this->fields = foreach_cell.allocate_ghosted_array( "UserData_fields", FieldManager(this->max_field_count) );
-        }
-
-        mapUserData.remap( fields_old, fields );
-    }
-
     /**
      * Add new fields with unique identifiers 
      * names should not be already present
@@ -195,6 +180,8 @@ public:
 
     FieldAccessor getAccessor( const std::vector<FieldAccessor_FieldInfo>& fields_info ) const;
 
+    FieldAccessor backup_and_realloc();
+
 private:
     ForeachCell& foreach_cell;
     FieldView_t fields;
@@ -291,6 +278,21 @@ protected:
 inline UserData_fields::FieldAccessor UserData_fields::getAccessor( const std::vector<FieldAccessor_FieldInfo>& fields_info ) const
 {
     return FieldAccessor(*this, fields_info);
+}
+
+inline UserData_fields::FieldAccessor UserData_fields::backup_and_realloc()
+{
+    std::vector<FieldAccessor::FieldInfo> all_fields;
+    int i=0;
+    for( const std::string& field : this->getEnabledFields() )
+        all_fields.push_back({field, i++});
+    FieldAccessor fields_old = this->getAccessor( all_fields );
+
+    // TODO : shrink fields_old by removing unused fields before allocating new array
+
+    this->fields = foreach_cell.allocate_ghosted_array( "UserData_fields", FieldManager(this->max_field_count) );
+
+    return fields_old;
 }
 
 

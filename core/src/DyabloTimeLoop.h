@@ -779,7 +779,7 @@ public:
 
         // Resize and fill U with copied/interpolated/extrapolated data
         timers.get("AMR: remap userdata").start();
-        U.remap( *mapUserData );
+        mapUserData->remap(U);
         
         //TODO
         //std::cout << "Resize U after remap : " << DataArrayBlock::required_allocation_size(U2.U.extent(0), U2.U.extent(1), U2.U.extent(2)) * (2/1e6) 

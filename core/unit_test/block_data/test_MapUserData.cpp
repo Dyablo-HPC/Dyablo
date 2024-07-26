@@ -136,7 +136,7 @@ void run_test(int ndim, std::string mapUserData_id)
   
   std::cout << "Remap user data..." << std::endl;
 
-  U.remap(*mapUserData);
+  mapUserData->remap(U);
 
   {
     scalar_data.set<int>("iter", 1);

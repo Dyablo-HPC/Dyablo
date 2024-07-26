@@ -38,11 +38,6 @@ public:
         return fields.getShape();
     }
 
-    void remap( MapUserData& mapUserData )
-    {
-        fields.remap(mapUserData);
-    }
-
     /**
      * Add new fields with unique identifiers 
      * names should not be already present
@@ -94,6 +89,11 @@ public:
     FieldAccessor getAccessor( const std::vector<FieldAccessor_FieldInfo>& fields_info ) const
     {
         return fields.getAccessor(fields_info);
+    }
+
+    FieldAccessor backup_and_realloc()
+    {
+        return fields.backup_and_realloc();
     }
 
     using ParticleArray_t = UserData_particles::ParticleArray_t;
