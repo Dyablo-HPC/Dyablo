@@ -32,7 +32,7 @@ public:
      * TODO : doc
      **/
     template< typename CellArray_t >
-    void exchange_ghosts( CellArray_t& U) const
+    void exchange_ghosts( const CellArray_t& U) const
     {
       using CellIndex = ForeachCell::CellIndex;
 

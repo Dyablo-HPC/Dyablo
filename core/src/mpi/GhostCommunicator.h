@@ -44,7 +44,7 @@ public:
    * Cells at a distance greater than ghost_count from the local domain have undefined value
    * (they may be exchanged or not depending on the backend)
    ***/
-  void exchange_ghosts( UserData::FieldAccessor& U ) const
+  void exchange_ghosts( const UserData::FieldAccessor& U ) const
   {
     Impl::exchange_ghosts(U);
   }
@@ -54,7 +54,7 @@ public:
    * Cells at a distance greater than ghost_count from the local domain have undefined value
    * (they may be exchanged or not depending on the backend)
    ***/
-  void exchange_ghosts( ForeachCell::CellArray_global_ghosted& U ) const
+  void exchange_ghosts( const ForeachCell::CellArray_global_ghosted& U ) const
   {
     Impl::exchange_ghosts(U);
   }

@@ -25,7 +25,7 @@ public:
       return ViewCommunicator::getNumGhosts();
     }
 
-    void exchange_ghosts( UserData::FieldAccessor& U ) const
+    void exchange_ghosts( const UserData::FieldAccessor& U ) const
     {
       for(int i=0; i<U.fm_ivar.nbfields(); i++)
       {
