@@ -5,7 +5,6 @@
 
 #include "utils/config/ConfigMap.h"
 #include "foreach_cell/ForeachCell.h"
-#include "amr/MapUserData.h"
 #include "particles/ForeachParticle.h"
 
 namespace dyablo {
