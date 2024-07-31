@@ -86,7 +86,7 @@ public:
     RefineCondition_utils::set_markers(foreach_cell.get_amr_mesh(), oct_marker_max);
   }
 
-private:
+protected:
   ForeachCell& foreach_cell;
   RefineCondition_formula refineCondition_formula;
 };
