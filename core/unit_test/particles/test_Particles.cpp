@@ -37,9 +37,7 @@ void run_test(int ndim)
     amr_mesh->adaptGlobalRefine();
 
     amr_mesh->adapt();
-    amr_mesh->updateConnectivity();
     amr_mesh->loadBalance();
-    amr_mesh->updateConnectivity();
   }
 
   //Timers timers;

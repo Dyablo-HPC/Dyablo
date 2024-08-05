@@ -264,11 +264,6 @@ void GhostCommunicator_partial_blocks::init( const AMRmesh_hashmap_new& amr_mesh
   this->m_local_ghost_octants = local_octant_count;
 }
 
-    
-GhostCommunicator_partial_blocks::GhostCommunicator_partial_blocks( std::shared_ptr<AMRmesh> amr_mesh, const MpiComm& mpi_comm )
-  : GhostCommunicator_partial_blocks(amr_mesh->getMesh(), mpi_comm)
-{}
-
 // /**
 //  * TODO : doc
 //  **/

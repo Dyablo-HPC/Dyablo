@@ -9,7 +9,7 @@
 #include "morton_utils.h"
 //#include "utils/io/AMRMesh_output_vtk.h"
 
-#include "mpi/GhostCommunicator.h"
+#include "mpi/ViewCommunicator.h"
 
 #include "UserData.h"
 
@@ -69,10 +69,6 @@ void AMRmesh_hashmap::adaptGlobalRefine()
     pmesh_epoch++;
 }
 
-void AMRmesh_hashmap::setMarkersCapacity(uint32_t capa)
-{
-}
-
 void AMRmesh_hashmap::setMarker(uint32_t iOct, int marker)
 {
     if(marker==0) return;
@@ -82,6 +78,29 @@ void AMRmesh_hashmap::setMarker(uint32_t iOct, int marker)
         markers.value_at(inserted.index()) = marker;
     
     DYABLO_ASSERT_HOST_DEBUG(!inserted.failed(), "Insertion in Kokkos::UnorderedMap failed");
+}
+
+void AMRmesh_hashmap::setMarkers( const Kokkos::View<int*>& ioct_markers )
+{
+    uint32_t nbOcts = this->getNumOctants();
+    DYABLO_ASSERT_HOST_RELEASE( nbOcts == ioct_markers.size(), "Markers count mismatch nbOcts=" << nbOcts << " != markers.size()=" << markers.size()  );
+
+    markers_device_t markers_device( nbOcts );
+
+    Kokkos::parallel_for( "AMRmesh_pablo::setMarkers", nbOcts,
+                        KOKKOS_LAMBDA(uint32_t iOct)
+    {
+        int marker = ioct_markers(iOct);
+        if( marker!=0 )
+        {
+            auto inserted = markers_device.insert( iOct, marker );
+            if(inserted.existing())
+                markers_device.value_at(inserted.index()) = marker;
+            DYABLO_ASSERT_KOKKOS_DEBUG(!inserted.failed(), "Insertion in Kokkos::UnorderedMap failed");
+        }
+    });
+
+    Kokkos::deep_copy(this->markers, markers_device);
 }
 
 namespace {
@@ -522,7 +541,7 @@ std::set< std::pair<int, uint32_t> > discover_ghosts(
 oct_view_t exchange_ghosts_octs(AMRmesh_hashmap& mesh, const oct_view_t& local_octs_coord)
 {
     // TODO : avoid deep_copies
-    GhostCommunicator_kokkos comm_ghosts(mesh);
+    ViewCommunicator comm_ghosts(mesh.getBordersPerProc());
 
     oct_view_device_t local_octs_coord_device("local_octs_coord_device", octs_coord_id::NUM_OCTS_COORDS, local_octs_coord.extent(1));
     Kokkos::deep_copy(local_octs_coord_device, local_octs_coord);
@@ -539,7 +558,7 @@ oct_view_t exchange_ghosts_octs(AMRmesh_hashmap& mesh, const oct_view_t& local_o
 /// Modifies update distant octants markers in `markers`
 void exchange_markers(AMRmesh_hashmap& mesh, AMRmesh_hashmap::markers_device_t& markers)
 {
-    GhostCommunicator_kokkos comm_ghosts(mesh);
+    ViewCommunicator comm_ghosts(mesh.getBordersPerProc());
 
     uint32_t nbOcts = mesh.getNumOctants();
     uint32_t nbGhosts = mesh.getNumGhosts();
@@ -802,7 +821,7 @@ std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(level_t level)
 
         // Exchange 
         {   //TODO : avoid CPU/GPU transfers
-            GhostCommunicator_kokkos loadbalance_communicator( loadbalance_to_send );
+            ViewCommunicator loadbalance_communicator( loadbalance_to_send );
             oct_view_device_t local_octs_coord_old( "local_octs_coord_old", local_octs_coord.layout() );
             oct_view_device_t local_octs_coord_new( "local_octs_coord_new", octs_coord_id::NUM_OCTS_COORDS, loadbalance_communicator.getNumGhosts() );
             Kokkos::deep_copy(local_octs_coord_old , this->local_octs_coord );
@@ -857,7 +876,7 @@ std::map<int, std::vector<uint32_t>> AMRmesh_hashmap::loadBalance(level_t level)
 void AMRmesh_hashmap::loadBalance_userdata( int compact_levels, UserData& U )
 {
     auto octs_to_exchange = loadBalance(compact_levels);
-    GhostCommunicator_kokkos lb_comm(octs_to_exchange);
+    ViewCommunicator lb_comm(octs_to_exchange);
     U.exchange_loadbalance(lb_comm);
 }
 

@@ -205,7 +205,8 @@ void test_GravitySolver( std::shared_ptr<AMRmesh> amr_mesh )
       U.at( iCell, Irho ) = Hernquist::rho(r2);
     });
 
-    U_.exchange_ghosts(GhostCommunicator(amr_mesh));
+    GhostCommunicator ghost_comm( *amr_mesh, U.getShape(), 1 );
+    ghost_comm.exchange_ghosts( U );
   }
 
   Timers timers;

@@ -1,25 +1,25 @@
-#include "GhostCommunicator.h"
+#include "ViewCommunicator.h"
 #include <cstdint>
 #include "utils/mpi/GlobalMpiSession.h"
 
 namespace dyablo{
 
-void GhostCommunicator_kokkos::private_init_domains(const Kokkos::View< int* > domains)
+void ViewCommunicator::private_init_domains(const Kokkos::View< int* > domains)
 {
   int mpi_size = mpi_comm.MPI_Comm_size();
 
-  this->send_sizes = Kokkos::View<uint32_t*>( "GhostCommunicator_kokkos::send_sizes", mpi_size );
-  this->recv_sizes = Kokkos::View<uint32_t*>( "GhostCommunicator_kokkos::recv_sizes", mpi_size );
+  this->send_sizes = Kokkos::View<uint32_t*>( "ViewCommunicator::send_sizes", mpi_size );
+  this->recv_sizes = Kokkos::View<uint32_t*>( "ViewCommunicator::recv_sizes", mpi_size );
   this->send_sizes_host = Kokkos::create_mirror_view( send_sizes );
   this->recv_sizes_host = Kokkos::create_mirror_view( recv_sizes );
-  this->send_iOcts = Kokkos::View<uint32_t*>( "GhostCommunicator_kokkos::send_iOcts", domains.size() );
+  this->send_iOcts = Kokkos::View<uint32_t*>( "ViewCommunicator::send_iOcts", domains.size() );
 
   // Local refs to avoid dereferencing this in kernels
   Kokkos::View<uint32_t*>& send_sizes = this->send_sizes; 
   Kokkos::View<uint32_t*>& send_iOcts = this->send_iOcts; 
 
   // Compute send_sizes from domain list 
-  Kokkos::parallel_for( "GhostCommunicator_kokkos::construct_from_domain::count_send_sizes", 
+  Kokkos::parallel_for( "ViewCommunicator::construct_from_domain::count_send_sizes", 
     domains.size(),
     KOKKOS_LAMBDA( int i )
   {
@@ -34,7 +34,7 @@ void GhostCommunicator_kokkos::private_init_domains(const Kokkos::View< int* > d
     {
       if( send_sizes_host(rank) > 0 )
       {
-        Kokkos::parallel_scan( "GhostCommunicator_kokkos::construct_from_domain::compute_send_iOcts",
+        Kokkos::parallel_scan( "ViewCommunicator::construct_from_domain::compute_send_iOcts",
           domains.size(),
           KOKKOS_LAMBDA( uint32_t iOct, uint32_t& i_write, bool final )
         {
@@ -58,12 +58,8 @@ void GhostCommunicator_kokkos::private_init_domains(const Kokkos::View< int* > d
   Kokkos::deep_copy( recv_sizes, recv_sizes_host );
 }
 
-/**
- * Initialize GhostCommunicator_kokkos with the list of octants to send as ghosts for each rank
- * @param send_sizes nomber of octants to send to rank i
- * @param send_iOcts octants to send to rank 0, then to rank 1, etc (of size sum(send_sizes))
- **/
-void GhostCommunicator_kokkos::private_init_map( const Kokkos::View< uint32_t* > send_sizes, const Kokkos::View< uint32_t* > send_iOcts )
+/// See ViewCommunicator's related constructor
+void ViewCommunicator::private_init_map( const Kokkos::View< uint32_t* > send_sizes, const Kokkos::View< uint32_t* > send_iOcts )
 {
   int nb_proc = mpi_comm.MPI_Comm_size();
 
@@ -87,7 +83,7 @@ void GhostCommunicator_kokkos::private_init_map( const Kokkos::View< uint32_t* >
 
 }
 
-GhostCommunicator_kokkos::GhostCommunicator_kokkos( const std::map<int, std::vector<uint32_t>>& ghost_map, const MpiComm& mpi_comm )
+ViewCommunicator::ViewCommunicator( const std::map<int, std::vector<uint32_t>>& ghost_map, const MpiComm& mpi_comm )
   : mpi_comm(mpi_comm)
 {
   int nb_proc = mpi_comm.MPI_Comm_size();
@@ -140,7 +136,7 @@ GhostCommunicator_kokkos::GhostCommunicator_kokkos( const std::map<int, std::vec
   private_init_map(send_sizes, send_iOcts);
 }
 
-uint32_t GhostCommunicator_kokkos::getNumGhosts() const
+uint32_t ViewCommunicator::getNumGhosts() const
 {
   return this->nbghosts_recv;
 }

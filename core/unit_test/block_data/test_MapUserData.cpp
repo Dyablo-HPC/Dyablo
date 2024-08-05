@@ -100,7 +100,7 @@ void run_test(int ndim, std::string mapUserData_id)
       Uin.at(iCell, Py) = c[IY];
       Uin.at(iCell, Pz) = c[IZ];
     });
-    U.exchange_ghosts( GhostCommunicator_kokkos( amr_mesh ) );
+    //U.exchange_ghosts( ViewCommunicator( amr_mesh ) );
   }
 
   
@@ -136,7 +136,7 @@ void run_test(int ndim, std::string mapUserData_id)
   
   std::cout << "Remap user data..." << std::endl;
 
-  U.remap(*mapUserData);
+  mapUserData->remap(U);
 
   {
     scalar_data.set<int>("iter", 1);

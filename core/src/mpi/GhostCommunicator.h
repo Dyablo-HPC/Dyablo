@@ -1,100 +1,88 @@
 #pragma once
 
-#include "kokkos_shared.h"
 #include "amr/AMRmesh.h"
 
-namespace dyablo{
-
-
-/**
- * Interface to implement a ghost communicator
- **/
-class GhostCommunicator_base
-{
-public:
-    /**
-     * Kokkos::View to be communicated by exchange_ghosts()
-     * @tparam Datatype for Kokkos::view (e.g. real*** for amr-block user data)
-     * View is LayoutLeft, and rightmost coordinate must be octant index (i.e. data for each octant is contiguous)
-     **/
-    //template <typename Datatype>
-    //using View_t = Kokkos::View<Datatype,Kokkos::LayoutLeft>;
-
-    /// Get number of local ghosts
-    //uint32_t getNumGhosts() const;
-
-    /**
-     * Exchange ghost octants data
-     * @tparam View_DataType is Datatype template parameter for View_t
-     *         (see View_t documentation). 
-     * @param A array containing user data (read only)
-     * @param A_ghost array to contain ghost data
-     * Rightmost coordinate MUST be octant index (i.e. data for each octant is contiguous)
-     * All contiguous data for each ghost octant is packed and sent using MPI
-     **/
-    //template< typename View_DataType >
-    //void exchange_ghosts(const View_t<View_DataType>& A, View_t<View_DataType>& A_ghost) const;
-};
-
-} // namespace dyablo
-
-#include "GhostCommunicator_kokkos.h"
+#include "GhostCommunicator_partial_blocks.h"
+#include "GhostCommunicator_full_blocks.h"
 
 namespace dyablo {
 
-#ifdef DYABLO_COMPILE_PABLO
-
-/**
- * Ghost communicator that directly uses the mpi communication in PABLO
- **/
-class GhostCommunicator_pablo : public GhostCommunicator_base
+template< typename Impl >
+/***
+ * Interface to implement for a GhostCommunicator
+ ***/
+class GhostCommunicator_impl : protected Impl
 {
 public:
-    template< typename AMRmesh_t >
-    GhostCommunicator_pablo( std::shared_ptr<AMRmesh_t> amr_mesh )
-        : amr_mesh(amr_mesh->getMesh())
-    {}
-    
-     /**
-     * @copydoc GhostCommunicator_base::exchange_ghosts
-     * 
-     * Copy data back to host and call Paratree::communicate()
-     **/
-    void exchange_ghosts(const DataArrayBlock& U, const DataArrayBlock& Ughost) const;
-    
-    /// Note : octant index for DataArray is leftmost subscript
-    void exchange_ghosts(const DataArray& U, const DataArray& Ughost) const;
-private:
-    AMRmesh_pablo& amr_mesh;  
+  /**
+   * @param mesh AMR mesh to determline neighborhood
+   * @param shape shape of the blocks in the arrays
+   * @param ghost_count number for ghosts needed for stencil operations (this is a minimum, actual comms can recieve more ghosts)
+   * @param mpi_comm you know what it is
+   **/
+  GhostCommunicator_impl( const AMRmesh& mesh, 
+                          const ForeachCell::CellArray_global_ghosted::Shape_t& shape, 
+                          int ghost_count, 
+                          const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
+  : Impl(mesh.getMesh(), shape, ghost_count, mpi_comm)
+  {}
+
+  static std::string name()
+  {
+    return Impl::name();
+  }
+
+  /// Number of ghost blocks (possibly partial blocks) for this mesh 
+  uint32_t getNumGhosts() const
+  {
+    return Impl::getNumGhosts();
+  }
+
+  /***
+   * Send ghosts cells for the selected Fields in the accessor
+   * Ghosts from other fields in UserData WILL NOT be modified
+   * Cells at a distance greater than ghost_count from the local domain have undefined value
+   * (they may be exchanged or not depending on the backend)
+   ***/
+  void exchange_ghosts( const UserData::FieldAccessor& U ) const
+  {
+    Impl::exchange_ghosts(U);
+  }
+
+  /***
+   * Send ghosts cells for all fields in the CellArray
+   * Cells at a distance greater than ghost_count from the local domain have undefined value
+   * (they may be exchanged or not depending on the backend)
+   ***/
+  void exchange_ghosts( const ForeachCell::CellArray_global_ghosted& U ) const
+  {
+    Impl::exchange_ghosts(U);
+  }
+
+
+  /***
+   * Reduce ghosts cells for the selected Fields in the accessor
+   * BE SURE TO SET ALL YOUR GHOSTS TO ZERO TO AVOID ISSUES
+   * 
+   * Other fields from UserData WILL NOT be modified
+   * Ghost Cells un neighboring blocks at a distance greater than ghost_count from 
+   * the local domain may or may not be exchanged depending on the backend, be sure to set them to zero
+   ***/
+  void reduce_ghosts( UserData::FieldAccessor& U ) const
+  {
+    Impl::reduce_ghosts(U);
+  }
+
+  void reduce_ghosts( ForeachCell::CellArray_global_ghosted& U ) const
+  {
+    Impl::reduce_ghosts(U);
+  }
+
 };
 
-#endif
+// GhostCommunicator partial block implementation is only compatible with AMRmesh_hashmap_new, use full block otherwise
+using GhostCommunicator = GhostCommunicator_impl< std::conditional_t< std::is_same_v<AMRmesh::Impl_t, AMRmesh_hashmap_new>, 
+                                                                      GhostCommunicator_partial_blocks, 
+                                                                      GhostCommunicator_full_blocks > >;
 
-/**
- * Ghost communicator that does nothing.
- * To be used when MPI is disabled
- **/
-class GhostCommunicator_serial: public GhostCommunicator_base
-{
-public:
-    template< typename AMRmesh_t >
-    GhostCommunicator_serial( std::shared_ptr<AMRmesh_t> amr_mesh )
-    {}
-    
-    template< typename DataArray_t>
-    void exchange_ghosts( const DataArray_t& U, const DataArray_t& Ughost) const
-    {
-        DYABLO_ASSERT_HOST_RELEASE(Ughost.size() == 0, "Ghost array should be empty with GhostCommunicator_serial");
-        /* Nothing to do */
-    } 
-};
-
-#if DYABLO_USE_MPI
-using GhostCommunicator = GhostCommunicator_kokkos;
-#else
-using GhostCommunicator = GhostCommunicator_serial;
-#endif
-
-
-
-}//namespace dyablo
+}// namespace dyablo

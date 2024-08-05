@@ -16,16 +16,12 @@ public:
     GhostCommunicator_partial_blocks( const AMRmesh_hashmap_new& amr_mesh, const ForeachCell::CellArray_global_ghosted::Shape_t& shape,  int ghost_count, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() );
 
     void init( const AMRmesh_hashmap_new& amr_mesh, const ForeachCell::CellArray_global_ghosted::Shape_t& shape, int ghost_count, const MpiComm& mpi_comm );
-
-    template< typename AMRmesh_t >
-    GhostCommunicator_partial_blocks( const AMRmesh_t& amr_mesh, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
-      : mpi_comm(mpi_comm)
+    
+    static std::string name()
     {
-      static_assert( std::is_same_v<AMRmesh_t, AMRmesh_t>, "GhostCommunicator_partial_blocks is only compatible with AMRmesh_hashmap_new" );
+      return "GhostCommunicator_partial_blocks";
     }
-    
-    GhostCommunicator_partial_blocks( std::shared_ptr<AMRmesh> amr_mesh, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() );
-    
+
     /// @copydoc GhostCommunicator_base::getNumGhosts
     uint32_t getNumGhosts() const
     {
@@ -36,7 +32,7 @@ public:
      * TODO : doc
      **/
     template< typename CellArray_t >
-    void exchange_ghosts( CellArray_t& U) const
+    void exchange_ghosts( const CellArray_t& U) const
     {
       using CellIndex = ForeachCell::CellIndex;
 

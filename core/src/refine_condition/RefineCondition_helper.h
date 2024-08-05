@@ -33,7 +33,7 @@ static void set_markers(AMRmesh& pmesh, const Kokkos::View<int*>& oct_marker)
     oct_marker( iOct ) = criterion;
   });
 
-  pmesh.getMesh().setMarkers( oct_marker );
+  pmesh.setMarkers( oct_marker );
 }
 
 } // namespace RefineConditions_utils

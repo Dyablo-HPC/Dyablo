@@ -2,7 +2,7 @@
 
 #include "ForeachParticle.h"
 #include "foreach_cell/ForeachCell_utils.h"
-#include "mpi/GhostCommunicator_partial_blocks.h"
+#include "mpi/GhostCommunicator.h"
 
 namespace dyablo {
 
@@ -121,7 +121,7 @@ public:
 
     });
 
-    GhostCommunicator_partial_blocks ghost_communicator( foreach_cell.get_amr_mesh().getMesh(), U.getShape(), 1 );
+    GhostCommunicator ghost_communicator( foreach_cell.get_amr_mesh(), U.getShape(), 1 );
     auto Urhog = U.getAccessor( {{"rho_g", IRhoG}} );
     ghost_communicator.reduce_ghosts(Urhog);
 

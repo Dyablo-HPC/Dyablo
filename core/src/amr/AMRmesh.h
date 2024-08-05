@@ -269,6 +269,10 @@ public:
    **/
   void setMarker(uint32_t iOct, int marker)
   { Impl::setMarker(iOct, marker); }
+
+  void setMarkers( const Kokkos::View<int*>& oct_markers )
+  { Impl::setMarkers(oct_markers); }
+
   /**
    * Coarsen and refine octants according to markers set with setMarker()
    * adapt() includes 2:1 balancing in the directions set with `balance_codim` in the constructor
@@ -300,28 +304,6 @@ public:
   {
     return *this;
   }
-
-  //TODO remove pablo-specific methods
-  // template< typename T >
-  // void communicate(T& t)
-  // { Impl::communicate(t); }
-  void computeConnectivity() {}
-  // { Impl::computeConnectivity(); }
-  void updateConnectivity() {}
-  // { Impl::updateConnectivity(); }
-  // template< typename T >
-  // void loadBalance(T& t, uint8_t level)
-  // { Impl::loadBalance(t,level); }
-  // bool getIsNewC(uint32_t idx)
-  // { return Impl::getIsNewC(idx); }
-  // bool getIsNewR(uint32_t idx) const
-  // { return Impl::getIsNewR(idx); }
-  // void getMapping(uint32_t & idx, std::vector<uint32_t> & mapper, std::vector<bool> & isghost) const
-  // { Impl::getMapping(idx, mapper, isghost); }
-  //void findNeighbours(uint32_t iOct, uint8_t iface, uint8_t codim , 
-  //                    std::vector<uint32_t>& neighbor_iOcts, std::vector<bool>& neighbor_isGhost) const
-  //{ return Impl::findNeighbours(iOct, iface, codim, neighbor_iOcts, neighbor_isGhost); }
-
 };
 
 } // namespace dyablo

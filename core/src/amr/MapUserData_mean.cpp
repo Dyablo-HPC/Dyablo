@@ -1,6 +1,8 @@
 #include "amr/MapUserData_base.h"
 
 #include "amr/CellIndexRemapper.h"
+#include "mpi/GhostCommunicator_full_blocks.h"
+#include "UserData.h"
 
 namespace dyablo {
 
@@ -21,15 +23,28 @@ public:
   void save_old_mesh() override
   {
     this->lmesh_old = this->foreach_cell.get_amr_mesh().getLightOctree();
-    this->ghost_comm = std::make_unique<GhostCommunicator_kokkos>( foreach_cell.get_amr_mesh().getMesh() );
   }
 
+  void remap( UserData& user_data ) override
+  {
+    UserData::FieldAccessor fields_old = user_data.backup_and_realloc();
+    UserData::FieldAccessor fields_new;
+    {
+      std::vector<UserData::FieldAccessor::FieldInfo> all_fields;
+      int i=0;
+      for( const std::string& field : user_data.getEnabledFields() )
+        all_fields.push_back({field, i++});
+      fields_new = user_data.getAccessor( all_fields );
+    }
 
-  void remap( ForeachCell::CellArray_global_ghosted& Uin, ForeachCell::CellArray_global_ghosted& Uout ) override
+    remap_aux( fields_old, fields_new );
+  }
+
+  void remap_aux( const UserData::FieldAccessor& Uin, const UserData::FieldAccessor& Uout ) 
   {
     using CellIndex = ForeachCell::CellIndex;
     int ndim = foreach_cell.getDim();
-    int nbfields = Uin.nbfields();
+    int nbfields = Uin.nbFields();
 
     CellIndexRemapper remapper( this->lmesh_old, this->foreach_cell );
     
@@ -80,16 +95,16 @@ public:
       // before remapping again
       // TODO : find a test-case that uses that
       // TODO : communicate only needed octants
-      //GhostCommunicator_kokkos ghost_comm( foreach_cell.get_amr_mesh().getMesh() );
-      this->ghost_comm->exchange_ghosts<2>( Uin.U, Uin.Ughost );
-      remap();
+
+      GhostCommunicator_full_blocks ghost_comm(foreach_cell.get_amr_mesh(), Uin.getShape(), -1 );
+      ghost_comm.exchange_ghosts( Uin );
+      remap_aux(Uin, Uout);
     }
   }
 
 private:
   ForeachCell& foreach_cell;
   LightOctree lmesh_old;
-  std::unique_ptr<GhostCommunicator_kokkos> ghost_comm;
 };
 
 } // namespace dyablo;

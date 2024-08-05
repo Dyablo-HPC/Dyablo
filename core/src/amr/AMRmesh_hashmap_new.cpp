@@ -3,7 +3,7 @@
 #include <Kokkos_UnorderedMap.hpp>
 #include <Kokkos_StdAlgorithms.hpp>
 #include "morton_utils.h"
-#include "mpi/GhostCommunicator.h"
+#include "mpi/ViewCommunicator.h"
 #include "amr/LightOctree_hashmap.h"
 #include "UserData.h"
 
@@ -177,7 +177,7 @@ void AMRmesh_hashmap_new::private_init(int dim, Kokkos::Array<logical_coord_t,3>
     }
   }
   pdata->ghostmap = discover_ghosts( storage_device, morton_intervals_3D, this->pdata->level_min, this->periodic, this->mpi_comm );
-  GhostCommunicator_kokkos ghost_comm( pdata->ghostmap.send_sizes, pdata->ghostmap.send_iOcts, mpi_comm  );
+  ViewCommunicator ghost_comm( pdata->ghostmap.send_sizes, pdata->ghostmap.send_iOcts, mpi_comm  );
   oct_index_t nbGhosts = ghost_comm.getNumGhosts();
   LightOctree_storage<> storage_device_ghosts(dim, 0, nbGhosts, level_min, coarse_grid_size );
   ghost_comm.exchange_ghosts<0>( storage_device.oct_data, storage_device_ghosts.oct_data );
@@ -621,7 +621,7 @@ AMRmesh_hashmap_new::GhostMap_t AMRmesh_hashmap_new::loadBalance(level_t level)
       // Use storage on device to perform remaining operations
       LightOctree_storage<> old_storage_device = storage;
 
-      GhostCommunicator_kokkos loadbalance_communicator( res.send_sizes, res.send_iOcts );
+      ViewCommunicator loadbalance_communicator( res.send_sizes, res.send_iOcts );
       loadbalance_communicator.exchange_ghosts<0>( old_storage_device.oct_data, new_storage_device.oct_data );
 
       DYABLO_ASSERT_HOST_RELEASE( new_storage_device.oct_data.extent(0) == new_nbOcts, "Mismatch between nbOcts and allocation size : " << new_nbOcts << " != " << new_storage_device.oct_data.extent(0) );
@@ -634,7 +634,7 @@ AMRmesh_hashmap_new::GhostMap_t AMRmesh_hashmap_new::loadBalance(level_t level)
     pdata->ghostmap = discover_ghosts(new_storage_device, new_morton_intervals, level_max, this->periodic, mpi_comm);
 
     // Raw view for ghosts
-    GhostCommunicator_kokkos ghost_comm( pdata->ghostmap.send_sizes,  pdata->ghostmap.send_iOcts );
+    ViewCommunicator ghost_comm( pdata->ghostmap.send_sizes,  pdata->ghostmap.send_iOcts );
     oct_index_t new_nbGhosts = ghost_comm.getNumGhosts();
     LightOctree_storage<> new_storage_device_ghosts( ndim, 0, new_nbGhosts, storage.level_min, storage.coarse_grid_size );   
     ghost_comm.exchange_ghosts<0>( new_storage_device.oct_data, new_storage_device_ghosts.oct_data );
@@ -676,7 +676,7 @@ AMRmesh_hashmap_new::GhostMap_t AMRmesh_hashmap_new::loadBalance(level_t level)
 void AMRmesh_hashmap_new::loadBalance_userdata( level_t compact_levels, UserData& userData )
 {
   auto ghostmap = this->loadBalance(compact_levels);
-  GhostCommunicator_kokkos lb_comm(ghostmap.send_sizes, ghostmap.send_iOcts);  
+  ViewCommunicator lb_comm(ghostmap.send_sizes, ghostmap.send_iOcts);  
   userData.exchange_loadbalance( lb_comm );
 }
 
@@ -715,7 +715,7 @@ void AMRmesh_hashmap_new::adapt(bool dummy)
   {
     // Copy CPU markers to markers_device
     Kokkos::deep_copy( markers_device_in, pdata->markers );
-    GhostCommunicator_kokkos ghost_comm( *this );
+    ViewCommunicator ghost_comm( pdata->ghostmap.send_sizes,  pdata->ghostmap.send_iOcts );
     
     // Check for 2:1 balance and partially coarsened octants and modify marker to enforce these rules
     // return true if marker was modified, false otherwise
@@ -937,7 +937,7 @@ void AMRmesh_hashmap_new::adapt(bool dummy)
       int ndim = new_storage_device.getNdim();
 
       // Raw view for ghosts
-      GhostCommunicator_kokkos ghost_comm( pdata->ghostmap.send_sizes,  pdata->ghostmap.send_iOcts );
+      ViewCommunicator ghost_comm( pdata->ghostmap.send_sizes,  pdata->ghostmap.send_iOcts );
       oct_index_t new_nbGhosts = ghost_comm.getNumGhosts();
       LightOctree_storage<> new_storage_device_ghosts( ndim, 0, new_nbGhosts, storage.level_min, storage.coarse_grid_size  );
       ghost_comm.exchange_ghosts<0>( new_storage_device.oct_data, new_storage_device_ghosts.oct_data );

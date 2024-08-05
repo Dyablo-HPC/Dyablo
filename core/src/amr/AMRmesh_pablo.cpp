@@ -33,7 +33,7 @@ void AMRmesh_pablo::loadBalance_userdata( uint8_t compact_levels, UserData& U )
         Kokkos::deep_copy( target_domains, target_domains_host );
     }
 
-    GhostCommunicator_kokkos ghost_comm( target_domains );
+    ViewCommunicator ghost_comm( target_domains );
     U.exchange_loadbalance( ghost_comm );
 #endif // DYABLO_USE_MPI
 }

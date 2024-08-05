@@ -20,7 +20,7 @@
 #include "cooling/CoolingUpdate.h"
 #include "UserData.h"
 #include "Cosmo.h"
-#include "mpi/GhostCommunicator_partial_blocks.h"
+#include "mpi/GhostCommunicator.h"
 
 namespace dyablo {
 
@@ -636,7 +636,7 @@ public:
     }
 
 
-    GhostCommunicator_partial_blocks ghost_comm(m_amr_mesh->getMesh(), U.getShape(), ghost_count, m_communicator);
+    GhostCommunicator ghost_comm(*m_amr_mesh, U.getShape(), ghost_count, m_communicator);
 
     auto communicate_ghosts = [&](std::vector< std::string > exchange_vars)
     {
@@ -779,7 +779,7 @@ public:
 
         // Resize and fill U with copied/interpolated/extrapolated data
         timers.get("AMR: remap userdata").start();
-        U.remap( *mapUserData );
+        mapUserData->remap(U);
         
         //TODO
         //std::cout << "Resize U after remap : " << DataArrayBlock::required_allocation_size(U2.U.extent(0), U2.U.extent(1), U2.U.extent(2)) * (2/1e6) 

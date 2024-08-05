@@ -5,7 +5,6 @@
 
 #include "utils/config/ConfigMap.h"
 #include "foreach_cell/ForeachCell.h"
-#include "amr/MapUserData.h"
 #include "particles/ForeachParticle.h"
 
 namespace dyablo {
@@ -135,7 +134,7 @@ public:
         }
         void distributeParticles()
         {
-            GhostCommunicator_kokkos part_comm = foreach_particle.get_distribute_communicator( particles );
+            ViewCommunicator part_comm = foreach_particle.get_distribute_communicator( particles );
             uint32_t nbParticles_new = part_comm.getNumGhosts();
 
             ParticleAttribute_t particles_new( this->name, nbParticles_new, FieldManager(particles.nbfields()) );

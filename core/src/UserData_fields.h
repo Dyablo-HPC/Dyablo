@@ -5,7 +5,6 @@
 
 #include "utils/config/ConfigMap.h"
 #include "foreach_cell/ForeachCell.h"
-#include "amr/MapUserData.h"
 #include "particles/ForeachParticle.h"
 
 namespace dyablo {
@@ -40,21 +39,6 @@ public:
     {
         DYABLO_ASSERT_HOST_RELEASE( field_index.size() > 0, "Cannot getShape() of an empty UserData_fields" );
         return fields.getShape();
-    }
-
-    void remap( MapUserData& mapUserData )
-    {
-        FieldView_t fields_old = fields;
-
-        //if( fields.U.extent(2) != foreach_cell.get_amr_mesh().getNumOctants() 
-        // || fields.Ughost.extent(2) != foreach_cell.get_amr_mesh().getNumGhosts()  ) 
-        {   // AMR mesh was updated : reallocate `max_field_count` fields with right oct count
-            // std::cout << "Reallocate : add octs " << fields.U.extent(2) << " -> " << foreach_cell.get_amr_mesh().getNumOctants() << std::endl;
-            // std::cout << "Reallocate : add ghosts " << fields.Ughost.extent(2) << " -> " << foreach_cell.get_amr_mesh().getNumGhosts() << std::endl;
-            this->fields = foreach_cell.allocate_ghosted_array( "UserData_fields", FieldManager(this->max_field_count) );
-        }
-
-        mapUserData.remap( fields_old, fields );
     }
 
     /**
@@ -179,13 +163,7 @@ public:
         field_index.erase( name );
     }
 
-    // TODO exchange ghost for only some fields
-    void exchange_ghosts( const GhostCommunicator& ghost_comm ) const
-    {
-        fields.exchange_ghosts(ghost_comm);
-    }
-
-    void exchange_loadbalance( const GhostCommunicator& ghost_comm )
+    void exchange_loadbalance( const ViewCommunicator& ghost_comm )
     {
         const FieldManager fm(fields.nbfields());
         auto new_fields = foreach_cell.allocate_ghosted_array( fields.U.label(), fm );
@@ -200,6 +178,8 @@ public:
     }
 
     FieldAccessor getAccessor( const std::vector<FieldAccessor_FieldInfo>& fields_info ) const;
+
+    FieldAccessor backup_and_realloc();
 
 private:
     ForeachCell& foreach_cell;
@@ -218,8 +198,11 @@ struct UserData_fields::FieldAccessor_FieldInfo
     VarIndex id; /// id to use to access with at()
 };
 
+class GhostCommunicator_full_blocks;
+
 class UserData_fields::FieldAccessor
 {
+friend GhostCommunicator_full_blocks;
 public:
     static constexpr int MAX_FIELD_COUNT = 32;
     using FieldInfo = FieldAccessor_FieldInfo;
@@ -294,6 +277,21 @@ protected:
 inline UserData_fields::FieldAccessor UserData_fields::getAccessor( const std::vector<FieldAccessor_FieldInfo>& fields_info ) const
 {
     return FieldAccessor(*this, fields_info);
+}
+
+inline UserData_fields::FieldAccessor UserData_fields::backup_and_realloc()
+{
+    std::vector<FieldAccessor::FieldInfo> all_fields;
+    int i=0;
+    for( const std::string& field : this->getEnabledFields() )
+        all_fields.push_back({field, i++});
+    FieldAccessor fields_old = this->getAccessor( all_fields );
+
+    // TODO : shrink fields_old by removing unused fields before allocating new array
+
+    this->fields = foreach_cell.allocate_ghosted_array( "UserData_fields", FieldManager(this->max_field_count) );
+
+    return fields_old;
 }
 
 

@@ -92,7 +92,7 @@ public:
     /**
      * \brief Change octants distribution to redistribute the load
      * \return a map contianig exchanged octants to create 
-     *         a GhostCommunicator_kokkos to communicate user data of migrated octants
+     *         a ViewCommunicator to communicate user data of migrated octants
      **/
     
     std::map<int, std::vector<uint32_t>> loadBalance(level_t level=0);
@@ -222,8 +222,8 @@ public:
     }
 
     void adaptGlobalRefine();
-    void setMarkersCapacity(uint32_t capa);
     void setMarker(uint32_t iOct, int marker);
+    void setMarkers( const Kokkos::View<int*>& oct_markers );
     void adapt(bool dummy = true);
 
     bool check21Balance()
@@ -237,8 +237,6 @@ public:
         //TODO
         return false;
     }
-    void computeConnectivity(){}
-    void updateConnectivity(){}
 
     /**
      * @param dim number of dimensions 2D/3D
