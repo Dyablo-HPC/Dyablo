@@ -17,20 +17,32 @@ namespace dyablo {
 class RefineCondition_downflows_formula
 {
 public:
-  RefineCondition_downflows_formula( ConfigMap& configMap )
+  struct Params
+  {
+    Params( ConfigMap& configMap )
     : ndim( configMap.getValue<int>("mesh", "ndim") ),
       downflow_sign( configMap.getValue<real_t>("amr", "downflow_sign", 1.0)),
       velocity_coarsen( configMap.getValue<real_t>("amr", "velocity_coarsen", -0.1)),
       velocity_refine( configMap.getValue<real_t>("amr", "velocity_refine", 0.2))
-  {}
+    {}
+
+    int ndim;
+    real_t downflow_sign;    // Sign of the velocity in downflow with respect to the orientation of the mesh
+    real_t velocity_coarsen; // Velocity below which we coarsen the mesh
+    real_t velocity_refine;  // Velocity above which we refine the mesh
+  };
 
   enum VarIndex { IRho, IRho_v };
 
-  void init(const UserData& U, ScalarSimulationData& scalar_data)
-  {
-    this->Uin = U.getAccessor( {{"rho"                          , IRho  },
-                                {ndim == 2 ? "rho_vy" : "rho_vz", IRho_v}} );
-  }
+  RefineCondition_downflows_formula( Params& params, const UserData& U, ScalarSimulationData& scalar_data)
+    : ndim( params.ndim ),
+      downflow_sign( params.downflow_sign ),
+      velocity_coarsen( params.velocity_coarsen ),
+      velocity_refine( params.velocity_refine ),
+      Uin( U.getAccessor( {{"rho"                          , IRho  },
+                           {ndim == 2 ? "rho_vy" : "rho_vz", IRho_v}} ))
+
+  {}
 
   template< int ndim >
   KOKKOS_INLINE_FUNCTION

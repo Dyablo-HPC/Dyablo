@@ -11,17 +11,23 @@ namespace dyablo {
 class RefineCondition_pseudo_gradient_formula
 {
 public:
-  RefineCondition_pseudo_gradient_formula( ConfigMap& configMap )
-    : error_min ( configMap.getValue<real_t>("amr", "epsilon_coarsen", 0.002) ), // TODO : pick better names
-      error_max ( configMap.getValue<real_t>("amr", "epsilon_refine", 0.001) )
-  {}
+  struct Params
+  {
+    Params( ConfigMap& configMap )
+      : error_min ( configMap.getValue<real_t>("amr", "epsilon_coarsen", 0.002) ), // TODO : pick better names
+        error_max ( configMap.getValue<real_t>("amr", "epsilon_refine", 0.001) )
+    {}
+
+    real_t error_min, error_max;
+  };
 
   enum VarIndex { ID };
 
-  void init(const UserData& U, ScalarSimulationData& scalar_data)
-  {
-    this->Uin = U.getAccessor( {{"rho", ID}} );
-  }
+  RefineCondition_pseudo_gradient_formula(const Params& params, const UserData& U, ScalarSimulationData& scalar_data)
+   : error_min( params.error_min ),
+     error_max( params.error_max ),
+     Uin( U.getAccessor( {{"rho", ID}} ) )
+  {}
 
   template< int ndim >
   KOKKOS_INLINE_FUNCTION
