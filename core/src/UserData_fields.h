@@ -169,19 +169,13 @@ public:
         field_index.erase( name );
     }
 
-    void exchange_loadbalance( const ViewCommunicator& ghost_comm )
-    {
-        const FieldManager fm(fields.nbfields());
-        auto new_fields = foreach_cell.allocate_ghosted_array( fields.U.label(), fm );
-        ghost_comm.exchange_ghosts<2>(fields.U, new_fields.U );
-        fields = new_fields;
-    }
-
     /// Get the number of active fields in UserData_fields
     int nbFields() const
     {
         return field_index.size();
     }
+
+    void exchange_loadbalance( const ViewCommunicator& ghost_comm );
 
     FieldAccessor getAccessor( const std::vector<FieldAccessor_FieldInfo>& fields_info ) const;
 
@@ -209,6 +203,7 @@ class GhostCommunicator_full_blocks;
 class UserData_fields::FieldAccessor
 {
 friend GhostCommunicator_full_blocks;
+friend UserData_fields;
 public:
     static constexpr int MAX_FIELD_COUNT = 32;
     using FieldInfo = FieldAccessor_FieldInfo;
@@ -279,6 +274,26 @@ protected:
     Kokkos::Array< int, MAX_FIELD_COUNT > fm_active; // ivar from int sequence to position in `fields` view
     FieldView_t fields;
 };
+
+inline void UserData_fields::exchange_loadbalance( const ViewCommunicator& ghost_comm )
+{
+    {  
+        UserData_fields::FieldAccessor fields_old = this->backup_and_realloc();
+        int nb_fields = this->nbFields();
+        auto old_fields_View = Kokkos::subview( fields_old.fields.U, 
+                                                Kokkos::ALL(),
+                                                std::make_pair(0, nb_fields),
+                                                Kokkos::ALL()  );
+        auto new_fields_View = Kokkos::subview(this->fields.U, 
+                                                Kokkos::ALL(),
+                                                std::make_pair(0, nb_fields),
+                                                Kokkos::ALL()  );
+        
+        ghost_comm.exchange_ghosts<2>(old_fields_View, new_fields_View );
+    }// This block is important to deallocate fields_old before extend_fields()
+
+    this->extend_fields();
+}
 
 inline UserData_fields::FieldAccessor UserData_fields::getAccessor( const std::vector<FieldAccessor_FieldInfo>& fields_info ) const
 {
