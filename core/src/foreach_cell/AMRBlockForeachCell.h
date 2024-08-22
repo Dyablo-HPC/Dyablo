@@ -102,7 +102,7 @@ public:
     real_t z01 = (z-zmin)/(zmax-zmin);
     assert( x01 > 0 && x01 < 1.0 );
     assert( y01 > 0 && y01 < 1.0 );
-    assert( z01 >= 0 && x01 < 1.0 );
+    assert( z01 >= 0 && z01 < 1.0 );
 
     LightOctree::OctantIndex iOct = lmesh.getiOctFromPos( {x01,y01,z01} );
     auto oct_size = lmesh.getSize( iOct );

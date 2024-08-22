@@ -82,7 +82,7 @@ public:
       real_t z01 = (z-zmin)/Lz;
       assert( x01 >= 0 && x01 < 1.0 );
       assert( y01 >= 0 && y01 < 1.0 );
-      assert( z01 >= 0 && x01 < 1.0 );
+      assert( z01 >= 0 && z01 < 1.0 );
 
       int domain = lmesh.getDomainFromPos({x01,y01,z01});
 
