@@ -9,14 +9,23 @@ namespace dyablo {
 class RefineCondition_mass_formula
 {
 public:
-  RefineCondition_mass_formula( ConfigMap& configMap )
+  struct Params
+  {
+    Params( ConfigMap& configMap )
     : mass_coarsen( configMap.getValue<real_t>("amr", "mass_coarsen", 0.1)),
       mass_refine( configMap.getValue<real_t>("amr", "mass_refine", 1.0))
-  {}
+    {}
+
+    real_t mass_coarsen, mass_refine;
+    std::string rho_field_name = "rho";
+  };
 
   enum VarIndex { Irho };
 
-  void init(const UserData& U, ScalarSimulationData& scalar_data)
+  RefineCondition_mass_formula( const Params& params, const UserData& U, ScalarSimulationData& scalar_data )
+    : mass_coarsen( params.mass_coarsen ),
+      mass_refine( params.mass_refine ),
+      Uin( U.getAccessor( {{params.rho_field_name, Irho  }} ))
   {}
 
   template< int ndim >
@@ -72,7 +81,7 @@ public:
       field_name = "rho_g";
     }
 
-    refineCondition_formula.Uin = U.getAccessor( {{field_name, RefineCondition_mass_formula::Irho}} );
+    refineCondition_formula_params.rho_field_name = field_name;
 
     RefineCondition_helper::mark_cells(U, scalar_data);
 

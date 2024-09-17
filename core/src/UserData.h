@@ -96,6 +96,11 @@ public:
         return fields.backup_and_realloc();
     }
 
+    void extend_fields()
+    {
+        fields.extend_fields();
+    }
+
     using ParticleArray_t = UserData_particles::ParticleArray_t;
     using ParticleAttribute_t = UserData_particles::ParticleAttribute_t;
 

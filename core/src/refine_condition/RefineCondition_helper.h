@@ -46,7 +46,7 @@ public:
                           ForeachCell& foreach_cell,
                           Timers& timers )
     : foreach_cell(foreach_cell),
-      refineCondition_formula(configMap)
+      refineCondition_formula_params(configMap)
   {}
 
   void mark_cells( UserData& U, ScalarSimulationData& scalar_data)
@@ -65,8 +65,8 @@ public:
 
     ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
 
-    RefineCondition_formula& refineCondition_formula = this->refineCondition_formula;
-    refineCondition_formula.init(U,scalar_data);
+    RefineCondition_formula refineCondition_formula(this->refineCondition_formula_params,
+                                                    U,scalar_data);
 
     uint32_t nbOcts = foreach_cell.get_amr_mesh().getNumOctants();
     Kokkos::View<int*> oct_marker_max("oct_marker_max", nbOcts);
@@ -88,7 +88,8 @@ public:
 
 protected:
   ForeachCell& foreach_cell;
-  RefineCondition_formula refineCondition_formula;
+  typename RefineCondition_formula::Params refineCondition_formula_params;
+
 };
 
 } // namespace dyablo 

@@ -38,6 +38,11 @@ public:
     }
 
     remap_aux( fields_old, fields_new );
+
+    // Deallocate fields_old before reallocating empty fields
+    fields_old = UserData::FieldAccessor();
+
+    user_data.extend_fields();
   }
 
   void remap_aux( const UserData::FieldAccessor& Uin, const UserData::FieldAccessor& Uout ) 
