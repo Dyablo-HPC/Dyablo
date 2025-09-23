@@ -144,7 +144,23 @@ public:
    using RefineCondition_helper::RefineCondition_helper;
 };
 
+/// Alias for template specialization 
+struct FieldPicker_BZ
+{
+  static std::string getFieldName()
+  {
+    return "b";
+  }
+};
+class RefineCondition_pseudo_gradient_BZ
+  : public RefineCondition_helper<RefineCondition_pseudo_gradient_formula<FieldPicker_BZ>>
+{
+public:
+   using RefineCondition_helper::RefineCondition_helper;
+};
+
 } // namespace dyablo 
 
 FACTORY_REGISTER( dyablo::RefineConditionFactory, dyablo::RefineCondition_pseudo_gradient, "RefineCondition_pseudo_gradient" );
 FACTORY_REGISTER( dyablo::RefineConditionFactory, dyablo::RefineCondition_pseudo_gradient_rad, "RefineCondition_pseudo_gradient_rad" );
+FACTORY_REGISTER( dyablo::RefineConditionFactory, dyablo::RefineCondition_pseudo_gradient_BZ, "RefineCondition_pseudo_gradient_BZ" );

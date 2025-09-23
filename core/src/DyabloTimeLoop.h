@@ -244,6 +244,7 @@ public:
 
     timers.get("initial_conditions").start();
     // Get initial conditions ids
+    BZ_run = false;
     std::vector<std::string> initial_conditions_ids = configMap.getValue<std::vector<std::string>>("run", "initial_conditions");
     // Initialize cells
     {
@@ -257,6 +258,8 @@ public:
 
       for( std::string init_name : initial_conditions_ids )
       {
+        if (init_name == "BZ")
+          BZ_run = true;
         std::unique_ptr<InitialConditions> initial_conditions =
           InitialConditionsFactory::make_instance(init_name, 
             configMap,
@@ -709,6 +712,12 @@ public:
       fields_to_exchange.push_back("fz_rad");
     }
 
+    if (BZ_run) {
+      fields_to_exchange.push_back("a");
+      fields_to_exchange.push_back("b");
+      fields_to_exchange.push_back("c");
+    }
+
     timers.get("MPI ghosts").start();
     communicate_ghosts( fields_to_exchange );
     timers.get("MPI ghosts").stop();
@@ -797,7 +806,14 @@ public:
       }
     }
 
-     
+    if (BZ_run) {
+      U.new_fields({"a_next", "b_next", "c_next"});
+      for (auto &source_updater : source_updaters)
+        source_updater->update( U, m_scalar_data );
+      U.move_field("a", "a_next");
+      U.move_field("b", "b_next");
+      U.move_field("c", "c_next");
+    }
 
     m_iteration_handler->next_iter(m_scalar_data);
     
@@ -898,6 +914,8 @@ private:
   std::unique_ptr<ParabolicUpdate> thermal_conduction_updater;
   std::unique_ptr<ParabolicUpdate> viscosity_updater;
   std::vector<std::unique_ptr<SourceUpdate>> source_updaters;
+
+  bool BZ_run; // Ugly but necessary
 
   Timers timers;
 };
