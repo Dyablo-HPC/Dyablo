@@ -273,7 +273,7 @@ public:
     }
     // Y right boundary -> Pre/post shock state depending on time 
     else if (offset[IY] > 0) {
-      real_t xs = 10.0*this->sim_time/sin(rparams.alpha) + 1.0/6.0 + 1.0/tan(rparams.alpha);
+      real_t xs = 10.0*this->sim_time/sin(rparams.alpha) + rparams.x0 + 1.0/tan(rparams.alpha);
       real_t x = metadata.getCellCenter(iCell_inside)[IX];
       PrimState q;
 
