@@ -26,6 +26,7 @@ set( plugins_src
     ${CMAKE_CURRENT_SOURCE_DIR}/gravity/GravitySolver_constant.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gravity/GravitySolver_cg.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/compute_dt/Compute_dt_hyperbolic.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/compute_dt/Compute_dt_hydro_samurai.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/compute_dt/Compute_dt_cosmology.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/compute_dt/Compute_dt_particle_velocity.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/compute_dt/Compute_dt_parabolic.cpp

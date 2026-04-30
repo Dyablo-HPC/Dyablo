@@ -154,8 +154,6 @@ private:
 
   struct Rparams {
     real_t gamma0;
-    real_t x0;
-    real_t alpha;
     real_t post_rho, post_vel, post_p;
     real_t pre_rho, pre_vel, pre_p;
   } rparams;
@@ -174,8 +172,6 @@ public:
   {
     return {
       configMap.getValue<real_t>("hydro", "gamma0", 1.4),
-      configMap.getValue<real_t>("double_mach", "x0", 0.666666667),
-      configMap.getValue<real_t>("double_mach", "alpha", 1.0471975511965976),
       configMap.getValue<real_t>("double_mach", "rho_left", 8.0),
       configMap.getValue<real_t>("double_mach", "vel_left", 8.25),
       configMap.getValue<real_t>("double_mach", "p_left", 116.5),
@@ -232,6 +228,8 @@ public:
     iCell_boundary.getBoundaryPosAndOffset(iCell_inside, offset);
     ConsState res;
     auto sign = [](int x){return (x>0)-(x<0);};
+    const real_t x0 = 2.0/3.0;
+    const real_t alpha = M_PI/3.0;
 
     CellIndex::offset_t symmetric_offset {
       (-offset[IX] + sign(offset[IX])), 
@@ -248,19 +246,19 @@ public:
     else if ( offset[IX] < 0 ) {
       PrimState q;
       q.rho = rparams.post_rho;
-      q.u   = rparams.post_vel*sin(rparams.alpha);
-      q.v   = -rparams.post_vel*cos(rparams.alpha);
+      q.u   = rparams.post_vel*sin(alpha);
+      q.v   = -rparams.post_vel*cos(alpha);
       q.p   = rparams.post_p;
       res = policy.primToCons(q);
     }
     // Y left boundary -> Postshock state before x0 else Reflection
     else if (offset[IY] < 0) {
       real_t x = metadata.getCellCenter(iCell_inside)[IX];
-      if (x < rparams.x0) {
+      if (x < x0) {
         PrimState q;
         q.rho = rparams.post_rho;
-        q.u   = rparams.post_vel*sin(rparams.alpha);
-        q.v   = -rparams.post_vel*cos(rparams.alpha);
+        q.u   = rparams.post_vel*sin(alpha);
+        q.v   = -rparams.post_vel*cos(alpha);
         q.p   = rparams.post_p;
         res = policy.primToCons(q);
       }
@@ -273,15 +271,15 @@ public:
     }
     // Y right boundary -> Pre/post shock state depending on time 
     else if (offset[IY] > 0) {
-      real_t xs = 10.0*this->sim_time/sin(rparams.alpha) + rparams.x0 + 1.0/tan(rparams.alpha);
+      real_t xs = 10.0*this->sim_time/sin(alpha) + x0 + 1.0/tan(alpha);
       real_t x = metadata.getCellCenter(iCell_inside)[IX];
       PrimState q;
 
       // Post-shock
       if (x < xs) {  
         q.rho = rparams.post_rho;
-        q.u   = rparams.post_vel*sin(rparams.alpha);
-        q.v   = -rparams.post_vel*cos(rparams.alpha);
+        q.u   = rparams.post_vel*sin(alpha);
+        q.v   = -rparams.post_vel*cos(alpha);
         q.p   = rparams.post_p;
         res = policy.primToCons(q);
       }
