@@ -373,14 +373,18 @@ private:
     real_t ecinr = 0.5*rr*(ur*ur+vr*vr+wr*wr);
     real_t etotr = pr*entho+ecinr;
     real_t ptotr = pr;
-
-    real_t smallc2 = smallc*smallc;
-    real_t cmax2 = gamma0 * fmax( pl/rl, pr/rr );
-    real_t cfastlr = Kokkos::sqrt( fmax( cmax2, smallc2 ) );
+   
+    //real_t smallc2 = smallc*smallc;
+    //real_t cmax2 = gamma0 * fmax( pl/rl, pr/rr );
+    //real_t cfastlr = Kokkos::sqrt( fmax( cmax2, smallc2 ) );
+    real_t cfastl = SQRT(fmax(gamma0*pl/rl,smallc*smallc));
+    real_t cfastr = SQRT(fmax(gamma0*pr/rr,smallc*smallc));
 
     // Compute HLL wave speed
-    real_t SL = fmin(ul,ur) - cfastlr;
-    real_t SR = fmax(ul,ur) + cfastlr;
+    //real_t SL = fmin(ul,ur) - fmax(cfastl,cfastr);
+    //real_t SR = fmax(ul,ur) + fmax(cfastl,cfastr);
+    real_t SL = Kokkos::min(ul - cfastl, ur - cfastr);
+    real_t SR = Kokkos::max(ul + cfastl, ur + cfastr);
 
     // Compute lagrangian sound speed
     real_t rcl = rl*(ul-SL);

@@ -12,14 +12,12 @@ struct AnalyticalFormula_double_mach : public AnalyticalFormula_base_hydro
   const real_t gamma0;
 
   const real_t x0;                         // Initial position of the interface
-  const real_t alpha;                      // Angle of the shock
   const real_t post_rho, post_vel, post_p; // Initial value post-shock
   const real_t pre_rho, pre_vel, pre_p;    // Initial value pre-shock
 
   AnalyticalFormula_double_mach( ConfigMap& configMap ) : 
     gamma0(configMap.getValue<real_t>("hydro","gamma0", 1.66666667)),
-    x0(configMap.getValue<real_t>("double_mach", "x0", 0.16666666)),
-    alpha(configMap.getValue<real_t>("double_mach", "alpha", 1.0471975511965976 )),
+    x0(configMap.getValue<real_t>("double_mach", "x0", 0.66666667)),
     post_rho(configMap.getValue<real_t>("double_mach", "rho_left", 8.0)),
     post_vel(configMap.getValue<real_t>("double_mach", "vel_left", 8.25)),
     post_p(configMap.getValue<real_t>("double_mach", "p_left", 116.5)),
@@ -38,6 +36,7 @@ struct AnalyticalFormula_double_mach : public AnalyticalFormula_base_hydro
   KOKKOS_INLINE_FUNCTION
   ConsHydroState value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
   {
+    const real_t alpha = M_PI/3.0;
     bool post_shock = x < (x0 + y / tan(alpha));
 
     ConsHydroState res{};
