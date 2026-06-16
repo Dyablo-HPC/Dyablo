@@ -17,7 +17,7 @@ struct AnalyticalFormula_double_mach : public AnalyticalFormula_base_hydro
 
   AnalyticalFormula_double_mach( ConfigMap& configMap ) : 
     gamma0(configMap.getValue<real_t>("hydro","gamma0", 1.66666667)),
-    x0(configMap.getValue<real_t>("double_mach", "x0", 0.66666667)),
+    x0(configMap.getValue<real_t>("double_mach", "x0", 0.1666667)),
     post_rho(configMap.getValue<real_t>("double_mach", "rho_left", 8.0)),
     post_vel(configMap.getValue<real_t>("double_mach", "vel_left", 8.25)),
     post_p(configMap.getValue<real_t>("double_mach", "p_left", 116.5)),
@@ -43,8 +43,8 @@ struct AnalyticalFormula_double_mach : public AnalyticalFormula_base_hydro
     if (post_shock) {
       res.rho   = post_rho;
       res.e_tot = 0.5 * (post_rho*post_vel*post_vel) + post_p / (gamma0-1.0);
-      res.rho_u = res.rho*post_vel*sin(alpha);
-      res.rho_v = res.rho*-post_vel*cos(alpha);
+      res.rho_u =  post_rho*post_vel*sin(alpha);
+      res.rho_v = -post_rho*post_vel*cos(alpha);
     }
     else {
       res.rho   = pre_rho;
