@@ -1,4 +1,5 @@
 #include "DyabloSession.hpp"
+#include "dyablo_version.h"
 
 #include <iostream>
 
@@ -53,6 +54,8 @@ DyabloSession::DyabloSession(int& argc, char *argv[])
 
   if( rank == 0 )
   {
+    print_version_info();
+
     std::cout << "##########################\n";
     std::cout << "KOKKOS CONFIG             \n";
     std::cout << "##########################\n";

@@ -96,7 +96,7 @@ set( hdf5_src
 add_subdirectory(utils)
 
 add_library( dyablo_core ${core_src})
-target_include_directories( dyablo_core PUBLIC . )
+target_include_directories( dyablo_core PUBLIC . PRIVATE ${CMAKE_CURRENT_BINARY_DIR} )    # Added path for generated dyablo_version.h
 target_link_libraries( dyablo_core PUBLIC
     config
     dyablo_units

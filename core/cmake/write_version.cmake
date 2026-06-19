@@ -16,7 +16,14 @@ else()
   execute_process(COMMAND ${GIT_EXECUTABLE} config --get remote.${GIT_REMOTE}.url
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     OUTPUT_VARIABLE GIT_REMOTE_URL
-    OUTPUT_STRIP_TRAILING_WHITESPACE)    
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+  # Sanitize URL to remove tokens, username or passwords if any
+  string(REGEX REPLACE
+    "^(https?://)[^/]*@"
+    "\\1"
+    GIT_REMOTE_URL
+    "${GIT_REMOTE_URL}"
+  )
 endif()
 execute_process(COMMAND date "+%d/%m/%y"
   OUTPUT_VARIABLE DATE_STRING
