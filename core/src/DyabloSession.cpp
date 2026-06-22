@@ -1,5 +1,4 @@
 #include "DyabloSession.hpp"
-#include "dyablo_version.h"
 
 #include <iostream>
 
@@ -8,6 +7,8 @@
 #include "utils/misc/Dyablo_assert.h"
 #include "utils/mpi/GlobalMpiSession.h"
 #include "utils/mpi/MpiBufferPool.h"
+
+#include "dyablo_version.h"
 
 namespace dyablo {
 
