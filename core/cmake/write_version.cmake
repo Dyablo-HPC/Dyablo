@@ -3,6 +3,7 @@ if (NOT GIT_FOUND)
   set(GIT_BUILD_STRING "N/A")
 else()
   execute_process(COMMAND ${GIT_EXECUTABLE} describe --tags --always --dirty
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     OUTPUT_VARIABLE GIT_BUILD_STRING
     OUTPUT_STRIP_TRAILING_WHITESPACE)
   execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --abbrev-ref HEAD
@@ -35,6 +36,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
   set(RELEASE_BUILD True)
 endif()
 
+message(STATUS "Git Build String = ${GIT_BUILD_STRING}")
 configure_file(
   ${PROJECT_SOURCE_DIR}/src/${PROJECT_NAME}_version.h.in
   ${PROJECT_BINARY_DIR}/src/${PROJECT_NAME}_version.h)
