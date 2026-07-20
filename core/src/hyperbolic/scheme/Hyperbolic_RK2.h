@@ -40,7 +40,8 @@ public:
     policy_params(Policy::getParams(configMap)),
     ndim(configMap.getValue<int>("mesh", "ndim", 3)),
     smallr( configMap.getValue<real_t>("hydro","smallr", 1e-10) ),
-    smallp( configMap.getValue<real_t>("hydro","smallp", 1e-10) )
+    smallp( configMap.getValue<real_t>("hydro","smallp", 1e-10) ),
+    slope_enabled( configMap.getValue<bool>("hydro","slope_enabled", true) )
   { }
 
   /**
@@ -105,6 +106,7 @@ public:
   void update_once( ArrayIn_t& Uin, ArrayOut_t& Uout, real_t dt, bool sync_Uout, const ScalarSimulationData& scalar_data )
   {
     int ndim = this->ndim;
+    bool slope_enabled = this->slope_enabled;
 
     const Policy policy( this->policy_params, scalar_data ); 
     ForeachCell& foreach_cell = this->foreach_cell;
@@ -175,6 +177,9 @@ public:
         // Return Slope at position iCell
         auto get_slope = [&](const CellIndex &iCell_Uin, const CellIndex &iCell_Qpatch, ComponentIndex3D dir) 
         {        
+          if(!slope_enabled)
+            return PrimState{};
+
           const PrimState qC = policy.getPrimState(Qpatch, iCell_Qpatch );
           offset_t off_m{}; off_m[dir] = -1;
           const PrimState qL = policy.getPrimState(Qpatch, iCell_Qpatch + off_m); 
@@ -320,6 +325,7 @@ private:
   typename Policy::Params policy_params;
 
   int ndim;
+  bool slope_enabled;
   real_t smallr, smallp;
 };
 
