@@ -56,6 +56,7 @@ set( ic_src
     ${CMAKE_CURRENT_SOURCE_DIR}/init/hydro/InitialConditions_implode.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/hydro/InitialConditions_riemann2d.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/hydro/InitialConditions_kelvin_helmholtz.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/hydro/InitialConditions_isentropic_vortex.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/hydro/InitialConditions_rayleigh_taylor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/hydro/InitialConditions_sod.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/hydro/InitialConditions_double_mach.cpp
