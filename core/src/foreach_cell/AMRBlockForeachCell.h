@@ -448,6 +448,26 @@ public:
     });
   }
 
+
+  /**
+   * Loop over each octant and perform operation over each cell.
+   * This is particularly helpful if we want to perform cell level reduction 
+   * like marker determination
+   *  
+   **/
+  template <typename IterationSpace_t, typename Function>
+  void foreach_octant(const std::string& kernel_name, const IterationSpace_t& iter_space, const Function& f) const
+  {
+    using team_policy_t = Kokkos::TeamPolicy<>;
+    const int nbOcts = pmesh.getNumOctants(); 
+    Kokkos::parallel_for( 
+      kernel_name, 
+      team_policy_t(nbOcts,Kokkos::AUTO()), 
+      KOKKOS_LAMBDA(const team_policy_t::member_type& team )
+    {
+      f( team, iOct );
+    });
+  }
   /**
    * Call the user-defined function f for each cell and perform a reduction with the provided reducer
    * @param kernel_name name for the Kokkos kernel

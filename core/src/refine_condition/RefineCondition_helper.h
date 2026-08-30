@@ -75,14 +75,32 @@ public:
     {
       oct_marker_max(iOct) = -1;
     });
-    foreach_cell.foreach_cell( "RefineCondition_helper::mark_cells", U.getShape(),
-      KOKKOS_LAMBDA( const CellIndex& iCell )
+
+    uint32_t bx = U.getShape().bx;
+    uint32_t by = U.getShape().by;
+    uint32_t bz = U.getShape().bz;
+
+
+    int marker = -1;
+    foreach_cell.foreach_octant( "RefineCondition_helper::mark_cells", U.getShape(),
+      KOKKOS_LAMBDA(const Kokkos::TeamPolicy<>::member_type& team, const uint32_t  iOct)
     {
-      int marker = refineCondition_formula.template getMarker<ndim>( iCell, cellmetadata );
+      int marker = -1;
+      Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team,nbCellsPerBlock),
+          [&](uint32_t index, int& local_marker))
+      {
+        uint32_t k = index/(bx*by);
+        uint32_t j = (index - k*bx*by)/bx;
+        uint32_t i = index - j*bx - k*bx*by;
 
-      Kokkos::atomic_fetch_max( &oct_marker_max( iCell.getOct() ), marker );
+        CellIndex iCell = ({iOct,false}, i, j, k, bx, by,bz);
+        local_marker = max (local_marker,refineCondition_formula.template getMarker<dim>( icell, cellmetadata));
+
+      }, Kokkos::Max<int>(marker);
+
+      oct_marker_max[iOct] = marker;
     });
-
+  
     RefineCondition_utils::set_markers(foreach_cell.get_amr_mesh(), oct_marker_max);
   }
 
