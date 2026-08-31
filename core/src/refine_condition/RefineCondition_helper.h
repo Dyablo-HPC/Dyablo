@@ -81,22 +81,21 @@ public:
     uint32_t bz = U.getShape().bz;
 
 
-    int marker = -1;
-    foreach_cell.foreach_octant( "RefineCondition_helper::mark_cells", U.getShape(),
+    foreach_cell.foreach_octant( "RefineCondition_helper::mark_cells",
       KOKKOS_LAMBDA(const Kokkos::TeamPolicy<>::member_type& team, const uint32_t  iOct)
     {
       int marker = -1;
       Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team,nbCellsPerBlock),
-          [&](uint32_t index, int& local_marker))
+          [&](uint32_t index, int& local_marker)
       {
         uint32_t k = index/(bx*by);
         uint32_t j = (index - k*bx*by)/bx;
         uint32_t i = index - j*bx - k*bx*by;
 
-        CellIndex iCell = ({iOct,false}, i, j, k, bx, by,bz);
-        local_marker = max (local_marker,refineCondition_formula.template getMarker<dim>( icell, cellmetadata));
+        CellIndex iCell = {{iOct,false}, i, j, k, bx, by,bz};
+        local_marker = max (local_marker,refineCondition_formula.template getMarker<ndim>( iCell, cellmetadata));
 
-      }, Kokkos::Max<int>(marker);
+      }, Kokkos::Max<int>(marker));
 
       oct_marker_max[iOct] = marker;
     });

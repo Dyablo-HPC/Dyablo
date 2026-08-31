@@ -450,13 +450,14 @@ public:
 
 
   /**
-   * Loop over each octant and perform operation over each cell.
+   * Loop over each block / octant (group of cells) and perform operation over each cell.
+   * Finally accumulate result over each cell.
    * This is particularly helpful if we want to perform cell level reduction 
-   * like marker determination
+   * (like marker determination)
    *  
    **/
-  template <typename IterationSpace_t, typename Function>
-  void foreach_octant(const std::string& kernel_name, const IterationSpace_t& iter_space, const Function& f) const
+  template <typename Function>
+  void foreach_block(const std::string& kernel_name,  const Function& f) const
   {
     using team_policy_t = Kokkos::TeamPolicy<>;
     const int nbOcts = pmesh.getNumOctants(); 
@@ -465,6 +466,7 @@ public:
       team_policy_t(nbOcts,Kokkos::AUTO()), 
       KOKKOS_LAMBDA(const team_policy_t::member_type& team )
     {
+      unit32_t iOct = team.league_rank();
       f( team, iOct );
     });
   }
