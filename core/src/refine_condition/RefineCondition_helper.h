@@ -85,6 +85,8 @@ public:
       KOKKOS_LAMBDA(const Kokkos::TeamPolicy<>::member_type& team, const uint32_t  iOct)
     {
       int marker = -1;
+      uint32_t nbCellsPerBlock = bx*by*bz;
+      
       Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team,nbCellsPerBlock),
           [&](uint32_t index, int& local_marker)
       {

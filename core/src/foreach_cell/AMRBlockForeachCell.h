@@ -457,7 +457,7 @@ public:
    *  
    **/
   template <typename Function>
-  void foreach_block(const std::string& kernel_name,  const Function& f) const
+  void foreach_octant(const std::string& kernel_name,  const Function& f) const
   {
     using team_policy_t = Kokkos::TeamPolicy<>;
     const int nbOcts = pmesh.getNumOctants(); 
@@ -466,7 +466,7 @@ public:
       team_policy_t(nbOcts,Kokkos::AUTO()), 
       KOKKOS_LAMBDA(const team_policy_t::member_type& team )
     {
-      unit32_t iOct = team.league_rank();
+      uint32_t iOct = team.league_rank();
       f( team, iOct );
     });
   }
