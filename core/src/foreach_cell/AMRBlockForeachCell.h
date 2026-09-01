@@ -450,26 +450,57 @@ public:
 
 
   /**
-   * Loop over each block / octant (group of cells) and perform operation over each cell.
-   * Finally accumulate result over each cell.
-   * This is particularly helpful if we want to perform cell level reduction 
-   * (like marker determination)
-   *  
+   * Call the user-defined function f for each cell and perform a per-octant reduction with the provided reducer
+   * @param kernel_name name for the Kokkos kernel
+   * @param iter_space the iCell parameter in f will take every valid position inside iter_space
+   * @param f a const CellIndex& patch, Update_t::value_type& update -> void functor that is compatible with Kokkos
+   *        This is usually a CELL_LAMBDA that performs and operation on a cell
+   * @tparam Reducer_t is a Kokkos reducer (eg: Kokkos::Sum<double>) this is the type of the last parameter used in Kokkos::parallel_reduce
+   * @param oct_reduct_view view to store reduction result per octant, Should be allocated to hold one Reducer_t::value_type per octant
    **/
-  template <typename Function>
-  void foreach_octant(const std::string& kernel_name,  const Function& f) const
+  template <typename Reducer_t, typename IterationSpace_t, typename Function, typename View_t>
+  void reduce_octant(const std::string& kernel_name, const IterationSpace_t& iter_space, const Function& f, const View_t& oct_reduct_view) const
   {
+    uint32_t bx = iter_space.bx();
+    uint32_t by = iter_space.by();
+    uint32_t bz = iter_space.bz();
+    uint32_t nbCellsPerBlock = bx*by*bz;
+    uint32_t nbOcts = iter_space.iOct_count();
+
     using team_policy_t = Kokkos::TeamPolicy<>;
-    const int nbOcts = pmesh.getNumOctants(); 
     Kokkos::parallel_for( 
       kernel_name, 
       team_policy_t(nbOcts,Kokkos::AUTO()), 
       KOKKOS_LAMBDA(const team_policy_t::member_type& team )
     {
       uint32_t iOct = team.league_rank();
-      f( team, iOct );
+      
+      typename Reducer_t::value_type oct_reduc_val;
+
+      Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team,nbCellsPerBlock),
+          [&](uint32_t index, typename Reducer_t::value_type& update)
+      {
+        uint32_t k = index/(bx*by);
+        uint32_t j = (index - k*bx*by)/bx;
+        uint32_t i = index - j*bx - k*bx*by;
+
+        CellIndex iCell = iter_space.getCellIndex(iOct, index, i, j, k);
+        f( iCell, update );
+      }, Reducer_t( oct_reduc_val ));
+
+      Kokkos::single (Kokkos::PerTeam (team), [=] () {
+        oct_reduct_view(iOct) = oct_reduc_val;
+      });
     });
   }
+
+  // TODO : remove legacy functions
+  template <typename Reducer_t, typename Function, typename View_t>
+  void reduce_octant(const std::string& kernel_name, const CellArray_shape& iter_space, const Function& f, const View_t& oct_reduct_view) const
+  {
+    return reduce_octant<Reducer_t>( kernel_name, IterationSpace_fullArray(iter_space), f, oct_reduct_view );
+  }
+
   /**
    * Call the user-defined function f for each cell and perform a reduction with the provided reducer
    * @param kernel_name name for the Kokkos kernel
