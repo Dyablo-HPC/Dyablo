@@ -1,6 +1,9 @@
 #include "SourceUpdate_base.h"
 #include "foreach_cell/ForeachCell_utils.h"
 
+#include "user_data/UserData.h"
+#include "user_data/FieldAccessor.h"
+
 namespace dyablo{
 
 /**
@@ -78,6 +81,8 @@ public:
 
     PatchArray::Ref Upatch_ = foreach_cell.reserve_patch_tmp("Upatch", nb_ghosts, nb_ghosts, 0, 3);
 
+    ForeachCell::SearchMode_local search_local( ForeachCell::SearchMode_local::ASSERT );
+
     const real_t diff_coeff[3] {Da, Db, Dc};
 
     const real_t mu = this->mu;
@@ -94,7 +99,9 @@ public:
       patch.foreach_cell( Upatch,
         CELL_LAMBDA( const CellIndex &iCell_Upatch )
       {
-        auto iCell_Uin = Uin.getShape().convert_index_ghost(iCell_Upatch);
+        const auto& lmesh = cellmetadata.getLightOctree();
+        ForeachCell::SearchMode_neighbor search_neighbor_origin( lmesh, ForeachCell::SearchMode_neighbor::ORIGIN );
+        auto iCell_Uin = Uin.getShape().convert_index(iCell_Upatch, search_neighbor_origin);
         int level_diff = iCell_Uin.level_diff();
         real_t a, b, c;
         a = 0.0;
@@ -112,7 +119,7 @@ public:
             (int16_t)(-offset[IY] + sign(offset[IY])), 
             (int16_t)(-offset[IZ] + sign(offset[IZ]))
           }; 
-          CellIndex iCell_sym = iCell_inside.getNeighbor(symmetric_offset);
+          CellIndex iCell_sym = iCell_inside + symmetric_offset;
 
           a = Uin.at(iCell_sym, IA);
           b = Uin.at(iCell_sym, IB);
@@ -121,7 +128,7 @@ public:
         else if (level_diff < 0) {
           
           int subcell_count = 
-          foreach_sibling(2, iCell_Uin, Uin.getShape(),
+          foreach_sibling_scattered(2, iCell_Uin, lmesh,
             [&](const CellIndex& iCell_neigh) {
               a += Uin.at(iCell_neigh, IA);
               b += Uin.at(iCell_neigh, IB);
@@ -147,7 +154,8 @@ public:
       patch.foreach_cell( Uout.getShape(),
         CELL_LAMBDA( const CellIndex &iCell_Uout )
       {
-        CellIndex iCell_Upatch = Upatch.getShape().convert_index(iCell_Uout);
+        ForeachCell::SearchMode_neighbor search_neighbor_origin( cellmetadata.getLightOctree(), ForeachCell::SearchMode_neighbor::ORIGIN );
+        CellIndex iCell_Upatch = Upatch.getShape().convert_index(iCell_Uout, search_local);
 
         for (auto var: {IA, IB, IC}) {
           const real_t vij   = Upatch.at(iCell_Upatch, var);
@@ -171,7 +179,8 @@ public:
       patch.foreach_cell( Uout.getShape(),
         CELL_LAMBDA( const CellIndex &iCell_Uout)
       {
-        CellIndex iCell_Upatch = Upatch.getShape().convert_index(iCell_Uout);
+        ForeachCell::SearchMode_neighbor search_neighbor_origin( cellmetadata.getLightOctree(), ForeachCell::SearchMode_neighbor::ORIGIN );
+        CellIndex iCell_Upatch = Upatch.getShape().convert_index(iCell_Uout, search_local);
         const real_t a = Upatch.at(iCell_Upatch, IA);
         const real_t b = Upatch.at(iCell_Upatch, IB);
         const real_t c = Upatch.at(iCell_Upatch, IC);
