@@ -1,30 +1,32 @@
 find_package(Git QUIET)
-if (NOT GIT_FOUND)
-  set(GIT_BUILD_STRING "N/A")
-else()
-  execute_process(COMMAND ${GIT_EXECUTABLE} describe --tags --always --dirty
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    OUTPUT_VARIABLE GIT_BUILD_STRING
-    OUTPUT_STRIP_TRAILING_WHITESPACE)
-  execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --abbrev-ref HEAD
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    OUTPUT_VARIABLE GIT_BRANCH
-    OUTPUT_STRIP_TRAILING_WHITESPACE)
-  execute_process(COMMAND ${GIT_EXECUTABLE} config --get branch.${GIT_BRANCH}.remote
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    OUTPUT_VARIABLE GIT_REMOTE
-    OUTPUT_STRIP_TRAILING_WHITESPACE)
-  execute_process(COMMAND ${GIT_EXECUTABLE} config --get remote.${GIT_REMOTE}.url
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    OUTPUT_VARIABLE GIT_REMOTE_URL
-    OUTPUT_STRIP_TRAILING_WHITESPACE)
-  # Sanitize URL to remove tokens, username or passwords if any
-  string(REGEX REPLACE
-    "^(https?://)[^/]*@"
-    "\\1"
-    GIT_REMOTE_URL
-    "${GIT_REMOTE_URL}"
-  )
+if(NOT DEFINED GIT_BUILD_STRING)
+  if (NOT GIT_FOUND)
+    set(GIT_BUILD_STRING "N/A")
+  else()
+    execute_process(COMMAND ${GIT_EXECUTABLE} describe --tags --always --dirty
+      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+      OUTPUT_VARIABLE GIT_BUILD_STRING
+      OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --abbrev-ref HEAD
+      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+      OUTPUT_VARIABLE GIT_BRANCH
+      OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(COMMAND ${GIT_EXECUTABLE} config --get branch.${GIT_BRANCH}.remote
+      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+      OUTPUT_VARIABLE GIT_REMOTE
+      OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(COMMAND ${GIT_EXECUTABLE} config --get remote.${GIT_REMOTE}.url
+      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+      OUTPUT_VARIABLE GIT_REMOTE_URL
+      OUTPUT_STRIP_TRAILING_WHITESPACE)
+    # Sanitize URL to remove tokens, username or passwords if any
+    string(REGEX REPLACE
+      "^(https?://)[^/]*@"
+      "\\1"
+      GIT_REMOTE_URL
+      "${GIT_REMOTE_URL}"
+    )
+  endif()
 endif()
 execute_process(COMMAND date "+%d/%m/%y"
   OUTPUT_VARIABLE DATE_STRING
